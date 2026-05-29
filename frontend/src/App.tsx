@@ -881,7 +881,7 @@ export function App() {
                   </option>
                 ))}
               </select>
-            )}
+            ) : null}
             <span>{session?.membership_role}</span>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               Logout
@@ -921,7 +921,7 @@ export function App() {
                   <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
                 </label>
               </>
-            )}
+            ) : null}
             <label>
               <span>Password</span>
               <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
