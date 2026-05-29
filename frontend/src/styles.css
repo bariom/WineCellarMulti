@@ -262,6 +262,37 @@ textarea {
   gap: 10px;
 }
 
+.tag-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.tag-picker > span {
+  color: #52635c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.tag-choice-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tag-choice-list label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d8ded7;
+  border-radius: 999px;
+  padding: 7px 10px;
+  background: #f8faf8;
+}
+
+.tag-choice-list input {
+  width: auto;
+}
+
 .wine-side-panel {
   display: grid;
   gap: 12px;
@@ -309,6 +340,7 @@ textarea {
 .invite-list,
 .audit-list,
 .usage-list,
+.tag-admin-list,
 .inline-form {
   display: grid;
   gap: 10px;
@@ -317,6 +349,7 @@ textarea {
 .member-row,
 .invite-row,
 .usage-row,
+.tag-admin-row,
 .audit-row {
   display: flex;
   justify-content: space-between;
@@ -339,10 +372,17 @@ textarea {
 .member-row small,
 .invite-row span,
 .usage-row span,
+.tag-admin-row span,
 .audit-row span,
 .inline-form label span {
   color: #52635c;
   font-size: 0.78rem;
+}
+
+.inline-row-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
 }
 
 .usage-row {

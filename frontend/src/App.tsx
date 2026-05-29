@@ -61,6 +61,13 @@ type WineDraft = {
   expected_delivery: string;
   owner_share_pct: string;
   notes: string;
+  tags: string[];
+};
+
+type UserTag = {
+  id: string;
+  name: string;
+  color: string;
 };
 
 type WishlistItem = {
@@ -272,6 +279,7 @@ const translations = {
     noAiAudit: "No AI generations yet",
     noApiKey: "No API key configured",
     noAiUsage: "No AI usage yet",
+    noTags: "No tags defined yet",
     noItemSelected: "No item selected",
     noProducer: "No producer",
     noWishlistMatch: "No wishlist items match the current filters",
@@ -306,6 +314,7 @@ const translations = {
     settings: "Settings",
     status: "Status",
     tag: "Tag",
+    tagName: "Tag name",
     tags: "Tags",
     targetPrice: "Target price",
     targetValue: "Target value",
@@ -327,6 +336,8 @@ const translations = {
     estimatedCost: "Estimated cost",
     sharedCellar: "Shared cellar",
     tokens: "tokens",
+    manageTags: "Manage tags",
+    createTag: "Create tag",
   },
   it: {
     accept: "Accetta",
@@ -398,6 +409,7 @@ const translations = {
     noAiAudit: "Nessuna generazione AI",
     noApiKey: "Nessuna chiave API configurata",
     noAiUsage: "Nessun uso AI registrato",
+    noTags: "Nessun tag definito",
     noItemSelected: "Nessun elemento selezionato",
     noProducer: "Produttore assente",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
@@ -432,6 +444,7 @@ const translations = {
     settings: "Impostazioni",
     status: "Stato",
     tag: "Tag",
+    tagName: "Nome tag",
     tags: "Tag",
     targetPrice: "Prezzo target",
     targetValue: "Valore target",
@@ -453,6 +466,8 @@ const translations = {
     estimatedCost: "Costo stimato",
     sharedCellar: "Cantina condivisa",
     tokens: "token",
+    manageTags: "Gestisci tag",
+    createTag: "Crea tag",
   },
 } as const;
 
@@ -480,6 +495,7 @@ const emptyDraft: WineDraft = {
   expected_delivery: "",
   owner_share_pct: "100",
   notes: "",
+  tags: [],
 };
 
 const emptyAuthDraft: AuthDraft = {
@@ -544,6 +560,7 @@ function wineToDraft(wine: Wine): WineDraft {
     expected_delivery: wine.expected_delivery || "",
     owner_share_pct: String(wine.owner_share_pct || "100"),
     notes: wine.notes,
+    tags: wine.tags,
   };
 }
 
@@ -566,6 +583,7 @@ function draftPayload(draft: WineDraft) {
     expected_delivery: draft.expected_delivery || null,
     owner_share_pct: Number(draft.owner_share_pct || 100),
     notes: draft.notes.trim(),
+    tags: draft.tags,
   };
 }
 
@@ -671,6 +689,10 @@ function readableLegacyAiText(value: string, kind: "strategy" | "purpose") {
 
 function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((first, second) => first.localeCompare(second));
+}
+
+function toggleListValue(values: string[], value: string) {
+  return values.includes(value) ? values.filter((item) => item !== value) : [...values, value].sort((first, second) => first.localeCompare(second));
 }
 
 function wineTone(type: string) {
@@ -953,6 +975,7 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [userTags, setUserTags] = useState<UserTag[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -964,6 +987,7 @@ export function App() {
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
+  const [tagDraft, setTagDraft] = useState("");
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
@@ -1008,6 +1032,14 @@ export function App() {
     const nextWishlist = await api<WishlistItem[]>("/api/v1/wishlist");
     setWishlist(nextWishlist);
     setSelectedWishlistId((currentId) => (currentId && nextWishlist.some((item) => item.id === currentId) ? currentId : nextWishlist[0]?.id || null));
+  }
+
+  async function loadTags(role = session?.membership_role) {
+    if (role === "owner" || role === "admin" || role === "member") {
+      setUserTags(await api<UserTag[]>("/api/v1/tags"));
+    } else {
+      setUserTags([]);
+    }
   }
 
   async function loadHouseholdData(role = session?.membership_role) {
@@ -1062,10 +1094,11 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
+      setUserTags([]);
       setHouseholdMemberships([]);
       setMembers([]);
       setInvites([]);
@@ -1099,7 +1132,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -1113,6 +1146,7 @@ export function App() {
     setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null });
     setWines([]);
     setWishlist([]);
+    setUserTags([]);
     setHouseholdMemberships([]);
     setMembers([]);
     setDraft(emptyDraft);
@@ -1247,6 +1281,36 @@ export function App() {
       });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save AI settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTag(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!tagDraft.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<UserTag>("/api/v1/tags", { method: "POST", body: JSON.stringify({ name: tagDraft.trim() }) });
+      setTagDraft("");
+      await loadTags();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create tag");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteTag(tag: UserTag) {
+    if (!window.confirm(`Delete tag ${tag.name}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/tags/${tag.id}`, { method: "DELETE" });
+      await Promise.all([loadTags(), loadWines()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete tag");
     } finally {
       setSaving(false);
     }
@@ -1402,6 +1466,7 @@ export function App() {
   const wineStatusOptions = uniqueSorted(wines.map((wine) => wine.status));
   const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
   const tagOptions = uniqueSorted(wines.flatMap((wine) => wine.tags));
+  const wineFormTagOptions = uniqueSorted([...userTags.map((tag) => tag.name), ...draft.tags]);
   const activeTypeOptions = activeView === "cellar" ? wineTypeOptions : wishlistTypeOptions;
   const activeStatusOptions = activeView === "cellar" ? wineStatusOptions : wishlistStatusOptions;
   const filteredWines = wines
@@ -1716,6 +1781,26 @@ export function App() {
                   <span>{t("notes")}</span>
                   <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
                 </label>
+                <div className="tag-picker">
+                  <span>{t("tags")}</span>
+                  {wineFormTagOptions.length ? (
+                    <div className="tag-choice-list">
+                      {wineFormTagOptions.map((tag) => (
+                        <label key={tag}>
+                          <input
+                            type="checkbox"
+                            checked={draft.tags.includes(tag)}
+                            onChange={() => setDraft({ ...draft, tags: toggleListValue(draft.tags, tag) })}
+                            disabled={!canWriteWine}
+                          />
+                          <span>{tag}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">{t("noTags")}</p>
+                  )}
+                </div>
                 <div className="form-actions">
                   <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingId ? t("saveChanges") : t("createWine")}</button>
                   <button type="button" className="secondary" onClick={closeWineForm}>
@@ -2035,6 +2120,30 @@ export function App() {
                 </select>
               </label>
             </div>
+
+            {canWriteWine ? (
+              <div className="inline-form">
+                <h2>{t("manageTags")}</h2>
+                <form className="inline-row-form" onSubmit={submitTag}>
+                  <input value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} placeholder={t("tagName")} />
+                  <button type="submit" disabled={saving || !tagDraft.trim()}>{t("createTag")}</button>
+                </form>
+                {userTags.length ? (
+                  <div className="tag-admin-list">
+                    {userTags.map((tag) => (
+                      <div className="tag-admin-row" key={tag.id}>
+                        <span>{tag.name}</span>
+                        <button type="button" className="danger compact" disabled={saving} onClick={() => deleteTag(tag)}>
+                          {t("delete")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">{t("noTags")}</p>
+                )}
+              </div>
+            ) : null}
 
             {canWriteWine ? (
               <form className="inline-form" onSubmit={submitAiSettings}>
