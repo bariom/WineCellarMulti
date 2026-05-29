@@ -1003,6 +1003,35 @@ function RatingInput({
   );
 }
 
+function DrinkWindowMini({ wine }: { wine: Wine }) {
+  if (!wine.drink_from || !wine.drink_to) return null;
+  const drinkStart = wine.drink_from;
+  const drinkEnd = wine.drink_to;
+  const peakStart = wine.drink_peak_from || drinkStart;
+  const peakEnd = wine.drink_peak_to || drinkEnd;
+  const span = Math.max(drinkEnd - drinkStart, 1);
+  const peakLeft = Math.min(Math.max(((peakStart - drinkStart) / span) * 100, 0), 96);
+  const peakWidth = Math.max(((peakEnd - peakStart) / span) * 100, 4);
+  const peakRightBound = Math.max(100 - peakLeft, 4);
+  const currentYear = new Date().getFullYear();
+  const currentYearInWindow = currentYear >= drinkStart && currentYear <= drinkEnd;
+  const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
+
+  return (
+    <div className="mini-drink-window" aria-label={`${drinkStart}-${drinkEnd}`}>
+      <div className="mini-window-labels">
+        <span>{drinkStart}</span>
+        <span>{peakStart}-{peakEnd}</span>
+        <span>{drinkEnd}</span>
+      </div>
+      <div className="mini-window-track">
+        <span className="mini-window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
+        {currentYearInWindow ? <span className="mini-window-current" style={{ left: `${currentYearLeft}%` }} /> : null}
+      </div>
+    </div>
+  );
+}
+
 function DetailNote({ title, children }: { title: string; children: string }) {
   return (
     <article className="detail-note">
@@ -1714,13 +1743,23 @@ export function App() {
   }
 
   async function deleteWine(wine: Wine) {
+    if (!window.confirm(`Delete ${wine.name}?`)) return;
+    setSaving(true);
     setError("");
-    await api<void>(`/api/v1/wines/${wine.id}`, { method: "DELETE" });
-    if (editingId === wine.id) {
-      setEditingId(null);
-      setDraft(emptyDraft);
+    try {
+      await api<void>(`/api/v1/wines/${wine.id}`, { method: "DELETE" });
+      if (editingId === wine.id) {
+        setEditingId(null);
+        setDraft(emptyDraft);
+        setWineFormOpen(false);
+      }
+      if (selectedWineId === wine.id) {
+        setSelectedWineId(null);
+      }
+      await loadWines();
+    } finally {
+      setSaving(false);
     }
-    await loadWines();
   }
 
   async function deleteWishlistItem(item: WishlistItem) {
@@ -1964,6 +2003,14 @@ export function App() {
     setEditingWishlistId(item.id);
     setWishlistDraft(wishlistToDraft(item));
     setWishlistFormOpen(true);
+  }
+
+  function toggleSelectedWine(wine: Wine) {
+    setSelectedWineId((current) => current === wine.id ? null : wine.id);
+  }
+
+  function toggleSelectedWishlistItem(item: WishlistItem) {
+    setSelectedWishlistId((current) => current === item.id ? null : item.id);
   }
 
   function closeWineForm() {
@@ -2774,6 +2821,16 @@ export function App() {
                 </div>
                 <div className="form-actions">
                   <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingId ? t("saveChanges") : t("createWine")}</button>
+                  {editingId && selectedWine ? (
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={saving || !canAdmin}
+                      onClick={() => deleteWine(selectedWine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}
+                    >
+                      {t("delete")}
+                    </button>
+                  ) : null}
                   <button type="button" className="secondary" onClick={closeWineForm}>
                     {t("cancel")}
                   </button>
@@ -3052,7 +3109,7 @@ export function App() {
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
             {activeView === "cellar" ? filteredWines.map((wine) => (
               <div className="list-item-block" key={wine.id}>
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={() => setSelectedWineId(wine.id)}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={() => toggleSelectedWine(wine)}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
                     <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
@@ -3061,16 +3118,13 @@ export function App() {
                       {wine.rating ? <span><StarRating value={wine.rating} label={t("rating")} /></span> : null}
                       {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
                       {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
-                      {wine.drink_from && wine.drink_to ? <span>{wine.drink_from}-{wine.drink_to}</span> : null}
                     </div>
                   </div>
+                  <DrinkWindowMini wine={wine} />
                   <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                   <div className="row-actions">
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
                       {t("edit")}
-                    </button>
-                    <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine")); }}>
-                      {t("delete")}
                     </button>
                   </div>
                 </article>
@@ -3088,7 +3142,7 @@ export function App() {
               </div>
             )) : filteredWishlist.map((item) => (
               <div className="list-item-block" key={item.id}>
-                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={() => setSelectedWishlistId(item.id)}>
+                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={() => toggleSelectedWishlistItem(item)}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
                     <p className="row-primary">{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
