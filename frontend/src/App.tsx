@@ -259,6 +259,19 @@ const translations = {
     generating: "Generating",
     grapes: "Grapes",
     highPriority: "High priority",
+    home: "Home",
+    dashboard: "Dashboard",
+    priorityActions: "Priority actions",
+    openWine: "Open wine",
+    noActionItems: "No urgent action items",
+    atRiskWines: "At risk",
+    upcomingDeliveries: "Upcoming deliveries",
+    incompleteData: "Incomplete data",
+    maturityMap: "Maturity map",
+    valueByProducer: "Value by producer",
+    investedMore: "Where you invested more",
+    collectorFocus: "Collector focus",
+    cellarSnapshot: "Cellar snapshot",
     household: "Household",
     importLegacy: "Import legacy export",
     importSection: "Import",
@@ -396,6 +409,19 @@ const translations = {
     generating: "Genero",
     grapes: "Uve",
     highPriority: "Alta priorita",
+    home: "Home",
+    dashboard: "Dashboard",
+    priorityActions: "Azioni prioritarie",
+    openWine: "Apri vino",
+    noActionItems: "Nessuna azione urgente",
+    atRiskWines: "A rischio",
+    upcomingDeliveries: "Consegne in arrivo",
+    incompleteData: "Dati incompleti",
+    maturityMap: "Mappa maturita",
+    valueByProducer: "Valore per produttore",
+    investedMore: "Dove hai investito di piu",
+    collectorFocus: "Focus collezionista",
+    cellarSnapshot: "Sintesi cantina",
     household: "Cantina condivisa",
     importLegacy: "Importa export legacy",
     importSection: "Importazione",
@@ -779,6 +805,37 @@ function topWineValueGroups(items: Wine[], field: "type" | "region") {
     .slice(0, 5);
 }
 
+function topProducerGroups(items: Wine[]) {
+  return uniqueSorted(items.map((wine) => wine.producer || "Unknown producer"))
+    .map((label) => ({
+      label,
+      value: sumWineValue(items.filter((wine) => (wine.producer || "Unknown producer") === label)),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((first, second) => second.value - first.value)
+    .slice(0, 5);
+}
+
+function formatBottleCount(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
+  const labels =
+    locale === "it"
+      ? { young: "Giovani", soon: "In arrivo", now: "Al picco", past: "Scaduti", unknown: "Sconosciuti" }
+      : { young: "Young", soon: "Coming up", now: "At peak", past: "Past", unknown: "Unknown" };
+  const buckets = [
+    { key: "young", label: labels.young, value: items.filter((wine) => wine.drink_from && wine.drink_from > currentYear + 2).length },
+    { key: "soon", label: labels.soon, value: items.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length },
+    { key: "now", label: labels.now, value: items.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length },
+    { key: "past", label: labels.past, value: items.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length },
+    { key: "unknown", label: labels.unknown, value: items.filter((wine) => !wine.drink_from || !wine.drink_to).length },
+  ];
+  const max = Math.max(...buckets.map((bucket) => bucket.value), 1);
+  return buckets.map((bucket) => ({ ...bucket, pct: Math.max((bucket.value / max) * 100, bucket.value ? 8 : 0) }));
+}
+
 function daysUntil(value: string) {
   const target = new Date(value).getTime();
   if (Number.isNaN(target)) return null;
@@ -1071,7 +1128,7 @@ export function App() {
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [activeView, setActiveView] = useState<"cellar" | "wishlist" | "settings">("cellar");
+  const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "settings">("home");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1636,6 +1693,32 @@ export function App() {
   };
   const valueByType = topWineValueGroups(wines, "type");
   const valueByRegion = topWineValueGroups(wines, "region");
+  const valueByProducer = topProducerGroups(wines);
+  const maturity = maturityBuckets(wines, currentYear, locale);
+  const drinkNowWines = wines
+    .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
+    .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
+    .slice(0, 5);
+  const atRiskWines = wines
+    .filter((wine) => wine.drink_to && wine.drink_to < currentYear)
+    .sort((first, second) => (first.drink_to || 9999) - (second.drink_to || 9999))
+    .slice(0, 5);
+  const upcomingDeliveries = wines
+    .map((wine) => (wine.expected_delivery ? { wine, days: daysUntil(wine.expected_delivery) } : null))
+    .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
+    .sort((first, second) => first.days - second.days)
+    .slice(0, 5);
+  const incompleteWines = wines
+    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0)
+    .sort((first, second) => {
+      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0);
+      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0);
+      return secondMissing - firstMissing;
+    })
+    .slice(0, 5);
+  const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
+  const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
+  const isCollectionView = activeView === "cellar" || activeView === "wishlist";
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -1687,6 +1770,13 @@ export function App() {
     if (entry.entity_type === "wine") return wines.find((wine) => wine.id === entry.entity_id)?.name || entry.entity_type;
     if (entry.entity_type === "wishlist") return wishlist.find((item) => item.id === entry.entity_id)?.name || entry.entity_type;
     return entry.entity_type;
+  }
+
+  function openWineFromDashboard(wine: Wine) {
+    setActiveView("cellar");
+    setSelectedWineId(wine.id);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
   }
 
   return (
@@ -1774,8 +1864,11 @@ export function App() {
           </form>
         </section>
       ) : (
-        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : "content-workspace"}`}>
+        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" ? "home-workspace" : "content-workspace"}`}>
           <div className="view-tabs">
+            <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+              {t("home")}
+            </button>
             <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters(); }}>
               {t("cellar")} ({wines.length})
             </button>
@@ -1786,7 +1879,164 @@ export function App() {
               {t("settings")}
             </button>
           </div>
-          {activeView !== "settings" ? (
+          {activeView === "home" ? (
+            <section className="home-dashboard">
+              <section className="hero-panel">
+                <div className="hero-copy">
+                  <p className="eyebrow">{t("dashboard")}</p>
+                  <h2>{t("collectorFocus")}</h2>
+                  <p>{session?.active_household_name || "Wine Cellar"}: {wines.length} {t("wines").toLowerCase()}, {wishlist.length} {t("wishlist").toLowerCase()}.</p>
+                </div>
+                <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
+                  <div className="hero-kpi">
+                    <span>{t("myBottles")}</span>
+                    <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
+                    <p>CHF {cellarStats.myValue.toFixed(0)}</p>
+                  </div>
+                  <div className="hero-kpi">
+                    <span>{t("sharedBottles")}</span>
+                    <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
+                    <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
+                  </div>
+                  <div className="hero-kpi">
+                    <span>{t("totalValue")}</span>
+                    <strong>CHF {cellarStats.totalValue.toFixed(0)}</strong>
+                    <p>{cellarStats.bottles} {t("bottles").toLowerCase()}</p>
+                  </div>
+                </div>
+              </section>
+
+              <section className="dashboard-grid" aria-label={t("priorityActions")}>
+                <article className="dashboard-card priority-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("priorityActions")}</span>
+                      <h2>{t("drinkNow")}</h2>
+                    </div>
+                    <strong>{cellarStats.drinkNow}</strong>
+                  </div>
+                  <div className="action-list">
+                    {drinkNowWines.length ? drinkNowWines.map((wine) => (
+                      <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                        <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                        <strong>{wine.vintage || wine.drink_from}-{wine.drink_to}</strong>
+                      </button>
+                    )) : <p className="empty-state">{t("noActionItems")}</p>}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("atRiskWines")}</span>
+                      <h2>{t("pastWindow")}</h2>
+                    </div>
+                    <strong>{cellarStats.pastWindow}</strong>
+                  </div>
+                  <div className="action-list">
+                    {atRiskWines.length ? atRiskWines.map((wine) => (
+                      <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                        <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                        <strong>{wine.drink_to}</strong>
+                      </button>
+                    )) : <p className="empty-state">{t("noActionItems")}</p>}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("upcomingDeliveries")}</span>
+                      <h2>{t("futureDeliveries")}</h2>
+                    </div>
+                    <strong>{cellarStats.futureDeliveries}</strong>
+                  </div>
+                  <div className="action-list">
+                    {upcomingDeliveries.length ? upcomingDeliveries.map(({ wine, days }) => (
+                      <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                        <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                        <strong>{days}d</strong>
+                      </button>
+                    )) : <p className="empty-state">{t("noActionItems")}</p>}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("incompleteData")}</span>
+                      <h2>{t("dataQuality")}</h2>
+                    </div>
+                    <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingScores}</strong>
+                  </div>
+                  <div className="action-list">
+                    {incompleteWines.length ? incompleteWines.map((wine) => (
+                      <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                        <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                        <strong>{!wine.current_value ? t("value") : !wine.drink_from || !wine.drink_to ? t("drinkWindow") : t("scores")}</strong>
+                      </button>
+                    )) : <p className="empty-state">{t("noActionItems")}</p>}
+                  </div>
+                </article>
+
+                <article className="dashboard-card wide-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("maturityMap")}</span>
+                      <h2>{t("drinkingWindow")}</h2>
+                    </div>
+                  </div>
+                  <div className="maturity-grid">
+                    {maturity.map((bucket) => (
+                      <div className="maturity-item" key={bucket.key}>
+                        <div>
+                          <span>{bucket.label}</span>
+                          <strong>{bucket.value}</strong>
+                        </div>
+                        <div className="maturity-track"><span style={{ width: `${bucket.pct}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("investedMore")}</span>
+                      <h2>{t("topRegions")}</h2>
+                    </div>
+                  </div>
+                  <div className="bar-list">
+                    {valueByRegion.map((item) => (
+                      <div className="bar-row" key={item.label}>
+                        <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("valueByProducer")}</span>
+                      <h2>{t("producer")}</h2>
+                    </div>
+                  </div>
+                  <div className="bar-list">
+                    {valueByProducer.map((item) => (
+                      <div className="bar-row" key={item.label}>
+                        <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+              </section>
+            </section>
+          ) : null}
+
+          {isCollectionView ? (
           <aside className="wine-side-panel">
             {activeView === "cellar" ? (
               <div className="side-panel-actions">
@@ -2078,7 +2328,7 @@ export function App() {
           </aside>
           ) : null}
 
-          {activeView !== "settings" ? (
+          {isCollectionView ? (
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
               <section className="stats-panel">
