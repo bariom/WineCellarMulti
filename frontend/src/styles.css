@@ -120,6 +120,7 @@ body {
   min-height: 100vh;
   color: var(--text);
   background: var(--page);
+  overflow-x: hidden;
 }
 
 button,
@@ -1802,12 +1803,17 @@ textarea {
     position: sticky;
     z-index: 5;
     top: 0;
+    display: flex;
+    max-width: 100vw;
     overflow-x: auto;
+    overflow-y: hidden;
     margin-inline: -16px;
     padding: 8px 16px;
     background: color-mix(in srgb, var(--page) 88%, transparent);
     backdrop-filter: blur(14px);
     scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
   }
 
   .view-tabs::-webkit-scrollbar {
@@ -1815,7 +1821,9 @@ textarea {
   }
 
   .view-tabs button {
+    flex: 0 0 auto;
     min-width: max-content;
+    scroll-snap-align: start;
   }
 
   .content-workspace {
@@ -1945,6 +1953,8 @@ textarea {
 
   .topbar {
     align-items: start;
+    gap: 12px;
+    overflow: hidden;
   }
 
   .eyebrow {
@@ -1953,16 +1963,53 @@ textarea {
   }
 
   .session-pill {
-    gap: 8px;
-    padding: 8px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px 10px;
+    width: 100%;
+    max-width: 100%;
+    padding: 10px;
+    overflow: hidden;
+  }
+
+  .session-pill strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .session-pill > span {
+    justify-self: start;
+    white-space: nowrap;
+  }
+
+  .session-pill > select {
+    grid-column: 1 / -1;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .session-pill > button {
+    grid-column: 1 / -1;
+    justify-self: end;
+    min-width: 64px;
   }
 
   .language-switch {
-    flex: 1 1 130px;
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: 56px minmax(0, 1fr);
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    width: 100%;
   }
 
   .language-switch select {
-    min-width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
   }
 
   .stats-panel {
@@ -1972,6 +2019,7 @@ textarea {
   .view-tabs {
     margin-inline: -12px;
     padding-inline: 12px;
+    border-block: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
   }
 
   .view-tabs button {
