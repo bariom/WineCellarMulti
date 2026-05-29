@@ -795,8 +795,8 @@ textarea {
   width: 100%;
   padding: 9px 0;
   border-radius: 0;
-  border-bottom: 1px solid #eef1ee;
-  color: #17201c;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
   background: transparent;
   text-align: left;
 }
