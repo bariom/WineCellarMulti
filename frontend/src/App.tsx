@@ -60,6 +60,7 @@ type WineDraft = {
   order_date: string;
   expected_delivery: string;
   owner_share_pct: string;
+  rating: string;
   notes: string;
   owners: Array<{ name: string; share_pct: string }>;
   tags: string[];
@@ -316,6 +317,7 @@ const translations = {
     purchasePrice: "Purchase price",
     purpose: "Purpose",
     quantity: "Quantity",
+    rating: "Rating",
     readyToBuy: "Ready to buy",
     records: "records",
     region: "Region",
@@ -473,6 +475,7 @@ const translations = {
     purchasePrice: "Prezzo acquisto",
     purpose: "Scopo",
     quantity: "Quantita",
+    rating: "Valutazione",
     readyToBuy: "Pronti da comprare",
     records: "record",
     region: "Regione",
@@ -550,6 +553,7 @@ const emptyDraft: WineDraft = {
   order_date: "",
   expected_delivery: "",
   owner_share_pct: "100",
+  rating: "0",
   notes: "",
   owners: [],
   tags: [],
@@ -616,6 +620,7 @@ function wineToDraft(wine: Wine): WineDraft {
     order_date: wine.order_date || "",
     expected_delivery: wine.expected_delivery || "",
     owner_share_pct: String(wine.owner_share_pct || "100"),
+    rating: String(wine.rating || 0),
     notes: wine.notes,
     owners: wine.owners.map((owner) => ({ name: owner.name || "", share_pct: String(owner.share_pct || "") })),
     tags: wine.tags,
@@ -640,6 +645,7 @@ function draftPayload(draft: WineDraft) {
     order_date: draft.order_date || null,
     expected_delivery: draft.expected_delivery || null,
     owner_share_pct: Number(draft.owner_share_pct || 100),
+    rating: Number(draft.rating || 0),
     notes: draft.notes.trim(),
     owners: draft.owners
       .map((owner) => ({ name: owner.name.trim(), share_pct: Number(owner.share_pct || 0) }))
@@ -870,6 +876,7 @@ function wineSearchText(wine: Wine) {
     wine.status,
     wine.notes,
     wine.ai_notes,
+    wine.rating ? `${wine.rating} stars rating` : "",
     wine.tags.join(" "),
     wine.scores.map((score) => `${score.critic} ${score.score} ${score.note}`).join(" "),
   ].join(" ").toLowerCase();
@@ -897,6 +904,51 @@ function DetailField({ label, value }: { label: string; value: string | number |
     <div className="detail-field">
       <span>{label}</span>
       <strong>{value || "Not specified"}</strong>
+    </div>
+  );
+}
+
+function StarRating({ value, label }: { value: number; label: string }) {
+  const rating = Math.min(Math.max(Math.round(Number(value || 0)), 0), 5);
+  return (
+    <span className="star-rating" aria-label={`${label}: ${rating}/5`}>
+      {Array.from({ length: 5 }, (_, index) => (
+        <span key={index} className={index < rating ? "filled" : ""} aria-hidden="true">★</span>
+      ))}
+    </span>
+  );
+}
+
+function RatingInput({
+  value,
+  disabled,
+  label,
+  onChange,
+}: {
+  value: string;
+  disabled: boolean;
+  label: string;
+  onChange: (value: string) => void;
+}) {
+  const rating = Math.min(Math.max(Number(value || 0), 0), 5);
+  return (
+    <div className="rating-input" role="radiogroup" aria-label={label}>
+      {[1, 2, 3, 4, 5].map((star) => (
+        <button
+          type="button"
+          key={star}
+          className={star <= rating ? "filled" : ""}
+          disabled={disabled}
+          aria-checked={rating === star}
+          role="radio"
+          onClick={() => onChange(rating === star ? "0" : String(star))}
+        >
+          ★
+        </button>
+      ))}
+      <button type="button" className="secondary compact clear-rating" disabled={disabled || rating === 0} onClick={() => onChange("0")}>
+        0
+      </button>
     </div>
   );
 }
@@ -944,6 +996,7 @@ function WineDetail({
         <div>
           <p className="eyebrow">{t("wineDetail")}</p>
           <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
+          {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
           <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
         </div>
         <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
@@ -967,6 +1020,7 @@ function WineDetail({
       <div className="detail-grid">
         <DetailField label={t("format")} value={wine.format} />
         <DetailField label={t("type")} value={wine.type} />
+        <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/5` : ""} />
         <DetailField label={t("status")} value={wine.status} />
         <DetailField label={t("quantity")} value={`${wine.quantity} ${t("bottles").toLowerCase()}`} />
         <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
@@ -2173,6 +2227,10 @@ export function App() {
                     <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
+                <label>
+                  <span>{t("rating")}</span>
+                  <RatingInput value={draft.rating} disabled={!canWriteWine} label={t("rating")} onChange={(value) => setDraft({ ...draft, rating: value })} />
+                </label>
                 <div className="form-row">
                   <label>
                     <span>{t("purchasePrice")}</span>
@@ -2555,6 +2613,7 @@ export function App() {
                     <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
                     <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
                     <div className="row-meta">
+                      {wine.rating ? <span><StarRating value={wine.rating} label={t("rating")} /></span> : null}
                       {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
                       {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
                       {wine.drink_from && wine.drink_to ? <span>{wine.drink_from}-{wine.drink_to}</span> : null}

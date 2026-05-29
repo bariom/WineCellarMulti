@@ -93,6 +93,7 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
             "price": 45.4,
             "currency": "CHF",
             "status": "Delivered",
+            "rating": 4,
             "owner_share_pct": 50,
             "owners": [{"name": "Omar", "share_pct": 50}, {"name": "Luca", "share_pct": 50}],
         },
@@ -119,11 +120,16 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     listed = client.get("/api/v1/wines")
     assert listed.status_code == 200
     assert [wine["name"] for wine in listed.json()] == ["Testamatta"]
+    assert listed.json()[0]["rating"] == 4
 
-    updated = client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped"})
+    invalid_rating = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 6})
+    assert invalid_rating.status_code == 422
+
+    updated = client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped", "rating": 5})
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 5
     assert updated.json()["status"] == "Shipped"
+    assert updated.json()["rating"] == 5
     assert updated.json()["owner_share_pct"] == "50.00"
     assert updated.json()["owners"][0]["name"] == "Omar"
 

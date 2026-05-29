@@ -626,6 +626,41 @@ textarea {
   font-weight: 700;
 }
 
+.star-rating {
+  display: inline-flex;
+  gap: 1px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+}
+
+.star-rating .filled {
+  color: var(--accent);
+}
+
+.rating-input {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.rating-input button {
+  min-width: 38px;
+  padding: 8px 10px;
+  color: var(--text-muted);
+  background: var(--secondary);
+}
+
+.rating-input button.filled {
+  color: var(--primary-contrast);
+  background: var(--accent);
+}
+
+.rating-input .clear-rating {
+  min-width: 44px;
+}
+
 .token-box {
   display: grid;
   gap: 6px;

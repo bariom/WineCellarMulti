@@ -31,7 +31,7 @@ class WineCreate(BaseModel):
     drink_window_notes: str = ""
     ai_value_notes: str = ""
     ai_value_estimated_at: datetime | None = None
-    rating: int = Field(default=0, ge=0)
+    rating: int = Field(default=0, ge=0, le=5)
     owners: list[dict] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     grapes: list[dict] = Field(default_factory=list)
@@ -64,7 +64,7 @@ class WineUpdate(BaseModel):
     drink_window_notes: str | None = None
     ai_value_notes: str | None = None
     ai_value_estimated_at: datetime | None = None
-    rating: int | None = Field(default=None, ge=0)
+    rating: int | None = Field(default=None, ge=0, le=5)
     owners: list[dict] | None = None
     tags: list[str] | None = None
     grapes: list[dict] | None = None
