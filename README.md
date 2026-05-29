@@ -62,6 +62,13 @@ npm install
 npm run dev
 ```
 
+Or run backend and frontend together from the repository root:
+
+```bash
+chmod +x dev.sh
+./dev.sh
+```
+
 Open `http://<server-ip>:5173`.
 
 Find the Linux machine IP with:
