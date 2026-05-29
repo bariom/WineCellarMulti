@@ -199,6 +199,7 @@ type AuthDraft = {
 
 type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
+type ThemePreference = "system" | "light" | "dark" | "sepia";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
@@ -337,6 +338,11 @@ const translations = {
     tags: "Tags",
     targetPrice: "Target price",
     targetValue: "Target value",
+    theme: "Theme",
+    themeSystem: "System",
+    themeLight: "Light",
+    themeDark: "Dark",
+    themeSepia: "Warm cellar",
     thisMonth: "This month",
     today: "Today",
     topRegions: "Top regions",
@@ -489,6 +495,11 @@ const translations = {
     tags: "Tag",
     targetPrice: "Prezzo target",
     targetValue: "Valore target",
+    theme: "Tema",
+    themeSystem: "Sistema",
+    themeLight: "Chiaro",
+    themeDark: "Scuro",
+    themeSepia: "Cantina calda",
     thisMonth: "Questo mese",
     today: "Oggi",
     topRegions: "Top regioni",
@@ -1150,11 +1161,20 @@ export function App() {
   const [generatingAi, setGeneratingAi] = useState("");
   const [error, setError] = useState("");
   const [locale, setLocale] = useState<Locale>(() => (localStorage.getItem("winecellar_locale") === "it" ? "it" : "en"));
+  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
+    const stored = localStorage.getItem("winecellar_theme");
+    return stored === "light" || stored === "dark" || stored === "sepia" || stored === "system" ? stored : "system";
+  });
   const t = (key: TranslationKey) => translate(locale, key);
 
   function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
     localStorage.setItem("winecellar_locale", nextLocale);
+  }
+
+  function changeTheme(nextTheme: ThemePreference) {
+    setThemePreference(nextTheme);
+    localStorage.setItem("winecellar_theme", nextTheme);
   }
 
   async function loadSession() {
@@ -1262,6 +1282,18 @@ export function App() {
       .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"))
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => {
+    const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    const applyTheme = () => {
+      const resolvedTheme = themePreference === "system" ? (darkQuery.matches ? "dark" : "light") : themePreference;
+      document.documentElement.dataset.theme = resolvedTheme;
+      document.documentElement.dataset.themePreference = themePreference;
+    };
+    applyTheme();
+    darkQuery.addEventListener("change", applyTheme);
+    return () => darkQuery.removeEventListener("change", applyTheme);
+  }, [themePreference]);
 
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1822,18 +1854,38 @@ export function App() {
                 <option value="it">IT</option>
               </select>
             </label>
+            <label className="language-switch">
+              <span>{t("theme")}</span>
+              <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
+                <option value="system">{t("themeSystem")}</option>
+                <option value="light">{t("themeLight")}</option>
+                <option value="dark">{t("themeDark")}</option>
+                <option value="sepia">{t("themeSepia")}</option>
+              </select>
+            </label>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               {t("logout")}
             </button>
           </div>
         ) : (
-          <label className="language-switch">
-            <span>{t("language")}</span>
-            <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
-              <option value="en">EN</option>
-              <option value="it">IT</option>
-            </select>
-          </label>
+          <div className="session-pill">
+            <label className="language-switch">
+              <span>{t("language")}</span>
+              <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+                <option value="en">EN</option>
+                <option value="it">IT</option>
+              </select>
+            </label>
+            <label className="language-switch">
+              <span>{t("theme")}</span>
+              <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
+                <option value="system">{t("themeSystem")}</option>
+                <option value="light">{t("themeLight")}</option>
+                <option value="dark">{t("themeDark")}</option>
+                <option value="sepia">{t("themeSepia")}</option>
+              </select>
+            </label>
+          </div>
         )}
       </header>
 
@@ -2555,6 +2607,15 @@ export function App() {
                 <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
                   <option value="en">EN</option>
                   <option value="it">IT</option>
+                </select>
+              </label>
+              <label>
+                <span>{t("theme")}</span>
+                <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
+                  <option value="system">{t("themeSystem")}</option>
+                  <option value="light">{t("themeLight")}</option>
+                  <option value="dark">{t("themeDark")}</option>
+                  <option value="sepia">{t("themeSepia")}</option>
                 </select>
               </label>
             </div>
