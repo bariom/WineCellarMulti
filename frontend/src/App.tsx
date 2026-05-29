@@ -72,6 +72,13 @@ type UserTag = {
   color: string;
 };
 
+type Passkey = {
+  id: string;
+  name: string;
+  created_at: string;
+  last_used_at: string | null;
+};
+
 type WishlistItem = {
   id: string;
   household_id: string;
@@ -248,6 +255,7 @@ const translations = {
     cellar: "Cellar",
     clearFilters: "Clear filters",
     convert: "Convert",
+    create: "Create",
     createAccount: "Create account",
     createInvite: "Create invite",
     configured: "Configured",
@@ -317,6 +325,7 @@ const translations = {
     noProducer: "No producer",
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
+    noPasskeys: "No passkeys registered yet",
     notes: "Notes",
     ownerShare: "Owner share",
     orderDate: "Order date",
@@ -334,6 +343,10 @@ const translations = {
     pairingSubmit: "Find pairing",
     pairingWhy: "Why",
     password: "Password",
+    passkey: "Passkey",
+    passkeyLogin: "Login with passkey",
+    passkeyName: "Passkey name",
+    passkeys: "Passkeys",
     pastWindow: "Past window",
     pendingInvites: "Pending invites",
     personalSettings: "Personal settings",
@@ -422,6 +435,7 @@ const translations = {
     cellar: "Cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
+    create: "Crea",
     createAccount: "Crea account",
     createInvite: "Crea invito",
     configured: "Configurata",
@@ -491,6 +505,7 @@ const translations = {
     noProducer: "Produttore assente",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
+    noPasskeys: "Nessuna passkey registrata",
     notes: "Note",
     ownerShare: "Quota proprietario",
     orderDate: "Data ordine",
@@ -508,6 +523,10 @@ const translations = {
     pairingSubmit: "Trova abbinamento",
     pairingWhy: "Perché",
     password: "Password",
+    passkey: "Passkey",
+    passkeyLogin: "Accedi con passkey",
+    passkeyName: "Nome passkey",
+    passkeys: "Passkey",
     pastWindow: "Finestra scaduta",
     pendingInvites: "Inviti pendenti",
     personalSettings: "Impostazioni personali",
@@ -643,6 +662,69 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+function base64UrlToBuffer(value: string) {
+  const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes.buffer;
+}
+
+function bufferToBase64Url(value: ArrayBuffer) {
+  const bytes = new Uint8Array(value);
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function prepareCreationOptions(options: PublicKeyCredentialCreationOptions) {
+  return {
+    ...options,
+    challenge: base64UrlToBuffer(options.challenge as unknown as string),
+    user: { ...options.user, id: base64UrlToBuffer(options.user.id as unknown as string) },
+    excludeCredentials: options.excludeCredentials?.map((credential) => ({ ...credential, id: base64UrlToBuffer(credential.id as unknown as string) })),
+  } as PublicKeyCredentialCreationOptions;
+}
+
+function prepareRequestOptions(options: PublicKeyCredentialRequestOptions) {
+  return {
+    ...options,
+    challenge: base64UrlToBuffer(options.challenge as unknown as string),
+    allowCredentials: options.allowCredentials?.map((credential) => ({ ...credential, id: base64UrlToBuffer(credential.id as unknown as string) })),
+  } as PublicKeyCredentialRequestOptions;
+}
+
+function credentialToJson(credential: PublicKeyCredential) {
+  const response = credential.response;
+  const base = {
+    id: credential.id,
+    rawId: bufferToBase64Url(credential.rawId),
+    type: credential.type,
+    clientExtensionResults: credential.getClientExtensionResults(),
+  };
+  if (response instanceof AuthenticatorAttestationResponse) {
+    const attestation = response as AuthenticatorAttestationResponse & { getTransports?: () => string[] };
+    return {
+      ...base,
+      response: {
+        clientDataJSON: bufferToBase64Url(response.clientDataJSON),
+        attestationObject: bufferToBase64Url(response.attestationObject),
+        transports: attestation.getTransports?.() || [],
+      },
+    };
+  }
+  const assertion = response as AuthenticatorAssertionResponse;
+  return {
+    ...base,
+    response: {
+      clientDataJSON: bufferToBase64Url(assertion.clientDataJSON),
+      authenticatorData: bufferToBase64Url(assertion.authenticatorData),
+      signature: bufferToBase64Url(assertion.signature),
+      userHandle: assertion.userHandle ? bufferToBase64Url(assertion.userHandle) : null,
+    },
+  };
 }
 
 function wineToDraft(wine: Wine): WineDraft {
@@ -1268,6 +1350,7 @@ export function App() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
+  const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -1291,6 +1374,7 @@ export function App() {
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const [passkeyName, setPasskeyName] = useState("WineCellarMulti");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "settings">("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
@@ -1356,6 +1440,14 @@ export function App() {
     }
   }
 
+  async function loadPasskeys(authenticated = session?.authenticated) {
+    if (authenticated) {
+      setPasskeys(await api<Passkey[]>("/api/v1/auth/passkeys"));
+    } else {
+      setPasskeys([]);
+    }
+  }
+
   async function loadHouseholdData(role = session?.membership_role) {
     const [nextMemberships, nextMembers] = await Promise.all([
       api<HouseholdMembership[]>("/api/v1/household/memberships"),
@@ -1409,11 +1501,12 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
       setUserTags([]);
+      setPasskeys([]);
       setHouseholdMemberships([]);
       setMembers([]);
       setInvites([]);
@@ -1459,9 +1552,76 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function loginWithPasskey() {
+    if (!window.PublicKeyCredential) {
+      setError("Passkey not supported by this browser");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const options = await api<PublicKeyCredentialRequestOptions>("/api/v1/auth/passkeys/login/options", { method: "POST" });
+      const credential = await navigator.credentials.get({ publicKey: prepareRequestOptions(options) }) as PublicKeyCredential | null;
+      if (!credential) return;
+      const nextSession = await api<Session>("/api/v1/auth/passkeys/login/verify", {
+        method: "POST",
+        body: JSON.stringify({ credential: credentialToJson(credential) }),
+      });
+      setSession(nextSession);
+      setAuthDraft(emptyAuthDraft);
+      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to login with passkey");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function registerPasskey() {
+    if (!window.PublicKeyCredential) {
+      setError("Passkey not supported by this browser");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const name = passkeyName.trim() || "WineCellarMulti";
+      const options = await api<PublicKeyCredentialCreationOptions>("/api/v1/auth/passkeys/register/options", {
+        method: "POST",
+        body: JSON.stringify({ name }),
+      });
+      const credential = await navigator.credentials.create({ publicKey: prepareCreationOptions(options) }) as PublicKeyCredential | null;
+      if (!credential) return;
+      const passkey = await api<Passkey>("/api/v1/auth/passkeys/register/verify", {
+        method: "POST",
+        body: JSON.stringify({ name, credential: credentialToJson(credential) }),
+      });
+      setPasskeys((current) => [passkey, ...current]);
+      setPasskeyName("WineCellarMulti");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to register passkey");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deletePasskey(passkey: Passkey) {
+    if (!window.confirm(`Delete passkey ${passkey.name}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/auth/passkeys/${passkey.id}`, { method: "DELETE" });
+      setPasskeys((current) => current.filter((item) => item.id !== passkey.id));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete passkey");
     } finally {
       setSaving(false);
     }
@@ -1474,6 +1634,7 @@ export function App() {
     setWines([]);
     setWishlist([]);
     setUserTags([]);
+    setPasskeys([]);
     setHouseholdMemberships([]);
     setMembers([]);
     setDraft(emptyDraft);
@@ -2225,6 +2386,11 @@ export function App() {
               <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
             </label>
             <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : t("login")}</button>
+            {authMode === "login" ? (
+              <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>
+                {t("passkeyLogin")}
+              </button>
+            ) : null}
           </form>
         </section>
       ) : (
@@ -3215,6 +3381,41 @@ export function App() {
                     </select>
                   </label>
                 </div>
+              </section>
+
+              <section className="settings-card settings-card-compact">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("passkeys")}</span>
+                    <h3>{t("passkey")}</h3>
+                  </div>
+                </div>
+                <div className="inline-form">
+                  <label>
+                    <span>{t("passkeyName")}</span>
+                    <input value={passkeyName} onChange={(event) => setPasskeyName(event.target.value)} />
+                  </label>
+                  <button type="button" disabled={saving} onClick={() => registerPasskey()}>
+                    {t("create")}
+                  </button>
+                </div>
+                {passkeys.length ? (
+                  <div className="passkey-list">
+                    {passkeys.map((passkey) => (
+                      <div className="passkey-row" key={passkey.id}>
+                        <div>
+                          <strong>{passkey.name}</strong>
+                          <span>{formatDisplayDate(passkey.created_at)}</span>
+                        </div>
+                        <button type="button" className="danger compact" disabled={saving} onClick={() => deletePasskey(passkey)}>
+                          {t("delete")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">{t("noPasskeys")}</p>
+                )}
               </section>
 
               {canWriteWine ? (

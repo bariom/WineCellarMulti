@@ -625,6 +625,7 @@ textarea {
 .invite-list,
 .audit-list,
 .usage-list,
+.passkey-list,
 .tag-admin-list,
 .inline-form {
   display: grid;
@@ -634,6 +635,7 @@ textarea {
 .member-row,
 .invite-row,
 .usage-row,
+.passkey-row,
 .tag-admin-row,
 .audit-row {
   display: flex;
@@ -647,6 +649,7 @@ textarea {
 
 .member-row div,
 .invite-row div,
+.passkey-row div,
 .audit-row div,
 .inline-form label {
   display: grid;
@@ -657,6 +660,7 @@ textarea {
 .member-row small,
 .invite-row span,
 .usage-row span,
+.passkey-row span,
 .tag-admin-row span,
 .audit-row span,
 .inline-form label span {
@@ -1654,6 +1658,7 @@ textarea {
 .member-row,
 .invite-row,
 .usage-row,
+.passkey-row,
 .tag-admin-row,
 .audit-row,
 .collapsible-panel,

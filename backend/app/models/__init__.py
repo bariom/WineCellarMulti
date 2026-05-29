@@ -2,6 +2,7 @@ from app.models.ai_audit import AiAuditLog
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
+from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.session import UserSession
 from app.models.tags import UserTag, UserWineTag
 from app.models.user import User
@@ -14,8 +15,10 @@ __all__ = [
     "Household",
     "HouseholdInvite",
     "Membership",
+    "PasskeyChallenge",
     "User",
     "UserAiSettings",
+    "UserPasskey",
     "UserSession",
     "UserTag",
     "UserWineTag",

@@ -58,16 +58,22 @@ def test_register_login_session_and_logout():
     anonymous = client.get("/api/v1/session")
     assert anonymous.status_code == 200
     assert anonymous.json()["authenticated"] is False
+    assert client.get("/api/v1/auth/passkeys").status_code == 401
 
     registered = register(client)
     assert registered.status_code == 201
     assert registered.json()["authenticated"] is True
     assert registered.json()["user_email"] == "owner@example.com"
     assert registered.json()["active_household_name"] == "Main Cellar"
+    assert client.get("/api/v1/auth/passkeys").json() == []
 
     logged_out = client.post("/api/v1/auth/logout")
     assert logged_out.status_code == 204
     assert client.get("/api/v1/session").json()["authenticated"] is False
+
+    passkey_options = client.post("/api/v1/auth/passkeys/login/options")
+    assert passkey_options.status_code == 200
+    assert passkey_options.json()["challenge"]
 
     login = client.post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"})
     assert login.status_code == 200
