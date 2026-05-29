@@ -305,6 +305,20 @@ function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((first, second) => first.localeCompare(second));
 }
 
+function wineTone(type: string) {
+  const normalized = type.toLowerCase();
+  if (normalized.includes("red") || normalized.includes("rosso")) return "red";
+  if (normalized.includes("white") || normalized.includes("bianco")) return "white";
+  if (normalized.includes("sparkling") || normalized.includes("champagne") || normalized.includes("spumante")) return "sparkling";
+  if (normalized.includes("ros") || normalized.includes("rose")) return "rose";
+  if (normalized.includes("sweet") || normalized.includes("dolce")) return "sweet";
+  return "other";
+}
+
+function wineUnitValue(wine: Wine) {
+  return Number(wine.current_value || wine.price || 0);
+}
+
 function wineSearchText(wine: Wine) {
   return [
     wine.name,
@@ -360,11 +374,11 @@ function WineDetail({ wine }: { wine: Wine }) {
   const peakRightBound = Math.max(100 - peakLeft, 4);
 
   return (
-    <section className="wine-detail">
+    <section className={`wine-detail tone-${wineTone(wine.type)}`}>
       <div className="detail-title">
         <div>
           <p className="eyebrow">Wine detail</p>
-          <h2>{wine.name}</h2>
+          <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
           <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
         </div>
         <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
@@ -813,6 +827,24 @@ export function App() {
       return first.name.localeCompare(second.name);
     });
   const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
+  const currentYear = new Date().getFullYear();
+  const cellarStats = {
+    bottles: wines.reduce((total, wine) => total + wine.quantity, 0),
+    totalValue: wines.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0),
+    drinkNow: wines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
+    futureDeliveries: wines.filter((wine) => wine.expected_delivery && new Date(wine.expected_delivery) >= new Date()).length,
+    missingValue: wines.filter((wine) => !wine.current_value).length,
+  };
+  const valueByType = uniqueSorted(wines.map((wine) => wine.type || "Other"))
+    .map((type) => ({
+      type,
+      value: wines
+        .filter((wine) => (wine.type || "Other") === type)
+        .reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((first, second) => second.value - first.value)
+    .slice(0, 4);
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -1165,6 +1197,41 @@ export function App() {
           </aside>
 
           <section className="wine-list" aria-busy={loading}>
+            {activeView === "cellar" ? (
+              <section className="stats-panel">
+                <div className="stat-card">
+                  <span>Total value</span>
+                  <strong>CHF {cellarStats.totalValue.toFixed(0)}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Bottles</span>
+                  <strong>{cellarStats.bottles}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Drink now</span>
+                  <strong>{cellarStats.drinkNow}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Future deliveries</span>
+                  <strong>{cellarStats.futureDeliveries}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Missing current value</span>
+                  <strong>{cellarStats.missingValue}</strong>
+                </div>
+                {valueByType.length ? (
+                  <div className="stat-card type-breakdown">
+                    <span>Value by type</span>
+                    {valueByType.map((item) => (
+                      <p key={item.type}>
+                        <i className={`wine-dot tone-${wineTone(item.type)}`} />
+                        {item.type}: CHF {item.value.toFixed(0)}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            ) : null}
             <div className="filter-panel">
               <label>
                 <span>Search</span>
@@ -1218,9 +1285,9 @@ export function App() {
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">No wines match the current filters</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">No wishlist items match the current filters</p> : null}
             {activeView === "cellar" ? filteredWines.map((wine) => (
-              <article className={selectedWineId === wine.id ? "wine-row selected" : "wine-row"} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
+              <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
                 <div>
-                  <h3>{wine.name} <small>{wine.vintage}</small></h3>
+                  <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
                   <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
                   <p>{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
                   {wine.tags.length ? <p>Tags: {wine.tags.join(", ")}</p> : null}
@@ -1238,9 +1305,9 @@ export function App() {
                 </div>
               </article>
             )) : filteredWishlist.map((item) => (
-              <article className={selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
+              <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
                 <div>
-                  <h3>{item.name} <small>{item.vintage}</small></h3>
+                  <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
                   <p>{item.producer || "No producer"} - {item.purpose} - {item.status}</p>
                   <p>{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
                   {item.notes ? <p>{item.notes}</p> : null}

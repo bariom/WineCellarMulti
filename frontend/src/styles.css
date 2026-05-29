@@ -356,9 +356,90 @@ textarea {
   color: #52635c;
 }
 
+.stats-panel {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.stat-card {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #d8ded7;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.stat-card span {
+  color: #52635c;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.stat-card strong {
+  color: #17201c;
+  font-size: 1.2rem;
+}
+
+.type-breakdown {
+  grid-column: span 2;
+}
+
+.type-breakdown p {
+  margin: 0;
+  color: #52635c;
+}
+
+.tone-red {
+  --wine-tone: #8f2039;
+  --wine-tone-bg: #fff0f3;
+}
+
+.tone-white {
+  --wine-tone: #d6b448;
+  --wine-tone-bg: #fff9df;
+}
+
+.tone-sparkling {
+  --wine-tone: #b9a05d;
+  --wine-tone-bg: #fbf5df;
+}
+
+.tone-rose {
+  --wine-tone: #d78394;
+  --wine-tone-bg: #fff0f4;
+}
+
+.tone-sweet {
+  --wine-tone: #c9822c;
+  --wine-tone-bg: #fff4e5;
+}
+
+.tone-other {
+  --wine-tone: #789086;
+  --wine-tone-bg: #edf3f0;
+}
+
+.wine-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  margin-right: 8px;
+  border-radius: 999px;
+  background: var(--wine-tone, #789086);
+  box-shadow: 0 0 0 3px var(--wine-tone-bg, #edf3f0);
+  vertical-align: 0.05em;
+}
+
 .wine-row {
   padding: 14px;
   border: 1px solid #d8ded7;
+  border-left: 6px solid var(--wine-tone, #d8ded7);
   border-radius: 8px;
   background: #fff;
   cursor: pointer;
@@ -372,6 +453,7 @@ textarea {
 
 .wine-row.selected {
   border-color: #245142;
+  border-left-color: var(--wine-tone, #245142);
   box-shadow: 0 0 0 2px rgba(36, 81, 66, 0.12);
 }
 
@@ -396,6 +478,7 @@ textarea {
   gap: 18px;
   padding: 20px;
   border: 1px solid #d8ded7;
+  border-top: 6px solid var(--wine-tone, #d8ded7);
   border-radius: 12px;
   background: #fff;
 }
@@ -554,6 +637,14 @@ textarea {
     position: static;
   }
 
+  .stats-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .type-breakdown {
+    grid-column: 1 / -1;
+  }
+
   .detail-grid {
     grid-template-columns: 1fr 1fr;
   }
@@ -571,5 +662,9 @@ textarea {
 
   .app-shell {
     padding: 20px 14px 44px;
+  }
+
+  .stats-panel {
+    grid-template-columns: 1fr;
   }
 }
