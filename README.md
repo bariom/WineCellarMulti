@@ -109,6 +109,8 @@ npm run preview:pwa
 
 See `docs/PWA_DEPLOYMENT.md` for the nginx configuration.
 
+To start WineCellarMulti automatically after a server reboot, install the systemd services documented in `docs/SYSTEMD_DEPLOYMENT.md`.
+
 ## Reset Local PostgreSQL
 
 If the local PostgreSQL password is no longer known, regenerate local secrets and recreate the development database volume:
