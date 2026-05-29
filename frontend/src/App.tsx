@@ -820,6 +820,13 @@ function wineTone(type: string) {
   return "other";
 }
 
+function priorityTone(priority: string) {
+  const normalized = priority.toLowerCase();
+  if (normalized.includes("high") || normalized.includes("alta")) return "high";
+  if (normalized.includes("low") || normalized.includes("bassa")) return "low";
+  return "medium";
+}
+
 function wineUnitValue(wine: Wine) {
   return Number(wine.current_value || wine.price || 0);
 }
@@ -3086,7 +3093,7 @@ export function App() {
                   </div>
                   <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
                   <div className="row-actions">
-                    <span className="priority-chip">{item.priority}</span>
+                    <span className={`priority-chip priority-${priorityTone(item.priority)}`}>{item.priority}</span>
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
                       {t("edit")}
                     </button>

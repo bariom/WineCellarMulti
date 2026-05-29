@@ -716,10 +716,25 @@ textarea {
   align-items: center;
   border-radius: 999px;
   padding: 6px 10px;
-  color: #245142;
-  background: #e3e9e2;
+  color: var(--priority-color, #245142);
+  background: var(--priority-bg, #e3e9e2);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.priority-high {
+  --priority-color: #8f1d2d;
+  --priority-bg: rgba(164, 42, 62, 0.16);
+}
+
+.priority-medium {
+  --priority-color: #7a5315;
+  --priority-bg: rgba(194, 155, 55, 0.2);
+}
+
+.priority-low {
+  --priority-color: #245142;
+  --priority-bg: rgba(36, 81, 66, 0.16);
 }
 
 .star-rating {
