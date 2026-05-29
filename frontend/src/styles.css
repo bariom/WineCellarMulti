@@ -139,10 +139,17 @@ button.danger {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr) minmax(250px, 300px);
   gap: 24px;
   align-items: start;
   margin-top: 24px;
+}
+
+.content-workspace {
+  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+}
+
+.settings-workspace {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .view-tabs {
@@ -276,6 +283,13 @@ textarea {
   border: 1px solid #d8ded7;
   border-radius: 8px;
   background: #fff;
+}
+
+.settings-workspace .team-panel {
+  position: static;
+  grid-column: 1 / -1;
+  max-height: none;
+  overflow: visible;
 }
 
 .team-panel h2,

@@ -38,8 +38,9 @@ def parse_json_response(text: str) -> dict[str, Any]:
     return parsed
 
 
-def create_response(model: str, system_prompt: str, user_prompt: str, *, json_schema: dict[str, Any] | None = None) -> str:
-    if not settings.openai_api_key:
+def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key: str | None = None, json_schema: dict[str, Any] | None = None) -> str:
+    active_api_key = api_key or settings.openai_api_key
+    if not active_api_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY is not configured")
 
     body: dict[str, Any] = {
@@ -63,7 +64,7 @@ def create_response(model: str, system_prompt: str, user_prompt: str, *, json_sc
         settings.openai_responses_url,
         data=json.dumps(body).encode("utf-8"),
         headers={
-            "Authorization": f"Bearer {settings.openai_api_key}",
+            "Authorization": f"Bearer {active_api_key}",
             "Content-Type": "application/json",
         },
         method="POST",

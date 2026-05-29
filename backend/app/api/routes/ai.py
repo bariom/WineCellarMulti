@@ -13,14 +13,51 @@ from app.api.routes.wines import get_household_wine
 from app.api.routes.wishlist import get_household_wishlist_item
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import AiAuditLog, Wine, WishlistItem
-from app.schemas.ai import AiAuditLogResponse
+from app.models import AiAuditLog, UserAiSettings, Wine, WishlistItem
+from app.schemas.ai import AiAuditLogResponse, AiSettingsResponse, AiSettingsUpdate
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import create_response, parse_json_response
 
 
 router = APIRouter(prefix="/ai")
+
+MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
+
+
+def validate_model(model: str) -> str:
+    if model not in MODEL_OPTIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported model: {model}")
+    return model
+
+
+def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> UserAiSettings:
+    user_settings = db.get(UserAiSettings, context.user.id)
+    if user_settings is None:
+        user_settings = UserAiSettings(
+            user_id=context.user.id,
+            openai_api_key="",
+            ai_notes_model=settings.openai_ai_notes_model,
+            drink_window_model=settings.openai_drink_window_model,
+            value_model=settings.openai_value_model,
+            grape_model=settings.openai_grape_model,
+            wishlist_model=settings.openai_wishlist_model,
+        )
+        db.add(user_settings)
+        db.flush()
+    return user_settings
+
+
+def ai_settings_response(user_settings: UserAiSettings) -> AiSettingsResponse:
+    return AiSettingsResponse(
+        has_openai_api_key=bool(user_settings.openai_api_key.strip() or settings.openai_api_key.strip()),
+        ai_notes_model=user_settings.ai_notes_model,
+        drink_window_model=user_settings.drink_window_model,
+        value_model=user_settings.value_model,
+        grape_model=user_settings.grape_model,
+        wishlist_model=user_settings.wishlist_model,
+        model_options=MODEL_OPTIONS,
+    )
 
 
 def clip_summary(value: str, limit: int = 900) -> str:
@@ -67,6 +104,33 @@ def list_ai_audit(
             .limit(30),
         ),
     )
+
+
+@router.get("/settings", response_model=AiSettingsResponse)
+def get_ai_settings(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> AiSettingsResponse:
+    return ai_settings_response(get_or_create_user_ai_settings(db, context))
+
+
+@router.patch("/settings", response_model=AiSettingsResponse)
+def update_ai_settings(
+    payload: AiSettingsUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> AiSettingsResponse:
+    user_settings = get_or_create_user_ai_settings(db, context)
+    if payload.openai_api_key is not None:
+        user_settings.openai_api_key = payload.openai_api_key.strip()
+    for field in ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model"]:
+        value = getattr(payload, field)
+        if value is not None:
+            setattr(user_settings, field, validate_model(value))
+    user_settings.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user_settings)
+    return ai_settings_response(user_settings)
 
 
 def wine_context(wine: Wine) -> str:
@@ -118,13 +182,15 @@ def generate_wine_notes(
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
     wine = get_household_wine(db, context, wine_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
     notes = create_response(
-        settings.openai_ai_notes_model,
+        user_settings.ai_notes_model,
         "You are a concise wine expert. Write in Italian. Do not invent exact facts; say when evidence is limited.",
         f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
+        api_key=user_settings.openai_api_key,
     )
     wine.ai_notes = notes[:4000]
-    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=settings.openai_ai_notes_model, summary=notes)
+    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=user_settings.ai_notes_model, summary=notes)
     db.commit()
     db.refresh(wine)
     return wine
@@ -137,6 +203,7 @@ def generate_drink_window(
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
     wine = get_household_wine(db, context, wine_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
         "name": "drink_window",
         "schema": {
@@ -154,9 +221,10 @@ def generate_drink_window(
     }
     result = parse_json_response(
         create_response(
-            settings.openai_drink_window_model,
+            user_settings.drink_window_model,
             "You are a conservative wine cellar planner. Return JSON only.",
             f"Estimate a drinking window for this wine. Use realistic years and concise Italian notes.\n\n{wine_context(wine)}",
+            api_key=user_settings.openai_api_key,
             json_schema=schema,
         ),
     )
@@ -171,7 +239,7 @@ def generate_drink_window(
         entity_type="wine",
         entity_id=wine.id,
         feature="drink_window",
-        model=settings.openai_drink_window_model,
+        model=user_settings.drink_window_model,
         summary=f"{wine.drink_from}-{wine.drink_to}: {wine.drink_window_notes}",
     )
     db.commit()
@@ -186,6 +254,7 @@ def generate_wine_value(
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
     wine = get_household_wine(db, context, wine_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
         "name": "wine_value",
         "schema": {
@@ -201,9 +270,10 @@ def generate_wine_value(
     }
     result = parse_json_response(
         create_response(
-            settings.openai_value_model,
+            user_settings.value_model,
             "You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty.",
             f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}.\n\n{wine_context(wine)}",
+            api_key=user_settings.openai_api_key,
             json_schema=schema,
         ),
     )
@@ -221,7 +291,7 @@ def generate_wine_value(
         entity_type="wine",
         entity_id=wine.id,
         feature="ai_value",
-        model=settings.openai_value_model,
+        model=user_settings.value_model,
         summary=f"{wine.currency} {wine.current_value}: {wine.ai_value_notes}",
     )
     db.commit()
@@ -236,6 +306,7 @@ def generate_grapes(
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
     wine = get_household_wine(db, context, wine_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
         "name": "grape_composition",
         "schema": {
@@ -262,9 +333,10 @@ def generate_grapes(
     }
     result = parse_json_response(
         create_response(
-            settings.openai_grape_model,
+            user_settings.grape_model,
             "You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable.",
             f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
+            api_key=user_settings.openai_api_key,
             json_schema=schema,
         ),
     )
@@ -278,7 +350,7 @@ def generate_grapes(
         entity_type="wine",
         entity_id=wine.id,
         feature="grapes",
-        model=settings.openai_grape_model,
+        model=user_settings.grape_model,
         summary=note or str(wine.grapes),
     )
     db.commit()
@@ -293,6 +365,7 @@ def generate_wishlist_strategy(
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
     item = get_household_wishlist_item(db, context, item_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
         "name": "wishlist_strategy",
         "schema": {
@@ -309,9 +382,10 @@ def generate_wishlist_strategy(
     }
     result = parse_json_response(
         create_response(
-            settings.openai_wishlist_model,
+            user_settings.wishlist_model,
             "You are a pragmatic wine buying advisor. Return JSON only. Write text fields in Italian.",
             f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
+            api_key=user_settings.openai_api_key,
             json_schema=schema,
         ),
     )
@@ -325,7 +399,7 @@ def generate_wishlist_strategy(
         entity_type="wishlist",
         entity_id=item.id,
         feature="wishlist_strategy",
-        model=settings.openai_wishlist_model,
+        model=user_settings.wishlist_model,
         summary=f"{item.priority} / {item.status}: {item.ai_strategy}",
     )
     db.commit()

@@ -267,6 +267,23 @@ def test_ai_generation_requires_configured_openai_key():
     assert audit.status_code == 200
     assert audit.json() == []
 
+    settings = client.get("/api/v1/ai/settings")
+    assert settings.status_code == 200
+    assert settings.json()["has_openai_api_key"] is False
+    assert "gpt-5.5" in settings.json()["model_options"]
+
+    updated_settings = client.patch(
+        "/api/v1/ai/settings",
+        json={"openai_api_key": "sk-test", "ai_notes_model": "gpt-5.5"},
+    )
+    assert updated_settings.status_code == 200
+    assert updated_settings.json()["has_openai_api_key"] is True
+    assert updated_settings.json()["ai_notes_model"] == "gpt-5.5"
+
+    cleared_settings = client.patch("/api/v1/ai/settings", json={"openai_api_key": ""})
+    assert cleared_settings.status_code == 200
+    assert cleared_settings.json()["has_openai_api_key"] is False
+
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
     assert generated.status_code == 503
     assert "OPENAI_API_KEY" in generated.json()["detail"]

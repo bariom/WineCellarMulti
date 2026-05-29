@@ -141,6 +141,25 @@ type AiAuditLog = {
   created_at: string;
 };
 
+type AiSettings = {
+  has_openai_api_key: boolean;
+  ai_notes_model: string;
+  drink_window_model: string;
+  value_model: string;
+  grape_model: string;
+  wishlist_model: string;
+  model_options: string[];
+};
+
+type AiSettingsDraft = {
+  openai_api_key: string;
+  ai_notes_model: string;
+  drink_window_model: string;
+  value_model: string;
+  grape_model: string;
+  wishlist_model: string;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -150,6 +169,15 @@ type AuthDraft = {
 
 type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
+
+const emptyAiSettingsDraft: AiSettingsDraft = {
+  openai_api_key: "",
+  ai_notes_model: "gpt-5.4-mini",
+  drink_window_model: "gpt-5.4",
+  value_model: "gpt-5.4-mini",
+  grape_model: "gpt-5.4-nano",
+  wishlist_model: "gpt-5.4",
+};
 
 const translations = {
   en: {
@@ -161,6 +189,7 @@ const translations = {
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
     aiAudit: "AI audit",
+    aiSettings: "AI settings",
     aiStrategy: "AI strategy",
     allStatuses: "All statuses",
     allTags: "All tags",
@@ -173,6 +202,7 @@ const translations = {
     convert: "Convert",
     createAccount: "Create account",
     createInvite: "Create invite",
+    configured: "Configured",
     createWine: "Create wine",
     createWishlist: "Create wishlist",
     currentValue: "Current value",
@@ -213,6 +243,7 @@ const translations = {
     name: "Name",
     noInvites: "No invites",
     noAiAudit: "No AI generations yet",
+    noApiKey: "No API key configured",
     noItemSelected: "No item selected",
     noProducer: "No producer",
     noWishlistMatch: "No wishlist items match the current filters",
@@ -222,6 +253,7 @@ const translations = {
     password: "Password",
     pastWindow: "Past window",
     pendingInvites: "Pending invites",
+    personalSettings: "Personal settings",
     priority: "Priority",
     producer: "Producer",
     purchasePrice: "Purchase price",
@@ -235,12 +267,14 @@ const translations = {
     revoke: "Revoke",
     role: "Role",
     saveChanges: "Save changes",
+    saveSettings: "Save settings",
     saving: "Saving",
     scores: "Scores",
     search: "Search",
     searchPlaceholder: "Name, producer, region, score...",
     selectItemHelp: "Select an item from the list to see the complete detail.",
     sort: "Sort",
+    settings: "Settings",
     status: "Status",
     tag: "Tag",
     tags: "Tags",
@@ -269,6 +303,7 @@ const translations = {
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
     aiAudit: "Audit AI",
+    aiSettings: "Impostazioni AI",
     aiStrategy: "Strategia AI",
     allStatuses: "Tutti gli stati",
     allTags: "Tutti i tag",
@@ -281,6 +316,7 @@ const translations = {
     convert: "Converti",
     createAccount: "Crea account",
     createInvite: "Crea invito",
+    configured: "Configurata",
     createWine: "Crea vino",
     createWishlist: "Crea wishlist",
     currentValue: "Valore attuale",
@@ -321,6 +357,7 @@ const translations = {
     name: "Nome",
     noInvites: "Nessun invito",
     noAiAudit: "Nessuna generazione AI",
+    noApiKey: "Nessuna chiave API configurata",
     noItemSelected: "Nessun elemento selezionato",
     noProducer: "Produttore assente",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
@@ -330,6 +367,7 @@ const translations = {
     password: "Password",
     pastWindow: "Finestra scaduta",
     pendingInvites: "Inviti pendenti",
+    personalSettings: "Impostazioni personali",
     priority: "Priorita",
     producer: "Produttore",
     purchasePrice: "Prezzo acquisto",
@@ -343,12 +381,14 @@ const translations = {
     revoke: "Revoca",
     role: "Ruolo",
     saveChanges: "Salva modifiche",
+    saveSettings: "Salva impostazioni",
     saving: "Salvataggio",
     scores: "Punteggi",
     search: "Cerca",
     searchPlaceholder: "Nome, produttore, regione, punteggio...",
     selectItemHelp: "Seleziona un elemento dalla lista per vedere il dettaglio completo.",
     sort: "Ordina",
+    settings: "Impostazioni",
     status: "Stato",
     tag: "Tag",
     tags: "Tag",
@@ -811,6 +851,8 @@ export function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
+  const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
+  const [aiSettingsDraft, setAiSettingsDraft] = useState<AiSettingsDraft>(emptyAiSettingsDraft);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
@@ -819,7 +861,7 @@ export function App() {
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [activeView, setActiveView] = useState<"cellar" | "wishlist">("cellar");
+  const [activeView, setActiveView] = useState<"cellar" | "wishlist" | "settings">("cellar");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -883,11 +925,29 @@ export function App() {
     }
   }
 
+  async function loadAiSettings(role = session?.membership_role) {
+    if (role === "owner" || role === "admin" || role === "member") {
+      const nextSettings = await api<AiSettings>("/api/v1/ai/settings");
+      setAiSettings(nextSettings);
+      setAiSettingsDraft({
+        openai_api_key: "",
+        ai_notes_model: nextSettings.ai_notes_model,
+        drink_window_model: nextSettings.drink_window_model,
+        value_model: nextSettings.value_model,
+        grape_model: nextSettings.grape_model,
+        wishlist_model: nextSettings.wishlist_model,
+      });
+    } else {
+      setAiSettings(null);
+      setAiSettingsDraft(emptyAiSettingsDraft);
+    }
+  }
+
   async function loadData() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
@@ -895,6 +955,8 @@ export function App() {
       setMembers([]);
       setInvites([]);
       setAiAudit([]);
+      setAiSettings(null);
+      setAiSettingsDraft(emptyAiSettingsDraft);
     }
   }
 
@@ -921,7 +983,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData()]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -945,6 +1007,8 @@ export function App() {
     setSelectedWishlistId(null);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
+    setAiSettings(null);
+    setAiSettingsDraft(emptyAiSettingsDraft);
   }
 
   async function switchHousehold(householdId: string) {
@@ -1039,6 +1103,32 @@ export function App() {
       await loadHouseholdData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to revoke invite");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitAiSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const payload = {
+        ...aiSettingsDraft,
+        openai_api_key: aiSettingsDraft.openai_api_key.trim() || undefined,
+      };
+      const nextSettings = await api<AiSettings>("/api/v1/ai/settings", { method: "PATCH", body: JSON.stringify(payload) });
+      setAiSettings(nextSettings);
+      setAiSettingsDraft({
+        openai_api_key: "",
+        ai_notes_model: nextSettings.ai_notes_model,
+        drink_window_model: nextSettings.drink_window_model,
+        value_model: nextSettings.value_model,
+        grape_model: nextSettings.grape_model,
+        wishlist_model: nextSettings.wishlist_model,
+      });
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to save AI settings");
     } finally {
       setSaving(false);
     }
@@ -1184,6 +1274,7 @@ export function App() {
   const activeMembership = householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
   const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
   const canWriteWine = canAdmin || session?.membership_role === "member";
+  const canGenerateAi = canWriteWine && Boolean(aiSettings?.has_openai_api_key);
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
@@ -1380,7 +1471,7 @@ export function App() {
           </form>
         </section>
       ) : (
-        <section className="workspace">
+        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : "content-workspace"}`}>
           <div className="view-tabs">
             <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters(); }}>
               {t("cellar")} ({wines.length})
@@ -1388,7 +1479,11 @@ export function App() {
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters(); }}>
               {t("wishlist")} ({wishlist.length})
             </button>
+            <button type="button" className={activeView === "settings" ? "" : "secondary"} onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+              {t("settings")}
+            </button>
           </div>
+          {activeView !== "settings" ? (
           <aside className="wine-side-panel">
             {activeView === "cellar" ? (
               <div className="side-panel-actions">
@@ -1605,7 +1700,7 @@ export function App() {
             ) : activeView === "cellar" && selectedWine ? (
               <WineDetail
                 wine={selectedWine}
-                canGenerate={canWriteWine}
+                canGenerate={canGenerateAi}
                 generating={generatingAi}
                 onGenerate={(feature) => generateWineAi(selectedWine, feature)}
                 t={t}
@@ -1613,7 +1708,7 @@ export function App() {
             ) : activeView === "wishlist" && selectedWishlistItem ? (
               <WishlistDetail
                 item={selectedWishlistItem}
-                canGenerate={canWriteWine}
+                canGenerate={canGenerateAi}
                 generating={generatingAi === "wishlist-strategy"}
                 onGenerate={() => generateWishlistAi(selectedWishlistItem)}
                 t={t}
@@ -1625,7 +1720,9 @@ export function App() {
               </div>
             )}
           </aside>
+          ) : null}
 
+          {activeView !== "settings" ? (
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
               <section className="stats-panel">
@@ -1801,8 +1898,72 @@ export function App() {
               </article>
             ))}
           </section>
+          ) : null}
 
+          {activeView === "settings" ? (
           <aside className="team-panel">
+            <div className="inline-form">
+              <h2>{t("personalSettings")}</h2>
+              <label>
+                <span>{t("language")}</span>
+                <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+                  <option value="en">EN</option>
+                  <option value="it">IT</option>
+                </select>
+              </label>
+            </div>
+
+            {canWriteWine ? (
+              <form className="inline-form" onSubmit={submitAiSettings}>
+                <h2>{t("aiSettings")}</h2>
+                <p className="empty-state">{aiSettings?.has_openai_api_key ? t("configured") : t("noApiKey")}</p>
+                <label>
+                  <span>OpenAI API key</span>
+                  <input
+                    type="password"
+                    value={aiSettingsDraft.openai_api_key}
+                    onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
+                    placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
+                  />
+                </label>
+                <div className="form-row">
+                  <label>
+                    <span>{t("aiNotes")}</span>
+                    <select value={aiSettingsDraft.ai_notes_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, ai_notes_model: event.target.value })}>
+                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{t("drinkWindow")}</span>
+                    <select value={aiSettingsDraft.drink_window_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, drink_window_model: event.target.value })}>
+                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>{t("value")}</span>
+                    <select value={aiSettingsDraft.value_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, value_model: event.target.value })}>
+                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{t("grapes")}</span>
+                    <select value={aiSettingsDraft.grape_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, grape_model: event.target.value })}>
+                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  <span>{t("wishlist")}</span>
+                  <select value={aiSettingsDraft.wishlist_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, wishlist_model: event.target.value })}>
+                    {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                  </select>
+                </label>
+                <button type="submit" disabled={saving}>{saving ? t("saving") : t("saveSettings")}</button>
+              </form>
+            ) : null}
+
             <h2>{t("household")}</h2>
             <div className="member-list">
               {members.map((member) => (
@@ -1904,7 +2065,7 @@ export function App() {
                 <div className="audit-list">
                   {aiAudit.slice(0, 8).map((entry) => (
                     <div className="audit-row" key={entry.id}>
-                      <strong>{entry.feature.replaceAll("_", " ")} - {aiEntityName(entry)}</strong>
+                      <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
                       <span>{entry.model} - {formatDisplayDate(entry.created_at)}</span>
                       <p>{entry.summary}</p>
                     </div>
@@ -1926,6 +2087,7 @@ export function App() {
               </button>
             </form>
           </aside>
+          ) : null}
         </section>
       )}
     </main>

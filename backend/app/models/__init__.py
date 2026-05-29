@@ -4,7 +4,8 @@ from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
 from app.models.session import UserSession
 from app.models.user import User
+from app.models.user_ai_settings import UserAiSettings
 from app.models.wine import Wine
 from app.models.wishlist import WishlistItem
 
-__all__ = ["AiAuditLog", "Household", "HouseholdInvite", "Membership", "User", "UserSession", "Wine", "WishlistItem"]
+__all__ = ["AiAuditLog", "Household", "HouseholdInvite", "Membership", "User", "UserAiSettings", "UserSession", "Wine", "WishlistItem"]
