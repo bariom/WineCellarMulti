@@ -80,6 +80,8 @@ type WishlistItem = {
   purpose: string;
   status: string;
   notes: string;
+  ai_strategy: string;
+  ai_purpose_advice: string;
 };
 
 type WishlistDraft = {
@@ -393,7 +395,17 @@ function DetailField({ label, value }: { label: string; value: string | number |
   );
 }
 
-function WineDetail({ wine }: { wine: Wine }) {
+function WineDetail({
+  wine,
+  canGenerate,
+  generating,
+  onGenerate,
+}: {
+  wine: Wine;
+  canGenerate: boolean;
+  generating: string;
+  onGenerate: (feature: "notes" | "drink-window" | "value" | "grapes") => void;
+}) {
   const drinkStart = wine.drink_from || Number(wine.vintage) || new Date().getFullYear();
   const drinkEnd = wine.drink_to || drinkStart;
   const peakStart = wine.drink_peak_from || drinkStart;
@@ -412,6 +424,21 @@ function WineDetail({ wine }: { wine: Wine }) {
           <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
         </div>
         <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+      </div>
+
+      <div className="ai-actions">
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
+          {generating === "notes" ? "Generating" : "AI notes"}
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("drink-window")}>
+          {generating === "drink-window" ? "Generating" : "Drink window"}
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("value")}>
+          {generating === "value" ? "Generating" : "Value"}
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
+          {generating === "grapes" ? "Generating" : "Grapes"}
+        </button>
       </div>
 
       <div className="detail-grid">
@@ -486,7 +513,17 @@ function WineDetail({ wine }: { wine: Wine }) {
   );
 }
 
-function WishlistDetail({ item }: { item: WishlistItem }) {
+function WishlistDetail({
+  item,
+  canGenerate,
+  generating,
+  onGenerate,
+}: {
+  item: WishlistItem;
+  canGenerate: boolean;
+  generating: boolean;
+  onGenerate: () => void;
+}) {
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
@@ -496,6 +533,11 @@ function WishlistDetail({ item }: { item: WishlistItem }) {
           <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
         </div>
         <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+      </div>
+      <div className="ai-actions">
+        <button type="button" className="secondary compact" disabled={!canGenerate || generating} onClick={onGenerate}>
+          {generating ? "Generating" : "AI strategy"}
+        </button>
       </div>
       <div className="detail-grid">
         <DetailField label="Format" value={item.format} />
@@ -508,6 +550,12 @@ function WishlistDetail({ item }: { item: WishlistItem }) {
       {item.notes ? (
         <div className="detail-section notes-section">
           <p><strong>Notes</strong>{item.notes}</p>
+        </div>
+      ) : null}
+      {item.ai_strategy || item.ai_purpose_advice ? (
+        <div className="detail-section notes-section">
+          {item.ai_strategy ? <p><strong>AI strategy</strong>{item.ai_strategy}</p> : null}
+          {item.ai_purpose_advice ? <p><strong>Purpose advice</strong>{item.ai_purpose_advice}</p> : null}
         </div>
       ) : null}
     </section>
@@ -543,6 +591,7 @@ export function App() {
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [generatingAi, setGeneratingAi] = useState("");
   const [error, setError] = useState("");
 
   async function loadSession() {
@@ -840,6 +889,34 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to convert wishlist item");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function generateWineAi(wine: Wine, feature: "notes" | "drink-window" | "value" | "grapes") {
+    setGeneratingAi(feature);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, { method: "POST" });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
+  async function generateWishlistAi(item: WishlistItem) {
+    setGeneratingAi("wishlist-strategy");
+    setError("");
+    try {
+      const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/strategy`, { method: "POST" });
+      setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
+      setSelectedWishlistId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist strategy");
+    } finally {
+      setGeneratingAi("");
     }
   }
 
@@ -1245,9 +1322,19 @@ export function App() {
                 </div>
               </form>
             ) : activeView === "cellar" && selectedWine ? (
-              <WineDetail wine={selectedWine} />
+              <WineDetail
+                wine={selectedWine}
+                canGenerate={canWriteWine}
+                generating={generatingAi}
+                onGenerate={(feature) => generateWineAi(selectedWine, feature)}
+              />
             ) : activeView === "wishlist" && selectedWishlistItem ? (
-              <WishlistDetail item={selectedWishlistItem} />
+              <WishlistDetail
+                item={selectedWishlistItem}
+                canGenerate={canWriteWine}
+                generating={generatingAi === "wishlist-strategy"}
+                onGenerate={() => generateWishlistAi(selectedWishlistItem)}
+              />
             ) : (
               <div className="wine-detail empty-detail">
                 <h2>No item selected</h2>

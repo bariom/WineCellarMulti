@@ -87,6 +87,22 @@ The update script pulls the latest code, installs backend dependencies, runs Ale
 
 Open `http://<server-ip>:5173`.
 
+## AI Features
+
+AI generation runs only from the backend. Configure `OPENAI_API_KEY` in `backend/.env`, then restart the backend.
+
+Optional model overrides:
+
+```bash
+OPENAI_AI_NOTES_MODEL=gpt-5.4-mini
+OPENAI_DRINK_WINDOW_MODEL=gpt-5.4
+OPENAI_VALUE_MODEL=gpt-5.4-mini
+OPENAI_GRAPE_MODEL=gpt-5.4-nano
+OPENAI_WISHLIST_MODEL=gpt-5.4
+```
+
+Current AI actions: wine notes, drinking window, value estimate, grape composition, and wishlist strategy.
+
 Find the Linux machine IP with:
 
 ```bash
@@ -110,5 +126,10 @@ hostname -I
 - `PATCH /api/v1/wishlist/{item_id}`
 - `DELETE /api/v1/wishlist/{item_id}`
 - `POST /api/v1/imports/legacy-json`
+- `POST /api/v1/ai/wines/{wine_id}/notes`
+- `POST /api/v1/ai/wines/{wine_id}/drink-window`
+- `POST /api/v1/ai/wines/{wine_id}/value`
+- `POST /api/v1/ai/wines/{wine_id}/grapes`
+- `POST /api/v1/ai/wishlist/{item_id}/strategy`
 
 The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.

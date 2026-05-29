@@ -12,6 +12,14 @@ class Settings(BaseSettings):
     session_ttl_days: int = 30
     invite_ttl_days: int = 7
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    openai_api_key: str = ""
+    openai_responses_url: str = "https://api.openai.com/v1/responses"
+    openai_model: str = "gpt-5.4-mini"
+    openai_ai_notes_model: str = "gpt-5.4-mini"
+    openai_drink_window_model: str = "gpt-5.4"
+    openai_value_model: str = "gpt-5.4-mini"
+    openai_grape_model: str = "gpt-5.4-nano"
+    openai_wishlist_model: str = "gpt-5.4"
 
     @property
     def cors_origin_list(self) -> list[str]:

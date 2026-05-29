@@ -255,3 +255,14 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert converted.json()["wine_id"]
     assert client.get("/api/v1/wishlist").json() == []
     assert sorted(wine["name"] for wine in client.get("/api/v1/wines").json()) == ["Imported Wine", "Wanted Wine"]
+
+
+def test_ai_generation_requires_configured_openai_key():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post("/api/v1/wines", json={"name": "AI Wine", "quantity": 1, "price": 20})
+    assert created.status_code == 201
+
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
+    assert generated.status_code == 503
+    assert "OPENAI_API_KEY" in generated.json()["detail"]
