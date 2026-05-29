@@ -44,24 +44,31 @@ docker compose up -d
 
 Run the backend:
 
-```powershell
+```bash
 cd backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -e .[dev]
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
 alembic upgrade head
-uvicorn app.main:app --reload
+chmod +x dev.sh
+./dev.sh
 ```
 
 Run the frontend in a second terminal:
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Open `http://localhost:5173`.
+Open `http://<server-ip>:5173`.
+
+Find the Linux machine IP with:
+
+```bash
+hostname -I
+```
 
 ## Milestone 1 Status
 
