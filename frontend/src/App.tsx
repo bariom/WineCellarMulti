@@ -2548,52 +2548,78 @@ export function App() {
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
             {activeView === "cellar" ? filteredWines.map((wine) => (
-              <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
-                <div>
-                  <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
-                  <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
-                  <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
-                  <div className="row-meta">
-                    {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
-                    {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
-                    {wine.drink_from && wine.drink_to ? <span>{wine.drink_from}-{wine.drink_to}</span> : null}
+              <div className="list-item-block" key={wine.id}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={() => setSelectedWineId(wine.id)}>
+                  <div>
+                    <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
+                    <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
+                    <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
+                    <div className="row-meta">
+                      {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
+                      {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
+                      {wine.drink_from && wine.drink_to ? <span>{wine.drink_from}-{wine.drink_to}</span> : null}
+                    </div>
                   </div>
-                </div>
-                <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
-                <div className="row-actions">
-                  <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
-                    {t("edit")}
-                  </button>
-                  <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine")); }}>
-                    {t("delete")}
-                  </button>
-                </div>
-              </article>
+                  <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+                  <div className="row-actions">
+                    <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
+                      {t("edit")}
+                    </button>
+                    <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine")); }}>
+                      {t("delete")}
+                    </button>
+                  </div>
+                </article>
+                {selectedWineId === wine.id && !wineFormOpen ? (
+                  <div className="mobile-inline-detail">
+                    <WineDetail
+                      wine={wine}
+                      canGenerate={canGenerateAi}
+                      generating={generatingAi}
+                      onGenerate={(feature) => generateWineAi(wine, feature)}
+                      t={t}
+                    />
+                  </div>
+                ) : null}
+              </div>
             )) : filteredWishlist.map((item) => (
-              <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
-                <div>
-                  <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
-                  <p className="row-primary">{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
-                  <p className="row-secondary">{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
-                  <div className="row-meta">
-                    {item.merchant ? <span>{item.merchant}</span> : null}
-                    {item.notes ? <span>{item.notes}</span> : null}
+              <div className="list-item-block" key={item.id}>
+                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={() => setSelectedWishlistId(item.id)}>
+                  <div>
+                    <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
+                    <p className="row-primary">{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
+                    <p className="row-secondary">{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
+                    <div className="row-meta">
+                      {item.merchant ? <span>{item.merchant}</span> : null}
+                      {item.notes ? <span>{item.notes}</span> : null}
+                    </div>
                   </div>
-                </div>
-                <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
-                <div className="row-actions">
-                  <span className="priority-chip">{item.priority}</span>
-                  <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
-                    {t("edit")}
-                  </button>
-                  <button type="button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }}>
-                    {t("convert")}
-                  </button>
-                  <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWishlistItem(item).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist item")); }}>
-                    {t("delete")}
-                  </button>
-                </div>
-              </article>
+                  <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+                  <div className="row-actions">
+                    <span className="priority-chip">{item.priority}</span>
+                    <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
+                      {t("edit")}
+                    </button>
+                    <button type="button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }}>
+                      {t("convert")}
+                    </button>
+                    <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWishlistItem(item).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist item")); }}>
+                      {t("delete")}
+                    </button>
+                  </div>
+                </article>
+                {selectedWishlistId === item.id && !wishlistFormOpen ? (
+                  <div className="mobile-inline-detail">
+                    <WishlistDetail
+                      item={item}
+                      canGenerate={canGenerateAi}
+                      generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
+                      onGenerate={(feature) => generateWishlistAi(item, feature)}
+                      t={t}
+                    />
+                  </div>
+                ) : null}
+              </div>
             ))}
           </section>
           ) : null}

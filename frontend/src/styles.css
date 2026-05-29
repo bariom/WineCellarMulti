@@ -359,6 +359,15 @@ textarea {
   gap: 10px;
 }
 
+.list-item-block {
+  display: grid;
+  gap: 10px;
+}
+
+.mobile-inline-detail {
+  display: none;
+}
+
 .filter-panel {
   display: grid;
   gap: 10px;
@@ -1482,6 +1491,14 @@ textarea {
     border-radius: 14px;
     background: color-mix(in srgb, var(--surface) 92%, transparent);
     backdrop-filter: blur(14px);
+  }
+
+  .wine-side-panel > .wine-detail {
+    display: none;
+  }
+
+  .mobile-inline-detail {
+    display: block;
   }
 
   .stats-panel {
