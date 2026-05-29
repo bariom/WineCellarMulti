@@ -120,9 +120,10 @@ OPENAI_DRINK_WINDOW_MODEL=gpt-5.4
 OPENAI_VALUE_MODEL=gpt-5.4-mini
 OPENAI_GRAPE_MODEL=gpt-5.4-nano
 OPENAI_WISHLIST_MODEL=gpt-5.4
+OPENAI_PAIRING_MODEL=gpt-5.4
 ```
 
-Current AI actions: wine notes, drinking window, value estimate, grape composition, and wishlist strategy.
+Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, and food pairing.
 
 Find the Linux machine IP with:
 
@@ -152,5 +153,6 @@ hostname -I
 - `POST /api/v1/ai/wines/{wine_id}/value`
 - `POST /api/v1/ai/wines/{wine_id}/grapes`
 - `POST /api/v1/ai/wishlist/{item_id}/strategy`
+- `POST /api/v1/ai/pairing`
 
 The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.

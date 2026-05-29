@@ -15,7 +15,17 @@ from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.db.session import get_db
 from app.models import AiAuditLog, UserAiSettings, Wine, WishlistItem
-from app.schemas.ai import AiAuditLogResponse, AiSettingsResponse, AiSettingsUpdate, AiUsageBucket, AiUsageResponse
+from app.schemas.ai import (
+    AiAuditLogResponse,
+    AiSettingsResponse,
+    AiSettingsUpdate,
+    AiUsageBucket,
+    AiUsageResponse,
+    PairingCellarMatch,
+    PairingMarketWine,
+    PairingRequest,
+    PairingResponse,
+)
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
@@ -49,6 +59,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             value_model=settings.openai_value_model,
             grape_model=settings.openai_grape_model,
             wishlist_model=settings.openai_wishlist_model,
+            pairing_model=settings.openai_pairing_model,
         )
         db.add(user_settings)
         db.flush()
@@ -63,6 +74,7 @@ def ai_settings_response(user_settings: UserAiSettings) -> AiSettingsResponse:
         value_model=user_settings.value_model,
         grape_model=user_settings.grape_model,
         wishlist_model=user_settings.wishlist_model,
+        pairing_model=user_settings.pairing_model,
         model_options=MODEL_OPTIONS,
     )
 
@@ -189,7 +201,7 @@ def update_ai_settings(
     user_settings = get_or_create_user_ai_settings(db, context)
     if payload.openai_api_key is not None:
         user_settings.openai_api_key = encrypt_secret(payload.openai_api_key.strip())
-    for field in ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model"]:
+    for field in ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model", "pairing_model"]:
         value = getattr(payload, field)
         if value is not None:
             setattr(user_settings, field, validate_model(value))
@@ -245,6 +257,173 @@ def wishlist_context(item: WishlistItem) -> str:
 
 def user_openai_api_key(user_settings: UserAiSettings) -> str:
     return decrypt_secret(user_settings.openai_api_key)
+
+
+def pairing_wine_context(wine: Wine) -> dict:
+    return {
+        "id": str(wine.id),
+        "name": wine.name,
+        "producer": wine.producer,
+        "vintage": wine.vintage,
+        "type": wine.type,
+        "region": wine.region,
+        "appellation": wine.appellation,
+        "quantity": wine.quantity,
+        "format": wine.format,
+        "current_value": str(wine.current_value if wine.current_value is not None else wine.price),
+        "currency": wine.currency,
+        "drink_peak_from": wine.drink_peak_from,
+        "drink_peak_to": wine.drink_peak_to,
+        "drink_to": wine.drink_to,
+        "scores": wine.scores,
+        "grapes": wine.grapes,
+        "tags": wine.tags,
+    }
+
+
+def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_market: bool) -> PairingResponse:
+    matches = payload.get("cellar_matches", [])
+    if not isinstance(matches, list):
+        matches = []
+    cleaned_matches: list[PairingCellarMatch] = []
+    seen_ids: set[str] = set()
+    for match in matches[:3]:
+        if not isinstance(match, dict):
+            continue
+        wine_id = str(match.get("wine_id") or "").strip()
+        if wine_id not in available_wine_ids or wine_id in seen_ids:
+            continue
+        seen_ids.add(wine_id)
+        cleaned_matches.append(
+            PairingCellarMatch(
+                wine_id=UUID(wine_id),
+                wine_name=str(match.get("wine_name") or "").strip(),
+                producer=str(match.get("producer") or "").strip(),
+                reason=str(match.get("reason") or "").strip(),
+                serving_note=str(match.get("serving_note") or "").strip(),
+            ),
+        )
+
+    market: dict[str, list[PairingMarketWine]] = {"low": [], "medium": [], "high": []}
+    if include_market or not cleaned_matches:
+        raw_market = payload.get("market_recommendations", {})
+        if isinstance(raw_market, dict):
+            for tier in ["low", "medium", "high"]:
+                items = raw_market.get(tier, [])
+                if not isinstance(items, list):
+                    items = []
+                market[tier] = [
+                    PairingMarketWine(
+                        name=str(item.get("name") or "").strip(),
+                        producer=str(item.get("producer") or "").strip(),
+                        price_hint=str(item.get("price_hint") or "").strip(),
+                        reason=str(item.get("reason") or "").strip(),
+                    )
+                    for item in items[:2]
+                    if isinstance(item, dict) and str(item.get("name") or "").strip()
+                ]
+    return PairingResponse(summary=str(payload.get("summary") or "").strip(), model="", cellar_matches=cleaned_matches, market_recommendations=market)
+
+
+@router.post("/pairing", response_model=PairingResponse)
+def suggest_pairing(
+    payload: PairingRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> PairingResponse:
+    user_settings = get_or_create_user_ai_settings(db, context)
+    cellar_wines = [] if payload.market_only else list(
+        db.scalars(
+            select(Wine)
+            .where(Wine.household_id == context.household.id)
+            .where(Wine.status == "Delivered")
+            .where(Wine.quantity > 0)
+            .order_by(Wine.name)
+            .limit(120),
+        ),
+    )
+    wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
+    schema = {
+        "name": "wine_pairing",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "summary": {"type": "string"},
+                "cellar_matches": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "wine_id": {"type": "string"},
+                            "wine_name": {"type": "string"},
+                            "producer": {"type": "string"},
+                            "reason": {"type": "string"},
+                            "serving_note": {"type": "string"},
+                        },
+                        "required": ["wine_id", "wine_name", "producer", "reason", "serving_note"],
+                    },
+                },
+                "market_recommendations": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        tier: {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "producer": {"type": "string"},
+                                    "price_hint": {"type": "string"},
+                                    "reason": {"type": "string"},
+                                },
+                                "required": ["name", "producer", "price_hint", "reason"],
+                            },
+                        }
+                        for tier in ["low", "medium", "high"]
+                    },
+                    "required": ["low", "medium", "high"],
+                },
+            },
+            "required": ["summary", "cellar_matches", "market_recommendations"],
+        },
+    }
+    response = create_response(
+        user_settings.pairing_model,
+        (
+            "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
+            "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
+            "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
+            "Non inventare che un vino e in cantina se non e nel contesto. Usa italiano corretto."
+        ),
+        (
+            f"Piatto o pietanza: {payload.dish}\n"
+            f"include_market: {str(payload.include_market).lower()}\n"
+            f"market_only: {str(payload.market_only).lower()}\n\n"
+            "Vini disponibili in cantina, solo questi possono essere scelti come cellar_matches:\n"
+            f"{wine_context_payload}\n\n"
+            "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60."
+        ),
+        api_key=user_openai_api_key(user_settings),
+        json_schema=schema,
+    )
+    cleaned = clean_pairing_response(parse_json_response(response.text), {str(wine.id) for wine in cellar_wines}, payload.include_market)
+    cleaned.model = user_settings.pairing_model
+    record_ai_audit(
+        db,
+        context,
+        entity_type="pairing",
+        entity_id=context.household.id,
+        feature="pairing",
+        model=user_settings.pairing_model,
+        summary=f"{payload.dish}: {cleaned.summary}",
+        usage=response.usage,
+    )
+    db.commit()
+    return cleaned
 
 
 @router.post("/wines/{wine_id}/notes", response_model=WineResponse)

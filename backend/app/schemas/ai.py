@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AiAuditLogResponse(BaseModel):
@@ -50,6 +50,7 @@ class AiSettingsResponse(BaseModel):
     value_model: str
     grape_model: str
     wishlist_model: str
+    pairing_model: str
     model_options: list[str]
 
 
@@ -60,3 +61,32 @@ class AiSettingsUpdate(BaseModel):
     value_model: str | None = None
     grape_model: str | None = None
     wishlist_model: str | None = None
+    pairing_model: str | None = None
+
+
+class PairingRequest(BaseModel):
+    dish: str = Field(min_length=2, max_length=240)
+    include_market: bool = False
+    market_only: bool = False
+
+
+class PairingCellarMatch(BaseModel):
+    wine_id: UUID
+    wine_name: str
+    producer: str = ""
+    reason: str = ""
+    serving_note: str = ""
+
+
+class PairingMarketWine(BaseModel):
+    name: str
+    producer: str = ""
+    price_hint: str = ""
+    reason: str = ""
+
+
+class PairingResponse(BaseModel):
+    summary: str = ""
+    model: str
+    cellar_matches: list[PairingCellarMatch] = Field(default_factory=list)
+    market_recommendations: dict[str, list[PairingMarketWine]] = Field(default_factory=dict)

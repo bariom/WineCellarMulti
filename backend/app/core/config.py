@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     openai_value_model: str = "gpt-5.4-mini"
     openai_grape_model: str = "gpt-5.4-nano"
     openai_wishlist_model: str = "gpt-5.4"
+    openai_pairing_model: str = "gpt-5.4"
 
     @property
     def cors_origin_list(self) -> list[str]:

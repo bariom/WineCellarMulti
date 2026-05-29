@@ -19,4 +19,5 @@ class UserAiSettings(Base):
     value_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-mini")
     grape_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-nano")
     wishlist_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
+    pairing_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

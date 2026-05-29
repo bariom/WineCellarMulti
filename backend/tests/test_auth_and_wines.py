@@ -331,14 +331,16 @@ def test_ai_generation_requires_configured_openai_key():
     assert settings.status_code == 200
     assert settings.json()["has_openai_api_key"] is False
     assert "gpt-5.5" in settings.json()["model_options"]
+    assert settings.json()["pairing_model"] == "gpt-5.4"
 
     updated_settings = client.patch(
         "/api/v1/ai/settings",
-        json={"openai_api_key": "sk-test", "ai_notes_model": "gpt-5.5"},
+        json={"openai_api_key": "sk-test", "ai_notes_model": "gpt-5.5", "pairing_model": "gpt-5.5"},
     )
     assert updated_settings.status_code == 200
     assert updated_settings.json()["has_openai_api_key"] is True
     assert updated_settings.json()["ai_notes_model"] == "gpt-5.5"
+    assert updated_settings.json()["pairing_model"] == "gpt-5.5"
     with TestingSessionLocal() as db:
         stored_settings = db.get(UserAiSettings, uuid.UUID(client.get("/api/v1/session").json()["user_id"]))
         assert stored_settings is not None
@@ -406,6 +408,56 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     usage = client.get("/api/v1/ai/usage")
     assert usage.status_code == 200
     assert usage.json()["all_time"]["requests"] == 3
+
+
+def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+    delivered = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Barolo",
+            "producer": "Produttore",
+            "vintage": "2019",
+            "quantity": 2,
+            "price": 55,
+            "status": "Delivered",
+            "type": "Red",
+        },
+    )
+    assert delivered.status_code == 201
+    ignored = client.post(
+        "/api/v1/wines",
+        json={"name": "Future Wine", "quantity": 1, "price": 30, "status": "Ordered"},
+    )
+    assert ignored.status_code == 201
+    wine_id = delivered.json()["id"]
+
+    def fake_create_response(*args, **kwargs):
+        assert args[0] == "gpt-5.5"
+        assert "Barolo" in args[2]
+        assert "Future Wine" not in args[2]
+        text = (
+            '{"summary":"Il Barolo funziona con il brasato.",'
+            f'"cellar_matches":[{{"wine_id":"{wine_id}","wine_name":"Barolo","producer":"Produttore","reason":"Struttura e tannino.","serving_note":"Servire a 18 C."}}],'
+            '"market_recommendations":{"low":[{"name":"Chianti","producer":"Prod","price_hint":"entro 30 CHF","reason":"Acidita."}],"medium":[],"high":[]}}'
+        )
+        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    pairing = client.post("/api/v1/ai/pairing", json={"dish": "Brasato", "include_market": True})
+    assert pairing.status_code == 200
+    assert pairing.json()["model"] == "gpt-5.5"
+    assert pairing.json()["cellar_matches"][0]["wine_id"] == wine_id
+    assert pairing.json()["market_recommendations"]["low"][0]["name"] == "Chianti"
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["requests"] == 1
 
 
 def test_ai_usage_summarizes_current_user_costs():

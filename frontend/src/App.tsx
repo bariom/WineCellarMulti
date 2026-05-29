@@ -179,6 +179,7 @@ type AiSettings = {
   value_model: string;
   grape_model: string;
   wishlist_model: string;
+  pairing_model: string;
   model_options: string[];
 };
 
@@ -189,6 +190,14 @@ type AiSettingsDraft = {
   value_model: string;
   grape_model: string;
   wishlist_model: string;
+  pairing_model: string;
+};
+
+type PairingResult = {
+  summary: string;
+  model: string;
+  cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
+  market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
 };
 
 type AuthDraft = {
@@ -209,6 +218,7 @@ const emptyAiSettingsDraft: AiSettingsDraft = {
   value_model: "gpt-5.4-mini",
   grape_model: "gpt-5.4-nano",
   wishlist_model: "gpt-5.4",
+  pairing_model: "gpt-5.4",
 };
 
 const translations = {
@@ -307,6 +317,18 @@ const translations = {
     ownerShare: "Owner share",
     orderDate: "Order date",
     ownership: "Ownership",
+    pairing: "Pairing",
+    pairingCellarMatches: "From your cellar",
+    pairingDish: "Dish or food",
+    pairingEmptyDish: "Enter a dish first.",
+    pairingIncludeMarket: "Also show 2 bottles outside my cellar",
+    pairingMarketFallback: "Suggested bottles to buy",
+    pairingMarketOnly: "Restaurant mode: ignore my cellar",
+    pairingModelUsed: "Model used",
+    pairingNoCellarMatch: "No ideal bottle found in your cellar.",
+    pairingPlaceholder: "E.g. mushroom risotto, braised beef, sushi",
+    pairingSubmit: "Find pairing",
+    pairingWhy: "Why",
     password: "Password",
     pastWindow: "Past window",
     pendingInvites: "Pending invites",
@@ -465,6 +487,18 @@ const translations = {
     ownerShare: "Quota proprietario",
     orderDate: "Data ordine",
     ownership: "Proprieta",
+    pairing: "Abbinamento",
+    pairingCellarMatches: "Dalla tua cantina",
+    pairingDish: "Piatto o pietanza",
+    pairingEmptyDish: "Inserisci prima un piatto.",
+    pairingIncludeMarket: "Mostra anche 2 proposte fuori cantina",
+    pairingMarketFallback: "Bottiglie suggerite da acquistare",
+    pairingMarketOnly: "Sono al ristorante: ignora la mia cantina",
+    pairingModelUsed: "Modello usato",
+    pairingNoCellarMatch: "Nessuna bottiglia ideale trovata in cantina.",
+    pairingPlaceholder: "Es. risotto ai funghi, brasato, sushi",
+    pairingSubmit: "Trova abbinamento",
+    pairingWhy: "Perché",
     password: "Password",
     pastWindow: "Finestra scaduta",
     pendingInvites: "Inviti pendenti",
@@ -1188,6 +1222,10 @@ export function App() {
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
+  const [pairingDish, setPairingDish] = useState("");
+  const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
+  const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
+  const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
   const [tagDraft, setTagDraft] = useState("");
   const [tagDraftColor, setTagDraftColor] = useState("#245142");
   const [quickTagDraft, setQuickTagDraft] = useState("");
@@ -1301,6 +1339,7 @@ export function App() {
         value_model: nextSettings.value_model,
         grape_model: nextSettings.grape_model,
         wishlist_model: nextSettings.wishlist_model,
+        pairing_model: nextSettings.pairing_model,
       });
     } else {
       setAiSettings(null);
@@ -1508,6 +1547,7 @@ export function App() {
         value_model: nextSettings.value_model,
         grape_model: nextSettings.grape_model,
         wishlist_model: nextSettings.wishlist_model,
+        pairing_model: nextSettings.pairing_model,
       });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save AI settings");
@@ -1708,6 +1748,32 @@ export function App() {
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist strategy");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
+  async function generatePairing(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!pairingDish.trim()) {
+      setError(t("pairingEmptyDish"));
+      return;
+    }
+    setGeneratingAi("pairing");
+    setError("");
+    try {
+      const result = await api<PairingResult>("/api/v1/ai/pairing", {
+        method: "POST",
+        body: JSON.stringify({
+          dish: pairingDish.trim(),
+          include_market: pairingIncludeMarket,
+          market_only: pairingMarketOnly,
+        }),
+      });
+      setPairingResult(result);
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate pairing");
     } finally {
       setGeneratingAi("");
     }
@@ -2023,6 +2089,78 @@ export function App() {
                     <p>{cellarStats.bottles} {t("bottles").toLowerCase()}</p>
                   </div>
                 </div>
+              </section>
+
+              <section className="pairing-card">
+                <div className="card-heading">
+                  <div>
+                    <span>{t("pairing")}</span>
+                    <h2>{t("pairingSubmit")}</h2>
+                  </div>
+                  {pairingResult?.model ? <strong>{pairingResult.model}</strong> : null}
+                </div>
+                <form className="pairing-form" onSubmit={generatePairing}>
+                  <label>
+                    <span>{t("pairingDish")}</span>
+                    <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                  </label>
+                  <label className="pairing-option">
+                    <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
+                    <span>{t("pairingIncludeMarket")}</span>
+                  </label>
+                  <label className="pairing-option">
+                    <input type="checkbox" checked={pairingMarketOnly} onChange={(event) => setPairingMarketOnly(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                    <span>{t("pairingMarketOnly")}</span>
+                  </label>
+                  <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
+                    {generatingAi === "pairing" ? t("generating") : t("pairingSubmit")}
+                  </button>
+                  {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
+                </form>
+                {pairingResult ? (
+                  <div className="pairing-result">
+                    {pairingResult.summary ? <p className="pairing-summary">{pairingResult.summary}</p> : null}
+                    {pairingResult.cellar_matches.length ? (
+                      <section>
+                        <h3>{t("pairingCellarMatches")}</h3>
+                        <div className="pairing-match-list">
+                          {pairingResult.cellar_matches.map((match) => (
+                            <button type="button" className="pairing-match" key={match.wine_id} onClick={() => {
+                              const wine = wines.find((item) => item.id === match.wine_id);
+                              if (wine) openWineFromDashboard(wine);
+                            }}>
+                              <strong>{match.wine_name}</strong>
+                              <span>{match.producer}</span>
+                              <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
+                              {match.serving_note ? <span>{match.serving_note}</span> : null}
+                            </button>
+                          ))}
+                        </div>
+                      </section>
+                    ) : <p className="pairing-summary">{t("pairingNoCellarMatch")}</p>}
+                    {Object.values(pairingResult.market_recommendations).some((items) => items.length > 0) ? (
+                      <section>
+                        <h3>{t("pairingMarketFallback")}</h3>
+                        <div className="pairing-market-grid">
+                          {(["low", "medium", "high"] as const).map((tier) => pairingResult.market_recommendations[tier]?.length ? (
+                            <div className="pairing-market-tier" key={tier}>
+                              <h4>{tier}</h4>
+                              {pairingResult.market_recommendations[tier].map((item) => (
+                                <article key={`${tier}-${item.name}-${item.producer}`}>
+                                  <strong>{item.name}</strong>
+                                  {item.producer ? <span>{item.producer}</span> : null}
+                                  {item.price_hint ? <span>{item.price_hint}</span> : null}
+                                  <p>{item.reason}</p>
+                                </article>
+                              ))}
+                            </div>
+                          ) : null)}
+                        </div>
+                      </section>
+                    ) : null}
+                    {pairingResult.model ? <p className="pairing-model-used">{t("pairingModelUsed")}: {pairingResult.model}</p> : null}
+                  </div>
+                ) : null}
               </section>
 
               <section className="dashboard-grid" aria-label={t("priorityActions")}>
@@ -2775,12 +2913,20 @@ export function App() {
                     </select>
                   </label>
                 </div>
-                <label>
-                  <span>{t("wishlist")}</span>
-                  <select value={aiSettingsDraft.wishlist_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, wishlist_model: event.target.value })}>
-                    {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                  </select>
-                </label>
+                <div className="form-row">
+                  <label>
+                    <span>{t("wishlist")}</span>
+                    <select value={aiSettingsDraft.wishlist_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, wishlist_model: event.target.value })}>
+                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                    </select>
+                  </label>
+                  <label>
+                    <span>{t("pairing")}</span>
+                    <select value={aiSettingsDraft.pairing_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_model: event.target.value })}>
+                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                    </select>
+                  </label>
+                </div>
                 <button type="submit" disabled={saving}>{saving ? t("saving") : t("saveSettings")}</button>
               </form>
             ) : null}
