@@ -458,11 +458,11 @@ function WineDetail({ wine }: { wine: Wine }) {
 
 function WishlistDetail({ item }: { item: WishlistItem }) {
   return (
-    <section className="wine-detail">
+    <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
         <div>
           <p className="eyebrow">Wishlist detail</p>
-          <h2>{item.name}</h2>
+          <h2><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name}</h2>
           <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
         </div>
         <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
