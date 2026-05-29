@@ -1,9 +1,7 @@
 :root {
-  font-family: "Segoe UI", sans-serif;
-  color: #1d140f;
-  background:
-    radial-gradient(circle at top left, #f6e4c8 0, transparent 30%),
-    linear-gradient(180deg, #f8f2e8 0%, #efe1d0 100%);
+  font-family: "Segoe UI", "Aptos", sans-serif;
+  color: #17201c;
+  background: #f5f7f4;
 }
 
 * {
@@ -15,18 +13,49 @@ body {
   min-height: 100vh;
 }
 
-.app-shell {
-  max-width: 1040px;
-  margin: 0 auto;
-  padding: 56px 24px 80px;
+button,
+input,
+select,
+textarea {
+  font: inherit;
 }
 
-.hero {
-  padding: 32px;
-  border: 1px solid rgba(92, 60, 37, 0.18);
-  border-radius: 28px;
-  background: rgba(255, 252, 247, 0.82);
-  backdrop-filter: blur(12px);
+button {
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
+  color: #fff;
+  background: #245142;
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+button.secondary {
+  color: #17201c;
+  background: #e3e9e2;
+}
+
+button.danger {
+  background: #9c2f3f;
+}
+
+.app-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 64px;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #d8ded7;
 }
 
 .eyebrow {
@@ -35,43 +64,166 @@ body {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: #7b5a42;
+  color: #5d746b;
 }
 
-.hero h1 {
-  margin: 0 0 12px;
-  font-size: clamp(2.2rem, 6vw, 4.4rem);
-  line-height: 0.96;
-}
-
-.lede {
+.topbar h1 {
   margin: 0;
-  max-width: 56ch;
-  font-size: 1.05rem;
-  line-height: 1.5;
-  color: #5f4636;
+  font-size: 2rem;
+  line-height: 1.1;
 }
 
-.panel-grid {
+.session-pill {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  justify-items: end;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid #ccd5cd;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.session-pill span {
+  color: #5d746b;
+  font-size: 0.85rem;
+}
+
+.error-banner {
+  padding: 12px 14px;
+  border: 1px solid #e7a2ad;
+  border-radius: 6px;
+  color: #7c1e2c;
+  background: #fff0f2;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  margin-top: 24px;
+}
+
+.wine-form {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #d8ded7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.wine-form h2,
+.list-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.wine-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.wine-form label span {
+  color: #52635c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #c9d2ca;
+  border-radius: 6px;
+  padding: 10px;
+  color: #17201c;
+  background: #fbfcfb;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.form-actions,
+.row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.wine-list {
+  display: grid;
+  gap: 10px;
+}
+
+.list-header,
+.wine-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 16px;
-  margin-top: 20px;
+  align-items: center;
 }
 
-.panel {
-  padding: 20px;
-  border-radius: 22px;
-  background: #fffaf4;
-  border: 1px solid rgba(92, 60, 37, 0.14);
+.list-header {
+  padding: 0 2px 8px;
+  color: #52635c;
 }
 
-.panel h2 {
-  margin: 0 0 8px;
+.wine-row {
+  padding: 14px;
+  border: 1px solid #d8ded7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.wine-row h3 {
+  margin: 0 0 4px;
   font-size: 1rem;
 }
 
-.panel p {
+.wine-row h3 small {
+  color: #52635c;
+  font-weight: 500;
+}
+
+.wine-row p,
+.empty-state {
   margin: 0;
-  color: #5f4636;
+  color: #52635c;
+}
+
+@media (max-width: 820px) {
+  .workspace,
+  .list-header,
+  .wine-row,
+  .topbar {
+    grid-template-columns: 1fr;
+  }
+
+  .topbar,
+  .list-header,
+  .wine-row {
+    display: grid;
+  }
+
+  .session-pill {
+    justify-items: start;
+  }
+}
+
+@media (max-width: 520px) {
+  .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell {
+    padding: 20px 14px 44px;
+  }
 }
