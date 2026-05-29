@@ -245,6 +245,16 @@ textarea {
   background: #fff;
 }
 
+.filter-panel summary {
+  cursor: pointer;
+  color: #17201c;
+  font-weight: 700;
+}
+
+.filter-panel[open] summary {
+  margin-bottom: 4px;
+}
+
 .filter-panel label {
   display: grid;
   gap: 6px;

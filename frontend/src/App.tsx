@@ -2061,7 +2061,8 @@ export function App() {
                 </div>
               </section>
             )}
-            <div className="filter-panel">
+            <details className="filter-panel">
+              <summary>{t("search")} / {t("sort")}</summary>
               <label>
                 <span>{t("search")}</span>
                 <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
@@ -2109,7 +2110,7 @@ export function App() {
               <button type="button" className="secondary compact" onClick={clearFilters}>
                 {t("clearFilters")}
               </button>
-            </div>
+            </details>
             <div className="list-header">
               <h2>{activeView === "cellar" ? t("wines") : t("wishlist")}</h2>
               <span>{visibleCount} / {activeView === "cellar" ? wines.length : wishlist.length} {t("records")}</span>
