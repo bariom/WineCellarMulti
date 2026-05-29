@@ -135,8 +135,13 @@ def test_invite_acceptance_and_viewer_permissions():
     assert register(owner).status_code == 201
     invite = owner.post("/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"})
     assert invite.status_code == 201
+    invite_id = invite.json()["id"]
     invite_token = invite.json()["invite_token"]
     assert invite_token
+
+    invites = owner.get("/api/v1/household/invites")
+    assert invites.status_code == 200
+    assert invites.json()[0]["email"] == "viewer@example.com"
 
     members_before = owner.get("/api/v1/household/members")
     assert members_before.status_code == 200
@@ -189,6 +194,10 @@ def test_invite_acceptance_and_viewer_permissions():
     assert removed.status_code == 204
     members_after_remove = owner.get("/api/v1/household/members")
     assert [member_data["email"] for member_data in members_after_remove.json()] == ["owner@example.com"]
+
+    revoked = owner.delete(f"/api/v1/household/invites/{invite_id}")
+    assert revoked.status_code == 204
+    assert owner.get("/api/v1/household/invites").json() == []
 
 
 def test_legacy_import_scopes_wines_and_wishlist_to_household():

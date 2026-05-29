@@ -119,6 +119,15 @@ type InviteDraft = {
   role: string;
 };
 
+type Invite = {
+  id: string;
+  email: string;
+  role: string;
+  expires_at: string;
+  accepted_at: string | null;
+  invite_token: string | null;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -319,6 +328,27 @@ function wineUnitValue(wine: Wine) {
   return Number(wine.current_value || wine.price || 0);
 }
 
+function sumWineValue(items: Wine[]) {
+  return items.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
+}
+
+function topWineValueGroups(items: Wine[], field: "type" | "region") {
+  return uniqueSorted(items.map((wine) => wine[field] || (field === "type" ? "Other" : "Unknown region")))
+    .map((label) => ({
+      label,
+      value: sumWineValue(items.filter((wine) => (wine[field] || (field === "type" ? "Other" : "Unknown region")) === label)),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((first, second) => second.value - first.value)
+    .slice(0, 5);
+}
+
+function daysUntil(value: string) {
+  const target = new Date(value).getTime();
+  if (Number.isNaN(target)) return null;
+  return Math.ceil((target - Date.now()) / 86400000);
+}
+
 function wineSearchText(wine: Wine) {
   return [
     wine.name,
@@ -490,6 +520,7 @@ export function App() {
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [invites, setInvites] = useState<Invite[]>([]);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
@@ -532,25 +563,31 @@ export function App() {
     setSelectedWishlistId((currentId) => (currentId && nextWishlist.some((item) => item.id === currentId) ? currentId : nextWishlist[0]?.id || null));
   }
 
-  async function loadHouseholdData() {
+  async function loadHouseholdData(role = session?.membership_role) {
     const [nextMemberships, nextMembers] = await Promise.all([
       api<HouseholdMembership[]>("/api/v1/household/memberships"),
       api<Member[]>("/api/v1/household/members"),
     ]);
     setHouseholdMemberships(nextMemberships);
     setMembers(nextMembers);
+    if (role === "owner" || role === "admin") {
+      setInvites(await api<Invite[]>("/api/v1/household/invites"));
+    } else {
+      setInvites([]);
+    }
   }
 
   async function loadData() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData()]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
       setHouseholdMemberships([]);
       setMembers([]);
+      setInvites([]);
     }
   }
 
@@ -631,6 +668,7 @@ export function App() {
       setInviteDraft(emptyInviteDraft);
       setInviteToken(invite.invite_token);
       setGeneratedInviteLink(inviteLink(invite.invite_token));
+      await loadHouseholdData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create invite");
     } finally {
@@ -680,6 +718,20 @@ export function App() {
       await loadHouseholdData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to remove member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function revokeInvite(invite: Invite) {
+    if (!window.confirm(`Revoke invite for ${invite.email}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/household/invites/${invite.id}`, { method: "DELETE" });
+      await loadHouseholdData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to revoke invite");
     } finally {
       setSaving(false);
     }
@@ -828,23 +880,31 @@ export function App() {
     });
   const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
   const currentYear = new Date().getFullYear();
+  const now = new Date();
   const cellarStats = {
     bottles: wines.reduce((total, wine) => total + wine.quantity, 0),
-    totalValue: wines.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0),
+    totalValue: sumWineValue(wines),
     drinkNow: wines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
-    futureDeliveries: wines.filter((wine) => wine.expected_delivery && new Date(wine.expected_delivery) >= new Date()).length,
+    drinkSoon: wines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
+    pastWindow: wines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
+    futureDeliveries: wines.filter((wine) => wine.expected_delivery && new Date(wine.expected_delivery) >= now).length,
+    nextDelivery: wines
+      .map((wine) => (wine.expected_delivery ? { wine, days: daysUntil(wine.expected_delivery) } : null))
+      .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
+      .sort((first, second) => first.days - second.days)[0],
     missingValue: wines.filter((wine) => !wine.current_value).length,
+    missingDrinkWindow: wines.filter((wine) => !wine.drink_from || !wine.drink_to).length,
+    missingScores: wines.filter((wine) => wine.scores.length === 0).length,
+    aiNotes: wines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
-  const valueByType = uniqueSorted(wines.map((wine) => wine.type || "Other"))
-    .map((type) => ({
-      type,
-      value: wines
-        .filter((wine) => (wine.type || "Other") === type)
-        .reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0),
-    }))
-    .filter((item) => item.value > 0)
-    .sort((first, second) => second.value - first.value)
-    .slice(0, 4);
+  const wishlistStats = {
+    count: wishlist.length,
+    targetValue: wishlist.reduce((total, item) => total + Number(item.target_price || 0), 0),
+    highPriority: wishlist.filter((item) => item.priority.toLowerCase() === "high").length,
+    readyToBuy: wishlist.filter((item) => ["buy", "approved", "ready"].some((word) => item.status.toLowerCase().includes(word))).length,
+  };
+  const valueByType = topWineValueGroups(wines, "type");
+  const valueByRegion = topWineValueGroups(wines, "region");
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -1212,26 +1272,69 @@ export function App() {
                   <strong>{cellarStats.drinkNow}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Future deliveries</span>
-                  <strong>{cellarStats.futureDeliveries}</strong>
+                  <span>Drink in 2 years</span>
+                  <strong>{cellarStats.drinkSoon}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Missing current value</span>
-                  <strong>{cellarStats.missingValue}</strong>
+                  <span>Past window</span>
+                  <strong>{cellarStats.pastWindow}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Future deliveries</span>
+                  <strong>{cellarStats.futureDeliveries}</strong>
+                  {cellarStats.nextDelivery ? <p>{cellarStats.nextDelivery.wine.name}: {cellarStats.nextDelivery.days} days</p> : null}
+                </div>
+                <div className="stat-card compact-list">
+                  <span>Data quality</span>
+                  <p>Missing value: <strong>{cellarStats.missingValue}</strong></p>
+                  <p>Missing drink window: <strong>{cellarStats.missingDrinkWindow}</strong></p>
+                  <p>Missing scores: <strong>{cellarStats.missingScores}</strong></p>
                 </div>
                 {valueByType.length ? (
-                  <div className="stat-card type-breakdown">
+                  <div className="stat-card compact-list type-breakdown">
                     <span>Value by type</span>
                     {valueByType.map((item) => (
-                      <p key={item.type}>
-                        <i className={`wine-dot tone-${wineTone(item.type)}`} />
-                        {item.type}: CHF {item.value.toFixed(0)}
+                      <p key={item.label}>
+                        <i className={`wine-dot tone-${wineTone(item.label)}`} />
+                        {item.label}: CHF {item.value.toFixed(0)}
                       </p>
                     ))}
                   </div>
                 ) : null}
+                {valueByRegion.length ? (
+                  <div className="stat-card compact-list type-breakdown">
+                    <span>Top regions</span>
+                    {valueByRegion.map((item) => (
+                      <p key={item.label}>{item.label}: CHF {item.value.toFixed(0)}</p>
+                    ))}
+                  </div>
+                ) : null}
+                <div className="stat-card compact-list ai-card">
+                  <span>AI readiness</span>
+                  <strong>{cellarStats.aiNotes} / {wines.length}</strong>
+                  <p>Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.</p>
+                </div>
               </section>
-            ) : null}
+            ) : (
+              <section className="stats-panel">
+                <div className="stat-card">
+                  <span>Wishlist items</span>
+                  <strong>{wishlistStats.count}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Target value</span>
+                  <strong>CHF {wishlistStats.targetValue.toFixed(0)}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>High priority</span>
+                  <strong>{wishlistStats.highPriority}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>Ready to buy</span>
+                  <strong>{wishlistStats.readyToBuy}</strong>
+                </div>
+              </section>
+            )}
             <div className="filter-panel">
               <label>
                 <span>Search</span>
@@ -1398,6 +1501,30 @@ export function App() {
                     </div>
                   ) : null}
                 </form>
+                <div className="inline-form">
+                  <h3>Pending invites</h3>
+                  {invites.length ? (
+                    <div className="invite-list">
+                      {invites.map((invite) => {
+                        const expired = new Date(invite.expires_at) <= new Date();
+                        const accepted = Boolean(invite.accepted_at);
+                        return (
+                          <div className="invite-row" key={invite.id}>
+                            <div>
+                              <strong>{invite.email}</strong>
+                              <span>{invite.role} - {accepted ? "accepted" : expired ? "expired" : `expires ${formatDisplayDate(invite.expires_at)}`}</span>
+                            </div>
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => revokeInvite(invite)}>
+                              Revoke
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="empty-state">No invites</p>
+                  )}
+                </div>
               </>
             ) : null}
 

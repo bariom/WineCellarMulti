@@ -269,12 +269,14 @@ textarea {
 }
 
 .member-list,
+.invite-list,
 .inline-form {
   display: grid;
   gap: 10px;
 }
 
-.member-row {
+.member-row,
+.invite-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -285,6 +287,7 @@ textarea {
 }
 
 .member-row div,
+.invite-row div,
 .inline-form label {
   display: grid;
   gap: 4px;
@@ -292,6 +295,7 @@ textarea {
 
 .member-row span,
 .member-row small,
+.invite-row span,
 .inline-form label span {
   color: #52635c;
   font-size: 0.78rem;
@@ -391,9 +395,23 @@ textarea {
   grid-column: span 2;
 }
 
-.type-breakdown p {
+.stat-card p,
+.compact-list p {
   margin: 0;
   color: #52635c;
+}
+
+.compact-list {
+  align-content: start;
+}
+
+.compact-list p strong {
+  color: #17201c;
+  font-size: 1rem;
+}
+
+.ai-card {
+  background: linear-gradient(135deg, #fff 0%, #f3f7f4 100%);
 }
 
 .tone-red {

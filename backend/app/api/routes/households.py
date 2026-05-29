@@ -165,6 +165,25 @@ def list_invites(
     ]
 
 
+@router.delete("/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_invite(
+    invite_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> Response:
+    invite = db.scalar(
+        select(HouseholdInvite).where(
+            HouseholdInvite.id == invite_id,
+            HouseholdInvite.household_id == context.household.id,
+        ),
+    )
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    db.delete(invite)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/invites/accept", response_model=MemberResponse)
 def accept_invite(
     payload: InviteAccept,
