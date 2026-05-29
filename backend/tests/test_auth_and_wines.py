@@ -122,14 +122,14 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     assert [wine["name"] for wine in listed.json()] == ["Testamatta"]
     assert listed.json()[0]["rating"] == 4
 
-    invalid_rating = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 6})
+    invalid_rating = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 7})
     assert invalid_rating.status_code == 422
 
-    updated = client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped", "rating": 5})
+    updated = client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped", "rating": 6})
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 5
     assert updated.json()["status"] == "Shipped"
-    assert updated.json()["rating"] == 5
+    assert updated.json()["rating"] == 6
     assert updated.json()["owner_share_pct"] == "50.00"
     assert updated.json()["owners"][0]["name"] == "Omar"
 

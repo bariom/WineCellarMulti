@@ -909,10 +909,10 @@ function DetailField({ label, value }: { label: string; value: string | number |
 }
 
 function StarRating({ value, label }: { value: number; label: string }) {
-  const rating = Math.min(Math.max(Math.round(Number(value || 0)), 0), 5);
+  const rating = Math.min(Math.max(Math.round(Number(value || 0)), 0), 6);
   return (
-    <span className="star-rating" aria-label={`${label}: ${rating}/5`}>
-      {Array.from({ length: 5 }, (_, index) => (
+    <span className="star-rating" aria-label={`${label}: ${rating}/6`}>
+      {Array.from({ length: 6 }, (_, index) => (
         <span key={index} className={index < rating ? "filled" : ""} aria-hidden="true">★</span>
       ))}
     </span>
@@ -930,10 +930,10 @@ function RatingInput({
   label: string;
   onChange: (value: string) => void;
 }) {
-  const rating = Math.min(Math.max(Number(value || 0), 0), 5);
+  const rating = Math.min(Math.max(Number(value || 0), 0), 6);
   return (
     <div className="rating-input" role="radiogroup" aria-label={label}>
-      {[1, 2, 3, 4, 5].map((star) => (
+      {[1, 2, 3, 4, 5, 6].map((star) => (
         <button
           type="button"
           key={star}
@@ -1020,7 +1020,7 @@ function WineDetail({
       <div className="detail-grid">
         <DetailField label={t("format")} value={wine.format} />
         <DetailField label={t("type")} value={wine.type} />
-        <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/5` : ""} />
+        <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} />
         <DetailField label={t("status")} value={wine.status} />
         <DetailField label={t("quantity")} value={`${wine.quantity} ${t("bottles").toLowerCase()}`} />
         <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
