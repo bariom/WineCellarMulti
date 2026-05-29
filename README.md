@@ -77,6 +77,14 @@ chmod +x dev.sh
 ./dev.sh
 ```
 
+Update backend and frontend from the repository root:
+
+```bash
+./update.sh
+```
+
+The update script pulls the latest code, installs backend dependencies, runs Alembic migrations, installs frontend dependencies, and runs the frontend build. PostgreSQL must already be running.
+
 Open `http://<server-ip>:5173`.
 
 Find the Linux machine IP with:
