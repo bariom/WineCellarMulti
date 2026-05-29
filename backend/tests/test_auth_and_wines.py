@@ -171,5 +171,21 @@ def test_invite_acceptance_and_viewer_permissions():
     viewer_create = member.post("/api/v1/wines", json={"name": "Blocked Wine", "quantity": 1, "price": 20})
     assert viewer_create.status_code == 403
 
+    promoted = owner.patch(f"/api/v1/household/members/{invited_membership_id}", json={"role": "member"})
+    assert promoted.status_code == 200
+    assert promoted.json()["role"] == "member"
+
+    assert member.post("/api/v1/auth/logout").status_code == 204
+    assert member.post("/api/v1/auth/login", json={"email": "viewer@example.com", "password": "strong-password-2"}).status_code == 200
+    shared_household = next(item for item in member.get("/api/v1/household/memberships").json() if item["role"] == "member")
+    assert member.post("/api/v1/household/switch", json={"household_id": shared_household["household_id"]}).status_code == 200
+    member_create = member.post("/api/v1/wines", json={"name": "Allowed Wine", "quantity": 1, "price": 30})
+    assert member_create.status_code == 201
+
     viewer_members = member.get("/api/v1/household/members")
     assert viewer_members.status_code == 200
+
+    removed = owner.delete(f"/api/v1/household/members/{invited_membership_id}")
+    assert removed.status_code == 204
+    members_after_remove = owner.get("/api/v1/household/members")
+    assert [member_data["email"] for member_data in members_after_remove.json()] == ["owner@example.com"]

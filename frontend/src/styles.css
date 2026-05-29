@@ -210,6 +210,7 @@ textarea {
 .member-row {
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: 12px;
   padding: 10px;
   border-radius: 6px;
@@ -227,6 +228,18 @@ textarea {
 .inline-form label span {
   color: #52635c;
   font-size: 0.78rem;
+}
+
+.member-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.member-actions select {
+  min-width: 96px;
+  padding: 6px 8px;
+  font-size: 0.85rem;
 }
 
 .token-box {

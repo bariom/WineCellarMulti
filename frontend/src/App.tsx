@@ -256,6 +256,35 @@ export function App() {
     }
   }
 
+  async function updateMemberRole(member: Member, role: string) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<Member>(`/api/v1/household/members/${member.membership_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+      });
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function removeMember(member: Member) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/household/members/${member.membership_id}`, { method: "DELETE" });
+      await loadHouseholdData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to remove member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function submitWine(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.name.trim()) return;
@@ -292,6 +321,7 @@ export function App() {
   const activeMembership = householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
   const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
   const canWriteWine = canAdmin || session?.membership_role === "member";
+  const currentUserEmail = session?.user_email?.toLowerCase();
 
   return (
     <main className="app-shell">
@@ -453,7 +483,29 @@ export function App() {
                     <strong>{member.display_name || member.email}</strong>
                     <span>{member.email}</span>
                   </div>
-                  <small>{member.role}</small>
+                  {canAdmin && member.role !== "owner" ? (
+                    <div className="member-actions">
+                      <select
+                        value={member.role}
+                        disabled={saving}
+                        onChange={(event) => updateMemberRole(member, event.target.value)}
+                      >
+                        <option value="viewer">Viewer</option>
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                      <button
+                        type="button"
+                        className="danger compact"
+                        disabled={saving || member.email.toLowerCase() === currentUserEmail}
+                        onClick={() => removeMember(member)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ) : (
+                    <small>{member.role}</small>
+                  )}
                 </div>
               ))}
             </div>
