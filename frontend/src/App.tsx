@@ -622,6 +622,7 @@ function WineDetail({
   canGenerate,
   generating,
   onGenerate,
+  t,
 }: {
   wine: Wine;
   canGenerate: boolean;
@@ -741,6 +742,7 @@ function WishlistDetail({
   canGenerate,
   generating,
   onGenerate,
+  t,
 }: {
   item: WishlistItem;
   canGenerate: boolean;
