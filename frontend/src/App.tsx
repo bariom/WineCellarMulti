@@ -3115,201 +3115,253 @@ export function App() {
           ) : null}
 
           {activeView === "settings" ? (
-          <aside className="team-panel">
-            <div className="inline-form">
-              <h2>{t("profileSection")}</h2>
-              <label>
-                <span>{t("language")}</span>
-                <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
-                  <option value="en">EN</option>
-                  <option value="it">IT</option>
-                </select>
-              </label>
-              <label>
-                <span>{t("theme")}</span>
-                <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
-                  <option value="system">{t("themeSystem")}</option>
-                  <option value="light">{t("themeLight")}</option>
-                  <option value="dark">{t("themeDark")}</option>
-                  <option value="sepia">{t("themeSepia")}</option>
-                </select>
-              </label>
+          <section className="settings-page">
+            <div className="settings-heading">
+              <p className="eyebrow">{t("settings")}</p>
+              <h2>{t("personalSettings")}</h2>
             </div>
 
-            {canWriteWine ? (
-              <details className="inline-form collapsible-panel">
-                <summary>{t("manageTags")}</summary>
-                <form className="inline-row-form" onSubmit={submitTag}>
-                  <input value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} placeholder={t("tagName")} />
-                  <input type="color" value={tagDraftColor} onChange={(event) => setTagDraftColor(event.target.value)} title={t("color")} />
-                  <button type="submit" disabled={saving || !tagDraft.trim()}>{t("createTag")}</button>
-                </form>
-                {userTags.length ? (
-                  <div className="tag-admin-list">
-                    {userTags.map((tag) => (
-                      <div className="tag-admin-row" key={tag.id}>
-                        <input value={tagEdits[tag.id]?.name || tag.name} onChange={(event) => setTagEdits({ ...tagEdits, [tag.id]: { ...(tagEdits[tag.id] || { name: tag.name, color: tag.color }), name: event.target.value } })} />
-                        <input type="color" value={tagEdits[tag.id]?.color || tag.color || "#245142"} onChange={(event) => setTagEdits({ ...tagEdits, [tag.id]: { ...(tagEdits[tag.id] || { name: tag.name, color: tag.color }), color: event.target.value } })} title={t("color")} />
-                        <button type="button" className="secondary compact" disabled={saving} onClick={() => updateTag(tag)}>
-                          {t("saveTag")}
-                        </button>
-                        <button type="button" className="danger compact" disabled={saving} onClick={() => deleteTag(tag)}>
-                          {t("delete")}
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">{t("noTags")}</p>
-                )}
-              </details>
-            ) : null}
-
-            {canWriteWine ? (
-              <form className="inline-form" onSubmit={submitAiSettings}>
-                <h2>{t("aiSettings")}</h2>
-                <p className="empty-state">{aiSettings?.has_openai_api_key ? t("configured") : t("noApiKey")}</p>
-                <label>
-                  <span>OpenAI API key</span>
-                  <input
-                    type="password"
-                    value={aiSettingsDraft.openai_api_key}
-                    onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
-                    placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
-                  />
-                </label>
-                <div className="form-row">
-                  <label>
-                    <span>{t("aiNotes")}</span>
-                    <select value={aiSettingsDraft.ai_notes_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, ai_notes_model: event.target.value })}>
-                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{t("drinkWindow")}</span>
-                    <select value={aiSettingsDraft.drink_window_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, drink_window_model: event.target.value })}>
-                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  </label>
-                </div>
-                <div className="form-row">
-                  <label>
-                    <span>{t("value")}</span>
-                    <select value={aiSettingsDraft.value_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, value_model: event.target.value })}>
-                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{t("grapes")}</span>
-                    <select value={aiSettingsDraft.grape_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, grape_model: event.target.value })}>
-                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  </label>
-                </div>
-                <div className="form-row">
-                  <label>
-                    <span>{t("wishlist")}</span>
-                    <select value={aiSettingsDraft.wishlist_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, wishlist_model: event.target.value })}>
-                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  </label>
-                  <label>
-                    <span>{t("pairing")}</span>
-                    <select value={aiSettingsDraft.pairing_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_model: event.target.value })}>
-                      {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                    </select>
-                  </label>
-                </div>
-                <button type="submit" disabled={saving}>{saving ? t("saving") : t("saveSettings")}</button>
-              </form>
-            ) : null}
-
-            {canWriteWine ? (
-              <div className="inline-form">
-                <h2>{t("aiUsage")}</h2>
-                <p className="empty-state">{t("estimatedCost")}: {aiUsage ? formatUsd(aiUsage.all_time.estimated_cost_usd) : formatUsd(0)}</p>
-                {aiUsage && aiUsage.all_time.requests > 0 ? (
-                  <div className="usage-list">
-                    <AiUsageRow label={t("today")} bucket={aiUsage.today} />
-                    <AiUsageRow label={t("thisMonth")} bucket={aiUsage.current_month} />
-                    <AiUsageRow label={t("allTime")} bucket={aiUsage.all_time} />
-                  </div>
-                ) : (
-                  <p className="empty-state">{t("noAiUsage")}</p>
-                )}
-              </div>
-            ) : null}
-
-            <h2>{t("sharedCellar")}</h2>
-            <div className="member-list">
-              {members.map((member) => (
-                <div className="member-row" key={member.membership_id}>
+            <div className="settings-grid">
+              <section className="settings-card settings-card-compact">
+                <div className="settings-card-heading">
                   <div>
-                    <strong>{member.display_name || member.email}</strong>
-                    <span>{member.email}</span>
+                    <span>{t("profileSection")}</span>
+                    <h3>{t("personalSettings")}</h3>
                   </div>
-                  {canAdmin && member.role !== "owner" ? (
-                    <div className="member-actions">
-                      <select
-                        value={member.role}
-                        disabled={saving}
-                        onChange={(event) => updateMemberRole(member, event.target.value)}
-                      >
-                        <option value="viewer">Viewer</option>
-                        <option value="member">Member</option>
-                        <option value="admin">Admin</option>
+                </div>
+                <div className="inline-form">
+                  <label>
+                    <span>{t("language")}</span>
+                    <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+                      <option value="en">EN</option>
+                      <option value="it">IT</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>{t("theme")}</span>
+                    <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
+                      <option value="system">{t("themeSystem")}</option>
+                      <option value="light">{t("themeLight")}</option>
+                      <option value="dark">{t("themeDark")}</option>
+                      <option value="sepia">{t("themeSepia")}</option>
+                    </select>
+                  </label>
+                </div>
+              </section>
+
+              {canWriteWine ? (
+                <form className="settings-card settings-card-wide" onSubmit={submitAiSettings}>
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("aiSettings")}</span>
+                      <h3>OpenAI</h3>
+                    </div>
+                    <strong className={aiSettings?.has_openai_api_key ? "status-pill configured" : "status-pill"}>
+                      {aiSettings?.has_openai_api_key ? t("configured") : t("noApiKey")}
+                    </strong>
+                  </div>
+                  <label>
+                    <span>OpenAI API key</span>
+                    <input
+                      type="password"
+                      value={aiSettingsDraft.openai_api_key}
+                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
+                      placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
+                    />
+                  </label>
+                  <div className="settings-model-grid">
+                    <label>
+                      <span>{t("aiNotes")}</span>
+                      <select value={aiSettingsDraft.ai_notes_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, ai_notes_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
                       </select>
-                      <button
-                        type="button"
-                        className="danger compact"
-                        disabled={saving || member.email.toLowerCase() === currentUserEmail}
-                        onClick={() => removeMember(member)}
-                      >
-                        {t("remove")}
-                      </button>
+                    </label>
+                    <label>
+                      <span>{t("drinkWindow")}</span>
+                      <select value={aiSettingsDraft.drink_window_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, drink_window_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("value")}</span>
+                      <select value={aiSettingsDraft.value_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, value_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("grapes")}</span>
+                      <select value={aiSettingsDraft.grape_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, grape_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("wishlist")}</span>
+                      <select value={aiSettingsDraft.wishlist_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, wishlist_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("pairing")}</span>
+                      <select value={aiSettingsDraft.pairing_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
+                  </div>
+                  <button type="submit" disabled={saving}>{saving ? t("saving") : t("saveSettings")}</button>
+                </form>
+              ) : null}
+
+              {canWriteWine ? (
+                <section className="settings-card">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("aiUsage")}</span>
+                      <h3>{t("estimatedCost")}</h3>
+                    </div>
+                    <strong>{aiUsage ? formatUsd(aiUsage.all_time.estimated_cost_usd) : formatUsd(0)}</strong>
+                  </div>
+                  {aiUsage && aiUsage.all_time.requests > 0 ? (
+                    <div className="usage-list">
+                      <AiUsageRow label={t("today")} bucket={aiUsage.today} />
+                      <AiUsageRow label={t("thisMonth")} bucket={aiUsage.current_month} />
+                      <AiUsageRow label={t("allTime")} bucket={aiUsage.all_time} />
                     </div>
                   ) : (
-                    <small>{member.role}</small>
+                    <p className="empty-state">{t("noAiUsage")}</p>
                   )}
-                </div>
-              ))}
-            </div>
+                </section>
+              ) : null}
 
-            {canAdmin ? (
-              <>
-                <div className="inline-form">
-                  <h3>{t("importSection")}</h3>
+              {canWriteWine ? (
+                <section className="settings-card settings-card-wide">
+                  <details className="collapsible-panel">
+                    <summary>{t("manageTags")}</summary>
+                    <form className="inline-row-form" onSubmit={submitTag}>
+                      <input value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} placeholder={t("tagName")} />
+                      <input type="color" value={tagDraftColor} onChange={(event) => setTagDraftColor(event.target.value)} title={t("color")} />
+                      <button type="submit" disabled={saving || !tagDraft.trim()}>{t("createTag")}</button>
+                    </form>
+                    {userTags.length ? (
+                      <div className="tag-admin-list">
+                        {userTags.map((tag) => (
+                          <div className="tag-admin-row" key={tag.id}>
+                            <input value={tagEdits[tag.id]?.name || tag.name} onChange={(event) => setTagEdits({ ...tagEdits, [tag.id]: { ...(tagEdits[tag.id] || { name: tag.name, color: tag.color }), name: event.target.value } })} />
+                            <input type="color" value={tagEdits[tag.id]?.color || tag.color || "#245142"} onChange={(event) => setTagEdits({ ...tagEdits, [tag.id]: { ...(tagEdits[tag.id] || { name: tag.name, color: tag.color }), color: event.target.value } })} title={t("color")} />
+                            <button type="button" className="secondary compact" disabled={saving} onClick={() => updateTag(tag)}>
+                              {t("saveTag")}
+                            </button>
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteTag(tag)}>
+                              {t("delete")}
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">{t("noTags")}</p>
+                    )}
+                  </details>
+                </section>
+              ) : null}
+
+              <section className="settings-card settings-card-wide">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("sharedCellar")}</span>
+                    <h3>{t("household")}</h3>
+                  </div>
+                </div>
+                <div className="member-list">
+                  {members.map((member) => (
+                    <div className="member-row" key={member.membership_id}>
+                      <div>
+                        <strong>{member.display_name || member.email}</strong>
+                        <span>{member.email}</span>
+                      </div>
+                      {canAdmin && member.role !== "owner" ? (
+                        <div className="member-actions">
+                          <select
+                            value={member.role}
+                            disabled={saving}
+                            onChange={(event) => updateMemberRole(member, event.target.value)}
+                          >
+                            <option value="viewer">Viewer</option>
+                            <option value="member">Member</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                          <button
+                            type="button"
+                            className="danger compact"
+                            disabled={saving || member.email.toLowerCase() === currentUserEmail}
+                            onClick={() => removeMember(member)}
+                          >
+                            {t("remove")}
+                          </button>
+                        </div>
+                      ) : (
+                        <small>{member.role}</small>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              {canAdmin ? (
+                <section className="settings-card">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("importLegacy")}</span>
+                      <h3>{t("importSection")}</h3>
+                    </div>
+                  </div>
                   <label>
                     <span>WineCellar JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
                   </label>
-                </div>
-                <form className="inline-form" onSubmit={createInvite}>
-                  <h3>{t("inviteMember")}</h3>
-                  <label>
-                    <span>{t("email")}</span>
-                    <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
-                  </label>
-                  <label>
-                    <span>{t("role")}</span>
-                    <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
-                      <option value="viewer">Viewer</option>
-                      <option value="member">Member</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </label>
-                  <button type="submit" disabled={saving}>{saving ? t("working") : t("createInvite")}</button>
-                  {inviteToken ? (
-                    <div className="token-box">
-                      <span>{t("inviteToken")}</span>
-                      <code>{inviteToken}</code>
-                      <span>{t("inviteLink")}</span>
-                      <a href={generatedInviteLink}>{generatedInviteLink}</a>
+                </section>
+              ) : null}
+
+              {canAdmin ? (
+                <section className="settings-card">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("inviteMember")}</span>
+                      <h3>{t("sharedCellar")}</h3>
                     </div>
-                  ) : null}
-                </form>
-                <div className="inline-form">
-                  <h3>{t("pendingInvites")}</h3>
+                  </div>
+                  <form className="inline-form" onSubmit={createInvite}>
+                    <label>
+                      <span>{t("email")}</span>
+                      <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
+                    </label>
+                    <label>
+                      <span>{t("role")}</span>
+                      <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
+                        <option value="viewer">Viewer</option>
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </label>
+                    <button type="submit" disabled={saving}>{saving ? t("working") : t("createInvite")}</button>
+                    {inviteToken ? (
+                      <div className="token-box">
+                        <span>{t("inviteToken")}</span>
+                        <code>{inviteToken}</code>
+                        <span>{t("inviteLink")}</span>
+                        <a href={generatedInviteLink}>{generatedInviteLink}</a>
+                      </div>
+                    ) : null}
+                  </form>
+                </section>
+              ) : null}
+
+              {canAdmin ? (
+                <section className="settings-card">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("pendingInvites")}</span>
+                      <h3>{t("inviteMember")}</h3>
+                    </div>
+                  </div>
                   {invites.length ? (
                     <div className="invite-list">
                       {invites.map((invite) => {
@@ -3331,38 +3383,48 @@ export function App() {
                   ) : (
                     <p className="empty-state">{t("noInvites")}</p>
                   )}
-                </div>
-              </>
-            ) : null}
+                </section>
+              ) : null}
 
-            <div className="inline-form">
-              <h3>{t("aiAudit")}</h3>
-              {aiAudit.length ? (
-                <div className="audit-list">
-                  {aiAudit.slice(0, 8).map((entry) => (
-                    <div className="audit-row" key={entry.id}>
-                      <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
-                      <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
-                      <p>{entry.summary}</p>
-                    </div>
-                  ))}
+              <section className="settings-card settings-card-wide">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("aiAudit")}</span>
+                    <h3>{t("aiUsage")}</h3>
+                  </div>
                 </div>
-              ) : (
-                <p className="empty-state">{t("noAiAudit")}</p>
-              )}
+                {aiAudit.length ? (
+                  <div className="audit-list">
+                    {aiAudit.slice(0, 8).map((entry) => (
+                      <div className="audit-row" key={entry.id}>
+                        <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
+                        <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                        <p>{entry.summary}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">{t("noAiAudit")}</p>
+                )}
+              </section>
+
+              <form className="settings-card" onSubmit={acceptInvite}>
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("acceptInvite")}</span>
+                    <h3>{t("inviteToken")}</h3>
+                  </div>
+                </div>
+                <label>
+                  <span>{t("inviteToken")}</span>
+                  <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} />
+                </label>
+                <button type="submit" className="secondary" disabled={saving || !acceptToken.trim()}>
+                  {t("accept")}
+                </button>
+              </form>
             </div>
-
-            <form className="inline-form" onSubmit={acceptInvite}>
-              <h3>{t("acceptInvite")}</h3>
-              <label>
-                <span>{t("inviteToken")}</span>
-                <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} />
-              </label>
-              <button type="submit" className="secondary" disabled={saving || !acceptToken.trim()}>
-                {t("accept")}
-              </button>
-            </form>
-          </aside>
+          </section>
           ) : null}
         </section>
       )}
