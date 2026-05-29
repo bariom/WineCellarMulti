@@ -1,0 +1,77 @@
+:root {
+  font-family: "Segoe UI", sans-serif;
+  color: #1d140f;
+  background:
+    radial-gradient(circle at top left, #f6e4c8 0, transparent 30%),
+    linear-gradient(180deg, #f8f2e8 0%, #efe1d0 100%);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+.app-shell {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 56px 24px 80px;
+}
+
+.hero {
+  padding: 32px;
+  border: 1px solid rgba(92, 60, 37, 0.18);
+  border-radius: 28px;
+  background: rgba(255, 252, 247, 0.82);
+  backdrop-filter: blur(12px);
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #7b5a42;
+}
+
+.hero h1 {
+  margin: 0 0 12px;
+  font-size: clamp(2.2rem, 6vw, 4.4rem);
+  line-height: 0.96;
+}
+
+.lede {
+  margin: 0;
+  max-width: 56ch;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: #5f4636;
+}
+
+.panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.panel {
+  padding: 20px;
+  border-radius: 22px;
+  background: #fffaf4;
+  border: 1px solid rgba(92, 60, 37, 0.14);
+}
+
+.panel h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.panel p {
+  margin: 0;
+  color: #5f4636;
+}
