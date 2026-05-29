@@ -1756,7 +1756,10 @@ export function App() {
     setGeneratingAi(feature);
     setError("");
     try {
-      const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, { method: "POST" });
+      const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
+        method: "POST",
+        body: JSON.stringify({ locale }),
+      });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
@@ -1771,7 +1774,10 @@ export function App() {
     setGeneratingAi(`wishlist-${feature}`);
     setError("");
     try {
-      const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/${feature}`, { method: "POST" });
+      const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/${feature}`, {
+        method: "POST",
+        body: JSON.stringify({ locale }),
+      });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
@@ -1797,6 +1803,7 @@ export function App() {
           dish: pairingDish.trim(),
           include_market: pairingIncludeMarket,
           market_only: pairingMarketOnly,
+          locale,
         }),
       });
       setPairingResult(result);

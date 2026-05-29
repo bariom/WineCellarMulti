@@ -16,6 +16,7 @@ from app.core.crypto import decrypt_secret, encrypt_secret
 from app.db.session import get_db
 from app.models import AiAuditLog, UserAiSettings, Wine, WishlistItem
 from app.schemas.ai import (
+    AiGenerationRequest,
     AiAuditLogResponse,
     AiSettingsResponse,
     AiSettingsUpdate,
@@ -40,6 +41,15 @@ MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
     "gpt-5.5": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
 }
+
+
+def response_language(locale: str) -> str:
+    return "Italian" if locale == "it" else "English"
+
+
+def response_language_instruction(locale: str) -> str:
+    language = response_language(locale)
+    return f"Write all user-facing prose in {language}. Keep structured status/priority labels concise and localized when natural."
 
 
 def validate_model(model: str) -> str:
@@ -397,7 +407,8 @@ def suggest_pairing(
             "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
             "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
             "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
-            "Non inventare che un vino e in cantina se non e nel contesto. Usa italiano corretto."
+            "Non inventare che un vino e in cantina se non e nel contesto. "
+            f"{response_language_instruction(payload.locale)}"
         ),
         (
             f"Piatto o pietanza: {payload.dish}\n"
@@ -429,6 +440,7 @@ def suggest_pairing(
 @router.post("/wines/{wine_id}/notes", response_model=WineResponse)
 def generate_wine_notes(
     wine_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
@@ -436,7 +448,7 @@ def generate_wine_notes(
     user_settings = get_or_create_user_ai_settings(db, context)
     response = create_response(
         user_settings.ai_notes_model,
-        "You are a concise wine expert. Write in Italian. Do not invent exact facts; say when evidence is limited.",
+        f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
         f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
         api_key=user_openai_api_key(user_settings),
     )
@@ -451,6 +463,7 @@ def generate_wine_notes(
 @router.post("/wines/{wine_id}/drink-window", response_model=WineResponse)
 def generate_drink_window(
     wine_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
@@ -473,8 +486,8 @@ def generate_drink_window(
     }
     response = create_response(
         user_settings.drink_window_model,
-        "You are a conservative wine cellar planner. Return JSON only.",
-        f"Estimate a drinking window for this wine. Use realistic years and concise Italian notes.\n\n{wine_context(wine)}",
+        f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
+        f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_context(wine)}",
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
@@ -502,6 +515,7 @@ def generate_drink_window(
 @router.post("/wines/{wine_id}/value", response_model=WineResponse)
 def generate_wine_value(
     wine_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
@@ -522,7 +536,7 @@ def generate_wine_value(
     }
     response = create_response(
         user_settings.value_model,
-        "You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty.",
+        f"You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty. {response_language_instruction(payload.locale)}",
         f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}.\n\n{wine_context(wine)}",
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,
@@ -554,6 +568,7 @@ def generate_wine_value(
 @router.post("/wines/{wine_id}/grapes", response_model=WineResponse)
 def generate_grapes(
     wine_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
@@ -585,7 +600,7 @@ def generate_grapes(
     }
     response = create_response(
         user_settings.grape_model,
-        "You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable.",
+        f"You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable. {response_language_instruction(payload.locale)}",
         f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,
@@ -613,6 +628,7 @@ def generate_grapes(
 @router.post("/wishlist/{item_id}/strategy", response_model=WishlistResponse)
 def generate_wishlist_strategy(
     item_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
@@ -634,7 +650,7 @@ def generate_wishlist_strategy(
     }
     response = create_response(
         user_settings.wishlist_model,
-        "You are a pragmatic wine buying advisor. Return JSON only. Write text fields in Italian.",
+        f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
         f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,
@@ -662,6 +678,7 @@ def generate_wishlist_strategy(
 @router.post("/wishlist/{item_id}/purpose", response_model=WishlistResponse)
 def generate_wishlist_purpose(
     item_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
@@ -682,7 +699,7 @@ def generate_wishlist_purpose(
     }
     response = create_response(
         user_settings.wishlist_model,
-        "You decide the best purpose for a wishlist wine. Return JSON only. Write advice in Italian.",
+        f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
         f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_context(item)}",
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,
@@ -709,6 +726,7 @@ def generate_wishlist_purpose(
 @router.post("/wishlist/{item_id}/target-price", response_model=WishlistResponse)
 def generate_wishlist_target_price(
     item_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
@@ -730,7 +748,7 @@ def generate_wishlist_target_price(
     }
     response = create_response(
         user_settings.value_model,
-        "You estimate a sensible target purchase price for a wishlist wine. Return JSON only. Be conservative and write advice in Italian.",
+        f"You estimate a sensible target purchase price for a wishlist wine. Return JSON only. Be conservative. {response_language_instruction(payload.locale)}",
         f"Suggest a target buy price for this wishlist item. Keep currency preferably {item.currency}.\n\n{wishlist_context(item)}",
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,

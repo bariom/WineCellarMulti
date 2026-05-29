@@ -64,10 +64,15 @@ class AiSettingsUpdate(BaseModel):
     pairing_model: str | None = None
 
 
+class AiGenerationRequest(BaseModel):
+    locale: str = Field(default="it", pattern="^(it|en)$")
+
+
 class PairingRequest(BaseModel):
     dish: str = Field(min_length=2, max_length=240)
     include_market: bool = False
     market_only: bool = False
+    locale: str = Field(default="it", pattern="^(it|en)$")
 
 
 class PairingCellarMatch(BaseModel):
