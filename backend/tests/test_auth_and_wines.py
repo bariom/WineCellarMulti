@@ -233,6 +233,8 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
                     "target_price": 30,
                     "priority": "High",
                     "purpose": "Drink",
+                    "ai_strategy": '{"signal":"Buon prezzo","reason":"Sotto mercato.","price_assessment":"Target interessante.","market_price_low":40,"market_price_high":50,"market_price_currency":"CHF"}',
+                    "ai_purpose_advice": '{"recommended_purpose":"Cellar","signal":"Da cantina","reason":"Annata giovane.","confidence":"medium"}',
                 },
             ],
         },
@@ -250,6 +252,8 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert wishlist.status_code == 200
     assert wishlist.json()[0]["name"] == "Wanted Wine"
     assert wishlist.json()[0]["priority"] == "High"
+    assert wishlist.json()[0]["ai_strategy"] == "Buon prezzo. Sotto mercato. Target interessante. Fascia mercato stimata: CHF 40-50."
+    assert wishlist.json()[0]["ai_purpose_advice"] == "Scopo consigliato: Cellar. Da cantina. Annata giovane. Confidenza: medium."
 
     wishlist_id = wishlist.json()[0]["id"]
     converted = client.post(f"/api/v1/wishlist/{wishlist_id}/convert")

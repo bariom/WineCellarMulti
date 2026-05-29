@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+import json
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -32,6 +33,52 @@ def as_uuid(value: Any) -> UUID:
 
 def as_str(value: Any) -> str:
     return "" if value is None else str(value).strip()
+
+
+def as_legacy_ai_text(value: Any, *, kind: str) -> str:
+    if value in (None, ""):
+        return ""
+    parsed = value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return ""
+        if not text.startswith(("{", "[")):
+            return text
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return text
+    if not isinstance(parsed, dict):
+        return as_str(value)
+
+    if kind == "strategy":
+        parts = [
+            as_str(parsed.get("signal")),
+            as_str(parsed.get("reason")),
+            as_str(parsed.get("price_assessment")),
+        ]
+        low = parsed.get("market_price_low")
+        high = parsed.get("market_price_high")
+        currency = as_str(parsed.get("market_price_currency"))
+        if low is not None and high is not None and currency:
+            parts.append(f"Fascia mercato stimata: {currency} {low}-{high}.")
+        alternative = parsed.get("alternative")
+        if isinstance(alternative, dict) and (alternative.get("name") or alternative.get("producer")):
+            parts.append(f"Alternativa: {as_str(alternative.get('producer'))} {as_str(alternative.get('name'))}.".strip())
+        return " ".join(part.rstrip(".") + "." for part in parts if part)
+
+    parts = [
+        as_str(parsed.get("signal")),
+        as_str(parsed.get("reason")),
+    ]
+    confidence = as_str(parsed.get("confidence"))
+    if confidence:
+        parts.append(f"Confidenza: {confidence}.")
+    recommended = as_str(parsed.get("recommended_purpose"))
+    if recommended:
+        parts.insert(0, f"Scopo consigliato: {recommended}.")
+    return " ".join(part.rstrip(".") + "." for part in parts if part)
 
 
 def as_int(value: Any, default: int = 0) -> int:
@@ -142,8 +189,8 @@ def legacy_wishlist_data(raw: dict[str, Any], context: CurrentContext) -> dict[s
         "status_source": as_str(raw.get("status_source")) or "manual",
         "is_shared": "1" if raw.get("is_shared") in (True, "1", 1, "true") else "0",
         "notes": as_str(raw.get("notes")),
-        "ai_strategy": as_str(raw.get("ai_strategy")),
-        "ai_purpose_advice": as_str(raw.get("ai_purpose_advice")),
+        "ai_strategy": as_legacy_ai_text(raw.get("ai_strategy"), kind="strategy"),
+        "ai_purpose_advice": as_legacy_ai_text(raw.get("ai_purpose_advice"), kind="purpose"),
     }
 
 

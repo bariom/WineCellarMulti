@@ -208,6 +208,7 @@ const translations = {
     addWine: "Add wine",
     addWishlist: "Add wishlist",
     aiNotes: "AI notes",
+    aiPurpose: "AI purpose",
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
     aiAudit: "AI audit",
@@ -328,6 +329,7 @@ const translations = {
     addWine: "Aggiungi vino",
     addWishlist: "Aggiungi wishlist",
     aiNotes: "Note AI",
+    aiPurpose: "Scopo AI",
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
     aiAudit: "Audit AI",
@@ -628,6 +630,35 @@ function formatUsd(value: string | number) {
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: amount < 1 ? 4 : 2, maximumFractionDigits: 4 }).format(amount);
 }
 
+function readableLegacyAiText(value: string, kind: "strategy" | "purpose") {
+  const text = value.trim();
+  if (!text.startsWith("{") && !text.startsWith("[")) return text;
+  try {
+    const parsed = JSON.parse(text) as Record<string, unknown>;
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") return text;
+    if (kind === "strategy") {
+      const parts = [
+        parsed.signal,
+        parsed.reason,
+        parsed.price_assessment,
+      ].map((part) => String(part || "").trim()).filter(Boolean);
+      if (parsed.market_price_low && parsed.market_price_high && parsed.market_price_currency) {
+        parts.push(`Fascia mercato stimata: ${parsed.market_price_currency} ${parsed.market_price_low}-${parsed.market_price_high}.`);
+      }
+      return parts.map((part) => part.endsWith(".") ? part : `${part}.`).join(" ");
+    }
+    const parts = [
+      parsed.recommended_purpose ? `Scopo consigliato: ${parsed.recommended_purpose}.` : "",
+      parsed.signal,
+      parsed.reason,
+      parsed.confidence ? `Confidenza: ${parsed.confidence}.` : "",
+    ].map((part) => String(part || "").trim()).filter(Boolean);
+    return parts.map((part) => part.endsWith(".") ? part : `${part}.`).join(" ");
+  } catch {
+    return text;
+  }
+}
+
 function uniqueSorted(values: string[]) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((first, second) => first.localeCompare(second));
 }
@@ -874,8 +905,8 @@ function WishlistDetail({
       ) : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
         <div className="detail-section notes-section">
-          {item.ai_strategy ? <p><strong>{t("aiStrategy")}</strong>{item.ai_strategy}</p> : null}
-          {item.ai_purpose_advice ? <p><strong>{t("purpose")}</strong>{item.ai_purpose_advice}</p> : null}
+          {item.ai_strategy ? <p><strong>{t("aiStrategy")}</strong>{readableLegacyAiText(item.ai_strategy, "strategy")}</p> : null}
+          {item.ai_purpose_advice ? <p><strong>{t("aiPurpose")}</strong>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</p> : null}
         </div>
       ) : null}
     </section>
