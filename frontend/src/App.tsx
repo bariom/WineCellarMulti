@@ -209,6 +209,7 @@ type AuthDraft = {
 
 type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
+type DashboardFocus = "collector" | "value" | "readiness" | "data";
 type ThemePreference = "system" | "light" | "dark" | "sepia";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
@@ -252,9 +253,11 @@ const translations = {
     configured: "Configured",
     createWine: "Create wine",
     createWishlist: "Create wishlist",
+    currentYear: "Current year",
     currentValue: "Current value",
     currency: "Currency",
     dataQuality: "Data quality",
+    dataFocus: "Data quality",
     delete: "Delete",
     delivery: "Delivery",
     drinkIn2Years: "Drink in 2 years",
@@ -281,6 +284,7 @@ const translations = {
     upcomingDeliveries: "Upcoming deliveries",
     incompleteData: "Incomplete data",
     maturityMap: "Maturity map",
+    peakNow: "At peak now",
     valueByProducer: "Value by producer",
     investedMore: "Where you invested more",
     collectorFocus: "Collector focus",
@@ -373,6 +377,7 @@ const translations = {
     totalValue: "Total value",
     type: "Type",
     value: "Value",
+    valueFocus: "Value",
     valueByType: "Value by type",
     viewerReadOnly: "Viewer access: you can read this cellar, but cannot change wines.",
     vintage: "Vintage",
@@ -422,9 +427,11 @@ const translations = {
     configured: "Configurata",
     createWine: "Crea vino",
     createWishlist: "Crea wishlist",
+    currentYear: "Anno corrente",
     currentValue: "Valore attuale",
     currency: "Valuta",
     dataQuality: "Qualita dati",
+    dataFocus: "Qualita dati",
     delete: "Elimina",
     delivery: "Consegna",
     drinkIn2Years: "Da bere entro 2 anni",
@@ -451,6 +458,7 @@ const translations = {
     upcomingDeliveries: "Consegne in arrivo",
     incompleteData: "Dati incompleti",
     maturityMap: "Mappa maturita",
+    peakNow: "Al picco ora",
     valueByProducer: "Valore per produttore",
     investedMore: "Dove hai investito di piu",
     collectorFocus: "Focus collezionista",
@@ -543,6 +551,7 @@ const translations = {
     totalValue: "Valore totale",
     type: "Tipo",
     value: "Valore",
+    valueFocus: "Valore",
     valueByType: "Valore per tipo",
     viewerReadOnly: "Accesso viewer: puoi leggere questa cantina, ma non modificare i vini.",
     vintage: "Annata",
@@ -1023,6 +1032,9 @@ function WineDetail({
   const peakLeft = Math.min(Math.max(((peakStart - drinkStart) / span) * 100, 0), 96);
   const peakWidth = Math.max(((peakEnd - peakStart) / span) * 100, 4);
   const peakRightBound = Math.max(100 - peakLeft, 4);
+  const currentYear = new Date().getFullYear();
+  const currentYearInWindow = currentYear >= drinkStart && currentYear <= drinkEnd;
+  const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
 
   return (
     <section className={`wine-detail tone-${wineTone(wine.type)}`}>
@@ -1071,6 +1083,15 @@ function WineDetail({
           </div>
           <div className="window-track">
             <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
+            {currentYearInWindow ? (
+              <span
+                className="window-current-year"
+                style={{ left: `${currentYearLeft}%` }}
+                aria-label={`${t("currentYear")}: ${currentYear}`}
+              >
+                <span>{currentYear}</span>
+              </span>
+            ) : null}
           </div>
           <div className="window-labels">
             <span>{drinkStart}</span>
@@ -1235,7 +1256,8 @@ export function App() {
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "settings">("home");
+  const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "settings">("home");
+  const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -1880,9 +1902,29 @@ export function App() {
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
+  const peakNowWines = wines
+    .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
+    .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
+    .slice(0, 5);
+  const drinkSoonWines = wines
+    .filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2)
+    .sort((first, second) => (first.drink_from || 9999) - (second.drink_from || 9999))
+    .slice(0, 5);
+  const topValueWines = [...wines]
+    .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
+    .slice(0, 5);
+  const missingValueWines = wines.filter((wine) => !wine.current_value).slice(0, 5);
+  const missingDrinkWindowWines = wines.filter((wine) => !wine.drink_from || !wine.drink_to).slice(0, 5);
+  const missingScoresWines = wines.filter((wine) => wine.scores.length === 0).slice(0, 5);
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
   const isCollectionView = activeView === "cellar" || activeView === "wishlist";
+  const dashboardFocusLabels: Record<DashboardFocus, string> = {
+    collector: t("collectorFocus"),
+    value: t("valueFocus"),
+    readiness: t("drinkingWindow"),
+    data: t("dataFocus"),
+  };
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -1942,6 +1984,82 @@ export function App() {
     setSelectedWineId(wine.id);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
+  }
+
+  function renderPairingSection() {
+    return (
+      <section className="pairing-card">
+        <div className="card-heading">
+          <div>
+            <span>{t("pairing")}</span>
+            <h2>{t("pairingSubmit")}</h2>
+          </div>
+          {pairingResult?.model ? <strong>{pairingResult.model}</strong> : null}
+        </div>
+        <form className="pairing-form" onSubmit={generatePairing}>
+          <label>
+            <span>{t("pairingDish")}</span>
+            <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+          </label>
+          <label className="pairing-option">
+            <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
+            <span>{t("pairingIncludeMarket")}</span>
+          </label>
+          <label className="pairing-option">
+            <input type="checkbox" checked={pairingMarketOnly} onChange={(event) => setPairingMarketOnly(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
+            <span>{t("pairingMarketOnly")}</span>
+          </label>
+          <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
+            {generatingAi === "pairing" ? t("generating") : t("pairingSubmit")}
+          </button>
+          {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
+        </form>
+        {pairingResult ? (
+          <div className="pairing-result">
+            {pairingResult.summary ? <p className="pairing-summary">{pairingResult.summary}</p> : null}
+            {pairingResult.cellar_matches.length ? (
+              <section>
+                <h3>{t("pairingCellarMatches")}</h3>
+                <div className="pairing-match-list">
+                  {pairingResult.cellar_matches.map((match) => (
+                    <button type="button" className="pairing-match" key={match.wine_id} onClick={() => {
+                      const wine = wines.find((item) => item.id === match.wine_id);
+                      if (wine) openWineFromDashboard(wine);
+                    }}>
+                      <strong>{match.wine_name}</strong>
+                      <span>{match.producer}</span>
+                      <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
+                      {match.serving_note ? <span>{match.serving_note}</span> : null}
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ) : <p className="pairing-summary">{t("pairingNoCellarMatch")}</p>}
+            {Object.values(pairingResult.market_recommendations).some((items) => items.length > 0) ? (
+              <section>
+                <h3>{t("pairingMarketFallback")}</h3>
+                <div className="pairing-market-grid">
+                  {(["low", "medium", "high"] as const).map((tier) => pairingResult.market_recommendations[tier]?.length ? (
+                    <div className="pairing-market-tier" key={tier}>
+                      <h4>{tier}</h4>
+                      {pairingResult.market_recommendations[tier].map((item) => (
+                        <article key={`${tier}-${item.name}-${item.producer}`}>
+                          <strong>{item.name}</strong>
+                          {item.producer ? <span>{item.producer}</span> : null}
+                          {item.price_hint ? <span>{item.price_hint}</span> : null}
+                          <p>{item.reason}</p>
+                        </article>
+                      ))}
+                    </div>
+                  ) : null)}
+                </div>
+              </section>
+            ) : null}
+            {pairingResult.model ? <p className="pairing-model-used">{t("pairingModelUsed")}: {pairingResult.model}</p> : null}
+          </div>
+        ) : null}
+      </section>
+    );
   }
 
   return (
@@ -2049,7 +2167,7 @@ export function App() {
           </form>
         </section>
       ) : (
-        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" ? "home-workspace" : "content-workspace"}`}>
+        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" ? "home-workspace" : "content-workspace"}`}>
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
               {t("home")}
@@ -2060,6 +2178,9 @@ export function App() {
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters(); }}>
               {t("wishlist")} ({wishlist.length})
             </button>
+            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+              {t("pairing")}
+            </button>
             <button type="button" className={activeView === "settings" ? "" : "secondary"} onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
               {t("settings")}
             </button>
@@ -2069,7 +2190,7 @@ export function App() {
               <section className="hero-panel">
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
-                  <h2>{t("collectorFocus")}</h2>
+                  <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
                   <p>{session?.active_household_name || "Wine Cellar"}: {wines.length} {t("wines").toLowerCase()}, {wishlist.length} {t("wishlist").toLowerCase()}.</p>
                 </div>
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
@@ -2091,78 +2212,22 @@ export function App() {
                 </div>
               </section>
 
-              <section className="pairing-card">
-                <div className="card-heading">
-                  <div>
-                    <span>{t("pairing")}</span>
-                    <h2>{t("pairingSubmit")}</h2>
-                  </div>
-                  {pairingResult?.model ? <strong>{pairingResult.model}</strong> : null}
-                </div>
-                <form className="pairing-form" onSubmit={generatePairing}>
-                  <label>
-                    <span>{t("pairingDish")}</span>
-                    <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
-                  </label>
-                  <label className="pairing-option">
-                    <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
-                    <span>{t("pairingIncludeMarket")}</span>
-                  </label>
-                  <label className="pairing-option">
-                    <input type="checkbox" checked={pairingMarketOnly} onChange={(event) => setPairingMarketOnly(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
-                    <span>{t("pairingMarketOnly")}</span>
-                  </label>
-                  <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
-                    {generatingAi === "pairing" ? t("generating") : t("pairingSubmit")}
+              <div className="focus-switcher" role="tablist" aria-label={t("dashboard")}>
+                {(["collector", "value", "readiness", "data"] as DashboardFocus[]).map((focus) => (
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={dashboardFocus === focus}
+                    className={dashboardFocus === focus ? "" : "secondary"}
+                    key={focus}
+                    onClick={() => setDashboardFocus(focus)}
+                  >
+                    {dashboardFocusLabels[focus]}
                   </button>
-                  {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
-                </form>
-                {pairingResult ? (
-                  <div className="pairing-result">
-                    {pairingResult.summary ? <p className="pairing-summary">{pairingResult.summary}</p> : null}
-                    {pairingResult.cellar_matches.length ? (
-                      <section>
-                        <h3>{t("pairingCellarMatches")}</h3>
-                        <div className="pairing-match-list">
-                          {pairingResult.cellar_matches.map((match) => (
-                            <button type="button" className="pairing-match" key={match.wine_id} onClick={() => {
-                              const wine = wines.find((item) => item.id === match.wine_id);
-                              if (wine) openWineFromDashboard(wine);
-                            }}>
-                              <strong>{match.wine_name}</strong>
-                              <span>{match.producer}</span>
-                              <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
-                              {match.serving_note ? <span>{match.serving_note}</span> : null}
-                            </button>
-                          ))}
-                        </div>
-                      </section>
-                    ) : <p className="pairing-summary">{t("pairingNoCellarMatch")}</p>}
-                    {Object.values(pairingResult.market_recommendations).some((items) => items.length > 0) ? (
-                      <section>
-                        <h3>{t("pairingMarketFallback")}</h3>
-                        <div className="pairing-market-grid">
-                          {(["low", "medium", "high"] as const).map((tier) => pairingResult.market_recommendations[tier]?.length ? (
-                            <div className="pairing-market-tier" key={tier}>
-                              <h4>{tier}</h4>
-                              {pairingResult.market_recommendations[tier].map((item) => (
-                                <article key={`${tier}-${item.name}-${item.producer}`}>
-                                  <strong>{item.name}</strong>
-                                  {item.producer ? <span>{item.producer}</span> : null}
-                                  {item.price_hint ? <span>{item.price_hint}</span> : null}
-                                  <p>{item.reason}</p>
-                                </article>
-                              ))}
-                            </div>
-                          ) : null)}
-                        </div>
-                      </section>
-                    ) : null}
-                    {pairingResult.model ? <p className="pairing-model-used">{t("pairingModelUsed")}: {pairingResult.model}</p> : null}
-                  </div>
-                ) : null}
-              </section>
+                ))}
+              </div>
 
+              {dashboardFocus === "collector" ? (
               <section className="dashboard-grid" aria-label={t("priorityActions")}>
                 <article className="dashboard-card priority-card">
                   <div className="card-heading">
@@ -2290,6 +2355,234 @@ export function App() {
                   </div>
                 </article>
               </section>
+              ) : null}
+
+              {dashboardFocus === "value" ? (
+                <section className="dashboard-grid" aria-label={t("valueFocus")}>
+                  <article className="dashboard-card priority-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("totalValue")}</span>
+                        <h2>CHF {cellarStats.totalValue.toFixed(0)}</h2>
+                      </div>
+                      <strong>{formatBottleCount(cellarStats.bottles)}</strong>
+                    </div>
+                    <p>{t("myBottles")}: CHF {cellarStats.myValue.toFixed(0)} · {t("sharedBottles")}: CHF {cellarStats.sharedValue.toFixed(0)}</p>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingValue")}</span>
+                        <h2>{t("dataQuality")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingValue}</strong>
+                    </div>
+                    <div className="action-list">
+                      {missingValueWines.length ? missingValueWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{t("value")}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card wide-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("investedMore")}</span>
+                        <h2>{t("topRegions")}</h2>
+                      </div>
+                    </div>
+                    <div className="bar-list">
+                      {valueByRegion.map((item) => (
+                        <div className="bar-row" key={item.label}>
+                          <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                          <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("valueByProducer")}</span>
+                        <h2>{t("producer")}</h2>
+                      </div>
+                    </div>
+                    <div className="bar-list">
+                      {valueByProducer.map((item) => (
+                        <div className="bar-row" key={item.label}>
+                          <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                          <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("valueFocus")}</span>
+                        <h2>{t("wines")}</h2>
+                      </div>
+                    </div>
+                    <div className="action-list">
+                      {topValueWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>CHF {wineUnitValue(wine).toFixed(0)}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+                </section>
+              ) : null}
+
+              {dashboardFocus === "readiness" ? (
+                <section className="dashboard-grid" aria-label={t("drinkingWindow")}>
+                  <article className="dashboard-card priority-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("peakNow")}</span>
+                        <h2>{t("drinkNow")}</h2>
+                      </div>
+                      <strong>{peakNowWines.length}</strong>
+                    </div>
+                    <div className="action-list">
+                      {peakNowWines.length ? peakNowWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{wine.drink_peak_from}-{wine.drink_peak_to}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("drinkIn2Years")}</span>
+                        <h2>{t("drinkingWindow")}</h2>
+                      </div>
+                      <strong>{cellarStats.drinkSoon}</strong>
+                    </div>
+                    <div className="action-list">
+                      {drinkSoonWines.length ? drinkSoonWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{wine.drink_from}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("atRiskWines")}</span>
+                        <h2>{t("pastWindow")}</h2>
+                      </div>
+                      <strong>{cellarStats.pastWindow}</strong>
+                    </div>
+                    <div className="action-list">
+                      {atRiskWines.length ? atRiskWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{wine.drink_to}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card wide-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("maturityMap")}</span>
+                        <h2>{t("drinkingWindow")}</h2>
+                      </div>
+                    </div>
+                    <div className="maturity-grid">
+                      {maturity.map((bucket) => (
+                        <div className="maturity-item" key={bucket.key}>
+                          <div>
+                            <span>{bucket.label}</span>
+                            <strong>{bucket.value}</strong>
+                          </div>
+                          <div className="maturity-track"><span style={{ width: `${bucket.pct}%` }} /></div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+                </section>
+              ) : null}
+
+              {dashboardFocus === "data" ? (
+                <section className="dashboard-grid" aria-label={t("dataFocus")}>
+                  <article className="dashboard-card priority-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("incompleteData")}</span>
+                        <h2>{t("dataQuality")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingScores}</strong>
+                    </div>
+                    <p>{t("aiReadinessHelp")}</p>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingValue")}</span>
+                        <h2>{t("value")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingValue}</strong>
+                    </div>
+                    <div className="action-list">
+                      {missingValueWines.length ? missingValueWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{t("value")}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingDrinkWindow")}</span>
+                        <h2>{t("drinkWindow")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingDrinkWindow}</strong>
+                    </div>
+                    <div className="action-list">
+                      {missingDrinkWindowWines.length ? missingDrinkWindowWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{t("drinkWindow")}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingScores")}</span>
+                        <h2>{t("scores")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingScores}</strong>
+                    </div>
+                    <div className="action-list">
+                      {missingScoresWines.length ? missingScoresWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{t("scores")}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                </section>
+              ) : null}
+            </section>
+          ) : null}
+
+          {activeView === "pairing" ? (
+            <section className="pairing-view">
+              {renderPairingSection()}
             </section>
           ) : null}
 
