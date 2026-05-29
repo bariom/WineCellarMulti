@@ -225,6 +225,7 @@ const translations = {
     aiTargetPrice: "AI target price",
     aiUsage: "AI usage",
     allTime: "All time",
+    allBottles: "All bottles",
     allStatuses: "All statuses",
     allTags: "All tags",
     allTypes: "All types",
@@ -303,6 +304,7 @@ const translations = {
     notes: "Notes",
     ownerShare: "Owner share",
     orderDate: "Order date",
+    ownership: "Ownership",
     password: "Password",
     pastWindow: "Past window",
     pendingInvites: "Pending invites",
@@ -375,6 +377,7 @@ const translations = {
     aiTargetPrice: "Prezzo target AI",
     aiUsage: "Uso AI",
     allTime: "Totale",
+    allBottles: "Tutte le bottiglie",
     allStatuses: "Tutti gli stati",
     allTags: "Tutti i tag",
     allTypes: "Tutti i tipi",
@@ -453,6 +456,7 @@ const translations = {
     notes: "Note",
     ownerShare: "Quota proprietario",
     orderDate: "Data ordine",
+    ownership: "Proprieta",
     password: "Password",
     pastWindow: "Finestra scaduta",
     pendingInvites: "Inviti pendenti",
@@ -817,7 +821,7 @@ function topProducerGroups(items: Wine[]) {
 }
 
 function formatBottleCount(value: number) {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+  return String(Math.round(value));
 }
 
 function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
@@ -1138,6 +1142,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [ownershipFilter, setOwnershipFilter] = useState("");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
@@ -1643,6 +1648,13 @@ export function App() {
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
     .filter((wine) => !typeFilter || wine.type === typeFilter)
     .filter((wine) => !statusFilter || wine.status === statusFilter)
+    .filter((wine) => {
+      if (!ownershipFilter) return true;
+      const share = currentUserSharePct(wine, session);
+      if (ownershipFilter === "mine") return share > 0;
+      if (ownershipFilter === "shared") return share < 100;
+      return true;
+    })
     .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
     .sort((first, second) => {
       if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
@@ -1762,6 +1774,7 @@ export function App() {
     setSearchQuery("");
     setTypeFilter("");
     setStatusFilter("");
+    setOwnershipFilter("");
     setTagFilter([]);
     setSortMode("name");
   }
@@ -2334,17 +2347,17 @@ export function App() {
               <section className="stats-panel">
                 <div className="stat-card ownership-stat">
                   <span>{t("myBottles")}</span>
-                  <strong>{cellarStats.myBottles.toFixed(1)}</strong>
+                  <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
                   <p>CHF {cellarStats.myValue.toFixed(0)}</p>
                 </div>
                 <div className="stat-card ownership-stat">
                   <span>{t("sharedBottles")}</span>
-                  <strong>{cellarStats.sharedBottles.toFixed(1)}</strong>
+                  <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
                   <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
                 </div>
                 <div className="stat-card ownership-stat">
                   <span>{t("totalValue")}</span>
-                  <strong>{cellarStats.bottles}</strong>
+                  <strong>{formatBottleCount(cellarStats.bottles)}</strong>
                   <p>CHF {cellarStats.totalValue.toFixed(0)}</p>
                 </div>
                 <div className="stat-card">
@@ -2450,6 +2463,16 @@ export function App() {
                       )) : <span className="empty-state">{t("allTags")}</span>}
                     </div>
                   </div>
+                ) : null}
+                {activeView === "cellar" ? (
+                  <label>
+                    <span>{t("ownership")}</span>
+                    <select value={ownershipFilter} onChange={(event) => setOwnershipFilter(event.target.value)}>
+                      <option value="">{t("allBottles")}</option>
+                      <option value="mine">{t("myBottles")}</option>
+                      <option value="shared">{t("sharedBottles")}</option>
+                    </select>
+                  </label>
                 ) : null}
                 <label>
                   <span>{t("sort")}</span>
