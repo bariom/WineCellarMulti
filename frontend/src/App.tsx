@@ -212,6 +212,123 @@ function inviteLink(token: string) {
   return url.toString();
 }
 
+function formatDisplayDate(value: string | null) {
+  if (!value) return "";
+  const date = new Date(`${value.slice(0, 10)}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("it-CH").format(date);
+}
+
+function formatGrape(grape: Wine["grapes"][number]) {
+  const from = grape.percentage_from;
+  const to = grape.percentage_to;
+  if (from && to && from !== to) return `${grape.name} ${from}-${to}%`;
+  if (from || to) return `${grape.name} ${from || to}%`;
+  return grape.name;
+}
+
+function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {
+  return (
+    <div className="detail-field">
+      <span>{label}</span>
+      <strong>{value || "Not specified"}</strong>
+    </div>
+  );
+}
+
+function WineDetail({ wine }: { wine: Wine }) {
+  const drinkStart = wine.drink_from || Number(wine.vintage) || new Date().getFullYear();
+  const drinkEnd = wine.drink_to || drinkStart;
+  const peakStart = wine.drink_peak_from || drinkStart;
+  const peakEnd = wine.drink_peak_to || drinkEnd;
+  const span = Math.max(drinkEnd - drinkStart, 1);
+  const peakLeft = Math.min(Math.max(((peakStart - drinkStart) / span) * 100, 0), 96);
+  const peakWidth = Math.max(((peakEnd - peakStart) / span) * 100, 4);
+  const peakRightBound = Math.max(100 - peakLeft, 4);
+
+  return (
+    <section className="wine-detail">
+      <div className="detail-title">
+        <div>
+          <p className="eyebrow">Wine detail</p>
+          <h2>{wine.name}</h2>
+          <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
+        </div>
+        <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+      </div>
+
+      <div className="detail-grid">
+        <DetailField label="Format" value={wine.format} />
+        <DetailField label="Type" value={wine.type} />
+        <DetailField label="Status" value={wine.status} />
+        <DetailField label="Quantity" value={`${wine.quantity} bottles`} />
+        <DetailField label="Purchase price" value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
+        <DetailField label="Current value" value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} />
+        <DetailField label="Merchant" value={wine.merchant} />
+        <DetailField label="Delivery" value={formatDisplayDate(wine.expected_delivery)} />
+      </div>
+
+      {(wine.drink_from || wine.drink_to) ? (
+        <div className="drink-window">
+          <div className="section-heading">
+            <h3>Drinking window</h3>
+            <span>{drinkStart}-{drinkEnd}</span>
+          </div>
+          <div className="window-track">
+            <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
+          </div>
+          <div className="window-labels">
+            <span>{drinkStart}</span>
+            <span>Peak {peakStart}-{peakEnd}</span>
+            <span>{drinkEnd}</span>
+          </div>
+          {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
+        </div>
+      ) : null}
+
+      {wine.scores.length ? (
+        <div className="detail-section">
+          <h3>Scores</h3>
+          <ul>
+            {wine.scores.map((score, index) => (
+              <li key={`${score.critic}-${index}`}>
+                <strong>{score.critic} {score.score}</strong>
+                {score.note ? <span>{score.note}</span> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {wine.grapes.length ? (
+        <div className="detail-section">
+          <h3>Grapes</h3>
+          <div className="chip-list">
+            {wine.grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
+          </div>
+        </div>
+      ) : null}
+
+      {wine.tags.length ? (
+        <div className="detail-section">
+          <h3>Tags</h3>
+          <div className="chip-list">
+            {wine.tags.map((tag) => <span key={tag}>{tag}</span>)}
+          </div>
+        </div>
+      ) : null}
+
+      {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
+        <div className="detail-section notes-section">
+          {wine.notes ? <p><strong>Notes</strong>{wine.notes}</p> : null}
+          {wine.ai_notes ? <p><strong>AI notes</strong>{wine.ai_notes}</p> : null}
+          {wine.ai_value_notes ? <p><strong>Value notes</strong>{wine.ai_value_notes}</p> : null}
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -226,6 +343,7 @@ export function App() {
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeView, setActiveView] = useState<"cellar" | "wishlist">("cellar");
+  const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -240,6 +358,7 @@ export function App() {
   async function loadWines() {
     const nextWines = await api<Wine[]>("/api/v1/wines");
     setWines(nextWines);
+    setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : nextWines[0]?.id || null));
   }
 
   async function loadWishlist() {
@@ -308,8 +427,9 @@ export function App() {
     setWishlist([]);
     setHouseholdMemberships([]);
     setMembers([]);
-    setDraft(emptyDraft);
-    setEditingId(null);
+      setDraft(emptyDraft);
+      setEditingId(null);
+      setSelectedWineId(null);
   }
 
   async function switchHousehold(householdId: string) {
@@ -317,6 +437,7 @@ export function App() {
     await api<Session>("/api/v1/household/switch", { method: "POST", body: JSON.stringify({ household_id: householdId }) });
     setDraft(emptyDraft);
     setEditingId(null);
+    setSelectedWineId(null);
     await loadData();
   }
 
@@ -400,8 +521,9 @@ export function App() {
       } else {
         await api<Wine>("/api/v1/wines", { method: "POST", body: JSON.stringify(payload) });
       }
-      setDraft(emptyDraft);
-      setEditingId(null);
+    setDraft(emptyDraft);
+    setEditingId(null);
+    setSelectedWineId(null);
       await loadWines();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
@@ -445,6 +567,7 @@ export function App() {
   const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
   const canWriteWine = canAdmin || session?.membership_role === "member";
   const currentUserEmail = session?.user_email?.toLowerCase();
+  const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
 
   return (
     <main className="app-shell">
@@ -628,7 +751,7 @@ export function App() {
             {!loading && activeView === "cellar" && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
             {!loading && activeView === "wishlist" && wishlist.length === 0 ? <p className="empty-state">No wishlist items yet</p> : null}
             {activeView === "cellar" ? wines.map((wine) => (
-              <article className="wine-row" key={wine.id}>
+              <article className={selectedWineId === wine.id ? "wine-row selected" : "wine-row"} key={wine.id}>
                 <div>
                   <h3>{wine.name} <small>{wine.vintage}</small></h3>
                   <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
@@ -639,6 +762,9 @@ export function App() {
                 </div>
                 <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                 <div className="row-actions">
+                  <button type="button" className="secondary" onClick={() => setSelectedWineId(wine.id)}>
+                    Detail
+                  </button>
                   <button type="button" className="secondary" disabled={!canWriteWine} onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
                     Edit
                   </button>
@@ -661,6 +787,7 @@ export function App() {
                 </div>
               </article>
             ))}
+            {activeView === "cellar" && selectedWine ? <WineDetail wine={selectedWine} /> : null}
           </section>
 
           <aside className="team-panel">
