@@ -51,7 +51,7 @@ button.danger {
 .app-shell {
   max-width: 1440px;
   margin: 0 auto;
-  padding: 28px 24px 64px;
+  padding: 18px 24px 64px;
 }
 
 .topbar {
@@ -59,7 +59,8 @@ button.danger {
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding-bottom: 20px;
+  min-height: 104px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #d8ded7;
 }
 
@@ -74,18 +75,24 @@ button.danger {
 
 .topbar h1 {
   margin: 0;
-  font-size: 2rem;
+  font-size: 1.75rem;
   line-height: 1.1;
 }
 
 .session-pill {
-  display: grid;
-  justify-items: end;
-  gap: 6px;
-  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 10px;
   border: 1px solid #ccd5cd;
   border-radius: 8px;
   background: #fff;
+}
+
+.session-pill strong {
+  line-height: 1;
 }
 
 .session-pill span {
@@ -94,7 +101,7 @@ button.danger {
 }
 
 .session-pill select {
-  min-width: 180px;
+  min-width: 68px;
   padding: 6px 8px;
   font-size: 0.9rem;
 }
@@ -141,11 +148,11 @@ button.danger {
   display: grid;
   gap: 24px;
   align-items: start;
-  margin-top: 24px;
+  margin-top: 22px;
 }
 
 .content-workspace {
-  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+  grid-template-columns: minmax(460px, 560px) minmax(0, 1fr);
 }
 
 .settings-workspace {
@@ -259,8 +266,8 @@ textarea {
   display: grid;
   gap: 12px;
   position: sticky;
-  top: 18px;
-  max-height: calc(100vh - 36px);
+  top: 12px;
+  max-height: calc(100vh - 24px);
   overflow-y: auto;
   padding-right: 4px;
   scrollbar-gutter: stable;
@@ -732,6 +739,8 @@ textarea {
 
   .session-pill {
     justify-items: start;
+    justify-content: start;
+    flex-wrap: wrap;
   }
 
   .wine-side-panel,
