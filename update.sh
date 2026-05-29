@@ -9,6 +9,12 @@ echo "Updating source code"
 cd "$ROOT_DIR"
 git pull --ff-only
 
+if [[ ! -f "$ROOT_DIR/.env" || ! -f "$BACKEND_DIR/.env" ]]; then
+  echo "Missing local environment files." >&2
+  echo "Run ./setup-env.sh before updating, or ./setup-env.sh --force to regenerate local secrets." >&2
+  exit 1
+fi
+
 echo "Updating backend"
 cd "$BACKEND_DIR"
 if [[ ! -x ".venv/bin/python" ]]; then

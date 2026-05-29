@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: winecellarmulti
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env. Run ./setup-env.sh}
     ports:
       - "5433:5432"
     volumes:
@@ -22,8 +22,8 @@ services:
       APP_NAME: WineCellarMulti
       APP_ENV: development
       APP_DEBUG: "true"
-      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/winecellarmulti
-      SECRET_KEY: change-me
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env. Run ./setup-env.sh}@postgres:5432/winecellarmulti
+      SECRET_KEY: ${SECRET_KEY:?Set SECRET_KEY in .env. Run ./setup-env.sh}
       SESSION_COOKIE_NAME: winecellarmulti_session
       SESSION_COOKIE_SECURE: "false"
       SESSION_TTL_DAYS: "30"

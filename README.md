@@ -36,6 +36,13 @@ This repository is intentionally separate from the existing `WineCellar` project
 
 ## Run Locally
 
+Generate local secrets first. This creates the root `.env` used by Docker and `backend/.env` used by Alembic/Uvicorn:
+
+```bash
+chmod +x setup-env.sh
+./setup-env.sh
+```
+
 Start Postgres:
 
 ```powershell
@@ -86,6 +93,20 @@ Update backend and frontend from the repository root:
 The update script pulls the latest code, installs backend dependencies, runs Alembic migrations, installs frontend dependencies, and runs the frontend build. PostgreSQL must already be running.
 
 Open `http://<server-ip>:5173`.
+
+## Reset Local PostgreSQL
+
+If the local PostgreSQL password is no longer known, regenerate local secrets and recreate the development database volume:
+
+```bash
+./setup-env.sh --force
+docker compose down
+docker volume rm winecellarmulti_postgres-data
+docker compose up -d postgres
+./update.sh
+```
+
+This deletes the local development database. Do not run it if you need to preserve existing data.
 
 ## AI Features
 
