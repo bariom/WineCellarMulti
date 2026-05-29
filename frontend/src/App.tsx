@@ -338,6 +338,9 @@ const translations = {
     tokens: "tokens",
     manageTags: "Manage tags",
     createTag: "Create tag",
+    color: "Color",
+    addTagHere: "Add tag here",
+    saveTag: "Save tag",
   },
   it: {
     accept: "Accetta",
@@ -468,6 +471,9 @@ const translations = {
     tokens: "token",
     manageTags: "Gestisci tag",
     createTag: "Crea tag",
+    color: "Colore",
+    addTagHere: "Aggiungi tag qui",
+    saveTag: "Salva tag",
   },
 } as const;
 
@@ -693,6 +699,11 @@ function uniqueSorted(values: string[]) {
 
 function toggleListValue(values: string[], value: string) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value].sort((first, second) => first.localeCompare(second));
+}
+
+function tagColorStyle(tagName: string, userTags: UserTag[]) {
+  const color = userTags.find((tag) => tag.name === tagName)?.color || "";
+  return color ? { borderColor: color, color, backgroundColor: `${color}18` } : undefined;
 }
 
 function wineTone(type: string) {
@@ -988,6 +999,10 @@ export function App() {
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [tagDraft, setTagDraft] = useState("");
+  const [tagDraftColor, setTagDraftColor] = useState("#245142");
+  const [quickTagDraft, setQuickTagDraft] = useState("");
+  const [quickTagColor, setQuickTagColor] = useState("#245142");
+  const [tagEdits, setTagEdits] = useState<Record<string, { name: string; color: string }>>({});
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
@@ -1002,7 +1017,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -1036,9 +1051,12 @@ export function App() {
 
   async function loadTags(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
-      setUserTags(await api<UserTag[]>("/api/v1/tags"));
+      const nextTags = await api<UserTag[]>("/api/v1/tags");
+      setUserTags(nextTags);
+      setTagEdits(Object.fromEntries(nextTags.map((tag) => [tag.id, { name: tag.name, color: tag.color || "#245142" }])));
     } else {
       setUserTags([]);
+      setTagEdits({});
     }
   }
 
@@ -1292,11 +1310,42 @@ export function App() {
     setSaving(true);
     setError("");
     try {
-      await api<UserTag>("/api/v1/tags", { method: "POST", body: JSON.stringify({ name: tagDraft.trim() }) });
+      await api<UserTag>("/api/v1/tags", { method: "POST", body: JSON.stringify({ name: tagDraft.trim(), color: tagDraftColor }) });
       setTagDraft("");
       await loadTags();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create tag");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createQuickTag() {
+    if (!quickTagDraft.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const tag = await api<UserTag>("/api/v1/tags", { method: "POST", body: JSON.stringify({ name: quickTagDraft.trim(), color: quickTagColor }) });
+      setDraft((current) => ({ ...current, tags: toggleListValue(current.tags, tag.name) }));
+      setQuickTagDraft("");
+      await loadTags();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create tag");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateTag(tag: UserTag) {
+    const edit = tagEdits[tag.id];
+    if (!edit?.name.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<UserTag>(`/api/v1/tags/${tag.id}`, { method: "PATCH", body: JSON.stringify({ name: edit.name.trim(), color: edit.color }) });
+      await Promise.all([loadTags(), loadWines()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update tag");
     } finally {
       setSaving(false);
     }
@@ -1473,7 +1522,7 @@ export function App() {
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
     .filter((wine) => !typeFilter || wine.type === typeFilter)
     .filter((wine) => !statusFilter || wine.status === statusFilter)
-    .filter((wine) => !tagFilter || wine.tags.includes(tagFilter))
+    .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
     .sort((first, second) => {
       if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
       if (sortMode === "value") return Number(second.current_value || second.price || 0) - Number(first.current_value || first.price || 0);
@@ -1559,7 +1608,7 @@ export function App() {
     setSearchQuery("");
     setTypeFilter("");
     setStatusFilter("");
-    setTagFilter("");
+    setTagFilter([]);
     setSortMode("name");
   }
 
@@ -1786,7 +1835,7 @@ export function App() {
                   {wineFormTagOptions.length ? (
                     <div className="tag-choice-list">
                       {wineFormTagOptions.map((tag) => (
-                        <label key={tag}>
+                        <label key={tag} style={draft.tags.includes(tag) ? tagColorStyle(tag, userTags) : undefined}>
                           <input
                             type="checkbox"
                             checked={draft.tags.includes(tag)}
@@ -1800,6 +1849,13 @@ export function App() {
                   ) : (
                     <p className="empty-state">{t("noTags")}</p>
                   )}
+                  <div className="inline-row-form">
+                    <input value={quickTagDraft} onChange={(event) => setQuickTagDraft(event.target.value)} placeholder={t("tagName")} disabled={!canWriteWine} />
+                    <input type="color" value={quickTagColor} onChange={(event) => setQuickTagColor(event.target.value)} disabled={!canWriteWine} />
+                    <button type="button" className="secondary" onClick={createQuickTag} disabled={!canWriteWine || saving || !quickTagDraft.trim()}>
+                      {t("addTagHere")}
+                    </button>
+                  </div>
                 </div>
                 <div className="form-actions">
                   <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingId ? t("saveChanges") : t("createWine")}</button>
@@ -2028,13 +2084,17 @@ export function App() {
               </div>
               <div className="filter-row">
                 {activeView === "cellar" ? (
-                  <label>
+                  <div className="filter-choice-group">
                     <span>{t("tag")}</span>
-                    <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
-                      <option value="">{t("allTags")}</option>
-                      {tagOptions.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
-                    </select>
-                  </label>
+                    <div className="tag-choice-list compact">
+                      {tagOptions.length ? tagOptions.map((tag) => (
+                        <label key={tag} style={tagFilter.includes(tag) ? tagColorStyle(tag, userTags) : undefined}>
+                          <input type="checkbox" checked={tagFilter.includes(tag)} onChange={() => setTagFilter((current) => toggleListValue(current, tag))} />
+                          <span>{tag}</span>
+                        </label>
+                      )) : <span className="empty-state">{t("allTags")}</span>}
+                    </div>
+                  </div>
                 ) : null}
                 <label>
                   <span>{t("sort")}</span>
@@ -2064,7 +2124,7 @@ export function App() {
                   <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
                   <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
                   <div className="row-meta">
-                    {wine.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}
+                    {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
                     {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
                     {wine.drink_from && wine.drink_to ? <span>{wine.drink_from}-{wine.drink_to}</span> : null}
                   </div>
@@ -2122,17 +2182,22 @@ export function App() {
             </div>
 
             {canWriteWine ? (
-              <div className="inline-form">
-                <h2>{t("manageTags")}</h2>
+              <details className="inline-form collapsible-panel">
+                <summary>{t("manageTags")}</summary>
                 <form className="inline-row-form" onSubmit={submitTag}>
                   <input value={tagDraft} onChange={(event) => setTagDraft(event.target.value)} placeholder={t("tagName")} />
+                  <input type="color" value={tagDraftColor} onChange={(event) => setTagDraftColor(event.target.value)} title={t("color")} />
                   <button type="submit" disabled={saving || !tagDraft.trim()}>{t("createTag")}</button>
                 </form>
                 {userTags.length ? (
                   <div className="tag-admin-list">
                     {userTags.map((tag) => (
                       <div className="tag-admin-row" key={tag.id}>
-                        <span>{tag.name}</span>
+                        <input value={tagEdits[tag.id]?.name || tag.name} onChange={(event) => setTagEdits({ ...tagEdits, [tag.id]: { ...(tagEdits[tag.id] || { name: tag.name, color: tag.color }), name: event.target.value } })} />
+                        <input type="color" value={tagEdits[tag.id]?.color || tag.color || "#245142"} onChange={(event) => setTagEdits({ ...tagEdits, [tag.id]: { ...(tagEdits[tag.id] || { name: tag.name, color: tag.color }), color: event.target.value } })} title={t("color")} />
+                        <button type="button" className="secondary compact" disabled={saving} onClick={() => updateTag(tag)}>
+                          {t("saveTag")}
+                        </button>
                         <button type="button" className="danger compact" disabled={saving} onClick={() => deleteTag(tag)}>
                           {t("delete")}
                         </button>
@@ -2142,7 +2207,7 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("noTags")}</p>
                 )}
-              </div>
+              </details>
             ) : null}
 
             {canWriteWine ? (

@@ -135,10 +135,14 @@ def test_user_tags_can_be_defined_and_assigned_to_wines():
     client = TestClient(app)
     assert register(client).status_code == 201
 
-    tag = client.post("/api/v1/tags", json={"name": "En Primeur"})
+    tag = client.post("/api/v1/tags", json={"name": "En Primeur", "color": "#8f2039"})
     assert tag.status_code == 201
     assert tag.json()["name"] == "En Primeur"
+    assert tag.json()["color"] == "#8f2039"
     assert client.get("/api/v1/tags").json()[0]["name"] == "En Primeur"
+    renamed = client.patch(f"/api/v1/tags/{tag.json()['id']}", json={"name": "Primeur", "color": "#245142"})
+    assert renamed.status_code == 200
+    assert renamed.json()["name"] == "Primeur"
 
     created = client.post(
         "/api/v1/wines",
@@ -146,21 +150,21 @@ def test_user_tags_can_be_defined_and_assigned_to_wines():
             "name": "Tagged Wine",
             "quantity": 1,
             "price": 20,
-            "tags": ["En Primeur"],
+            "tags": ["Primeur"],
         },
     )
     assert created.status_code == 201
-    assert created.json()["tags"] == ["En Primeur"]
+    assert created.json()["tags"] == ["Primeur"]
 
     wine_id = created.json()["id"]
     listed = client.get("/api/v1/wines")
     assert listed.status_code == 200
-    assert listed.json()[0]["tags"] == ["En Primeur"]
+    assert listed.json()[0]["tags"] == ["Primeur"]
 
     updated = client.patch(f"/api/v1/wines/{wine_id}", json={"tags": ["Ready"]})
     assert updated.status_code == 200
     assert updated.json()["tags"] == ["Ready"]
-    assert sorted(tag["name"] for tag in client.get("/api/v1/tags").json()) == ["En Primeur", "Ready"]
+    assert sorted(tag["name"] for tag in client.get("/api/v1/tags").json()) == ["Primeur", "Ready"]
 
     deleted = client.delete(f"/api/v1/tags/{tag.json()['id']}")
     assert deleted.status_code == 204

@@ -250,7 +250,8 @@ textarea {
   gap: 6px;
 }
 
-.filter-panel span {
+.filter-panel span,
+.filter-choice-group > span {
   color: #52635c;
   font-size: 0.78rem;
   font-weight: 700;
@@ -291,6 +292,16 @@ textarea {
 
 .tag-choice-list input {
   width: auto;
+}
+
+.tag-choice-list.compact {
+  max-height: 88px;
+  overflow-y: auto;
+}
+
+.filter-choice-group {
+  display: grid;
+  gap: 6px;
 }
 
 .wine-side-panel {
@@ -334,6 +345,22 @@ textarea {
 .inline-form h3 {
   margin: 0;
   font-size: 1.05rem;
+}
+
+.collapsible-panel {
+  border: 1px solid #e3e9e2;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.collapsible-panel summary {
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.collapsible-panel[open] summary {
+  margin-bottom: 10px;
 }
 
 .member-list,
@@ -381,8 +408,20 @@ textarea {
 
 .inline-row-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 8px;
+}
+
+.inline-row-form input[type="color"],
+.tag-admin-row input[type="color"] {
+  width: 48px;
+  min-width: 48px;
+  padding: 4px;
+}
+
+.tag-admin-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto;
 }
 
 .usage-row {
