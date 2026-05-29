@@ -329,6 +329,34 @@ function WineDetail({ wine }: { wine: Wine }) {
   );
 }
 
+function WishlistDetail({ item }: { item: WishlistItem }) {
+  return (
+    <section className="wine-detail">
+      <div className="detail-title">
+        <div>
+          <p className="eyebrow">Wishlist detail</p>
+          <h2>{item.name}</h2>
+          <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
+        </div>
+        <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+      </div>
+      <div className="detail-grid">
+        <DetailField label="Format" value={item.format} />
+        <DetailField label="Type" value={item.type} />
+        <DetailField label="Priority" value={item.priority} />
+        <DetailField label="Purpose" value={item.purpose} />
+        <DetailField label="Status" value={item.status} />
+        <DetailField label="Merchant" value={item.merchant} />
+      </div>
+      {item.notes ? (
+        <div className="detail-section notes-section">
+          <p><strong>Notes</strong>{item.notes}</p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -344,6 +372,7 @@ export function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeView, setActiveView] = useState<"cellar" | "wishlist">("cellar");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
+  const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -365,6 +394,7 @@ export function App() {
   async function loadWishlist() {
     const nextWishlist = await api<WishlistItem[]>("/api/v1/wishlist");
     setWishlist(nextWishlist);
+    setSelectedWishlistId((currentId) => (currentId && nextWishlist.some((item) => item.id === currentId) ? currentId : nextWishlist[0]?.id || null));
   }
 
   async function loadHouseholdData() {
@@ -431,6 +461,7 @@ export function App() {
     setDraft(emptyDraft);
     setEditingId(null);
     setSelectedWineId(null);
+    setSelectedWishlistId(null);
     setWineFormOpen(false);
   }
 
@@ -440,6 +471,7 @@ export function App() {
     setDraft(emptyDraft);
     setEditingId(null);
     setSelectedWineId(null);
+    setSelectedWishlistId(null);
     setWineFormOpen(false);
     await loadData();
   }
@@ -572,6 +604,7 @@ export function App() {
   const canWriteWine = canAdmin || session?.membership_role === "member";
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
+  const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -667,22 +700,24 @@ export function App() {
             <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => setActiveView("cellar")}>
               Cellar ({wines.length})
             </button>
-            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => setActiveView("wishlist")}>
+            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); }}>
               Wishlist ({wishlist.length})
             </button>
           </div>
           <aside className="wine-side-panel">
-            <div className="side-panel-actions">
-              <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
-                Add wine
-              </button>
-              {selectedWine && !wineFormOpen ? (
-                <button type="button" className="secondary" onClick={() => startEditWine(selectedWine)} disabled={!canWriteWine}>
-                  Edit selected
+            {activeView === "cellar" ? (
+              <div className="side-panel-actions">
+                <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
+                  Add wine
                 </button>
-              ) : null}
-            </div>
-            {wineFormOpen ? (
+                {selectedWine && !wineFormOpen ? (
+                  <button type="button" className="secondary" onClick={() => startEditWine(selectedWine)} disabled={!canWriteWine}>
+                    Edit selected
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+            {activeView === "cellar" && wineFormOpen ? (
               <form className="wine-form" onSubmit={submitWine}>
                 <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
                 {!canWriteWine ? <p className="empty-state">Viewer access: you can read this cellar, but cannot change wines.</p> : null}
@@ -774,12 +809,14 @@ export function App() {
                   </button>
                 </div>
               </form>
-            ) : selectedWine ? (
+            ) : activeView === "cellar" && selectedWine ? (
               <WineDetail wine={selectedWine} />
+            ) : activeView === "wishlist" && selectedWishlistItem ? (
+              <WishlistDetail item={selectedWishlistItem} />
             ) : (
               <div className="wine-detail empty-detail">
-                <h2>No wine selected</h2>
-                <p>Select a wine from the list to see the complete detail.</p>
+                <h2>No item selected</h2>
+                <p>Select an item from the list to see the complete detail.</p>
               </div>
             )}
           </aside>
@@ -813,7 +850,7 @@ export function App() {
                 </div>
               </article>
             )) : wishlist.map((item) => (
-              <article className="wine-row" key={item.id}>
+              <article className={selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
                 <div>
                   <h3>{item.name} <small>{item.vintage}</small></h3>
                   <p>{item.producer || "No producer"} - {item.purpose} - {item.status}</p>
