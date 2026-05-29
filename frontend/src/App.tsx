@@ -82,6 +82,23 @@ type WishlistItem = {
   notes: string;
 };
 
+type WishlistDraft = {
+  name: string;
+  producer: string;
+  vintage: string;
+  format: string;
+  type: string;
+  region: string;
+  appellation: string;
+  target_price: string;
+  currency: string;
+  merchant: string;
+  priority: string;
+  purpose: string;
+  status: string;
+  notes: string;
+};
+
 type HouseholdMembership = {
   membership_id: string;
   household_id: string;
@@ -141,6 +158,23 @@ const emptyInviteDraft: InviteDraft = {
   role: "viewer",
 };
 
+const emptyWishlistDraft: WishlistDraft = {
+  name: "",
+  producer: "",
+  vintage: "",
+  format: "",
+  type: "",
+  region: "",
+  appellation: "",
+  target_price: "0",
+  currency: "CHF",
+  merchant: "",
+  priority: "Medium",
+  purpose: "Drink",
+  status: "Evaluate",
+  notes: "",
+};
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     credentials: "include",
@@ -195,6 +229,44 @@ function draftPayload(draft: WineDraft) {
     order_date: draft.order_date || null,
     expected_delivery: draft.expected_delivery || null,
     owner_share_pct: Number(draft.owner_share_pct || 100),
+    notes: draft.notes.trim(),
+  };
+}
+
+function wishlistToDraft(item: WishlistItem): WishlistDraft {
+  return {
+    name: item.name,
+    producer: item.producer,
+    vintage: item.vintage,
+    format: item.format,
+    type: item.type,
+    region: item.region,
+    appellation: item.appellation,
+    target_price: String(item.target_price),
+    currency: item.currency,
+    merchant: item.merchant,
+    priority: item.priority,
+    purpose: item.purpose,
+    status: item.status,
+    notes: item.notes,
+  };
+}
+
+function wishlistPayload(draft: WishlistDraft) {
+  return {
+    name: draft.name.trim(),
+    producer: draft.producer.trim(),
+    vintage: draft.vintage.trim(),
+    format: draft.format.trim(),
+    type: draft.type.trim(),
+    region: draft.region.trim(),
+    appellation: draft.appellation.trim(),
+    target_price: Number(draft.target_price || 0),
+    currency: draft.currency.trim().toUpperCase() || "CHF",
+    merchant: draft.merchant.trim(),
+    priority: draft.priority,
+    purpose: draft.purpose,
+    status: draft.status,
     notes: draft.notes.trim(),
   };
 }
@@ -364,6 +436,7 @@ export function App() {
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
+  const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [acceptToken, setAcceptToken] = useState("");
@@ -374,7 +447,9 @@ export function App() {
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
+  const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -459,20 +534,26 @@ export function App() {
     setHouseholdMemberships([]);
     setMembers([]);
     setDraft(emptyDraft);
+    setWishlistDraft(emptyWishlistDraft);
     setEditingId(null);
+    setEditingWishlistId(null);
     setSelectedWineId(null);
     setSelectedWishlistId(null);
     setWineFormOpen(false);
+    setWishlistFormOpen(false);
   }
 
   async function switchHousehold(householdId: string) {
     setError("");
     await api<Session>("/api/v1/household/switch", { method: "POST", body: JSON.stringify({ household_id: householdId }) });
     setDraft(emptyDraft);
+    setWishlistDraft(emptyWishlistDraft);
     setEditingId(null);
+    setEditingWishlistId(null);
     setSelectedWineId(null);
     setSelectedWishlistId(null);
     setWineFormOpen(false);
+    setWishlistFormOpen(false);
     await loadData();
   }
 
@@ -568,6 +649,29 @@ export function App() {
     }
   }
 
+  async function submitWishlist(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!wishlistDraft.name.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const payload = wishlistPayload(wishlistDraft);
+      if (editingWishlistId) {
+        await api<WishlistItem>(`/api/v1/wishlist/${editingWishlistId}`, { method: "PATCH", body: JSON.stringify(payload) });
+      } else {
+        await api<WishlistItem>("/api/v1/wishlist", { method: "POST", body: JSON.stringify(payload) });
+      }
+      setWishlistDraft(emptyWishlistDraft);
+      setEditingWishlistId(null);
+      setWishlistFormOpen(false);
+      await loadWishlist();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to save wishlist item");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function importLegacyFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -598,6 +702,35 @@ export function App() {
     await loadWines();
   }
 
+  async function deleteWishlistItem(item: WishlistItem) {
+    if (!window.confirm(`Delete ${item.name} from wishlist?`)) return;
+    setError("");
+    await api<void>(`/api/v1/wishlist/${item.id}`, { method: "DELETE" });
+    if (editingWishlistId === item.id) {
+      setEditingWishlistId(null);
+      setWishlistDraft(emptyWishlistDraft);
+      setWishlistFormOpen(false);
+    }
+    await loadWishlist();
+  }
+
+  async function convertWishlistItem(item: WishlistItem) {
+    if (!window.confirm(`Convert ${item.name} to an ordered wine?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<{ wine_id: string }>(`/api/v1/wishlist/${item.id}/convert`, { method: "POST" });
+      setWishlistFormOpen(false);
+      setEditingWishlistId(null);
+      await Promise.all([loadWines(), loadWishlist()]);
+      setActiveView("cellar");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to convert wishlist item");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const authenticated = Boolean(session?.authenticated);
   const activeMembership = householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
   const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
@@ -612,6 +745,12 @@ export function App() {
     setWineFormOpen(true);
   }
 
+  function startAddWishlistItem() {
+    setWishlistDraft(emptyWishlistDraft);
+    setEditingWishlistId(null);
+    setWishlistFormOpen(true);
+  }
+
   function startEditWine(wine: Wine) {
     setSelectedWineId(wine.id);
     setEditingId(wine.id);
@@ -619,10 +758,23 @@ export function App() {
     setWineFormOpen(true);
   }
 
+  function startEditWishlistItem(item: WishlistItem) {
+    setSelectedWishlistId(item.id);
+    setEditingWishlistId(item.id);
+    setWishlistDraft(wishlistToDraft(item));
+    setWishlistFormOpen(true);
+  }
+
   function closeWineForm() {
     setEditingId(null);
     setDraft(emptyDraft);
     setWineFormOpen(false);
+  }
+
+  function closeWishlistForm() {
+    setEditingWishlistId(null);
+    setWishlistDraft(emptyWishlistDraft);
+    setWishlistFormOpen(false);
   }
 
   return (
@@ -646,7 +798,7 @@ export function App() {
                   </option>
                 ))}
               </select>
-            ) : null}
+            )}
             <span>{session?.membership_role}</span>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               Logout
@@ -686,7 +838,7 @@ export function App() {
                   <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
                 </label>
               </>
-            ) : null}
+            )}
             <label>
               <span>Password</span>
               <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
@@ -716,7 +868,23 @@ export function App() {
                   </button>
                 ) : null}
               </div>
-            ) : null}
+            ) : (
+              <div className="side-panel-actions">
+                <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
+                  Add wishlist
+                </button>
+                {selectedWishlistItem && !wishlistFormOpen ? (
+                  <>
+                    <button type="button" className="secondary" onClick={() => startEditWishlistItem(selectedWishlistItem)} disabled={!canWriteWine}>
+                      Edit selected
+                    </button>
+                    <button type="button" onClick={() => convertWishlistItem(selectedWishlistItem)} disabled={!canWriteWine || saving}>
+                      Convert
+                    </button>
+                  </>
+                ) : null}
+              </div>
+            )}
             {activeView === "cellar" && wineFormOpen ? (
               <form className="wine-form" onSubmit={submitWine}>
                 <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
@@ -809,6 +977,98 @@ export function App() {
                   </button>
                 </div>
               </form>
+            ) : activeView === "wishlist" && wishlistFormOpen ? (
+              <form className="wine-form" onSubmit={submitWishlist}>
+                <h2>{editingWishlistId ? "Edit wishlist" : "Add wishlist"}</h2>
+                <label>
+                  <span>Name</span>
+                  <input value={wishlistDraft.name} onChange={(event) => setWishlistDraft({ ...wishlistDraft, name: event.target.value })} required disabled={!canWriteWine} />
+                </label>
+                <label>
+                  <span>Producer</span>
+                  <input value={wishlistDraft.producer} onChange={(event) => setWishlistDraft({ ...wishlistDraft, producer: event.target.value })} disabled={!canWriteWine} />
+                </label>
+                <div className="form-row">
+                  <label>
+                    <span>Vintage</span>
+                    <input value={wishlistDraft.vintage} onChange={(event) => setWishlistDraft({ ...wishlistDraft, vintage: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Target price</span>
+                    <input type="number" min="0" step="0.01" value={wishlistDraft.target_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, target_price: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Format</span>
+                    <input value={wishlistDraft.format} onChange={(event) => setWishlistDraft({ ...wishlistDraft, format: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Type</span>
+                    <input value={wishlistDraft.type} onChange={(event) => setWishlistDraft({ ...wishlistDraft, type: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Region</span>
+                    <input value={wishlistDraft.region} onChange={(event) => setWishlistDraft({ ...wishlistDraft, region: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Appellation</span>
+                    <input value={wishlistDraft.appellation} onChange={(event) => setWishlistDraft({ ...wishlistDraft, appellation: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Currency</span>
+                    <input value={wishlistDraft.currency} onChange={(event) => setWishlistDraft({ ...wishlistDraft, currency: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Merchant</span>
+                    <input value={wishlistDraft.merchant} onChange={(event) => setWishlistDraft({ ...wishlistDraft, merchant: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Priority</span>
+                    <select value={wishlistDraft.priority} onChange={(event) => setWishlistDraft({ ...wishlistDraft, priority: event.target.value })} disabled={!canWriteWine}>
+                      <option>High</option>
+                      <option>Medium</option>
+                      <option>Low</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Purpose</span>
+                    <select value={wishlistDraft.purpose} onChange={(event) => setWishlistDraft({ ...wishlistDraft, purpose: event.target.value })} disabled={!canWriteWine}>
+                      <option>Drink</option>
+                      <option>Cellar</option>
+                      <option>Invest</option>
+                      <option>Gift</option>
+                      <option>Compare</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  <span>Status</span>
+                  <select value={wishlistDraft.status} onChange={(event) => setWishlistDraft({ ...wishlistDraft, status: event.target.value })} disabled={!canWriteWine}>
+                    <option>Evaluate</option>
+                    <option>Monitor</option>
+                    <option>Buy</option>
+                    <option>GoodPrice</option>
+                    <option>Skipped</option>
+                  </select>
+                </label>
+                <label>
+                  <span>Notes</span>
+                  <textarea value={wishlistDraft.notes} onChange={(event) => setWishlistDraft({ ...wishlistDraft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
+                </label>
+                <div className="form-actions">
+                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? "Saving" : editingWishlistId ? "Save changes" : "Create wishlist"}</button>
+                  <button type="button" className="secondary" onClick={closeWishlistForm}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
             ) : activeView === "cellar" && selectedWine ? (
               <WineDetail wine={selectedWine} />
             ) : activeView === "wishlist" && selectedWishlistItem ? (
@@ -860,6 +1120,15 @@ export function App() {
                 <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
                 <div className="row-actions">
                   <span className="priority-chip">{item.priority}</span>
+                  <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
+                    Edit
+                  </button>
+                  <button type="button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }}>
+                    Convert
+                  </button>
+                  <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWishlistItem(item).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist item")); }}>
+                    Delete
+                  </button>
                 </div>
               </article>
             ))}

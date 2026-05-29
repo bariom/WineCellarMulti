@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.db.session import get_db
-from app.models import WishlistItem
+from app.models import Wine, WishlistItem
 from app.schemas.wishlist import WishlistCreate, WishlistResponse, WishlistUpdate
 
 
@@ -81,3 +81,35 @@ def delete_wishlist_item(
     db.delete(item)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{item_id}/convert", response_model=dict, status_code=status.HTTP_201_CREATED)
+def convert_wishlist_item(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> dict:
+    item = get_household_wishlist_item(db, context, item_id)
+    wine = Wine(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        name=item.name,
+        producer=item.producer,
+        vintage=item.vintage,
+        quantity=1,
+        currency=item.currency,
+        price=item.target_price,
+        current_value=item.target_price,
+        status="Ordered",
+        format=item.format,
+        type=item.type,
+        region=item.region,
+        appellation=item.appellation,
+        merchant=item.merchant,
+        notes=item.notes,
+    )
+    db.add(wine)
+    db.delete(item)
+    db.commit()
+    db.refresh(wine)
+    return {"wine_id": wine.id}
