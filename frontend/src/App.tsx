@@ -276,6 +276,7 @@ const translations = {
     missingDrinkWindow: "Missing drink window",
     missingScores: "Missing scores",
     missingValue: "Missing value",
+    myBottles: "My bottles",
     name: "Name",
     noInvites: "No invites",
     noAiAudit: "No AI generations yet",
@@ -338,6 +339,7 @@ const translations = {
     working: "Working",
     estimatedCost: "Estimated cost",
     sharedCellar: "Shared cellar",
+    sharedBottles: "Shared",
     tokens: "tokens",
     manageTags: "Manage tags",
     createTag: "Create tag",
@@ -411,6 +413,7 @@ const translations = {
     missingDrinkWindow: "Finestra mancante",
     missingScores: "Punteggi mancanti",
     missingValue: "Valore mancante",
+    myBottles: "Mie bottiglie",
     name: "Nome",
     noInvites: "Nessun invito",
     noAiAudit: "Nessuna generazione AI",
@@ -473,6 +476,7 @@ const translations = {
     working: "Elaborazione",
     estimatedCost: "Costo stimato",
     sharedCellar: "Cantina condivisa",
+    sharedBottles: "Condivise",
     tokens: "token",
     manageTags: "Gestisci tag",
     createTag: "Crea tag",
@@ -732,6 +736,36 @@ function wineUnitValue(wine: Wine) {
 
 function sumWineValue(items: Wine[]) {
   return items.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
+}
+
+function currentUserSharePct(wine: Wine, session: Session | null) {
+  const userName = (session?.user_display_name || "").trim().toLowerCase();
+  const userEmail = (session?.user_email || "").trim().toLowerCase();
+  if (wine.owners.length) {
+    const owner = wine.owners.find((item) => {
+      const name = String(item.name || "").trim().toLowerCase();
+      return name && (name === userName || name === userEmail);
+    });
+    if (owner) return Math.min(Math.max(Number(owner.share_pct || 0), 0), 100);
+    return 0;
+  }
+  return Math.min(Math.max(Number(wine.owner_share_pct || 100), 0), 100);
+}
+
+function ownershipStats(items: Wine[], session: Session | null) {
+  return items.reduce(
+    (totals, wine) => {
+      const totalBottles = wine.quantity;
+      const totalValue = wineUnitValue(wine) * wine.quantity;
+      const myShare = currentUserSharePct(wine, session) / 100;
+      totals.totalBottles += totalBottles;
+      totals.totalValue += totalValue;
+      totals.myBottles += totalBottles * myShare;
+      totals.myValue += totalValue * myShare;
+      return totals;
+    },
+    { myBottles: 0, myValue: 0, totalBottles: 0, totalValue: 0 },
+  );
 }
 
 function topWineValueGroups(items: Wine[], field: "type" | "region") {
@@ -1571,9 +1605,16 @@ export function App() {
   const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
   const currentYear = new Date().getFullYear();
   const now = new Date();
+  const cellarOwnership = ownershipStats(wines, session);
+  const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
+  const sharedValue = Math.max(cellarOwnership.totalValue - cellarOwnership.myValue, 0);
   const cellarStats = {
-    bottles: wines.reduce((total, wine) => total + wine.quantity, 0),
-    totalValue: sumWineValue(wines),
+    bottles: cellarOwnership.totalBottles,
+    totalValue: cellarOwnership.totalValue,
+    myBottles: cellarOwnership.myBottles,
+    myValue: cellarOwnership.myValue,
+    sharedBottles,
+    sharedValue,
     drinkNow: wines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
     drinkSoon: wines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
     pastWindow: wines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
@@ -2041,13 +2082,20 @@ export function App() {
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
               <section className="stats-panel">
-                <div className="stat-card">
-                  <span>{t("totalValue")}</span>
-                  <strong>CHF {cellarStats.totalValue.toFixed(0)}</strong>
+                <div className="stat-card ownership-stat">
+                  <span>{t("myBottles")}</span>
+                  <strong>{cellarStats.myBottles.toFixed(1)}</strong>
+                  <p>CHF {cellarStats.myValue.toFixed(0)}</p>
                 </div>
-                <div className="stat-card">
-                  <span>{t("bottles")}</span>
+                <div className="stat-card ownership-stat">
+                  <span>{t("sharedBottles")}</span>
+                  <strong>{cellarStats.sharedBottles.toFixed(1)}</strong>
+                  <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
+                </div>
+                <div className="stat-card ownership-stat">
+                  <span>{t("totalValue")}</span>
                   <strong>{cellarStats.bottles}</strong>
+                  <p>CHF {cellarStats.totalValue.toFixed(0)}</p>
                 </div>
                 <div className="stat-card">
                   <span>{t("drinkNow")}</span>
