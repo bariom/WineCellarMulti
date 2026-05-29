@@ -752,6 +752,15 @@ function DetailField({ label, value }: { label: string; value: string | number |
   );
 }
 
+function DetailNote({ title, children }: { title: string; children: string }) {
+  return (
+    <article className="detail-note">
+      <h3>{title}</h3>
+      <p>{children}</p>
+    </article>
+  );
+}
+
 function WineDetail({
   wine,
   canGenerate,
@@ -862,10 +871,10 @@ function WineDetail({
       ) : null}
 
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
-        <div className="detail-section notes-section">
-          {wine.notes ? <p><strong>{t("notes")}</strong>{wine.notes}</p> : null}
-          {wine.ai_notes ? <p><strong>{t("aiNotes")}</strong>{wine.ai_notes}</p> : null}
-          {wine.ai_value_notes ? <p><strong>{t("value")}</strong>{wine.ai_value_notes}</p> : null}
+        <div className="notes-grid">
+          {wine.notes ? <DetailNote title={t("notes")}>{wine.notes}</DetailNote> : null}
+          {wine.ai_notes ? <DetailNote title={t("aiNotes")}>{wine.ai_notes}</DetailNote> : null}
+          {wine.ai_value_notes ? <DetailNote title={t("value")}>{wine.ai_value_notes}</DetailNote> : null}
         </div>
       ) : null}
     </section>
@@ -915,14 +924,14 @@ function WishlistDetail({
         <DetailField label={t("merchant")} value={item.merchant} />
       </div>
       {item.notes ? (
-        <div className="detail-section notes-section">
-          <p><strong>{t("notes")}</strong>{item.notes}</p>
+        <div className="notes-grid">
+          <DetailNote title={t("notes")}>{item.notes}</DetailNote>
         </div>
       ) : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
-        <div className="detail-section notes-section">
-          {item.ai_strategy ? <p><strong>{t("aiStrategy")}</strong>{readableLegacyAiText(item.ai_strategy, "strategy")}</p> : null}
-          {item.ai_purpose_advice ? <p><strong>{t("aiPurpose")}</strong>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</p> : null}
+        <div className="notes-grid">
+          {item.ai_strategy ? <DetailNote title={t("aiStrategy")}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
+          {item.ai_purpose_advice ? <DetailNote title={t("aiPurpose")}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
         </div>
       ) : null}
     </section>
@@ -1967,11 +1976,13 @@ export function App() {
               <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
                 <div>
                   <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
-                  <p>{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
-                  <p>{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
-                  {wine.tags.length ? <p>{t("tags")}: {wine.tags.join(", ")}</p> : null}
-                  {wine.scores.length ? <p>{t("scores")}: {wine.scores.map((score) => `${score.critic} ${score.score}`).join(", ")}</p> : null}
-                  {wine.drink_from && wine.drink_to ? <p>{t("drinkWindow")}: {wine.drink_from}-{wine.drink_to}</p> : null}
+                  <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
+                  <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
+                  <div className="row-meta">
+                    {wine.tags.slice(0, 2).map((tag) => <span key={tag}>{tag}</span>)}
+                    {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
+                    {wine.drink_from && wine.drink_to ? <span>{wine.drink_from}-{wine.drink_to}</span> : null}
+                  </div>
                 </div>
                 <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                 <div className="row-actions">
@@ -1987,9 +1998,12 @@ export function App() {
               <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
                 <div>
                   <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
-                  <p>{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
-                  <p>{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
-                  {item.notes ? <p>{item.notes}</p> : null}
+                  <p className="row-primary">{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
+                  <p className="row-secondary">{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
+                  <div className="row-meta">
+                    {item.merchant ? <span>{item.merchant}</span> : null}
+                    {item.notes ? <span>{item.notes}</span> : null}
+                  </div>
                 </div>
                 <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
                 <div className="row-actions">

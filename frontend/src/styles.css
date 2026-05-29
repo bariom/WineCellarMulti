@@ -547,6 +547,38 @@ textarea {
   font-weight: 500;
 }
 
+.row-primary,
+.row-secondary,
+.row-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row-primary,
+.row-secondary {
+  white-space: nowrap;
+}
+
+.row-meta {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  min-width: 0;
+  margin-top: 7px;
+}
+
+.row-meta span {
+  display: inline-flex;
+  align-items: center;
+  max-width: 210px;
+  border-radius: 999px;
+  padding: 4px 8px;
+  color: #245142;
+  background: #eef3ef;
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
 .wine-row p,
 .empty-state {
   margin: 0;
@@ -585,7 +617,7 @@ textarea {
 .window-labels,
 .drink-window p,
 .detail-section li span,
-.notes-section p {
+.detail-note p {
   color: #52635c;
 }
 
@@ -698,27 +730,43 @@ textarea {
   font-size: 0.85rem;
 }
 
-.notes-section p {
+.notes-grid {
   display: grid;
-  gap: 4px;
-  margin: 0;
-  white-space: pre-wrap;
-}
-
-.notes-section {
-  max-height: 260px;
+  gap: 12px;
+  max-height: min(46vh, 520px);
   overflow-y: auto;
   padding-right: 6px;
   scrollbar-gutter: stable;
 }
 
+.detail-note {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid #e3e9e2;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #fbfcfb 0%, #f7faf7 100%);
+}
+
+.detail-note h3 {
+  margin: 0;
+  color: #17201c;
+  font-size: 0.95rem;
+}
+
+.detail-note p {
+  margin: 0;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+
 .wine-side-panel::-webkit-scrollbar,
-.notes-section::-webkit-scrollbar {
+.notes-grid::-webkit-scrollbar {
   width: 8px;
 }
 
 .wine-side-panel::-webkit-scrollbar-thumb,
-.notes-section::-webkit-scrollbar-thumb {
+.notes-grid::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: #c9d2ca;
 }
