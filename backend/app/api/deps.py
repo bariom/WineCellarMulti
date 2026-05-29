@@ -80,3 +80,17 @@ def get_current_context(context: CurrentContext | None = Depends(get_optional_co
     if context is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
     return context
+
+
+def require_role(context: CurrentContext, allowed_roles: set[str]) -> CurrentContext:
+    if context.membership.role not in allowed_roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return context
+
+
+def require_admin_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:
+    return require_role(context, {"owner", "admin"})
+
+
+def require_write_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:
+    return require_role(context, {"owner", "admin", "member"})

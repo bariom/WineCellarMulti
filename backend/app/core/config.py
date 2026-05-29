@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     session_cookie_name: str = "winecellarmulti_session"
     session_cookie_secure: bool = False
     session_ttl_days: int = 30
+    invite_ttl_days: int = 7
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property

@@ -126,3 +126,50 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     deleted = client.delete(f"/api/v1/wines/{wine_id}")
     assert deleted.status_code == 204
     assert client.get("/api/v1/wines").json() == []
+
+
+def test_invite_acceptance_and_viewer_permissions():
+    owner = TestClient(app)
+    member = TestClient(app)
+
+    assert register(owner).status_code == 201
+    invite = owner.post("/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"})
+    assert invite.status_code == 201
+    invite_token = invite.json()["invite_token"]
+    assert invite_token
+
+    members_before = owner.get("/api/v1/household/members")
+    assert members_before.status_code == 200
+    assert [member_data["email"] for member_data in members_before.json()] == ["owner@example.com"]
+
+    assert register(member, email="viewer@example.com", password="strong-password-2").status_code == 201
+    accepted = member.post("/api/v1/household/invites/accept", json={"token": invite_token})
+    assert accepted.status_code == 200
+    assert accepted.json()["role"] == "viewer"
+    invited_membership_id = accepted.json()["membership_id"]
+
+    members_after = owner.get("/api/v1/household/members")
+    assert members_after.status_code == 200
+    assert sorted(member_data["email"] for member_data in members_after.json()) == ["owner@example.com", "viewer@example.com"]
+
+    owner_wine = owner.post("/api/v1/wines", json={"name": "Shared Wine", "quantity": 1, "price": 20})
+    assert owner_wine.status_code == 201
+
+    member_households = member.get("/api/v1/household/memberships")
+    assert member_households.status_code == 200
+    shared_household = next(item for item in member_households.json() if item["role"] == "viewer")
+    assert shared_household["household_name"] == "Main Cellar"
+    assert invited_membership_id
+
+    switched = member.post("/api/v1/household/switch", json={"household_id": shared_household["household_id"]})
+    assert switched.status_code == 200
+
+    viewer_list = member.get("/api/v1/wines")
+    assert viewer_list.status_code == 200
+    assert [wine["name"] for wine in viewer_list.json()] == ["Shared Wine"]
+
+    viewer_create = member.post("/api/v1/wines", json={"name": "Blocked Wine", "quantity": 1, "price": 20})
+    assert viewer_create.status_code == 403
+
+    viewer_members = member.get("/api/v1/household/members")
+    assert viewer_members.status_code == 200

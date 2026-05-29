@@ -93,6 +93,12 @@ button.danger {
   font-size: 0.85rem;
 }
 
+.session-pill select {
+  min-width: 180px;
+  padding: 6px 8px;
+  font-size: 0.9rem;
+}
+
 .error-banner {
   padding: 12px 14px;
   border: 1px solid #e7a2ad;
@@ -103,7 +109,7 @@ button.danger {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) minmax(240px, 300px);
   gap: 24px;
   align-items: start;
   margin-top: 24px;
@@ -178,6 +184,59 @@ textarea {
 .wine-list {
   display: grid;
   gap: 10px;
+}
+
+.team-panel {
+  display: grid;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid #d8ded7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.team-panel h2,
+.inline-form h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.member-list,
+.inline-form {
+  display: grid;
+  gap: 10px;
+}
+
+.member-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #f5f7f4;
+}
+
+.member-row div,
+.inline-form label {
+  display: grid;
+  gap: 4px;
+}
+
+.member-row span,
+.member-row small,
+.inline-form label span {
+  color: #52635c;
+  font-size: 0.78rem;
+}
+
+.token-box {
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding: 10px;
+  border: 1px dashed #9aa99f;
+  border-radius: 6px;
+  color: #245142;
+  background: #f5f7f4;
 }
 
 .list-header,

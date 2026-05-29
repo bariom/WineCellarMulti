@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_current_context
+from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.db.session import get_db
 from app.models import Wine
 from app.schemas.wine import WineCreate, WineResponse, WineUpdate
@@ -43,7 +43,7 @@ def list_wines(
 def create_wine(
     payload: WineCreate,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(get_current_context),
+    context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
     wine = Wine(
         household_id=context.household.id,
@@ -70,7 +70,7 @@ def update_wine(
     wine_id: UUID,
     payload: WineUpdate,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(get_current_context),
+    context: CurrentContext = Depends(require_write_context),
 ) -> Wine:
     wine = get_household_wine(db, context, wine_id)
     for field, value in payload.model_dump(exclude_unset=True).items():
@@ -84,7 +84,7 @@ def update_wine(
 def delete_wine(
     wine_id: UUID,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(get_current_context),
+    context: CurrentContext = Depends(require_admin_context),
 ) -> Response:
     wine = get_household_wine(db, context, wine_id)
     db.delete(wine)

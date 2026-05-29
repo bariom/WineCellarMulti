@@ -34,6 +34,26 @@ type WineDraft = {
   notes: string;
 };
 
+type HouseholdMembership = {
+  membership_id: string;
+  household_id: string;
+  household_name: string;
+  role: string;
+};
+
+type Member = {
+  membership_id: string;
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: string;
+};
+
+type InviteDraft = {
+  email: string;
+  role: string;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -58,6 +78,11 @@ const emptyAuthDraft: AuthDraft = {
   display_name: "",
   household_name: "Main Cellar",
   password: "",
+};
+
+const emptyInviteDraft: InviteDraft = {
+  email: "",
+  role: "viewer",
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -105,8 +130,13 @@ function draftPayload(draft: WineDraft) {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
+  const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
+  const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
+  const [acceptToken, setAcceptToken] = useState("");
+  const [inviteToken, setInviteToken] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -124,13 +154,24 @@ export function App() {
     setWines(nextWines);
   }
 
+  async function loadHouseholdData() {
+    const [nextMemberships, nextMembers] = await Promise.all([
+      api<HouseholdMembership[]>("/api/v1/household/memberships"),
+      api<Member[]>("/api/v1/household/members"),
+    ]);
+    setHouseholdMemberships(nextMemberships);
+    setMembers(nextMembers);
+  }
+
   async function loadData() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await loadWines();
+      await Promise.all([loadWines(), loadHouseholdData()]);
     } else {
       setWines([]);
+      setHouseholdMemberships([]);
+      setMembers([]);
     }
   }
 
@@ -153,7 +194,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await loadWines();
+      await Promise.all([loadWines(), loadHouseholdData()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -166,8 +207,53 @@ export function App() {
     await api<void>("/api/v1/auth/logout", { method: "POST" });
     setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null });
     setWines([]);
+    setHouseholdMemberships([]);
+    setMembers([]);
     setDraft(emptyDraft);
     setEditingId(null);
+  }
+
+  async function switchHousehold(householdId: string) {
+    setError("");
+    await api<Session>("/api/v1/household/switch", { method: "POST", body: JSON.stringify({ household_id: householdId }) });
+    setDraft(emptyDraft);
+    setEditingId(null);
+    await loadData();
+  }
+
+  async function createInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setInviteToken("");
+    try {
+      const invite = await api<{ invite_token: string }>("/api/v1/household/invites", {
+        method: "POST",
+        body: JSON.stringify(inviteDraft),
+      });
+      setInviteDraft(emptyInviteDraft);
+      setInviteToken(invite.invite_token);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create invite");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function acceptInvite(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!acceptToken.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>("/api/v1/household/invites/accept", { method: "POST", body: JSON.stringify({ token: acceptToken.trim() }) });
+      setAcceptToken("");
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to accept invite");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function submitWine(event: FormEvent<HTMLFormElement>) {
@@ -203,6 +289,9 @@ export function App() {
   }
 
   const authenticated = Boolean(session?.authenticated);
+  const activeMembership = householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
+  const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
+  const canWriteWine = canAdmin || session?.membership_role === "member";
 
   return (
     <main className="app-shell">
@@ -214,6 +303,18 @@ export function App() {
         {authenticated ? (
           <div className="session-pill">
             <strong>{session?.user_display_name || session?.user_email}</strong>
+            {householdMemberships.length > 1 ? (
+              <select
+                value={activeMembership?.household_id || ""}
+                onChange={(event) => switchHousehold(event.target.value).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to switch household"))}
+              >
+                {householdMemberships.map((membership) => (
+                  <option key={membership.membership_id} value={membership.household_id}>
+                    {membership.household_name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
             <span>{session?.membership_role}</span>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               Logout
@@ -259,38 +360,39 @@ export function App() {
         <section className="workspace">
           <form className="wine-form" onSubmit={submitWine}>
             <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
+            {!canWriteWine ? <p className="empty-state">Viewer access: you can read this cellar, but cannot change wines.</p> : null}
             <label>
               <span>Name</span>
-              <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
+              <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required disabled={!canWriteWine} />
             </label>
             <label>
               <span>Producer</span>
-              <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} />
+              <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} disabled={!canWriteWine} />
             </label>
             <div className="form-row">
               <label>
                 <span>Vintage</span>
-                <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} />
+                <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
               </label>
               <label>
                 <span>Quantity</span>
-                <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} />
+                <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
               </label>
             </div>
             <div className="form-row">
               <label>
                 <span>Price</span>
-                <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} />
+                <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
               </label>
               <label>
                 <span>Currency</span>
-                <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} />
+                <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
               </label>
             </div>
             <div className="form-row">
               <label>
                 <span>Status</span>
-                <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
+                <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })} disabled={!canWriteWine}>
                   <option>Ordered</option>
                   <option>Shipped</option>
                   <option>Delivered</option>
@@ -299,15 +401,15 @@ export function App() {
               </label>
               <label>
                 <span>Delivery</span>
-                <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} />
+                <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
               </label>
             </div>
             <label>
               <span>Notes</span>
-              <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} />
+              <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
             </label>
             <div className="form-actions">
-              <button type="submit" disabled={saving}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
+              <button type="submit" disabled={saving || !canWriteWine}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
               {editingId ? (
                 <button type="button" className="secondary" onClick={() => { setEditingId(null); setDraft(emptyDraft); }}>
                   Cancel
@@ -331,16 +433,62 @@ export function App() {
                 </div>
                 <strong>{wine.currency} {Number(wine.price).toFixed(0)}</strong>
                 <div className="row-actions">
-                  <button type="button" className="secondary" onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
+                  <button type="button" className="secondary" disabled={!canWriteWine} onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
                     Edit
                   </button>
-                  <button type="button" className="danger" onClick={() => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}>
+                  <button type="button" className="danger" disabled={!canAdmin} onClick={() => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}>
                     Delete
                   </button>
                 </div>
               </article>
             ))}
           </section>
+
+          <aside className="team-panel">
+            <h2>Household</h2>
+            <div className="member-list">
+              {members.map((member) => (
+                <div className="member-row" key={member.membership_id}>
+                  <div>
+                    <strong>{member.display_name || member.email}</strong>
+                    <span>{member.email}</span>
+                  </div>
+                  <small>{member.role}</small>
+                </div>
+              ))}
+            </div>
+
+            {canAdmin ? (
+              <form className="inline-form" onSubmit={createInvite}>
+                <h3>Invite member</h3>
+                <label>
+                  <span>Email</span>
+                  <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
+                </label>
+                <label>
+                  <span>Role</span>
+                  <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
+                    <option value="viewer">Viewer</option>
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </label>
+                <button type="submit" disabled={saving}>{saving ? "Creating" : "Create invite"}</button>
+                {inviteToken ? <p className="token-box">{inviteToken}</p> : null}
+              </form>
+            ) : null}
+
+            <form className="inline-form" onSubmit={acceptInvite}>
+              <h3>Accept invite</h3>
+              <label>
+                <span>Invite token</span>
+                <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} />
+              </label>
+              <button type="submit" className="secondary" disabled={saving || !acceptToken.trim()}>
+                Accept
+              </button>
+            </form>
+          </aside>
         </section>
       )}
     </main>
