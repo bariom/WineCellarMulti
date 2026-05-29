@@ -206,6 +206,32 @@ textarea {
   gap: 10px;
 }
 
+.filter-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #d8ded7;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.filter-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.filter-panel span {
+  color: #52635c;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .wine-side-panel {
   display: grid;
   gap: 12px;

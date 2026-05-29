@@ -126,6 +126,8 @@ type AuthDraft = {
   password: string;
 };
 
+type SortMode = "name" | "vintage" | "value" | "drink_window";
+
 const emptyDraft: WineDraft = {
   name: "",
   producer: "",
@@ -299,6 +301,45 @@ function formatGrape(grape: Wine["grapes"][number]) {
   return grape.name;
 }
 
+function uniqueSorted(values: string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).sort((first, second) => first.localeCompare(second));
+}
+
+function wineSearchText(wine: Wine) {
+  return [
+    wine.name,
+    wine.producer,
+    wine.vintage,
+    wine.format,
+    wine.type,
+    wine.region,
+    wine.appellation,
+    wine.merchant,
+    wine.status,
+    wine.notes,
+    wine.ai_notes,
+    wine.tags.join(" "),
+    wine.scores.map((score) => `${score.critic} ${score.score} ${score.note}`).join(" "),
+  ].join(" ").toLowerCase();
+}
+
+function wishlistSearchText(item: WishlistItem) {
+  return [
+    item.name,
+    item.producer,
+    item.vintage,
+    item.format,
+    item.type,
+    item.region,
+    item.appellation,
+    item.merchant,
+    item.priority,
+    item.purpose,
+    item.status,
+    item.notes,
+  ].join(" ").toLowerCase();
+}
+
 function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {
   return (
     <div className="detail-field">
@@ -450,6 +491,11 @@ export function App() {
   const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -738,6 +784,35 @@ export function App() {
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
+  const normalizedQuery = searchQuery.trim().toLowerCase();
+  const wineTypeOptions = uniqueSorted(wines.map((wine) => wine.type));
+  const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
+  const wineStatusOptions = uniqueSorted(wines.map((wine) => wine.status));
+  const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
+  const tagOptions = uniqueSorted(wines.flatMap((wine) => wine.tags));
+  const activeTypeOptions = activeView === "cellar" ? wineTypeOptions : wishlistTypeOptions;
+  const activeStatusOptions = activeView === "cellar" ? wineStatusOptions : wishlistStatusOptions;
+  const filteredWines = wines
+    .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
+    .filter((wine) => !typeFilter || wine.type === typeFilter)
+    .filter((wine) => !statusFilter || wine.status === statusFilter)
+    .filter((wine) => !tagFilter || wine.tags.includes(tagFilter))
+    .sort((first, second) => {
+      if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
+      if (sortMode === "value") return Number(second.current_value || second.price || 0) - Number(first.current_value || first.price || 0);
+      if (sortMode === "drink_window") return (first.drink_from || 9999) - (second.drink_from || 9999);
+      return first.name.localeCompare(second.name);
+    });
+  const filteredWishlist = wishlist
+    .filter((item) => !normalizedQuery || wishlistSearchText(item).includes(normalizedQuery))
+    .filter((item) => !typeFilter || item.type === typeFilter)
+    .filter((item) => !statusFilter || item.status === statusFilter)
+    .sort((first, second) => {
+      if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
+      if (sortMode === "value") return Number(second.target_price || 0) - Number(first.target_price || 0);
+      return first.name.localeCompare(second.name);
+    });
+  const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -775,6 +850,14 @@ export function App() {
     setEditingWishlistId(null);
     setWishlistDraft(emptyWishlistDraft);
     setWishlistFormOpen(false);
+  }
+
+  function clearFilters() {
+    setSearchQuery("");
+    setTypeFilter("");
+    setStatusFilter("");
+    setTagFilter("");
+    setSortMode("name");
   }
 
   return (
@@ -849,10 +932,10 @@ export function App() {
       ) : (
         <section className="workspace">
           <div className="view-tabs">
-            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => setActiveView("cellar")}>
+            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters(); }}>
               Cellar ({wines.length})
             </button>
-            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); }}>
+            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters(); }}>
               Wishlist ({wishlist.length})
             </button>
           </div>
@@ -1082,14 +1165,59 @@ export function App() {
           </aside>
 
           <section className="wine-list" aria-busy={loading}>
+            <div className="filter-panel">
+              <label>
+                <span>Search</span>
+                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Name, producer, region, score..." />
+              </label>
+              <div className="filter-row">
+                <label>
+                  <span>Type</span>
+                  <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
+                    <option value="">All types</option>
+                    {activeTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                  </select>
+                </label>
+                <label>
+                  <span>Status</span>
+                  <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                    <option value="">All statuses</option>
+                    {activeStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                  </select>
+                </label>
+              </div>
+              <div className="filter-row">
+                {activeView === "cellar" ? (
+                  <label>
+                    <span>Tag</span>
+                    <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
+                      <option value="">All tags</option>
+                      {tagOptions.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
+                    </select>
+                  </label>
+                ) : null}
+                <label>
+                  <span>Sort</span>
+                  <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
+                    <option value="name">Name</option>
+                    <option value="vintage">Vintage</option>
+                    <option value="value">Value</option>
+                    {activeView === "cellar" ? <option value="drink_window">Drink window</option> : null}
+                  </select>
+                </label>
+              </div>
+              <button type="button" className="secondary compact" onClick={clearFilters}>
+                Clear filters
+              </button>
+            </div>
             <div className="list-header">
               <h2>{activeView === "cellar" ? "Wines" : "Wishlist"}</h2>
-              <span>{activeView === "cellar" ? wines.length : wishlist.length} records</span>
+              <span>{visibleCount} / {activeView === "cellar" ? wines.length : wishlist.length} records</span>
             </div>
             {loading ? <p className="empty-state">Loading data</p> : null}
-            {!loading && activeView === "cellar" && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
-            {!loading && activeView === "wishlist" && wishlist.length === 0 ? <p className="empty-state">No wishlist items yet</p> : null}
-            {activeView === "cellar" ? wines.map((wine) => (
+            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">No wines match the current filters</p> : null}
+            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">No wishlist items match the current filters</p> : null}
+            {activeView === "cellar" ? filteredWines.map((wine) => (
               <article className={selectedWineId === wine.id ? "wine-row selected" : "wine-row"} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
                 <div>
                   <h3>{wine.name} <small>{wine.vintage}</small></h3>
@@ -1109,7 +1237,7 @@ export function App() {
                   </button>
                 </div>
               </article>
-            )) : wishlist.map((item) => (
+            )) : filteredWishlist.map((item) => (
               <article className={selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
                 <div>
                   <h3>{item.name} <small>{item.vintage}</small></h3>
