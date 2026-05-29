@@ -94,6 +94,21 @@ The update script pulls the latest code, installs backend dependencies, runs Ale
 
 Open `http://<server-ip>:5173`.
 
+## Android PWA
+
+WineCellarMulti can be installed from Android Chrome when served over HTTPS.
+The frontend includes a web app manifest and service worker.
+
+Production preview uses port `4174` to avoid conflicting with the old WineCellar app that already uses `4173`:
+
+```bash
+cd frontend
+npm run build
+npm run preview:pwa
+```
+
+See `docs/PWA_DEPLOYMENT.md` for the nginx configuration.
+
 ## Reset Local PostgreSQL
 
 If the local PostgreSQL password is no longer known, regenerate local secrets and recreate the development database volume:

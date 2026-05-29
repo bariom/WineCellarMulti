@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="WineCellarMulti">
+  <rect width="512" height="512" fill="#10231d"/>
+  <circle cx="256" cy="256" r="208" fill="#16342a"/>
+  <path d="M176 112h160c0 70-27 108-68 123v92c0 24 29 34 72 44 14 4 24 16 24 31H148c0-15 10-27 24-31 43-10 72-20 72-44v-92c-41-15-68-53-68-123z" fill="#f7f1df"/>
+  <path d="M209 153h94c-5 36-22 56-47 66-25-10-42-30-47-66z" fill="#9f2440"/>
+  <path d="M184 404h144" stroke="#c7a23a" stroke-width="24" stroke-linecap="round"/>
+</svg>
