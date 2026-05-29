@@ -130,6 +130,17 @@ type Invite = {
   invite_token: string | null;
 };
 
+type AiAuditLog = {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  feature: string;
+  model: string;
+  outcome: string;
+  summary: string;
+  created_at: string;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -149,6 +160,7 @@ const translations = {
     aiNotes: "AI notes",
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
+    aiAudit: "AI audit",
     aiStrategy: "AI strategy",
     allStatuses: "All statuses",
     allTags: "All tags",
@@ -200,6 +212,7 @@ const translations = {
     missingValue: "Missing value",
     name: "Name",
     noInvites: "No invites",
+    noAiAudit: "No AI generations yet",
     noItemSelected: "No item selected",
     noProducer: "No producer",
     noWishlistMatch: "No wishlist items match the current filters",
@@ -255,6 +268,7 @@ const translations = {
     aiNotes: "Note AI",
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
+    aiAudit: "Audit AI",
     aiStrategy: "Strategia AI",
     allStatuses: "Tutti gli stati",
     allTags: "Tutti i tag",
@@ -306,6 +320,7 @@ const translations = {
     missingValue: "Valore mancante",
     name: "Nome",
     noInvites: "Nessun invito",
+    noAiAudit: "Nessuna generazione AI",
     noItemSelected: "Nessun elemento selezionato",
     noProducer: "Produttore assente",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
@@ -795,6 +810,7 @@ export function App() {
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
@@ -859,17 +875,26 @@ export function App() {
     }
   }
 
+  async function loadAiAudit(role = session?.membership_role) {
+    if (role === "owner" || role === "admin" || role === "member") {
+      setAiAudit(await api<AiAuditLog[]>("/api/v1/ai/audit"));
+    } else {
+      setAiAudit([]);
+    }
+  }
+
   async function loadData() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
       setHouseholdMemberships([]);
       setMembers([]);
       setInvites([]);
+      setAiAudit([]);
     }
   }
 
@@ -1132,6 +1157,7 @@ export function App() {
       const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, { method: "POST" });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
+      await loadAiAudit();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
@@ -1146,6 +1172,7 @@ export function App() {
       const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/strategy`, { method: "POST" });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
+      await loadAiAudit();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist strategy");
     } finally {
@@ -1260,6 +1287,12 @@ export function App() {
     setStatusFilter("");
     setTagFilter("");
     setSortMode("name");
+  }
+
+  function aiEntityName(entry: AiAuditLog) {
+    if (entry.entity_type === "wine") return wines.find((wine) => wine.id === entry.entity_id)?.name || entry.entity_type;
+    if (entry.entity_type === "wishlist") return wishlist.find((item) => item.id === entry.entity_id)?.name || entry.entity_type;
+    return entry.entity_type;
   }
 
   return (
@@ -1864,6 +1897,23 @@ export function App() {
                 </div>
               </>
             ) : null}
+
+            <div className="inline-form">
+              <h3>{t("aiAudit")}</h3>
+              {aiAudit.length ? (
+                <div className="audit-list">
+                  {aiAudit.slice(0, 8).map((entry) => (
+                    <div className="audit-row" key={entry.id}>
+                      <strong>{entry.feature.replaceAll("_", " ")} - {aiEntityName(entry)}</strong>
+                      <span>{entry.model} - {formatDisplayDate(entry.created_at)}</span>
+                      <p>{entry.summary}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-state">{t("noAiAudit")}</p>
+              )}
+            </div>
 
             <form className="inline-form" onSubmit={acceptInvite}>
               <h3>{t("acceptInvite")}</h3>

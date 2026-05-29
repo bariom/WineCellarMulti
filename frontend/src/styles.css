@@ -286,13 +286,15 @@ textarea {
 
 .member-list,
 .invite-list,
+.audit-list,
 .inline-form {
   display: grid;
   gap: 10px;
 }
 
 .member-row,
-.invite-row {
+.invite-row,
+.audit-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -304,6 +306,7 @@ textarea {
 
 .member-row div,
 .invite-row div,
+.audit-row div,
 .inline-form label {
   display: grid;
   gap: 4px;
@@ -312,9 +315,21 @@ textarea {
 .member-row span,
 .member-row small,
 .invite-row span,
+.audit-row span,
 .inline-form label span {
   color: #52635c;
   font-size: 0.78rem;
+}
+
+.audit-row {
+  display: grid;
+  justify-content: stretch;
+}
+
+.audit-row p {
+  margin: 0;
+  color: #52635c;
+  font-size: 0.85rem;
 }
 
 .member-actions {

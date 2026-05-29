@@ -5,6 +5,7 @@ from decimal import Decimal, InvalidOperation
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
@@ -12,13 +13,60 @@ from app.api.routes.wines import get_household_wine
 from app.api.routes.wishlist import get_household_wishlist_item
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import Wine, WishlistItem
+from app.models import AiAuditLog, Wine, WishlistItem
+from app.schemas.ai import AiAuditLogResponse
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import create_response, parse_json_response
 
 
 router = APIRouter(prefix="/ai")
+
+
+def clip_summary(value: str, limit: int = 900) -> str:
+    text = " ".join(str(value or "").split())
+    return text[:limit]
+
+
+def record_ai_audit(
+    db: Session,
+    context: CurrentContext,
+    *,
+    entity_type: str,
+    entity_id: UUID,
+    feature: str,
+    model: str,
+    summary: str,
+    sources: list[dict] | None = None,
+) -> None:
+    db.add(
+        AiAuditLog(
+            household_id=context.household.id,
+            user_id=context.user.id,
+            entity_type=entity_type,
+            entity_id=entity_id,
+            feature=feature,
+            model=model,
+            outcome="success",
+            summary=clip_summary(summary),
+            sources=sources or [],
+        ),
+    )
+
+
+@router.get("/audit", response_model=list[AiAuditLogResponse])
+def list_ai_audit(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> list[AiAuditLog]:
+    return list(
+        db.scalars(
+            select(AiAuditLog)
+            .where(AiAuditLog.household_id == context.household.id)
+            .order_by(AiAuditLog.created_at.desc())
+            .limit(30),
+        ),
+    )
 
 
 def wine_context(wine: Wine) -> str:
@@ -76,6 +124,7 @@ def generate_wine_notes(
         f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
     )
     wine.ai_notes = notes[:4000]
+    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=settings.openai_ai_notes_model, summary=notes)
     db.commit()
     db.refresh(wine)
     return wine
@@ -116,6 +165,15 @@ def generate_drink_window(
     wine.drink_peak_to = int(result["drink_peak_to"])
     wine.drink_to = int(result["drink_to"])
     wine.drink_window_notes = str(result["notes"])[:2000]
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="drink_window",
+        model=settings.openai_drink_window_model,
+        summary=f"{wine.drink_from}-{wine.drink_to}: {wine.drink_window_notes}",
+    )
     db.commit()
     db.refresh(wine)
     return wine
@@ -157,6 +215,15 @@ def generate_wine_value(
     wine.currency = str(result.get("currency") or wine.currency)[:8]
     wine.ai_value_notes = str(result["notes"])[:2000]
     wine.ai_value_estimated_at = datetime.now(timezone.utc)
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="ai_value",
+        model=settings.openai_value_model,
+        summary=f"{wine.currency} {wine.current_value}: {wine.ai_value_notes}",
+    )
     db.commit()
     db.refresh(wine)
     return wine
@@ -205,6 +272,15 @@ def generate_grapes(
     note = str(result.get("notes") or "").strip()
     if note:
         wine.ai_notes = f"{wine.ai_notes}\n\nUve: {note}".strip()[:4000]
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="grapes",
+        model=settings.openai_grape_model,
+        summary=note or str(wine.grapes),
+    )
     db.commit()
     db.refresh(wine)
     return wine
@@ -243,6 +319,15 @@ def generate_wishlist_strategy(
     item.ai_purpose_advice = str(result["purpose_advice"])[:3000]
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.priority = str(result["recommended_priority"] or item.priority)[:32]
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wishlist",
+        entity_id=item.id,
+        feature="wishlist_strategy",
+        model=settings.openai_wishlist_model,
+        summary=f"{item.priority} / {item.status}: {item.ai_strategy}",
+    )
     db.commit()
     db.refresh(item)
     return item

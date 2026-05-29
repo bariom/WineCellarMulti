@@ -263,6 +263,10 @@ def test_ai_generation_requires_configured_openai_key():
     created = client.post("/api/v1/wines", json={"name": "AI Wine", "quantity": 1, "price": 20})
     assert created.status_code == 201
 
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    assert audit.json() == []
+
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
     assert generated.status_code == 503
     assert "OPENAI_API_KEY" in generated.json()["detail"]
