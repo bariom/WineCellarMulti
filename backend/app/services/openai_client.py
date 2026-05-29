@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 import json
 import urllib.error
 import urllib.request
@@ -8,6 +9,49 @@ from typing import Any
 from fastapi import HTTPException, status
 
 from app.core.config import settings
+
+
+@dataclass(frozen=True)
+class TokenUsage:
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+
+
+@dataclass(frozen=True)
+class OpenAIResponse:
+    text: str
+    usage: TokenUsage
+
+
+def int_from_payload(value: Any) -> int:
+    try:
+        return max(int(value or 0), 0)
+    except (TypeError, ValueError):
+        return 0
+
+
+def extract_token_usage(payload: dict[str, Any]) -> TokenUsage:
+    usage = payload.get("usage")
+    if not isinstance(usage, dict):
+        return TokenUsage()
+
+    input_tokens = int_from_payload(usage.get("input_tokens") or usage.get("prompt_tokens"))
+    output_tokens = int_from_payload(usage.get("output_tokens") or usage.get("completion_tokens"))
+    total_tokens = int_from_payload(usage.get("total_tokens"))
+    if total_tokens == 0:
+        total_tokens = input_tokens + output_tokens
+
+    input_details = usage.get("input_tokens_details") or usage.get("prompt_tokens_details") or {}
+    cached_input_tokens = int_from_payload(input_details.get("cached_tokens") if isinstance(input_details, dict) else 0)
+
+    return TokenUsage(
+        input_tokens=input_tokens,
+        cached_input_tokens=min(cached_input_tokens, input_tokens),
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+    )
 
 
 def extract_response_text(payload: dict[str, Any]) -> str:
@@ -38,7 +82,7 @@ def parse_json_response(text: str) -> dict[str, Any]:
     return parsed
 
 
-def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key: str | None = None, json_schema: dict[str, Any] | None = None) -> str:
+def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key: str | None = None, json_schema: dict[str, Any] | None = None) -> OpenAIResponse:
     active_api_key = settings.openai_api_key if api_key is None else api_key.strip()
     if not active_api_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY is not configured")
@@ -81,4 +125,4 @@ def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key
     text = extract_response_text(payload)
     if not text:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an empty response")
-    return text
+    return OpenAIResponse(text=text, usage=extract_token_usage(payload))

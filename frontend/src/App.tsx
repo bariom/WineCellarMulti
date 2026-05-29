@@ -138,7 +138,29 @@ type AiAuditLog = {
   model: string;
   outcome: string;
   summary: string;
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd: string;
   created_at: string;
+};
+
+type AiUsageBucket = {
+  requests: number;
+  input_tokens: number;
+  cached_input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  estimated_cost_usd: string;
+};
+
+type AiUsage = {
+  today: AiUsageBucket;
+  current_month: AiUsageBucket;
+  all_time: AiUsageBucket;
+  currency: string;
+  is_estimate: boolean;
 };
 
 type AiSettings = {
@@ -191,6 +213,8 @@ const translations = {
     aiAudit: "AI audit",
     aiSettings: "AI settings",
     aiStrategy: "AI strategy",
+    aiUsage: "AI usage",
+    allTime: "All time",
     allStatuses: "All statuses",
     allTags: "All tags",
     allTypes: "All types",
@@ -244,6 +268,7 @@ const translations = {
     noInvites: "No invites",
     noAiAudit: "No AI generations yet",
     noApiKey: "No API key configured",
+    noAiUsage: "No AI usage yet",
     noItemSelected: "No item selected",
     noProducer: "No producer",
     noWishlistMatch: "No wishlist items match the current filters",
@@ -280,6 +305,8 @@ const translations = {
     tags: "Tags",
     targetPrice: "Target price",
     targetValue: "Target value",
+    thisMonth: "This month",
+    today: "Today",
     topRegions: "Top regions",
     totalValue: "Total value",
     type: "Type",
@@ -293,6 +320,7 @@ const translations = {
     wishlistDetail: "Wishlist detail",
     wishlistItems: "Wishlist items",
     working: "Working",
+    estimatedCost: "Estimated cost",
   },
   it: {
     accept: "Accetta",
@@ -305,6 +333,8 @@ const translations = {
     aiAudit: "Audit AI",
     aiSettings: "Impostazioni AI",
     aiStrategy: "Strategia AI",
+    aiUsage: "Uso AI",
+    allTime: "Totale",
     allStatuses: "Tutti gli stati",
     allTags: "Tutti i tag",
     allTypes: "Tutti i tipi",
@@ -358,6 +388,7 @@ const translations = {
     noInvites: "Nessun invito",
     noAiAudit: "Nessuna generazione AI",
     noApiKey: "Nessuna chiave API configurata",
+    noAiUsage: "Nessun uso AI registrato",
     noItemSelected: "Nessun elemento selezionato",
     noProducer: "Produttore assente",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
@@ -394,6 +425,8 @@ const translations = {
     tags: "Tag",
     targetPrice: "Prezzo target",
     targetValue: "Valore target",
+    thisMonth: "Questo mese",
+    today: "Oggi",
     topRegions: "Top regioni",
     totalValue: "Valore totale",
     type: "Tipo",
@@ -407,6 +440,7 @@ const translations = {
     wishlistDetail: "Dettaglio wishlist",
     wishlistItems: "Elementi wishlist",
     working: "Elaborazione",
+    estimatedCost: "Costo stimato",
   },
 } as const;
 
@@ -587,6 +621,11 @@ function formatGrape(grape: Wine["grapes"][number]) {
   if (from && to && from !== to) return `${grape.name} ${from}-${to}%`;
   if (from || to) return `${grape.name} ${from || to}%`;
   return grape.name;
+}
+
+function formatUsd(value: string | number) {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: amount < 1 ? 4 : 2, maximumFractionDigits: 4 }).format(amount);
 }
 
 function uniqueSorted(values: string[]) {
@@ -843,6 +882,17 @@ function WishlistDetail({
   );
 }
 
+function AiUsageRow({ label, bucket }: { label: string; bucket: AiUsageBucket }) {
+  return (
+    <div className="usage-row">
+      <strong>{label}</strong>
+      <span>{bucket.requests} req</span>
+      <span>{bucket.total_tokens.toLocaleString()} tokens</span>
+      <span>{formatUsd(bucket.estimated_cost_usd)}</span>
+    </div>
+  );
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -851,6 +901,7 @@ export function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
+  const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [aiSettingsDraft, setAiSettingsDraft] = useState<AiSettingsDraft>(emptyAiSettingsDraft);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
@@ -925,6 +976,14 @@ export function App() {
     }
   }
 
+  async function loadAiUsage(role = session?.membership_role) {
+    if (role === "owner" || role === "admin" || role === "member") {
+      setAiUsage(await api<AiUsage>("/api/v1/ai/usage"));
+    } else {
+      setAiUsage(null);
+    }
+  }
+
   async function loadAiSettings(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
       const nextSettings = await api<AiSettings>("/api/v1/ai/settings");
@@ -947,7 +1006,7 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
@@ -955,6 +1014,7 @@ export function App() {
       setMembers([]);
       setInvites([]);
       setAiAudit([]);
+      setAiUsage(null);
       setAiSettings(null);
       setAiSettingsDraft(emptyAiSettingsDraft);
     }
@@ -983,7 +1043,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -1007,6 +1067,8 @@ export function App() {
     setSelectedWishlistId(null);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
+    setAiAudit([]);
+    setAiUsage(null);
     setAiSettings(null);
     setAiSettingsDraft(emptyAiSettingsDraft);
   }
@@ -1247,7 +1309,7 @@ export function App() {
       const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, { method: "POST" });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
-      await loadAiAudit();
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
@@ -1262,7 +1324,7 @@ export function App() {
       const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/strategy`, { method: "POST" });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
-      await loadAiAudit();
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist strategy");
     } finally {
@@ -1962,6 +2024,22 @@ export function App() {
                 </label>
                 <button type="submit" disabled={saving}>{saving ? t("saving") : t("saveSettings")}</button>
               </form>
+            ) : null}
+
+            {canWriteWine ? (
+              <div className="inline-form">
+                <h2>{t("aiUsage")}</h2>
+                <p className="empty-state">{t("estimatedCost")}: {aiUsage ? formatUsd(aiUsage.all_time.estimated_cost_usd) : formatUsd(0)}</p>
+                {aiUsage && aiUsage.all_time.requests > 0 ? (
+                  <div className="usage-list">
+                    <AiUsageRow label={t("today")} bucket={aiUsage.today} />
+                    <AiUsageRow label={t("thisMonth")} bucket={aiUsage.current_month} />
+                    <AiUsageRow label={t("allTime")} bucket={aiUsage.all_time} />
+                  </div>
+                ) : (
+                  <p className="empty-state">{t("noAiUsage")}</p>
+                )}
+              </div>
             ) : null}
 
             <h2>{t("household")}</h2>

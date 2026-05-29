@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -17,7 +18,29 @@ class AiAuditLogResponse(BaseModel):
     outcome: str
     summary: str
     sources: list[dict]
+    input_tokens: int = 0
+    cached_input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    estimated_cost_usd: Decimal = Decimal("0")
     created_at: datetime
+
+
+class AiUsageBucket(BaseModel):
+    requests: int
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    estimated_cost_usd: Decimal
+
+
+class AiUsageResponse(BaseModel):
+    today: AiUsageBucket
+    current_month: AiUsageBucket
+    all_time: AiUsageBucket
+    currency: str = "USD"
+    is_estimate: bool = True
 
 
 class AiSettingsResponse(BaseModel):

@@ -1,4 +1,6 @@
 import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -8,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import Household, Wine
+from app.models import AiAuditLog, Household, Wine
 
 
 engine = create_engine(
@@ -266,6 +268,10 @@ def test_ai_generation_requires_configured_openai_key():
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
     assert audit.json() == []
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["requests"] == 0
+    assert usage.json()["all_time"]["estimated_cost_usd"] == "0.000000"
 
     settings = client.get("/api/v1/ai/settings")
     assert settings.status_code == 200
@@ -287,3 +293,38 @@ def test_ai_generation_requires_configured_openai_key():
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
     assert generated.status_code == 503
     assert "OPENAI_API_KEY" in generated.json()["detail"]
+
+
+def test_ai_usage_summarizes_current_user_costs():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    session = client.get("/api/v1/session").json()
+
+    with TestingSessionLocal() as db:
+        db.add(
+            AiAuditLog(
+                household_id=uuid.UUID(session["active_household_id"]),
+                user_id=uuid.UUID(session["user_id"]),
+                entity_type="wine",
+                entity_id=uuid.uuid4(),
+                feature="ai_notes",
+                model="gpt-5.4-mini",
+                outcome="success",
+                summary="Generated notes",
+                input_tokens=1000,
+                cached_input_tokens=100,
+                output_tokens=250,
+                total_tokens=1250,
+                estimated_cost_usd=Decimal("0.001800"),
+                created_at=datetime.now(timezone.utc),
+            ),
+        )
+        db.commit()
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["today"]["requests"] == 1
+    assert usage.json()["today"]["input_tokens"] == 1000
+    assert usage.json()["today"]["cached_input_tokens"] == 100
+    assert usage.json()["today"]["output_tokens"] == 250
+    assert usage.json()["today"]["estimated_cost_usd"] == "0.001800"
