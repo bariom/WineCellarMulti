@@ -50,7 +50,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
 
 def ai_settings_response(user_settings: UserAiSettings) -> AiSettingsResponse:
     return AiSettingsResponse(
-        has_openai_api_key=bool(user_settings.openai_api_key.strip() or settings.openai_api_key.strip()),
+        has_openai_api_key=bool(user_settings.openai_api_key.strip()),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,

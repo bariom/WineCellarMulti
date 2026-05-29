@@ -39,7 +39,7 @@ def parse_json_response(text: str) -> dict[str, Any]:
 
 
 def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key: str | None = None, json_schema: dict[str, Any] | None = None) -> str:
-    active_api_key = api_key or settings.openai_api_key
+    active_api_key = settings.openai_api_key if api_key is None else api_key.strip()
     if not active_api_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY is not configured")
 
