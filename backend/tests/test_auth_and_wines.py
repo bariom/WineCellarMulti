@@ -93,6 +93,8 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
             "price": 45.4,
             "currency": "CHF",
             "status": "Delivered",
+            "owner_share_pct": 50,
+            "owners": [{"name": "Omar", "share_pct": 50}, {"name": "Luca", "share_pct": 50}],
         },
     )
     assert created.status_code == 201
@@ -122,6 +124,8 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 5
     assert updated.json()["status"] == "Shipped"
+    assert updated.json()["owner_share_pct"] == "50.00"
+    assert updated.json()["owners"][0]["name"] == "Omar"
 
     missing = client.get(f"/api/v1/wines/{uuid.uuid4()}")
     assert missing.status_code == 404

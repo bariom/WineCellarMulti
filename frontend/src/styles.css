@@ -304,6 +304,26 @@ textarea {
   width: auto;
 }
 
+.ownership-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #e3e9e2;
+  border-radius: 10px;
+  background: #f8faf8;
+}
+
+.ownership-editor label {
+  display: grid;
+  gap: 6px;
+}
+
+.ownership-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px auto;
+  gap: 8px;
+}
+
 .tag-choice-list.compact {
   max-height: 88px;
   overflow-y: auto;
@@ -817,6 +837,24 @@ textarea {
   color: #245142;
   background: #e3e9e2;
   font-size: 0.85rem;
+}
+
+.ownership-list {
+  display: grid;
+  gap: 8px;
+}
+
+.ownership-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #f8faf8;
+}
+
+.ownership-row span {
+  color: #52635c;
 }
 
 .notes-grid {

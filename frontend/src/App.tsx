@@ -61,6 +61,7 @@ type WineDraft = {
   expected_delivery: string;
   owner_share_pct: string;
   notes: string;
+  owners: Array<{ name: string; share_pct: string }>;
   tags: string[];
 };
 
@@ -271,6 +272,7 @@ const translations = {
     login: "Login",
     logout: "Logout",
     merchant: "Merchant",
+    multiOwnership: "Multi ownership",
     missingDrinkWindow: "Missing drink window",
     missingScores: "Missing scores",
     missingValue: "Missing value",
@@ -285,6 +287,7 @@ const translations = {
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
     notes: "Notes",
+    ownerShare: "Owner share",
     orderDate: "Order date",
     password: "Password",
     pastWindow: "Past window",
@@ -404,6 +407,7 @@ const translations = {
     login: "Accesso",
     logout: "Esci",
     merchant: "Commerciante",
+    multiOwnership: "Multiproprieta",
     missingDrinkWindow: "Finestra mancante",
     missingScores: "Punteggi mancanti",
     missingValue: "Valore mancante",
@@ -418,6 +422,7 @@ const translations = {
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
     notes: "Note",
+    ownerShare: "Quota proprietario",
     orderDate: "Data ordine",
     password: "Password",
     pastWindow: "Finestra scaduta",
@@ -501,6 +506,7 @@ const emptyDraft: WineDraft = {
   expected_delivery: "",
   owner_share_pct: "100",
   notes: "",
+  owners: [],
   tags: [],
 };
 
@@ -566,6 +572,7 @@ function wineToDraft(wine: Wine): WineDraft {
     expected_delivery: wine.expected_delivery || "",
     owner_share_pct: String(wine.owner_share_pct || "100"),
     notes: wine.notes,
+    owners: wine.owners.map((owner) => ({ name: owner.name || "", share_pct: String(owner.share_pct || "") })),
     tags: wine.tags,
   };
 }
@@ -589,6 +596,9 @@ function draftPayload(draft: WineDraft) {
     expected_delivery: draft.expected_delivery || null,
     owner_share_pct: Number(draft.owner_share_pct || 100),
     notes: draft.notes.trim(),
+    owners: draft.owners
+      .map((owner) => ({ name: owner.name.trim(), share_pct: Number(owner.share_pct || 0) }))
+      .filter((owner) => owner.name && owner.share_pct > 0),
     tags: draft.tags,
   };
 }
@@ -794,6 +804,12 @@ function DetailNote({ title, children }: { title: string; children: string }) {
   );
 }
 
+function ownershipRows(wine: Wine) {
+  if (wine.owners.length) return wine.owners;
+  const share = Number(wine.owner_share_pct || 0);
+  return share > 0 && share < 100 ? [{ name: "Owner", share_pct: share }] : [];
+}
+
 function WineDetail({
   wine,
   canGenerate,
@@ -899,6 +915,20 @@ function WineDetail({
           <h3>{t("tags")}</h3>
           <div className="chip-list">
             {wine.tags.map((tag) => <span key={tag}>{tag}</span>)}
+          </div>
+        </div>
+      ) : null}
+
+      {ownershipRows(wine).length ? (
+        <div className="detail-section">
+          <h3>{t("multiOwnership")}</h3>
+          <div className="ownership-list">
+            {ownershipRows(wine).map((owner, index) => (
+              <div className="ownership-row" key={`${owner.name}-${index}`}>
+                <span>{owner.name}</span>
+                <strong>{Number(owner.share_pct).toFixed(0)}%</strong>
+              </div>
+            ))}
           </div>
         </div>
       ) : null}
@@ -1830,6 +1860,32 @@ export function App() {
                   <span>{t("notes")}</span>
                   <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
                 </label>
+                <div className="ownership-editor">
+                  <div className="section-heading">
+                    <h3>{t("multiOwnership")}</h3>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      disabled={!canWriteWine}
+                      onClick={() => setDraft({ ...draft, owners: [...draft.owners, { name: "", share_pct: "" }] })}
+                    >
+                      +
+                    </button>
+                  </div>
+                  <label>
+                    <span>{t("ownerShare")}</span>
+                    <input type="number" min="0" max="100" step="0.01" value={draft.owner_share_pct} onChange={(event) => setDraft({ ...draft, owner_share_pct: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  {draft.owners.map((owner, index) => (
+                    <div className="ownership-edit-row" key={index}>
+                      <input value={owner.name} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} placeholder={t("name")} disabled={!canWriteWine} />
+                      <input type="number" min="0" max="100" step="0.01" value={owner.share_pct} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, share_pct: event.target.value } : item) })} placeholder="%" disabled={!canWriteWine} />
+                      <button type="button" className="danger compact" disabled={!canWriteWine} onClick={() => setDraft({ ...draft, owners: draft.owners.filter((_, itemIndex) => itemIndex !== index) })}>
+                        {t("delete")}
+                      </button>
+                    </div>
+                  ))}
+                </div>
                 <div className="tag-picker">
                   <span>{t("tags")}</span>
                   {wineFormTagOptions.length ? (
