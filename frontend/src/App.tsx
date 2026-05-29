@@ -345,6 +345,7 @@ export function App() {
   const [activeView, setActiveView] = useState<"cellar" | "wishlist">("cellar");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [wineFormOpen, setWineFormOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
@@ -427,9 +428,10 @@ export function App() {
     setWishlist([]);
     setHouseholdMemberships([]);
     setMembers([]);
-      setDraft(emptyDraft);
-      setEditingId(null);
-      setSelectedWineId(null);
+    setDraft(emptyDraft);
+    setEditingId(null);
+    setSelectedWineId(null);
+    setWineFormOpen(false);
   }
 
   async function switchHousehold(householdId: string) {
@@ -438,6 +440,7 @@ export function App() {
     setDraft(emptyDraft);
     setEditingId(null);
     setSelectedWineId(null);
+    setWineFormOpen(false);
     await loadData();
   }
 
@@ -521,9 +524,10 @@ export function App() {
       } else {
         await api<Wine>("/api/v1/wines", { method: "POST", body: JSON.stringify(payload) });
       }
-    setDraft(emptyDraft);
-    setEditingId(null);
-    setSelectedWineId(null);
+      setDraft(emptyDraft);
+      setEditingId(null);
+      setSelectedWineId(null);
+      setWineFormOpen(false);
       await loadWines();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
@@ -568,6 +572,25 @@ export function App() {
   const canWriteWine = canAdmin || session?.membership_role === "member";
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
+
+  function startAddWine() {
+    setDraft(emptyDraft);
+    setEditingId(null);
+    setWineFormOpen(true);
+  }
+
+  function startEditWine(wine: Wine) {
+    setSelectedWineId(wine.id);
+    setEditingId(wine.id);
+    setDraft(wineToDraft(wine));
+    setWineFormOpen(true);
+  }
+
+  function closeWineForm() {
+    setEditingId(null);
+    setDraft(emptyDraft);
+    setWineFormOpen(false);
+  }
 
   return (
     <main className="app-shell">
@@ -648,99 +671,118 @@ export function App() {
               Wishlist ({wishlist.length})
             </button>
           </div>
-          <form className="wine-form" onSubmit={submitWine}>
-            <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
-            {!canWriteWine ? <p className="empty-state">Viewer access: you can read this cellar, but cannot change wines.</p> : null}
-            <label>
-              <span>Name</span>
-              <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required disabled={!canWriteWine} />
-            </label>
-            <label>
-              <span>Producer</span>
-              <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} disabled={!canWriteWine} />
-            </label>
-            <div className="form-row">
-              <label>
-                <span>Format</span>
-                <input value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })} disabled={!canWriteWine} />
-              </label>
-              <label>
-                <span>Type</span>
-                <input value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine} />
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                <span>Region</span>
-                <input value={draft.region} onChange={(event) => setDraft({ ...draft, region: event.target.value })} disabled={!canWriteWine} />
-              </label>
-              <label>
-                <span>Appellation</span>
-                <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                <span>Vintage</span>
-                <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
-              </label>
-              <label>
-                <span>Quantity</span>
-                <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                <span>Price</span>
-                <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
-              </label>
-              <label>
-                <span>Current value</span>
-                <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                <span>Currency</span>
-                <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
-              </label>
-              <label>
-                <span>Merchant</span>
-                <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
-              </label>
-            </div>
-            <div className="form-row">
-              <label>
-                <span>Status</span>
-                <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })} disabled={!canWriteWine}>
-                  <option>Ordered</option>
-                  <option>Shipped</option>
-                  <option>Delivered</option>
-                  <option>Consumed</option>
-                </select>
-              </label>
-              <label>
-                <span>Order date</span>
-                <input type="date" value={draft.order_date} onChange={(event) => setDraft({ ...draft, order_date: event.target.value })} disabled={!canWriteWine} />
-              </label>
-              <label>
-                <span>Delivery</span>
-                <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
-              </label>
-            </div>
-            <label>
-              <span>Notes</span>
-              <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
-            </label>
-            <div className="form-actions">
-              <button type="submit" disabled={saving || !canWriteWine}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
-              {editingId ? (
-                <button type="button" className="secondary" onClick={() => { setEditingId(null); setDraft(emptyDraft); }}>
-                  Cancel
+          <aside className="wine-side-panel">
+            <div className="side-panel-actions">
+              <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
+                Add wine
+              </button>
+              {selectedWine && !wineFormOpen ? (
+                <button type="button" className="secondary" onClick={() => startEditWine(selectedWine)} disabled={!canWriteWine}>
+                  Edit selected
                 </button>
               ) : null}
             </div>
-          </form>
+            {wineFormOpen ? (
+              <form className="wine-form" onSubmit={submitWine}>
+                <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
+                {!canWriteWine ? <p className="empty-state">Viewer access: you can read this cellar, but cannot change wines.</p> : null}
+                <label>
+                  <span>Name</span>
+                  <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required disabled={!canWriteWine} />
+                </label>
+                <label>
+                  <span>Producer</span>
+                  <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} disabled={!canWriteWine} />
+                </label>
+                <div className="form-row">
+                  <label>
+                    <span>Format</span>
+                    <input value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Type</span>
+                    <input value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Region</span>
+                    <input value={draft.region} onChange={(event) => setDraft({ ...draft, region: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Appellation</span>
+                    <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Vintage</span>
+                    <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Quantity</span>
+                    <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Price</span>
+                    <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Current value</span>
+                    <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Currency</span>
+                    <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Merchant</span>
+                    <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>Status</span>
+                    <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })} disabled={!canWriteWine}>
+                      <option>Ordered</option>
+                      <option>Shipped</option>
+                      <option>Delivered</option>
+                      <option>Consumed</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span>Order date</span>
+                    <input type="date" value={draft.order_date} onChange={(event) => setDraft({ ...draft, order_date: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>Delivery</span>
+                    <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <label>
+                  <span>Notes</span>
+                  <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
+                </label>
+                <div className="form-actions">
+                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
+                  <button type="button" className="secondary" onClick={closeWineForm}>
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            ) : selectedWine ? (
+              <WineDetail wine={selectedWine} />
+            ) : (
+              <div className="wine-detail empty-detail">
+                <h2>No wine selected</h2>
+                <p>Select a wine from the list to see the complete detail.</p>
+              </div>
+            )}
+          </aside>
 
           <section className="wine-list" aria-busy={loading}>
             <div className="list-header">
@@ -751,7 +793,7 @@ export function App() {
             {!loading && activeView === "cellar" && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
             {!loading && activeView === "wishlist" && wishlist.length === 0 ? <p className="empty-state">No wishlist items yet</p> : null}
             {activeView === "cellar" ? wines.map((wine) => (
-              <article className={selectedWineId === wine.id ? "wine-row selected" : "wine-row"} key={wine.id}>
+              <article className={selectedWineId === wine.id ? "wine-row selected" : "wine-row"} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
                 <div>
                   <h3>{wine.name} <small>{wine.vintage}</small></h3>
                   <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
@@ -762,13 +804,10 @@ export function App() {
                 </div>
                 <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                 <div className="row-actions">
-                  <button type="button" className="secondary" onClick={() => setSelectedWineId(wine.id)}>
-                    Detail
-                  </button>
-                  <button type="button" className="secondary" disabled={!canWriteWine} onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
+                  <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
                     Edit
                   </button>
-                  <button type="button" className="danger" disabled={!canAdmin} onClick={() => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}>
+                  <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine")); }}>
                     Delete
                   </button>
                 </div>
@@ -787,7 +826,6 @@ export function App() {
                 </div>
               </article>
             ))}
-            {activeView === "cellar" && selectedWine ? <WineDetail wine={selectedWine} /> : null}
           </section>
 
           <aside className="team-panel">

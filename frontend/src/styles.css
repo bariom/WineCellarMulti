@@ -49,7 +49,7 @@ button.danger {
 }
 
 .app-shell {
-  max-width: 1180px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 28px 24px 64px;
 }
@@ -123,7 +123,7 @@ button.danger {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) minmax(0, 1fr) minmax(240px, 300px);
+  grid-template-columns: minmax(340px, 430px) minmax(0, 1fr) minmax(250px, 300px);
   gap: 24px;
   align-items: start;
   margin-top: 24px;
@@ -206,9 +206,24 @@ textarea {
   gap: 10px;
 }
 
+.wine-side-panel {
+  display: grid;
+  gap: 12px;
+  position: sticky;
+  top: 18px;
+}
+
+.side-panel-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .team-panel {
   display: grid;
   gap: 16px;
+  position: sticky;
+  top: 18px;
   padding: 18px;
   border: 1px solid #d8ded7;
   border-radius: 8px;
@@ -315,6 +330,13 @@ textarea {
   border: 1px solid #d8ded7;
   border-radius: 8px;
   background: #fff;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.wine-row:hover {
+  border-color: #9aa99f;
+  transform: translateY(-1px);
 }
 
 .wine-row.selected {
@@ -347,9 +369,13 @@ textarea {
   background: #fff;
 }
 
+.empty-detail p {
+  margin: 0;
+  color: #52635c;
+}
+
 .detail-title {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
   gap: 18px;
   padding-bottom: 14px;
   border-bottom: 1px solid #e3e9e2;
@@ -376,7 +402,7 @@ textarea {
 
 .detail-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
 
@@ -490,6 +516,11 @@ textarea {
 
   .session-pill {
     justify-items: start;
+  }
+
+  .wine-side-panel,
+  .team-panel {
+    position: static;
   }
 
   .detail-grid {
