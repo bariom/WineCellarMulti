@@ -12,6 +12,7 @@ from app.api.deps import CurrentContext, require_write_context
 from app.api.routes.wines import get_household_wine
 from app.api.routes.wishlist import get_household_wishlist_item
 from app.core.config import settings
+from app.core.crypto import decrypt_secret, encrypt_secret
 from app.db.session import get_db
 from app.models import AiAuditLog, UserAiSettings, Wine, WishlistItem
 from app.schemas.ai import AiAuditLogResponse, AiSettingsResponse, AiSettingsUpdate, AiUsageBucket, AiUsageResponse
@@ -56,7 +57,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
 
 def ai_settings_response(user_settings: UserAiSettings) -> AiSettingsResponse:
     return AiSettingsResponse(
-        has_openai_api_key=bool(user_settings.openai_api_key.strip()),
+        has_openai_api_key=bool(decrypt_secret(user_settings.openai_api_key).strip()),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
@@ -187,7 +188,7 @@ def update_ai_settings(
 ) -> AiSettingsResponse:
     user_settings = get_or_create_user_ai_settings(db, context)
     if payload.openai_api_key is not None:
-        user_settings.openai_api_key = payload.openai_api_key.strip()
+        user_settings.openai_api_key = encrypt_secret(payload.openai_api_key.strip())
     for field in ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model"]:
         value = getattr(payload, field)
         if value is not None:
@@ -236,8 +237,14 @@ def wishlist_context(item: WishlistItem) -> str:
             f"Status: {item.status}",
             f"Merchant: {item.merchant}",
             f"Notes: {item.notes}",
+            f"AI strategy: {item.ai_strategy}",
+            f"AI purpose advice: {item.ai_purpose_advice}",
         ],
     )
+
+
+def user_openai_api_key(user_settings: UserAiSettings) -> str:
+    return decrypt_secret(user_settings.openai_api_key)
 
 
 @router.post("/wines/{wine_id}/notes", response_model=WineResponse)
@@ -252,7 +259,7 @@ def generate_wine_notes(
         user_settings.ai_notes_model,
         "You are a concise wine expert. Write in Italian. Do not invent exact facts; say when evidence is limited.",
         f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
-        api_key=user_settings.openai_api_key,
+        api_key=user_openai_api_key(user_settings),
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
@@ -289,7 +296,7 @@ def generate_drink_window(
         user_settings.drink_window_model,
         "You are a conservative wine cellar planner. Return JSON only.",
         f"Estimate a drinking window for this wine. Use realistic years and concise Italian notes.\n\n{wine_context(wine)}",
-        api_key=user_settings.openai_api_key,
+        api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -338,7 +345,7 @@ def generate_wine_value(
         user_settings.value_model,
         "You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty.",
         f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}.\n\n{wine_context(wine)}",
-        api_key=user_settings.openai_api_key,
+        api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -401,7 +408,7 @@ def generate_grapes(
         user_settings.grape_model,
         "You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable.",
         f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
-        api_key=user_settings.openai_api_key,
+        api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -450,7 +457,7 @@ def generate_wishlist_strategy(
         user_settings.wishlist_model,
         "You are a pragmatic wine buying advisor. Return JSON only. Write text fields in Italian.",
         f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
-        api_key=user_settings.openai_api_key,
+        api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -466,6 +473,106 @@ def generate_wishlist_strategy(
         feature="wishlist_strategy",
         model=user_settings.wishlist_model,
         summary=f"{item.priority} / {item.status}: {item.ai_strategy}",
+        usage=response.usage,
+    )
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/wishlist/{item_id}/purpose", response_model=WishlistResponse)
+def generate_wishlist_purpose(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WishlistItem:
+    item = get_household_wishlist_item(db, context, item_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    schema = {
+        "name": "wishlist_purpose",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "recommended_purpose": {"type": "string"},
+                "purpose_advice": {"type": "string"},
+                "recommended_priority": {"type": "string"},
+            },
+            "required": ["recommended_purpose", "purpose_advice", "recommended_priority"],
+        },
+    }
+    response = create_response(
+        user_settings.wishlist_model,
+        "You decide the best purpose for a wishlist wine. Return JSON only. Write advice in Italian.",
+        f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_context(item)}",
+        api_key=user_openai_api_key(user_settings),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    item.purpose = str(result["recommended_purpose"] or item.purpose)[:32]
+    item.priority = str(result["recommended_priority"] or item.priority)[:32]
+    item.ai_purpose_advice = str(result["purpose_advice"])[:3000]
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wishlist",
+        entity_id=item.id,
+        feature="wishlist_purpose",
+        model=user_settings.wishlist_model,
+        summary=f"{item.purpose} / {item.priority}: {item.ai_purpose_advice}",
+        usage=response.usage,
+    )
+    db.commit()
+    db.refresh(item)
+    return item
+
+
+@router.post("/wishlist/{item_id}/target-price", response_model=WishlistResponse)
+def generate_wishlist_target_price(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WishlistItem:
+    item = get_household_wishlist_item(db, context, item_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    schema = {
+        "name": "wishlist_target_price",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "target_price": {"type": "number"},
+                "currency": {"type": "string"},
+                "price_advice": {"type": "string"},
+                "recommended_status": {"type": "string"},
+            },
+            "required": ["target_price", "currency", "price_advice", "recommended_status"],
+        },
+    }
+    response = create_response(
+        user_settings.value_model,
+        "You estimate a sensible target purchase price for a wishlist wine. Return JSON only. Be conservative and write advice in Italian.",
+        f"Suggest a target buy price for this wishlist item. Keep currency preferably {item.currency}.\n\n{wishlist_context(item)}",
+        api_key=user_openai_api_key(user_settings),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    try:
+        target_price = Decimal(str(result["target_price"])).quantize(Decimal("0.01"))
+    except (InvalidOperation, KeyError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid target price") from exc
+    item.target_price = max(target_price, Decimal("0"))
+    item.currency = str(result.get("currency") or item.currency)[:8]
+    item.status = str(result["recommended_status"] or item.status)[:32]
+    item.ai_strategy = str(result["price_advice"])[:3000]
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wishlist",
+        entity_id=item.id,
+        feature="wishlist_target_price",
+        model=user_settings.value_model,
+        summary=f"{item.currency} {item.target_price}: {item.ai_strategy}",
         usage=response.usage,
     )
     db.commit()

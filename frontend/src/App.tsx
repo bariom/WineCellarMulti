@@ -214,6 +214,7 @@ const translations = {
     aiAudit: "AI audit",
     aiSettings: "AI settings",
     aiStrategy: "AI strategy",
+    aiTargetPrice: "AI target price",
     aiUsage: "AI usage",
     allTime: "All time",
     allStatuses: "All statuses",
@@ -252,6 +253,7 @@ const translations = {
     highPriority: "High priority",
     household: "Household",
     importLegacy: "Import legacy export",
+    importSection: "Import",
     inviteLink: "Invite link",
     inviteLinkDetected: "Invite link detected",
     inviteLinkHelp: "Login or create an account with the invited email, then accept the invite.",
@@ -280,6 +282,7 @@ const translations = {
     pastWindow: "Past window",
     pendingInvites: "Pending invites",
     personalSettings: "Personal settings",
+    profileSection: "Profile",
     priority: "Priority",
     producer: "Producer",
     purchasePrice: "Purchase price",
@@ -322,6 +325,8 @@ const translations = {
     wishlistItems: "Wishlist items",
     working: "Working",
     estimatedCost: "Estimated cost",
+    sharedCellar: "Shared cellar",
+    tokens: "tokens",
   },
   it: {
     accept: "Accetta",
@@ -335,6 +340,7 @@ const translations = {
     aiAudit: "Audit AI",
     aiSettings: "Impostazioni AI",
     aiStrategy: "Strategia AI",
+    aiTargetPrice: "Prezzo target AI",
     aiUsage: "Uso AI",
     allTime: "Totale",
     allStatuses: "Tutti gli stati",
@@ -373,6 +379,7 @@ const translations = {
     highPriority: "Alta priorita",
     household: "Cantina condivisa",
     importLegacy: "Importa export legacy",
+    importSection: "Importazione",
     inviteLink: "Link invito",
     inviteLinkDetected: "Link invito rilevato",
     inviteLinkHelp: "Accedi o crea un account con l'email invitata, poi accetta l'invito.",
@@ -401,6 +408,7 @@ const translations = {
     pastWindow: "Finestra scaduta",
     pendingInvites: "Inviti pendenti",
     personalSettings: "Impostazioni personali",
+    profileSection: "Profilo",
     priority: "Priorita",
     producer: "Produttore",
     purchasePrice: "Prezzo acquisto",
@@ -443,6 +451,8 @@ const translations = {
     wishlistItems: "Elementi wishlist",
     working: "Elaborazione",
     estimatedCost: "Costo stimato",
+    sharedCellar: "Cantina condivisa",
+    tokens: "token",
   },
 } as const;
 
@@ -871,8 +881,8 @@ function WishlistDetail({
 }: {
   item: WishlistItem;
   canGenerate: boolean;
-  generating: boolean;
-  onGenerate: () => void;
+  generating: string;
+  onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
   t: (key: TranslationKey) => string;
 }) {
   return (
@@ -886,8 +896,14 @@ function WishlistDetail({
         <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
       </div>
       <div className="ai-actions">
-        <button type="button" className="secondary compact" disabled={!canGenerate || generating} onClick={onGenerate}>
-          {generating ? t("generating") : t("aiStrategy")}
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("strategy")}>
+          {generating === "strategy" ? t("generating") : t("aiStrategy")}
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("purpose")}>
+          {generating === "purpose" ? t("generating") : t("aiPurpose")}
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("target-price")}>
+          {generating === "target-price" ? t("generating") : t("aiTargetPrice")}
         </button>
       </div>
       <div className="detail-grid">
@@ -1348,11 +1364,11 @@ export function App() {
     }
   }
 
-  async function generateWishlistAi(item: WishlistItem) {
-    setGeneratingAi("wishlist-strategy");
+  async function generateWishlistAi(item: WishlistItem, feature: "strategy" | "purpose" | "target-price") {
+    setGeneratingAi(`wishlist-${feature}`);
     setError("");
     try {
-      const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/strategy`, { method: "POST" });
+      const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/${feature}`, { method: "POST" });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
@@ -1799,13 +1815,13 @@ export function App() {
                 t={t}
               />
             ) : activeView === "wishlist" && selectedWishlistItem ? (
-              <WishlistDetail
-                item={selectedWishlistItem}
-                canGenerate={canGenerateAi}
-                generating={generatingAi === "wishlist-strategy"}
-                onGenerate={() => generateWishlistAi(selectedWishlistItem)}
-                t={t}
-              />
+                <WishlistDetail
+                  item={selectedWishlistItem}
+                  canGenerate={canGenerateAi}
+                  generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
+                  onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
+                  t={t}
+                />
             ) : (
               <div className="wine-detail empty-detail">
                 <h2>{t("noItemSelected")}</h2>
@@ -1996,7 +2012,7 @@ export function App() {
           {activeView === "settings" ? (
           <aside className="team-panel">
             <div className="inline-form">
-              <h2>{t("personalSettings")}</h2>
+              <h2>{t("profileSection")}</h2>
               <label>
                 <span>{t("language")}</span>
                 <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
@@ -2073,7 +2089,7 @@ export function App() {
               </div>
             ) : null}
 
-            <h2>{t("household")}</h2>
+            <h2>{t("sharedCellar")}</h2>
             <div className="member-list">
               {members.map((member) => (
                 <div className="member-row" key={member.membership_id}>
@@ -2111,7 +2127,7 @@ export function App() {
             {canAdmin ? (
               <>
                 <div className="inline-form">
-                  <h3>{t("importLegacy")}</h3>
+                  <h3>{t("importSection")}</h3>
                   <label>
                     <span>WineCellar JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
@@ -2175,7 +2191,7 @@ export function App() {
                   {aiAudit.slice(0, 8).map((entry) => (
                     <div className="audit-row" key={entry.id}>
                       <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
-                      <span>{entry.model} - {formatDisplayDate(entry.created_at)}</span>
+                      <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
                       <p>{entry.summary}</p>
                     </div>
                   ))}

@@ -10,7 +10,8 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, Wine
+from app.models import AiAuditLog, Household, UserAiSettings, Wine
+from app.services.openai_client import OpenAIResponse, TokenUsage
 
 
 engine = create_engine(
@@ -289,6 +290,11 @@ def test_ai_generation_requires_configured_openai_key():
     assert updated_settings.status_code == 200
     assert updated_settings.json()["has_openai_api_key"] is True
     assert updated_settings.json()["ai_notes_model"] == "gpt-5.5"
+    with TestingSessionLocal() as db:
+        stored_settings = db.get(UserAiSettings, uuid.UUID(client.get("/api/v1/session").json()["user_id"]))
+        assert stored_settings is not None
+        assert stored_settings.openai_api_key.startswith("enc:v1:")
+        assert "sk-test" not in stored_settings.openai_api_key
 
     cleared_settings = client.patch("/api/v1/ai/settings", json={"openai_api_key": ""})
     assert cleared_settings.status_code == 200
@@ -297,6 +303,60 @@ def test_ai_generation_requires_configured_openai_key():
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
     assert generated.status_code == 503
     assert "OPENAI_API_KEY" in generated.json()["detail"]
+
+
+def test_wishlist_ai_features_are_separate(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    created = client.post(
+        "/api/v1/wishlist",
+        json={
+            "name": "Wishlist Wine",
+            "producer": "Producer",
+            "vintage": "2022",
+            "target_price": 40,
+            "currency": "CHF",
+            "priority": "Medium",
+            "purpose": "Drink",
+            "status": "Evaluate",
+        },
+    )
+    assert created.status_code == 201
+    item_id = created.json()["id"]
+
+    def fake_create_response(*args, **kwargs):
+        schema_name = kwargs["json_schema"]["name"]
+        if schema_name == "wishlist_strategy":
+            text = '{"strategy":"Compra solo sotto target.","purpose_advice":"Non modificato.","recommended_status":"Watch","recommended_priority":"High"}'
+        elif schema_name == "wishlist_purpose":
+            text = '{"recommended_purpose":"Cellar","purpose_advice":"Meglio da cantina.","recommended_priority":"Medium"}'
+        else:
+            text = '{"target_price":35,"currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready"}'
+        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    strategy = client.post(f"/api/v1/ai/wishlist/{item_id}/strategy")
+    assert strategy.status_code == 200
+    assert strategy.json()["ai_strategy"] == "Compra solo sotto target."
+    assert strategy.json()["ai_purpose_advice"] == "Non modificato."
+
+    purpose = client.post(f"/api/v1/ai/wishlist/{item_id}/purpose")
+    assert purpose.status_code == 200
+    assert purpose.json()["purpose"] == "Cellar"
+    assert purpose.json()["ai_purpose_advice"] == "Meglio da cantina."
+
+    target_price = client.post(f"/api/v1/ai/wishlist/{item_id}/target-price")
+    assert target_price.status_code == 200
+    assert target_price.json()["target_price"] == "35.00"
+    assert target_price.json()["status"] == "Ready"
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["requests"] == 3
 
 
 def test_ai_usage_summarizes_current_user_costs():
