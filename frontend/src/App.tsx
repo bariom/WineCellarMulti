@@ -127,6 +127,19 @@ function draftPayload(draft: WineDraft) {
   };
 }
 
+function tokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("invite") || params.get("token") || "";
+}
+
+function inviteLink(token: string) {
+  const url = new URL(window.location.href);
+  url.search = "";
+  url.hash = "";
+  url.searchParams.set("invite", token);
+  return url.toString();
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -137,6 +150,7 @@ export function App() {
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
+  const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -176,6 +190,10 @@ export function App() {
   }
 
   useEffect(() => {
+    const urlToken = tokenFromUrl();
+    if (urlToken) {
+      setAcceptToken(urlToken);
+    }
     loadData()
       .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"))
       .finally(() => setLoading(false));
@@ -226,6 +244,7 @@ export function App() {
     setSaving(true);
     setError("");
     setInviteToken("");
+    setGeneratedInviteLink("");
     try {
       const invite = await api<{ invite_token: string }>("/api/v1/household/invites", {
         method: "POST",
@@ -233,6 +252,7 @@ export function App() {
       });
       setInviteDraft(emptyInviteDraft);
       setInviteToken(invite.invite_token);
+      setGeneratedInviteLink(inviteLink(invite.invite_token));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create invite");
     } finally {
@@ -248,6 +268,7 @@ export function App() {
     try {
       await api<void>("/api/v1/household/invites/accept", { method: "POST", body: JSON.stringify({ token: acceptToken.trim() }) });
       setAcceptToken("");
+      window.history.replaceState(null, "", window.location.pathname);
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to accept invite");
@@ -357,6 +378,12 @@ export function App() {
 
       {!authenticated ? (
         <section className="auth-panel">
+          {acceptToken ? (
+            <div className="invite-notice">
+              <strong>Invite link detected</strong>
+              <span>Login or create an account with the invited email, then accept the invite.</span>
+            </div>
+          ) : null}
           <div className="auth-tabs">
             <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>Login</button>
             <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>Register</button>
@@ -526,7 +553,14 @@ export function App() {
                   </select>
                 </label>
                 <button type="submit" disabled={saving}>{saving ? "Creating" : "Create invite"}</button>
-                {inviteToken ? <p className="token-box">{inviteToken}</p> : null}
+                {inviteToken ? (
+                  <div className="token-box">
+                    <span>Invite token</span>
+                    <code>{inviteToken}</code>
+                    <span>Invite link</span>
+                    <a href={generatedInviteLink}>{generatedInviteLink}</a>
+                  </div>
+                ) : null}
               </form>
             ) : null}
 
