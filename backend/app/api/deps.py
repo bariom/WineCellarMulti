@@ -1,12 +1,14 @@
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
-from fastapi import Depends
+from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.security import hash_session_token
 from app.db.session import get_db
-from app.models import Household, Membership, User
+from app.models import Household, Membership, User, UserSession
 
 
 @dataclass(frozen=True)
@@ -14,20 +16,53 @@ class CurrentContext:
     user: User
     household: Household
     membership: Membership
+    session: UserSession
 
 
-def get_current_context(db: Session = Depends(get_db)) -> CurrentContext:
-    user = db.scalar(select(User).where(User.email == settings.dev_user_email))
-    if user is None:
-        user = User(email=settings.dev_user_email, display_name=settings.dev_user_name)
-        db.add(user)
-        db.flush()
+def build_session_response(context: CurrentContext | None) -> dict[str, object | None]:
+    if context is None:
+        return {
+            "authenticated": False,
+            "user_id": None,
+            "user_email": None,
+            "user_display_name": None,
+            "active_household_id": None,
+            "active_household_name": None,
+            "membership_role": None,
+        }
+    return {
+        "authenticated": True,
+        "user_id": str(context.user.id),
+        "user_email": context.user.email,
+        "user_display_name": context.user.display_name,
+        "active_household_id": str(context.household.id),
+        "active_household_name": context.household.name,
+        "membership_role": context.membership.role,
+    }
 
-    household = db.scalar(select(Household).where(Household.name == settings.dev_household_name))
-    if household is None:
-        household = Household(name=settings.dev_household_name)
-        db.add(household)
-        db.flush()
+
+def get_optional_context(
+    db: Session = Depends(get_db),
+    session_token: str | None = Cookie(default=None, alias=settings.session_cookie_name),
+) -> CurrentContext | None:
+    if not session_token:
+        return None
+
+    token_hash = hash_session_token(session_token)
+    user_session = db.scalar(select(UserSession).where(UserSession.token_hash == token_hash))
+    if user_session is None:
+        return None
+    if user_session.expires_at.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc):
+        db.delete(user_session)
+        db.commit()
+        return None
+
+    user = db.get(User, user_session.user_id)
+    household = db.get(Household, user_session.active_household_id)
+    if user is None or household is None:
+        db.delete(user_session)
+        db.commit()
+        return None
 
     membership = db.scalar(
         select(Membership).where(
@@ -36,12 +71,12 @@ def get_current_context(db: Session = Depends(get_db)) -> CurrentContext:
         ),
     )
     if membership is None:
-        membership = Membership(user_id=user.id, household_id=household.id, role="owner")
-        db.add(membership)
-        db.flush()
+        return None
 
-    db.commit()
-    db.refresh(user)
-    db.refresh(household)
-    db.refresh(membership)
-    return CurrentContext(user=user, household=household, membership=membership)
+    return CurrentContext(user=user, household=household, membership=membership, session=user_session)
+
+
+def get_current_context(context: CurrentContext | None = Depends(get_optional_context)) -> CurrentContext:
+    if context is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    return context

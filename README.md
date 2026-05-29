@@ -18,7 +18,7 @@ New multi-user foundation for Wine Cellar.
 
 ## Initial scope
 
-- development session foundation
+- email/password session foundation
 - one active household per session
 - CRUD for wines scoped by household
 - membership roles: `owner`, `admin`, `member`, `viewer`
@@ -70,14 +70,17 @@ Find the Linux machine IP with:
 hostname -I
 ```
 
-## Milestone 1 Status
+## Current API
 
 - `GET /health`
 - `GET /api/v1/session`
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
 - `GET /api/v1/wines`
 - `POST /api/v1/wines`
 - `GET /api/v1/wines/{wine_id}`
 - `PATCH /api/v1/wines/{wine_id}`
 - `DELETE /api/v1/wines/{wine_id}`
 
-Current auth is a development session seeded from `DEV_USER_EMAIL`, `DEV_USER_NAME`, and `DEV_HOUSEHOLD_NAME`. Real login and passkeys come after the tenancy boundary is stable.
+The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Passkeys and invitations come after the basic account/session model is stable.

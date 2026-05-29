@@ -30,10 +30,10 @@ Each authenticated session carries:
 - postgres connection wiring
 - first SQLAlchemy models
 - health endpoint
-- development session endpoint
+- development session endpoint, replaced by real auth in milestone 2
 - household-scoped wine CRUD endpoints
 - minimal frontend for listing, creating, editing, and deleting wines
 
-## Authentication Roadmap
+## Authentication
 
-Milestone 1 uses a development session that creates one user, one household, and one owner membership from environment settings. This keeps the first implementation focused on data isolation. Real authentication should replace this dependency without changing the wine route query shape.
+Milestone 2 uses email/password registration, password hashes, database-backed sessions, and HTTP-only cookies. Registration creates the first household and owner membership. Passkeys and invitations are later milestones.

@@ -34,6 +34,13 @@ type WineDraft = {
   notes: string;
 };
 
+type AuthDraft = {
+  email: string;
+  display_name: string;
+  household_name: string;
+  password: string;
+};
+
 const emptyDraft: WineDraft = {
   name: "",
   producer: "",
@@ -46,8 +53,16 @@ const emptyDraft: WineDraft = {
   notes: "",
 };
 
+const emptyAuthDraft: AuthDraft = {
+  email: "",
+  display_name: "",
+  household_name: "Main Cellar",
+  password: "",
+};
+
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
+    credentials: "include",
     headers: { "Content-Type": "application/json", ...init?.headers },
     ...init,
   });
@@ -91,19 +106,32 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
+  const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
+  async function loadSession() {
+    const nextSession = await api<Session>("/api/v1/session");
+    setSession(nextSession);
+    return nextSession;
+  }
+
+  async function loadWines() {
+    const nextWines = await api<Wine[]>("/api/v1/wines");
+    setWines(nextWines);
+  }
+
   async function loadData() {
     setError("");
-    const [nextSession, nextWines] = await Promise.all([
-      api<Session>("/api/v1/session"),
-      api<Wine[]>("/api/v1/wines"),
-    ]);
-    setSession(nextSession);
-    setWines(nextWines);
+    const nextSession = await loadSession();
+    if (nextSession.authenticated) {
+      await loadWines();
+    } else {
+      setWines([]);
+    }
   }
 
   useEffect(() => {
@@ -111,6 +139,36 @@ export function App() {
       .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"))
       .finally(() => setLoading(false));
   }, []);
+
+  async function submitAuth(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      const path = authMode === "register" ? "/api/v1/auth/register" : "/api/v1/auth/login";
+      const payload =
+        authMode === "register"
+          ? authDraft
+          : { email: authDraft.email, password: authDraft.password };
+      const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
+      setSession(nextSession);
+      setAuthDraft(emptyAuthDraft);
+      await loadWines();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function logout() {
+    setError("");
+    await api<void>("/api/v1/auth/logout", { method: "POST" });
+    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null });
+    setWines([]);
+    setDraft(emptyDraft);
+    setEditingId(null);
+  }
 
   async function submitWine(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -126,7 +184,7 @@ export function App() {
       }
       setDraft(emptyDraft);
       setEditingId(null);
-      await loadData();
+      await loadWines();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
     } finally {
@@ -141,110 +199,150 @@ export function App() {
       setEditingId(null);
       setDraft(emptyDraft);
     }
-    await loadData();
+    await loadWines();
   }
+
+  const authenticated = Boolean(session?.authenticated);
 
   return (
     <main className="app-shell">
       <header className="topbar">
         <div>
           <p className="eyebrow">WineCellarMulti</p>
-          <h1>{session?.active_household_name || "Main Cellar"}</h1>
+          <h1>{session?.active_household_name || "Wine Cellar"}</h1>
         </div>
-        <div className="session-pill">
-          <strong>{session?.user_display_name || "Loading"}</strong>
-          <span>{session?.membership_role || "owner"}</span>
-        </div>
+        {authenticated ? (
+          <div className="session-pill">
+            <strong>{session?.user_display_name || session?.user_email}</strong>
+            <span>{session?.membership_role}</span>
+            <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
+              Logout
+            </button>
+          </div>
+        ) : null}
       </header>
 
       {error ? <p className="error-banner">{error}</p> : null}
 
-      <section className="workspace">
-        <form className="wine-form" onSubmit={submitWine}>
-          <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
-          <label>
-            <span>Name</span>
-            <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
-          </label>
-          <label>
-            <span>Producer</span>
-            <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} />
-          </label>
-          <div className="form-row">
-            <label>
-              <span>Vintage</span>
-              <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} />
-            </label>
-            <label>
-              <span>Quantity</span>
-              <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} />
-            </label>
+      {!authenticated ? (
+        <section className="auth-panel">
+          <div className="auth-tabs">
+            <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>Login</button>
+            <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>Register</button>
           </div>
-          <div className="form-row">
+          <form className="wine-form" onSubmit={submitAuth}>
+            <h2>{authMode === "register" ? "Create account" : "Login"}</h2>
             <label>
-              <span>Price</span>
-              <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} />
+              <span>Email</span>
+              <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
             </label>
-            <label>
-              <span>Currency</span>
-              <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} />
-            </label>
-          </div>
-          <div className="form-row">
-            <label>
-              <span>Status</span>
-              <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
-                <option>Ordered</option>
-                <option>Shipped</option>
-                <option>Delivered</option>
-                <option>Consumed</option>
-              </select>
-            </label>
-            <label>
-              <span>Delivery</span>
-              <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} />
-            </label>
-          </div>
-          <label>
-            <span>Notes</span>
-            <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} />
-          </label>
-          <div className="form-actions">
-            <button type="submit" disabled={saving}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
-            {editingId ? (
-              <button type="button" className="secondary" onClick={() => { setEditingId(null); setDraft(emptyDraft); }}>
-                Cancel
-              </button>
+            {authMode === "register" ? (
+              <>
+                <label>
+                  <span>Name</span>
+                  <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
+                </label>
+                <label>
+                  <span>Household</span>
+                  <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
+                </label>
+              </>
             ) : null}
-          </div>
-        </form>
-
-        <section className="wine-list" aria-busy={loading}>
-          <div className="list-header">
-            <h2>Wines</h2>
-            <span>{wines.length} records</span>
-          </div>
-          {loading ? <p className="empty-state">Loading wines</p> : null}
-          {!loading && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
-          {wines.map((wine) => (
-            <article className="wine-row" key={wine.id}>
-              <div>
-                <h3>{wine.name} <small>{wine.vintage}</small></h3>
-                <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
-              </div>
-              <strong>{wine.currency} {Number(wine.price).toFixed(0)}</strong>
-              <div className="row-actions">
-                <button type="button" className="secondary" onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
-                  Edit
-                </button>
-                <button type="button" className="danger" onClick={() => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}>
-                  Delete
-                </button>
-              </div>
-            </article>
-          ))}
+            <label>
+              <span>Password</span>
+              <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
+            </label>
+            <button type="submit" disabled={saving}>{saving ? "Working" : authMode === "register" ? "Create account" : "Login"}</button>
+          </form>
         </section>
-      </section>
+      ) : (
+        <section className="workspace">
+          <form className="wine-form" onSubmit={submitWine}>
+            <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
+            <label>
+              <span>Name</span>
+              <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required />
+            </label>
+            <label>
+              <span>Producer</span>
+              <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} />
+            </label>
+            <div className="form-row">
+              <label>
+                <span>Vintage</span>
+                <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} />
+              </label>
+              <label>
+                <span>Quantity</span>
+                <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                <span>Price</span>
+                <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} />
+              </label>
+              <label>
+                <span>Currency</span>
+                <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                <span>Status</span>
+                <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })}>
+                  <option>Ordered</option>
+                  <option>Shipped</option>
+                  <option>Delivered</option>
+                  <option>Consumed</option>
+                </select>
+              </label>
+              <label>
+                <span>Delivery</span>
+                <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} />
+              </label>
+            </div>
+            <label>
+              <span>Notes</span>
+              <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} />
+            </label>
+            <div className="form-actions">
+              <button type="submit" disabled={saving}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
+              {editingId ? (
+                <button type="button" className="secondary" onClick={() => { setEditingId(null); setDraft(emptyDraft); }}>
+                  Cancel
+                </button>
+              ) : null}
+            </div>
+          </form>
+
+          <section className="wine-list" aria-busy={loading}>
+            <div className="list-header">
+              <h2>Wines</h2>
+              <span>{wines.length} records</span>
+            </div>
+            {loading ? <p className="empty-state">Loading wines</p> : null}
+            {!loading && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
+            {wines.map((wine) => (
+              <article className="wine-row" key={wine.id}>
+                <div>
+                  <h3>{wine.name} <small>{wine.vintage}</small></h3>
+                  <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
+                </div>
+                <strong>{wine.currency} {Number(wine.price).toFixed(0)}</strong>
+                <div className="row-actions">
+                  <button type="button" className="secondary" onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
+                    Edit
+                  </button>
+                  <button type="button" className="danger" onClick={() => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}>
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))}
+          </section>
+        </section>
+      )}
     </main>
   );
 }

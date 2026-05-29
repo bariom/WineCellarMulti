@@ -39,6 +39,11 @@ button.secondary {
   background: #e3e9e2;
 }
 
+button.compact {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+}
+
 button.danger {
   background: #9c2f3f;
 }
@@ -76,7 +81,7 @@ button.danger {
 .session-pill {
   display: grid;
   justify-items: end;
-  gap: 2px;
+  gap: 6px;
   padding: 10px 12px;
   border: 1px solid #ccd5cd;
   border-radius: 8px;
@@ -102,6 +107,18 @@ button.danger {
   gap: 24px;
   align-items: start;
   margin-top: 24px;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 14px;
+  max-width: 420px;
+  margin-top: 24px;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 8px;
 }
 
 .wine-form {

@@ -7,9 +7,9 @@ class Settings(BaseSettings):
     app_debug: bool = True
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/winecellarmulti"
     secret_key: str = "change-me"
-    dev_user_email: str = "owner@winecellar.local"
-    dev_user_name: str = "Cellar Owner"
-    dev_household_name: str = "Main Cellar"
+    session_cookie_name: str = "winecellarmulti_session"
+    session_cookie_secure: bool = False
+    session_ttl_days: int = 30
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property

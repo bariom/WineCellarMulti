@@ -37,21 +37,48 @@ def teardown_function():
     app.dependency_overrides.clear()
 
 
-def test_session_bootstraps_development_context():
+def register(client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"):
+    return client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": email,
+            "display_name": "Cellar Owner",
+            "password": password,
+            "household_name": "Main Cellar",
+        },
+    )
+
+
+def test_register_login_session_and_logout():
     client = TestClient(app)
 
-    response = client.get("/api/v1/session")
+    anonymous = client.get("/api/v1/session")
+    assert anonymous.status_code == 200
+    assert anonymous.json()["authenticated"] is False
 
-    assert response.status_code == 200
-    data = response.json()
-    assert data["authenticated"] is True
-    assert data["user_email"] == "owner@winecellar.local"
-    assert data["active_household_name"] == "Main Cellar"
-    assert data["membership_role"] == "owner"
+    registered = register(client)
+    assert registered.status_code == 201
+    assert registered.json()["authenticated"] is True
+    assert registered.json()["user_email"] == "owner@example.com"
+    assert registered.json()["active_household_name"] == "Main Cellar"
+
+    logged_out = client.post("/api/v1/auth/logout")
+    assert logged_out.status_code == 204
+    assert client.get("/api/v1/session").json()["authenticated"] is False
+
+    login = client.post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"})
+    assert login.status_code == 200
+    assert login.json()["authenticated"] is True
 
 
-def test_wine_crud_is_scoped_to_active_household():
+def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     client = TestClient(app)
+
+    unauthenticated = client.get("/api/v1/wines")
+    assert unauthenticated.status_code == 401
+
+    registered = register(client)
+    assert registered.status_code == 201
 
     created = client.post(
         "/api/v1/wines",
@@ -86,8 +113,7 @@ def test_wine_crud_is_scoped_to_active_household():
 
     listed = client.get("/api/v1/wines")
     assert listed.status_code == 200
-    names = [wine["name"] for wine in listed.json()]
-    assert names == ["Testamatta"]
+    assert [wine["name"] for wine in listed.json()] == ["Testamatta"]
 
     updated = client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped"})
     assert updated.status_code == 200
