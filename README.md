@@ -42,6 +42,14 @@ Start Postgres:
 docker compose up -d
 ```
 
+To run the full development stack with Docker:
+
+```bash
+docker compose up --build
+```
+
+This starts PostgreSQL, runs backend migrations, exposes the API on `:8000`, and exposes the frontend on `:5173`.
+
 Run the backend:
 
 ```bash
@@ -89,5 +97,10 @@ hostname -I
 - `GET /api/v1/wines/{wine_id}`
 - `PATCH /api/v1/wines/{wine_id}`
 - `DELETE /api/v1/wines/{wine_id}`
+- `GET /api/v1/wishlist`
+- `POST /api/v1/wishlist`
+- `PATCH /api/v1/wishlist/{item_id}`
+- `DELETE /api/v1/wishlist/{item_id}`
+- `POST /api/v1/imports/legacy-json`
 
-The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Passkeys and invitations come after the basic account/session model is stable.
+The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.

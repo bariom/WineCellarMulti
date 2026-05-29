@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useState } from "react";
 
 type Session = {
   authenticated: boolean;
@@ -17,9 +17,30 @@ type Wine = {
   quantity: number;
   currency: string;
   price: string;
+  current_value: string | null;
   status: string;
+  format: string;
+  type: string;
+  region: string;
+  appellation: string;
+  merchant: string;
+  order_date: string | null;
   expected_delivery: string | null;
+  owner_share_pct: string;
   notes: string;
+  ai_notes: string;
+  drink_from: number | null;
+  drink_peak_from: number | null;
+  drink_peak_to: number | null;
+  drink_to: number | null;
+  drink_window_notes: string;
+  ai_value_notes: string;
+  ai_value_estimated_at: string | null;
+  rating: number;
+  owners: Array<{ name: string; share_pct: number }>;
+  tags: string[];
+  grapes: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
+  scores: Array<{ critic: string; score: string; note: string }>;
 };
 
 type WineDraft = {
@@ -29,8 +50,35 @@ type WineDraft = {
   quantity: string;
   currency: string;
   price: string;
+  current_value: string;
   status: string;
+  format: string;
+  type: string;
+  region: string;
+  appellation: string;
+  merchant: string;
+  order_date: string;
   expected_delivery: string;
+  owner_share_pct: string;
+  notes: string;
+};
+
+type WishlistItem = {
+  id: string;
+  household_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  format: string;
+  type: string;
+  region: string;
+  appellation: string;
+  target_price: string;
+  currency: string;
+  merchant: string;
+  priority: string;
+  purpose: string;
+  status: string;
   notes: string;
 };
 
@@ -68,8 +116,16 @@ const emptyDraft: WineDraft = {
   quantity: "1",
   currency: "CHF",
   price: "0",
+  current_value: "",
   status: "Ordered",
+  format: "",
+  type: "",
+  region: "",
+  appellation: "",
+  merchant: "",
+  order_date: "",
   expected_delivery: "",
+  owner_share_pct: "100",
   notes: "",
 };
 
@@ -107,8 +163,16 @@ function wineToDraft(wine: Wine): WineDraft {
     quantity: String(wine.quantity),
     currency: wine.currency,
     price: String(wine.price),
+    current_value: wine.current_value ? String(wine.current_value) : "",
     status: wine.status,
+    format: wine.format || "",
+    type: wine.type || "",
+    region: wine.region || "",
+    appellation: wine.appellation || "",
+    merchant: wine.merchant || "",
+    order_date: wine.order_date || "",
     expected_delivery: wine.expected_delivery || "",
+    owner_share_pct: String(wine.owner_share_pct || "100"),
     notes: wine.notes,
   };
 }
@@ -121,8 +185,16 @@ function draftPayload(draft: WineDraft) {
     quantity: Number(draft.quantity || 0),
     currency: draft.currency.trim().toUpperCase() || "CHF",
     price: Number(draft.price || 0),
+    current_value: draft.current_value ? Number(draft.current_value) : null,
     status: draft.status,
+    format: draft.format.trim(),
+    type: draft.type.trim(),
+    region: draft.region.trim(),
+    appellation: draft.appellation.trim(),
+    merchant: draft.merchant.trim(),
+    order_date: draft.order_date || null,
     expected_delivery: draft.expected_delivery || null,
+    owner_share_pct: Number(draft.owner_share_pct || 100),
     notes: draft.notes.trim(),
   };
 }
@@ -143,6 +215,7 @@ function inviteLink(token: string) {
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
+  const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
@@ -152,6 +225,7 @@ export function App() {
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [activeView, setActiveView] = useState<"cellar" | "wishlist">("cellar");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -168,6 +242,11 @@ export function App() {
     setWines(nextWines);
   }
 
+  async function loadWishlist() {
+    const nextWishlist = await api<WishlistItem[]>("/api/v1/wishlist");
+    setWishlist(nextWishlist);
+  }
+
   async function loadHouseholdData() {
     const [nextMemberships, nextMembers] = await Promise.all([
       api<HouseholdMembership[]>("/api/v1/household/memberships"),
@@ -181,9 +260,10 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadHouseholdData()]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData()]);
     } else {
       setWines([]);
+      setWishlist([]);
       setHouseholdMemberships([]);
       setMembers([]);
     }
@@ -212,7 +292,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadHouseholdData()]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -225,6 +305,7 @@ export function App() {
     await api<void>("/api/v1/auth/logout", { method: "POST" });
     setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null });
     setWines([]);
+    setWishlist([]);
     setHouseholdMemberships([]);
     setMembers([]);
     setDraft(emptyDraft);
@@ -294,6 +375,7 @@ export function App() {
   }
 
   async function removeMember(member: Member) {
+    if (!window.confirm(`Remove ${member.display_name || member.email} from this household?`)) return;
     setSaving(true);
     setError("");
     try {
@@ -325,6 +407,26 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function importLegacyFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    setError("");
+    try {
+      const payload = JSON.parse(await file.text());
+      await api<{ wines_imported: number; wishlist_imported: number }>("/api/v1/imports/legacy-json", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await Promise.all([loadWines(), loadWishlist()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to import legacy export");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
     }
   }
 
@@ -415,6 +517,14 @@ export function App() {
         </section>
       ) : (
         <section className="workspace">
+          <div className="view-tabs">
+            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => setActiveView("cellar")}>
+              Cellar ({wines.length})
+            </button>
+            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => setActiveView("wishlist")}>
+              Wishlist ({wishlist.length})
+            </button>
+          </div>
           <form className="wine-form" onSubmit={submitWine}>
             <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
             {!canWriteWine ? <p className="empty-state">Viewer access: you can read this cellar, but cannot change wines.</p> : null}
@@ -426,6 +536,26 @@ export function App() {
               <span>Producer</span>
               <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} disabled={!canWriteWine} />
             </label>
+            <div className="form-row">
+              <label>
+                <span>Format</span>
+                <input value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })} disabled={!canWriteWine} />
+              </label>
+              <label>
+                <span>Type</span>
+                <input value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine} />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
+                <span>Region</span>
+                <input value={draft.region} onChange={(event) => setDraft({ ...draft, region: event.target.value })} disabled={!canWriteWine} />
+              </label>
+              <label>
+                <span>Appellation</span>
+                <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
+              </label>
+            </div>
             <div className="form-row">
               <label>
                 <span>Vintage</span>
@@ -442,8 +572,18 @@ export function App() {
                 <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
               </label>
               <label>
+                <span>Current value</span>
+                <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
+              </label>
+            </div>
+            <div className="form-row">
+              <label>
                 <span>Currency</span>
                 <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
+              </label>
+              <label>
+                <span>Merchant</span>
+                <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
               </label>
             </div>
             <div className="form-row">
@@ -455,6 +595,10 @@ export function App() {
                   <option>Delivered</option>
                   <option>Consumed</option>
                 </select>
+              </label>
+              <label>
+                <span>Order date</span>
+                <input type="date" value={draft.order_date} onChange={(event) => setDraft({ ...draft, order_date: event.target.value })} disabled={!canWriteWine} />
               </label>
               <label>
                 <span>Delivery</span>
@@ -477,18 +621,23 @@ export function App() {
 
           <section className="wine-list" aria-busy={loading}>
             <div className="list-header">
-              <h2>Wines</h2>
-              <span>{wines.length} records</span>
+              <h2>{activeView === "cellar" ? "Wines" : "Wishlist"}</h2>
+              <span>{activeView === "cellar" ? wines.length : wishlist.length} records</span>
             </div>
-            {loading ? <p className="empty-state">Loading wines</p> : null}
-            {!loading && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
-            {wines.map((wine) => (
+            {loading ? <p className="empty-state">Loading data</p> : null}
+            {!loading && activeView === "cellar" && wines.length === 0 ? <p className="empty-state">No wines yet</p> : null}
+            {!loading && activeView === "wishlist" && wishlist.length === 0 ? <p className="empty-state">No wishlist items yet</p> : null}
+            {activeView === "cellar" ? wines.map((wine) => (
               <article className="wine-row" key={wine.id}>
                 <div>
                   <h3>{wine.name} <small>{wine.vintage}</small></h3>
                   <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
+                  <p>{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
+                  {wine.tags.length ? <p>Tags: {wine.tags.join(", ")}</p> : null}
+                  {wine.scores.length ? <p>Scores: {wine.scores.map((score) => `${score.critic} ${score.score}`).join(", ")}</p> : null}
+                  {wine.drink_from && wine.drink_to ? <p>Drink window: {wine.drink_from}-{wine.drink_to}</p> : null}
                 </div>
-                <strong>{wine.currency} {Number(wine.price).toFixed(0)}</strong>
+                <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                 <div className="row-actions">
                   <button type="button" className="secondary" disabled={!canWriteWine} onClick={() => { setEditingId(wine.id); setDraft(wineToDraft(wine)); }}>
                     Edit
@@ -496,6 +645,19 @@ export function App() {
                   <button type="button" className="danger" disabled={!canAdmin} onClick={() => deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine"))}>
                     Delete
                   </button>
+                </div>
+              </article>
+            )) : wishlist.map((item) => (
+              <article className="wine-row" key={item.id}>
+                <div>
+                  <h3>{item.name} <small>{item.vintage}</small></h3>
+                  <p>{item.producer || "No producer"} - {item.purpose} - {item.status}</p>
+                  <p>{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
+                  {item.notes ? <p>{item.notes}</p> : null}
+                </div>
+                <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+                <div className="row-actions">
+                  <span className="priority-chip">{item.priority}</span>
                 </div>
               </article>
             ))}
@@ -538,30 +700,39 @@ export function App() {
             </div>
 
             {canAdmin ? (
-              <form className="inline-form" onSubmit={createInvite}>
-                <h3>Invite member</h3>
-                <label>
-                  <span>Email</span>
-                  <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
-                </label>
-                <label>
-                  <span>Role</span>
-                  <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
-                    <option value="viewer">Viewer</option>
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
-                  </select>
-                </label>
-                <button type="submit" disabled={saving}>{saving ? "Creating" : "Create invite"}</button>
-                {inviteToken ? (
-                  <div className="token-box">
-                    <span>Invite token</span>
-                    <code>{inviteToken}</code>
-                    <span>Invite link</span>
-                    <a href={generatedInviteLink}>{generatedInviteLink}</a>
-                  </div>
-                ) : null}
-              </form>
+              <>
+                <div className="inline-form">
+                  <h3>Import legacy export</h3>
+                  <label>
+                    <span>WineCellar JSON</span>
+                    <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
+                  </label>
+                </div>
+                <form className="inline-form" onSubmit={createInvite}>
+                  <h3>Invite member</h3>
+                  <label>
+                    <span>Email</span>
+                    <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
+                  </label>
+                  <label>
+                    <span>Role</span>
+                    <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
+                      <option value="viewer">Viewer</option>
+                      <option value="member">Member</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </label>
+                  <button type="submit" disabled={saving}>{saving ? "Creating" : "Create invite"}</button>
+                  {inviteToken ? (
+                    <div className="token-box">
+                      <span>Invite token</span>
+                      <code>{inviteToken}</code>
+                      <span>Invite link</span>
+                      <a href={generatedInviteLink}>{generatedInviteLink}</a>
+                    </div>
+                  ) : null}
+                </form>
+              </>
             ) : null}
 
             <form className="inline-form" onSubmit={acceptInvite}>

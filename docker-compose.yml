@@ -15,5 +15,35 @@ services:
       timeout: 5s
       retries: 10
 
+  backend:
+    build:
+      context: ./backend
+    environment:
+      APP_NAME: WineCellarMulti
+      APP_ENV: development
+      APP_DEBUG: "true"
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/winecellarmulti
+      SECRET_KEY: change-me
+      SESSION_COOKIE_NAME: winecellarmulti_session
+      SESSION_COOKIE_SECURE: "false"
+      SESSION_TTL_DAYS: "30"
+      INVITE_TTL_DAYS: "7"
+      CORS_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    environment:
+      VITE_API_PROXY_TARGET: http://backend:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+
 volumes:
   postgres-data:

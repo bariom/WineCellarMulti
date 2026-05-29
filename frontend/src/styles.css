@@ -129,6 +129,12 @@ button.danger {
   margin-top: 24px;
 }
 
+.view-tabs {
+  display: flex;
+  grid-column: 1 / -1;
+  gap: 8px;
+}
+
 .auth-panel {
   display: grid;
   gap: 14px;
@@ -254,6 +260,17 @@ textarea {
   min-width: 96px;
   padding: 6px 8px;
   font-size: 0.85rem;
+}
+
+.priority-chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 6px 10px;
+  color: #245142;
+  background: #e3e9e2;
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .token-box {

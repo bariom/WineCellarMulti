@@ -189,3 +189,53 @@ def test_invite_acceptance_and_viewer_permissions():
     assert removed.status_code == 204
     members_after_remove = owner.get("/api/v1/household/members")
     assert [member_data["email"] for member_data in members_after_remove.json()] == ["owner@example.com"]
+
+
+def test_legacy_import_scopes_wines_and_wishlist_to_household():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    imported = client.post(
+        "/api/v1/imports/legacy-json",
+        json={
+            "wines": [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Imported Wine",
+                    "producer": "Legacy Producer",
+                    "vintage": "2020",
+                    "quantity": 2,
+                    "format": "Bottle (750ml)",
+                    "type": "Red",
+                    "region": "Bordeaux",
+                    "price": 42,
+                    "current_value": 50,
+                    "tags": ["Imported"],
+                    "scores": [{"critic": "Test", "score": "95/100", "note": "Good"}],
+                },
+            ],
+            "wishlist": [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Wanted Wine",
+                    "producer": "Wishlist Producer",
+                    "target_price": 30,
+                    "priority": "High",
+                    "purpose": "Drink",
+                },
+            ],
+        },
+    )
+    assert imported.status_code == 200
+    assert imported.json() == {"wines_imported": 1, "wishlist_imported": 1}
+
+    wines = client.get("/api/v1/wines")
+    assert wines.status_code == 200
+    assert wines.json()[0]["name"] == "Imported Wine"
+    assert wines.json()[0]["tags"] == ["Imported"]
+    assert wines.json()[0]["scores"][0]["critic"] == "Test"
+
+    wishlist = client.get("/api/v1/wishlist")
+    assert wishlist.status_code == 200
+    assert wishlist.json()[0]["name"] == "Wanted Wine"
+    assert wishlist.json()[0]["priority"] == "High"
