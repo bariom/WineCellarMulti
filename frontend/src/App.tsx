@@ -138,6 +138,228 @@ type AuthDraft = {
 };
 
 type SortMode = "name" | "vintage" | "value" | "drink_window";
+type Locale = "en" | "it";
+
+const translations = {
+  en: {
+    accept: "Accept",
+    acceptInvite: "Accept invite",
+    addWine: "Add wine",
+    addWishlist: "Add wishlist",
+    aiNotes: "AI notes",
+    aiReadiness: "AI readiness",
+    aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
+    aiStrategy: "AI strategy",
+    allStatuses: "All statuses",
+    allTags: "All tags",
+    allTypes: "All types",
+    appellation: "Appellation",
+    bottles: "Bottles",
+    cancel: "Cancel",
+    cellar: "Cellar",
+    clearFilters: "Clear filters",
+    convert: "Convert",
+    createAccount: "Create account",
+    createInvite: "Create invite",
+    createWine: "Create wine",
+    createWishlist: "Create wishlist",
+    currentValue: "Current value",
+    currency: "Currency",
+    dataQuality: "Data quality",
+    delete: "Delete",
+    delivery: "Delivery",
+    drinkIn2Years: "Drink in 2 years",
+    drinkNow: "Drink now",
+    drinkWindow: "Drink window",
+    drinkingWindow: "Drinking window",
+    edit: "Edit",
+    editSelected: "Edit selected",
+    editWine: "Edit wine",
+    editWishlist: "Edit wishlist",
+    email: "Email",
+    expires: "expires",
+    format: "Format",
+    futureDeliveries: "Future deliveries",
+    generating: "Generating",
+    grapes: "Grapes",
+    highPriority: "High priority",
+    household: "Household",
+    importLegacy: "Import legacy export",
+    inviteLink: "Invite link",
+    inviteLinkDetected: "Invite link detected",
+    inviteLinkHelp: "Login or create an account with the invited email, then accept the invite.",
+    inviteMember: "Invite member",
+    inviteToken: "Invite token",
+    language: "Language",
+    loadingData: "Loading data",
+    login: "Login",
+    logout: "Logout",
+    merchant: "Merchant",
+    missingDrinkWindow: "Missing drink window",
+    missingScores: "Missing scores",
+    missingValue: "Missing value",
+    name: "Name",
+    noInvites: "No invites",
+    noItemSelected: "No item selected",
+    noProducer: "No producer",
+    noWishlistMatch: "No wishlist items match the current filters",
+    noWineMatch: "No wines match the current filters",
+    notes: "Notes",
+    orderDate: "Order date",
+    password: "Password",
+    pastWindow: "Past window",
+    pendingInvites: "Pending invites",
+    priority: "Priority",
+    producer: "Producer",
+    purchasePrice: "Purchase price",
+    purpose: "Purpose",
+    quantity: "Quantity",
+    readyToBuy: "Ready to buy",
+    records: "records",
+    region: "Region",
+    register: "Register",
+    remove: "Remove",
+    revoke: "Revoke",
+    role: "Role",
+    saveChanges: "Save changes",
+    saving: "Saving",
+    scores: "Scores",
+    search: "Search",
+    searchPlaceholder: "Name, producer, region, score...",
+    selectItemHelp: "Select an item from the list to see the complete detail.",
+    sort: "Sort",
+    status: "Status",
+    tag: "Tag",
+    tags: "Tags",
+    targetPrice: "Target price",
+    targetValue: "Target value",
+    topRegions: "Top regions",
+    totalValue: "Total value",
+    type: "Type",
+    value: "Value",
+    valueByType: "Value by type",
+    viewerReadOnly: "Viewer access: you can read this cellar, but cannot change wines.",
+    vintage: "Vintage",
+    wineDetail: "Wine detail",
+    wines: "Wines",
+    wishlist: "Wishlist",
+    wishlistDetail: "Wishlist detail",
+    wishlistItems: "Wishlist items",
+    working: "Working",
+  },
+  it: {
+    accept: "Accetta",
+    acceptInvite: "Accetta invito",
+    addWine: "Aggiungi vino",
+    addWishlist: "Aggiungi wishlist",
+    aiNotes: "Note AI",
+    aiReadiness: "Prontezza AI",
+    aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
+    aiStrategy: "Strategia AI",
+    allStatuses: "Tutti gli stati",
+    allTags: "Tutti i tag",
+    allTypes: "Tutti i tipi",
+    appellation: "Denominazione",
+    bottles: "Bottiglie",
+    cancel: "Annulla",
+    cellar: "Cantina",
+    clearFilters: "Pulisci filtri",
+    convert: "Converti",
+    createAccount: "Crea account",
+    createInvite: "Crea invito",
+    createWine: "Crea vino",
+    createWishlist: "Crea wishlist",
+    currentValue: "Valore attuale",
+    currency: "Valuta",
+    dataQuality: "Qualita dati",
+    delete: "Elimina",
+    delivery: "Consegna",
+    drinkIn2Years: "Da bere entro 2 anni",
+    drinkNow: "Da bere ora",
+    drinkWindow: "Finestra",
+    drinkingWindow: "Finestra degustazione",
+    edit: "Modifica",
+    editSelected: "Modifica selezionato",
+    editWine: "Modifica vino",
+    editWishlist: "Modifica wishlist",
+    email: "Email",
+    expires: "scade",
+    format: "Formato",
+    futureDeliveries: "Consegne future",
+    generating: "Genero",
+    grapes: "Uve",
+    highPriority: "Alta priorita",
+    household: "Cantina condivisa",
+    importLegacy: "Importa export legacy",
+    inviteLink: "Link invito",
+    inviteLinkDetected: "Link invito rilevato",
+    inviteLinkHelp: "Accedi o crea un account con l'email invitata, poi accetta l'invito.",
+    inviteMember: "Invita membro",
+    inviteToken: "Token invito",
+    language: "Lingua",
+    loadingData: "Caricamento dati",
+    login: "Accesso",
+    logout: "Esci",
+    merchant: "Commerciante",
+    missingDrinkWindow: "Finestra mancante",
+    missingScores: "Punteggi mancanti",
+    missingValue: "Valore mancante",
+    name: "Nome",
+    noInvites: "Nessun invito",
+    noItemSelected: "Nessun elemento selezionato",
+    noProducer: "Produttore assente",
+    noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
+    noWineMatch: "Nessun vino corrisponde ai filtri",
+    notes: "Note",
+    orderDate: "Data ordine",
+    password: "Password",
+    pastWindow: "Finestra scaduta",
+    pendingInvites: "Inviti pendenti",
+    priority: "Priorita",
+    producer: "Produttore",
+    purchasePrice: "Prezzo acquisto",
+    purpose: "Scopo",
+    quantity: "Quantita",
+    readyToBuy: "Pronti da comprare",
+    records: "record",
+    region: "Regione",
+    register: "Registrati",
+    remove: "Rimuovi",
+    revoke: "Revoca",
+    role: "Ruolo",
+    saveChanges: "Salva modifiche",
+    saving: "Salvataggio",
+    scores: "Punteggi",
+    search: "Cerca",
+    searchPlaceholder: "Nome, produttore, regione, punteggio...",
+    selectItemHelp: "Seleziona un elemento dalla lista per vedere il dettaglio completo.",
+    sort: "Ordina",
+    status: "Stato",
+    tag: "Tag",
+    tags: "Tag",
+    targetPrice: "Prezzo target",
+    targetValue: "Valore target",
+    topRegions: "Top regioni",
+    totalValue: "Valore totale",
+    type: "Tipo",
+    value: "Valore",
+    valueByType: "Valore per tipo",
+    viewerReadOnly: "Accesso viewer: puoi leggere questa cantina, ma non modificare i vini.",
+    vintage: "Annata",
+    wineDetail: "Dettaglio vino",
+    wines: "Vini",
+    wishlist: "Wishlist",
+    wishlistDetail: "Dettaglio wishlist",
+    wishlistItems: "Elementi wishlist",
+    working: "Elaborazione",
+  },
+} as const;
+
+type TranslationKey = keyof typeof translations.en;
+
+function translate(locale: Locale, key: TranslationKey) {
+  return (translations[locale] as Record<TranslationKey, string>)[key] || translations.en[key];
+}
 
 const emptyDraft: WineDraft = {
   name: "",
@@ -405,6 +627,7 @@ function WineDetail({
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: "notes" | "drink-window" | "value" | "grapes") => void;
+  t: (key: TranslationKey) => string;
 }) {
   const drinkStart = wine.drink_from || Number(wine.vintage) || new Date().getFullYear();
   const drinkEnd = wine.drink_to || drinkStart;
@@ -419,7 +642,7 @@ function WineDetail({
     <section className={`wine-detail tone-${wineTone(wine.type)}`}>
       <div className="detail-title">
         <div>
-          <p className="eyebrow">Wine detail</p>
+          <p className="eyebrow">{t("wineDetail")}</p>
           <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
           <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
         </div>
@@ -428,34 +651,34 @@ function WineDetail({
 
       <div className="ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
-          {generating === "notes" ? "Generating" : "AI notes"}
+          {generating === "notes" ? t("generating") : t("aiNotes")}
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("drink-window")}>
-          {generating === "drink-window" ? "Generating" : "Drink window"}
+          {generating === "drink-window" ? t("generating") : t("drinkWindow")}
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("value")}>
-          {generating === "value" ? "Generating" : "Value"}
+          {generating === "value" ? t("generating") : t("value")}
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
-          {generating === "grapes" ? "Generating" : "Grapes"}
+          {generating === "grapes" ? t("generating") : t("grapes")}
         </button>
       </div>
 
       <div className="detail-grid">
-        <DetailField label="Format" value={wine.format} />
-        <DetailField label="Type" value={wine.type} />
-        <DetailField label="Status" value={wine.status} />
-        <DetailField label="Quantity" value={`${wine.quantity} bottles`} />
-        <DetailField label="Purchase price" value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
-        <DetailField label="Current value" value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} />
-        <DetailField label="Merchant" value={wine.merchant} />
-        <DetailField label="Delivery" value={formatDisplayDate(wine.expected_delivery)} />
+        <DetailField label={t("format")} value={wine.format} />
+        <DetailField label={t("type")} value={wine.type} />
+        <DetailField label={t("status")} value={wine.status} />
+        <DetailField label={t("quantity")} value={`${wine.quantity} ${t("bottles").toLowerCase()}`} />
+        <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
+        <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} />
+        <DetailField label={t("merchant")} value={wine.merchant} />
+        <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} />
       </div>
 
       {(wine.drink_from || wine.drink_to) ? (
         <div className="drink-window">
           <div className="section-heading">
-            <h3>Drinking window</h3>
+            <h3>{t("drinkingWindow")}</h3>
             <span>{drinkStart}-{drinkEnd}</span>
           </div>
           <div className="window-track">
@@ -472,7 +695,7 @@ function WineDetail({
 
       {wine.scores.length ? (
         <div className="detail-section">
-          <h3>Scores</h3>
+          <h3>{t("scores")}</h3>
           <ul>
             {wine.scores.map((score, index) => (
               <li key={`${score.critic}-${index}`}>
@@ -486,7 +709,7 @@ function WineDetail({
 
       {wine.grapes.length ? (
         <div className="detail-section">
-          <h3>Grapes</h3>
+          <h3>{t("grapes")}</h3>
           <div className="chip-list">
             {wine.grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
           </div>
@@ -495,7 +718,7 @@ function WineDetail({
 
       {wine.tags.length ? (
         <div className="detail-section">
-          <h3>Tags</h3>
+          <h3>{t("tags")}</h3>
           <div className="chip-list">
             {wine.tags.map((tag) => <span key={tag}>{tag}</span>)}
           </div>
@@ -504,9 +727,9 @@ function WineDetail({
 
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
         <div className="detail-section notes-section">
-          {wine.notes ? <p><strong>Notes</strong>{wine.notes}</p> : null}
-          {wine.ai_notes ? <p><strong>AI notes</strong>{wine.ai_notes}</p> : null}
-          {wine.ai_value_notes ? <p><strong>Value notes</strong>{wine.ai_value_notes}</p> : null}
+          {wine.notes ? <p><strong>{t("notes")}</strong>{wine.notes}</p> : null}
+          {wine.ai_notes ? <p><strong>{t("aiNotes")}</strong>{wine.ai_notes}</p> : null}
+          {wine.ai_value_notes ? <p><strong>{t("value")}</strong>{wine.ai_value_notes}</p> : null}
         </div>
       ) : null}
     </section>
@@ -523,12 +746,13 @@ function WishlistDetail({
   canGenerate: boolean;
   generating: boolean;
   onGenerate: () => void;
+  t: (key: TranslationKey) => string;
 }) {
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
         <div>
-          <p className="eyebrow">Wishlist detail</p>
+          <p className="eyebrow">{t("wishlistDetail")}</p>
           <h2><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name}</h2>
           <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
         </div>
@@ -536,26 +760,26 @@ function WishlistDetail({
       </div>
       <div className="ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || generating} onClick={onGenerate}>
-          {generating ? "Generating" : "AI strategy"}
+          {generating ? t("generating") : t("aiStrategy")}
         </button>
       </div>
       <div className="detail-grid">
-        <DetailField label="Format" value={item.format} />
-        <DetailField label="Type" value={item.type} />
-        <DetailField label="Priority" value={item.priority} />
-        <DetailField label="Purpose" value={item.purpose} />
-        <DetailField label="Status" value={item.status} />
-        <DetailField label="Merchant" value={item.merchant} />
+        <DetailField label={t("format")} value={item.format} />
+        <DetailField label={t("type")} value={item.type} />
+        <DetailField label={t("priority")} value={item.priority} />
+        <DetailField label={t("purpose")} value={item.purpose} />
+        <DetailField label={t("status")} value={item.status} />
+        <DetailField label={t("merchant")} value={item.merchant} />
       </div>
       {item.notes ? (
         <div className="detail-section notes-section">
-          <p><strong>Notes</strong>{item.notes}</p>
+          <p><strong>{t("notes")}</strong>{item.notes}</p>
         </div>
       ) : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
         <div className="detail-section notes-section">
-          {item.ai_strategy ? <p><strong>AI strategy</strong>{item.ai_strategy}</p> : null}
-          {item.ai_purpose_advice ? <p><strong>Purpose advice</strong>{item.ai_purpose_advice}</p> : null}
+          {item.ai_strategy ? <p><strong>{t("aiStrategy")}</strong>{item.ai_strategy}</p> : null}
+          {item.ai_purpose_advice ? <p><strong>{t("purpose")}</strong>{item.ai_purpose_advice}</p> : null}
         </div>
       ) : null}
     </section>
@@ -593,6 +817,13 @@ export function App() {
   const [saving, setSaving] = useState(false);
   const [generatingAi, setGeneratingAi] = useState("");
   const [error, setError] = useState("");
+  const [locale, setLocale] = useState<Locale>(() => (localStorage.getItem("winecellar_locale") === "it" ? "it" : "en"));
+  const t = (key: TranslationKey) => translate(locale, key);
+
+  function changeLocale(nextLocale: Locale) {
+    setLocale(nextLocale);
+    localStorage.setItem("winecellar_locale", nextLocale);
+  }
 
   async function loadSession() {
     const nextSession = await api<Session>("/api/v1/session");
@@ -1052,11 +1283,26 @@ export function App() {
               </select>
             ) : null}
             <span>{session?.membership_role}</span>
+            <label className="language-switch">
+              <span>{t("language")}</span>
+              <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+                <option value="en">EN</option>
+                <option value="it">IT</option>
+              </select>
+            </label>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
-              Logout
+              {t("logout")}
             </button>
           </div>
-        ) : null}
+        ) : (
+          <label className="language-switch">
+            <span>{t("language")}</span>
+            <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+              <option value="en">EN</option>
+              <option value="it">IT</option>
+            </select>
+          </label>
+        )}
       </header>
 
       {error ? <p className="error-banner">{error}</p> : null}
@@ -1065,73 +1311,73 @@ export function App() {
         <section className="auth-panel">
           {acceptToken ? (
             <div className="invite-notice">
-              <strong>Invite link detected</strong>
-              <span>Login or create an account with the invited email, then accept the invite.</span>
+              <strong>{t("inviteLinkDetected")}</strong>
+              <span>{t("inviteLinkHelp")}</span>
             </div>
           ) : null}
           <div className="auth-tabs">
-            <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>Login</button>
-            <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>Register</button>
+            <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>{t("login")}</button>
+            <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
           </div>
           <form className="wine-form" onSubmit={submitAuth}>
-            <h2>{authMode === "register" ? "Create account" : "Login"}</h2>
+            <h2>{authMode === "register" ? t("createAccount") : t("login")}</h2>
             <label>
-              <span>Email</span>
+              <span>{t("email")}</span>
               <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
             </label>
             {authMode === "register" ? (
               <>
                 <label>
-                  <span>Name</span>
+                  <span>{t("name")}</span>
                   <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
                 </label>
                 <label>
-                  <span>Household</span>
+                  <span>{t("household")}</span>
                   <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
                 </label>
               </>
             ) : null}
             <label>
-              <span>Password</span>
+              <span>{t("password")}</span>
               <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
             </label>
-            <button type="submit" disabled={saving}>{saving ? "Working" : authMode === "register" ? "Create account" : "Login"}</button>
+            <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : t("login")}</button>
           </form>
         </section>
       ) : (
         <section className="workspace">
           <div className="view-tabs">
             <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters(); }}>
-              Cellar ({wines.length})
+              {t("cellar")} ({wines.length})
             </button>
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters(); }}>
-              Wishlist ({wishlist.length})
+              {t("wishlist")} ({wishlist.length})
             </button>
           </div>
           <aside className="wine-side-panel">
             {activeView === "cellar" ? (
               <div className="side-panel-actions">
                 <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
-                  Add wine
+                  {t("addWine")}
                 </button>
                 {selectedWine && !wineFormOpen ? (
                   <button type="button" className="secondary" onClick={() => startEditWine(selectedWine)} disabled={!canWriteWine}>
-                    Edit selected
+                    {t("editSelected")}
                   </button>
                 ) : null}
               </div>
             ) : (
               <div className="side-panel-actions">
                 <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
-                  Add wishlist
+                  {t("addWishlist")}
                 </button>
                 {selectedWishlistItem && !wishlistFormOpen ? (
                   <>
                     <button type="button" className="secondary" onClick={() => startEditWishlistItem(selectedWishlistItem)} disabled={!canWriteWine}>
-                      Edit selected
+                      {t("editSelected")}
                     </button>
                     <button type="button" onClick={() => convertWishlistItem(selectedWishlistItem)} disabled={!canWriteWine || saving}>
-                      Convert
+                      {t("convert")}
                     </button>
                   </>
                 ) : null}
@@ -1139,69 +1385,69 @@ export function App() {
             )}
             {activeView === "cellar" && wineFormOpen ? (
               <form className="wine-form" onSubmit={submitWine}>
-                <h2>{editingId ? "Edit wine" : "Add wine"}</h2>
-                {!canWriteWine ? <p className="empty-state">Viewer access: you can read this cellar, but cannot change wines.</p> : null}
+                <h2>{editingId ? t("editWine") : t("addWine")}</h2>
+                {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 <label>
-                  <span>Name</span>
+                  <span>{t("name")}</span>
                   <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required disabled={!canWriteWine} />
                 </label>
                 <label>
-                  <span>Producer</span>
+                  <span>{t("producer")}</span>
                   <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} disabled={!canWriteWine} />
                 </label>
                 <div className="form-row">
                   <label>
-                    <span>Format</span>
+                    <span>{t("format")}</span>
                     <input value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Type</span>
+                    <span>{t("type")}</span>
                     <input value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Region</span>
+                    <span>{t("region")}</span>
                     <input value={draft.region} onChange={(event) => setDraft({ ...draft, region: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Appellation</span>
+                    <span>{t("appellation")}</span>
                     <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Vintage</span>
+                    <span>{t("vintage")}</span>
                     <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Quantity</span>
+                    <span>{t("quantity")}</span>
                     <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Price</span>
+                    <span>{t("purchasePrice")}</span>
                     <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Current value</span>
+                    <span>{t("currentValue")}</span>
                     <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Currency</span>
+                    <span>{t("currency")}</span>
                     <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Merchant</span>
+                    <span>{t("merchant")}</span>
                     <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Status</span>
+                    <span>{t("status")}</span>
                     <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })} disabled={!canWriteWine}>
                       <option>Ordered</option>
                       <option>Shipped</option>
@@ -1210,79 +1456,79 @@ export function App() {
                     </select>
                   </label>
                   <label>
-                    <span>Order date</span>
+                    <span>{t("orderDate")}</span>
                     <input type="date" value={draft.order_date} onChange={(event) => setDraft({ ...draft, order_date: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Delivery</span>
+                    <span>{t("delivery")}</span>
                     <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <label>
-                  <span>Notes</span>
+                  <span>{t("notes")}</span>
                   <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
                 </label>
                 <div className="form-actions">
-                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? "Saving" : editingId ? "Save changes" : "Create wine"}</button>
+                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingId ? t("saveChanges") : t("createWine")}</button>
                   <button type="button" className="secondary" onClick={closeWineForm}>
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </div>
               </form>
             ) : activeView === "wishlist" && wishlistFormOpen ? (
               <form className="wine-form" onSubmit={submitWishlist}>
-                <h2>{editingWishlistId ? "Edit wishlist" : "Add wishlist"}</h2>
+                <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
                 <label>
-                  <span>Name</span>
+                  <span>{t("name")}</span>
                   <input value={wishlistDraft.name} onChange={(event) => setWishlistDraft({ ...wishlistDraft, name: event.target.value })} required disabled={!canWriteWine} />
                 </label>
                 <label>
-                  <span>Producer</span>
+                  <span>{t("producer")}</span>
                   <input value={wishlistDraft.producer} onChange={(event) => setWishlistDraft({ ...wishlistDraft, producer: event.target.value })} disabled={!canWriteWine} />
                 </label>
                 <div className="form-row">
                   <label>
-                    <span>Vintage</span>
+                    <span>{t("vintage")}</span>
                     <input value={wishlistDraft.vintage} onChange={(event) => setWishlistDraft({ ...wishlistDraft, vintage: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Target price</span>
+                    <span>{t("targetPrice")}</span>
                     <input type="number" min="0" step="0.01" value={wishlistDraft.target_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, target_price: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Format</span>
+                    <span>{t("format")}</span>
                     <input value={wishlistDraft.format} onChange={(event) => setWishlistDraft({ ...wishlistDraft, format: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Type</span>
+                    <span>{t("type")}</span>
                     <input value={wishlistDraft.type} onChange={(event) => setWishlistDraft({ ...wishlistDraft, type: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Region</span>
+                    <span>{t("region")}</span>
                     <input value={wishlistDraft.region} onChange={(event) => setWishlistDraft({ ...wishlistDraft, region: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Appellation</span>
+                    <span>{t("appellation")}</span>
                     <input value={wishlistDraft.appellation} onChange={(event) => setWishlistDraft({ ...wishlistDraft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Currency</span>
+                    <span>{t("currency")}</span>
                     <input value={wishlistDraft.currency} onChange={(event) => setWishlistDraft({ ...wishlistDraft, currency: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>Merchant</span>
+                    <span>{t("merchant")}</span>
                     <input value={wishlistDraft.merchant} onChange={(event) => setWishlistDraft({ ...wishlistDraft, merchant: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <div className="form-row">
                   <label>
-                    <span>Priority</span>
+                    <span>{t("priority")}</span>
                     <select value={wishlistDraft.priority} onChange={(event) => setWishlistDraft({ ...wishlistDraft, priority: event.target.value })} disabled={!canWriteWine}>
                       <option>High</option>
                       <option>Medium</option>
@@ -1290,7 +1536,7 @@ export function App() {
                     </select>
                   </label>
                   <label>
-                    <span>Purpose</span>
+                    <span>{t("purpose")}</span>
                     <select value={wishlistDraft.purpose} onChange={(event) => setWishlistDraft({ ...wishlistDraft, purpose: event.target.value })} disabled={!canWriteWine}>
                       <option>Drink</option>
                       <option>Cellar</option>
@@ -1301,7 +1547,7 @@ export function App() {
                   </label>
                 </div>
                 <label>
-                  <span>Status</span>
+                  <span>{t("status")}</span>
                   <select value={wishlistDraft.status} onChange={(event) => setWishlistDraft({ ...wishlistDraft, status: event.target.value })} disabled={!canWriteWine}>
                     <option>Evaluate</option>
                     <option>Monitor</option>
@@ -1311,13 +1557,13 @@ export function App() {
                   </select>
                 </label>
                 <label>
-                  <span>Notes</span>
+                  <span>{t("notes")}</span>
                   <textarea value={wishlistDraft.notes} onChange={(event) => setWishlistDraft({ ...wishlistDraft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
                 </label>
                 <div className="form-actions">
-                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? "Saving" : editingWishlistId ? "Save changes" : "Create wishlist"}</button>
+                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingWishlistId ? t("saveChanges") : t("createWishlist")}</button>
                   <button type="button" className="secondary" onClick={closeWishlistForm}>
-                    Cancel
+                    {t("cancel")}
                   </button>
                 </div>
               </form>
@@ -1327,6 +1573,7 @@ export function App() {
                 canGenerate={canWriteWine}
                 generating={generatingAi}
                 onGenerate={(feature) => generateWineAi(selectedWine, feature)}
+                t={t}
               />
             ) : activeView === "wishlist" && selectedWishlistItem ? (
               <WishlistDetail
@@ -1334,11 +1581,12 @@ export function App() {
                 canGenerate={canWriteWine}
                 generating={generatingAi === "wishlist-strategy"}
                 onGenerate={() => generateWishlistAi(selectedWishlistItem)}
+                t={t}
               />
             ) : (
               <div className="wine-detail empty-detail">
-                <h2>No item selected</h2>
-                <p>Select an item from the list to see the complete detail.</p>
+                <h2>{t("noItemSelected")}</h2>
+                <p>{t("selectItemHelp")}</p>
               </div>
             )}
           </aside>
@@ -1347,39 +1595,39 @@ export function App() {
             {activeView === "cellar" ? (
               <section className="stats-panel">
                 <div className="stat-card">
-                  <span>Total value</span>
+                  <span>{t("totalValue")}</span>
                   <strong>CHF {cellarStats.totalValue.toFixed(0)}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Bottles</span>
+                  <span>{t("bottles")}</span>
                   <strong>{cellarStats.bottles}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Drink now</span>
+                  <span>{t("drinkNow")}</span>
                   <strong>{cellarStats.drinkNow}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Drink in 2 years</span>
+                  <span>{t("drinkIn2Years")}</span>
                   <strong>{cellarStats.drinkSoon}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Past window</span>
+                  <span>{t("pastWindow")}</span>
                   <strong>{cellarStats.pastWindow}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Future deliveries</span>
+                  <span>{t("futureDeliveries")}</span>
                   <strong>{cellarStats.futureDeliveries}</strong>
                   {cellarStats.nextDelivery ? <p>{cellarStats.nextDelivery.wine.name}: {cellarStats.nextDelivery.days} days</p> : null}
                 </div>
                 <div className="stat-card compact-list">
-                  <span>Data quality</span>
-                  <p>Missing value: <strong>{cellarStats.missingValue}</strong></p>
-                  <p>Missing drink window: <strong>{cellarStats.missingDrinkWindow}</strong></p>
-                  <p>Missing scores: <strong>{cellarStats.missingScores}</strong></p>
+                  <span>{t("dataQuality")}</span>
+                  <p>{t("missingValue")}: <strong>{cellarStats.missingValue}</strong></p>
+                  <p>{t("missingDrinkWindow")}: <strong>{cellarStats.missingDrinkWindow}</strong></p>
+                  <p>{t("missingScores")}: <strong>{cellarStats.missingScores}</strong></p>
                 </div>
                 {valueByType.length ? (
                   <div className="stat-card compact-list type-breakdown">
-                    <span>Value by type</span>
+                    <span>{t("valueByType")}</span>
                     {valueByType.map((item) => (
                       <p key={item.label}>
                         <i className={`wine-dot tone-${wineTone(item.label)}`} />
@@ -1390,55 +1638,55 @@ export function App() {
                 ) : null}
                 {valueByRegion.length ? (
                   <div className="stat-card compact-list type-breakdown">
-                    <span>Top regions</span>
+                    <span>{t("topRegions")}</span>
                     {valueByRegion.map((item) => (
                       <p key={item.label}>{item.label}: CHF {item.value.toFixed(0)}</p>
                     ))}
                   </div>
                 ) : null}
                 <div className="stat-card compact-list ai-card">
-                  <span>AI readiness</span>
+                  <span>{t("aiReadiness")}</span>
                   <strong>{cellarStats.aiNotes} / {wines.length}</strong>
-                  <p>Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.</p>
+                  <p>{t("aiReadinessHelp")}</p>
                 </div>
               </section>
             ) : (
               <section className="stats-panel">
                 <div className="stat-card">
-                  <span>Wishlist items</span>
+                  <span>{t("wishlistItems")}</span>
                   <strong>{wishlistStats.count}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Target value</span>
+                  <span>{t("targetValue")}</span>
                   <strong>CHF {wishlistStats.targetValue.toFixed(0)}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>High priority</span>
+                  <span>{t("highPriority")}</span>
                   <strong>{wishlistStats.highPriority}</strong>
                 </div>
                 <div className="stat-card">
-                  <span>Ready to buy</span>
+                  <span>{t("readyToBuy")}</span>
                   <strong>{wishlistStats.readyToBuy}</strong>
                 </div>
               </section>
             )}
             <div className="filter-panel">
               <label>
-                <span>Search</span>
-                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="Name, producer, region, score..." />
+                <span>{t("search")}</span>
+                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
               </label>
               <div className="filter-row">
                 <label>
-                  <span>Type</span>
+                  <span>{t("type")}</span>
                   <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
-                    <option value="">All types</option>
+                    <option value="">{t("allTypes")}</option>
                     {activeTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
                   </select>
                 </label>
                 <label>
-                  <span>Status</span>
+                  <span>{t("status")}</span>
                   <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-                    <option value="">All statuses</option>
+                    <option value="">{t("allStatuses")}</option>
                     {activeStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
                   </select>
                 </label>
@@ -1446,51 +1694,51 @@ export function App() {
               <div className="filter-row">
                 {activeView === "cellar" ? (
                   <label>
-                    <span>Tag</span>
+                    <span>{t("tag")}</span>
                     <select value={tagFilter} onChange={(event) => setTagFilter(event.target.value)}>
-                      <option value="">All tags</option>
+                      <option value="">{t("allTags")}</option>
                       {tagOptions.map((tag) => <option key={tag} value={tag}>{tag}</option>)}
                     </select>
                   </label>
                 ) : null}
                 <label>
-                  <span>Sort</span>
+                  <span>{t("sort")}</span>
                   <select value={sortMode} onChange={(event) => setSortMode(event.target.value as SortMode)}>
-                    <option value="name">Name</option>
-                    <option value="vintage">Vintage</option>
-                    <option value="value">Value</option>
-                    {activeView === "cellar" ? <option value="drink_window">Drink window</option> : null}
+                    <option value="name">{t("name")}</option>
+                    <option value="vintage">{t("vintage")}</option>
+                    <option value="value">{t("value")}</option>
+                    {activeView === "cellar" ? <option value="drink_window">{t("drinkWindow")}</option> : null}
                   </select>
                 </label>
               </div>
               <button type="button" className="secondary compact" onClick={clearFilters}>
-                Clear filters
+                {t("clearFilters")}
               </button>
             </div>
             <div className="list-header">
-              <h2>{activeView === "cellar" ? "Wines" : "Wishlist"}</h2>
-              <span>{visibleCount} / {activeView === "cellar" ? wines.length : wishlist.length} records</span>
+              <h2>{activeView === "cellar" ? t("wines") : t("wishlist")}</h2>
+              <span>{visibleCount} / {activeView === "cellar" ? wines.length : wishlist.length} {t("records")}</span>
             </div>
-            {loading ? <p className="empty-state">Loading data</p> : null}
-            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">No wines match the current filters</p> : null}
-            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">No wishlist items match the current filters</p> : null}
+            {loading ? <p className="empty-state">{t("loadingData")}</p> : null}
+            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
+            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
             {activeView === "cellar" ? filteredWines.map((wine) => (
               <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => setSelectedWineId(wine.id)}>
                 <div>
                   <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
-                  <p>{wine.producer || "No producer"} - {wine.quantity}x - {wine.status}</p>
+                  <p>{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
                   <p>{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
-                  {wine.tags.length ? <p>Tags: {wine.tags.join(", ")}</p> : null}
-                  {wine.scores.length ? <p>Scores: {wine.scores.map((score) => `${score.critic} ${score.score}`).join(", ")}</p> : null}
-                  {wine.drink_from && wine.drink_to ? <p>Drink window: {wine.drink_from}-{wine.drink_to}</p> : null}
+                  {wine.tags.length ? <p>{t("tags")}: {wine.tags.join(", ")}</p> : null}
+                  {wine.scores.length ? <p>{t("scores")}: {wine.scores.map((score) => `${score.critic} ${score.score}`).join(", ")}</p> : null}
+                  {wine.drink_from && wine.drink_to ? <p>{t("drinkWindow")}: {wine.drink_from}-{wine.drink_to}</p> : null}
                 </div>
                 <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                 <div className="row-actions">
                   <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
-                    Edit
+                    {t("edit")}
                   </button>
                   <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWine(wine).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wine")); }}>
-                    Delete
+                    {t("delete")}
                   </button>
                 </div>
               </article>
@@ -1498,7 +1746,7 @@ export function App() {
               <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} key={item.id} onClick={() => setSelectedWishlistId(item.id)}>
                 <div>
                   <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
-                  <p>{item.producer || "No producer"} - {item.purpose} - {item.status}</p>
+                  <p>{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
                   <p>{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
                   {item.notes ? <p>{item.notes}</p> : null}
                 </div>
@@ -1506,13 +1754,13 @@ export function App() {
                 <div className="row-actions">
                   <span className="priority-chip">{item.priority}</span>
                   <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
-                    Edit
+                    {t("edit")}
                   </button>
                   <button type="button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }}>
-                    Convert
+                    {t("convert")}
                   </button>
                   <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWishlistItem(item).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist item")); }}>
-                    Delete
+                    {t("delete")}
                   </button>
                 </div>
               </article>
@@ -1520,7 +1768,7 @@ export function App() {
           </section>
 
           <aside className="team-panel">
-            <h2>Household</h2>
+            <h2>{t("household")}</h2>
             <div className="member-list">
               {members.map((member) => (
                 <div className="member-row" key={member.membership_id}>
@@ -1545,7 +1793,7 @@ export function App() {
                         disabled={saving || member.email.toLowerCase() === currentUserEmail}
                         onClick={() => removeMember(member)}
                       >
-                        Remove
+                        {t("remove")}
                       </button>
                     </div>
                   ) : (
@@ -1558,38 +1806,38 @@ export function App() {
             {canAdmin ? (
               <>
                 <div className="inline-form">
-                  <h3>Import legacy export</h3>
+                  <h3>{t("importLegacy")}</h3>
                   <label>
                     <span>WineCellar JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
                   </label>
                 </div>
                 <form className="inline-form" onSubmit={createInvite}>
-                  <h3>Invite member</h3>
+                  <h3>{t("inviteMember")}</h3>
                   <label>
-                    <span>Email</span>
+                    <span>{t("email")}</span>
                     <input type="email" value={inviteDraft.email} onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} required />
                   </label>
                   <label>
-                    <span>Role</span>
+                    <span>{t("role")}</span>
                     <select value={inviteDraft.role} onChange={(event) => setInviteDraft({ ...inviteDraft, role: event.target.value })}>
                       <option value="viewer">Viewer</option>
                       <option value="member">Member</option>
                       <option value="admin">Admin</option>
                     </select>
                   </label>
-                  <button type="submit" disabled={saving}>{saving ? "Creating" : "Create invite"}</button>
+                  <button type="submit" disabled={saving}>{saving ? t("working") : t("createInvite")}</button>
                   {inviteToken ? (
                     <div className="token-box">
-                      <span>Invite token</span>
+                      <span>{t("inviteToken")}</span>
                       <code>{inviteToken}</code>
-                      <span>Invite link</span>
+                      <span>{t("inviteLink")}</span>
                       <a href={generatedInviteLink}>{generatedInviteLink}</a>
                     </div>
                   ) : null}
                 </form>
                 <div className="inline-form">
-                  <h3>Pending invites</h3>
+                  <h3>{t("pendingInvites")}</h3>
                   {invites.length ? (
                     <div className="invite-list">
                       {invites.map((invite) => {
@@ -1599,30 +1847,30 @@ export function App() {
                           <div className="invite-row" key={invite.id}>
                             <div>
                               <strong>{invite.email}</strong>
-                              <span>{invite.role} - {accepted ? "accepted" : expired ? "expired" : `expires ${formatDisplayDate(invite.expires_at)}`}</span>
+                              <span>{invite.role} - {accepted ? "accepted" : expired ? "expired" : `${t("expires")} ${formatDisplayDate(invite.expires_at)}`}</span>
                             </div>
                             <button type="button" className="danger compact" disabled={saving} onClick={() => revokeInvite(invite)}>
-                              Revoke
+                              {t("revoke")}
                             </button>
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <p className="empty-state">No invites</p>
+                    <p className="empty-state">{t("noInvites")}</p>
                   )}
                 </div>
               </>
             ) : null}
 
             <form className="inline-form" onSubmit={acceptInvite}>
-              <h3>Accept invite</h3>
+              <h3>{t("acceptInvite")}</h3>
               <label>
-                <span>Invite token</span>
+                <span>{t("inviteToken")}</span>
                 <input value={acceptToken} onChange={(event) => setAcceptToken(event.target.value)} />
               </label>
               <button type="submit" className="secondary" disabled={saving || !acceptToken.trim()}>
-                Accept
+                {t("accept")}
               </button>
             </form>
           </aside>
