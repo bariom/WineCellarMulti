@@ -275,7 +275,19 @@ type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
 type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
-type ThemePreference = "system" | "light" | "dark" | "sepia";
+type ThemePreference =
+  | "system"
+  | "light"
+  | "dark"
+  | "sepia"
+  | "white-wine"
+  | "red-wine"
+  | "rose-wine"
+  | "champagne"
+  | "bordeaux"
+  | "burgundy"
+  | "tuscany"
+  | "piedmont";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
@@ -477,6 +489,14 @@ const translations = {
     themeLight: "Light",
     themeDark: "Dark",
     themeSepia: "Warm cellar",
+    themeWhiteWine: "White wine",
+    themeRedWine: "Red wine",
+    themeRoseWine: "Rose wine",
+    themeChampagne: "Champagne",
+    themeBordeaux: "Bordeaux",
+    themeBurgundy: "Burgundy",
+    themeTuscany: "Tuscany",
+    themePiedmont: "Piedmont",
     thisMonth: "This month",
     timeline: "Timeline",
     today: "Today",
@@ -705,6 +725,14 @@ const translations = {
     themeLight: "Chiaro",
     themeDark: "Scuro",
     themeSepia: "Cantina calda",
+    themeWhiteWine: "Vino bianco",
+    themeRedWine: "Vino rosso",
+    themeRoseWine: "Rose",
+    themeChampagne: "Champagne",
+    themeBordeaux: "Bordeaux",
+    themeBurgundy: "Borgogna",
+    themeTuscany: "Toscana",
+    themePiedmont: "Piemonte",
     thisMonth: "Questo mese",
     timeline: "Timeline",
     today: "Oggi",
@@ -747,6 +775,21 @@ const translations = {
 } as const;
 
 type TranslationKey = keyof typeof translations.en;
+
+const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
+  { value: "system", label: "themeSystem" },
+  { value: "light", label: "themeLight" },
+  { value: "dark", label: "themeDark" },
+  { value: "sepia", label: "themeSepia" },
+  { value: "white-wine", label: "themeWhiteWine" },
+  { value: "red-wine", label: "themeRedWine" },
+  { value: "rose-wine", label: "themeRoseWine" },
+  { value: "champagne", label: "themeChampagne" },
+  { value: "bordeaux", label: "themeBordeaux" },
+  { value: "burgundy", label: "themeBurgundy" },
+  { value: "tuscany", label: "themeTuscany" },
+  { value: "piedmont", label: "themePiedmont" },
+];
 
 function translate(locale: Locale, key: TranslationKey) {
   return (translations[locale] as Record<TranslationKey, string>)[key] || translations.en[key];
@@ -1591,7 +1634,7 @@ export function App() {
   const [locale, setLocale] = useState<Locale>(() => (localStorage.getItem("winecellar_locale") === "it" ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
     const stored = localStorage.getItem("winecellar_theme");
-    return stored === "light" || stored === "dark" || stored === "sepia" || stored === "system" ? stored : "system";
+    return themeOptions.some((option) => option.value === stored) ? (stored as ThemePreference) : "system";
   });
   const t = (key: TranslationKey) => translate(locale, key);
 
@@ -2879,10 +2922,9 @@ export function App() {
             <label className="language-switch">
               <span>{t("theme")}</span>
               <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
-                <option value="system">{t("themeSystem")}</option>
-                <option value="light">{t("themeLight")}</option>
-                <option value="dark">{t("themeDark")}</option>
-                <option value="sepia">{t("themeSepia")}</option>
+                {themeOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{t(option.label)}</option>
+                ))}
               </select>
             </label>
           </div>
@@ -4040,10 +4082,9 @@ export function App() {
                   <label>
                     <span>{t("theme")}</span>
                     <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
-                      <option value="system">{t("themeSystem")}</option>
-                      <option value="light">{t("themeLight")}</option>
-                      <option value="dark">{t("themeDark")}</option>
-                      <option value="sepia">{t("themeSepia")}</option>
+                      {themeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>{t(option.label)}</option>
+                      ))}
                     </select>
                   </label>
                 </div>
