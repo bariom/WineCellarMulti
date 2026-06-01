@@ -29,5 +29,33 @@ cd "$FRONTEND_DIR"
 npm install
 npm run build
 
+restart_service_if_available() {
+  local service_name="$1"
+
+  if ! command -v systemctl >/dev/null 2>&1; then
+    return 1
+  fi
+
+  if ! systemctl list-unit-files "$service_name.service" --no-legend 2>/dev/null | grep -q "^$service_name.service"; then
+    return 1
+  fi
+
+  echo "Restarting $service_name"
+  sudo systemctl restart "$service_name"
+  sudo systemctl --no-pager --full status "$service_name" | sed -n '1,8p'
+  return 0
+}
+
+echo "Restarting services when installed"
+RESTARTED=false
+if restart_service_if_available winecellarmulti-backend; then
+  RESTARTED=true
+fi
+if restart_service_if_available winecellarmulti-frontend; then
+  RESTARTED=true
+fi
+
 echo "Update complete"
-echo "Restart the app with: ./dev.sh"
+if [[ "$RESTARTED" == "false" ]]; then
+  echo "No systemd services found. Restart the development app with: ./dev.sh"
+fi
