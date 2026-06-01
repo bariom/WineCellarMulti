@@ -2377,7 +2377,21 @@ export function App() {
     }
     setOfflineMode(false);
     setOfflineFileName("");
-    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_id: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false, locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en", theme_preference: "system" });
+    setSession({
+      authenticated: false,
+      user_display_name: null,
+      user_email: null,
+      active_household_id: null,
+      active_household_name: null,
+      membership_role: null,
+      is_app_admin: false,
+      pending_approval: false,
+      locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en",
+      theme_preference: "system",
+      has_active_entitlement: false,
+      entitlement_valid_until: null,
+      entitlement_days_remaining: null,
+    });
     setLocale(navigator.language.toLowerCase().startsWith("it") ? "it" : "en");
     setThemePreference("system");
     setWines([]);
@@ -2714,6 +2728,9 @@ export function App() {
         pending_approval: false,
         locale,
         theme_preference: themePreference,
+        has_active_entitlement: true,
+        entitlement_valid_until: null,
+        entitlement_days_remaining: null,
       });
       setWines(nextWines);
       setWishlist(nextWishlist);
