@@ -37,3 +37,16 @@ class PendingUserResponse(BaseModel):
     id: str
     email: str
     display_name: str
+
+
+class UserAdminUpdate(BaseModel):
+    is_app_admin: bool
+
+
+class UserAdminResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str
+    is_approved: bool
+    is_app_admin: bool
+    approved_at: str | None = None

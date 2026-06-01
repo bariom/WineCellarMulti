@@ -6,6 +6,7 @@ type Session = {
   user_email: string | null;
   active_household_name: string | null;
   membership_role: string | null;
+  is_app_admin: boolean;
   pending_approval: boolean;
 };
 
@@ -182,6 +183,12 @@ type PendingUser = {
   display_name: string;
 };
 
+type AppUser = PendingUser & {
+  is_approved: boolean;
+  is_app_admin: boolean;
+  approved_at: string | null;
+};
+
 type Invite = {
   id: string;
   email: string;
@@ -261,8 +268,8 @@ type AuthDraft = {
 
 type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
-type DashboardFocus = "collector" | "value" | "readiness" | "data";
-type SettingsTab = "profile" | "ai" | "sharing" | "data";
+type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
+type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
 type ThemePreference = "system" | "light" | "dark" | "sepia";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
@@ -314,6 +321,7 @@ const translations = {
     dataFocus: "Data quality",
     delete: "Delete",
     delivery: "Delivery",
+    deliveryTimeline: "Delivery timeline",
     drinkIn2Years: "Drink in 2 years",
     drinkNow: "Drink now",
     drinkWindow: "Drink window",
@@ -382,6 +390,9 @@ const translations = {
     noItemSelected: "No item selected",
     noProducer: "No producer",
     newItems: "new",
+    next12Months: "Next 12 months",
+    next30Days: "Next 30 days",
+    next90Days: "Next 90 days",
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
     noPasskeys: "No passkeys registered yet",
@@ -441,6 +452,7 @@ const translations = {
     settingsData: "Data",
     settingsProfile: "Profile",
     settingsSharing: "Sharing",
+    settingsUsers: "Users",
     status: "Status",
     tag: "Tag",
     tagName: "Tag name",
@@ -453,6 +465,7 @@ const translations = {
     themeDark: "Dark",
     themeSepia: "Warm cellar",
     thisMonth: "This month",
+    timeline: "Timeline",
     today: "Today",
     topRegions: "Top regions",
     totalValue: "Total value",
@@ -525,6 +538,7 @@ const translations = {
     dataFocus: "Qualita dati",
     delete: "Elimina",
     delivery: "Consegna",
+    deliveryTimeline: "Timeline consegne",
     drinkIn2Years: "Da bere entro 2 anni",
     drinkNow: "Da bere ora",
     drinkWindow: "Finestra",
@@ -593,6 +607,9 @@ const translations = {
     noItemSelected: "Nessun elemento selezionato",
     noProducer: "Produttore assente",
     newItems: "nuovi",
+    next12Months: "Prossimi 12 mesi",
+    next30Days: "Prossimi 30 giorni",
+    next90Days: "Prossimi 90 giorni",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
     noPasskeys: "Nessuna passkey registrata",
@@ -652,6 +669,7 @@ const translations = {
     settingsData: "Dati",
     settingsProfile: "Profilo",
     settingsSharing: "Condivisione",
+    settingsUsers: "Utenti",
     status: "Stato",
     tag: "Tag",
     tagName: "Nome tag",
@@ -664,6 +682,7 @@ const translations = {
     themeDark: "Scuro",
     themeSepia: "Cantina calda",
     thisMonth: "Questo mese",
+    timeline: "Timeline",
     today: "Oggi",
     topRegions: "Top regioni",
     totalValue: "Valore totale",
@@ -1467,6 +1486,7 @@ export function App() {
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
+  const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
@@ -1585,14 +1605,20 @@ export function App() {
     setHouseholdMemberships(nextMemberships);
     setMembers(nextMembers);
     if (role === "owner" || role === "admin") {
-      const [nextInvites, nextPendingUsers] = await Promise.all([
-        api<Invite[]>("/api/v1/household/invites"),
-        api<PendingUser[]>("/api/v1/auth/pending-users"),
-      ]);
+      const nextInvites = await api<Invite[]>("/api/v1/household/invites");
       setInvites(nextInvites);
-      setPendingUsers(nextPendingUsers);
     } else {
       setInvites([]);
+    }
+  }
+
+  async function loadAppUsers(isAppAdmin = session?.is_app_admin) {
+    if (isAppAdmin) {
+      const nextUsers = await api<AppUser[]>("/api/v1/auth/users");
+      setAppUsers(nextUsers);
+      setPendingUsers(nextUsers.filter((user) => !user.is_approved));
+    } else {
+      setAppUsers([]);
       setPendingUsers([]);
     }
   }
@@ -1636,7 +1662,7 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
@@ -1646,6 +1672,8 @@ export function App() {
       setHouseholdMemberships([]);
       setMembers([]);
       setInvites([]);
+      setPendingUsers([]);
+      setAppUsers([]);
       setAiAudit([]);
       setAiUsage(null);
       setAiSettings(null);
@@ -1768,7 +1796,7 @@ export function App() {
   async function logout() {
     setError("");
     await api<void>("/api/v1/auth/logout", { method: "POST" });
-    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null, pending_approval: false });
+    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false });
     setWines([]);
     setWishlist([]);
     setShareOffers([]);
@@ -1777,6 +1805,7 @@ export function App() {
     setHouseholdMemberships([]);
     setMembers([]);
     setPendingUsers([]);
+    setAppUsers([]);
     setDraft(emptyDraft);
     setWishlistDraft(emptyWishlistDraft);
     setEditingId(null);
@@ -1879,7 +1908,7 @@ export function App() {
     setError("");
     try {
       await api<PendingUser>(`/api/v1/auth/pending-users/${user.id}/approve`, { method: "POST" });
-      setPendingUsers((current) => current.filter((item) => item.id !== user.id));
+      await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to approve user");
     } finally {
@@ -1893,9 +1922,22 @@ export function App() {
     setError("");
     try {
       await api<void>(`/api/v1/auth/pending-users/${user.id}`, { method: "DELETE" });
-      setPendingUsers((current) => current.filter((item) => item.id !== user.id));
+      await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to reject user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleAppAdmin(user: AppUser) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ is_app_admin: !user.is_app_admin }) });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update user");
     } finally {
       setSaving(false);
     }
@@ -2292,6 +2334,7 @@ export function App() {
   const authenticated = Boolean(session?.authenticated);
   const activeMembership = householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
   const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
+  const canAppAdmin = Boolean(session?.is_app_admin);
   const canWriteWine = canAdmin || session?.membership_role === "member";
   const canGenerateAi = canWriteWine && Boolean(aiSettings?.has_openai_api_key);
   const currentUserEmail = session?.user_email?.toLowerCase();
@@ -2382,6 +2425,25 @@ export function App() {
     .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
     .sort((first, second) => first.days - second.days)
     .slice(0, 5);
+  const deliveryTimelineItems = wines
+    .map((wine) => {
+      if (!wine.expected_delivery) return null;
+      const dateMs = new Date(wine.expected_delivery).getTime();
+      const days = daysUntil(wine.expected_delivery);
+      return Number.isNaN(dateMs) || days === null || days < 0 ? null : { wine, days, dateMs };
+    })
+    .filter((item): item is { wine: Wine; days: number; dateMs: number } => Boolean(item))
+    .sort((first, second) => first.dateMs - second.dateMs);
+  const deliveryTimelineStart = deliveryTimelineItems[0]?.dateMs || now.getTime();
+  const deliveryTimelineEnd = deliveryTimelineItems[deliveryTimelineItems.length - 1]?.dateMs || deliveryTimelineStart + 365 * 86400000;
+  const deliveryTimelineRange = Math.max(deliveryTimelineEnd - deliveryTimelineStart, 1);
+  const firstDeliveryTimelineItem = deliveryTimelineItems[0] || null;
+  const lastDeliveryTimelineItem = deliveryTimelineItems[deliveryTimelineItems.length - 1] || null;
+  const deliveryHorizonStats = {
+    next30: deliveryTimelineItems.filter((item) => item.days <= 30).length,
+    next90: deliveryTimelineItems.filter((item) => item.days <= 90).length,
+    next365: deliveryTimelineItems.filter((item) => item.days <= 365).length,
+  };
   const incompleteWines = wines
     .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0)
     .sort((first, second) => {
@@ -2411,14 +2473,17 @@ export function App() {
     collector: t("collectorFocus"),
     value: t("valueFocus"),
     readiness: t("drinkingWindow"),
+    timeline: t("timeline"),
     data: t("dataFocus"),
   };
   const settingsTabLabels: Record<SettingsTab, string> = {
     profile: t("settingsProfile"),
     ai: t("settingsAi"),
     sharing: t("settingsSharing"),
+    users: t("settingsUsers"),
     data: t("settingsData"),
   };
+  const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -2741,7 +2806,7 @@ export function App() {
               </section>
 
               <div className="focus-switcher" role="tablist" aria-label={t("dashboard")}>
-                {(["collector", "value", "readiness", "data"] as DashboardFocus[]).map((focus) => (
+                {(["collector", "value", "readiness", "timeline", "data"] as DashboardFocus[]).map((focus) => (
                   <button
                     type="button"
                     role="tab"
@@ -2794,13 +2859,13 @@ export function App() {
                 </article>
 
                 <article className="dashboard-card">
-                  <div className="card-heading">
+                  <button type="button" className="card-heading card-heading-button" onClick={() => setDashboardFocus("timeline")}>
                     <div>
                       <span>{t("upcomingDeliveries")}</span>
                       <h2>{t("futureDeliveries")}</h2>
                     </div>
                     <strong>{cellarStats.futureDeliveries}</strong>
-                  </div>
+                  </button>
                   <div className="action-list">
                     {upcomingDeliveries.length ? upcomingDeliveries.map(({ wine, days }) => (
                       <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
@@ -3036,6 +3101,67 @@ export function App() {
                         </div>
                       ))}
                     </div>
+                  </article>
+                </section>
+              ) : null}
+
+              {dashboardFocus === "timeline" ? (
+                <section className="dashboard-grid" aria-label={t("deliveryTimeline")}>
+                  <article className="dashboard-card priority-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("upcomingDeliveries")}</span>
+                        <h2>{t("deliveryTimeline")}</h2>
+                      </div>
+                      <strong>{cellarStats.futureDeliveries}</strong>
+                    </div>
+                    <div className="timeline-kpis">
+                      <div><span>{t("next30Days")}</span><strong>{deliveryHorizonStats.next30}</strong></div>
+                      <div><span>{t("next90Days")}</span><strong>{deliveryHorizonStats.next90}</strong></div>
+                      <div><span>{t("next12Months")}</span><strong>{deliveryHorizonStats.next365}</strong></div>
+                    </div>
+                  </article>
+
+                  <article className="dashboard-card wide-card timeline-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("futureDeliveries")}</span>
+                        <h2>{t("timeline")}</h2>
+                      </div>
+                      {firstDeliveryTimelineItem && lastDeliveryTimelineItem ? (
+                        <strong>{formatDisplayDate(firstDeliveryTimelineItem.wine.expected_delivery)} - {formatDisplayDate(lastDeliveryTimelineItem.wine.expected_delivery)}</strong>
+                      ) : null}
+                    </div>
+                    {firstDeliveryTimelineItem && lastDeliveryTimelineItem ? (
+                      <div className="delivery-timeline">
+                        <div className="delivery-axis">
+                          <span>{formatDisplayDate(firstDeliveryTimelineItem.wine.expected_delivery)}</span>
+                          <span>{formatDisplayDate(lastDeliveryTimelineItem.wine.expected_delivery)}</span>
+                        </div>
+                        <div className="delivery-track" aria-hidden="true">
+                          {deliveryTimelineItems.map(({ wine, dateMs }) => (
+                            <span
+                              className={`delivery-marker tone-${wineTone(wine.type)}`}
+                              key={wine.id}
+                              style={{ left: `${Math.min(Math.max(((dateMs - deliveryTimelineStart) / deliveryTimelineRange) * 100, 0), 100)}%` }}
+                            />
+                          ))}
+                        </div>
+                        <div className="delivery-events">
+                          {deliveryTimelineItems.map(({ wine, days, dateMs }) => (
+                            <button type="button" className="delivery-event" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                              <span className="delivery-date">{formatDisplayDate(wine.expected_delivery)}</span>
+                              <span className="delivery-name"><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                              <span>{wine.producer || t("noProducer")}</span>
+                              <strong>{days}d</strong>
+                              <span className="delivery-event-position" style={{ left: `${Math.min(Math.max(((dateMs - deliveryTimelineStart) / deliveryTimelineRange) * 100, 0), 100)}%` }} />
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="empty-state">{t("noActionItems")}</p>
+                    )}
                   </article>
                 </section>
               ) : null}
@@ -3661,7 +3787,7 @@ export function App() {
             </div>
 
             <div className="settings-tabs" role="tablist" aria-label={t("settings")}>
-              {(Object.keys(settingsTabLabels) as SettingsTab[]).map((tab) => (
+              {settingsTabs.map((tab) => (
                 <button
                   key={tab}
                   type="button"
@@ -3900,28 +4026,36 @@ export function App() {
               </section>
               ) : null}
 
-              {settingsTab === "sharing" && canAdmin ? (
-                <section className="settings-card">
+              {settingsTab === "users" && canAppAdmin ? (
+                <section className="settings-card settings-card-wide">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("pendingApproval")}</span>
-                      <h3>{t("pendingUsers")}</h3>
+                      <h3>{t("settingsUsers")}</h3>
                     </div>
+                    <strong>{pendingUsers.length}</strong>
                   </div>
-                  {pendingUsers.length ? (
+                  {appUsers.length ? (
                     <div className="member-list">
-                      {pendingUsers.map((user) => (
+                      {appUsers.map((user) => (
                         <div className="member-row" key={user.id}>
                           <div>
                             <strong>{user.display_name}</strong>
-                            <span>{user.email}</span>
+                            <span>{user.email} - {user.is_approved ? "approved" : "pending"}</span>
                           </div>
                           <div className="member-actions">
-                            <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
-                              {t("accept")}
-                            </button>
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
-                              {t("decline")}
+                            {!user.is_approved ? (
+                              <>
+                                <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
+                                  {t("accept")}
+                                </button>
+                                <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
+                                  {t("decline")}
+                                </button>
+                              </>
+                            ) : null}
+                            <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
+                              {user.is_app_admin ? "App admin" : "Make app admin"}
                             </button>
                           </div>
                         </div>

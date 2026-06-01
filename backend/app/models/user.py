@@ -17,4 +17,5 @@ class User(Base):
     display_name: Mapped[str] = mapped_column(String(120))
     password_hash: Mapped[str] = mapped_column(String(512))
     is_approved: Mapped[bool] = mapped_column(Boolean, default=True)
+    is_app_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

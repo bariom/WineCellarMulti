@@ -29,6 +29,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "active_household_id": None,
             "active_household_name": None,
             "membership_role": None,
+            "is_app_admin": False,
             "pending_approval": False,
         }
     return {
@@ -39,6 +40,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_id": str(context.household.id),
         "active_household_name": context.household.name,
         "membership_role": context.membership.role,
+        "is_app_admin": context.user.is_app_admin,
         "pending_approval": False,
     }
 
@@ -96,6 +98,12 @@ def require_role(context: CurrentContext, allowed_roles: set[str]) -> CurrentCon
 
 def require_admin_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:
     return require_role(context, {"owner", "admin"})
+
+
+def require_app_admin_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:
+    if not context.user.is_app_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Application administrator required")
+    return context
 
 
 def require_write_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:

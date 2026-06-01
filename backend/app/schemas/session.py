@@ -9,4 +9,5 @@ class SessionResponse(BaseModel):
     active_household_id: str | None = None
     active_household_name: str | None = None
     membership_role: str | None = None
+    is_app_admin: bool = False
     pending_approval: bool = False

@@ -20,11 +20,11 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from app.api.deps import CurrentContext, build_session_response, get_current_context, require_admin_context
+from app.api.deps import CurrentContext, build_session_response, get_current_context, require_app_admin_context
 from app.core.config import settings
 from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import Household, HouseholdInvite, Membership, PasskeyChallenge, User, UserPasskey, UserSession
+from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
 from app.schemas.auth import (
     LoginRequest,
     PasskeyLoginVerifyRequest,
@@ -33,6 +33,8 @@ from app.schemas.auth import (
     PasskeyResponse,
     PendingUserResponse,
     RegisterRequest,
+    UserAdminResponse,
+    UserAdminUpdate,
 )
 from app.schemas.session import SessionResponse
 
@@ -129,19 +131,22 @@ def create_session(db: Session, user: User, household: Household) -> tuple[UserS
 
 
 def user_is_preapproved(db: Session, email: str) -> bool:
-    if db.scalar(select(User)) is None:
-        return True
-    invite = db.scalar(
-        select(HouseholdInvite).where(
-            HouseholdInvite.email == email,
-            HouseholdInvite.accepted_at.is_(None),
-        ),
-    )
-    return bool(invite and invite.expires_at.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc))
+    return db.scalar(select(User)) is None
 
 
 def pending_user_response(user: User) -> PendingUserResponse:
     return PendingUserResponse(id=str(user.id), email=user.email, display_name=user.display_name)
+
+
+def user_admin_response(user: User) -> UserAdminResponse:
+    return UserAdminResponse(
+        id=str(user.id),
+        email=user.email,
+        display_name=user.display_name,
+        is_approved=user.is_approved,
+        is_app_admin=user.is_app_admin,
+        approved_at=user.approved_at.isoformat() if user.approved_at else None,
+    )
 
 
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
@@ -151,12 +156,14 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    is_first_user = db.scalar(select(User)) is None
     is_approved = user_is_preapproved(db, email)
     user = User(
         email=email,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
         is_approved=is_approved,
+        is_app_admin=is_first_user,
         approved_at=datetime.now(timezone.utc) if is_approved else None,
     )
     household = Household(name=payload.household_name.strip())
@@ -318,7 +325,7 @@ def verify_passkey_login(
 
 @router.get("/pending-users", response_model=list[PendingUserResponse])
 def list_pending_users(
-    _: CurrentContext = Depends(require_admin_context),
+    _: CurrentContext = Depends(require_app_admin_context),
     db: Session = Depends(get_db),
 ) -> list[PendingUserResponse]:
     users = db.scalars(select(User).where(User.is_approved.is_(False)).order_by(User.email.asc()))
@@ -328,7 +335,7 @@ def list_pending_users(
 @router.post("/pending-users/{user_id}/approve", response_model=PendingUserResponse)
 def approve_pending_user(
     user_id: UUID,
-    _: CurrentContext = Depends(require_admin_context),
+    _: CurrentContext = Depends(require_app_admin_context),
     db: Session = Depends(get_db),
 ) -> PendingUserResponse:
     user = db.get(User, user_id)
@@ -344,7 +351,7 @@ def approve_pending_user(
 @router.delete("/pending-users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def reject_pending_user(
     user_id: UUID,
-    _: CurrentContext = Depends(require_admin_context),
+    _: CurrentContext = Depends(require_app_admin_context),
     db: Session = Depends(get_db),
 ) -> Response:
     user = db.get(User, user_id)
@@ -353,6 +360,35 @@ def reject_pending_user(
     db.delete(user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/users", response_model=list[UserAdminResponse])
+def list_users(
+    _: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> list[UserAdminResponse]:
+    users = db.scalars(select(User).order_by(User.email.asc()))
+    return [user_admin_response(user) for user in users]
+
+
+@router.patch("/users/{user_id}", response_model=UserAdminResponse)
+def update_user_admin(
+    user_id: UUID,
+    payload: UserAdminUpdate,
+    context: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> UserAdminResponse:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.id == context.user.id and not payload.is_app_admin:
+        other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id))
+        if other_admin is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one application administrator is required")
+    user.is_app_admin = payload.is_app_admin
+    db.commit()
+    db.refresh(user)
+    return user_admin_response(user)
 
 
 @router.delete("/passkeys/{passkey_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -64,6 +64,7 @@ def test_register_login_session_and_logout():
     assert registered.status_code == 201
     assert registered.json()["authenticated"] is True
     assert registered.json()["user_email"] == "owner@example.com"
+    assert registered.json()["is_app_admin"] is True
     assert registered.json()["active_household_name"] == "Main Cellar"
     assert client.get("/api/v1/auth/passkeys").json() == []
 
@@ -81,6 +82,15 @@ def test_register_login_session_and_logout():
     assert approved.status_code == 200
     approved_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
     assert approved_login.status_code == 200
+    assert approved_login.json()["is_app_admin"] is False
+    assert pending_client.get("/api/v1/auth/pending-users").status_code == 403
+
+    users = client.get("/api/v1/auth/users")
+    assert users.status_code == 200
+    pending_record = next(user for user in users.json() if user["email"] == "pending@example.com")
+    promoted = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_app_admin": True})
+    assert promoted.status_code == 200
+    assert promoted.json()["is_app_admin"] is True
 
     logged_out = client.post("/api/v1/auth/logout")
     assert logged_out.status_code == 204
@@ -220,7 +230,13 @@ def test_invite_acceptance_and_viewer_permissions():
     assert members_before.status_code == 200
     assert [member_data["email"] for member_data in members_before.json()] == ["owner@example.com"]
 
-    assert register(member, email="viewer@example.com", password="strong-password-2").status_code == 201
+    registered_viewer = register(member, email="viewer@example.com", password="strong-password-2")
+    assert registered_viewer.status_code == 201
+    assert registered_viewer.json()["pending_approval"] is True
+    pending_viewers = owner.get("/api/v1/auth/pending-users")
+    viewer_user = next(user for user in pending_viewers.json() if user["email"] == "viewer@example.com")
+    assert owner.post(f"/api/v1/auth/pending-users/{viewer_user['id']}/approve").status_code == 200
+    assert member.post("/api/v1/auth/login", json={"email": "viewer@example.com", "password": "strong-password-2"}).status_code == 200
     accepted = member.post("/api/v1/household/invites/accept", json={"token": invite_token})
     assert accepted.status_code == 200
     assert accepted.json()["role"] == "viewer"
