@@ -1228,6 +1228,10 @@ function ownershipRows(wine: Wine) {
   return share > 0 && share < 100 ? [{ name: "Owner", share_pct: share }] : [];
 }
 
+function hasSharedOwnership(wine: Wine) {
+  return wine.owners.length > 0 || Number(wine.owner_share_pct || 100) < 100;
+}
+
 function WineDetail({
   wine,
   canGenerate,
@@ -2439,10 +2443,10 @@ export function App() {
   }
 
   function renderSharePanel(wine: Wine) {
-    if (!canWriteWine) return null;
+    if (!canWriteWine || !hasSharedOwnership(wine)) return null;
     return (
-      <section className="wine-form share-panel">
-        <h2>{t("shareWine")}</h2>
+      <details className="wine-form share-panel collapsible-panel">
+        <summary>{t("shareWine")}</summary>
         <p className="empty-state">{t("shareWineHelp")}</p>
         <label>
           <span>{t("email")}</span>
@@ -2461,7 +2465,7 @@ export function App() {
         <button type="button" disabled={saving || !shareDraft.email.trim()} onClick={() => createWineShareOffer(wine)}>
           {t("shareWine")}
         </button>
-      </section>
+      </details>
     );
   }
 
