@@ -262,6 +262,7 @@ type AuthDraft = {
 type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "data";
+type SettingsTab = "profile" | "ai" | "sharing" | "data";
 type ThemePreference = "system" | "light" | "dark" | "sepia";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
@@ -436,6 +437,10 @@ const translations = {
     selectItemHelp: "Select an item from the list to see the complete detail.",
     sort: "Sort",
     settings: "Settings",
+    settingsAi: "AI",
+    settingsData: "Data",
+    settingsProfile: "Profile",
+    settingsSharing: "Sharing",
     status: "Status",
     tag: "Tag",
     tagName: "Tag name",
@@ -643,6 +648,10 @@ const translations = {
     selectItemHelp: "Seleziona un elemento dalla lista per vedere il dettaglio completo.",
     sort: "Ordina",
     settings: "Impostazioni",
+    settingsAi: "AI",
+    settingsData: "Dati",
+    settingsProfile: "Profilo",
+    settingsSharing: "Condivisione",
     status: "Stato",
     tag: "Tag",
     tagName: "Nome tag",
@@ -1489,6 +1498,7 @@ export function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "settings">("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -2402,6 +2412,12 @@ export function App() {
     value: t("valueFocus"),
     readiness: t("drinkingWindow"),
     data: t("dataFocus"),
+  };
+  const settingsTabLabels: Record<SettingsTab, string> = {
+    profile: t("settingsProfile"),
+    ai: t("settingsAi"),
+    sharing: t("settingsSharing"),
+    data: t("settingsData"),
   };
 
   function startAddWine() {
@@ -3644,7 +3660,23 @@ export function App() {
               <h2>{t("personalSettings")}</h2>
             </div>
 
+            <div className="settings-tabs" role="tablist" aria-label={t("settings")}>
+              {(Object.keys(settingsTabLabels) as SettingsTab[]).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  role="tab"
+                  aria-selected={settingsTab === tab}
+                  className={settingsTab === tab ? "" : "secondary"}
+                  onClick={() => setSettingsTab(tab)}
+                >
+                  {settingsTabLabels[tab]}
+                </button>
+              ))}
+            </div>
+
             <div className="settings-grid">
+              {settingsTab === "profile" ? (
               <section className="settings-card settings-card-compact">
                 <div className="settings-card-heading">
                   <div>
@@ -3671,7 +3703,9 @@ export function App() {
                   </label>
                 </div>
               </section>
+              ) : null}
 
+              {settingsTab === "profile" ? (
               <section className="settings-card settings-card-compact">
                 <div className="settings-card-heading">
                   <div>
@@ -3706,8 +3740,9 @@ export function App() {
                   <p className="empty-state">{t("noPasskeys")}</p>
                 )}
               </section>
+              ) : null}
 
-              {canWriteWine ? (
+              {settingsTab === "ai" && canWriteWine ? (
                 <form className="settings-card settings-card-wide" onSubmit={submitAiSettings}>
                   <div className="settings-card-heading">
                     <div>
@@ -3769,7 +3804,7 @@ export function App() {
                 </form>
               ) : null}
 
-              {canWriteWine ? (
+              {settingsTab === "ai" && canWriteWine ? (
                 <section className="settings-card">
                   <div className="settings-card-heading">
                     <div>
@@ -3790,7 +3825,7 @@ export function App() {
                 </section>
               ) : null}
 
-              {canWriteWine ? (
+              {settingsTab === "data" && canWriteWine ? (
                 <section className="settings-card settings-card-wide">
                   <details className="collapsible-panel">
                     <summary>{t("manageTags")}</summary>
@@ -3821,6 +3856,7 @@ export function App() {
                 </section>
               ) : null}
 
+              {settingsTab === "sharing" ? (
               <section className="settings-card settings-card-wide">
                 <div className="settings-card-heading">
                   <div>
@@ -3862,8 +3898,9 @@ export function App() {
                   ))}
                 </div>
               </section>
+              ) : null}
 
-              {canAdmin ? (
+              {settingsTab === "sharing" && canAdmin ? (
                 <section className="settings-card">
                   <div className="settings-card-heading">
                     <div>
@@ -3896,6 +3933,7 @@ export function App() {
                 </section>
               ) : null}
 
+              {settingsTab === "sharing" ? (
               <section className="settings-card">
                 <div className="settings-card-heading">
                   <div>
@@ -3927,8 +3965,9 @@ export function App() {
                   <p className="empty-state">{t("noActionItems")}</p>
                 )}
               </section>
+              ) : null}
 
-              {canAdmin ? (
+              {settingsTab === "data" && canAdmin ? (
                 <section className="settings-card">
                   <div className="settings-card-heading">
                     <div>
@@ -3985,7 +4024,7 @@ export function App() {
                 </section>
               ) : null}
 
-              {canAdmin ? (
+              {settingsTab === "sharing" && canAdmin ? (
                 <section className="settings-card">
                   <div className="settings-card-heading">
                     <div>
@@ -4019,7 +4058,7 @@ export function App() {
                 </section>
               ) : null}
 
-              {canAdmin ? (
+              {settingsTab === "sharing" && canAdmin ? (
                 <section className="settings-card">
                   <div className="settings-card-heading">
                     <div>
@@ -4051,6 +4090,7 @@ export function App() {
                 </section>
               ) : null}
 
+              {settingsTab === "ai" && canWriteWine ? (
               <section className="settings-card settings-card-wide">
                 <div className="settings-card-heading">
                   <div>
@@ -4072,7 +4112,9 @@ export function App() {
                   <p className="empty-state">{t("noAiAudit")}</p>
                 )}
               </section>
+              ) : null}
 
+              {settingsTab === "sharing" ? (
               <form className="settings-card" onSubmit={acceptInvite}>
                 <div className="settings-card-heading">
                   <div>
@@ -4088,6 +4130,7 @@ export function App() {
                   {t("accept")}
                 </button>
               </form>
+              ) : null}
             </div>
           </section>
           ) : null}
