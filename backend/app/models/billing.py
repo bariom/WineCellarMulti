@@ -15,6 +15,7 @@ class RedeemCode(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     code_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
     code_prefix: Mapped[str] = mapped_column(String(16))
+    encrypted_code: Mapped[str] = mapped_column(String(512), default="")
     label: Mapped[str] = mapped_column(String(160), default="")
     duration_days: Mapped[int] = mapped_column(Integer)
     max_redemptions: Mapped[int] = mapped_column(Integer, default=1)

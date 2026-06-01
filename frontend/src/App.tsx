@@ -5163,10 +5163,15 @@ export function App() {
                         <div className="member-row" key={code.id}>
                           <div>
                             <strong>{code.label || code.code_prefix}</strong>
-                            <span>{code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
+                            <span>{code.code || code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
                             {code.email ? <span>{code.email}</span> : null}
                             {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
                           </div>
+                          {code.code ? (
+                            <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
+                              Copy
+                            </button>
+                          ) : null}
                           <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
                         </div>
                       ))}

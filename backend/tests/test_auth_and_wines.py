@@ -152,7 +152,7 @@ def test_app_admin_can_create_and_user_can_redeem_code():
 
     listed = admin_client.get("/api/v1/billing/redeem-codes")
     assert listed.status_code == 200
-    assert listed.json()[0]["code"] is None
+    assert listed.json()[0]["code"] == redeem_code
     assert listed.json()[0]["redeemed_count"] == 0
 
     user_client = TestClient(app)

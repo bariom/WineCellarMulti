@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_authenticated_context, require_app_admin_context
+from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
 from app.models import RedeemCode, RedeemRedemption, User, UserEntitlement
@@ -42,7 +43,7 @@ def redeem_code_response(code: RedeemCode, clear_code: str | None = None) -> Red
     is_active = code.revoked_at is None and code.redeemed_count < code.max_redemptions and (expires_at is None or expires_at > current_time)
     return RedeemCodeResponse(
         id=code.id,
-        code=clear_code,
+        code=clear_code or decrypt_secret(code.encrypted_code),
         code_prefix=code.code_prefix,
         label=code.label,
         duration_days=code.duration_days,
@@ -106,6 +107,7 @@ def create_redeem_code(
     code = RedeemCode(
         code_hash=hash_redeem_code(normalized),
         code_prefix=clear_code[:8],
+        encrypted_code=encrypt_secret(clear_code),
         label=payload.label.strip(),
         duration_days=payload.duration_days,
         max_redemptions=payload.max_redemptions,
