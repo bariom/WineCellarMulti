@@ -1654,9 +1654,18 @@ export function App() {
 
   async function loadAppUsers(isAppAdmin = session?.is_app_admin) {
     if (isAppAdmin) {
-      const nextUsers = await api<AppUser[]>("/api/v1/auth/users");
-      setAppUsers(nextUsers);
-      setPendingUsers(nextUsers.filter((user) => !user.is_approved));
+      const [nextUsers, nextPendingUsers] = await Promise.all([
+        api<AppUser[]>("/api/v1/auth/users"),
+        api<PendingUser[]>("/api/v1/auth/pending-users"),
+      ]);
+      const mergedUsers = [
+        ...nextUsers,
+        ...nextPendingUsers
+          .filter((pendingUser) => !nextUsers.some((user) => user.id === pendingUser.id))
+          .map((pendingUser) => ({ ...pendingUser, is_approved: false, is_app_admin: false, approved_at: null })),
+      ].sort((first, second) => Number(first.is_approved) - Number(second.is_approved) || first.email.localeCompare(second.email));
+      setAppUsers(mergedUsers);
+      setPendingUsers(mergedUsers.filter((user) => !user.is_approved));
     } else {
       setAppUsers([]);
       setPendingUsers([]);
@@ -3932,7 +3941,12 @@ export function App() {
                   role="tab"
                   aria-selected={settingsTab === tab}
                   className={settingsTab === tab ? "" : "secondary"}
-                  onClick={() => setSettingsTab(tab)}
+                  onClick={() => {
+                    setSettingsTab(tab);
+                    if (tab === "users") {
+                      loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"));
+                    }
+                  }}
                 >
                   {settingsTabLabels[tab]}
                 </button>
@@ -4171,7 +4185,12 @@ export function App() {
                       <span>{t("pendingApproval")}</span>
                       <h3>{t("settingsUsers")}</h3>
                     </div>
-                    <strong>{pendingUsers.length}</strong>
+                    <div className="member-actions">
+                      <strong>{pendingUsers.length}</strong>
+                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"))}>
+                        {t("loadingData")}
+                      </button>
+                    </div>
                   </div>
                   {appUsers.length ? (
                     <div className="member-list">
