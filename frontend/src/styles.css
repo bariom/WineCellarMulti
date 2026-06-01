@@ -870,7 +870,7 @@ textarea {
 
 .ownership-edit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 92px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 92px auto;
   gap: 8px;
 }
 

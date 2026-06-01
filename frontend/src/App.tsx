@@ -40,7 +40,7 @@ type Wine = {
   ai_value_notes: string;
   ai_value_estimated_at: string | null;
   rating: number;
-  owners: Array<{ name: string; share_pct: number }>;
+  owners: Array<{ name: string; email?: string; share_pct: number }>;
   tags: string[];
   grapes: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
   scores: Array<{ critic: string; score: string; note: string }>;
@@ -65,7 +65,7 @@ type WineDraft = {
   owner_share_pct: string;
   rating: string;
   notes: string;
-  owners: Array<{ name: string; share_pct: string }>;
+  owners: Array<{ name: string; email: string; share_pct: string }>;
   tags: string[];
 };
 
@@ -424,6 +424,7 @@ const translations = {
     noPasskeys: "No passkeys registered yet",
     notes: "Notes",
     ownerShare: "Owner share",
+    ownerEmail: "Owner email",
     orderDate: "Order date",
     of: "of",
     ownership: "Ownership",
@@ -661,6 +662,7 @@ const translations = {
     noPasskeys: "Nessuna passkey registrata",
     notes: "Note",
     ownerShare: "Quota proprietario",
+    ownerEmail: "Email proprietario",
     orderDate: "Data ordine",
     of: "su",
     ownership: "Proprieta",
@@ -949,7 +951,7 @@ function wineToDraft(wine: Wine): WineDraft {
     owner_share_pct: String(wine.owner_share_pct || "100"),
     rating: String(wine.rating || 0),
     notes: wine.notes,
-    owners: wine.owners.map((owner) => ({ name: owner.name || "", share_pct: String(owner.share_pct || "") })),
+  owners: wine.owners.map((owner) => ({ name: owner.name || "", email: owner.email || "", share_pct: String(owner.share_pct || "") })),
     tags: wine.tags,
   };
 }
@@ -975,7 +977,7 @@ function draftPayload(draft: WineDraft) {
     rating: Number(draft.rating || 0),
     notes: draft.notes.trim(),
     owners: draft.owners
-      .map((owner) => ({ name: owner.name.trim(), share_pct: Number(owner.share_pct || 0) }))
+      .map((owner) => ({ name: owner.name.trim(), email: owner.email.trim().toLowerCase(), share_pct: Number(owner.share_pct || 0) }))
       .filter((owner) => owner.name && owner.share_pct > 0),
     tags: draft.tags,
   };
@@ -1125,7 +1127,8 @@ function currentUserSharePct(wine: Wine, session: Session | null) {
   if (wine.owners.length) {
     const owner = wine.owners.find((item) => {
       const name = String(item.name || "").trim().toLowerCase();
-      return name && (name === userName || name === userEmail);
+      const email = String(item.email || "").trim().toLowerCase();
+      return email ? email === userEmail : name && (name === userName || name === userEmail);
     });
     if (owner) return Math.min(Math.max(Number(owner.share_pct || 0), 0), 100);
     return 0;
@@ -1485,8 +1488,8 @@ function WineDetail({
           <h3>{t("multiOwnership")}</h3>
           <div className="ownership-list">
             {ownershipRows(wine).map((owner, index) => (
-              <div className="ownership-row" key={`${owner.name}-${index}`}>
-                <span>{owner.name}</span>
+              <div className="ownership-row" key={`${owner.email || owner.name}-${index}`}>
+                <span>{owner.name}{owner.email ? ` - ${owner.email}` : ""}</span>
                 <strong>{Number(owner.share_pct).toFixed(0)}%</strong>
               </div>
             ))}
@@ -3617,7 +3620,7 @@ export function App() {
                       type="button"
                       className="secondary compact"
                       disabled={!canWriteWine}
-                      onClick={() => setDraft({ ...draft, owners: [...draft.owners, { name: "", share_pct: "" }] })}
+                      onClick={() => setDraft({ ...draft, owners: [...draft.owners, { name: "", email: "", share_pct: "" }] })}
                     >
                       +
                     </button>
@@ -3629,6 +3632,7 @@ export function App() {
                   {draft.owners.map((owner, index) => (
                     <div className="ownership-edit-row" key={index}>
                       <input value={owner.name} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} placeholder={t("name")} disabled={!canWriteWine} />
+                      <input type="email" value={owner.email} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item) })} placeholder={t("ownerEmail")} disabled={!canWriteWine} />
                       <input type="number" min="0" max="100" step="0.01" value={owner.share_pct} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, share_pct: event.target.value } : item) })} placeholder="%" disabled={!canWriteWine} />
                       <button type="button" className="danger compact" disabled={!canWriteWine} onClick={() => setDraft({ ...draft, owners: draft.owners.filter((_, itemIndex) => itemIndex !== index) })}>
                         {t("delete")}

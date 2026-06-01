@@ -22,7 +22,7 @@ def user_can_see_wine(context: CurrentContext, wine: Wine) -> bool:
     if wine.created_by_user_id == context.user.id:
         return True
     user_email = context.user.email.strip().lower()
-    return any(str(owner.get("name", "")).strip().lower() == user_email for owner in (wine.owners or []))
+    return any(str(owner.get("email", "")).strip().lower() == user_email for owner in (wine.owners or []))
 
 
 def get_household_wine(db: Session, context: CurrentContext, wine_id: UUID, *, enforce_visibility: bool = True) -> Wine:
@@ -79,15 +79,35 @@ def share_offer_response(db: Session, offer: WineShareOffer) -> WineShareOfferRe
     )
 
 
-def upsert_owner_share(wine: Wine, owner_name: str, share_pct: Decimal) -> None:
-    cleaned_name = owner_name.strip()
-    owners = [dict(owner) for owner in (wine.owners or []) if owner.get("name")]
+def normalize_owner_rows(raw_owners: list[dict]) -> list[dict]:
+    owners: list[dict] = []
+    for raw_owner in raw_owners or []:
+        name = str(raw_owner.get("name") or "").strip()
+        email = str(raw_owner.get("email") or "").strip().lower()
+        share_pct = raw_owner.get("share_pct") or 0
+        if not name and email:
+            name = email
+        if not name or not share_pct:
+            continue
+        owner = {"name": name, "share_pct": float(share_pct)}
+        if email:
+            owner["email"] = email
+        owners.append(owner)
+    return owners
+
+
+def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct: Decimal) -> None:
+    cleaned_email = owner_email.strip().lower()
+    cleaned_name = owner_name.strip() or cleaned_email
+    owners = normalize_owner_rows([dict(owner) for owner in (wine.owners or [])])
     for owner in owners:
-        if str(owner.get("name", "")).strip().lower() == cleaned_name.lower():
+        if str(owner.get("email", "")).strip().lower() == cleaned_email:
+            owner["name"] = cleaned_name
+            owner["email"] = cleaned_email
             owner["share_pct"] = float(share_pct)
             wine.owners = owners
             return
-    owners.append({"name": cleaned_name, "share_pct": float(share_pct)})
+    owners.append({"name": cleaned_name, "email": cleaned_email, "share_pct": float(share_pct)})
     wine.owners = owners
 
 
@@ -203,8 +223,9 @@ def accept_share_offer(
     wine = get_household_wine(db, context, offer.wine_id, enforce_visibility=False)
     sender = db.get(User, offer.created_by_user_id)
     if not wine.owners:
-        upsert_owner_share(wine, sender.email if sender else "Owner", Decimal("100") - offer.share_pct)
-    upsert_owner_share(wine, context.user.email, offer.share_pct)
+        if sender is not None:
+            upsert_owner_share(wine, sender.display_name or sender.email, sender.email, Decimal("100") - offer.share_pct)
+    upsert_owner_share(wine, context.user.display_name or context.user.email, context.user.email, offer.share_pct)
     offer.status = "accepted"
     offer.decided_at = datetime.now(timezone.utc)
     db.commit()
@@ -243,6 +264,7 @@ def create_wine(
 ) -> WineResponse:
     data = payload.model_dump()
     tag_names = data.pop("tags", [])
+    data["owners"] = normalize_owner_rows(data.get("owners", []))
     wine = Wine(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -277,6 +299,8 @@ def update_wine(
     data = payload.model_dump(exclude_unset=True)
     tag_names = data.pop("tags", None)
     for field, value in data.items():
+        if field == "owners":
+            value = normalize_owner_rows(value or [])
         setattr(wine, field, value)
     if tag_names is not None:
         set_user_wine_tags(db, context, wine, tag_names)

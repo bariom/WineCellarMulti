@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_admin_context
+from app.api.routes.wines import normalize_owner_rows
 from app.db.session import get_db
 from app.models import Wine, WineShareOffer, WishlistItem
 
@@ -217,7 +218,7 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "ai_value_notes": as_str(raw.get("ai_value_notes")),
         "ai_value_estimated_at": as_datetime(raw.get("ai_value_estimated_at")),
         "rating": as_int(raw.get("rating")),
-        "owners": as_list(raw.get("owners")),
+        "owners": normalize_owner_rows(as_list(raw.get("owners"))),
         "tags": [as_str(tag) for tag in as_list(raw.get("tags")) if as_str(tag)],
         "grapes": as_list(raw.get("grapes")),
         "scores": as_list(raw.get("scores")),

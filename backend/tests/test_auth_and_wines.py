@@ -282,8 +282,8 @@ def test_invite_acceptance_and_viewer_permissions():
     assert offers.json()[0]["wine_name"] == "Shared Wine"
     accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
     assert accepted_offer.status_code == 200
-    assert accepted_offer.json()["owners"][1]["name"] == "viewer@example.com"
-    assert accepted_offer.json()["owners"][1]["share_pct"] == 40.0
+    viewer_owner = next(owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com")
+    assert viewer_owner["share_pct"] == 40.0
 
     viewer_list = member.get("/api/v1/wines")
     assert viewer_list.status_code == 200
