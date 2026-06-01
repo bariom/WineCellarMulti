@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.api.routes.tags import get_or_create_user_tag
 from app.db.session import get_db
-from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer
+from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
 from app.schemas.wine import WineCreate, WineResponse, WineShareOfferCreate, WineShareOfferResponse, WineUpdate
 
 
@@ -54,8 +54,38 @@ def user_tag_names_by_wine(db: Session, context: CurrentContext, wine_ids: list[
     return result
 
 
-def wine_response(wine: Wine, tag_names: list[str] | None = None) -> WineResponse:
+def wine_value_history_by_wine(db: Session, wine_ids: list[UUID]) -> dict[UUID, list[WineValueHistory]]:
+    if not wine_ids:
+        return {}
+    rows = db.scalars(
+        select(WineValueHistory)
+        .where(WineValueHistory.wine_id.in_(wine_ids))
+        .order_by(WineValueHistory.recorded_at.asc(), WineValueHistory.id.asc()),
+    )
+    result: dict[UUID, list[WineValueHistory]] = {wine_id: [] for wine_id in wine_ids}
+    for row in rows:
+        result.setdefault(row.wine_id, []).append(row)
+    return result
+
+
+def record_wine_value_history(db: Session, wine: Wine, *, source: str) -> None:
+    if wine.current_value is None:
+        return
+    db.add(
+        WineValueHistory(
+            wine_id=wine.id,
+            value=wine.current_value,
+            currency=wine.currency,
+            source=source,
+            recorded_at=datetime.now(timezone.utc),
+        ),
+    )
+
+
+def wine_response(wine: Wine, tag_names: list[str] | None = None, value_history: list[WineValueHistory] | None = None) -> WineResponse:
     response = WineResponse.model_validate(wine)
+    if value_history is not None:
+        response = response.model_copy(update={"value_history": value_history})
     if tag_names is not None and tag_names:
         return response.model_copy(update={"tags": tag_names})
     return response
@@ -201,8 +231,10 @@ def list_wines(
         ),
     )
     wines = [wine for wine in wines if user_can_see_wine(context, wine)]
-    tags_by_wine = user_tag_names_by_wine(db, context, [wine.id for wine in wines])
-    return [wine_response(wine, tags_by_wine.get(wine.id)) for wine in wines]
+    wine_ids = [wine.id for wine in wines]
+    tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
+    history_by_wine = wine_value_history_by_wine(db, wine_ids)
+    return [wine_response(wine, tags_by_wine.get(wine.id), history_by_wine.get(wine.id)) for wine in wines]
 
 
 @router.get("/share-offers", response_model=list[WineShareOfferResponse])
@@ -285,11 +317,17 @@ def accept_share_offer(
     upsert_owner_share(wine, context.user.display_name or context.user.email, context.user.email, offer.share_pct)
     copied_wine = wine_copy_for_recipient(wine, target_household, context.user, offer.share_pct)
     db.add(copied_wine)
+    db.flush()
+    record_wine_value_history(db, copied_wine, source="shared")
     offer.status = "accepted"
     offer.decided_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(copied_wine)
-    return wine_response(copied_wine, user_tag_names_by_wine(db, context, [copied_wine.id]).get(copied_wine.id))
+    return wine_response(
+        copied_wine,
+        user_tag_names_by_wine(db, context, [copied_wine.id]).get(copied_wine.id),
+        wine_value_history_by_wine(db, [copied_wine.id]).get(copied_wine.id),
+    )
 
 
 @router.post("/share-offers/{offer_id}/decline", response_model=WineShareOfferResponse)
@@ -330,10 +368,11 @@ def create_wine(
     )
     db.add(wine)
     db.flush()
+    record_wine_value_history(db, wine, source="manual")
     set_user_wine_tags(db, context, wine, tag_names)
     db.commit()
     db.refresh(wine)
-    return wine_response(wine, tag_names)
+    return wine_response(wine, tag_names, wine_value_history_by_wine(db, [wine.id]).get(wine.id))
 
 
 @router.get("/{wine_id}", response_model=WineResponse)
@@ -343,7 +382,11 @@ def get_wine(
     context: CurrentContext = Depends(get_current_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
-    return wine_response(wine, user_tag_names_by_wine(db, context, [wine.id]).get(wine.id))
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
 
 
 @router.patch("/{wine_id}", response_model=WineResponse)
@@ -356,15 +399,23 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     data = payload.model_dump(exclude_unset=True)
     tag_names = data.pop("tags", None)
+    old_value = wine.current_value
+    old_currency = wine.currency
     for field, value in data.items():
         if field == "owners":
             value = normalize_owner_rows(value or [])
         setattr(wine, field, value)
+    if "current_value" in data and wine.current_value is not None and (old_value != wine.current_value or old_currency != wine.currency):
+        record_wine_value_history(db, wine, source="manual")
     if tag_names is not None:
         set_user_wine_tags(db, context, wine, tag_names)
     db.commit()
     db.refresh(wine)
-    return wine_response(wine, tag_names if tag_names is not None else user_tag_names_by_wine(db, context, [wine.id]).get(wine.id))
+    return wine_response(
+        wine,
+        tag_names if tag_names is not None else user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
 
 
 @router.delete("/{wine_id}", status_code=status.HTTP_204_NO_CONTENT)

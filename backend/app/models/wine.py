@@ -46,3 +46,14 @@ class Wine(Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     grapes: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
+
+
+class WineValueHistory(Base):
+    __tablename__ = "wine_value_history"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wine_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True)
+    value: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency: Mapped[str] = mapped_column(String(8), default="CHF")
+    source: Mapped[str] = mapped_column(String(32), default="manual")
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)

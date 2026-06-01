@@ -2009,6 +2009,53 @@ button.stat-card:hover {
   gap: 10px;
 }
 
+.value-history-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--surface-raised) 0%, var(--surface-muted) 100%);
+}
+
+.value-history-chart {
+  width: 100%;
+  height: 170px;
+  overflow: visible;
+}
+
+.value-history-chart line {
+  stroke: var(--border-strong);
+  stroke-width: 1;
+}
+
+.value-history-chart polyline {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.value-history-chart circle {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 1.5;
+}
+
+.value-history-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  color: var(--text-muted);
+}
+
+.value-history-meta strong {
+  color: var(--text);
+}
+
 .ai-audit-detail {
   padding: 12px;
   border: 1px solid var(--border);

@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
-from app.api.routes.wines import get_household_wine, user_can_see_wine
+from app.api.routes.wines import get_household_wine, record_wine_value_history, user_can_see_wine, user_tag_names_by_wine, wine_response, wine_value_history_by_wine
 from app.api.routes.wishlist import get_household_wishlist_item
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
@@ -74,6 +74,14 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
         db.add(user_settings)
         db.flush()
     return user_settings
+
+
+def ai_wine_response(db: Session, context: CurrentContext, wine: Wine) -> WineResponse:
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
 
 
 def ai_settings_response(user_settings: UserAiSettings) -> AiSettingsResponse:
@@ -444,7 +452,7 @@ def generate_wine_notes(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> Wine:
+) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     response = create_response(
@@ -458,7 +466,7 @@ def generate_wine_notes(
     record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=user_settings.ai_notes_model, summary=notes, usage=response.usage)
     db.commit()
     db.refresh(wine)
-    return wine
+    return ai_wine_response(db, context, wine)
 
 
 @router.post("/wines/{wine_id}/drink-window", response_model=WineResponse)
@@ -467,7 +475,7 @@ def generate_drink_window(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> Wine:
+) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -510,7 +518,7 @@ def generate_drink_window(
     )
     db.commit()
     db.refresh(wine)
-    return wine
+    return ai_wine_response(db, context, wine)
 
 
 @router.post("/wines/{wine_id}/value", response_model=WineResponse)
@@ -519,7 +527,7 @@ def generate_wine_value(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> Wine:
+) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -551,6 +559,7 @@ def generate_wine_value(
     wine.currency = str(result.get("currency") or wine.currency)[:8]
     wine.ai_value_notes = str(result["notes"])[:2000]
     wine.ai_value_estimated_at = datetime.now(timezone.utc)
+    record_wine_value_history(db, wine, source="ai")
     record_ai_audit(
         db,
         context,
@@ -563,7 +572,7 @@ def generate_wine_value(
     )
     db.commit()
     db.refresh(wine)
-    return wine
+    return ai_wine_response(db, context, wine)
 
 
 @router.post("/wines/{wine_id}/grapes", response_model=WineResponse)
@@ -572,7 +581,7 @@ def generate_grapes(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> Wine:
+) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -623,7 +632,7 @@ def generate_grapes(
     )
     db.commit()
     db.refresh(wine)
-    return wine
+    return ai_wine_response(db, context, wine)
 
 
 @router.post("/wines/{wine_id}/scores", response_model=WineResponse)
@@ -632,7 +641,7 @@ def generate_scores(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> Wine:
+) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -692,7 +701,7 @@ def generate_scores(
     )
     db.commit()
     db.refresh(wine)
-    return wine
+    return ai_wine_response(db, context, wine)
 
 
 @router.post("/wishlist/{item_id}/strategy", response_model=WishlistResponse)

@@ -46,6 +46,7 @@ type Wine = {
   tags: string[];
   grapes: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
   scores: Array<{ critic: string; score: string; note: string }>;
+  value_history: Array<{ id: string; value: string; currency: string; source: string; recorded_at: string }>;
 };
 
 type WineDraft = {
@@ -393,6 +394,7 @@ const translations = {
     currentYear: "Current year",
     currentValue: "Current value",
     currency: "Currency",
+    valueEvolution: "Value evolution",
     dataQuality: "Data quality",
     dataFocus: "Data quality",
     delete: "Delete",
@@ -654,6 +656,7 @@ const translations = {
     currentYear: "Anno corrente",
     currentValue: "Valore attuale",
     currency: "Valuta",
+    valueEvolution: "Evoluzione valore",
     dataQuality: "Qualita dati",
     dataFocus: "Qualita dati",
     delete: "Elimina",
@@ -1076,6 +1079,13 @@ function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       percentage_to: grape.percentage_to === undefined ? undefined : rawNumber(grape.percentage_to),
     })),
     scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
+    value_history: rawArray(raw.value_history).map((entry, entryIndex) => ({
+      id: rawString(entry.id, `offline-value-${index}-${entryIndex}`),
+      value: rawString(entry.value),
+      currency: rawString(entry.currency, rawString(raw.currency, "CHF")),
+      source: rawString(entry.source),
+      recorded_at: rawString(entry.recorded_at),
+    })),
   };
 }
 
@@ -1601,6 +1611,63 @@ function DrinkWindowMini({ wine }: { wine: Wine }) {
   );
 }
 
+function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: TranslationKey) => string }) {
+  const entries = (wine.value_history || [])
+    .filter((entry) => entry.value && entry.recorded_at)
+    .map((entry) => ({ ...entry, numericValue: Number(entry.value), dateMs: new Date(entry.recorded_at).getTime() }))
+    .filter((entry) => Number.isFinite(entry.numericValue) && Number.isFinite(entry.dateMs))
+    .sort((first, second) => first.dateMs - second.dateMs);
+
+  if (entries.length === 0) return null;
+
+  const values = entries.map((entry) => entry.numericValue);
+  const minValue = Math.min(...values);
+  const maxValue = Math.max(...values);
+  const startDate = entries[0].dateMs;
+  const endDate = entries[entries.length - 1].dateMs;
+  const dateSpan = Math.max(endDate - startDate, 1);
+  const valueSpan = Math.max(maxValue - minValue, 1);
+  const points = entries
+    .map((entry) => {
+      const x = entries.length === 1 ? 50 : 8 + ((entry.dateMs - startDate) / dateSpan) * 84;
+      const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
+      return `${x.toFixed(2)},${y.toFixed(2)}`;
+    })
+    .join(" ");
+  const first = entries[0];
+  const last = entries[entries.length - 1];
+  const sourceLabels: Record<string, string> = {
+    ai: "AI",
+    imported: "Import",
+    manual: "Manual",
+    shared: "Share",
+  };
+
+  return (
+    <div className="value-history-card">
+      <div className="section-heading">
+        <h3>{t("valueEvolution")}</h3>
+        <span>{entries.length} {t("records")}</span>
+      </div>
+      <svg className="value-history-chart" viewBox="0 0 100 90" role="img" aria-label={t("valueEvolution")}>
+        <line x1="8" y1="82" x2="92" y2="82" />
+        <line x1="8" y1="18" x2="8" y2="82" />
+        <polyline points={points} />
+        {entries.map((entry) => {
+          const x = entries.length === 1 ? 50 : 8 + ((entry.dateMs - startDate) / dateSpan) * 84;
+          const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
+          return <circle key={entry.id} cx={x} cy={y} r="2.4" />;
+        })}
+      </svg>
+      <div className="value-history-meta">
+        <span>{formatDisplayDate(first.recorded_at)}: {first.currency} {first.numericValue.toFixed(0)}</span>
+        <strong>{last.currency} {last.numericValue.toFixed(0)}</strong>
+        <span>{formatDisplayDate(last.recorded_at)} - {sourceLabels[last.source] || last.source}</span>
+      </div>
+    </div>
+  );
+}
+
 function DetailNote({ title, children }: { title: string; children: string }) {
   return (
     <article className="detail-note">
@@ -1692,6 +1759,8 @@ function WineDetail({
         <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
         <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
       </div>
+
+      <ValueHistoryChart wine={wine} t={t} />
 
       {(wine.drink_from || wine.drink_to) ? (
         <div className="drink-window">

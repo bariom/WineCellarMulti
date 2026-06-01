@@ -71,6 +71,16 @@ class WineUpdate(BaseModel):
     scores: list[dict] | None = None
 
 
+class WineValueHistoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    value: Decimal
+    currency: str
+    source: str
+    recorded_at: datetime
+
+
 class WineResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,6 +116,7 @@ class WineResponse(BaseModel):
     tags: list[str]
     grapes: list[dict]
     scores: list[dict]
+    value_history: list[WineValueHistoryResponse] = Field(default_factory=list)
 
 
 class WineShareOfferCreate(BaseModel):
