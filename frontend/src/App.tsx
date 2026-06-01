@@ -1989,7 +1989,7 @@ export function App() {
   const [generatedRedeemCode, setGeneratedRedeemCode] = useState("");
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
-  const [passkeyName, setPasskeyName] = useState("WineCellarMulti");
+  const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
@@ -2336,7 +2336,7 @@ export function App() {
     setSaving(true);
     setError("");
     try {
-      const name = passkeyName.trim() || "WineCellarMulti";
+      const name = passkeyName.trim() || "Vinaris";
       const options = await api<PublicKeyCredentialCreationOptions>("/api/v1/auth/passkeys/register/options", {
         method: "POST",
         body: JSON.stringify({ name }),
@@ -2348,7 +2348,7 @@ export function App() {
         body: JSON.stringify({ name, credential: credentialToJson(credential) }),
       });
       setPasskeys((current) => [passkey, ...current]);
-      setPasskeyName("WineCellarMulti");
+      setPasskeyName("Vinaris");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to register passkey");
     } finally {
@@ -3577,7 +3577,7 @@ export function App() {
     <main className="app-shell">
       <header className="topbar">
         <div>
-          <p className="eyebrow">WineCellarMulti</p>
+          <p className="eyebrow">Vinaris</p>
           <h1>{session?.active_household_name || "Wine Cellar"}</h1>
         </div>
         {authenticated ? (

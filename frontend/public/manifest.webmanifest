@@ -1,6 +1,6 @@
 {
-  "name": "WineCellarMulti",
-  "short_name": "WineCellar",
+  "name": "Vinaris",
+  "short_name": "Vinaris",
   "description": "Gestione multiutente della cantina vini privata.",
   "start_url": "/",
   "scope": "/",

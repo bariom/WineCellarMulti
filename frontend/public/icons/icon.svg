@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="WineCellarMulti">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Vinaris">
   <rect width="512" height="512" rx="112" fill="#10231d"/>
   <circle cx="256" cy="256" r="182" fill="#16342a"/>
   <path d="M182 126h148c0 62-25 96-63 110v84c0 21 26 30 64 39 13 3 22 15 22 28H159c0-13 9-25 22-28 38-9 64-18 64-39v-84c-38-14-63-48-63-110z" fill="#f7f1df"/>

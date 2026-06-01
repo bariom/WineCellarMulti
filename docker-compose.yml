@@ -20,7 +20,7 @@ services:
     build:
       context: ./backend
     environment:
-      APP_NAME: WineCellarMulti
+      APP_NAME: Vinaris
       APP_ENV: production
       APP_DEBUG: "false"
       DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env. Run ./setup-env.sh}@postgres:5432/winecellarmulti

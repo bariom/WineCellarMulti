@@ -28,7 +28,7 @@ SECRET_KEY=$SECRET_KEY
 EOF
 
 cat > "$BACKEND_ENV" <<EOF
-APP_NAME=WineCellarMulti
+APP_NAME=Vinaris
 APP_ENV=development
 APP_DEBUG=true
 DATABASE_URL=postgresql+psycopg://postgres:$POSTGRES_PASSWORD@localhost:5433/winecellarmulti
