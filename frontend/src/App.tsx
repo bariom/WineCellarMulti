@@ -1819,6 +1819,7 @@ export function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
+  const [pendingWineScrollId, setPendingWineScrollId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
@@ -2887,6 +2888,22 @@ export function App() {
       return first.name.localeCompare(second.name);
     });
   const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
+
+  useEffect(() => {
+    if (activeView !== "cellar" || !pendingWineScrollId) return;
+    const targetIsVisible = filteredWines.some((wine) => wine.id === pendingWineScrollId);
+    if (!targetIsVisible) return;
+
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-wine-row-id="${pendingWineScrollId}"]`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      setPendingWineScrollId(null);
+    }, 80);
+
+    return () => window.clearTimeout(timer);
+  }, [activeView, filteredWines, pendingWineScrollId]);
+
   const cellarOwnership = ownershipStats(wines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
@@ -3121,7 +3138,15 @@ export function App() {
 
   function openWineFromDashboard(wine: Wine) {
     setActiveView("cellar");
+    setSearchQuery("");
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setTagFilter([]);
+    setQuickWineFilter("");
+    setSortMode("name");
     setSelectedWineId(wine.id);
+    setPendingWineScrollId(wine.id);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
   }
@@ -4320,7 +4345,7 @@ export function App() {
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
             {activeView === "cellar" ? filteredWines.map((wine) => (
-              <div className="list-item-block" key={wine.id}>
+              <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
