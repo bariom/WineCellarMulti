@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useState } from "react";
+import { ChangeEvent, FormEvent, MouseEvent, useEffect, useState } from "react";
 
 type Session = {
   authenticated: boolean;
@@ -2166,6 +2166,10 @@ export function App() {
     setWishlistFormOpen(true);
   }
 
+  function isInteractiveRowClick(event: MouseEvent<HTMLElement>) {
+    return Boolean((event.target as HTMLElement).closest("button, input, select, textarea, label, a, summary"));
+  }
+
   function toggleSelectedWine(wine: Wine) {
     setSelectedWineId((current) => current === wine.id ? null : wine.id);
   }
@@ -3275,7 +3279,7 @@ export function App() {
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
             {activeView === "cellar" ? filteredWines.map((wine) => (
               <div className="list-item-block" key={wine.id}>
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={() => toggleSelectedWine(wine)}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
                     <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
@@ -3308,7 +3312,7 @@ export function App() {
               </div>
             )) : filteredWishlist.map((item) => (
               <div className="list-item-block" key={item.id}>
-                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={() => toggleSelectedWishlistItem(item)}>
+                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
                     <p className="row-primary">{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
