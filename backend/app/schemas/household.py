@@ -23,6 +23,10 @@ class HouseholdSwitch(BaseModel):
     household_id: UUID
 
 
+class HouseholdUpdate(BaseModel):
+    name: str = Field(min_length=1, max_length=160)
+
+
 class InviteCreate(BaseModel):
     email: EmailStr
     role: str = Field(default="member", pattern="^(admin|member|viewer)$")

@@ -216,6 +216,11 @@ def test_invite_acceptance_and_viewer_permissions():
     member = TestClient(app)
 
     assert register(owner).status_code == 201
+    renamed = owner.patch("/api/v1/household", json={"name": "Renamed Cellar"})
+    assert renamed.status_code == 200
+    assert renamed.json()["household_name"] == "Renamed Cellar"
+    assert owner.get("/api/v1/session").json()["active_household_name"] == "Renamed Cellar"
+
     invite = owner.post("/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"})
     assert invite.status_code == 201
     invite_id = invite.json()["id"]
@@ -258,11 +263,13 @@ def test_invite_acceptance_and_viewer_permissions():
     member_households = member.get("/api/v1/household/memberships")
     assert member_households.status_code == 200
     shared_household = next(item for item in member_households.json() if item["role"] == "viewer")
-    assert shared_household["household_name"] == "Main Cellar"
+    assert shared_household["household_name"] == "Renamed Cellar"
     assert invited_membership_id
 
     switched = member.post("/api/v1/household/switch", json={"household_id": shared_household["household_id"]})
     assert switched.status_code == 200
+    viewer_rename = member.patch("/api/v1/household", json={"name": "Viewer Rename"})
+    assert viewer_rename.status_code == 403
 
     viewer_list = member.get("/api/v1/wines")
     assert viewer_list.status_code == 200

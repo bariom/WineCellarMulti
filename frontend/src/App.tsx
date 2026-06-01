@@ -4,6 +4,7 @@ type Session = {
   authenticated: boolean;
   user_display_name: string | null;
   user_email: string | null;
+  active_household_id: string | null;
   active_household_name: string | null;
   membership_role: string | null;
   is_app_admin: boolean;
@@ -309,6 +310,7 @@ const translations = {
     cancel: "Cancel",
     cellar: "Cellar",
     cellarName: "Cellar name",
+    renameCellar: "Rename cellar",
     clearFilters: "Clear filters",
     convert: "Convert",
     create: "Create",
@@ -533,6 +535,7 @@ const translations = {
     cancel: "Annulla",
     cellar: "Cantina",
     cellarName: "Nome cantina",
+    renameCellar: "Rinomina cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
     create: "Crea",
@@ -1546,6 +1549,7 @@ export function App() {
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("WineCellarMulti");
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
@@ -1595,6 +1599,7 @@ export function App() {
   async function loadSession() {
     const nextSession = await api<Session>("/api/v1/session");
     setSession(nextSession);
+    setHouseholdNameDraft(nextSession.active_household_name || "");
     return nextSession;
   }
 
@@ -1845,13 +1850,14 @@ export function App() {
   async function logout() {
     setError("");
     await api<void>("/api/v1/auth/logout", { method: "POST" });
-    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false });
+    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_id: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false });
     setWines([]);
     setWishlist([]);
     setShareOffers([]);
     setUserTags([]);
     setPasskeys([]);
     setHouseholdMemberships([]);
+    setHouseholdNameDraft("");
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
@@ -1881,6 +1887,40 @@ export function App() {
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     await loadData();
+  }
+
+  async function updateHouseholdName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = householdNameDraft.trim();
+    if (!nextName) return;
+    setSaving(true);
+    setError("");
+    try {
+      const updatedMembership = await api<HouseholdMembership>("/api/v1/household", {
+        method: "PATCH",
+        body: JSON.stringify({ name: nextName }),
+      });
+      setHouseholdMemberships((current) =>
+        current.map((membership) =>
+          membership.household_id === updatedMembership.household_id ? updatedMembership : membership,
+        ),
+      );
+      setSession((current) =>
+        current
+          ? {
+              ...current,
+              active_household_id: updatedMembership.household_id,
+              active_household_name: updatedMembership.household_name,
+              membership_role: updatedMembership.role,
+            }
+          : current,
+      );
+      setHouseholdNameDraft(updatedMembership.household_name);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update cellar name");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function createInvite(event: FormEvent<HTMLFormElement>) {
@@ -2402,7 +2442,9 @@ export function App() {
   }
 
   const authenticated = Boolean(session?.authenticated);
-  const activeMembership = householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
+  const activeMembership =
+    householdMemberships.find((membership) => membership.household_id === session?.active_household_id) ||
+    householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
   const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
   const canAppAdmin = Boolean(session?.is_app_admin);
   const canWriteWine = canAdmin || session?.membership_role === "member";
@@ -4142,6 +4184,21 @@ export function App() {
                     <h3>{t("household")}</h3>
                   </div>
                 </div>
+                <form className="inline-form" onSubmit={updateHouseholdName}>
+                  <label>
+                    <span>{t("cellarName")}</span>
+                    <input
+                      value={householdNameDraft}
+                      disabled={!canAdmin || saving}
+                      onChange={(event) => setHouseholdNameDraft(event.target.value)}
+                      required
+                    />
+                  </label>
+                  <button type="submit" disabled={!canAdmin || saving || !householdNameDraft.trim()}>
+                    {saving ? t("saving") : t("renameCellar")}
+                  </button>
+                </form>
+                {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 <div className="member-list">
                   {members.map((member) => (
                     <div className="member-row" key={member.membership_id}>

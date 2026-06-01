@@ -13,6 +13,7 @@ from app.models import Household, HouseholdInvite, Membership, User
 from app.schemas.household import (
     HouseholdMembershipResponse,
     HouseholdSwitch,
+    HouseholdUpdate,
     InviteAccept,
     InviteCreate,
     InviteResponse,
@@ -85,6 +86,27 @@ def switch_household(
         household_id=household.id,
         household_name=household.name,
         role=membership.role,
+    )
+
+
+@router.patch("", response_model=HouseholdMembershipResponse)
+def update_active_household(
+    payload: HouseholdUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> HouseholdMembershipResponse:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required")
+
+    context.household.name = name
+    db.commit()
+    db.refresh(context.household)
+    return HouseholdMembershipResponse(
+        membership_id=context.membership.id,
+        household_id=context.household.id,
+        household_name=context.household.name,
+        role=context.membership.role,
     )
 
 
