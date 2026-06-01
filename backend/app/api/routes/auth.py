@@ -25,7 +25,7 @@ from app.api.deps import CurrentContext, active_entitlement_valid_until, build_s
 from app.core.config import settings
 from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import Household, Membership, PasskeyChallenge, User, UserEntitlement, UserPasskey, UserSession
+from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
 from app.schemas.auth import (
     LoginRequest,
     PasskeyLoginVerifyRequest,
@@ -156,19 +156,8 @@ def pending_user_response(user: User) -> PendingUserResponse:
     return PendingUserResponse(id=str(user.id), email=user.email, display_name=user.display_name)
 
 
-def active_entitlement_for_user(db: Session, user: User) -> UserEntitlement | None:
-    now = datetime.now(timezone.utc)
-    return db.scalar(
-        select(UserEntitlement)
-        .where(UserEntitlement.user_id == user.id)
-        .where(UserEntitlement.valid_until > now)
-        .order_by(UserEntitlement.valid_until.desc()),
-    )
-
-
 def user_admin_response(user: User, db: Session) -> UserAdminResponse:
-    entitlement = active_entitlement_for_user(db, user)
-    valid_until = utc_datetime(entitlement.valid_until) if entitlement else None
+    valid_until = active_entitlement_valid_until(db, user)
     days_remaining = math.ceil((valid_until - datetime.now(timezone.utc)).total_seconds() / 86400) if valid_until else None
     return UserAdminResponse(
         id=str(user.id),

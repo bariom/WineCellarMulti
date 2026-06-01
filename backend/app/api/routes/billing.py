@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_authenticated_context, require_app_admin_context
+from app.api.deps import CurrentContext, active_entitlement_valid_until, get_authenticated_context, require_app_admin_context
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
@@ -71,10 +71,14 @@ def entitlement_response(entitlement: UserEntitlement) -> EntitlementResponse:
 def billing_status(db: Session, user: User) -> BillingStatusResponse:
     current_time = now_utc()
     entitlements = list(db.scalars(select(UserEntitlement).where(UserEntitlement.user_id == user.id).order_by(UserEntitlement.valid_until.desc())))
-    active_entitlement = next((entitlement for entitlement in entitlements if as_aware_utc(entitlement.valid_until) > current_time), None)
+    active_valid_until = active_entitlement_valid_until(db, user)
+    active_entitlement = next(
+        (entitlement for entitlement in entitlements if active_valid_until is not None and as_aware_utc(entitlement.valid_until) >= active_valid_until and as_aware_utc(entitlement.valid_until) > current_time),
+        None,
+    )
     return BillingStatusResponse(
-        has_active_entitlement=active_entitlement is not None,
-        valid_until=as_aware_utc(active_entitlement.valid_until) if active_entitlement else None,
+        has_active_entitlement=active_valid_until is not None,
+        valid_until=active_valid_until,
         active_source=active_entitlement.source if active_entitlement else None,
         entitlements=[entitlement_response(entitlement) for entitlement in entitlements],
     )

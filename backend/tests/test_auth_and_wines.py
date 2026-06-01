@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from fastapi.testclient import TestClient
@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, UserAiSettings, Wine
+from app.models import AiAuditLog, Household, RedeemCode, UserAiSettings, Wine
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
 
@@ -172,6 +172,14 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     assert redeemed.json()["has_active_entitlement"] is True
     assert redeemed.json()["active_source"] == "redeem"
     assert user_client.get("/api/v1/wines").status_code == 200
+
+    with TestingSessionLocal() as db:
+        code = db.get(RedeemCode, uuid.UUID(unused_code_id))
+        assert code is not None
+        code.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        db.commit()
+    assert user_client.get("/api/v1/billing/status").json()["has_active_entitlement"] is False
+    assert user_client.get("/api/v1/wines").status_code == 402
 
     duplicate = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert duplicate.status_code == 400
