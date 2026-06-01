@@ -2127,6 +2127,10 @@ textarea {
     display: none;
   }
 
+  .wine-side-panel > .share-panel {
+    display: none;
+  }
+
   .wine-side-panel > .wine-form {
     position: fixed;
     z-index: 30;
