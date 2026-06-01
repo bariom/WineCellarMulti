@@ -480,6 +480,8 @@ const translations = {
     value: "Value",
     valueFocus: "Value",
     valueByType: "Value by type",
+    valueOlderThanDays: "Value older than days",
+    valueToRefresh: "Value to refresh",
     viewerReadOnly: "Viewer access: you can read this cellar, but cannot change wines.",
     vintage: "Vintage",
     wineDetail: "Wine detail",
@@ -702,6 +704,8 @@ const translations = {
     value: "Valore",
     valueFocus: "Valore",
     valueByType: "Valore per tipo",
+    valueOlderThanDays: "Valore piu vecchio di giorni",
+    valueToRefresh: "Valori da aggiornare",
     viewerReadOnly: "Accesso viewer: puoi leggere questa cantina, ma non modificare i vini.",
     vintage: "Annata",
     wineDetail: "Dettaglio vino",
@@ -1134,6 +1138,20 @@ function daysUntil(value: string) {
   return Math.ceil((target - Date.now()) / 86400000);
 }
 
+function valueEstimateAgeDays(wine: Wine, now: Date) {
+  if (!wine.ai_value_estimated_at) return null;
+  const estimatedAt = new Date(wine.ai_value_estimated_at).getTime();
+  if (Number.isNaN(estimatedAt)) return null;
+  return Math.floor((now.getTime() - estimatedAt) / 86400000);
+}
+
+function needsValueRefresh(wine: Wine, thresholdDays: number, now: Date) {
+  if (!wine.current_value) return true;
+  if (thresholdDays <= 0) return false;
+  const ageDays = valueEstimateAgeDays(wine, now);
+  return ageDays === null || ageDays >= thresholdDays;
+}
+
 function wineSearchText(wine: Wine) {
   return [
     wine.name,
@@ -1550,6 +1568,7 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
+  const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
@@ -2434,6 +2453,8 @@ export function App() {
     });
   const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
   const cellarOwnership = ownershipStats(wines, session);
+  const parsedValueRefreshDays = Number(valueRefreshDays);
+  const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
   const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
   const sharedValue = Math.max(cellarOwnership.totalValue - cellarOwnership.myValue, 0);
   const cellarStats = {
@@ -2518,9 +2539,11 @@ export function App() {
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
   const allMissingValueWines = wines.filter((wine) => !wine.current_value);
+  const allValueRefreshWines = wines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = wines.filter((wine) => !wine.drink_from || !wine.drink_to);
   const allMissingScoresWines = wines.filter((wine) => wine.scores.length === 0);
   const missingValueWines = allMissingValueWines.slice(0, 5);
+  const valueRefreshWines = allValueRefreshWines.slice(0, 5);
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
   const missingScoresWines = allMissingScoresWines.slice(0, 5);
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
@@ -3255,23 +3278,27 @@ export function App() {
                         <span>{t("incompleteData")}</span>
                         <h2>{t("dataQuality")}</h2>
                       </div>
-                      <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingScores}</strong>
+                      <strong>{allValueRefreshWines.length + cellarStats.missingDrinkWindow + cellarStats.missingScores}</strong>
                     </div>
                     <p>{t("aiReadinessHelp")}</p>
                   </article>
                   <article className="dashboard-card">
                     <div className="card-heading">
                       <div>
-                        <span>{t("missingValue")}</span>
+                        <span>{t("valueToRefresh")}</span>
                         <h2>{t("value")}</h2>
                       </div>
-                      <strong>{cellarStats.missingValue}</strong>
+                      <strong>{allValueRefreshWines.length}</strong>
                     </div>
-                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingValueWines.length === 0} onClick={() => generateMissingWineAi("value", allMissingValueWines)}>
+                    <label className="compact-field">
+                      <span>{t("valueOlderThanDays")}</span>
+                      <input type="number" min="0" value={valueRefreshDays} onChange={(event) => setValueRefreshDays(event.target.value)} />
+                    </label>
+                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allValueRefreshWines.length === 0} onClick={() => generateMissingWineAi("value", allValueRefreshWines)}>
                       {generatingAi === "batch-value" ? t("generating") : t("generateAll")}
                     </button>
                     <div className="action-list">
-                      {missingValueWines.length ? missingValueWines.map((wine) => (
+                      {valueRefreshWines.length ? valueRefreshWines.map((wine) => (
                         <div className="action-row data-quality-row" key={wine.id}>
                           <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
                             <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
