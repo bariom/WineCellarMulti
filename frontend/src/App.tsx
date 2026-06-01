@@ -239,9 +239,12 @@ type BillingStatus = {
   }>;
 };
 
+type PaymentPlan = "monthly" | "annual";
+
 type CheckoutSession = {
   checkout_url: string;
   stripe_session_id: string;
+  plan: PaymentPlan;
 };
 
 type RedeemCodeDraft = {
@@ -394,6 +397,8 @@ const translations = {
     appellation: "Appellation",
     billing: "Billing",
     buyAccess: "Pay with card",
+    buyAnnual: "Annual access",
+    buyMonthly: "Monthly access",
     bottles: "Bottles",
     cancel: "Cancel",
     cellar: "Cellar",
@@ -660,6 +665,8 @@ const translations = {
     appellation: "Denominazione",
     billing: "Iscrizione",
     buyAccess: "Paga con carta",
+    buyAnnual: "Accesso annuale",
+    buyMonthly: "Accesso mensile",
     bottles: "Bottiglie",
     cancel: "Annulla",
     cellar: "Cantina",
@@ -2775,11 +2782,11 @@ export function App() {
     }
   }
 
-  async function startCheckout() {
+  async function startCheckout(plan: PaymentPlan) {
     setSaving(true);
     setError("");
     try {
-      const checkout = await api<CheckoutSession>("/api/v1/billing/checkout", { method: "POST" });
+      const checkout = await api<CheckoutSession>("/api/v1/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) });
       window.location.assign(checkout.checkout_url);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to start checkout");
@@ -3830,9 +3837,14 @@ export function App() {
               <strong>{t("redeemRequired")}</strong>
               <span>{session?.user_email}</span>
             </div>
-            <button type="button" onClick={startCheckout} disabled={saving}>
-              {saving ? t("working") : t("buyAccess")}
-            </button>
+            <div className="form-actions">
+              <button type="button" onClick={() => startCheckout("monthly")} disabled={saving}>
+                {saving ? t("working") : t("buyMonthly")}
+              </button>
+              <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
+                {saving ? t("working") : t("buyAnnual")}
+              </button>
+            </div>
             <p className="empty-state">{t("paymentHelp")}</p>
             <form className="inline-form" onSubmit={redeemCode}>
               <label>
@@ -5046,8 +5058,11 @@ export function App() {
                   <button type="submit" disabled={saving || !redeemInput.trim()}>
                     {t("redeem")}
                   </button>
-                  <button type="button" className="secondary" onClick={startCheckout} disabled={saving}>
-                    {t("buyAccess")}
+                  <button type="button" className="secondary" onClick={() => startCheckout("monthly")} disabled={saving}>
+                    {t("buyMonthly")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
+                    {t("buyAnnual")}
                   </button>
                 </form>
                 {billingStatus?.has_active_entitlement ? (

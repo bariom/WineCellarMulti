@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -31,9 +32,14 @@ class RedeemRequest(BaseModel):
     code: str = Field(min_length=6, max_length=80)
 
 
+class CheckoutSessionCreate(BaseModel):
+    plan: Literal["monthly", "annual"] = "annual"
+
+
 class CheckoutSessionResponse(BaseModel):
     checkout_url: str
     stripe_session_id: str
+    plan: Literal["monthly", "annual"]
 
 
 class EntitlementResponse(BaseModel):

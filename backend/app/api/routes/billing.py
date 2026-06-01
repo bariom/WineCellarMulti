@@ -21,8 +21,8 @@ from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
-from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, User, UserEntitlement
-from app.schemas.billing import BillingStatusResponse, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
+from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement
+from app.schemas.billing import BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
 
 
 router = APIRouter(prefix="/billing")
@@ -115,38 +115,61 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
     )
 
 
-def stripe_checkout_payload(user: User) -> dict[str, str]:
-    duration_days = max(settings.stripe_entitlement_days, 1)
+def stripe_plan_config(plan: str) -> dict[str, str | int]:
+    if plan == "monthly":
+        return {
+            "plan": "monthly",
+            "price_id": settings.stripe_monthly_price_id,
+            "duration_days": max(settings.stripe_monthly_entitlement_days, 1),
+            "label": "Vinaris monthly access",
+        }
+    if plan == "annual":
+        return {
+            "plan": "annual",
+            "price_id": settings.stripe_annual_price_id or settings.stripe_price_id,
+            "duration_days": max(settings.stripe_annual_entitlement_days or settings.stripe_entitlement_days, 1),
+            "label": settings.stripe_payment_label or "Vinaris annual access",
+        }
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payment plan")
+
+
+def stripe_checkout_payload(user: User, plan: str) -> dict[str, str]:
+    plan_config = stripe_plan_config(plan)
+    duration_days = int(plan_config["duration_days"])
+    price_id = str(plan_config["price_id"] or "")
     payload = {
-        "mode": "payment",
+        "mode": "subscription" if price_id else "payment",
         "client_reference_id": str(user.id),
         "customer_email": user.email,
         "success_url": settings.stripe_success_url,
         "cancel_url": settings.stripe_cancel_url,
         "metadata[user_id]": str(user.id),
         "metadata[duration_days]": str(duration_days),
+        "metadata[plan]": str(plan_config["plan"]),
         "line_items[0][quantity]": "1",
     }
-    if settings.stripe_price_id:
-        payload["line_items[0][price]"] = settings.stripe_price_id
+    if price_id:
+        payload["line_items[0][price]"] = price_id
     else:
+        if plan != "annual":
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe monthly price is not configured")
         amount = settings.stripe_payment_amount_cents
         if amount <= 0:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe price is not configured")
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe annual price is not configured")
         payload.update(
             {
                 "line_items[0][price_data][currency]": settings.stripe_payment_currency.lower(),
                 "line_items[0][price_data][unit_amount]": str(amount),
-                "line_items[0][price_data][product_data][name]": settings.stripe_payment_label,
+                "line_items[0][price_data][product_data][name]": str(plan_config["label"]),
             },
         )
     return payload
 
 
-def create_stripe_checkout_session(user: User) -> dict:
+def create_stripe_checkout_session(user: User, plan: str) -> dict:
     if not settings.stripe_secret_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe is not configured")
-    payload = urlencode(stripe_checkout_payload(user)).encode("utf-8")
+    payload = urlencode(stripe_checkout_payload(user, plan)).encode("utf-8")
     request = Request(
         settings.stripe_checkout_url,
         data=payload,
@@ -194,9 +217,11 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
     stripe_session_id = str(session.get("id") or "")
     if not stripe_session_id:
         return
+    metadata = session.get("metadata") if isinstance(session.get("metadata"), dict) else {}
+    plan = str(metadata.get("plan") or "annual")
+    duration_days = int(metadata.get("duration_days") or stripe_plan_config(plan)["duration_days"])
     checkout = db.scalar(select(StripeCheckoutSession).where(StripeCheckoutSession.stripe_session_id == stripe_session_id))
     if checkout is None:
-        metadata = session.get("metadata") if isinstance(session.get("metadata"), dict) else {}
         user_id = metadata.get("user_id") or session.get("client_reference_id")
         if not user_id:
             return
@@ -210,8 +235,10 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
         checkout = StripeCheckoutSession(
             user_id=user.id,
             stripe_session_id=stripe_session_id,
+            stripe_subscription_id=session.get("subscription"),
             stripe_customer_id=session.get("customer"),
-            duration_days=int(metadata.get("duration_days") or settings.stripe_entitlement_days),
+            plan=plan,
+            duration_days=duration_days,
             amount_total=session.get("amount_total"),
             currency=session.get("currency"),
         )
@@ -223,10 +250,32 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
     if user is None:
         return
     checkout.status = "completed"
+    checkout.plan = plan
+    checkout.duration_days = duration_days
+    checkout.stripe_subscription_id = session.get("subscription") or checkout.stripe_subscription_id
     checkout.stripe_customer_id = session.get("customer") or checkout.stripe_customer_id
     checkout.amount_total = session.get("amount_total") if session.get("amount_total") is not None else checkout.amount_total
     checkout.currency = session.get("currency") or checkout.currency
     checkout.completed_at = now_utc()
+    create_entitlement(db, user, source="stripe", source_id=checkout.id, duration_days=checkout.duration_days)
+
+
+def complete_stripe_invoice(db: Session, invoice: dict) -> None:
+    if invoice.get("paid") is False or invoice.get("status") not in (None, "paid"):
+        return
+    if invoice.get("billing_reason") == "subscription_create":
+        return
+    subscription_id = str(invoice.get("subscription") or "")
+    if not subscription_id:
+        return
+    checkout = db.scalar(select(StripeCheckoutSession).where(StripeCheckoutSession.stripe_subscription_id == subscription_id))
+    if checkout is None:
+        return
+    user = db.get(User, checkout.user_id)
+    if user is None:
+        return
+    checkout.amount_total = invoice.get("amount_paid") if invoice.get("amount_paid") is not None else checkout.amount_total
+    checkout.currency = invoice.get("currency") or checkout.currency
     create_entitlement(db, user, source="stripe", source_id=checkout.id, duration_days=checkout.duration_days)
 
 
@@ -240,10 +289,12 @@ def get_billing_status(
 
 @router.post("/checkout", response_model=CheckoutSessionResponse)
 def create_checkout_session(
+    payload: CheckoutSessionCreate,
     context: CurrentContext = Depends(get_authenticated_context),
     db: Session = Depends(get_db),
 ) -> CheckoutSessionResponse:
-    session = create_stripe_checkout_session(context.user)
+    plan_config = stripe_plan_config(payload.plan)
+    session = create_stripe_checkout_session(context.user, payload.plan)
     stripe_session_id = str(session.get("id") or "")
     checkout_url = str(session.get("url") or "")
     if not stripe_session_id or not checkout_url:
@@ -254,14 +305,16 @@ def create_checkout_session(
             StripeCheckoutSession(
                 user_id=context.user.id,
                 stripe_session_id=stripe_session_id,
+                stripe_subscription_id=session.get("subscription"),
                 stripe_customer_id=session.get("customer"),
-                duration_days=max(settings.stripe_entitlement_days, 1),
+                plan=payload.plan,
+                duration_days=int(plan_config["duration_days"]),
                 amount_total=session.get("amount_total"),
                 currency=session.get("currency"),
             ),
         )
         db.commit()
-    return CheckoutSessionResponse(checkout_url=checkout_url, stripe_session_id=stripe_session_id)
+    return CheckoutSessionResponse(checkout_url=checkout_url, stripe_session_id=stripe_session_id, plan=payload.plan)
 
 
 @router.post("/stripe/webhook", status_code=status.HTTP_204_NO_CONTENT)
@@ -273,11 +326,22 @@ async def stripe_webhook(
     payload = await request.body()
     verify_stripe_signature(payload, stripe_signature)
     event = json.loads(payload.decode("utf-8"))
-    if event.get("type") == "checkout.session.completed":
+    event_id = str(event.get("id") or "")
+    if not event_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing Stripe event id")
+    if db.scalar(select(StripeWebhookEvent).where(StripeWebhookEvent.stripe_event_id == event_id)) is not None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    db.add(StripeWebhookEvent(stripe_event_id=event_id, event_type=str(event.get("type") or "")))
+    event_type = event.get("type")
+    if event_type == "checkout.session.completed":
         session = event.get("data", {}).get("object", {})
         if isinstance(session, dict):
             complete_stripe_checkout(db, session)
-            db.commit()
+    elif event_type == "invoice.paid":
+        invoice = event.get("data", {}).get("object", {})
+        if isinstance(invoice, dict):
+            complete_stripe_invoice(db, invoice)
+    db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 

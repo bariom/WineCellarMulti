@@ -25,10 +25,14 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"
     stripe_price_id: str = ""
+    stripe_monthly_price_id: str = ""
+    stripe_annual_price_id: str = ""
     stripe_payment_amount_cents: int = 0
     stripe_payment_currency: str = "chf"
     stripe_payment_label: str = "Vinaris access"
     stripe_entitlement_days: int = 365
+    stripe_monthly_entitlement_days: int = 31
+    stripe_annual_entitlement_days: int = 365
     stripe_success_url: str = "http://localhost:5173/?stripe_checkout=success"
     stripe_cancel_url: str = "http://localhost:5173/?stripe_checkout=cancelled"
 

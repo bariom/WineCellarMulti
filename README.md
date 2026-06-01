@@ -171,13 +171,15 @@ Stripe Checkout can activate a user entitlement after payment. Configure these v
 ```env
 STRIPE_SECRET_KEY=sk_live_or_test_...
 STRIPE_WEBHOOK_SECRET=whsec_...
-STRIPE_PRICE_ID=price_...
-STRIPE_ENTITLEMENT_DAYS=365
+STRIPE_MONTHLY_PRICE_ID=price_monthly_...
+STRIPE_ANNUAL_PRICE_ID=price_annual_...
+STRIPE_MONTHLY_ENTITLEMENT_DAYS=31
+STRIPE_ANNUAL_ENTITLEMENT_DAYS=365
 STRIPE_SUCCESS_URL=https://vinaris.duckdns.org/?stripe_checkout=success
 STRIPE_CANCEL_URL=https://vinaris.duckdns.org/?stripe_checkout=cancelled
 ```
 
-If you do not use a Stripe Price ID, configure a one-time amount instead:
+Create the two Stripe prices as recurring prices: one monthly and one annual. `STRIPE_PRICE_ID` is still accepted as a legacy fallback for annual access only. If you do not use an annual Stripe Price ID, configure a one-time annual amount instead:
 
 ```env
 STRIPE_PAYMENT_AMOUNT_CENTS=4900
@@ -191,7 +193,7 @@ Create a Stripe webhook endpoint pointing to:
 https://vinaris.duckdns.org/api/v1/billing/stripe/webhook
 ```
 
-Enable the `checkout.session.completed` event. The webhook is what grants access; a browser redirect alone is not trusted.
+Enable the `checkout.session.completed` and `invoice.paid` events. The webhook is what grants access and renews subscription validity; a browser redirect alone is not trusted.
 
 Find the Linux machine IP with:
 

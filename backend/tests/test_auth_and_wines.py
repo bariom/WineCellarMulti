@@ -5,6 +5,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from urllib.parse import parse_qs
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -227,7 +228,7 @@ def stripe_signature(payload: bytes, secret: str) -> str:
 def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
     webhook_secret = "whsec_test"
     monkeypatch.setattr(settings, "stripe_webhook_secret", webhook_secret)
-    monkeypatch.setattr(settings, "stripe_entitlement_days", 30)
+    monkeypatch.setattr(settings, "stripe_monthly_entitlement_days", 31)
     client = TestClient(app)
     registered = register(client, email="stripe@example.com", password="strong-password-3")
     assert registered.status_code == 201
@@ -241,10 +242,11 @@ def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
                 "id": "cs_test_paid",
                 "client_reference_id": user_id,
                 "customer": "cus_test",
+                "subscription": "sub_test",
                 "payment_status": "paid",
                 "amount_total": 4900,
                 "currency": "chf",
-                "metadata": {"user_id": user_id, "duration_days": "30"},
+                "metadata": {"user_id": user_id, "duration_days": "31", "plan": "monthly"},
             },
         },
     }
@@ -262,6 +264,64 @@ def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
     assert status_payload["has_active_entitlement"] is True
     assert status_payload["active_source"] == "stripe"
     assert len(status_payload["entitlements"]) == 1
+
+    invoice_event = {
+        "id": "evt_invoice_paid",
+        "type": "invoice.paid",
+        "data": {
+            "object": {
+                "id": "in_test_paid",
+                "subscription": "sub_test",
+                "status": "paid",
+                "paid": True,
+                "billing_reason": "subscription_cycle",
+                "amount_paid": 4900,
+                "currency": "chf",
+            },
+        },
+    }
+    invoice_payload = json.dumps(invoice_event, separators=(",", ":")).encode("utf-8")
+    invoice_headers = {"Stripe-Signature": stripe_signature(invoice_payload, webhook_secret), "Content-Type": "application/json"}
+    renewed = client.post("/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers)
+    assert renewed.status_code == 204
+    duplicate_renewal = client.post("/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers)
+    assert duplicate_renewal.status_code == 204
+    assert len(client.get("/api/v1/billing/status").json()["entitlements"]) == 2
+
+
+def test_stripe_checkout_uses_selected_annual_price(monkeypatch):
+    captured: dict[str, str] = {}
+
+    class FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self) -> bytes:
+            return b'{"id":"cs_annual","url":"https://checkout.stripe.test"}'
+
+    def fake_urlopen(request, timeout):
+        captured["payload"] = request.data.decode("utf-8")
+        captured["timeout"] = str(timeout)
+        return FakeResponse()
+
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test")
+    monkeypatch.setattr(settings, "stripe_annual_price_id", "price_annual")
+    monkeypatch.setattr(settings, "stripe_monthly_price_id", "price_monthly")
+    monkeypatch.setattr("app.api.routes.billing.urlopen", fake_urlopen)
+
+    client = TestClient(app)
+    assert register(client, email="checkout@example.com", password="strong-password-4").status_code == 201
+    response = client.post("/api/v1/billing/checkout", json={"plan": "annual"})
+
+    assert response.status_code == 200
+    assert response.json()["plan"] == "annual"
+    parsed = parse_qs(captured["payload"])
+    assert parsed["mode"] == ["subscription"]
+    assert parsed["line_items[0][price]"] == ["price_annual"]
+    assert parsed["metadata[plan]"] == ["annual"]
 
 
 def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
