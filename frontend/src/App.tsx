@@ -270,6 +270,7 @@ type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
+type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
 type ThemePreference = "system" | "light" | "dark" | "sepia";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
@@ -1540,6 +1541,7 @@ export function App() {
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
+  const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
@@ -2360,6 +2362,8 @@ export function App() {
   const wineFormTagOptions = uniqueSorted([...userTags.map((tag) => tag.name), ...draft.tags]);
   const activeTypeOptions = activeView === "cellar" ? wineTypeOptions : wishlistTypeOptions;
   const activeStatusOptions = activeView === "cellar" ? wineStatusOptions : wishlistStatusOptions;
+  const currentYear = new Date().getFullYear();
+  const now = new Date();
   const filteredWines = wines
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
     .filter((wine) => !typeFilter || wine.type === typeFilter)
@@ -2369,6 +2373,18 @@ export function App() {
       const share = currentUserSharePct(wine, session);
       if (ownershipFilter === "mine") return share > 0;
       if (ownershipFilter === "shared") return share < 100;
+      return true;
+    })
+    .filter((wine) => {
+      if (!quickWineFilter) return true;
+      const share = currentUserSharePct(wine, session);
+      if (quickWineFilter === "mine") return share > 0;
+      if (quickWineFilter === "shared") return share < 100;
+      if (quickWineFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
+      if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
+      if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
+      if (quickWineFilter === "future_deliveries") return Boolean(wine.expected_delivery && new Date(wine.expected_delivery) >= now);
+      if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0;
       return true;
     })
     .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
@@ -2388,8 +2404,6 @@ export function App() {
       return first.name.localeCompare(second.name);
     });
   const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
-  const currentYear = new Date().getFullYear();
-  const now = new Date();
   const cellarOwnership = ownershipStats(wines, session);
   const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
   const sharedValue = Math.max(cellarOwnership.totalValue - cellarOwnership.myValue, 0);
@@ -2578,8 +2592,22 @@ export function App() {
     setTypeFilter("");
     setStatusFilter("");
     setOwnershipFilter("");
+    setQuickWineFilter("");
     setTagFilter([]);
     setSortMode("name");
+  }
+
+  function applyQuickWineFilter(filter: QuickWineFilter) {
+    setActiveView("cellar");
+    setSearchQuery("");
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setTagFilter([]);
+    setSortMode("name");
+    setQuickWineFilter((current) => current === filter ? "" : filter);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
   }
 
   function aiEntityName(entry: AiAuditLog) {
@@ -3564,44 +3592,44 @@ export function App() {
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
               <section className="stats-panel">
-                <div className="stat-card ownership-stat">
+                <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                   <span>{t("myBottles")}</span>
                   <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
                   <p>CHF {cellarStats.myValue.toFixed(0)}</p>
-                </div>
-                <div className="stat-card ownership-stat">
+                </button>
+                <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "shared" ? "active" : ""}`} onClick={() => applyQuickWineFilter("shared")}>
                   <span>{t("sharedBottles")}</span>
                   <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
                   <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
-                </div>
-                <div className="stat-card ownership-stat">
+                </button>
+                <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
                   <span>{t("totalValue")}</span>
                   <strong>{formatBottleCount(cellarStats.bottles)}</strong>
                   <p>CHF {cellarStats.totalValue.toFixed(0)}</p>
-                </div>
-                <div className="stat-card">
+                </button>
+                <button type="button" className={`stat-card ${quickWineFilter === "drink_now" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_now")}>
                   <span>{t("drinkNow")}</span>
                   <strong>{cellarStats.drinkNow}</strong>
-                </div>
-                <div className="stat-card">
+                </button>
+                <button type="button" className={`stat-card ${quickWineFilter === "drink_soon" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_soon")}>
                   <span>{t("drinkIn2Years")}</span>
                   <strong>{cellarStats.drinkSoon}</strong>
-                </div>
-                <div className="stat-card">
+                </button>
+                <button type="button" className={`stat-card ${quickWineFilter === "past_window" ? "active" : ""}`} onClick={() => applyQuickWineFilter("past_window")}>
                   <span>{t("pastWindow")}</span>
                   <strong>{cellarStats.pastWindow}</strong>
-                </div>
-                <div className="stat-card">
+                </button>
+                <button type="button" className={`stat-card ${quickWineFilter === "future_deliveries" ? "active" : ""}`} onClick={() => applyQuickWineFilter("future_deliveries")}>
                   <span>{t("futureDeliveries")}</span>
                   <strong>{cellarStats.futureDeliveries}</strong>
                   {cellarStats.nextDelivery ? <p>{cellarStats.nextDelivery.wine.name}: {cellarStats.nextDelivery.days} days</p> : null}
-                </div>
-                <div className="stat-card compact-list">
+                </button>
+                <button type="button" className={`stat-card compact-list ${quickWineFilter === "missing_data" ? "active" : ""}`} onClick={() => applyQuickWineFilter("missing_data")}>
                   <span>{t("dataQuality")}</span>
                   <p>{t("missingValue")}: <strong>{cellarStats.missingValue}</strong></p>
                   <p>{t("missingDrinkWindow")}: <strong>{cellarStats.missingDrinkWindow}</strong></p>
                   <p>{t("missingScores")}: <strong>{cellarStats.missingScores}</strong></p>
-                </div>
+                </button>
                 {valueByType.length ? (
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("valueByType")}</span>
