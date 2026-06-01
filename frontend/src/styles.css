@@ -357,6 +357,38 @@
     linear-gradient(135deg, #242117 0%, #11100c 100%);
 }
 
+:root[data-theme="ticino"] {
+  color-scheme: dark;
+  --page: #101312;
+  --surface: #171d1b;
+  --surface-raised: #1d2522;
+  --surface-muted: #242e2a;
+  --surface-subtle: #2d3a34;
+  --text: #f3f0e7;
+  --text-muted: #c3c6b7;
+  --text-soft: #aeb7a4;
+  --border: #3c4b43;
+  --border-strong: #5c6b5c;
+  --primary: #d1a85a;
+  --primary-contrast: #11130f;
+  --secondary: #30392d;
+  --danger: #cf5968;
+  --danger-text: #ffe0e4;
+  --danger-surface: #35171d;
+  --accent: #8f1f35;
+  --drink-young: #d1a85a;
+  --drink-ideal: #7f9b6a;
+  --drink-past: #9b4250;
+  --bar-muted: #30392d;
+  --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.40);
+  --focus: rgba(209, 168, 90, 0.42);
+  --hero-bg:
+    radial-gradient(circle at 12% 12%, rgba(143, 31, 53, 0.34), transparent 32%),
+    radial-gradient(circle at 78% 18%, rgba(127, 155, 106, 0.18), transparent 30%),
+    radial-gradient(circle at 44% 82%, rgba(209, 168, 90, 0.12), transparent 28%),
+    linear-gradient(135deg, #1d2522 0%, #101312 100%);
+}
+
 * {
   box-sizing: border-box;
 }

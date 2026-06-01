@@ -287,7 +287,8 @@ type ThemePreference =
   | "bordeaux"
   | "burgundy"
   | "tuscany"
-  | "piedmont";
+  | "piedmont"
+  | "ticino";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
@@ -497,6 +498,7 @@ const translations = {
     themeBurgundy: "Burgundy",
     themeTuscany: "Tuscany",
     themePiedmont: "Piedmont",
+    themeTicino: "Ticino",
     thisMonth: "This month",
     timeline: "Timeline",
     today: "Today",
@@ -733,6 +735,7 @@ const translations = {
     themeBurgundy: "Borgogna",
     themeTuscany: "Toscana",
     themePiedmont: "Piemonte",
+    themeTicino: "Ticino",
     thisMonth: "Questo mese",
     timeline: "Timeline",
     today: "Oggi",
@@ -789,6 +792,7 @@ const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
   { value: "burgundy", label: "themeBurgundy" },
   { value: "tuscany", label: "themeTuscany" },
   { value: "piedmont", label: "themePiedmont" },
+  { value: "ticino", label: "themeTicino" },
 ];
 
 function translate(locale: Locale, key: TranslationKey) {
