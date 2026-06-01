@@ -92,6 +92,19 @@ Update backend and frontend from the repository root:
 
 The update script pulls the latest code, installs backend dependencies, runs Alembic migrations, installs frontend dependencies, and runs the frontend build. PostgreSQL must already be running.
 
+Start or recover the production stack after a reboot/outage:
+
+```bash
+chmod +x start.sh
+./start.sh
+```
+
+First-time service installation on the Linux server:
+
+```bash
+./start.sh --install-services --build
+```
+
 Open `http://<server-ip>:5173`.
 
 ## Android PWA

@@ -36,7 +36,24 @@ docker compose up -d postgres
 
 ## Start now
 
-Run migrations and build the frontend before starting services:
+Use the recovery/start script from the repository root:
+
+```bash
+cd /home/administrator/progetti/WineCellarMulti
+chmod +x start.sh
+./start.sh --install-services --build
+```
+
+For later restarts after a reboot or outage:
+
+```bash
+cd /home/administrator/progetti/WineCellarMulti
+./start.sh
+```
+
+The script starts PostgreSQL, waits for it to be ready, runs Alembic migrations, builds the frontend when needed, and restarts the API and frontend systemd services.
+
+Manual equivalent:
 
 ```bash
 cd /home/administrator/progetti/WineCellarMulti
