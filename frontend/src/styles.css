@@ -1535,10 +1535,9 @@ textarea {
 .notes-grid {
   display: grid;
   gap: 12px;
-  max-height: min(46vh, 520px);
-  overflow-y: auto;
-  padding-right: 6px;
-  scrollbar-gutter: stable;
+  max-height: none;
+  overflow: visible;
+  padding-right: 0;
 }
 
 .detail-note {
@@ -1562,13 +1561,11 @@ textarea {
   white-space: pre-wrap;
 }
 
-.wine-side-panel::-webkit-scrollbar,
-.notes-grid::-webkit-scrollbar {
+.wine-side-panel::-webkit-scrollbar {
   width: 8px;
 }
 
-.wine-side-panel::-webkit-scrollbar-thumb,
-.notes-grid::-webkit-scrollbar-thumb {
+.wine-side-panel::-webkit-scrollbar-thumb {
   border-radius: 999px;
   background: #c9d2ca;
 }
@@ -1730,8 +1727,7 @@ textarea {
   background: color-mix(in srgb, var(--text-muted) 74%, var(--surface));
 }
 
-.wine-side-panel::-webkit-scrollbar-thumb,
-.notes-grid::-webkit-scrollbar-thumb {
+.wine-side-panel::-webkit-scrollbar-thumb {
   background: var(--border-strong);
 }
 
@@ -1923,11 +1919,6 @@ textarea {
     grid-template-columns: 1fr;
   }
 
-  .notes-grid {
-    max-height: none;
-    overflow: visible;
-    padding-right: 0;
-  }
 }
 
 @media (max-width: 520px) {
