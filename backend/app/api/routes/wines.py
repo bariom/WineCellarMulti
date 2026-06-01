@@ -16,7 +16,16 @@ from app.schemas.wine import WineCreate, WineResponse, WineShareOfferCreate, Win
 router = APIRouter()
 
 
-def get_household_wine(db: Session, context: CurrentContext, wine_id: UUID) -> Wine:
+def user_can_see_wine(context: CurrentContext, wine: Wine) -> bool:
+    if context.membership.role in ("owner", "admin") or context.membership.visibility_scope == "all":
+        return True
+    if wine.created_by_user_id == context.user.id:
+        return True
+    user_email = context.user.email.strip().lower()
+    return any(str(owner.get("name", "")).strip().lower() == user_email for owner in (wine.owners or []))
+
+
+def get_household_wine(db: Session, context: CurrentContext, wine_id: UUID, *, enforce_visibility: bool = True) -> Wine:
     wine = db.scalar(
         select(Wine).where(
             Wine.id == wine_id,
@@ -24,6 +33,8 @@ def get_household_wine(db: Session, context: CurrentContext, wine_id: UUID) -> W
         ),
     )
     if wine is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+    if enforce_visibility and not user_can_see_wine(context, wine):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
     return wine
 
@@ -105,6 +116,7 @@ def list_wines(
             .order_by(Wine.name.asc(), Wine.vintage.desc()),
         ),
     )
+    wines = [wine for wine in wines if user_can_see_wine(context, wine)]
     tags_by_wine = user_tag_names_by_wine(db, context, [wine.id for wine in wines])
     return [wine_response(wine, tags_by_wine.get(wine.id)) for wine in wines]
 
@@ -188,7 +200,7 @@ def accept_share_offer(
     )
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share offer not found")
-    wine = get_household_wine(db, context, offer.wine_id)
+    wine = get_household_wine(db, context, offer.wine_id, enforce_visibility=False)
     sender = db.get(User, offer.created_by_user_id)
     if not wine.owners:
         upsert_owner_share(wine, sender.email if sender else "Owner", Decimal("100") - offer.share_pct)

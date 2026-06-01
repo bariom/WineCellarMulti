@@ -10,6 +10,7 @@ class MemberResponse(BaseModel):
     email: str
     display_name: str
     role: str
+    visibility_scope: str = "all"
 
 
 class HouseholdMembershipResponse(BaseModel):
@@ -30,12 +31,14 @@ class HouseholdUpdate(BaseModel):
 class InviteCreate(BaseModel):
     email: EmailStr
     role: str = Field(default="member", pattern="^(admin|member|viewer)$")
+    visibility_scope: str = Field(default="shared", pattern="^(all|shared)$")
 
 
 class InviteResponse(BaseModel):
     id: UUID
     email: str
     role: str
+    visibility_scope: str = "shared"
     expires_at: datetime
     accepted_at: datetime | None = None
     invite_token: str | None = None
@@ -46,4 +49,5 @@ class InviteAccept(BaseModel):
 
 
 class MemberRoleUpdate(BaseModel):
-    role: str = Field(pattern="^(admin|member|viewer)$")
+    role: str | None = Field(default=None, pattern="^(admin|member|viewer)$")
+    visibility_scope: str | None = Field(default=None, pattern="^(all|shared)$")

@@ -171,11 +171,13 @@ type Member = {
   email: string;
   display_name: string;
   role: string;
+  visibility_scope: "all" | "shared";
 };
 
 type InviteDraft = {
   email: string;
   role: string;
+  visibility_scope: "all" | "shared";
 };
 
 type PendingUser = {
@@ -378,6 +380,9 @@ const translations = {
     inviteLinkHelp: "Login or create an account with the invited email, then accept the invite.",
     inviteMember: "Invite member",
     inviteToken: "Invite token",
+    visibility: "Visibility",
+    visibilityAll: "All wines",
+    visibilityShared: "Only shared positions",
     language: "Language",
     loadingData: "Loading data",
     login: "Login",
@@ -603,6 +608,9 @@ const translations = {
     inviteLinkHelp: "Accedi o crea un account con l'email invitata, poi accetta l'invito.",
     inviteMember: "Invita membro",
     inviteToken: "Token invito",
+    visibility: "Visibilita",
+    visibilityAll: "Tutti i vini",
+    visibilityShared: "Solo posizioni condivise",
     language: "Lingua",
     loadingData: "Caricamento dati",
     login: "Accesso",
@@ -777,6 +785,7 @@ const emptyAuthDraft: AuthDraft = {
 const emptyInviteDraft: InviteDraft = {
   email: "",
   role: "viewer",
+  visibility_scope: "shared",
 };
 
 const emptyWishlistDraft: WishlistDraft = {
@@ -1968,11 +1977,27 @@ export function App() {
     try {
       await api<Member>(`/api/v1/household/members/${member.membership_id}`, {
         method: "PATCH",
-        body: JSON.stringify({ role }),
+        body: JSON.stringify({ role, visibility_scope: member.visibility_scope }),
       });
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateMemberVisibility(member: Member, visibilityScope: "all" | "shared") {
+    setSaving(true);
+    setError("");
+    try {
+      await api<Member>(`/api/v1/household/members/${member.membership_id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ visibility_scope: visibilityScope }),
+      });
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update member visibility");
     } finally {
       setSaving(false);
     }
@@ -4217,6 +4242,18 @@ export function App() {
                             <option value="member">Member</option>
                             <option value="admin">Admin</option>
                           </select>
+                          {member.role === "admin" ? (
+                            <small>{t("visibilityAll")}</small>
+                          ) : (
+                            <select
+                              value={member.visibility_scope}
+                              disabled={saving}
+                              onChange={(event) => updateMemberVisibility(member, event.target.value as "all" | "shared")}
+                            >
+                              <option value="shared">{t("visibilityShared")}</option>
+                              <option value="all">{t("visibilityAll")}</option>
+                            </select>
+                          )}
                           <button
                             type="button"
                             className="danger compact"
@@ -4391,6 +4428,17 @@ export function App() {
                         <option value="viewer">Viewer</option>
                         <option value="member">Member</option>
                         <option value="admin">Admin</option>
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("visibility")}</span>
+                      <select
+                        value={inviteDraft.role === "admin" ? "all" : inviteDraft.visibility_scope}
+                        disabled={inviteDraft.role === "admin"}
+                        onChange={(event) => setInviteDraft({ ...inviteDraft, visibility_scope: event.target.value as "all" | "shared" })}
+                      >
+                        <option value="shared">{t("visibilityShared")}</option>
+                        <option value="all">{t("visibilityAll")}</option>
                       </select>
                     </label>
                     <button type="submit" disabled={saving}>{saving ? t("working") : t("createInvite")}</button>

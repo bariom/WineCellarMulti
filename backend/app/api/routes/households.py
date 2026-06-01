@@ -35,6 +35,7 @@ def member_response(db: Session, membership: Membership) -> MemberResponse:
         email=user.email,
         display_name=user.display_name,
         role=membership.role,
+        visibility_scope=membership.visibility_scope,
     )
 
 
@@ -130,6 +131,7 @@ def create_invite(
     context: CurrentContext = Depends(require_admin_context),
 ) -> InviteResponse:
     email = payload.email.lower()
+    visibility_scope = "all" if payload.role == "admin" else payload.visibility_scope
     invited_user = db.scalar(select(User).where(User.email == email))
     if invited_user is not None:
         existing_membership = db.scalar(
@@ -146,6 +148,7 @@ def create_invite(
         invited_by_user_id=context.user.id,
         email=email,
         role=payload.role,
+        visibility_scope=visibility_scope,
         token_hash=hash_invite_token(token),
         expires_at=datetime.now(timezone.utc) + timedelta(days=settings.invite_ttl_days),
         created_at=datetime.now(timezone.utc),
@@ -157,6 +160,7 @@ def create_invite(
         id=invite.id,
         email=invite.email,
         role=invite.role,
+        visibility_scope=invite.visibility_scope,
         expires_at=invite.expires_at,
         accepted_at=invite.accepted_at,
         invite_token=token,
@@ -178,6 +182,7 @@ def list_invites(
             id=invite.id,
             email=invite.email,
             role=invite.role,
+            visibility_scope=invite.visibility_scope,
             expires_at=invite.expires_at,
             accepted_at=invite.accepted_at,
             invite_token=None,
@@ -231,7 +236,12 @@ def accept_invite(
         db.refresh(existing)
         return member_response(db, existing)
 
-    membership = Membership(user_id=context.user.id, household_id=invite.household_id, role=invite.role)
+    membership = Membership(
+        user_id=context.user.id,
+        household_id=invite.household_id,
+        role=invite.role,
+        visibility_scope=invite.visibility_scope,
+    )
     invite.accepted_at = datetime.now(timezone.utc)
     db.add(membership)
     db.commit()
@@ -256,7 +266,12 @@ def update_member_role(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     if membership.role == "owner":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner role cannot be changed")
-    membership.role = payload.role
+    if payload.role is None and payload.visibility_scope is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No membership changes provided")
+    if payload.role is not None:
+        membership.role = payload.role
+    if payload.visibility_scope is not None:
+        membership.visibility_scope = "all" if membership.role in ("owner", "admin") else payload.visibility_scope
     db.commit()
     db.refresh(membership)
     return member_response(db, membership)

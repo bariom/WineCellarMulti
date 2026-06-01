@@ -251,6 +251,8 @@ def test_invite_acceptance_and_viewer_permissions():
     assert members_after.status_code == 200
     assert sorted(member_data["email"] for member_data in members_after.json()) == ["owner@example.com", "viewer@example.com"]
 
+    private_wine = owner.post("/api/v1/wines", json={"name": "Private Wine", "quantity": 1, "price": 50})
+    assert private_wine.status_code == 201
     owner_wine = owner.post("/api/v1/wines", json={"name": "Shared Wine", "quantity": 1, "price": 20})
     assert owner_wine.status_code == 201
     share_offer = owner.post(
@@ -273,7 +275,7 @@ def test_invite_acceptance_and_viewer_permissions():
 
     viewer_list = member.get("/api/v1/wines")
     assert viewer_list.status_code == 200
-    assert [wine["name"] for wine in viewer_list.json()] == ["Shared Wine"]
+    assert viewer_list.json() == []
 
     offers = member.get("/api/v1/wines/share-offers")
     assert offers.status_code == 200
@@ -282,6 +284,20 @@ def test_invite_acceptance_and_viewer_permissions():
     assert accepted_offer.status_code == 200
     assert accepted_offer.json()["owners"][1]["name"] == "viewer@example.com"
     assert accepted_offer.json()["owners"][1]["share_pct"] == 40.0
+
+    viewer_list = member.get("/api/v1/wines")
+    assert viewer_list.status_code == 200
+    assert [wine["name"] for wine in viewer_list.json()] == ["Shared Wine"]
+
+    visibility_update = owner.patch(
+        f"/api/v1/household/members/{invited_membership_id}",
+        json={"visibility_scope": "all"},
+    )
+    assert visibility_update.status_code == 200
+    assert visibility_update.json()["visibility_scope"] == "all"
+    full_viewer_list = member.get("/api/v1/wines")
+    assert full_viewer_list.status_code == 200
+    assert [wine["name"] for wine in full_viewer_list.json()] == ["Private Wine", "Shared Wine"]
 
     viewer_create = member.post("/api/v1/wines", json={"name": "Blocked Wine", "quantity": 1, "price": 20})
     assert viewer_create.status_code == 403

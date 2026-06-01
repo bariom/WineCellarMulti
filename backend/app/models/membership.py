@@ -16,3 +16,4 @@ class Membership(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     household_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True)
     role: Mapped[str] = mapped_column(String(32), default="owner")
+    visibility_scope: Mapped[str] = mapped_column(String(32), default="all")

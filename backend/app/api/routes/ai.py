@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
-from app.api.routes.wines import get_household_wine
+from app.api.routes.wines import get_household_wine, user_can_see_wine
 from app.api.routes.wishlist import get_household_wishlist_item
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
@@ -352,6 +352,7 @@ def suggest_pairing(
             .limit(120),
         ),
     )
+    cellar_wines = [wine for wine in cellar_wines if user_can_see_wine(context, wine)]
     wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
     schema = {
         "name": "wine_pairing",
