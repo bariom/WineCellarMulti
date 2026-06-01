@@ -836,9 +836,9 @@ textarea {
   display: grid;
   gap: 10px;
   padding: 14px;
-  border: 1px solid #d8ded7;
+  border: 1px solid var(--border);
   border-radius: 8px;
-  background: #fff;
+  background: var(--surface);
 }
 
 .stats-panel-wrapper summary,
@@ -848,7 +848,7 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   cursor: pointer;
-  color: #17201c;
+  color: var(--text);
   font-weight: 700;
 }
 
@@ -2232,6 +2232,7 @@ button.stat-card:hover {
 
 .session-pill,
 .wine-form,
+.stats-panel-wrapper,
 .filter-panel,
 .team-panel,
 .settings-card,
