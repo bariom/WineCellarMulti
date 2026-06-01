@@ -306,6 +306,7 @@ const translations = {
     bottles: "Bottles",
     cancel: "Cancel",
     cellar: "Cellar",
+    cellarName: "Cellar name",
     clearFilters: "Clear filters",
     convert: "Convert",
     create: "Create",
@@ -523,6 +524,7 @@ const translations = {
     bottles: "Bottiglie",
     cancel: "Annulla",
     cellar: "Cantina",
+    cellarName: "Nome cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
     create: "Crea",
@@ -2742,7 +2744,7 @@ export function App() {
                   <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
                 </label>
                 <label>
-                  <span>{t("household")}</span>
+                  <span>{t("cellarName")}</span>
                   <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
                 </label>
               </>
