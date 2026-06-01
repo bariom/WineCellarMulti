@@ -364,6 +364,7 @@ const translations = {
     importRun: "Run import",
     importSection: "Import",
     importSummary: "Import summary",
+    idealWindow: "Ideal window",
     emptyCellar: "Empty cellar",
     emptyCellarWarning: "Deletes all wines and wishlist items in the active cellar.",
     inviteLink: "Invite link",
@@ -485,6 +486,7 @@ const translations = {
     exportData: "Export data",
     exportJson: "Export JSON",
     working: "Working",
+    youngWine: "Young",
     estimatedCost: "Estimated cost",
     sharedCellar: "Shared cellar",
     sharedBottles: "Shared",
@@ -582,6 +584,7 @@ const translations = {
     importRun: "Esegui import",
     importSection: "Importazione",
     importSummary: "Riepilogo import",
+    idealWindow: "Periodo ideale",
     emptyCellar: "Svuota cantina",
     emptyCellarWarning: "Cancella tutti i vini e gli elementi wishlist della cantina attiva.",
     inviteLink: "Link invito",
@@ -703,6 +706,7 @@ const translations = {
     exportData: "Esportazione dati",
     exportJson: "Esporta JSON",
     working: "Elaborazione",
+    youngWine: "Giovane",
     estimatedCost: "Costo stimato",
     sharedCellar: "Cantina condivisa",
     sharedBottles: "Condivise",
@@ -1343,6 +1347,11 @@ function WineDetail({
                 <span>{currentYear}</span>
               </span>
             ) : null}
+          </div>
+          <div className="window-legend">
+            <span className="legend-young">{t("youngWine")}</span>
+            <span className="legend-ideal">{t("idealWindow")}</span>
+            <span className="legend-past">{t("pastWindow")}</span>
           </div>
           <div className="window-labels">
             <span>{drinkStart}</span>

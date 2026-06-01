@@ -19,6 +19,9 @@
   --danger-surface: #fff0f2;
   --success-surface: #eef5f0;
   --accent: #c2ac66;
+  --drink-young: #d9b64b;
+  --drink-ideal: #2f8f64;
+  --drink-past: #c95866;
   --bar-muted: #e8ede8;
   --shadow-soft: 0 10px 28px rgba(23, 32, 28, 0.04);
   --focus: rgba(36, 81, 66, 0.32);
@@ -49,6 +52,9 @@
   --danger-surface: #321820;
   --success-surface: #172820;
   --accent: #d7bd6d;
+  --drink-young: #d7bd6d;
+  --drink-ideal: #6bc29f;
+  --drink-past: #d45a6e;
   --bar-muted: #26352e;
   --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.38);
   --focus: rgba(107, 194, 159, 0.42);
@@ -79,6 +85,9 @@
     --danger-surface: #321820;
     --success-surface: #172820;
     --accent: #d7bd6d;
+    --drink-young: #d7bd6d;
+    --drink-ideal: #6bc29f;
+    --drink-past: #d45a6e;
     --bar-muted: #26352e;
     --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.38);
     --focus: rgba(107, 194, 159, 0.42);
@@ -105,6 +114,9 @@
   --primary-contrast: #fffaf0;
   --secondary: #eadfc9;
   --accent: #b97832;
+  --drink-young: #c89534;
+  --drink-ideal: #4f8755;
+  --drink-past: #b14e5b;
   --bar-muted: #eadfc9;
   --hero-bg:
     radial-gradient(circle at top left, rgba(185, 120, 50, 0.22), transparent 36%),
@@ -1459,26 +1471,34 @@ textarea {
 
 .mini-window-track {
   position: relative;
-  height: 8px;
+  height: 10px;
   overflow: visible;
   border-radius: 999px;
-  background: repeating-linear-gradient(135deg, var(--border-strong) 0 3px, var(--surface) 3px 6px);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--drink-young) 70%, var(--surface)) 0%,
+      color-mix(in srgb, var(--drink-young) 42%, var(--surface)) 42%,
+      color-mix(in srgb, var(--drink-past) 38%, var(--surface)) 100%
+    );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 72%, transparent);
 }
 
 .mini-window-peak {
   position: absolute;
-  inset-block: 0;
+  inset-block: -1px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--text-muted) 72%, var(--surface));
+  background: linear-gradient(90deg, var(--drink-ideal), color-mix(in srgb, var(--drink-ideal) 70%, var(--accent)));
+  box-shadow: 0 0 0 2px var(--surface), 0 5px 12px color-mix(in srgb, var(--drink-ideal) 24%, transparent);
 }
 
 .mini-window-current {
   position: absolute;
-  top: -4px;
-  bottom: -4px;
-  width: 2px;
+  top: -5px;
+  bottom: -5px;
+  width: 3px;
   border-radius: 999px;
-  background: var(--accent);
+  background: var(--text);
   box-shadow: 0 0 0 2px var(--surface);
   transform: translateX(-50%);
 }
@@ -1584,19 +1604,29 @@ textarea {
 
 .window-track {
   position: relative;
-  height: 14px;
+  height: 18px;
   overflow: visible;
   border-radius: 999px;
-  background: repeating-linear-gradient(135deg, #c9d2ca 0 4px, #fff 4px 8px);
+  background:
+    linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--drink-young) 78%, var(--surface)) 0%,
+      color-mix(in srgb, var(--drink-young) 48%, var(--surface)) 45%,
+      color-mix(in srgb, var(--drink-past) 42%, var(--surface)) 100%
+    );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 75%, transparent);
   margin-top: 18px;
 }
 
 .window-peak {
   position: absolute;
-  top: 0;
-  bottom: 0;
+  top: -2px;
+  bottom: -2px;
   border-radius: 999px;
-  background: #7f746d;
+  background: linear-gradient(90deg, var(--drink-ideal), color-mix(in srgb, var(--drink-ideal) 66%, var(--accent)));
+  box-shadow:
+    0 0 0 3px var(--surface),
+    0 8px 20px color-mix(in srgb, var(--drink-ideal) 28%, transparent);
 }
 
 .window-current-year {
@@ -1642,6 +1672,40 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   font-size: 0.8rem;
+}
+
+.window-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.window-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.window-legend span::before {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  content: "";
+}
+
+.legend-young::before {
+  background: var(--drink-young);
+}
+
+.legend-ideal::before {
+  background: var(--drink-ideal);
+}
+
+.legend-past::before {
+  background: var(--drink-past);
 }
 
 .detail-section ul {
@@ -1876,14 +1940,6 @@ textarea {
 .bar-track span,
 .maturity-track span {
   background: linear-gradient(90deg, var(--primary), var(--accent));
-}
-
-.window-track {
-  background: repeating-linear-gradient(135deg, var(--border-strong) 0 4px, var(--surface) 4px 8px);
-}
-
-.window-peak {
-  background: color-mix(in srgb, var(--text-muted) 74%, var(--surface));
 }
 
 .wine-side-panel::-webkit-scrollbar-thumb {
