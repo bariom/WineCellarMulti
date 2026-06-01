@@ -1242,6 +1242,17 @@ function currentUserSharePct(wine: Wine, session: Session | null) {
   return Math.min(Math.max(Number(wine.owner_share_pct || 100), 0), 100);
 }
 
+function ownedBottleCount(wine: Wine, session: Session | null) {
+  return Math.round((wine.quantity * currentUserSharePct(wine, session)) / 100);
+}
+
+function wineQuantityLabel(wine: Wine, session: Session | null, bottlesLabel: string) {
+  const owned = ownedBottleCount(wine, session);
+  const isShared = wine.owners.length > 0 || currentUserSharePct(wine, session) < 100;
+  if (isShared) return `${owned} ${bottlesLabel} di ${wine.quantity} condivise`;
+  return `${wine.quantity} ${bottlesLabel}`;
+}
+
 function ownershipStats(items: Wine[], session: Session | null) {
   return items.reduce(
     (totals, wine) => {
@@ -1518,7 +1529,7 @@ function WineDetail({
         <DetailField label={t("type")} value={wine.type} />
         <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} />
         <DetailField label={t("status")} value={wine.status} />
-        <DetailField label={t("quantity")} value={`${wine.quantity} ${t("bottles").toLowerCase()}`} />
+        <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} />
         <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
         <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} />
         <DetailField label={t("merchant")} value={wine.merchant} />
@@ -4230,7 +4241,7 @@ export function App() {
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
-                    <p className="row-primary">{wine.producer || t("noProducer")} - {wine.quantity}x - {wine.status}</p>
+                    <p className="row-primary">{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())} - {wine.status}</p>
                     <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
                     <div className="row-meta">
                       {wine.rating ? <span><StarRating value={wine.rating} label={t("rating")} /></span> : null}
