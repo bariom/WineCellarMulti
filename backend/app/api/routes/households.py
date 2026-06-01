@@ -118,6 +118,9 @@ def create_invite(
         )
         if existing_membership is not None:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already a member")
+        if not invited_user.is_approved:
+            invited_user.is_approved = True
+            invited_user.approved_at = datetime.now(timezone.utc)
 
     token = new_invite_token()
     invite = HouseholdInvite(

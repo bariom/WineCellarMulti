@@ -9,3 +9,4 @@ class SessionResponse(BaseModel):
     active_household_id: str | None = None
     active_household_name: str | None = None
     membership_role: str | None = None
+    pending_approval: bool = False

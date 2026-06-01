@@ -20,17 +20,18 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from app.api.deps import CurrentContext, build_session_response, get_current_context
+from app.api.deps import CurrentContext, build_session_response, get_current_context, require_admin_context
 from app.core.config import settings
 from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
+from app.models import Household, HouseholdInvite, Membership, PasskeyChallenge, User, UserPasskey, UserSession
 from app.schemas.auth import (
     LoginRequest,
     PasskeyLoginVerifyRequest,
     PasskeyRegistrationOptionsRequest,
     PasskeyRegistrationVerifyRequest,
     PasskeyResponse,
+    PendingUserResponse,
     RegisterRequest,
 )
 from app.schemas.session import SessionResponse
@@ -127,6 +128,22 @@ def create_session(db: Session, user: User, household: Household) -> tuple[UserS
     return user_session, token
 
 
+def user_is_preapproved(db: Session, email: str) -> bool:
+    if db.scalar(select(User)) is None:
+        return True
+    invite = db.scalar(
+        select(HouseholdInvite).where(
+            HouseholdInvite.email == email,
+            HouseholdInvite.accepted_at.is_(None),
+        ),
+    )
+    return bool(invite and invite.expires_at.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc))
+
+
+def pending_user_response(user: User) -> PendingUserResponse:
+    return PendingUserResponse(id=str(user.id), email=user.email, display_name=user.display_name)
+
+
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
     email = payload.email.lower()
@@ -134,17 +151,28 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    user = User(email=email, display_name=payload.display_name.strip(), password_hash=hash_password(payload.password))
+    is_approved = user_is_preapproved(db, email)
+    user = User(
+        email=email,
+        display_name=payload.display_name.strip(),
+        password_hash=hash_password(payload.password),
+        is_approved=is_approved,
+        approved_at=datetime.now(timezone.utc) if is_approved else None,
+    )
     household = Household(name=payload.household_name.strip())
     db.add_all([user, household])
     db.flush()
     membership = Membership(user_id=user.id, household_id=household.id, role="owner")
     db.add(membership)
-    user_session, token = create_session(db, user, household)
     db.commit()
     db.refresh(user)
     db.refresh(household)
     db.refresh(membership)
+    if not user.is_approved:
+        return SessionResponse(authenticated=False, pending_approval=True)
+
+    user_session, token = create_session(db, user, household)
+    db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)
     return SessionResponse(**build_session_response(CurrentContext(user=user, household=household, membership=membership, session=user_session)))
@@ -155,6 +183,8 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
+    if not user.is_approved:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
 
     membership = db.scalar(select(Membership).where(Membership.user_id == user.id).order_by(Membership.role.asc()))
     if membership is None:
@@ -271,6 +301,8 @@ def verify_passkey_login(
     user = db.get(User, passkey.user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User unavailable")
+    if not user.is_approved:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
     membership = db.scalar(select(Membership).where(Membership.user_id == user.id).order_by(Membership.role.asc()))
     if membership is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No household membership")
@@ -282,6 +314,45 @@ def verify_passkey_login(
     db.refresh(user_session)
     set_session_cookie(response, token)
     return SessionResponse(**build_session_response(CurrentContext(user=user, household=household, membership=membership, session=user_session)))
+
+
+@router.get("/pending-users", response_model=list[PendingUserResponse])
+def list_pending_users(
+    _: CurrentContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+) -> list[PendingUserResponse]:
+    users = db.scalars(select(User).where(User.is_approved.is_(False)).order_by(User.email.asc()))
+    return [pending_user_response(user) for user in users]
+
+
+@router.post("/pending-users/{user_id}/approve", response_model=PendingUserResponse)
+def approve_pending_user(
+    user_id: UUID,
+    _: CurrentContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+) -> PendingUserResponse:
+    user = db.get(User, user_id)
+    if user is None or user.is_approved:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
+    user.is_approved = True
+    user.approved_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return pending_user_response(user)
+
+
+@router.delete("/pending-users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def reject_pending_user(
+    user_id: UUID,
+    _: CurrentContext = Depends(require_admin_context),
+    db: Session = Depends(get_db),
+) -> Response:
+    user = db.get(User, user_id)
+    if user is None or user.is_approved:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
+    db.delete(user)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/passkeys/{passkey_id}", status_code=status.HTTP_204_NO_CONTENT)

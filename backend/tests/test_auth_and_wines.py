@@ -67,6 +67,21 @@ def test_register_login_session_and_logout():
     assert registered.json()["active_household_name"] == "Main Cellar"
     assert client.get("/api/v1/auth/passkeys").json() == []
 
+    pending_client = TestClient(app)
+    pending = register(pending_client, email="pending@example.com", password="strong-password-2")
+    assert pending.status_code == 201
+    assert pending.json()["authenticated"] is False
+    assert pending.json()["pending_approval"] is True
+    blocked_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
+    assert blocked_login.status_code == 403
+    pending_users = client.get("/api/v1/auth/pending-users")
+    assert pending_users.status_code == 200
+    assert pending_users.json()[0]["email"] == "pending@example.com"
+    approved = client.post(f"/api/v1/auth/pending-users/{pending_users.json()[0]['id']}/approve")
+    assert approved.status_code == 200
+    approved_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
+    assert approved_login.status_code == 200
+
     logged_out = client.post("/api/v1/auth/logout")
     assert logged_out.status_code == 204
     assert client.get("/api/v1/session").json()["authenticated"] is False

@@ -31,3 +31,9 @@ class PasskeyResponse(BaseModel):
     name: str
     created_at: str
     last_used_at: str | None = None
+
+
+class PendingUserResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str

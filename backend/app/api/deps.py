@@ -29,6 +29,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "active_household_id": None,
             "active_household_name": None,
             "membership_role": None,
+            "pending_approval": False,
         }
     return {
         "authenticated": True,
@@ -38,6 +39,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_id": str(context.household.id),
         "active_household_name": context.household.name,
         "membership_role": context.membership.role,
+        "pending_approval": False,
     }
 
 
@@ -60,6 +62,10 @@ def get_optional_context(
     user = db.get(User, user_session.user_id)
     household = db.get(Household, user_session.active_household_id)
     if user is None or household is None:
+        db.delete(user_session)
+        db.commit()
+        return None
+    if not user.is_approved:
         db.delete(user_session)
         db.commit()
         return None

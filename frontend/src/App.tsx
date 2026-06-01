@@ -6,6 +6,7 @@ type Session = {
   user_email: string | null;
   active_household_name: string | null;
   membership_role: string | null;
+  pending_approval: boolean;
 };
 
 type Wine = {
@@ -171,6 +172,12 @@ type Member = {
 type InviteDraft = {
   email: string;
   role: string;
+};
+
+type PendingUser = {
+  id: string;
+  email: string;
+  display_name: string;
 };
 
 type Invite = {
@@ -396,6 +403,9 @@ const translations = {
     passkeys: "Passkeys",
     pastWindow: "Past window",
     pendingInvites: "Pending invites",
+    pendingApproval: "Account pending approval",
+    pendingApprovalHelp: "Your account was created, but it must be approved by an administrator before login.",
+    pendingUsers: "Users pending approval",
     personalSettings: "Personal settings",
     profileSection: "Profile",
     priority: "Priority",
@@ -597,6 +607,9 @@ const translations = {
     passkeys: "Passkey",
     pastWindow: "Finestra scaduta",
     pendingInvites: "Inviti pendenti",
+    pendingApproval: "Account in attesa di approvazione",
+    pendingApprovalHelp: "Il tuo account e stato creato, ma deve essere approvato da un amministratore prima dell'accesso.",
+    pendingUsers: "Utenti in attesa di approvazione",
     personalSettings: "Impostazioni personali",
     profileSection: "Profilo",
     priority: "Priorita",
@@ -1432,6 +1445,7 @@ export function App() {
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
+  const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
@@ -1549,9 +1563,15 @@ export function App() {
     setHouseholdMemberships(nextMemberships);
     setMembers(nextMembers);
     if (role === "owner" || role === "admin") {
-      setInvites(await api<Invite[]>("/api/v1/household/invites"));
+      const [nextInvites, nextPendingUsers] = await Promise.all([
+        api<Invite[]>("/api/v1/household/invites"),
+        api<PendingUser[]>("/api/v1/auth/pending-users"),
+      ]);
+      setInvites(nextInvites);
+      setPendingUsers(nextPendingUsers);
     } else {
       setInvites([]);
+      setPendingUsers([]);
     }
   }
 
@@ -1646,7 +1666,9 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      if (nextSession.authenticated) {
+        await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -1724,7 +1746,7 @@ export function App() {
   async function logout() {
     setError("");
     await api<void>("/api/v1/auth/logout", { method: "POST" });
-    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null });
+    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null, pending_approval: false });
     setWines([]);
     setWishlist([]);
     setShareOffers([]);
@@ -1732,6 +1754,7 @@ export function App() {
     setPasskeys([]);
     setHouseholdMemberships([]);
     setMembers([]);
+    setPendingUsers([]);
     setDraft(emptyDraft);
     setWishlistDraft(emptyWishlistDraft);
     setEditingId(null);
@@ -1824,6 +1847,33 @@ export function App() {
       await loadHouseholdData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to remove member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function approveUser(user: PendingUser) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<PendingUser>(`/api/v1/auth/pending-users/${user.id}/approve`, { method: "POST" });
+      setPendingUsers((current) => current.filter((item) => item.id !== user.id));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to approve user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function rejectUser(user: PendingUser) {
+    if (!window.confirm(`Reject ${user.email}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/auth/pending-users/${user.id}`, { method: "DELETE" });
+      setPendingUsers((current) => current.filter((item) => item.id !== user.id));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to reject user");
     } finally {
       setSaving(false);
     }
@@ -2569,6 +2619,12 @@ export function App() {
           </div>
           <form className="wine-form" onSubmit={submitAuth}>
             <h2>{authMode === "register" ? t("createAccount") : t("login")}</h2>
+            {session?.pending_approval ? (
+              <div className="invite-notice">
+                <strong>{t("pendingApproval")}</strong>
+                <span>{t("pendingApprovalHelp")}</span>
+              </div>
+            ) : null}
             <label>
               <span>{t("email")}</span>
               <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
@@ -3781,6 +3837,39 @@ export function App() {
                   ))}
                 </div>
               </section>
+
+              {canAdmin ? (
+                <section className="settings-card">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("pendingApproval")}</span>
+                      <h3>{t("pendingUsers")}</h3>
+                    </div>
+                  </div>
+                  {pendingUsers.length ? (
+                    <div className="member-list">
+                      {pendingUsers.map((user) => (
+                        <div className="member-row" key={user.id}>
+                          <div>
+                            <strong>{user.display_name}</strong>
+                            <span>{user.email}</span>
+                          </div>
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
+                              {t("accept")}
+                            </button>
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
+                              {t("decline")}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">{t("noActionItems")}</p>
+                  )}
+                </section>
+              ) : null}
 
               <section className="settings-card">
                 <div className="settings-card-heading">
