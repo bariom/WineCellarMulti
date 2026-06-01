@@ -1612,6 +1612,7 @@ function hasSharedOwnership(wine: Wine) {
 function WineDetail({
   wine,
   session,
+  auditEntries,
   canGenerate,
   generating,
   onGenerate,
@@ -1620,6 +1621,7 @@ function WineDetail({
 }: {
   wine: Wine;
   session: Session | null;
+  auditEntries: AiAuditLog[];
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
@@ -1765,6 +1767,26 @@ function WineDetail({
           {wine.ai_value_notes ? <DetailNote title={t("value")}>{wine.ai_value_notes}</DetailNote> : null}
         </div>
       ) : null}
+
+      <details className="detail-section ai-audit-detail">
+        <summary>
+          <span>{t("aiAudit")}</span>
+          <strong>{auditEntries.length}</strong>
+        </summary>
+        {auditEntries.length ? (
+          <div className="audit-list">
+            {auditEntries.map((entry) => (
+              <div className="audit-row" key={entry.id}>
+                <strong>{entry.feature.replace(/_/g, " ")}</strong>
+                <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                <p>{entry.summary}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-state">{t("noAiAudit")}</p>
+        )}
+      </details>
     </section>
   );
 }
@@ -4320,6 +4342,7 @@ export function App() {
                 <WineDetail
                   wine={selectedWine}
                   session={session}
+                  auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id)}
                   canGenerate={canGenerateAi}
                   generating={generatingAi}
                   onGenerate={(feature) => generateWineAi(selectedWine, feature)}
@@ -4535,6 +4558,7 @@ export function App() {
                     <WineDetail
                       wine={wine}
                       session={session}
+                      auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
                       canGenerate={canGenerateAi}
                       generating={generatingAi}
                       onGenerate={(feature) => generateWineAi(wine, feature)}

@@ -2009,6 +2009,26 @@ button.stat-card:hover {
   gap: 10px;
 }
 
+.ai-audit-detail {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.ai-audit-detail summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.ai-audit-detail[open] summary {
+  margin-bottom: 10px;
+}
+
 .window-track {
   position: relative;
   height: 18px;
