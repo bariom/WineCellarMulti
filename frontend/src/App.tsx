@@ -101,6 +101,20 @@ type ImportResult = {
   wishlist_updated: number;
 };
 
+type WineShareOffer = {
+  id: string;
+  wine_id: string;
+  wine_name: string;
+  wine_vintage: string;
+  created_by_email: string;
+  recipient_email: string;
+  share_pct: string;
+  message: string;
+  status: string;
+  created_at: string;
+  decided_at: string | null;
+};
+
 type WishlistItem = {
   id: string;
   household_id: string;
@@ -340,6 +354,7 @@ const translations = {
     login: "Login",
     logout: "Logout",
     merchant: "Merchant",
+    message: "Message",
     multiOwnership: "Multi ownership",
     missingDrinkWindow: "Missing drink window",
     missingScores: "Missing scores",
@@ -439,6 +454,11 @@ const translations = {
     estimatedCost: "Estimated cost",
     sharedCellar: "Shared cellar",
     sharedBottles: "Shared",
+    sharePct: "Share %",
+    shareWine: "Push co-ownership",
+    shareWineHelp: "The recipient must already be a member of this cellar.",
+    pendingShareOffers: "Pending share offers",
+    decline: "Decline",
     skipped: "skipped",
     tokens: "tokens",
     manageTags: "Manage tags",
@@ -535,6 +555,7 @@ const translations = {
     login: "Accesso",
     logout: "Esci",
     merchant: "Commerciante",
+    message: "Messaggio",
     multiOwnership: "Multiproprieta",
     missingDrinkWindow: "Finestra mancante",
     missingScores: "Punteggi mancanti",
@@ -634,6 +655,11 @@ const translations = {
     estimatedCost: "Costo stimato",
     sharedCellar: "Cantina condivisa",
     sharedBottles: "Condivise",
+    sharePct: "Quota %",
+    shareWine: "Invia comproprieta",
+    shareWineHelp: "Il destinatario deve essere gia membro di questa cantina.",
+    pendingShareOffers: "Proposte di comproprieta",
+    decline: "Rifiuta",
     skipped: "saltati",
     tokens: "token",
     manageTags: "Gestisci tag",
@@ -1402,6 +1428,7 @@ export function App() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
+  const [shareOffers, setShareOffers] = useState<WineShareOffer[]>([]);
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -1426,6 +1453,7 @@ export function App() {
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("WineCellarMulti");
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
   const [importFileName, setImportFileName] = useState("");
@@ -1497,6 +1525,14 @@ export function App() {
     }
   }
 
+  async function loadShareOffers(authenticated = session?.authenticated) {
+    if (authenticated) {
+      setShareOffers(await api<WineShareOffer[]>("/api/v1/wines/share-offers"));
+    } else {
+      setShareOffers([]);
+    }
+  }
+
   async function loadPasskeys(authenticated = session?.authenticated) {
     if (authenticated) {
       setPasskeys(await api<Passkey[]>("/api/v1/auth/passkeys"));
@@ -1558,10 +1594,11 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
+      setShareOffers([]);
       setUserTags([]);
       setPasskeys([]);
       setHouseholdMemberships([]);
@@ -1609,7 +1646,7 @@ export function App() {
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
     } finally {
@@ -1634,7 +1671,7 @@ export function App() {
       });
       setSession(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to login with passkey");
     } finally {
@@ -1690,6 +1727,7 @@ export function App() {
     setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_name: null, membership_role: null });
     setWines([]);
     setWishlist([]);
+    setShareOffers([]);
     setUserTags([]);
     setPasskeys([]);
     setHouseholdMemberships([]);
@@ -1786,6 +1824,41 @@ export function App() {
       await loadHouseholdData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to remove member");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createWineShareOffer(wine: Wine) {
+    if (!shareDraft.email.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<WineShareOffer>(`/api/v1/wines/${wine.id}/share-offers`, {
+        method: "POST",
+        body: JSON.stringify({
+          email: shareDraft.email.trim(),
+          share_pct: Number(shareDraft.share_pct || 0),
+          message: shareDraft.message.trim(),
+        }),
+      });
+      setShareDraft({ email: "", share_pct: "50", message: "" });
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to share wine");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function decideShareOffer(offer: WineShareOffer, decision: "accept" | "decline") {
+    setSaving(true);
+    setError("");
+    try {
+      await api<Wine | WineShareOffer>(`/api/v1/wines/share-offers/${offer.id}/${decision}`, { method: "POST" });
+      setShareOffers((current) => current.filter((item) => item.id !== offer.id));
+      await loadWines();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update share offer");
     } finally {
       setSaving(false);
     }
@@ -2276,6 +2349,33 @@ export function App() {
 
   function toggleSelectedWishlistItem(item: WishlistItem) {
     setSelectedWishlistId((current) => current === item.id ? null : item.id);
+  }
+
+  function renderSharePanel(wine: Wine) {
+    if (!canWriteWine) return null;
+    return (
+      <section className="wine-form share-panel">
+        <h2>{t("shareWine")}</h2>
+        <p className="empty-state">{t("shareWineHelp")}</p>
+        <label>
+          <span>{t("email")}</span>
+          <input type="email" value={shareDraft.email} onChange={(event) => setShareDraft({ ...shareDraft, email: event.target.value })} />
+        </label>
+        <div className="form-row">
+          <label>
+            <span>{t("sharePct")}</span>
+            <input type="number" min="0" max="100" step="0.01" value={shareDraft.share_pct} onChange={(event) => setShareDraft({ ...shareDraft, share_pct: event.target.value })} />
+          </label>
+        </div>
+        <label>
+          <span>{t("message")}</span>
+          <textarea rows={2} value={shareDraft.message} onChange={(event) => setShareDraft({ ...shareDraft, message: event.target.value })} />
+        </label>
+        <button type="button" disabled={saving || !shareDraft.email.trim()} onClick={() => createWineShareOffer(wine)}>
+          {t("shareWine")}
+        </button>
+      </section>
+    );
   }
 
   function closeWineForm() {
@@ -3199,13 +3299,16 @@ export function App() {
                 </div>
               </form>
             ) : activeView === "cellar" && selectedWine ? (
-              <WineDetail
-                wine={selectedWine}
-                canGenerate={canGenerateAi}
-                generating={generatingAi}
-                onGenerate={(feature) => generateWineAi(selectedWine, feature)}
-                t={t}
-              />
+              <>
+                <WineDetail
+                  wine={selectedWine}
+                  canGenerate={canGenerateAi}
+                  generating={generatingAi}
+                  onGenerate={(feature) => generateWineAi(selectedWine, feature)}
+                  t={t}
+                />
+                {renderSharePanel(selectedWine)}
+              </>
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail
                   item={selectedWishlistItem}
@@ -3407,6 +3510,7 @@ export function App() {
                       onGenerate={(feature) => generateWineAi(wine, feature)}
                       t={t}
                     />
+                    {renderSharePanel(wine)}
                   </div>
                 ) : null}
               </div>
@@ -3676,6 +3780,38 @@ export function App() {
                     </div>
                   ))}
                 </div>
+              </section>
+
+              <section className="settings-card">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("ownership")}</span>
+                    <h3>{t("pendingShareOffers")}</h3>
+                  </div>
+                </div>
+                {shareOffers.length ? (
+                  <div className="invite-list">
+                    {shareOffers.map((offer) => (
+                      <div className="invite-row" key={offer.id}>
+                        <div>
+                          <strong>{offer.wine_name} {offer.wine_vintage}</strong>
+                          <span>{offer.share_pct}% - {offer.created_by_email}</span>
+                          {offer.message ? <span>{offer.message}</span> : null}
+                        </div>
+                        <div className="member-actions">
+                          <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>
+                            {t("accept")}
+                          </button>
+                          <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>
+                            {t("decline")}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-state">{t("noActionItems")}</p>
+                )}
               </section>
 
               {canAdmin ? (

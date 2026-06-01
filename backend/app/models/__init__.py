@@ -8,6 +8,7 @@ from app.models.tags import UserTag, UserWineTag
 from app.models.user import User
 from app.models.user_ai_settings import UserAiSettings
 from app.models.wine import Wine
+from app.models.wine_share import WineShareOffer
 from app.models.wishlist import WishlistItem
 
 __all__ = [
@@ -23,5 +24,6 @@ __all__ = [
     "UserTag",
     "UserWineTag",
     "Wine",
+    "WineShareOffer",
     "WishlistItem",
 ]

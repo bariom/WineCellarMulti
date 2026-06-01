@@ -217,6 +217,12 @@ def test_invite_acceptance_and_viewer_permissions():
 
     owner_wine = owner.post("/api/v1/wines", json={"name": "Shared Wine", "quantity": 1, "price": 20})
     assert owner_wine.status_code == 201
+    share_offer = owner.post(
+        f"/api/v1/wines/{owner_wine.json()['id']}/share-offers",
+        json={"email": "viewer@example.com", "share_pct": 40, "message": "You own this allocation too."},
+    )
+    assert share_offer.status_code == 201
+    assert share_offer.json()["recipient_email"] == "viewer@example.com"
 
     member_households = member.get("/api/v1/household/memberships")
     assert member_households.status_code == 200
@@ -230,6 +236,14 @@ def test_invite_acceptance_and_viewer_permissions():
     viewer_list = member.get("/api/v1/wines")
     assert viewer_list.status_code == 200
     assert [wine["name"] for wine in viewer_list.json()] == ["Shared Wine"]
+
+    offers = member.get("/api/v1/wines/share-offers")
+    assert offers.status_code == 200
+    assert offers.json()[0]["wine_name"] == "Shared Wine"
+    accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
+    assert accepted_offer.status_code == 200
+    assert accepted_offer.json()["owners"][1]["name"] == "viewer@example.com"
+    assert accepted_offer.json()["owners"][1]["share_pct"] == 40.0
 
     viewer_create = member.post("/api/v1/wines", json={"name": "Blocked Wine", "quantity": 1, "price": 20})
     assert viewer_create.status_code == 403

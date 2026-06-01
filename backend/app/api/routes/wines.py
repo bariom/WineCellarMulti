@@ -1,3 +1,5 @@
+from datetime import datetime, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -7,8 +9,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.api.routes.tags import get_or_create_user_tag
 from app.db.session import get_db
-from app.models import UserTag, UserWineTag, Wine
-from app.schemas.wine import WineCreate, WineResponse, WineUpdate
+from app.models import Membership, User, UserTag, UserWineTag, Wine, WineShareOffer
+from app.schemas.wine import WineCreate, WineResponse, WineShareOfferCreate, WineShareOfferResponse, WineUpdate
 
 
 router = APIRouter()
@@ -48,6 +50,36 @@ def wine_response(wine: Wine, tag_names: list[str] | None = None) -> WineRespons
     return response
 
 
+def share_offer_response(db: Session, offer: WineShareOffer) -> WineShareOfferResponse:
+    wine = db.get(Wine, offer.wine_id)
+    sender = db.get(User, offer.created_by_user_id)
+    return WineShareOfferResponse(
+        id=offer.id,
+        wine_id=offer.wine_id,
+        wine_name=wine.name if wine else "",
+        wine_vintage=wine.vintage if wine else "",
+        created_by_email=sender.email if sender else "",
+        recipient_email=offer.recipient_email,
+        share_pct=offer.share_pct,
+        message=offer.message,
+        status=offer.status,
+        created_at=offer.created_at,
+        decided_at=offer.decided_at,
+    )
+
+
+def upsert_owner_share(wine: Wine, owner_name: str, share_pct: Decimal) -> None:
+    cleaned_name = owner_name.strip()
+    owners = [dict(owner) for owner in (wine.owners or []) if owner.get("name")]
+    for owner in owners:
+        if str(owner.get("name", "")).strip().lower() == cleaned_name.lower():
+            owner["share_pct"] = float(share_pct)
+            wine.owners = owners
+            return
+    owners.append({"name": cleaned_name, "share_pct": float(share_pct)})
+    wine.owners = owners
+
+
 def set_user_wine_tags(db: Session, context: CurrentContext, wine: Wine, tag_names: list[str]) -> None:
     db.query(UserWineTag).filter(UserWineTag.user_id == context.user.id, UserWineTag.wine_id == wine.id).delete()
     cleaned_names = []
@@ -75,6 +107,120 @@ def list_wines(
     )
     tags_by_wine = user_tag_names_by_wine(db, context, [wine.id for wine in wines])
     return [wine_response(wine, tags_by_wine.get(wine.id)) for wine in wines]
+
+
+@router.get("/share-offers", response_model=list[WineShareOfferResponse])
+def list_share_offers(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> list[WineShareOfferResponse]:
+    offers = db.scalars(
+        select(WineShareOffer)
+        .where(
+            WineShareOffer.household_id == context.household.id,
+            WineShareOffer.recipient_user_id == context.user.id,
+            WineShareOffer.status == "pending",
+        )
+        .order_by(WineShareOffer.created_at.desc()),
+    )
+    return [share_offer_response(db, offer) for offer in offers]
+
+
+@router.post("/{wine_id}/share-offers", response_model=WineShareOfferResponse, status_code=status.HTTP_201_CREATED)
+def create_share_offer(
+    wine_id: UUID,
+    payload: WineShareOfferCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineShareOfferResponse:
+    wine = get_household_wine(db, context, wine_id)
+    recipient_email = payload.email.strip().lower()
+    if recipient_email == context.user.email.lower():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot share a wine with yourself")
+    recipient = db.scalar(select(User).where(User.email == recipient_email))
+    if recipient is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User must register before receiving a share offer")
+    membership = db.scalar(
+        select(Membership).where(
+            Membership.user_id == recipient.id,
+            Membership.household_id == context.household.id,
+        ),
+    )
+    if membership is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User must be a member of this household first")
+
+    offer = db.scalar(
+        select(WineShareOffer).where(
+            WineShareOffer.wine_id == wine.id,
+            WineShareOffer.recipient_user_id == recipient.id,
+            WineShareOffer.status == "pending",
+        ),
+    )
+    if offer is None:
+        offer = WineShareOffer(
+            household_id=context.household.id,
+            wine_id=wine.id,
+            created_by_user_id=context.user.id,
+            recipient_user_id=recipient.id,
+            recipient_email=recipient.email,
+        )
+        db.add(offer)
+    offer.share_pct = payload.share_pct
+    offer.message = payload.message.strip()
+    db.commit()
+    db.refresh(offer)
+    return share_offer_response(db, offer)
+
+
+@router.post("/share-offers/{offer_id}/accept", response_model=WineResponse)
+def accept_share_offer(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> WineResponse:
+    offer = db.scalar(
+        select(WineShareOffer).where(
+            WineShareOffer.id == offer_id,
+            WineShareOffer.household_id == context.household.id,
+            WineShareOffer.recipient_user_id == context.user.id,
+            WineShareOffer.status == "pending",
+        ),
+    )
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share offer not found")
+    wine = get_household_wine(db, context, offer.wine_id)
+    sender = db.get(User, offer.created_by_user_id)
+    if not wine.owners:
+        upsert_owner_share(wine, sender.email if sender else "Owner", Decimal("100") - offer.share_pct)
+    upsert_owner_share(wine, context.user.email, offer.share_pct)
+    offer.status = "accepted"
+    offer.decided_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(wine)
+    return wine_response(wine, user_tag_names_by_wine(db, context, [wine.id]).get(wine.id))
+
+
+@router.post("/share-offers/{offer_id}/decline", response_model=WineShareOfferResponse)
+def decline_share_offer(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> WineShareOfferResponse:
+    offer = db.scalar(
+        select(WineShareOffer).where(
+            WineShareOffer.id == offer_id,
+            WineShareOffer.household_id == context.household.id,
+            WineShareOffer.recipient_user_id == context.user.id,
+            WineShareOffer.status == "pending",
+        ),
+    )
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share offer not found")
+    offer.status = "declined"
+    offer.decided_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(offer)
+    return share_offer_response(db, offer)
 
 
 @router.post("", response_model=WineResponse, status_code=status.HTTP_201_CREATED)

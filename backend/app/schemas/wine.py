@@ -106,3 +106,25 @@ class WineResponse(BaseModel):
     tags: list[str]
     grapes: list[dict]
     scores: list[dict]
+
+
+class WineShareOfferCreate(BaseModel):
+    email: str = Field(min_length=3, max_length=320)
+    share_pct: Decimal = Field(gt=0, le=100)
+    message: str = ""
+
+
+class WineShareOfferResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    wine_id: UUID
+    wine_name: str
+    wine_vintage: str
+    created_by_email: str
+    recipient_email: str
+    share_pct: Decimal
+    message: str
+    status: str
+    created_at: datetime
+    decided_at: datetime | None = None
