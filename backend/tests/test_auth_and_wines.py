@@ -265,26 +265,28 @@ def test_invite_acceptance_and_viewer_permissions():
 
     private_wine = owner.post("/api/v1/wines", json={"name": "Private Wine", "quantity": 1, "price": 50})
     assert private_wine.status_code == 201
-    owner_wine = owner.post("/api/v1/wines", json={"name": "Shared Wine", "quantity": 1, "price": 20})
+    owner_wine = owner.post("/api/v1/wines", json={"name": "Shared Wine", "quantity": 6, "price": 20})
     assert owner_wine.status_code == 201
+    owner_wine_id = owner_wine.json()["id"]
     share_offer = owner.post(
-        f"/api/v1/wines/{owner_wine.json()['id']}/share-offers",
-        json={"email": "viewer@example.com", "share_pct": 40, "message": "You own this allocation too."},
+        f"/api/v1/wines/{owner_wine_id}/share-offers",
+        json={"email": "viewer@example.com", "share_pct": 50, "message": "You own this allocation too."},
     )
     assert share_offer.status_code == 201
     assert share_offer.json()["recipient_email"] == "viewer@example.com"
+    assert owner.patch(f"/api/v1/wines/{owner_wine_id}", json={"quantity": 5}).status_code == 200
 
     offers = member.get("/api/v1/wines/share-offers")
     assert offers.status_code == 200
     assert offers.json()[0]["wine_name"] == "Shared Wine"
     accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
     assert accepted_offer.status_code == 200
-    viewer_owner = next(owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com")
-    assert viewer_owner["share_pct"] == 40.0
+    assert accepted_offer.json()["quantity"] == 3
+    assert accepted_offer.json()["owner_share_pct"] == "100.00"
     personal_list = member.get("/api/v1/wines")
     assert personal_list.status_code == 200
     assert [wine["name"] for wine in personal_list.json()] == ["Shared Wine"]
-    assert personal_list.json()[0]["owner_share_pct"] == "40.00"
+    assert personal_list.json()[0]["quantity"] == 3
 
     member_households = member.get("/api/v1/household/memberships")
     assert member_households.status_code == 200
@@ -300,6 +302,7 @@ def test_invite_acceptance_and_viewer_permissions():
     viewer_list = member.get("/api/v1/wines")
     assert viewer_list.status_code == 200
     assert [wine["name"] for wine in viewer_list.json()] == ["Shared Wine"]
+    assert viewer_list.json()[0]["quantity"] == 5
 
     visibility_update = owner.patch(
         f"/api/v1/household/members/{invited_membership_id}",

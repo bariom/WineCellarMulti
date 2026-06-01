@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -120,14 +120,22 @@ def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct:
     wine.owners = owners
 
 
+def allocated_bottle_count(total_quantity: int, share_pct: Decimal) -> int:
+    if total_quantity <= 0 or share_pct <= 0:
+        return 0
+    allocated = (Decimal(total_quantity) * share_pct / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
+    return max(1, int(allocated))
+
+
 def wine_copy_for_recipient(source: Wine, target_household: Household, recipient: User, share_pct: Decimal) -> Wine:
+    recipient_quantity = allocated_bottle_count(source.quantity, share_pct)
     return Wine(
         household_id=target_household.id,
         created_by_user_id=recipient.id,
         name=source.name,
         producer=source.producer,
         vintage=source.vintage,
-        quantity=source.quantity,
+        quantity=recipient_quantity,
         currency=source.currency,
         price=source.price,
         current_value=source.current_value,
@@ -139,7 +147,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         merchant=source.merchant,
         order_date=source.order_date,
         expected_delivery=source.expected_delivery,
-        owner_share_pct=share_pct,
+        owner_share_pct=Decimal("100") if recipient_quantity else Decimal("0"),
         notes=source.notes,
         ai_notes=source.ai_notes,
         drink_from=source.drink_from,
@@ -150,7 +158,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         ai_value_notes=source.ai_value_notes,
         ai_value_estimated_at=source.ai_value_estimated_at,
         rating=source.rating,
-        owners=[{"name": recipient.display_name or recipient.email, "email": recipient.email, "share_pct": float(share_pct)}],
+        owners=[],
         tags=[],
         grapes=source.grapes,
         scores=source.scores,
