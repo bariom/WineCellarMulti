@@ -31,6 +31,11 @@ class RedeemRequest(BaseModel):
     code: str = Field(min_length=6, max_length=80)
 
 
+class CheckoutSessionResponse(BaseModel):
+    checkout_url: str
+    stripe_session_id: str
+
+
 class EntitlementResponse(BaseModel):
     id: UUID
     source: str

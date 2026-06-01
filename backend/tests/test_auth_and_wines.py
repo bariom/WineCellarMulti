@@ -1,3 +1,7 @@
+import hashlib
+import hmac
+import json
+import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
@@ -11,6 +15,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import AiAuditLog, Household, RedeemCode, UserAiSettings, Wine
+from app.core.config import settings
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
 
@@ -211,6 +216,52 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{extra_code_id}")
     assert deleted.status_code == 204
     assert all(code["id"] != extra_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
+
+
+def stripe_signature(payload: bytes, secret: str) -> str:
+    timestamp = int(time.time())
+    digest = hmac.new(secret.encode("utf-8"), f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8"), hashlib.sha256).hexdigest()
+    return f"t={timestamp},v1={digest}"
+
+
+def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
+    webhook_secret = "whsec_test"
+    monkeypatch.setattr(settings, "stripe_webhook_secret", webhook_secret)
+    monkeypatch.setattr(settings, "stripe_entitlement_days", 30)
+    client = TestClient(app)
+    registered = register(client, email="stripe@example.com", password="strong-password-3")
+    assert registered.status_code == 201
+    user_id = registered.json()["user_id"]
+
+    event = {
+        "id": "evt_test",
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_test_paid",
+                "client_reference_id": user_id,
+                "customer": "cus_test",
+                "payment_status": "paid",
+                "amount_total": 4900,
+                "currency": "chf",
+                "metadata": {"user_id": user_id, "duration_days": "30"},
+            },
+        },
+    }
+    payload = json.dumps(event, separators=(",", ":")).encode("utf-8")
+    headers = {"Stripe-Signature": stripe_signature(payload, webhook_secret), "Content-Type": "application/json"}
+
+    first = client.post("/api/v1/billing/stripe/webhook", content=payload, headers=headers)
+    assert first.status_code == 204
+    second = client.post("/api/v1/billing/stripe/webhook", content=payload, headers=headers)
+    assert second.status_code == 204
+
+    status_response = client.get("/api/v1/billing/status")
+    assert status_response.status_code == 200
+    status_payload = status_response.json()
+    assert status_payload["has_active_entitlement"] is True
+    assert status_payload["active_source"] == "stripe"
+    assert len(status_payload["entitlements"]) == 1
 
 
 def test_wine_crud_requires_auth_and_is_scoped_to_active_household():

@@ -1,20 +1,28 @@
 from __future__ import annotations
 
+import hashlib
+import hmac
+import json
 import secrets
 import string
+import time
 from datetime import datetime, timedelta, timezone
+from urllib.error import HTTPError, URLError
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request as FastAPIRequest, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, active_entitlement_valid_until, get_authenticated_context, require_app_admin_context
+from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
-from app.models import RedeemCode, RedeemRedemption, User, UserEntitlement
-from app.schemas.billing import BillingStatusResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
+from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, User, UserEntitlement
+from app.schemas.billing import BillingStatusResponse, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
 
 
 router = APIRouter(prefix="/billing")
@@ -68,6 +76,29 @@ def entitlement_response(entitlement: UserEntitlement) -> EntitlementResponse:
     )
 
 
+def latest_valid_from(db: Session, user: User, current_time: datetime) -> datetime:
+    latest_entitlement = db.scalar(
+        select(UserEntitlement)
+        .where(UserEntitlement.user_id == user.id, UserEntitlement.valid_until > current_time)
+        .order_by(UserEntitlement.valid_until.desc()),
+    )
+    return as_aware_utc(latest_entitlement.valid_until) if latest_entitlement else current_time
+
+
+def create_entitlement(db: Session, user: User, *, source: str, source_id: UUID | None, duration_days: int) -> UserEntitlement:
+    current_time = now_utc()
+    valid_from = latest_valid_from(db, user, current_time)
+    entitlement = UserEntitlement(
+        user_id=user.id,
+        source=source,
+        source_id=source_id,
+        valid_from=valid_from,
+        valid_until=valid_from + timedelta(days=duration_days),
+    )
+    db.add(entitlement)
+    return entitlement
+
+
 def billing_status(db: Session, user: User) -> BillingStatusResponse:
     current_time = now_utc()
     entitlements = list(db.scalars(select(UserEntitlement).where(UserEntitlement.user_id == user.id).order_by(UserEntitlement.valid_until.desc())))
@@ -84,12 +115,170 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
     )
 
 
+def stripe_checkout_payload(user: User) -> dict[str, str]:
+    duration_days = max(settings.stripe_entitlement_days, 1)
+    payload = {
+        "mode": "payment",
+        "client_reference_id": str(user.id),
+        "customer_email": user.email,
+        "success_url": settings.stripe_success_url,
+        "cancel_url": settings.stripe_cancel_url,
+        "metadata[user_id]": str(user.id),
+        "metadata[duration_days]": str(duration_days),
+        "line_items[0][quantity]": "1",
+    }
+    if settings.stripe_price_id:
+        payload["line_items[0][price]"] = settings.stripe_price_id
+    else:
+        amount = settings.stripe_payment_amount_cents
+        if amount <= 0:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe price is not configured")
+        payload.update(
+            {
+                "line_items[0][price_data][currency]": settings.stripe_payment_currency.lower(),
+                "line_items[0][price_data][unit_amount]": str(amount),
+                "line_items[0][price_data][product_data][name]": settings.stripe_payment_label,
+            },
+        )
+    return payload
+
+
+def create_stripe_checkout_session(user: User) -> dict:
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe is not configured")
+    payload = urlencode(stripe_checkout_payload(user)).encode("utf-8")
+    request = Request(
+        settings.stripe_checkout_url,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {settings.stripe_secret_key}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        message = error.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe checkout failed: {message}") from error
+    except (URLError, TimeoutError) as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe checkout is unavailable") from error
+
+
+def verify_stripe_signature(payload: bytes, signature_header: str | None, tolerance_seconds: int = 300) -> None:
+    if not settings.stripe_webhook_secret:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe webhook is not configured")
+    if not signature_header:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Missing Stripe signature")
+    parts = {}
+    for item in signature_header.split(","):
+        key, _, value = item.partition("=")
+        parts.setdefault(key, []).append(value)
+    timestamp_values = parts.get("t") or []
+    signatures = parts.get("v1") or []
+    if not timestamp_values or not signatures:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Stripe signature")
+    timestamp = int(timestamp_values[0])
+    if abs(time.time() - timestamp) > tolerance_seconds:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expired Stripe signature")
+    signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8")
+    expected = hmac.new(settings.stripe_webhook_secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
+    if not any(hmac.compare_digest(expected, signature) for signature in signatures):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Stripe signature")
+
+
+def complete_stripe_checkout(db: Session, session: dict) -> None:
+    if session.get("payment_status") not in ("paid", "no_payment_required"):
+        return
+    stripe_session_id = str(session.get("id") or "")
+    if not stripe_session_id:
+        return
+    checkout = db.scalar(select(StripeCheckoutSession).where(StripeCheckoutSession.stripe_session_id == stripe_session_id))
+    if checkout is None:
+        metadata = session.get("metadata") if isinstance(session.get("metadata"), dict) else {}
+        user_id = metadata.get("user_id") or session.get("client_reference_id")
+        if not user_id:
+            return
+        try:
+            parsed_user_id = UUID(str(user_id))
+        except ValueError:
+            return
+        user = db.get(User, parsed_user_id)
+        if user is None:
+            return
+        checkout = StripeCheckoutSession(
+            user_id=user.id,
+            stripe_session_id=stripe_session_id,
+            stripe_customer_id=session.get("customer"),
+            duration_days=int(metadata.get("duration_days") or settings.stripe_entitlement_days),
+            amount_total=session.get("amount_total"),
+            currency=session.get("currency"),
+        )
+        db.add(checkout)
+        db.flush()
+    if checkout.completed_at is not None:
+        return
+    user = db.get(User, checkout.user_id)
+    if user is None:
+        return
+    checkout.status = "completed"
+    checkout.stripe_customer_id = session.get("customer") or checkout.stripe_customer_id
+    checkout.amount_total = session.get("amount_total") if session.get("amount_total") is not None else checkout.amount_total
+    checkout.currency = session.get("currency") or checkout.currency
+    checkout.completed_at = now_utc()
+    create_entitlement(db, user, source="stripe", source_id=checkout.id, duration_days=checkout.duration_days)
+
+
 @router.get("/status", response_model=BillingStatusResponse)
 def get_billing_status(
     context: CurrentContext = Depends(get_authenticated_context),
     db: Session = Depends(get_db),
 ) -> BillingStatusResponse:
     return billing_status(db, context.user)
+
+
+@router.post("/checkout", response_model=CheckoutSessionResponse)
+def create_checkout_session(
+    context: CurrentContext = Depends(get_authenticated_context),
+    db: Session = Depends(get_db),
+) -> CheckoutSessionResponse:
+    session = create_stripe_checkout_session(context.user)
+    stripe_session_id = str(session.get("id") or "")
+    checkout_url = str(session.get("url") or "")
+    if not stripe_session_id or not checkout_url:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe did not return a checkout URL")
+    existing = db.scalar(select(StripeCheckoutSession).where(StripeCheckoutSession.stripe_session_id == stripe_session_id))
+    if existing is None:
+        db.add(
+            StripeCheckoutSession(
+                user_id=context.user.id,
+                stripe_session_id=stripe_session_id,
+                stripe_customer_id=session.get("customer"),
+                duration_days=max(settings.stripe_entitlement_days, 1),
+                amount_total=session.get("amount_total"),
+                currency=session.get("currency"),
+            ),
+        )
+        db.commit()
+    return CheckoutSessionResponse(checkout_url=checkout_url, stripe_session_id=stripe_session_id)
+
+
+@router.post("/stripe/webhook", status_code=status.HTTP_204_NO_CONTENT)
+async def stripe_webhook(
+    request: FastAPIRequest,
+    stripe_signature: str | None = Header(default=None, alias="Stripe-Signature"),
+    db: Session = Depends(get_db),
+) -> Response:
+    payload = await request.body()
+    verify_stripe_signature(payload, stripe_signature)
+    event = json.loads(payload.decode("utf-8"))
+    if event.get("type") == "checkout.session.completed":
+        session = event.get("data", {}).get("object", {})
+        if isinstance(session, dict):
+            complete_stripe_checkout(db, session)
+            db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/redeem-codes", response_model=list[RedeemCodeResponse])

@@ -21,6 +21,16 @@ class Settings(BaseSettings):
     openai_grape_model: str = "gpt-5.4-nano"
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"
+    stripe_secret_key: str = ""
+    stripe_webhook_secret: str = ""
+    stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"
+    stripe_price_id: str = ""
+    stripe_payment_amount_cents: int = 0
+    stripe_payment_currency: str = "chf"
+    stripe_payment_label: str = "Vinaris access"
+    stripe_entitlement_days: int = 365
+    stripe_success_url: str = "http://localhost:5173/?stripe_checkout=success"
+    stripe_cancel_url: str = "http://localhost:5173/?stripe_checkout=cancelled"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -239,6 +239,11 @@ type BillingStatus = {
   }>;
 };
 
+type CheckoutSession = {
+  checkout_url: string;
+  stripe_session_id: string;
+};
+
 type RedeemCodeDraft = {
   label: string;
   duration_days: string;
@@ -388,6 +393,7 @@ const translations = {
     allTypes: "All types",
     appellation: "Appellation",
     billing: "Billing",
+    buyAccess: "Pay with card",
     bottles: "Bottles",
     cancel: "Cancel",
     cellar: "Cellar",
@@ -472,6 +478,7 @@ const translations = {
     loadingData: "Loading data",
     login: "Login",
     redeemRequired: "A valid redeem code is required to use the application.",
+    paymentHelp: "Pay securely with Stripe to activate your service period.",
     logout: "Logout",
     merchant: "Merchant",
     message: "Message",
@@ -652,6 +659,7 @@ const translations = {
     allTypes: "Tutti i tipi",
     appellation: "Denominazione",
     billing: "Iscrizione",
+    buyAccess: "Paga con carta",
     bottles: "Bottiglie",
     cancel: "Annulla",
     cellar: "Cantina",
@@ -736,6 +744,7 @@ const translations = {
     loadingData: "Caricamento dati",
     login: "Accesso",
     redeemRequired: "Serve un codice redeem valido per usare l'applicativo.",
+    paymentHelp: "Paga in modo sicuro con Stripe per attivare il periodo di servizio.",
     logout: "Esci",
     merchant: "Commerciante",
     message: "Messaggio",
@@ -2766,6 +2775,18 @@ export function App() {
     }
   }
 
+  async function startCheckout() {
+    setSaving(true);
+    setError("");
+    try {
+      const checkout = await api<CheckoutSession>("/api/v1/billing/checkout", { method: "POST" });
+      window.location.assign(checkout.checkout_url);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to start checkout");
+      setSaving(false);
+    }
+  }
+
   async function createWineShareOffer(wine: Wine) {
     if (!shareDraft.email.trim()) return;
     setSaving(true);
@@ -3809,6 +3830,10 @@ export function App() {
               <strong>{t("redeemRequired")}</strong>
               <span>{session?.user_email}</span>
             </div>
+            <button type="button" onClick={startCheckout} disabled={saving}>
+              {saving ? t("working") : t("buyAccess")}
+            </button>
+            <p className="empty-state">{t("paymentHelp")}</p>
             <form className="inline-form" onSubmit={redeemCode}>
               <label>
                 <span>{t("redeemCode")}</span>
@@ -5020,6 +5045,9 @@ export function App() {
                   </label>
                   <button type="submit" disabled={saving || !redeemInput.trim()}>
                     {t("redeem")}
+                  </button>
+                  <button type="button" className="secondary" onClick={startCheckout} disabled={saving}>
+                    {t("buyAccess")}
                   </button>
                 </form>
                 {billingStatus?.has_active_entitlement ? (

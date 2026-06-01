@@ -164,6 +164,35 @@ OPENAI_PAIRING_MODEL=gpt-5.4
 
 Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, and food pairing.
 
+## Stripe Payments
+
+Stripe Checkout can activate a user entitlement after payment. Configure these values in `backend/.env`, run `alembic upgrade head`, then restart the backend:
+
+```env
+STRIPE_SECRET_KEY=sk_live_or_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_PRICE_ID=price_...
+STRIPE_ENTITLEMENT_DAYS=365
+STRIPE_SUCCESS_URL=https://vinaris.duckdns.org/?stripe_checkout=success
+STRIPE_CANCEL_URL=https://vinaris.duckdns.org/?stripe_checkout=cancelled
+```
+
+If you do not use a Stripe Price ID, configure a one-time amount instead:
+
+```env
+STRIPE_PAYMENT_AMOUNT_CENTS=4900
+STRIPE_PAYMENT_CURRENCY=chf
+STRIPE_PAYMENT_LABEL=Vinaris annual access
+```
+
+Create a Stripe webhook endpoint pointing to:
+
+```text
+https://vinaris.duckdns.org/api/v1/billing/stripe/webhook
+```
+
+Enable the `checkout.session.completed` event. The webhook is what grants access; a browser redirect alone is not trusted.
+
 Find the Linux machine IP with:
 
 ```bash
@@ -177,6 +206,10 @@ hostname -I
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
+- `GET /api/v1/billing/status`
+- `POST /api/v1/billing/checkout`
+- `POST /api/v1/billing/redeem`
+- `POST /api/v1/billing/stripe/webhook`
 - `GET /api/v1/wines`
 - `POST /api/v1/wines`
 - `GET /api/v1/wines/{wine_id}`
