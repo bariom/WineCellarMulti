@@ -261,42 +261,55 @@ def test_invite_acceptance_and_viewer_permissions():
 def test_legacy_import_scopes_wines_and_wishlist_to_household():
     client = TestClient(app)
     assert register(client).status_code == 201
+    legacy_payload = {
+        "wines": [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Imported Wine",
+                "producer": "Legacy Producer",
+                "vintage": "2020",
+                "quantity": 2,
+                "format": "Bottle (750ml)",
+                "type": "Red",
+                "region": "Bordeaux",
+                "price": 42,
+                "current_value": 50,
+                "tags": ["Imported"],
+                "scores": [{"critic": "Test", "score": "95/100", "note": "Good"}],
+            },
+        ],
+        "wishlist": [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Wanted Wine",
+                "producer": "Wishlist Producer",
+                "target_price": 30,
+                "priority": "High",
+                "purpose": "Drink",
+                "ai_strategy": '{"signal":"Buon prezzo","reason":"Sotto mercato.","price_assessment":"Target interessante.","market_price_low":40,"market_price_high":50,"market_price_currency":"CHF"}',
+                "ai_purpose_advice": '{"recommended_purpose":"Cellar","signal":"Da cantina","reason":"Annata giovane.","confidence":"medium"}',
+            },
+        ],
+    }
 
-    imported = client.post(
-        "/api/v1/imports/legacy-json",
-        json={
-            "wines": [
-                {
-                    "id": str(uuid.uuid4()),
-                    "name": "Imported Wine",
-                    "producer": "Legacy Producer",
-                    "vintage": "2020",
-                    "quantity": 2,
-                    "format": "Bottle (750ml)",
-                    "type": "Red",
-                    "region": "Bordeaux",
-                    "price": 42,
-                    "current_value": 50,
-                    "tags": ["Imported"],
-                    "scores": [{"critic": "Test", "score": "95/100", "note": "Good"}],
-                },
-            ],
-            "wishlist": [
-                {
-                    "id": str(uuid.uuid4()),
-                    "name": "Wanted Wine",
-                    "producer": "Wishlist Producer",
-                    "target_price": 30,
-                    "priority": "High",
-                    "purpose": "Drink",
-                    "ai_strategy": '{"signal":"Buon prezzo","reason":"Sotto mercato.","price_assessment":"Target interessante.","market_price_low":40,"market_price_high":50,"market_price_currency":"CHF"}',
-                    "ai_purpose_advice": '{"recommended_purpose":"Cellar","signal":"Da cantina","reason":"Annata giovane.","confidence":"medium"}',
-                },
-            ],
-        },
-    )
+    preview = client.post("/api/v1/imports/legacy-json/preview", json=legacy_payload)
+    assert preview.status_code == 200
+    assert preview.json()["wine_new"] == 1
+    assert preview.json()["wishlist_new"] == 1
+
+    imported = client.post("/api/v1/imports/legacy-json", json=legacy_payload)
     assert imported.status_code == 200
-    assert imported.json() == {"wines_imported": 1, "wishlist_imported": 1}
+    assert imported.json()["wines_imported"] == 1
+    assert imported.json()["wishlist_imported"] == 1
+
+    duplicate_preview = client.post("/api/v1/imports/legacy-json/preview", json=legacy_payload)
+    assert duplicate_preview.json()["wine_duplicates"] == 1
+    assert duplicate_preview.json()["wishlist_duplicates"] == 1
+
+    skipped = client.post("/api/v1/imports/legacy-json?mode=skip_duplicates", json=legacy_payload)
+    assert skipped.status_code == 200
+    assert skipped.json()["wines_skipped"] == 1
+    assert skipped.json()["wishlist_skipped"] == 1
 
     wines = client.get("/api/v1/wines")
     assert wines.status_code == 200
@@ -317,6 +330,11 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert converted.json()["wine_id"]
     assert client.get("/api/v1/wishlist").json() == []
     assert sorted(wine["name"] for wine in client.get("/api/v1/wines").json()) == ["Imported Wine", "Wanted Wine"]
+
+    exported = client.get("/api/v1/imports/export-json")
+    assert exported.status_code == 200
+    assert exported.json()["schema"] == "winecellarmulti.export.v1"
+    assert [wine["name"] for wine in exported.json()["wines"]] == ["Imported Wine", "Wanted Wine"]
 
 
 def test_ai_generation_requires_configured_openai_key():

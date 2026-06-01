@@ -79,6 +79,28 @@ type Passkey = {
   last_used_at: string | null;
 };
 
+type ImportMode = "add_all" | "skip_duplicates" | "update_existing";
+
+type ImportPreview = {
+  wines_total: number;
+  wishlist_total: number;
+  wine_duplicates: number;
+  wishlist_duplicates: number;
+  wine_new: number;
+  wishlist_new: number;
+  sample_wine_duplicates: string[];
+  sample_wishlist_duplicates: string[];
+};
+
+type ImportResult = {
+  wines_imported: number;
+  wishlist_imported: number;
+  wines_skipped: number;
+  wishlist_skipped: number;
+  wines_updated: number;
+  wishlist_updated: number;
+};
+
 type WishlistItem = {
   id: string;
   household_id: string;
@@ -299,7 +321,15 @@ const translations = {
     cellarSnapshot: "Cellar snapshot",
     household: "Household",
     importLegacy: "Import legacy export",
+    importMode: "Import mode",
+    importModeAdd: "Add everything",
+    importModeSkip: "Skip likely duplicates",
+    importModeUpdate: "Update existing wines",
+    importPreview: "Preview import",
+    importReady: "Import ready",
+    importRun: "Run import",
     importSection: "Import",
+    importSummary: "Import summary",
     inviteLink: "Invite link",
     inviteLinkDetected: "Invite link detected",
     inviteLinkHelp: "Login or create an account with the invited email, then accept the invite.",
@@ -323,12 +353,14 @@ const translations = {
     noTags: "No tags defined yet",
     noItemSelected: "No item selected",
     noProducer: "No producer",
+    newItems: "new",
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
     noPasskeys: "No passkeys registered yet",
     notes: "Notes",
     ownerShare: "Owner share",
     orderDate: "Order date",
+    of: "of",
     ownership: "Ownership",
     pairing: "Pairing",
     pairingCellarMatches: "From your cellar",
@@ -352,6 +384,7 @@ const translations = {
     personalSettings: "Personal settings",
     profileSection: "Profile",
     priority: "Priority",
+    probableDuplicates: "likely duplicates",
     producer: "Producer",
     purchasePrice: "Purchase price",
     purpose: "Purpose",
@@ -389,6 +422,7 @@ const translations = {
     topRegions: "Top regions",
     totalValue: "Total value",
     type: "Type",
+    updatedItems: "updated",
     value: "Value",
     valueFocus: "Value",
     valueByType: "Value by type",
@@ -399,10 +433,13 @@ const translations = {
     wishlist: "Wishlist",
     wishlistDetail: "Wishlist detail",
     wishlistItems: "Wishlist items",
+    exportData: "Export data",
+    exportJson: "Export JSON",
     working: "Working",
     estimatedCost: "Estimated cost",
     sharedCellar: "Shared cellar",
     sharedBottles: "Shared",
+    skipped: "skipped",
     tokens: "tokens",
     manageTags: "Manage tags",
     createTag: "Create tag",
@@ -479,7 +516,15 @@ const translations = {
     cellarSnapshot: "Sintesi cantina",
     household: "Cantina condivisa",
     importLegacy: "Importa export legacy",
+    importMode: "Modalità import",
+    importModeAdd: "Aggiungi tutto",
+    importModeSkip: "Salta duplicati probabili",
+    importModeUpdate: "Aggiorna esistenti",
+    importPreview: "Anteprima import",
+    importReady: "Import pronto",
+    importRun: "Esegui import",
     importSection: "Importazione",
+    importSummary: "Riepilogo import",
     inviteLink: "Link invito",
     inviteLinkDetected: "Link invito rilevato",
     inviteLinkHelp: "Accedi o crea un account con l'email invitata, poi accetta l'invito.",
@@ -503,12 +548,14 @@ const translations = {
     noTags: "Nessun tag definito",
     noItemSelected: "Nessun elemento selezionato",
     noProducer: "Produttore assente",
+    newItems: "nuovi",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
     noPasskeys: "Nessuna passkey registrata",
     notes: "Note",
     ownerShare: "Quota proprietario",
     orderDate: "Data ordine",
+    of: "su",
     ownership: "Proprieta",
     pairing: "Abbinamento",
     pairingCellarMatches: "Dalla tua cantina",
@@ -532,6 +579,7 @@ const translations = {
     personalSettings: "Impostazioni personali",
     profileSection: "Profilo",
     priority: "Priorita",
+    probableDuplicates: "duplicati probabili",
     producer: "Produttore",
     purchasePrice: "Prezzo acquisto",
     purpose: "Scopo",
@@ -569,6 +617,7 @@ const translations = {
     topRegions: "Top regioni",
     totalValue: "Valore totale",
     type: "Tipo",
+    updatedItems: "aggiornati",
     value: "Valore",
     valueFocus: "Valore",
     valueByType: "Valore per tipo",
@@ -579,10 +628,13 @@ const translations = {
     wishlist: "Wishlist",
     wishlistDetail: "Dettaglio wishlist",
     wishlistItems: "Elementi wishlist",
+    exportData: "Esportazione dati",
+    exportJson: "Esporta JSON",
     working: "Elaborazione",
     estimatedCost: "Costo stimato",
     sharedCellar: "Cantina condivisa",
     sharedBottles: "Condivise",
+    skipped: "saltati",
     tokens: "token",
     manageTags: "Gestisci tag",
     createTag: "Crea tag",
@@ -1375,6 +1427,11 @@ export function App() {
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [passkeyName, setPasskeyName] = useState("WineCellarMulti");
+  const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
+  const [importFileName, setImportFileName] = useState("");
+  const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
+  const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
+  const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "settings">("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
@@ -1890,16 +1947,59 @@ export function App() {
     setError("");
     try {
       const payload = JSON.parse(await file.text());
-      await api<{ wines_imported: number; wishlist_imported: number }>("/api/v1/imports/legacy-json", {
+      const preview = await api<ImportPreview>("/api/v1/imports/legacy-json/preview", {
         method: "POST",
         body: JSON.stringify(payload),
       });
-      await Promise.all([loadWines(), loadWishlist()]);
+      setImportPayload(payload);
+      setImportFileName(file.name);
+      setImportPreview(preview);
+      setImportResult(null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to import legacy export");
     } finally {
       setSaving(false);
       event.target.value = "";
+    }
+  }
+
+  async function runLegacyImport() {
+    if (!importPayload) return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await api<ImportResult>(`/api/v1/imports/legacy-json?mode=${importMode}`, {
+        method: "POST",
+        body: JSON.stringify(importPayload),
+      });
+      setImportResult(result);
+      setImportPreview(null);
+      setImportPayload(null);
+      setImportFileName("");
+      await Promise.all([loadWines(), loadWishlist()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to import legacy export");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function exportJson() {
+    setSaving(true);
+    setError("");
+    try {
+      const payload = await api<Record<string, unknown>>("/api/v1/imports/export-json");
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `winecellarmulti-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to export data");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -3587,9 +3687,42 @@ export function App() {
                     </div>
                   </div>
                   <label>
+                    <span>{t("importMode")}</span>
+                    <select value={importMode} onChange={(event) => setImportMode(event.target.value as ImportMode)} disabled={saving}>
+                      <option value="skip_duplicates">{t("importModeSkip")}</option>
+                      <option value="update_existing">{t("importModeUpdate")}</option>
+                      <option value="add_all">{t("importModeAdd")}</option>
+                    </select>
+                  </label>
+                  <label>
                     <span>WineCellar JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
                   </label>
+                  {importPreview ? (
+                    <div className="token-box">
+                      <strong>{t("importReady")}: {importFileName}</strong>
+                      <span>{t("wines")}: {importPreview.wine_new} {t("newItems")}, {importPreview.wine_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wines_total}</span>
+                      <span>{t("wishlist")}: {importPreview.wishlist_new} {t("newItems")}, {importPreview.wishlist_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wishlist_total}</span>
+                      {[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].length ? (
+                        <small>{[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].join(", ")}</small>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  {importResult ? (
+                    <div className="token-box">
+                      <strong>{t("importSummary")}</strong>
+                      <span>{t("wines")}: +{importResult.wines_imported}, {t("updatedItems")} {importResult.wines_updated}, {t("skipped")} {importResult.wines_skipped}</span>
+                      <span>{t("wishlist")}: +{importResult.wishlist_imported}, {t("updatedItems")} {importResult.wishlist_updated}, {t("skipped")} {importResult.wishlist_skipped}</span>
+                    </div>
+                  ) : null}
+                  <div className="inline-form">
+                    <button type="button" disabled={saving || !importPayload} onClick={runLegacyImport}>
+                      {t("importRun")}
+                    </button>
+                    <button type="button" className="secondary" disabled={saving} onClick={exportJson}>
+                      {t("exportJson")}
+                    </button>
+                  </div>
                 </section>
               ) : null}
 
