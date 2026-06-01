@@ -111,7 +111,7 @@ Production environment values:
 APP_ENV=production
 APP_DEBUG=false
 SESSION_COOKIE_SECURE=true
-CORS_ORIGINS=https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
+CORS_ORIGINS=https://vinaris.duckdns.org,https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
 ```
 
 Open `http://<server-ip>:5173`.

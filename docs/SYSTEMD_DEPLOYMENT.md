@@ -93,5 +93,5 @@ docker ps --filter name=winecellarmulti-postgres
 Then open:
 
 ```text
-https://winecellarmulti.duckdns.org
+https://vinaris.duckdns.org
 ```

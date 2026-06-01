@@ -1,11 +1,11 @@
 # WineCellarMulti PWA deployment
 
-WineCellarMulti includes a web app manifest and service worker, so Android/Chrome can install it as a standalone web app when it is served over HTTPS.
+Vinaris includes a web app manifest and service worker, so Android/Chrome can install it as a standalone web app when it is served over HTTPS.
 
 ## Recommended nginx layout
 
 Do not reuse `bariomwines.duckdns.org` if it must keep serving the old WineCellar app at `/`.
-Use a dedicated hostname for WineCellarMulti, for example `winecellarmulti.duckdns.org`, then point nginx to:
+Use the dedicated hostname for Vinaris, for example `vinaris.duckdns.org`, then point nginx to:
 
 - frontend preview: `127.0.0.1:4174`
 - backend API: `127.0.0.1:8000`
@@ -15,10 +15,10 @@ The frontend fetches `/api/...`, so nginx must proxy `/api/` to the backend befo
 ```nginx
 server {
     listen 443 ssl;
-    server_name winecellarmulti.duckdns.org;
+    server_name vinaris.duckdns.org;
 
-    ssl_certificate /etc/letsencrypt/live/winecellarmulti.duckdns.org/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/winecellarmulti.duckdns.org/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/vinaris.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vinaris.duckdns.org/privkey.pem;
     include /etc/letsencrypt/options-ssl-nginx.conf;
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
@@ -79,7 +79,7 @@ server {
 
 server {
     listen 80;
-    server_name winecellarmulti.duckdns.org;
+    server_name vinaris.duckdns.org;
 
     location ^~ /.well-known/acme-challenge/ {
         root /var/www/html;
@@ -113,7 +113,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## Android install check
 
-Open `https://winecellarmulti.duckdns.org` in Chrome on Android.
+Open `https://vinaris.duckdns.org` in Chrome on Android.
 The browser should show `Install app` or `Add to Home screen`.
 
 Requirements:
