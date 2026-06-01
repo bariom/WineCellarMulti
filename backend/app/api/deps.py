@@ -1,3 +1,4 @@
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 
@@ -8,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.security import hash_session_token
 from app.db.session import get_db
-from app.models import Household, Membership, User, UserSession
+from app.models import Household, Membership, User, UserEntitlement, UserSession
 
 
 @dataclass(frozen=True)
@@ -17,6 +18,20 @@ class CurrentContext:
     household: Household
     membership: Membership
     session: UserSession
+    has_active_entitlement: bool = False
+    entitlement_valid_until: datetime | None = None
+
+
+def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
+    now = datetime.now(timezone.utc)
+    entitlement = db.scalar(
+        select(UserEntitlement)
+        .where(UserEntitlement.user_id == user.id, UserEntitlement.valid_until > now)
+        .order_by(UserEntitlement.valid_until.desc()),
+    )
+    if entitlement is None:
+        return None
+    return entitlement.valid_until.replace(tzinfo=timezone.utc) if entitlement.valid_until.tzinfo is None else entitlement.valid_until.astimezone(timezone.utc)
 
 
 def build_session_response(context: CurrentContext | None) -> dict[str, object | None]:
@@ -33,7 +48,15 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "pending_approval": False,
             "locale": "it",
             "theme_preference": "system",
+            "has_active_entitlement": False,
+            "entitlement_valid_until": None,
+            "entitlement_days_remaining": None,
         }
+    entitlement_days_remaining = (
+        math.ceil((context.entitlement_valid_until - datetime.now(timezone.utc)).total_seconds() / 86400)
+        if context.entitlement_valid_until
+        else None
+    )
     return {
         "authenticated": True,
         "user_id": str(context.user.id),
@@ -46,6 +69,9 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "pending_approval": False,
         "locale": context.user.locale,
         "theme_preference": context.user.theme_preference,
+        "has_active_entitlement": context.has_active_entitlement,
+        "entitlement_valid_until": context.entitlement_valid_until.isoformat() if context.entitlement_valid_until else None,
+        "entitlement_days_remaining": max(entitlement_days_remaining, 0) if entitlement_days_remaining is not None else None,
     }
 
 
@@ -85,12 +111,26 @@ def get_optional_context(
     if membership is None:
         return None
 
-    return CurrentContext(user=user, household=household, membership=membership, session=user_session)
+    entitlement_valid_until = active_entitlement_valid_until(db, user)
+    return CurrentContext(
+        user=user,
+        household=household,
+        membership=membership,
+        session=user_session,
+        has_active_entitlement=entitlement_valid_until is not None,
+        entitlement_valid_until=entitlement_valid_until,
+    )
 
 
-def get_current_context(context: CurrentContext | None = Depends(get_optional_context)) -> CurrentContext:
+def get_authenticated_context(context: CurrentContext | None = Depends(get_optional_context)) -> CurrentContext:
     if context is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    return context
+
+
+def get_current_context(context: CurrentContext = Depends(get_authenticated_context)) -> CurrentContext:
+    if not context.user.is_app_admin and not context.has_active_entitlement:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Redeem code required")
     return context
 
 

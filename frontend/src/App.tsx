@@ -11,6 +11,9 @@ type Session = {
   pending_approval: boolean;
   locale: Locale;
   theme_preference: ThemePreference;
+  has_active_entitlement: boolean;
+  entitlement_valid_until: string | null;
+  entitlement_days_remaining: number | null;
 };
 
 type Wine = {
@@ -459,6 +462,7 @@ const translations = {
     language: "Language",
     loadingData: "Loading data",
     login: "Login",
+    redeemRequired: "A valid redeem code is required to use the application.",
     logout: "Logout",
     merchant: "Merchant",
     message: "Message",
@@ -470,6 +474,7 @@ const translations = {
     name: "Name",
     noInvites: "No invites",
     noNotifications: "No notifications",
+    entitlementValidity: "Service validity",
     offlineBackup: "Offline backup",
     offlineBackupHelp: "No network? Load a local JSON backup and browse it in read-only mode.",
     offlineMode: "Offline read-only",
@@ -721,6 +726,7 @@ const translations = {
     language: "Lingua",
     loadingData: "Caricamento dati",
     login: "Accesso",
+    redeemRequired: "Serve un codice redeem valido per usare l'applicativo.",
     logout: "Esci",
     merchant: "Commerciante",
     message: "Messaggio",
@@ -732,6 +738,7 @@ const translations = {
     name: "Nome",
     noInvites: "Nessun invito",
     noNotifications: "Nessuna notifica",
+    entitlementValidity: "Validita servizio",
     offlineBackup: "Backup offline",
     offlineBackupHelp: "Senza rete puoi caricare un backup JSON locale e consultarlo in sola lettura.",
     offlineMode: "Offline sola lettura",
@@ -2193,12 +2200,39 @@ export function App() {
     }
   }
 
+  async function loadAuthenticatedSessionData(nextSession: Session) {
+    if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
+      await loadBilling(nextSession.authenticated, nextSession.is_app_admin);
+      return;
+    }
+    await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+  }
+
   async function loadData() {
     if (offlineMode) return;
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
+        setWines([]);
+        setWishlist([]);
+        setShareOffers([]);
+        setReceivedInvites([]);
+        setUserTags([]);
+        setPasskeys([]);
+        setHouseholdMemberships([]);
+        setMembers([]);
+        setInvites([]);
+        setPendingUsers([]);
+        setAppUsers([]);
+        setAiAudit([]);
+        setAiUsage(null);
+        setAiSettings(null);
+        setAiSettingsDraft(emptyAiSettingsDraft);
+        await loadAuthenticatedSessionData(nextSession);
+      } else {
+        await loadAuthenticatedSessionData(nextSession);
+      }
     } else {
       setWines([]);
       setWishlist([]);
@@ -2215,6 +2249,8 @@ export function App() {
       setAiUsage(null);
       setAiSettings(null);
       setAiSettingsDraft(emptyAiSettingsDraft);
+      setBillingStatus(null);
+      setRedeemCodes([]);
     }
   }
 
@@ -2257,7 +2293,7 @@ export function App() {
       }
       setAuthDraft(emptyAuthDraft);
       if (nextSession.authenticated) {
-        await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+        await loadAuthenticatedSessionData(nextSession);
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
@@ -2284,7 +2320,7 @@ export function App() {
       setSession(nextSession);
       applySessionPreferences(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await loadAuthenticatedSessionData(nextSession);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to login with passkey");
     } finally {
@@ -2612,6 +2648,7 @@ export function App() {
       });
       setBillingStatus(nextStatus);
       setRedeemInput("");
+      await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to redeem code");
     } finally {
@@ -3097,6 +3134,7 @@ export function App() {
   }
 
   const authenticated = Boolean(session?.authenticated);
+  const needsRedeem = authenticated && !session?.is_app_admin && !session?.has_active_entitlement;
   const activeMembership =
     householdMemberships.find((membership) => membership.household_id === session?.active_household_id) ||
     householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
@@ -3288,7 +3326,8 @@ export function App() {
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
-  const notificationCount = (canAppAdmin ? pendingUsers.length : 0) + receivedInvites.length + shareOffers.length;
+  const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
+  const notificationCount = (canAppAdmin ? pendingUsers.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -3532,6 +3571,16 @@ export function App() {
                     <strong>{t("notifications")}</strong>
                     <span>{notificationCount}</span>
                   </div>
+                  {authenticated && !session?.is_app_admin ? (
+                    <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
+                      <strong>{t("entitlementValidity")}</strong>
+                      <span>
+                        {session?.has_active_entitlement && session.entitlement_days_remaining !== null
+                          ? `${session.entitlement_days_remaining} ${t("daysRemaining")} - ${formatDisplayDate(session.entitlement_valid_until || "")}`
+                          : t("redeemRequired")}
+                      </span>
+                    </button>
+                  ) : null}
                   {canAppAdmin && pendingUsers.length ? (
                     <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                       <strong>{pendingUsers.length} {t("pendingUsers")}</strong>
@@ -3628,6 +3677,25 @@ export function App() {
               <span>{t("loadBackup")}</span>
               <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
             </label>
+          </section>
+        </section>
+      ) : needsRedeem ? (
+        <section className="auth-panel">
+          <section className="wine-form">
+            <h2>{t("redeemCode")}</h2>
+            <div className="invite-notice">
+              <strong>{t("redeemRequired")}</strong>
+              <span>{session?.user_email}</span>
+            </div>
+            <form className="inline-form" onSubmit={redeemCode}>
+              <label>
+                <span>{t("redeemCode")}</span>
+                <input value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
+              </label>
+              <button type="submit" disabled={saving || !redeemInput.trim()}>
+                {saving ? t("working") : t("redeem")}
+              </button>
+            </form>
           </section>
         </section>
       ) : (

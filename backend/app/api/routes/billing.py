@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_current_context, require_app_admin_context
+from app.api.deps import CurrentContext, get_authenticated_context, require_app_admin_context
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
 from app.models import RedeemCode, RedeemRedemption, User, UserEntitlement
@@ -80,7 +80,7 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
 
 @router.get("/status", response_model=BillingStatusResponse)
 def get_billing_status(
-    context: CurrentContext = Depends(get_current_context),
+    context: CurrentContext = Depends(get_authenticated_context),
     db: Session = Depends(get_db),
 ) -> BillingStatusResponse:
     return billing_status(db, context.user)
@@ -122,7 +122,7 @@ def create_redeem_code(
 @router.post("/redeem", response_model=BillingStatusResponse)
 def redeem_code(
     payload: RedeemRequest,
-    context: CurrentContext = Depends(get_current_context),
+    context: CurrentContext = Depends(get_authenticated_context),
     db: Session = Depends(get_db),
 ) -> BillingStatusResponse:
     normalized = normalize_redeem_code(payload.code)

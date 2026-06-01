@@ -13,3 +13,6 @@ class SessionResponse(BaseModel):
     pending_approval: bool = False
     locale: str = "it"
     theme_preference: str = "system"
+    has_active_entitlement: bool = False
+    entitlement_valid_until: str | None = None
+    entitlement_days_remaining: int | None = None

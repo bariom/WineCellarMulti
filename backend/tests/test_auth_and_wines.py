@@ -52,6 +52,15 @@ def register(client: TestClient, email: str = "owner@example.com", password: str
     )
 
 
+def create_redeem_code(admin_client: TestClient, email: str | None = None, duration_days: int = 30) -> str:
+    payload = {"label": "Test access", "duration_days": duration_days, "max_redemptions": 1}
+    if email:
+        payload["email"] = email
+    created = admin_client.post("/api/v1/billing/redeem-codes", json=payload)
+    assert created.status_code == 201
+    return created.json()["code"]
+
+
 def test_register_login_session_and_logout():
     client = TestClient(app)
 
@@ -90,6 +99,11 @@ def test_register_login_session_and_logout():
     approved_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
     assert approved_login.status_code == 200
     assert approved_login.json()["is_app_admin"] is False
+    assert approved_login.json()["has_active_entitlement"] is False
+    assert pending_client.get("/api/v1/auth/pending-users").status_code == 402
+    redeem_code = create_redeem_code(client, email="pending@example.com")
+    redeemed = pending_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
+    assert redeemed.status_code == 200
     assert pending_client.get("/api/v1/auth/pending-users").status_code == 403
 
     users = client.get("/api/v1/auth/users")
@@ -147,12 +161,16 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     pending_users = admin_client.get("/api/v1/auth/pending-users").json()
     pending_user = next(user for user in pending_users if user["email"] == "redeem@example.com")
     assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
-    assert user_client.post("/api/v1/auth/login", json={"email": "redeem@example.com", "password": "strong-password-2"}).status_code == 200
+    login = user_client.post("/api/v1/auth/login", json={"email": "redeem@example.com", "password": "strong-password-2"})
+    assert login.status_code == 200
+    assert login.json()["has_active_entitlement"] is False
+    assert user_client.get("/api/v1/wines").status_code == 402
 
     redeemed = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert redeemed.status_code == 200
     assert redeemed.json()["has_active_entitlement"] is True
     assert redeemed.json()["active_source"] == "redeem"
+    assert user_client.get("/api/v1/wines").status_code == 200
 
     duplicate = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert duplicate.status_code == 400
@@ -295,6 +313,8 @@ def test_invite_acceptance_and_viewer_permissions():
     viewer_user = next(user for user in pending_viewers.json() if user["email"] == "viewer@example.com")
     assert owner.post(f"/api/v1/auth/pending-users/{viewer_user['id']}/approve").status_code == 200
     assert member.post("/api/v1/auth/login", json={"email": "viewer@example.com", "password": "strong-password-2"}).status_code == 200
+    redeem_code = create_redeem_code(owner, email="viewer@example.com")
+    assert member.post("/api/v1/billing/redeem", json={"code": redeem_code}).status_code == 200
     received_invites = member.get("/api/v1/household/invites/received")
     assert received_invites.status_code == 200
     assert received_invites.json()[0]["household_name"] == "Renamed Cellar"

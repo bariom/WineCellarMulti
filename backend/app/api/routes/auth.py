@@ -21,7 +21,7 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from app.api.deps import CurrentContext, build_session_response, get_current_context, require_app_admin_context
+from app.api.deps import CurrentContext, active_entitlement_valid_until, build_session_response, get_authenticated_context, get_current_context, require_app_admin_context
 from app.core.config import settings
 from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
 from app.db.session import get_db
@@ -132,6 +132,22 @@ def create_session(db: Session, user: User, household: Household) -> tuple[UserS
     return user_session, token
 
 
+def session_response_for(db: Session, user: User, household: Household, membership: Membership, user_session: UserSession) -> SessionResponse:
+    entitlement_valid_until = active_entitlement_valid_until(db, user)
+    return SessionResponse(
+        **build_session_response(
+            CurrentContext(
+                user=user,
+                household=household,
+                membership=membership,
+                session=user_session,
+                has_active_entitlement=entitlement_valid_until is not None,
+                entitlement_valid_until=entitlement_valid_until,
+            ),
+        ),
+    )
+
+
 def user_is_preapproved(db: Session, email: str) -> bool:
     return db.scalar(select(User)) is None
 
@@ -200,7 +216,7 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)
-    return SessionResponse(**build_session_response(CurrentContext(user=user, household=household, membership=membership, session=user_session)))
+    return session_response_for(db, user, household, membership, user_session)
 
 
 @router.post("/login", response_model=SessionResponse)
@@ -224,7 +240,7 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)
-    return SessionResponse(**build_session_response(CurrentContext(user=user, household=household, membership=membership, session=user_session)))
+    return session_response_for(db, user, household, membership, user_session)
 
 
 @router.patch("/preferences", response_model=SessionResponse)
@@ -359,7 +375,7 @@ def verify_passkey_login(
     db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)
-    return SessionResponse(**build_session_response(CurrentContext(user=user, household=household, membership=membership, session=user_session)))
+    return session_response_for(db, user, household, membership, user_session)
 
 
 @router.get("/pending-users", response_model=list[PendingUserResponse])
@@ -478,7 +494,7 @@ def delete_passkey(
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
-def logout(response: Response, context: CurrentContext = Depends(get_current_context), db: Session = Depends(get_db)) -> Response:
+def logout(response: Response, context: CurrentContext = Depends(get_authenticated_context), db: Session = Depends(get_db)) -> Response:
     db.delete(context.session)
     db.commit()
     response.delete_cookie(settings.session_cookie_name)
