@@ -429,6 +429,7 @@ const translations = {
     next12Months: "Next 12 months",
     next30Days: "Next 30 days",
     next90Days: "Next 90 days",
+    beyond12Months: "Beyond 12 months",
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
     noPasskeys: "No passkeys registered yet",
@@ -674,6 +675,7 @@ const translations = {
     next12Months: "Prossimi 12 mesi",
     next30Days: "Prossimi 30 giorni",
     next90Days: "Prossimi 90 giorni",
+    beyond12Months: "Oltre 12 mesi",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
     noPasskeys: "Nessuna passkey registrata",
@@ -2877,6 +2879,8 @@ export function App() {
     next30: deliveryTimelineItems.filter((item) => item.days <= 30).length,
     next90: deliveryTimelineItems.filter((item) => item.days <= 90).length,
     next365: deliveryTimelineItems.filter((item) => item.days <= 365).length,
+    beyond365: deliveryTimelineItems.filter((item) => item.days > 365).length,
+    total: deliveryTimelineItems.length,
   };
   const incompleteWines = wines
     .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0)
@@ -3617,6 +3621,8 @@ export function App() {
                       <div><span>{t("next30Days")}</span><strong>{deliveryHorizonStats.next30}</strong></div>
                       <div><span>{t("next90Days")}</span><strong>{deliveryHorizonStats.next90}</strong></div>
                       <div><span>{t("next12Months")}</span><strong>{deliveryHorizonStats.next365}</strong></div>
+                      <div><span>{t("beyond12Months")}</span><strong>{deliveryHorizonStats.beyond365}</strong></div>
+                      <div><span>{t("totalValue")}</span><strong>{deliveryHorizonStats.total}</strong></div>
                     </div>
                   </article>
 
