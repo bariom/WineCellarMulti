@@ -625,6 +625,75 @@ def generate_grapes(
     return wine
 
 
+@router.post("/wines/{wine_id}/scores", response_model=WineResponse)
+def generate_scores(
+    wine_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> Wine:
+    wine = get_household_wine(db, context, wine_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    schema = {
+        "name": "wine_scores",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "scores": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "critic": {"type": "string"},
+                            "score": {"type": "string"},
+                            "note": {"type": "string"},
+                        },
+                        "required": ["critic", "score", "note"],
+                    },
+                },
+            },
+            "required": ["scores"],
+        },
+    }
+    response = create_response(
+        user_settings.ai_notes_model,
+        f"You summarize known wine critic scores cautiously. Return JSON only. {response_language_instruction(payload.locale)}",
+        "Estimate likely published critic scores for this wine only when plausible. "
+        "Prefer well-known critics and include short uncertainty notes. If evidence is weak, return an empty scores array.\n\n"
+        f"{wine_context(wine)}",
+        api_key=user_openai_api_key(user_settings),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    scores = result.get("scores") or []
+    if not isinstance(scores, list):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid scores")
+    wine.scores = [
+        {
+            "critic": str(item.get("critic") or "")[:120],
+            "score": str(item.get("score") or "")[:40],
+            "note": str(item.get("note") or "")[:800],
+        }
+        for item in scores
+        if isinstance(item, dict) and (item.get("critic") or item.get("score"))
+    ][:8]
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="scores",
+        model=user_settings.ai_notes_model,
+        summary=f"{len(wine.scores)} scores generated",
+        usage=response.usage,
+    )
+    db.commit()
+    db.refresh(wine)
+    return wine
+
+
 @router.post("/wishlist/{item_id}/strategy", response_model=WishlistResponse)
 def generate_wishlist_strategy(
     item_id: UUID,

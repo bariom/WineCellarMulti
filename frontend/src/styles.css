@@ -1147,6 +1147,26 @@ textarea {
   font-size: 0.86rem;
 }
 
+.data-quality-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.row-open-action {
+  min-height: auto;
+  padding: 0;
+  overflow: hidden;
+  color: var(--text);
+  border: 0;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-open-action:hover {
+  color: var(--primary);
+}
+
 .maturity-item {
   display: grid;
   gap: 6px;

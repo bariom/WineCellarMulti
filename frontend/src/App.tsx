@@ -271,6 +271,7 @@ type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
+type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
 type ThemePreference = "system" | "light" | "dark" | "sepia";
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
@@ -338,6 +339,7 @@ const translations = {
     futureDeliveries: "Future deliveries",
     generating: "Generating",
     grapes: "Grapes",
+    generateAll: "Generate all",
     highPriority: "High priority",
     home: "Home",
     dashboard: "Dashboard",
@@ -559,6 +561,7 @@ const translations = {
     futureDeliveries: "Consegne future",
     generating: "Genero",
     grapes: "Uve",
+    generateAll: "Genera tutti",
     highPriority: "Alta priorita",
     home: "Home",
     dashboard: "Dashboard",
@@ -1279,7 +1282,7 @@ function WineDetail({
   wine: Wine;
   canGenerate: boolean;
   generating: string;
-  onGenerate: (feature: "notes" | "drink-window" | "value" | "grapes") => void;
+  onGenerate: (feature: WineAiFeature) => void;
   t: (key: TranslationKey) => string;
 }) {
   const drinkStart = wine.drink_from || Number(wine.vintage) || new Date().getFullYear();
@@ -1318,6 +1321,9 @@ function WineDetail({
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
           {generating === "grapes" ? t("generating") : t("grapes")}
+        </button>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("scores")}>
+          {generating === "scores" ? t("generating") : t("scores")}
         </button>
       </div>
 
@@ -2283,7 +2289,7 @@ export function App() {
     }
   }
 
-  async function generateWineAi(wine: Wine, feature: "notes" | "drink-window" | "value" | "grapes") {
+  async function generateWineAi(wine: Wine, feature: WineAiFeature) {
     setGeneratingAi(feature);
     setError("");
     try {
@@ -2293,6 +2299,27 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
+  async function generateMissingWineAi(feature: WineAiFeature, items: Wine[]) {
+    if (!items.length) return;
+    setGeneratingAi(`batch-${feature}`);
+    setError("");
+    try {
+      for (const wine of items) {
+        const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
+          method: "POST",
+          body: JSON.stringify({ locale }),
+        });
+        setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+        setSelectedWineId(updated.id);
+      }
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
@@ -2490,9 +2517,12 @@ export function App() {
   const topValueWines = [...wines]
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  const missingValueWines = wines.filter((wine) => !wine.current_value).slice(0, 5);
-  const missingDrinkWindowWines = wines.filter((wine) => !wine.drink_from || !wine.drink_to).slice(0, 5);
-  const missingScoresWines = wines.filter((wine) => wine.scores.length === 0).slice(0, 5);
+  const allMissingValueWines = wines.filter((wine) => !wine.current_value);
+  const allMissingDrinkWindowWines = wines.filter((wine) => !wine.drink_from || !wine.drink_to);
+  const allMissingScoresWines = wines.filter((wine) => wine.scores.length === 0);
+  const missingValueWines = allMissingValueWines.slice(0, 5);
+  const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
+  const missingScoresWines = allMissingScoresWines.slice(0, 5);
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
   const isCollectionView = activeView === "cellar" || activeView === "wishlist";
@@ -3237,12 +3267,19 @@ export function App() {
                       </div>
                       <strong>{cellarStats.missingValue}</strong>
                     </div>
+                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingValueWines.length === 0} onClick={() => generateMissingWineAi("value", allMissingValueWines)}>
+                      {generatingAi === "batch-value" ? t("generating") : t("generateAll")}
+                    </button>
                     <div className="action-list">
                       {missingValueWines.length ? missingValueWines.map((wine) => (
-                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{t("value")}</strong>
-                        </button>
+                        <div className="action-row data-quality-row" key={wine.id}>
+                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
+                          </button>
+                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "value")}>
+                            {generatingAi === "value" && selectedWineId === wine.id ? t("generating") : t("value")}
+                          </button>
+                        </div>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
@@ -3254,12 +3291,19 @@ export function App() {
                       </div>
                       <strong>{cellarStats.missingDrinkWindow}</strong>
                     </div>
+                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingDrinkWindowWines.length === 0} onClick={() => generateMissingWineAi("drink-window", allMissingDrinkWindowWines)}>
+                      {generatingAi === "batch-drink-window" ? t("generating") : t("generateAll")}
+                    </button>
                     <div className="action-list">
                       {missingDrinkWindowWines.length ? missingDrinkWindowWines.map((wine) => (
-                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{t("drinkWindow")}</strong>
-                        </button>
+                        <div className="action-row data-quality-row" key={wine.id}>
+                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
+                          </button>
+                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "drink-window")}>
+                            {generatingAi === "drink-window" && selectedWineId === wine.id ? t("generating") : t("drinkWindow")}
+                          </button>
+                        </div>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
@@ -3271,12 +3315,19 @@ export function App() {
                       </div>
                       <strong>{cellarStats.missingScores}</strong>
                     </div>
+                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingScoresWines.length === 0} onClick={() => generateMissingWineAi("scores", allMissingScoresWines)}>
+                      {generatingAi === "batch-scores" ? t("generating") : t("generateAll")}
+                    </button>
                     <div className="action-list">
                       {missingScoresWines.length ? missingScoresWines.map((wine) => (
-                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{t("scores")}</strong>
-                        </button>
+                        <div className="action-row data-quality-row" key={wine.id}>
+                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
+                          </button>
+                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "scores")}>
+                            {generatingAi === "scores" && selectedWineId === wine.id ? t("generating") : t("scores")}
+                          </button>
+                        </div>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
