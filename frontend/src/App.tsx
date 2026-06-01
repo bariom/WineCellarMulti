@@ -2650,6 +2650,20 @@ export function App() {
     }
   }
 
+  async function deleteRedeemCode(code: RedeemCode) {
+    if (!window.confirm(`Delete redeem code ${code.code || code.code_prefix}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/billing/redeem-codes/${code.id}`, { method: "DELETE" });
+      setRedeemCodes((currentCodes) => currentCodes.filter((item) => item.id !== code.id || item.redeemed_count > 0).map((item) => item.id === code.id ? { ...item, revoked_at: new Date().toISOString(), is_active: false } : item));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete redeem code");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function redeemCode(event: FormEvent) {
     event.preventDefault();
     if (!redeemInput.trim()) return;
@@ -5172,6 +5186,9 @@ export function App() {
                               Copy
                             </button>
                           ) : null}
+                          <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
+                            {t("delete")}
+                          </button>
                           <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
                         </div>
                       ))}

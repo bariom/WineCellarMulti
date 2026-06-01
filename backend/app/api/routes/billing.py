@@ -3,8 +3,9 @@ from __future__ import annotations
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -119,6 +120,23 @@ def create_redeem_code(
     db.commit()
     db.refresh(code)
     return redeem_code_response(code, clear_code=clear_code)
+
+
+@router.delete("/redeem-codes/{code_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_redeem_code(
+    code_id: UUID,
+    _: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> Response:
+    code = db.get(RedeemCode, code_id)
+    if code is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Redeem code not found")
+    if code.redeemed_count > 0:
+        code.revoked_at = code.revoked_at or now_utc()
+    else:
+        db.delete(code)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/redeem", response_model=BillingStatusResponse)

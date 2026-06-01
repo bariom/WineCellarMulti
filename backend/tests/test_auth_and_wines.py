@@ -154,6 +154,7 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     assert listed.status_code == 200
     assert listed.json()[0]["code"] == redeem_code
     assert listed.json()[0]["redeemed_count"] == 0
+    unused_code_id = listed.json()[0]["id"]
 
     user_client = TestClient(app)
     pending = register(user_client, email="redeem@example.com", password="strong-password-2")
@@ -174,6 +175,20 @@ def test_app_admin_can_create_and_user_can_redeem_code():
 
     duplicate = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert duplicate.status_code == 400
+    revoked = admin_client.delete(f"/api/v1/billing/redeem-codes/{unused_code_id}")
+    assert revoked.status_code == 204
+    listed_after_revoke = admin_client.get("/api/v1/billing/redeem-codes")
+    assert listed_after_revoke.json()[0]["is_active"] is False
+
+    extra_code = admin_client.post(
+        "/api/v1/billing/redeem-codes",
+        json={"label": "Unused", "duration_days": 7, "max_redemptions": 1},
+    )
+    assert extra_code.status_code == 201
+    extra_code_id = extra_code.json()["id"]
+    deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{extra_code_id}")
+    assert deleted.status_code == 204
+    assert all(code["id"] != extra_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
 
 
 def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
