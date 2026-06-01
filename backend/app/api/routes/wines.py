@@ -1,5 +1,8 @@
+import json
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
+from functools import lru_cache
+from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -14,6 +17,29 @@ from app.schemas.wine import WineCreate, WineResponse, WineShareOfferCreate, Win
 
 
 router = APIRouter()
+CATALOG_PATH = Path(__file__).resolve().parents[2] / "wine_catalog.json"
+
+
+@lru_cache(maxsize=1)
+def catalog_wines() -> list[dict[str, str]]:
+    raw_catalog = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
+    if not isinstance(raw_catalog, list):
+        raise RuntimeError("Wine catalog must be a JSON list")
+    catalog: list[dict[str, str]] = []
+    for item in raw_catalog:
+        if not isinstance(item, dict):
+            continue
+        catalog.append(
+            {
+                "name": str(item.get("name") or "").strip(),
+                "producer": str(item.get("producer") or "").strip(),
+                "region": str(item.get("region") or "").strip(),
+                "appellation": str(item.get("appellation") or "").strip(),
+                "type": str(item.get("type") or "").strip(),
+                "format": str(item.get("format") or "").strip(),
+            },
+        )
+    return sorted([item for item in catalog if item["name"]], key=lambda item: item["name"].lower())
 
 
 def user_can_see_wine(context: CurrentContext, wine: Wine) -> bool:
@@ -235,6 +261,14 @@ def list_wines(
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
     history_by_wine = wine_value_history_by_wine(db, wine_ids)
     return [wine_response(wine, tags_by_wine.get(wine.id), history_by_wine.get(wine.id)) for wine in wines]
+
+
+@router.get("/catalog")
+def list_wine_catalog(
+    context: CurrentContext = Depends(get_current_context),
+) -> list[dict[str, str]]:
+    _ = context
+    return catalog_wines()
 
 
 @router.get("/share-offers", response_model=list[WineShareOfferResponse])

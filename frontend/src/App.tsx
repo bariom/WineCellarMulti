@@ -52,6 +52,15 @@ type Wine = {
   value_history: Array<{ id: string; value: string; currency: string; source: string; recorded_at: string }>;
 };
 
+type CatalogWine = {
+  name: string;
+  producer: string;
+  region: string;
+  appellation: string;
+  type: string;
+  format: string;
+};
+
 type WineDraft = {
   name: string;
   producer: string;
@@ -1951,6 +1960,7 @@ function AiUsageRow({ label, bucket }: { label: string; bucket: AiUsageBucket })
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
+  const [wineCatalog, setWineCatalog] = useState<CatalogWine[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
   const [shareOffers, setShareOffers] = useState<WineShareOffer[]>([]);
@@ -2023,6 +2033,65 @@ export function App() {
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
+  const wineTemplateSuggestions = [...wines, ...wineCatalog]
+    .filter((wine, index, items) => wine.name.trim() && items.findIndex((item) => item.name.trim().toLowerCase() === wine.name.trim().toLowerCase()) === index)
+    .sort((first, second) => first.name.localeCompare(second.name));
+
+  function matchingWineTemplate(name: string): Wine | CatalogWine | null {
+    const normalized = name.trim().toLowerCase();
+    if (!normalized) return null;
+    return (
+      wines.find((wine) => wine.name.trim().toLowerCase() === normalized) ||
+      wineCatalog.find((wine) => wine.name.trim().toLowerCase() === normalized) ||
+      null
+    );
+  }
+
+  function updateWineDraftName(name: string) {
+    const baseDraft = { ...draft, name };
+    if (editingId) {
+      setDraft(baseDraft);
+      return;
+    }
+    const template = matchingWineTemplate(name);
+    if (!template) {
+      setDraft(baseDraft);
+      return;
+    }
+    setDraft({
+      ...baseDraft,
+      producer: template.producer || baseDraft.producer,
+      region: template.region || baseDraft.region,
+      appellation: template.appellation || baseDraft.appellation,
+      format: template.format || baseDraft.format,
+      type: template.type || baseDraft.type,
+      currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
+      current_value: "current_value" in template && template.current_value ? String(template.current_value) : baseDraft.current_value,
+      owner_share_pct: "owner_share_pct" in template ? String(template.owner_share_pct || baseDraft.owner_share_pct) : baseDraft.owner_share_pct,
+    });
+  }
+
+  function updateWishlistDraftName(name: string) {
+    const baseDraft = { ...wishlistDraft, name };
+    if (editingWishlistId) {
+      setWishlistDraft(baseDraft);
+      return;
+    }
+    const template = matchingWineTemplate(name);
+    if (!template) {
+      setWishlistDraft(baseDraft);
+      return;
+    }
+    setWishlistDraft({
+      ...baseDraft,
+      producer: template.producer || baseDraft.producer,
+      region: template.region || baseDraft.region,
+      appellation: template.appellation || baseDraft.appellation,
+      format: template.format || baseDraft.format,
+      type: template.type || baseDraft.type,
+      currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
+    });
+  }
 
   function applySessionPreferences(nextSession: Session) {
     setLocale(nextSession.locale || "it");
@@ -2073,6 +2142,10 @@ export function App() {
     const nextWines = await api<Wine[]>("/api/v1/wines");
     setWines(nextWines);
     setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : nextWines[0]?.id || null));
+  }
+
+  async function loadWineCatalog() {
+    setWineCatalog(await api<CatalogWine[]>("/api/v1/wines/catalog"));
   }
 
   async function loadWishlist() {
@@ -2205,7 +2278,7 @@ export function App() {
       await loadBilling(nextSession.authenticated, nextSession.is_app_admin);
       return;
     }
-    await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
   }
 
   async function loadData() {
@@ -2215,6 +2288,7 @@ export function App() {
     if (nextSession.authenticated) {
       if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
         setWines([]);
+        setWineCatalog([]);
         setWishlist([]);
         setShareOffers([]);
         setReceivedInvites([]);
@@ -2235,6 +2309,7 @@ export function App() {
       }
     } else {
       setWines([]);
+      setWineCatalog([]);
       setWishlist([]);
       setShareOffers([]);
       setReceivedInvites([]);
@@ -2395,6 +2470,7 @@ export function App() {
     setLocale(navigator.language.toLowerCase().startsWith("it") ? "it" : "en");
     setThemePreference("system");
     setWines([]);
+    setWineCatalog([]);
     setWishlist([]);
     setShareOffers([]);
     setReceivedInvites([]);
@@ -3575,6 +3651,15 @@ export function App() {
 
   return (
     <main className="app-shell">
+      <datalist id="wine-catalog-suggestions">
+        {wineTemplateSuggestions.map((wine) => (
+          <option
+            key={`${wine.producer}-${wine.name}`}
+            value={wine.name}
+            label={[wine.name, wine.producer, wine.region].filter(Boolean).join(" - ")}
+          />
+        ))}
+      </datalist>
       <header className="topbar">
         <div>
           <p className="eyebrow">Vinaris</p>
@@ -4279,7 +4364,7 @@ export function App() {
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 <label>
                   <span>{t("name")}</span>
-                  <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required disabled={!canWriteWine} />
+                  <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
                 </label>
                 <label>
                   <span>{t("producer")}</span>
@@ -4463,7 +4548,7 @@ export function App() {
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
                 <label>
                   <span>{t("name")}</span>
-                  <input value={wishlistDraft.name} onChange={(event) => setWishlistDraft({ ...wishlistDraft, name: event.target.value })} required disabled={!canWriteWine} />
+                  <input list="wine-catalog-suggestions" value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} />
                 </label>
                 <label>
                   <span>{t("producer")}</span>

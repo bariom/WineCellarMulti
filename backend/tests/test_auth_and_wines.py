@@ -137,6 +137,17 @@ def test_register_login_session_and_logout():
     assert login.json()["theme_preference"] == "ticino"
 
 
+def test_authenticated_user_can_read_wine_catalog():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    response = client.get("/api/v1/wines/catalog")
+    assert response.status_code == 200
+    catalog = response.json()
+    assert len(catalog) > 400
+    assert {"name", "producer", "region", "appellation", "type", "format"} <= set(catalog[0])
+
+
 def test_app_admin_can_create_and_user_can_redeem_code():
     admin_client = TestClient(app)
     registered = register(admin_client)
