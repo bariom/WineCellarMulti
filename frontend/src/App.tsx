@@ -424,6 +424,7 @@ const translations = {
     noAiUsage: "No AI usage yet",
     noTags: "No tags defined yet",
     noItemSelected: "No item selected",
+    notSpecified: "Not specified",
     noProducer: "No producer",
     newItems: "new",
     next12Months: "Next 12 months",
@@ -670,6 +671,7 @@ const translations = {
     noAiUsage: "Nessun uso AI registrato",
     noTags: "Nessun tag definito",
     noItemSelected: "Nessun elemento selezionato",
+    notSpecified: "Non specificato",
     noProducer: "Produttore assente",
     newItems: "nuovi",
     next12Months: "Prossimi 12 mesi",
@@ -820,6 +822,54 @@ const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
 
 function translate(locale: Locale, key: TranslationKey) {
   return (translations[locale] as Record<TranslationKey, string>)[key] || translations.en[key];
+}
+
+const localizedDisplayValues: Record<Locale, Record<string, Record<string, string>>> = {
+  en: {},
+  it: {
+    format: {
+      "Bottle (750ml)": "Bottiglia (750ml)",
+      "Half bottle (375ml)": "Mezza bottiglia (375ml)",
+      "Magnum (1.5L)": "Magnum (1.5L)",
+      "Double Magnum (3L)": "Doppio Magnum (3L)",
+      "Jeroboam (3L)": "Jeroboam (3L)",
+      "Imperial (6L)": "Imperial (6L)",
+    },
+    type: {
+      Red: "Rosso",
+      White: "Bianco",
+      Rose: "Rose",
+      "Ros\u00e9": "Rose",
+      Sparkling: "Spumante",
+      Sweet: "Dolce",
+      Fortified: "Fortificato",
+      Other: "Altro",
+    },
+    status: {
+      Ordered: "Ordinato",
+      Shipped: "Spedito",
+      Delivered: "Consegnato",
+      Consumed: "Bevuto",
+      Cancelled: "Annullato",
+    },
+    priority: {
+      High: "Alta",
+      Medium: "Media",
+      Low: "Bassa",
+    },
+    purpose: {
+      Cellar: "Cantina",
+      Drink: "Bere",
+      Gift: "Regalo",
+      Investment: "Investimento",
+      Other: "Altro",
+    },
+  },
+};
+
+function displayValue(value: string | null | undefined, locale: Locale, group: string) {
+  if (!value) return "";
+  return localizedDisplayValues[locale]?.[group]?.[value] || value;
 }
 
 const emptyDraft: WineDraft = {
@@ -1379,11 +1429,19 @@ function wishlistSearchText(item: WishlistItem) {
   ].join(" ").toLowerCase();
 }
 
-function DetailField({ label, value }: { label: string; value: string | number | null | undefined }) {
+function DetailField({
+  label,
+  value,
+  emptyLabel,
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  emptyLabel: string;
+}) {
   return (
     <div className="detail-field">
       <span>{label}</span>
-      <strong>{value || "Not specified"}</strong>
+      <strong>{value || emptyLabel}</strong>
     </div>
   );
 }
@@ -1483,16 +1541,20 @@ function hasSharedOwnership(wine: Wine) {
 
 function WineDetail({
   wine,
+  session,
   canGenerate,
   generating,
   onGenerate,
   t,
+  locale,
 }: {
   wine: Wine;
+  session: Session | null;
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
   t: (key: TranslationKey) => string;
+  locale: Locale;
 }) {
   const drinkStart = wine.drink_from || Number(wine.vintage) || new Date().getFullYear();
   const drinkEnd = wine.drink_to || drinkStart;
@@ -1537,15 +1599,15 @@ function WineDetail({
       </div>
 
       <div className="detail-grid">
-        <DetailField label={t("format")} value={wine.format} />
-        <DetailField label={t("type")} value={wine.type} />
-        <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} />
-        <DetailField label={t("status")} value={wine.status} />
-        <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} />
-        <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} />
-        <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} />
-        <DetailField label={t("merchant")} value={wine.merchant} />
-        <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} />
+        <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("status")} value={displayValue(wine.status, locale, "status")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
       </div>
 
       {(wine.drink_from || wine.drink_to) ? (
@@ -1643,12 +1705,14 @@ function WishlistDetail({
   generating,
   onGenerate,
   t,
+  locale,
 }: {
   item: WishlistItem;
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
   t: (key: TranslationKey) => string;
+  locale: Locale;
 }) {
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
@@ -1672,12 +1736,12 @@ function WishlistDetail({
         </button>
       </div>
       <div className="detail-grid">
-        <DetailField label={t("format")} value={item.format} />
-        <DetailField label={t("type")} value={item.type} />
-        <DetailField label={t("priority")} value={item.priority} />
-        <DetailField label={t("purpose")} value={item.purpose} />
-        <DetailField label={t("status")} value={item.status} />
-        <DetailField label={t("merchant")} value={item.merchant} />
+        <DetailField label={t("format")} value={displayValue(item.format, locale, "format")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("type")} value={displayValue(item.type, locale, "type")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("priority")} value={displayValue(item.priority, locale, "priority")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("purpose")} value={displayValue(item.purpose, locale, "purpose")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("status")} value={displayValue(item.status, locale, "status")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>
       {item.notes ? (
         <div className="notes-grid">
@@ -3879,10 +3943,10 @@ export function App() {
                   <label>
                     <span>{t("status")}</span>
                     <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })} disabled={!canWriteWine}>
-                      <option>Ordered</option>
-                      <option>Shipped</option>
-                      <option>Delivered</option>
-                      <option>Consumed</option>
+                      <option value="Ordered">{displayValue("Ordered", locale, "status")}</option>
+                      <option value="Shipped">{displayValue("Shipped", locale, "status")}</option>
+                      <option value="Delivered">{displayValue("Delivered", locale, "status")}</option>
+                      <option value="Consumed">{displayValue("Consumed", locale, "status")}</option>
                     </select>
                   </label>
                   <label>
@@ -4065,10 +4129,12 @@ export function App() {
               <>
                 <WineDetail
                   wine={selectedWine}
+                  session={session}
                   canGenerate={canGenerateAi}
                   generating={generatingAi}
                   onGenerate={(feature) => generateWineAi(selectedWine, feature)}
                   t={t}
+                  locale={locale}
                 />
                 {renderSharePanel(selectedWine)}
               </>
@@ -4079,6 +4145,7 @@ export function App() {
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                   onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
                   t={t}
+                  locale={locale}
                 />
             ) : (
               <div className="wine-detail empty-detail">
@@ -4196,14 +4263,14 @@ export function App() {
                   <span>{t("type")}</span>
                   <select value={typeFilter} onChange={(event) => setTypeFilter(event.target.value)}>
                     <option value="">{t("allTypes")}</option>
-                    {activeTypeOptions.map((type) => <option key={type} value={type}>{type}</option>)}
+                    {activeTypeOptions.map((type) => <option key={type} value={type}>{displayValue(type, locale, "type")}</option>)}
                   </select>
                 </label>
                 <label>
                   <span>{t("status")}</span>
                   <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
                     <option value="">{t("allStatuses")}</option>
-                    {activeStatusOptions.map((status) => <option key={status} value={status}>{status}</option>)}
+                    {activeStatusOptions.map((status) => <option key={status} value={status}>{displayValue(status, locale, "status")}</option>)}
                   </select>
                 </label>
               </div>
@@ -4257,8 +4324,8 @@ export function App() {
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
-                    <p className="row-primary">{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())} - {wine.status}</p>
-                    <p className="row-secondary">{[wine.format, wine.type, wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
+                    <p className="row-primary">{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())} - {displayValue(wine.status, locale, "status")}</p>
+                    <p className="row-secondary">{[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
                     <div className="row-meta">
                       {wine.rating ? <span><StarRating value={wine.rating} label={t("rating")} /></span> : null}
                       {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
@@ -4277,10 +4344,12 @@ export function App() {
                   <div className="mobile-inline-detail">
                     <WineDetail
                       wine={wine}
+                      session={session}
                       canGenerate={canGenerateAi}
                       generating={generatingAi}
                       onGenerate={(feature) => generateWineAi(wine, feature)}
                       t={t}
+                      locale={locale}
                     />
                     {renderSharePanel(wine)}
                   </div>
@@ -4291,8 +4360,8 @@ export function App() {
                 <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div>
                     <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
-                    <p className="row-primary">{item.producer || t("noProducer")} - {item.purpose} - {item.status}</p>
-                    <p className="row-secondary">{[item.format, item.type, item.region, item.appellation].filter(Boolean).join(" - ")}</p>
+                    <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")} - {displayValue(item.status, locale, "status")}</p>
+                    <p className="row-secondary">{[displayValue(item.format, locale, "format"), displayValue(item.type, locale, "type"), item.region, item.appellation].filter(Boolean).join(" - ")}</p>
                     <div className="row-meta">
                       {item.merchant ? <span>{item.merchant}</span> : null}
                       {item.notes ? <span>{item.notes}</span> : null}
@@ -4300,7 +4369,7 @@ export function App() {
                   </div>
                   <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
                   <div className="row-actions">
-                    <span className={`priority-chip priority-${priorityTone(item.priority)}`}>{item.priority}</span>
+                    <span className={`priority-chip priority-${priorityTone(item.priority)}`}>{displayValue(item.priority, locale, "priority")}</span>
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
                       {t("edit")}
                     </button>
@@ -4320,6 +4389,7 @@ export function App() {
                       generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                       onGenerate={(feature) => generateWishlistAi(item, feature)}
                       t={t}
+                      locale={locale}
                     />
                   </div>
                 ) : null}
