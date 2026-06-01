@@ -2650,13 +2650,19 @@ export function App() {
     }
   }
 
-  async function deleteRedeemCode(code: RedeemCode) {
-    if (!window.confirm(`Delete redeem code ${code.code || code.code_prefix}?`)) return;
+  async function deleteRedeemCode(code: RedeemCode, force = false) {
+    const codeLabel = code.code || code.code_prefix;
+    if (!window.confirm(`${force ? "Permanently delete" : "Delete"} redeem code ${codeLabel}?`)) return;
+    if (force && !window.confirm(`This also removes redemption history for ${codeLabel}. Continue?`)) return;
     setSaving(true);
     setError("");
     try {
-      await api<void>(`/api/v1/billing/redeem-codes/${code.id}`, { method: "DELETE" });
-      setRedeemCodes((currentCodes) => currentCodes.filter((item) => item.id !== code.id || item.redeemed_count > 0).map((item) => item.id === code.id ? { ...item, revoked_at: new Date().toISOString(), is_active: false } : item));
+      await api<void>(`/api/v1/billing/redeem-codes/${code.id}${force ? "?force=true" : ""}`, { method: "DELETE" });
+      setRedeemCodes((currentCodes) =>
+        currentCodes
+          .filter((item) => item.id !== code.id || (item.redeemed_count > 0 && !force))
+          .map((item) => (item.id === code.id ? { ...item, revoked_at: new Date().toISOString(), is_active: false } : item)),
+      );
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to delete redeem code");
     } finally {
@@ -5189,6 +5195,11 @@ export function App() {
                           <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
                             {t("delete")}
                           </button>
+                          {code.redeemed_count > 0 ? (
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code, true)}>
+                              Force delete
+                            </button>
+                          ) : null}
                           <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
                         </div>
                       ))}

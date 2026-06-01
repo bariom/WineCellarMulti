@@ -187,6 +187,9 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     assert revoked.status_code == 204
     listed_after_revoke = admin_client.get("/api/v1/billing/redeem-codes")
     assert listed_after_revoke.json()[0]["is_active"] is False
+    force_deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{unused_code_id}?force=true")
+    assert force_deleted.status_code == 204
+    assert all(code["id"] != unused_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
 
     extra_code = admin_client.post(
         "/api/v1/billing/redeem-codes",
