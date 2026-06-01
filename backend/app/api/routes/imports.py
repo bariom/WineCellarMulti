@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_admin_context
 from app.db.session import get_db
-from app.models import Wine, WishlistItem
+from app.models import Wine, WineShareOffer, WishlistItem
 
 
 router = APIRouter(prefix="/imports")
@@ -26,6 +26,8 @@ class LegacyImportResult(BaseModel):
     wishlist_skipped: int = 0
     wines_updated: int = 0
     wishlist_updated: int = 0
+    wines_deleted: int = 0
+    wishlist_deleted: int = 0
 
 
 class LegacyImportPreview(BaseModel):
@@ -287,6 +289,13 @@ def legacy_payload_lists(payload: dict[str, Any]) -> tuple[list[dict[str, Any]],
     return [item for item in wines if isinstance(item, dict)], [item for item in wishlist if isinstance(item, dict)]
 
 
+def clear_household_cellar(db: Session, context: CurrentContext) -> tuple[int, int]:
+    db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
+    wines_deleted = db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
+    wishlist_deleted = db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
+    return wines_deleted, wishlist_deleted
+
+
 @router.post("/legacy-json/preview", response_model=LegacyImportPreview)
 def preview_legacy_json(
     payload: dict[str, Any],
@@ -323,12 +332,15 @@ def preview_legacy_json(
 @router.post("/legacy-json", response_model=LegacyImportResult)
 def import_legacy_json(
     payload: dict[str, Any],
-    mode: str = Query(default="add_all", pattern="^(add_all|skip_duplicates|update_existing)$"),
+    mode: str = Query(default="add_all", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_admin_context),
 ) -> LegacyImportResult:
     wines, wishlist = legacy_payload_lists(payload)
     result = LegacyImportResult(wines_imported=0, wishlist_imported=0)
+    if mode == "replace_all":
+        result.wines_deleted, result.wishlist_deleted = clear_household_cellar(db, context)
+        db.flush()
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
 
@@ -374,6 +386,16 @@ def import_legacy_json(
 
     db.commit()
     return result
+
+
+@router.delete("/cellar", response_model=LegacyImportResult)
+def empty_cellar(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> LegacyImportResult:
+    wines_deleted, wishlist_deleted = clear_household_cellar(db, context)
+    db.commit()
+    return LegacyImportResult(wines_imported=0, wishlist_imported=0, wines_deleted=wines_deleted, wishlist_deleted=wishlist_deleted)
 
 
 @router.get("/export-json")

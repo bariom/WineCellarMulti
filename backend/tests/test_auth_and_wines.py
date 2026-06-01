@@ -365,6 +365,20 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert exported.json()["schema"] == "winecellarmulti.export.v1"
     assert [wine["name"] for wine in exported.json()["wines"]] == ["Imported Wine", "Wanted Wine"]
 
+    replacement_payload = {
+        "wines": [{"id": str(uuid.uuid4()), "name": "Replacement Wine", "quantity": 1, "price": 10}],
+        "wishlist": [],
+    }
+    replaced = client.post("/api/v1/imports/legacy-json?mode=replace_all", json=replacement_payload)
+    assert replaced.status_code == 200
+    assert replaced.json()["wines_deleted"] == 2
+    assert [wine["name"] for wine in client.get("/api/v1/wines").json()] == ["Replacement Wine"]
+
+    emptied = client.delete("/api/v1/imports/cellar")
+    assert emptied.status_code == 200
+    assert emptied.json()["wines_deleted"] == 1
+    assert client.get("/api/v1/wines").json() == []
+
 
 def test_ai_generation_requires_configured_openai_key():
     client = TestClient(app)

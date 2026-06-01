@@ -80,7 +80,7 @@ type Passkey = {
   last_used_at: string | null;
 };
 
-type ImportMode = "add_all" | "skip_duplicates" | "update_existing";
+type ImportMode = "add_all" | "skip_duplicates" | "update_existing" | "replace_all";
 
 type ImportPreview = {
   wines_total: number;
@@ -100,6 +100,8 @@ type ImportResult = {
   wishlist_skipped: number;
   wines_updated: number;
   wishlist_updated: number;
+  wines_deleted: number;
+  wishlist_deleted: number;
 };
 
 type WineShareOffer = {
@@ -344,6 +346,7 @@ const translations = {
     importLegacy: "Import legacy export",
     importMode: "Import mode",
     importModeAdd: "Add everything",
+    importModeReplace: "Replace everything",
     importModeSkip: "Skip likely duplicates",
     importModeUpdate: "Update existing wines",
     importPreview: "Preview import",
@@ -351,6 +354,8 @@ const translations = {
     importRun: "Run import",
     importSection: "Import",
     importSummary: "Import summary",
+    emptyCellar: "Empty cellar",
+    emptyCellarWarning: "Deletes all wines and wishlist items in the active cellar.",
     inviteLink: "Invite link",
     inviteLinkDetected: "Invite link detected",
     inviteLinkHelp: "Login or create an account with the invited email, then accept the invite.",
@@ -548,6 +553,7 @@ const translations = {
     importLegacy: "Importa export legacy",
     importMode: "Modalità import",
     importModeAdd: "Aggiungi tutto",
+    importModeReplace: "Sostituisci tutto",
     importModeSkip: "Salta duplicati probabili",
     importModeUpdate: "Aggiorna esistenti",
     importPreview: "Anteprima import",
@@ -555,6 +561,8 @@ const translations = {
     importRun: "Esegui import",
     importSection: "Importazione",
     importSummary: "Riepilogo import",
+    emptyCellar: "Svuota cantina",
+    emptyCellarWarning: "Cancella tutti i vini e gli elementi wishlist della cantina attiva.",
     inviteLink: "Link invito",
     inviteLinkDetected: "Link invito rilevato",
     inviteLinkHelp: "Accedi o crea un account con l'email invitata, poi accetta l'invito.",
@@ -2088,6 +2096,12 @@ export function App() {
 
   async function runLegacyImport() {
     if (!importPayload) return;
+    if (importMode === "replace_all") {
+      const firstConfirm = window.confirm("Questa operazione cancella prima tutti i vini e la wishlist della cantina attiva. Continuare?");
+      if (!firstConfirm) return;
+      const secondConfirm = window.confirm("Conferma definitiva: sostituire completamente la cantina con il JSON selezionato?");
+      if (!secondConfirm) return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -2102,6 +2116,29 @@ export function App() {
       await Promise.all([loadWines(), loadWishlist()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to import legacy export");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function emptyCellar() {
+    const firstConfirm = window.confirm("Questa operazione cancella tutti i vini e tutta la wishlist della cantina attiva. Continuare?");
+    if (!firstConfirm) return;
+    const secondConfirm = window.confirm("Conferma definitiva: svuotare la cantina? L'operazione non e reversibile senza backup/export.");
+    if (!secondConfirm) return;
+    setSaving(true);
+    setError("");
+    try {
+      const result = await api<ImportResult>("/api/v1/imports/cellar", { method: "DELETE" });
+      setImportResult(result);
+      setImportPreview(null);
+      setImportPayload(null);
+      setImportFileName("");
+      setSelectedWineId(null);
+      setSelectedWishlistId(null);
+      await Promise.all([loadWines(), loadWishlist()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to empty cellar");
     } finally {
       setSaving(false);
     }
@@ -3917,6 +3954,7 @@ export function App() {
                       <option value="skip_duplicates">{t("importModeSkip")}</option>
                       <option value="update_existing">{t("importModeUpdate")}</option>
                       <option value="add_all">{t("importModeAdd")}</option>
+                      <option value="replace_all">{t("importModeReplace")}</option>
                     </select>
                   </label>
                   <label>
@@ -3936,6 +3974,7 @@ export function App() {
                   {importResult ? (
                     <div className="token-box">
                       <strong>{t("importSummary")}</strong>
+                      {(importResult.wines_deleted || importResult.wishlist_deleted) ? <span>{t("emptyCellar")}: {importResult.wines_deleted} {t("wines").toLowerCase()}, {importResult.wishlist_deleted} {t("wishlist").toLowerCase()}</span> : null}
                       <span>{t("wines")}: +{importResult.wines_imported}, {t("updatedItems")} {importResult.wines_updated}, {t("skipped")} {importResult.wines_skipped}</span>
                       <span>{t("wishlist")}: +{importResult.wishlist_imported}, {t("updatedItems")} {importResult.wishlist_updated}, {t("skipped")} {importResult.wishlist_skipped}</span>
                     </div>
@@ -3946,6 +3985,13 @@ export function App() {
                     </button>
                     <button type="button" className="secondary" disabled={saving} onClick={exportJson}>
                       {t("exportJson")}
+                    </button>
+                  </div>
+                  <div className="error-banner">
+                    <strong>{t("emptyCellar")}</strong>
+                    <span>{t("emptyCellarWarning")}</span>
+                    <button type="button" className="danger compact" disabled={saving} onClick={emptyCellar}>
+                      {t("emptyCellar")}
                     </button>
                   </div>
                 </section>
