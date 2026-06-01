@@ -1224,6 +1224,16 @@ function wineUnitValue(wine: Wine) {
   return Number(wine.current_value || wine.price || 0);
 }
 
+function isFutureDeliveryWine(wine: Wine, now: Date) {
+  if (!wine.expected_delivery) return false;
+  const deliveryDate = new Date(wine.expected_delivery);
+  if (Number.isNaN(deliveryDate.getTime()) || deliveryDate < now) return false;
+  const status = wine.status.trim().toLowerCase();
+  const deliveredStatuses = ["delivered", "consegnato", "bevuto", "consumed", "cancelled", "canceled", "annullato"];
+  if (deliveredStatuses.some((value) => status.includes(value))) return false;
+  return true;
+}
+
 function sumWineValue(items: Wine[]) {
   return items.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
 }
@@ -2792,7 +2802,7 @@ export function App() {
       if (quickWineFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
       if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
       if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
-      if (quickWineFilter === "future_deliveries") return Boolean(wine.expected_delivery && new Date(wine.expected_delivery) >= now);
+      if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
       if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0;
       return true;
     })
@@ -2828,9 +2838,9 @@ export function App() {
     drinkNow: wines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
     drinkSoon: wines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
     pastWindow: wines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
-    futureDeliveries: wines.filter((wine) => wine.expected_delivery && new Date(wine.expected_delivery) >= now).length,
+    futureDeliveries: wines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
     nextDelivery: wines
-      .map((wine) => (wine.expected_delivery ? { wine, days: daysUntil(wine.expected_delivery) } : null))
+      .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
       .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
       .sort((first, second) => first.days - second.days)[0],
     missingValue: wines.filter((wine) => !wine.current_value).length,
@@ -2857,15 +2867,15 @@ export function App() {
     .sort((first, second) => (first.drink_to || 9999) - (second.drink_to || 9999))
     .slice(0, 5);
   const upcomingDeliveries = wines
-    .map((wine) => (wine.expected_delivery ? { wine, days: daysUntil(wine.expected_delivery) } : null))
+    .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
     .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
     .sort((first, second) => first.days - second.days)
     .slice(0, 5);
   const deliveryTimelineItems = wines
     .map((wine) => {
-      if (!wine.expected_delivery) return null;
-      const dateMs = new Date(wine.expected_delivery).getTime();
-      const days = daysUntil(wine.expected_delivery);
+      if (!isFutureDeliveryWine(wine, now)) return null;
+      const dateMs = new Date(wine.expected_delivery || "").getTime();
+      const days = daysUntil(wine.expected_delivery || "");
       return Number.isNaN(dateMs) || days === null || days < 0 ? null : { wine, days, dateMs };
     })
     .filter((item): item is { wine: Wine; days: number; dateMs: number } => Boolean(item))
