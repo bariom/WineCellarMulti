@@ -272,7 +272,21 @@ summary:focus-visible {
 }
 
 .content-workspace {
-  grid-template-columns: minmax(460px, 560px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(420px, 520px);
+}
+
+.content-workspace .view-tabs {
+  grid-column: 1 / -1;
+}
+
+.content-workspace .wine-list {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.content-workspace .wine-side-panel {
+  grid-column: 2;
+  grid-row: 2;
 }
 
 .settings-workspace {
@@ -1984,6 +1998,12 @@ textarea {
 
   .content-workspace {
     grid-template-columns: 1fr;
+  }
+
+  .content-workspace .wine-list,
+  .content-workspace .wine-side-panel {
+    grid-column: 1;
+    grid-row: auto;
   }
 
   .settings-grid,
