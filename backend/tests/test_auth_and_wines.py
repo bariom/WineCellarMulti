@@ -274,6 +274,18 @@ def test_invite_acceptance_and_viewer_permissions():
     assert share_offer.status_code == 201
     assert share_offer.json()["recipient_email"] == "viewer@example.com"
 
+    offers = member.get("/api/v1/wines/share-offers")
+    assert offers.status_code == 200
+    assert offers.json()[0]["wine_name"] == "Shared Wine"
+    accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
+    assert accepted_offer.status_code == 200
+    viewer_owner = next(owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com")
+    assert viewer_owner["share_pct"] == 40.0
+    personal_list = member.get("/api/v1/wines")
+    assert personal_list.status_code == 200
+    assert [wine["name"] for wine in personal_list.json()] == ["Shared Wine"]
+    assert personal_list.json()[0]["owner_share_pct"] == "40.00"
+
     member_households = member.get("/api/v1/household/memberships")
     assert member_households.status_code == 200
     shared_household = next(item for item in member_households.json() if item["role"] == "viewer")
@@ -284,18 +296,6 @@ def test_invite_acceptance_and_viewer_permissions():
     assert switched.status_code == 200
     viewer_rename = member.patch("/api/v1/household", json={"name": "Viewer Rename"})
     assert viewer_rename.status_code == 403
-
-    viewer_list = member.get("/api/v1/wines")
-    assert viewer_list.status_code == 200
-    assert viewer_list.json() == []
-
-    offers = member.get("/api/v1/wines/share-offers")
-    assert offers.status_code == 200
-    assert offers.json()[0]["wine_name"] == "Shared Wine"
-    accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
-    assert accepted_offer.status_code == 200
-    viewer_owner = next(owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com")
-    assert viewer_owner["share_pct"] == 40.0
 
     viewer_list = member.get("/api/v1/wines")
     assert viewer_list.status_code == 200

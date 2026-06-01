@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.api.routes.tags import get_or_create_user_tag
 from app.db.session import get_db
-from app.models import Membership, User, UserTag, UserWineTag, Wine, WineShareOffer
+from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer
 from app.schemas.wine import WineCreate, WineResponse, WineShareOfferCreate, WineShareOfferResponse, WineUpdate
 
 
@@ -79,6 +79,15 @@ def share_offer_response(db: Session, offer: WineShareOffer) -> WineShareOfferRe
     )
 
 
+def user_personal_household(db: Session, user_id: UUID) -> Household | None:
+    membership = db.scalar(
+        select(Membership)
+        .where(Membership.user_id == user_id, Membership.role == "owner")
+        .order_by(Membership.id.asc()),
+    )
+    return db.get(Household, membership.household_id) if membership is not None else None
+
+
 def normalize_owner_rows(raw_owners: list[dict]) -> list[dict]:
     owners: list[dict] = []
     for raw_owner in raw_owners or []:
@@ -109,6 +118,43 @@ def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct:
             return
     owners.append({"name": cleaned_name, "email": cleaned_email, "share_pct": float(share_pct)})
     wine.owners = owners
+
+
+def wine_copy_for_recipient(source: Wine, target_household: Household, recipient: User, share_pct: Decimal) -> Wine:
+    return Wine(
+        household_id=target_household.id,
+        created_by_user_id=recipient.id,
+        name=source.name,
+        producer=source.producer,
+        vintage=source.vintage,
+        quantity=source.quantity,
+        currency=source.currency,
+        price=source.price,
+        current_value=source.current_value,
+        status=source.status,
+        format=source.format,
+        type=source.type,
+        region=source.region,
+        appellation=source.appellation,
+        merchant=source.merchant,
+        order_date=source.order_date,
+        expected_delivery=source.expected_delivery,
+        owner_share_pct=share_pct,
+        notes=source.notes,
+        ai_notes=source.ai_notes,
+        drink_from=source.drink_from,
+        drink_peak_from=source.drink_peak_from,
+        drink_peak_to=source.drink_peak_to,
+        drink_to=source.drink_to,
+        drink_window_notes=source.drink_window_notes,
+        ai_value_notes=source.ai_value_notes,
+        ai_value_estimated_at=source.ai_value_estimated_at,
+        rating=source.rating,
+        owners=[{"name": recipient.display_name or recipient.email, "email": recipient.email, "share_pct": float(share_pct)}],
+        tags=[],
+        grapes=source.grapes,
+        scores=source.scores,
+    )
 
 
 def set_user_wine_tags(db: Session, context: CurrentContext, wine: Wine, tag_names: list[str]) -> None:
@@ -149,7 +195,6 @@ def list_share_offers(
     offers = db.scalars(
         select(WineShareOffer)
         .where(
-            WineShareOffer.household_id == context.household.id,
             WineShareOffer.recipient_user_id == context.user.id,
             WineShareOffer.status == "pending",
         )
@@ -172,14 +217,6 @@ def create_share_offer(
     recipient = db.scalar(select(User).where(User.email == recipient_email))
     if recipient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User must register before receiving a share offer")
-    membership = db.scalar(
-        select(Membership).where(
-            Membership.user_id == recipient.id,
-            Membership.household_id == context.household.id,
-        ),
-    )
-    if membership is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User must be a member of this household first")
 
     offer = db.scalar(
         select(WineShareOffer).where(
@@ -213,24 +250,28 @@ def accept_share_offer(
     offer = db.scalar(
         select(WineShareOffer).where(
             WineShareOffer.id == offer_id,
-            WineShareOffer.household_id == context.household.id,
             WineShareOffer.recipient_user_id == context.user.id,
             WineShareOffer.status == "pending",
         ),
     )
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share offer not found")
-    wine = get_household_wine(db, context, offer.wine_id, enforce_visibility=False)
+    wine = db.get(Wine, offer.wine_id)
+    if wine is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
     sender = db.get(User, offer.created_by_user_id)
+    target_household = user_personal_household(db, context.user.id) or context.household
     if not wine.owners:
         if sender is not None:
             upsert_owner_share(wine, sender.display_name or sender.email, sender.email, Decimal("100") - offer.share_pct)
     upsert_owner_share(wine, context.user.display_name or context.user.email, context.user.email, offer.share_pct)
+    copied_wine = wine_copy_for_recipient(wine, target_household, context.user, offer.share_pct)
+    db.add(copied_wine)
     offer.status = "accepted"
     offer.decided_at = datetime.now(timezone.utc)
     db.commit()
-    db.refresh(wine)
-    return wine_response(wine, user_tag_names_by_wine(db, context, [wine.id]).get(wine.id))
+    db.refresh(copied_wine)
+    return wine_response(copied_wine, user_tag_names_by_wine(db, context, [copied_wine.id]).get(copied_wine.id))
 
 
 @router.post("/share-offers/{offer_id}/decline", response_model=WineShareOfferResponse)
@@ -242,7 +283,6 @@ def decline_share_offer(
     offer = db.scalar(
         select(WineShareOffer).where(
             WineShareOffer.id == offer_id,
-            WineShareOffer.household_id == context.household.id,
             WineShareOffer.recipient_user_id == context.user.id,
             WineShareOffer.status == "pending",
         ),
