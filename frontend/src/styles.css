@@ -934,6 +934,17 @@ textarea {
   gap: 8px;
 }
 
+.score-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 120px minmax(0, 1.6fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.score-edit-row textarea {
+  min-height: 42px;
+}
+
 .tag-choice-list.compact {
   max-height: 88px;
   overflow-y: auto;
@@ -2766,6 +2777,7 @@ textarea {
 
   .tag-admin-row,
   .ownership-edit-row,
+  .score-edit-row,
   .inline-row-form,
   .usage-row,
   .member-row,
