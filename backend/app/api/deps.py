@@ -71,7 +71,7 @@ def get_optional_context(
         db.delete(user_session)
         db.commit()
         return None
-    if not user.is_approved:
+    if not user.is_approved or user.is_blocked:
         db.delete(user_session)
         db.commit()
         return None

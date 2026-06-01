@@ -40,7 +40,8 @@ class PendingUserResponse(BaseModel):
 
 
 class UserAdminUpdate(BaseModel):
-    is_app_admin: bool
+    is_app_admin: bool | None = None
+    is_blocked: bool | None = None
 
 
 class UserAdminResponse(BaseModel):
@@ -49,7 +50,10 @@ class UserAdminResponse(BaseModel):
     display_name: str
     is_approved: bool
     is_app_admin: bool
+    is_blocked: bool
     approved_at: str | None = None
+    entitlement_valid_until: str | None = None
+    entitlement_days_remaining: int | None = None
 
 
 class UserPreferencesUpdate(BaseModel):

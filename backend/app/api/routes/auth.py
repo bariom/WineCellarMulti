@@ -1,4 +1,5 @@
 import json
+import math
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -24,7 +25,7 @@ from app.api.deps import CurrentContext, build_session_response, get_current_con
 from app.core.config import settings
 from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
+from app.models import Household, Membership, PasskeyChallenge, User, UserEntitlement, UserPasskey, UserSession
 from app.schemas.auth import (
     LoginRequest,
     PasskeyLoginVerifyRequest,
@@ -139,14 +140,30 @@ def pending_user_response(user: User) -> PendingUserResponse:
     return PendingUserResponse(id=str(user.id), email=user.email, display_name=user.display_name)
 
 
-def user_admin_response(user: User) -> UserAdminResponse:
+def active_entitlement_for_user(db: Session, user: User) -> UserEntitlement | None:
+    now = datetime.now(timezone.utc)
+    return db.scalar(
+        select(UserEntitlement)
+        .where(UserEntitlement.user_id == user.id)
+        .where(UserEntitlement.valid_until > now)
+        .order_by(UserEntitlement.valid_until.desc()),
+    )
+
+
+def user_admin_response(user: User, db: Session) -> UserAdminResponse:
+    entitlement = active_entitlement_for_user(db, user)
+    valid_until = utc_datetime(entitlement.valid_until) if entitlement else None
+    days_remaining = math.ceil((valid_until - datetime.now(timezone.utc)).total_seconds() / 86400) if valid_until else None
     return UserAdminResponse(
         id=str(user.id),
         email=user.email,
         display_name=user.display_name,
         is_approved=user.is_approved,
         is_app_admin=user.is_app_admin,
+        is_blocked=user.is_blocked,
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
+        entitlement_valid_until=valid_until.isoformat() if valid_until else None,
+        entitlement_days_remaining=max(days_remaining, 0) if days_remaining is not None else None,
     )
 
 
@@ -193,6 +210,8 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if not user.is_approved:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
+    if user.is_blocked:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account blocked")
 
     membership = db.scalar(select(Membership).where(Membership.user_id == user.id).order_by(Membership.role.asc()))
     if membership is None:
@@ -328,6 +347,8 @@ def verify_passkey_login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User unavailable")
     if not user.is_approved:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
+    if user.is_blocked:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account blocked")
     membership = db.scalar(select(Membership).where(Membership.user_id == user.id).order_by(Membership.role.asc()))
     if membership is None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No household membership")
@@ -386,7 +407,7 @@ def list_users(
     db: Session = Depends(get_db),
 ) -> list[UserAdminResponse]:
     users = db.scalars(select(User).order_by(User.email.asc()))
-    return [user_admin_response(user) for user in users]
+    return [user_admin_response(user, db) for user in users]
 
 
 @router.patch("/users/{user_id}", response_model=UserAdminResponse)
@@ -399,14 +420,47 @@ def update_user_admin(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    if user.id == context.user.id and not payload.is_app_admin:
-        other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id))
-        if other_admin is None:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one application administrator is required")
-    user.is_app_admin = payload.is_app_admin
+    if payload.is_app_admin is None and payload.is_blocked is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No user changes provided")
+    if payload.is_app_admin is not None:
+        if user.id == context.user.id and not payload.is_app_admin:
+            other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id, User.is_blocked.is_(False)))
+            if other_admin is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one active application administrator is required")
+        user.is_app_admin = payload.is_app_admin
+    if payload.is_blocked is not None:
+        if user.id == context.user.id and payload.is_blocked:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot block your own account")
+        if user.is_app_admin and payload.is_blocked:
+            other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id, User.is_blocked.is_(False)))
+            if other_admin is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one active application administrator is required")
+        user.is_blocked = payload.is_blocked
+        if payload.is_blocked:
+            db.query(UserSession).filter(UserSession.user_id == user.id).delete()
     db.commit()
     db.refresh(user)
-    return user_admin_response(user)
+    return user_admin_response(user, db)
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_user_admin(
+    user_id: UUID,
+    context: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> Response:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    if user.id == context.user.id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="You cannot delete your own account")
+    if user.is_app_admin:
+        other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id, User.is_blocked.is_(False)))
+        if other_admin is None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one active application administrator is required")
+    db.delete(user)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/passkeys/{passkey_id}", status_code=status.HTTP_204_NO_CONTENT)

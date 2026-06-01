@@ -98,6 +98,15 @@ def test_register_login_session_and_logout():
     promoted = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_app_admin": True})
     assert promoted.status_code == 200
     assert promoted.json()["is_app_admin"] is True
+    blocked = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_blocked": True})
+    assert blocked.status_code == 200
+    assert blocked.json()["is_blocked"] is True
+    blocked_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
+    assert blocked_login.status_code == 403
+    deleted_user = client.delete(f"/api/v1/auth/users/{pending_record['id']}")
+    assert deleted_user.status_code == 204
+    users_after_delete = client.get("/api/v1/auth/users")
+    assert all(user["email"] != "pending@example.com" for user in users_after_delete.json())
 
     logged_out = client.post("/api/v1/auth/logout")
     assert logged_out.status_code == 204

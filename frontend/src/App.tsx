@@ -192,7 +192,10 @@ type PendingUser = {
 type AppUser = PendingUser & {
   is_approved: boolean;
   is_app_admin: boolean;
+  is_blocked: boolean;
   approved_at: string | null;
+  entitlement_valid_until: string | null;
+  entitlement_days_remaining: number | null;
 };
 
 type RedeemCode = {
@@ -395,6 +398,7 @@ const translations = {
     delete: "Delete",
     delivery: "Delivery",
     deliveryTimeline: "Delivery timeline",
+    daysRemaining: "days remaining",
     durationDays: "Duration days",
     drinkIn2Years: "Drink in 2 years",
     drinkNow: "Drink now",
@@ -480,6 +484,8 @@ const translations = {
     next30Days: "Next 30 days",
     next90Days: "Next 90 days",
     beyond12Months: "Beyond 12 months",
+    blockAccess: "Block access",
+    blocked: "Blocked",
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
     noPasskeys: "No passkeys registered yet",
@@ -568,6 +574,7 @@ const translations = {
     themeTuscany: "Tuscany",
     themePiedmont: "Piedmont",
     themeTicino: "Ticino",
+    unblockAccess: "Unblock access",
     thisMonth: "This month",
     timeline: "Timeline",
     today: "Today",
@@ -652,6 +659,7 @@ const translations = {
     delete: "Elimina",
     delivery: "Consegna",
     deliveryTimeline: "Timeline consegne",
+    daysRemaining: "giorni residui",
     durationDays: "Durata giorni",
     drinkIn2Years: "Da bere entro 2 anni",
     drinkNow: "Da bere ora",
@@ -737,6 +745,8 @@ const translations = {
     next30Days: "Prossimi 30 giorni",
     next90Days: "Prossimi 90 giorni",
     beyond12Months: "Oltre 12 mesi",
+    blockAccess: "Blocca accesso",
+    blocked: "Bloccato",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
     noPasskeys: "Nessuna passkey registrata",
@@ -825,6 +835,7 @@ const translations = {
     themeTuscany: "Toscana",
     themePiedmont: "Piemonte",
     themeTicino: "Ticino",
+    unblockAccess: "Sblocca accesso",
     thisMonth: "Questo mese",
     timeline: "Timeline",
     today: "Oggi",
@@ -2054,7 +2065,7 @@ export function App() {
         ...nextUsers,
         ...nextPendingUsers
           .filter((pendingUser) => !nextUsers.some((user) => user.id === pendingUser.id))
-          .map((pendingUser) => ({ ...pendingUser, is_approved: false, is_app_admin: false, approved_at: null })),
+          .map((pendingUser) => ({ ...pendingUser, is_approved: false, is_app_admin: false, is_blocked: false, approved_at: null, entitlement_valid_until: null, entitlement_days_remaining: null })),
       ].sort((first, second) => Number(first.is_approved) - Number(second.is_approved) || first.email.localeCompare(second.email));
       setAppUsers(mergedUsers);
       setPendingUsers(mergedUsers.filter((user) => !user.is_approved));
@@ -2461,6 +2472,34 @@ export function App() {
       await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleUserBlocked(user: AppUser) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ is_blocked: !user.is_blocked }) });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteAppUser(user: AppUser) {
+    if (!window.confirm(`Delete ${user.email}?`)) return;
+    if (!window.confirm(`This permanently removes ${user.email}. Continue?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/auth/users/${user.id}`, { method: "DELETE" });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete user");
     } finally {
       setSaving(false);
     }
@@ -5004,7 +5043,10 @@ export function App() {
                         <div className="member-row" key={user.id}>
                           <div>
                             <strong>{user.display_name}</strong>
-                            <span>{user.email} - {user.is_approved ? "approved" : "pending"}</span>
+                            <span>{user.email} - {user.is_approved ? "approved" : "pending"}{user.is_blocked ? ` - ${t("blocked")}` : ""}</span>
+                            {user.entitlement_days_remaining !== null ? (
+                              <span>{user.entitlement_days_remaining} {t("daysRemaining")} - {formatDisplayDate(user.entitlement_valid_until || "")}</span>
+                            ) : null}
                           </div>
                           <div className="member-actions">
                             {!user.is_approved ? (
@@ -5019,6 +5061,14 @@ export function App() {
                             ) : null}
                             <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
                               {user.is_app_admin ? "App admin" : "Make app admin"}
+                            </button>
+                            {user.is_approved ? (
+                              <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>
+                                {user.is_blocked ? t("unblockAccess") : t("blockAccess")}
+                              </button>
+                            ) : null}
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteAppUser(user)}>
+                              {t("delete")}
                             </button>
                           </div>
                         </div>
