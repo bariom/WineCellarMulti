@@ -194,6 +194,42 @@ type AppUser = PendingUser & {
   approved_at: string | null;
 };
 
+type RedeemCode = {
+  id: string;
+  code: string | null;
+  code_prefix: string;
+  label: string;
+  duration_days: number;
+  max_redemptions: number;
+  redeemed_count: number;
+  email: string | null;
+  expires_at: string | null;
+  created_at: string;
+  revoked_at: string | null;
+  is_active: boolean;
+};
+
+type BillingStatus = {
+  has_active_entitlement: boolean;
+  valid_until: string | null;
+  active_source: string | null;
+  entitlements: Array<{
+    id: string;
+    source: string;
+    valid_from: string;
+    valid_until: string;
+    created_at: string;
+  }>;
+};
+
+type RedeemCodeDraft = {
+  label: string;
+  duration_days: string;
+  max_redemptions: string;
+  email: string;
+  expires_at: string;
+};
+
 type Invite = {
   id: string;
   household_id?: string | null;
@@ -305,6 +341,14 @@ const emptyAiSettingsDraft: AiSettingsDraft = {
   pairing_model: "gpt-5.4",
 };
 
+const emptyRedeemCodeDraft: RedeemCodeDraft = {
+  label: "",
+  duration_days: "30",
+  max_redemptions: "1",
+  email: "",
+  expires_at: "",
+};
+
 const translations = {
   en: {
     accept: "Accept",
@@ -326,6 +370,7 @@ const translations = {
     allTags: "All tags",
     allTypes: "All types",
     appellation: "Appellation",
+    billing: "Billing",
     bottles: "Bottles",
     cancel: "Cancel",
     cellar: "Cellar",
@@ -336,6 +381,7 @@ const translations = {
     create: "Create",
     createAccount: "Create account",
     createInvite: "Create invite",
+    createRedeemCode: "Create redeem code",
     configured: "Configured",
     createWine: "Create wine",
     createWishlist: "Create wishlist",
@@ -347,6 +393,7 @@ const translations = {
     delete: "Delete",
     delivery: "Delivery",
     deliveryTimeline: "Delivery timeline",
+    durationDays: "Duration days",
     drinkIn2Years: "Drink in 2 years",
     drinkNow: "Drink now",
     drinkWindow: "Drink window",
@@ -462,6 +509,10 @@ const translations = {
     pendingApproval: "Account pending approval",
     pendingApprovalHelp: "Your account was created, but it must be approved by an administrator before login.",
     pendingUsers: "Users pending approval",
+    redeem: "Redeem",
+    redeemCode: "Redeem code",
+    redeemCodes: "Redeem codes",
+    redeemed: "Redeemed",
     notifications: "Notifications",
     reviewUsers: "Review users",
     personalSettings: "Personal settings",
@@ -535,6 +586,7 @@ const translations = {
     wishlistItems: "Wishlist items",
     exportData: "Export data",
     exportJson: "Export JSON",
+    generatedCode: "Generated code",
     working: "Working",
     youngWine: "Young",
     estimatedCost: "Estimated cost",
@@ -573,6 +625,7 @@ const translations = {
     allTags: "Tutti i tag",
     allTypes: "Tutti i tipi",
     appellation: "Denominazione",
+    billing: "Iscrizione",
     bottles: "Bottiglie",
     cancel: "Annulla",
     cellar: "Cantina",
@@ -583,6 +636,7 @@ const translations = {
     create: "Crea",
     createAccount: "Crea account",
     createInvite: "Crea invito",
+    createRedeemCode: "Crea codice redeem",
     configured: "Configurata",
     createWine: "Crea vino",
     createWishlist: "Crea wishlist",
@@ -594,6 +648,7 @@ const translations = {
     delete: "Elimina",
     delivery: "Consegna",
     deliveryTimeline: "Timeline consegne",
+    durationDays: "Durata giorni",
     drinkIn2Years: "Da bere entro 2 anni",
     drinkNow: "Da bere ora",
     drinkWindow: "Finestra",
@@ -709,6 +764,10 @@ const translations = {
     pendingApproval: "Account in attesa di approvazione",
     pendingApprovalHelp: "Il tuo account e stato creato, ma deve essere approvato da un amministratore prima dell'accesso.",
     pendingUsers: "Utenti in attesa di approvazione",
+    redeem: "Riscatta",
+    redeemCode: "Codice redeem",
+    redeemCodes: "Codici redeem",
+    redeemed: "Riscattati",
     notifications: "Notifiche",
     reviewUsers: "Rivedi utenti",
     personalSettings: "Impostazioni personali",
@@ -782,6 +841,7 @@ const translations = {
     wishlistItems: "Elementi wishlist",
     exportData: "Esportazione dati",
     exportJson: "Esporta JSON",
+    generatedCode: "Codice generato",
     working: "Elaborazione",
     youngWine: "Giovane",
     estimatedCost: "Costo stimato",
@@ -1780,6 +1840,8 @@ export function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [redeemCodes, setRedeemCodes] = useState<RedeemCode[]>([]);
+  const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -1803,6 +1865,9 @@ export function App() {
   const [acceptToken, setAcceptToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
+  const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
+  const [redeemInput, setRedeemInput] = useState("");
+  const [generatedRedeemCode, setGeneratedRedeemCode] = useState("");
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("WineCellarMulti");
@@ -1967,6 +2032,20 @@ export function App() {
     }
   }
 
+  async function loadBilling(authenticated = session?.authenticated, isAppAdmin = session?.is_app_admin) {
+    if (!authenticated) {
+      setBillingStatus(null);
+      setRedeemCodes([]);
+      return;
+    }
+    const [nextStatus, nextCodes] = await Promise.all([
+      api<BillingStatus>("/api/v1/billing/status"),
+      isAppAdmin ? api<RedeemCode[]>("/api/v1/billing/redeem-codes") : Promise.resolve([]),
+    ]);
+    setBillingStatus(nextStatus);
+    setRedeemCodes(nextCodes);
+  }
+
   async function loadAiAudit(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
       setAiAudit(await api<AiAuditLog[]>("/api/v1/ai/audit"));
@@ -2007,7 +2086,7 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
@@ -2164,6 +2243,10 @@ export function App() {
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
+    setRedeemCodes([]);
+    setBillingStatus(null);
+    setRedeemInput("");
+    setGeneratedRedeemCode("");
     setDraft(emptyDraft);
     setWishlistDraft(emptyWishlistDraft);
     setEditingId(null);
@@ -2351,6 +2434,51 @@ export function App() {
     }
   }
 
+  async function createRedeemCode(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    setGeneratedRedeemCode("");
+    try {
+      const created = await api<RedeemCode>("/api/v1/billing/redeem-codes", {
+        method: "POST",
+        body: JSON.stringify({
+          label: redeemCodeDraft.label.trim(),
+          duration_days: Number(redeemCodeDraft.duration_days || 0),
+          max_redemptions: Number(redeemCodeDraft.max_redemptions || 1),
+          email: redeemCodeDraft.email.trim() || null,
+          expires_at: redeemCodeDraft.expires_at ? new Date(redeemCodeDraft.expires_at).toISOString() : null,
+        }),
+      });
+      setGeneratedRedeemCode(created.code || "");
+      setRedeemCodeDraft(emptyRedeemCodeDraft);
+      await loadBilling(true, true);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create redeem code");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function redeemCode(event: FormEvent) {
+    event.preventDefault();
+    if (!redeemInput.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const nextStatus = await api<BillingStatus>("/api/v1/billing/redeem", {
+        method: "POST",
+        body: JSON.stringify({ code: redeemInput.trim() }),
+      });
+      setBillingStatus(nextStatus);
+      setRedeemInput("");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to redeem code");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function createWineShareOffer(wine: Wine) {
     if (!shareDraft.email.trim()) return;
     setSaving(true);
@@ -2423,6 +2551,8 @@ export function App() {
       setInvites([]);
       setPendingUsers([]);
       setAppUsers([]);
+      setRedeemCodes([]);
+      setBillingStatus(null);
       setAiAudit([]);
       setAiUsage(null);
       setAiSettings(null);
@@ -4442,6 +4572,7 @@ export function App() {
                     setSettingsTab(tab);
                     if (tab === "users") {
                       loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"));
+                      loadBilling(true, true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load billing"));
                     }
                   }}
                 >
@@ -4512,6 +4643,32 @@ export function App() {
                   </div>
                 ) : (
                   <p className="empty-state">{t("noPasskeys")}</p>
+                )}
+              </section>
+              ) : null}
+
+              {settingsTab === "profile" ? (
+              <section className="settings-card settings-card-compact">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("billing")}</span>
+                    <h3>{t("redeemCode")}</h3>
+                  </div>
+                  {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
+                </div>
+                <form className="inline-form" onSubmit={redeemCode}>
+                  <label>
+                    <span>{t("redeemCode")}</span>
+                    <input value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
+                  </label>
+                  <button type="submit" disabled={saving || !redeemInput.trim()}>
+                    {t("redeem")}
+                  </button>
+                </form>
+                {billingStatus?.has_active_entitlement ? (
+                  <p className="empty-state">{t("billing")}: {billingStatus.active_source} - {formatDisplayDate(billingStatus.valid_until)}</p>
+                ) : (
+                  <p className="empty-state">{t("notSpecified")}</p>
                 )}
               </section>
               ) : null}
@@ -4699,6 +4856,73 @@ export function App() {
                   ))}
                 </div>
               </section>
+              ) : null}
+
+              {settingsTab === "users" && canAppAdmin ? (
+                <section className="settings-card settings-card-wide">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("billing")}</span>
+                      <h3>{t("redeemCodes")}</h3>
+                    </div>
+                    <button type="button" className="secondary compact" disabled={saving} onClick={() => loadBilling(true, true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load billing"))}>
+                      {t("loadingData")}
+                    </button>
+                  </div>
+                  <form className="inline-form" onSubmit={createRedeemCode}>
+                    <label>
+                      <span>{t("message")}</span>
+                      <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
+                    </label>
+                    <label>
+                      <span>{t("durationDays")}</span>
+                      <input type="number" min="1" max="3650" value={redeemCodeDraft.duration_days} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, duration_days: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>{t("records")}</span>
+                      <input type="number" min="1" max="10000" value={redeemCodeDraft.max_redemptions} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, max_redemptions: event.target.value })} />
+                    </label>
+                    <label>
+                      <span>{t("email")}</span>
+                      <input type="email" value={redeemCodeDraft.email} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, email: event.target.value })} placeholder="opzionale" />
+                    </label>
+                    <label>
+                      <span>{t("expires")}</span>
+                      <input type="datetime-local" value={redeemCodeDraft.expires_at} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, expires_at: event.target.value })} />
+                    </label>
+                    <button type="submit" disabled={saving || !Number(redeemCodeDraft.duration_days)}>
+                      {t("createRedeemCode")}
+                    </button>
+                  </form>
+                  {generatedRedeemCode ? (
+                    <div className="invite-row">
+                      <div>
+                        <strong>{t("generatedCode")}</strong>
+                        <span>{generatedRedeemCode}</span>
+                      </div>
+                      <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(generatedRedeemCode)}>
+                        Copy
+                      </button>
+                    </div>
+                  ) : null}
+                  {redeemCodes.length ? (
+                    <div className="member-list">
+                      {redeemCodes.map((code) => (
+                        <div className="member-row" key={code.id}>
+                          <div>
+                            <strong>{code.label || code.code_prefix}</strong>
+                            <span>{code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
+                            {code.email ? <span>{code.email}</span> : null}
+                            {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
+                          </div>
+                          <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">{t("noActionItems")}</p>
+                  )}
+                </section>
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (

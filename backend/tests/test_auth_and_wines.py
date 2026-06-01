@@ -114,6 +114,41 @@ def test_register_login_session_and_logout():
     assert login.json()["theme_preference"] == "ticino"
 
 
+def test_app_admin_can_create_and_user_can_redeem_code():
+    admin_client = TestClient(app)
+    registered = register(admin_client)
+    assert registered.status_code == 201
+
+    created = admin_client.post(
+        "/api/v1/billing/redeem-codes",
+        json={"label": "Trial", "duration_days": 30, "max_redemptions": 1},
+    )
+    assert created.status_code == 201
+    redeem_code = created.json()["code"]
+    assert redeem_code.startswith("WCM-")
+
+    listed = admin_client.get("/api/v1/billing/redeem-codes")
+    assert listed.status_code == 200
+    assert listed.json()[0]["code"] is None
+    assert listed.json()[0]["redeemed_count"] == 0
+
+    user_client = TestClient(app)
+    pending = register(user_client, email="redeem@example.com", password="strong-password-2")
+    assert pending.status_code == 201
+    pending_users = admin_client.get("/api/v1/auth/pending-users").json()
+    pending_user = next(user for user in pending_users if user["email"] == "redeem@example.com")
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    assert user_client.post("/api/v1/auth/login", json={"email": "redeem@example.com", "password": "strong-password-2"}).status_code == 200
+
+    redeemed = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
+    assert redeemed.status_code == 200
+    assert redeemed.json()["has_active_entitlement"] is True
+    assert redeemed.json()["active_source"] == "redeem"
+
+    duplicate = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
+    assert duplicate.status_code == 400
+
+
 def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     client = TestClient(app)
 

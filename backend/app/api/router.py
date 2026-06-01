@@ -1,10 +1,11 @@
 from fastapi import APIRouter
 
-from app.api.routes import ai, auth, households, imports, session, tags, wines, wishlist
+from app.api.routes import ai, auth, billing, households, imports, session, tags, wines, wishlist
 
 
 api_router = APIRouter()
 api_router.include_router(auth.router, tags=["auth"])
+api_router.include_router(billing.router, tags=["billing"])
 api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(households.router, tags=["household"])
 api_router.include_router(imports.router, tags=["imports"])

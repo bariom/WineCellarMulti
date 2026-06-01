@@ -51,3 +51,8 @@ def new_invite_token() -> str:
 
 def hash_invite_token(token: str) -> str:
     return hmac.new(settings.secret_key.encode("utf-8"), token.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def hash_redeem_code(code: str) -> str:
+    normalized = "".join(character for character in code.upper() if character.isalnum())
+    return hmac.new(settings.secret_key.encode("utf-8"), normalized.encode("utf-8"), hashlib.sha256).hexdigest()

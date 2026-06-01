@@ -1,4 +1,5 @@
 from app.models.ai_audit import AiAuditLog
+from app.models.billing import RedeemCode, RedeemRedemption, UserEntitlement
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
@@ -17,8 +18,11 @@ __all__ = [
     "HouseholdInvite",
     "Membership",
     "PasskeyChallenge",
+    "RedeemCode",
+    "RedeemRedemption",
     "User",
     "UserAiSettings",
+    "UserEntitlement",
     "UserPasskey",
     "UserSession",
     "UserTag",
