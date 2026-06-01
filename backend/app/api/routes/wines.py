@@ -129,6 +129,16 @@ def allocated_bottle_count(total_quantity: int, share_pct: Decimal) -> int:
 
 def wine_copy_for_recipient(source: Wine, target_household: Household, recipient: User, share_pct: Decimal) -> Wine:
     recipient_quantity = allocated_bottle_count(source.quantity, share_pct)
+    recipient_email = recipient.email.strip().lower()
+    recipient_owners = normalize_owner_rows([dict(owner) for owner in (source.owners or [])])
+    if not any(str(owner.get("email", "")).strip().lower() == recipient_email for owner in recipient_owners):
+        recipient_owners.append(
+            {
+                "name": recipient.display_name or recipient.email,
+                "email": recipient_email,
+                "share_pct": float(share_pct),
+            },
+        )
     return Wine(
         household_id=target_household.id,
         created_by_user_id=recipient.id,
@@ -158,7 +168,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         ai_value_notes=source.ai_value_notes,
         ai_value_estimated_at=source.ai_value_estimated_at,
         rating=source.rating,
-        owners=[],
+        owners=recipient_owners,
         tags=[],
         grapes=source.grapes,
         scores=source.scores,
