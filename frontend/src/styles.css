@@ -1954,8 +1954,8 @@ textarea {
   }
 
   .session-pill {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px 10px;
     width: 100%;
     max-width: 100%;
@@ -1976,14 +1976,13 @@ textarea {
   }
 
   .session-pill > select {
-    grid-column: 1 / -1;
+    flex: 1 1 100%;
     min-width: 0;
     max-width: 100%;
   }
 
   .session-pill > button {
-    grid-column: 1 / -1;
-    justify-self: end;
+    margin-left: auto;
     min-width: 64px;
   }
 

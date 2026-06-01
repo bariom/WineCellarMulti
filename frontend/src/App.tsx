@@ -2602,22 +2602,6 @@ export function App() {
               </select>
             ) : null}
             <span>{session?.membership_role}</span>
-            <label className="language-switch">
-              <span>{t("language")}</span>
-              <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
-                <option value="en">EN</option>
-                <option value="it">IT</option>
-              </select>
-            </label>
-            <label className="language-switch">
-              <span>{t("theme")}</span>
-              <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
-                <option value="system">{t("themeSystem")}</option>
-                <option value="light">{t("themeLight")}</option>
-                <option value="dark">{t("themeDark")}</option>
-                <option value="sepia">{t("themeSepia")}</option>
-              </select>
-            </label>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               {t("logout")}
             </button>
