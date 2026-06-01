@@ -105,6 +105,15 @@ First-time service installation on the Linux server:
 ./start.sh --install-services --build
 ```
 
+Production environment values:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+SESSION_COOKIE_SECURE=true
+CORS_ORIGINS=https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
+```
+
 Open `http://<server-ip>:5173`.
 
 ## Android PWA
