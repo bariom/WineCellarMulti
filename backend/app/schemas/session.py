@@ -11,3 +11,5 @@ class SessionResponse(BaseModel):
     membership_role: str | None = None
     is_app_admin: bool = False
     pending_approval: bool = False
+    locale: str = "it"
+    theme_preference: str = "system"

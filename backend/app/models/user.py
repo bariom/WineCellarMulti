@@ -19,3 +19,5 @@ class User(Base):
     is_approved: Mapped[bool] = mapped_column(Boolean, default=True)
     is_app_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    locale: Mapped[str] = mapped_column(String(8), default="it")
+    theme_preference: Mapped[str] = mapped_column(String(32), default="system")

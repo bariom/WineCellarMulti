@@ -31,6 +31,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "membership_role": None,
             "is_app_admin": False,
             "pending_approval": False,
+            "locale": "it",
+            "theme_preference": "system",
         }
     return {
         "authenticated": True,
@@ -42,6 +44,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
         "pending_approval": False,
+        "locale": context.user.locale,
+        "theme_preference": context.user.theme_preference,
     }
 
 

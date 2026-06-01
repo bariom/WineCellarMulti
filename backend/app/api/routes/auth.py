@@ -35,6 +35,7 @@ from app.schemas.auth import (
     RegisterRequest,
     UserAdminResponse,
     UserAdminUpdate,
+    UserPreferencesUpdate,
 )
 from app.schemas.session import SessionResponse
 
@@ -205,6 +206,23 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
     db.refresh(user_session)
     set_session_cookie(response, token)
     return SessionResponse(**build_session_response(CurrentContext(user=user, household=household, membership=membership, session=user_session)))
+
+
+@router.patch("/preferences", response_model=SessionResponse)
+def update_preferences(
+    payload: UserPreferencesUpdate,
+    context: CurrentContext = Depends(get_current_context),
+    db: Session = Depends(get_db),
+) -> SessionResponse:
+    if payload.locale is None and payload.theme_preference is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No preferences provided")
+    if payload.locale is not None:
+        context.user.locale = payload.locale
+    if payload.theme_preference is not None:
+        context.user.theme_preference = payload.theme_preference
+    db.commit()
+    db.refresh(context.user)
+    return SessionResponse(**build_session_response(context))
 
 
 @router.get("/passkeys", response_model=list[PasskeyResponse])

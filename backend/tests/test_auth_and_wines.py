@@ -66,7 +66,14 @@ def test_register_login_session_and_logout():
     assert registered.json()["user_email"] == "owner@example.com"
     assert registered.json()["is_app_admin"] is True
     assert registered.json()["active_household_name"] == "Main Cellar"
+    assert registered.json()["locale"] == "it"
+    assert registered.json()["theme_preference"] == "system"
     assert client.get("/api/v1/auth/passkeys").json() == []
+
+    preferences = client.patch("/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "ticino"})
+    assert preferences.status_code == 200
+    assert preferences.json()["locale"] == "en"
+    assert preferences.json()["theme_preference"] == "ticino"
 
     pending_client = TestClient(app)
     pending = register(pending_client, email="pending@example.com", password="strong-password-2")
@@ -103,6 +110,8 @@ def test_register_login_session_and_logout():
     login = client.post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"})
     assert login.status_code == 200
     assert login.json()["authenticated"] is True
+    assert login.json()["locale"] == "en"
+    assert login.json()["theme_preference"] == "ticino"
 
 
 def test_wine_crud_requires_auth_and_is_scoped_to_active_household():

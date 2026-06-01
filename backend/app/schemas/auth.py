@@ -50,3 +50,11 @@ class UserAdminResponse(BaseModel):
     is_approved: bool
     is_app_admin: bool
     approved_at: str | None = None
+
+
+class UserPreferencesUpdate(BaseModel):
+    locale: str | None = Field(default=None, pattern="^(en|it)$")
+    theme_preference: str | None = Field(
+        default=None,
+        pattern="^(system|light|dark|sepia|white-wine|red-wine|rose-wine|champagne|bordeaux|burgundy|tuscany|piedmont|ticino)$",
+    )

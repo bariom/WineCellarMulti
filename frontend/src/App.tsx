@@ -9,6 +9,8 @@ type Session = {
   membership_role: string | null;
   is_app_admin: boolean;
   pending_approval: boolean;
+  locale: Locale;
+  theme_preference: ThemePreference;
 };
 
 type Wine = {
@@ -1638,26 +1640,51 @@ export function App() {
   const [saving, setSaving] = useState(false);
   const [generatingAi, setGeneratingAi] = useState("");
   const [error, setError] = useState("");
-  const [locale, setLocale] = useState<Locale>(() => (localStorage.getItem("winecellar_locale") === "it" ? "it" : "en"));
-  const [themePreference, setThemePreference] = useState<ThemePreference>(() => {
-    const stored = localStorage.getItem("winecellar_theme");
-    return themeOptions.some((option) => option.value === stored) ? (stored as ThemePreference) : "system";
-  });
+  const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
+  const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
 
-  function changeLocale(nextLocale: Locale) {
-    setLocale(nextLocale);
-    localStorage.setItem("winecellar_locale", nextLocale);
+  function applySessionPreferences(nextSession: Session) {
+    setLocale(nextSession.locale || "it");
+    setThemePreference(nextSession.theme_preference || "system");
   }
 
-  function changeTheme(nextTheme: ThemePreference) {
+  async function changeLocale(nextLocale: Locale) {
+    setLocale(nextLocale);
+    if (!session?.authenticated) return;
+    try {
+      const nextSession = await api<Session>("/api/v1/auth/preferences", {
+        method: "PATCH",
+        body: JSON.stringify({ locale: nextLocale }),
+      });
+      setSession(nextSession);
+      applySessionPreferences(nextSession);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update language");
+    }
+  }
+
+  async function changeTheme(nextTheme: ThemePreference) {
     setThemePreference(nextTheme);
-    localStorage.setItem("winecellar_theme", nextTheme);
+    if (!session?.authenticated) return;
+    try {
+      const nextSession = await api<Session>("/api/v1/auth/preferences", {
+        method: "PATCH",
+        body: JSON.stringify({ theme_preference: nextTheme }),
+      });
+      setSession(nextSession);
+      applySessionPreferences(nextSession);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update theme");
+    }
   }
 
   async function loadSession() {
     const nextSession = await api<Session>("/api/v1/session");
     setSession(nextSession);
+    if (nextSession.authenticated) {
+      applySessionPreferences(nextSession);
+    }
     setHouseholdNameDraft(nextSession.active_household_name || "");
     return nextSession;
   }
@@ -1828,6 +1855,9 @@ export function App() {
           : { email: authDraft.email, password: authDraft.password };
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
+      if (nextSession.authenticated) {
+        applySessionPreferences(nextSession);
+      }
       setAuthDraft(emptyAuthDraft);
       if (nextSession.authenticated) {
         await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
@@ -1855,6 +1885,7 @@ export function App() {
         body: JSON.stringify({ credential: credentialToJson(credential) }),
       });
       setSession(nextSession);
+      applySessionPreferences(nextSession);
       setAuthDraft(emptyAuthDraft);
       await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
@@ -1909,7 +1940,9 @@ export function App() {
   async function logout() {
     setError("");
     await api<void>("/api/v1/auth/logout", { method: "POST" });
-    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_id: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false });
+    setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_id: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false, locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en", theme_preference: "system" });
+    setLocale(navigator.language.toLowerCase().startsWith("it") ? "it" : "en");
+    setThemePreference("system");
     setWines([]);
     setWishlist([]);
     setShareOffers([]);
@@ -2919,21 +2952,7 @@ export function App() {
           </div>
         ) : (
           <div className="session-pill">
-            <label className="language-switch">
-              <span>{t("language")}</span>
-              <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
-                <option value="en">EN</option>
-                <option value="it">IT</option>
-              </select>
-            </label>
-            <label className="language-switch">
-              <span>{t("theme")}</span>
-              <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
-                {themeOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{t(option.label)}</option>
-                ))}
-              </select>
-            </label>
+            <span>{t("login")}</span>
           </div>
         )}
       </header>
@@ -4082,14 +4101,14 @@ export function App() {
                 <div className="inline-form">
                   <label>
                     <span>{t("language")}</span>
-                    <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+                    <select value={locale} onChange={(event) => void changeLocale(event.target.value as Locale)}>
                       <option value="en">EN</option>
                       <option value="it">IT</option>
                     </select>
                   </label>
                   <label>
                     <span>{t("theme")}</span>
-                    <select value={themePreference} onChange={(event) => changeTheme(event.target.value as ThemePreference)}>
+                    <select value={themePreference} onChange={(event) => void changeTheme(event.target.value as ThemePreference)}>
                       {themeOptions.map((option) => (
                         <option key={option.value} value={option.value}>{t(option.label)}</option>
                       ))}
