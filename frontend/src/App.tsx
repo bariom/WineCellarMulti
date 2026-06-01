@@ -353,6 +353,7 @@ const translations = {
     investedMore: "Where you invested more",
     collectorFocus: "Collector focus",
     cellarSnapshot: "Cellar snapshot",
+    cellarStats: "Cellar stats",
     household: "Household",
     importLegacy: "Import legacy export",
     importMode: "Import mode",
@@ -573,6 +574,7 @@ const translations = {
     investedMore: "Dove hai investito di piu",
     collectorFocus: "Focus collezionista",
     cellarSnapshot: "Sintesi cantina",
+    cellarStats: "Statistiche cantina",
     household: "Cantina condivisa",
     importLegacy: "Importa export legacy",
     importMode: "Modalità import",
@@ -2509,6 +2511,16 @@ export function App() {
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
+  const quickWineFilterLabels: Record<QuickWineFilter, string> = {
+    "": t("totalValue"),
+    mine: t("myBottles"),
+    shared: t("sharedBottles"),
+    drink_now: t("drinkNow"),
+    drink_soon: t("drinkIn2Years"),
+    past_window: t("pastWindow"),
+    future_deliveries: t("futureDeliveries"),
+    missing_data: t("dataQuality"),
+  };
 
   function startAddWine() {
     setDraft(emptyDraft);
@@ -3591,6 +3603,11 @@ export function App() {
           {isCollectionView ? (
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
+            <details className="stats-panel-wrapper" open>
+              <summary>
+                {t("cellarStats")}
+                {quickWineFilter ? <span>{quickWineFilterLabels[quickWineFilter]}</span> : null}
+              </summary>
               <section className="stats-panel">
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                   <span>{t("myBottles")}</span>
@@ -3655,7 +3672,10 @@ export function App() {
                   <p>{t("aiReadinessHelp")}</p>
                 </div>
               </section>
+            </details>
             ) : (
+            <details className="stats-panel-wrapper" open>
+              <summary>{t("wishlistItems")}</summary>
               <section className="stats-panel">
                 <div className="stat-card">
                   <span>{t("wishlistItems")}</span>
@@ -3674,6 +3694,7 @@ export function App() {
                   <strong>{wishlistStats.readyToBuy}</strong>
                 </div>
               </section>
+            </details>
             )}
             <details className="filter-panel">
               <summary>{t("search")} / {t("sort")}</summary>

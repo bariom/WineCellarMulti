@@ -505,6 +505,7 @@ textarea {
   display: none;
 }
 
+.stats-panel-wrapper,
 .filter-panel {
   display: grid;
   gap: 10px;
@@ -514,12 +515,26 @@ textarea {
   background: #fff;
 }
 
+.stats-panel-wrapper summary,
 .filter-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   cursor: pointer;
   color: #17201c;
   font-weight: 700;
 }
 
+.stats-panel-wrapper summary span {
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--primary);
+  background: var(--surface-subtle);
+  font-size: 0.78rem;
+}
+
+.stats-panel-wrapper[open] summary,
 .filter-panel[open] summary {
   margin-bottom: 4px;
 }
@@ -1291,7 +1306,6 @@ textarea {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 10px;
-  margin-bottom: 18px;
 }
 
 .stat-card {
