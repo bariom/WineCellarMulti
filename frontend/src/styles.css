@@ -1858,6 +1858,15 @@ textarea {
     display: none;
   }
 
+  .wine-side-panel > .wine-form {
+    position: fixed;
+    z-index: 30;
+    inset: 74px 14px 14px;
+    max-height: calc(100dvh - 88px);
+    overflow-y: auto;
+    box-shadow: 0 18px 46px rgba(23, 32, 28, 0.22);
+  }
+
   .mobile-inline-detail {
     display: block;
   }
@@ -2020,6 +2029,12 @@ textarea {
     top: 52px;
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .wine-side-panel > .wine-form {
+    inset: 64px 10px 10px;
+    max-height: calc(100dvh - 74px);
+    padding: 14px;
   }
 
   .dashboard-grid {
