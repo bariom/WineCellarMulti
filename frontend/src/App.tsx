@@ -415,6 +415,10 @@ const translations = {
     name: "Name",
     noInvites: "No invites",
     noNotifications: "No notifications",
+    offlineBackup: "Offline backup",
+    offlineBackupHelp: "No network? Load a local JSON backup and browse it in read-only mode.",
+    offlineMode: "Offline read-only",
+    loadBackup: "Load local JSON backup",
     noAiAudit: "No AI generations yet",
     noApiKey: "No API key configured",
     noAiUsage: "No AI usage yet",
@@ -656,6 +660,10 @@ const translations = {
     name: "Nome",
     noInvites: "Nessun invito",
     noNotifications: "Nessuna notifica",
+    offlineBackup: "Backup offline",
+    offlineBackupHelp: "Senza rete puoi caricare un backup JSON locale e consultarlo in sola lettura.",
+    offlineMode: "Offline sola lettura",
+    loadBackup: "Carica backup JSON locale",
     noAiAudit: "Nessuna generazione AI",
     noApiKey: "Nessuna chiave API configurata",
     noAiUsage: "Nessun uso AI registrato",
@@ -877,6 +885,92 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+function rawObject(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
+}
+
+function rawArray(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.map(rawObject) : [];
+}
+
+function rawString(value: unknown, fallback = "") {
+  return value === null || value === undefined ? fallback : String(value);
+}
+
+function rawNumber(value: unknown, fallback = 0) {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) ? numberValue : fallback;
+}
+
+function rawNullableString(value: unknown) {
+  const text = rawString(value).trim();
+  return text || null;
+}
+
+function offlineWine(raw: Record<string, unknown>, index: number): Wine {
+  return {
+    id: rawString(raw.id, `offline-wine-${index}`),
+    household_id: rawString(raw.household_id, "offline"),
+    name: rawString(raw.name, "Unnamed wine"),
+    producer: rawString(raw.producer),
+    vintage: rawString(raw.vintage),
+    quantity: rawNumber(raw.quantity),
+    currency: rawString(raw.currency, "CHF"),
+    price: rawString(raw.price, "0"),
+    current_value: raw.current_value === null || raw.current_value === undefined ? null : rawString(raw.current_value),
+    status: rawString(raw.status, "Delivered"),
+    format: rawString(raw.format),
+    type: rawString(raw.type),
+    region: rawString(raw.region),
+    appellation: rawString(raw.appellation),
+    merchant: rawString(raw.merchant),
+    order_date: rawNullableString(raw.order_date),
+    expected_delivery: rawNullableString(raw.expected_delivery),
+    owner_share_pct: rawString(raw.owner_share_pct, "100"),
+    notes: rawString(raw.notes),
+    ai_notes: rawString(raw.ai_notes),
+    drink_from: raw.drink_from === null || raw.drink_from === undefined ? null : rawNumber(raw.drink_from),
+    drink_peak_from: raw.drink_peak_from === null || raw.drink_peak_from === undefined ? null : rawNumber(raw.drink_peak_from),
+    drink_peak_to: raw.drink_peak_to === null || raw.drink_peak_to === undefined ? null : rawNumber(raw.drink_peak_to),
+    drink_to: raw.drink_to === null || raw.drink_to === undefined ? null : rawNumber(raw.drink_to),
+    drink_window_notes: rawString(raw.drink_window_notes),
+    ai_value_notes: rawString(raw.ai_value_notes),
+    ai_value_estimated_at: rawNullableString(raw.ai_value_estimated_at),
+    rating: rawNumber(raw.rating),
+    owners: rawArray(raw.owners).map((owner) => ({ name: rawString(owner.name), email: rawString(owner.email), share_pct: rawNumber(owner.share_pct) })),
+    tags: Array.isArray(raw.tags) ? raw.tags.map((tag) => rawString(tag)).filter(Boolean) : [],
+    grapes: rawArray(raw.grapes).map((grape) => ({
+      name: rawString(grape.name),
+      percentage_from: grape.percentage_from === undefined ? undefined : rawNumber(grape.percentage_from),
+      percentage_to: grape.percentage_to === undefined ? undefined : rawNumber(grape.percentage_to),
+    })),
+    scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
+  };
+}
+
+function offlineWishlistItem(raw: Record<string, unknown>, index: number): WishlistItem {
+  return {
+    id: rawString(raw.id, `offline-wishlist-${index}`),
+    household_id: rawString(raw.household_id, "offline"),
+    name: rawString(raw.name, "Unnamed wishlist item"),
+    producer: rawString(raw.producer),
+    vintage: rawString(raw.vintage),
+    format: rawString(raw.format),
+    type: rawString(raw.type),
+    region: rawString(raw.region),
+    appellation: rawString(raw.appellation),
+    target_price: rawString(raw.target_price, "0"),
+    currency: rawString(raw.currency, "CHF"),
+    merchant: rawString(raw.merchant),
+    priority: rawString(raw.priority, "Medium"),
+    purpose: rawString(raw.purpose, "Drink"),
+    status: rawString(raw.status, "Evaluate"),
+    notes: rawString(raw.notes),
+    ai_strategy: rawString(raw.ai_strategy),
+    ai_purpose_advice: rawString(raw.ai_purpose_advice),
+  };
 }
 
 function base64UrlToBuffer(value: string) {
@@ -1136,6 +1230,7 @@ function currentUserSharePct(wine: Wine, session: Session | null) {
   const userName = (session?.user_display_name || "").trim().toLowerCase();
   const userEmail = (session?.user_email || "").trim().toLowerCase();
   if (wine.owners.length) {
+    if (!userEmail) return Math.min(Math.max(Number(wine.owner_share_pct || 100), 0), 100);
     const owner = wine.owners.find((item) => {
       const name = String(item.name || "").trim().toLowerCase();
       const email = String(item.email || "").trim().toLowerCase();
@@ -1629,6 +1724,8 @@ export function App() {
   const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [offlineFileName, setOfflineFileName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "settings">("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
@@ -1818,6 +1915,7 @@ export function App() {
   }
 
   async function loadData() {
+    if (offlineMode) return;
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
@@ -1959,7 +2057,11 @@ export function App() {
 
   async function logout() {
     setError("");
-    await api<void>("/api/v1/auth/logout", { method: "POST" });
+    if (!offlineMode) {
+      await api<void>("/api/v1/auth/logout", { method: "POST" });
+    }
+    setOfflineMode(false);
+    setOfflineFileName("");
     setSession({ authenticated: false, user_display_name: null, user_email: null, active_household_id: null, active_household_name: null, membership_role: null, is_app_admin: false, pending_approval: false, locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en", theme_preference: "system" });
     setLocale(navigator.language.toLowerCase().startsWith("it") ? "it" : "en");
     setThemePreference("system");
@@ -2193,6 +2295,58 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to update share offer");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function loadOfflineBackup(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    setError("");
+    try {
+      const payload = rawObject(JSON.parse(await file.text()));
+      const household = rawObject(payload.household);
+      const nextWines = rawArray(payload.wines).map(offlineWine);
+      const nextWishlist = rawArray(payload.wishlist).map(offlineWishlistItem);
+      setOfflineMode(true);
+      setOfflineFileName(file.name);
+      setSession({
+        authenticated: true,
+        user_display_name: "Offline",
+        user_email: null,
+        active_household_id: rawString(household.id, "offline"),
+        active_household_name: rawString(household.name, file.name.replace(/\.json$/i, "")),
+        membership_role: "offline",
+        is_app_admin: false,
+        pending_approval: false,
+        locale,
+        theme_preference: themePreference,
+      });
+      setWines(nextWines);
+      setWishlist(nextWishlist);
+      setSelectedWineId(nextWines[0]?.id || null);
+      setSelectedWishlistId(nextWishlist[0]?.id || null);
+      setShareOffers([]);
+      setReceivedInvites([]);
+      setUserTags([]);
+      setPasskeys([]);
+      setHouseholdMemberships([]);
+      setMembers([]);
+      setInvites([]);
+      setPendingUsers([]);
+      setAppUsers([]);
+      setAiAudit([]);
+      setAiUsage(null);
+      setAiSettings(null);
+      setAiSettingsDraft(emptyAiSettingsDraft);
+      setActiveView("cellar");
+      setWineFormOpen(false);
+      setWishlistFormOpen(false);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to load local backup");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
     }
   }
 
@@ -2588,9 +2742,9 @@ export function App() {
   const activeMembership =
     householdMemberships.find((membership) => membership.household_id === session?.active_household_id) ||
     householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
-  const canAdmin = session?.membership_role === "owner" || session?.membership_role === "admin";
-  const canAppAdmin = Boolean(session?.is_app_admin);
-  const canWriteWine = canAdmin || session?.membership_role === "member";
+  const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
+  const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
+  const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
   const canGenerateAi = canWriteWine && Boolean(aiSettings?.has_openai_api_key);
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
@@ -2982,7 +3136,8 @@ export function App() {
               </select>
             ) : null}
             <span>{session?.membership_role}</span>
-            <div className="notification-wrap">
+            {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
+            {!offlineMode ? <div className="notification-wrap">
               <button type="button" className="secondary compact notification-button" onClick={() => setNotificationsOpen((open) => !open)}>
                 {t("notifications")}
                 {notificationCount ? <strong>{notificationCount}</strong> : null}
@@ -3021,7 +3176,7 @@ export function App() {
                   {!notificationCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
                 </div>
               ) : null}
-            </div>
+            </div> : null}
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               {t("logout")}
             </button>
@@ -3082,6 +3237,14 @@ export function App() {
               </button>
             ) : null}
           </form>
+          <section className="wine-form">
+            <h2>{t("offlineBackup")}</h2>
+            <p className="empty-state">{t("offlineBackupHelp")}</p>
+            <label>
+              <span>{t("loadBackup")}</span>
+              <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
+            </label>
+          </section>
         </section>
       ) : (
         <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" ? "home-workspace" : "content-workspace"}`}>
