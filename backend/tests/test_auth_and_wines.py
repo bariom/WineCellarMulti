@@ -251,7 +251,10 @@ def test_invite_acceptance_and_viewer_permissions():
     viewer_user = next(user for user in pending_viewers.json() if user["email"] == "viewer@example.com")
     assert owner.post(f"/api/v1/auth/pending-users/{viewer_user['id']}/approve").status_code == 200
     assert member.post("/api/v1/auth/login", json={"email": "viewer@example.com", "password": "strong-password-2"}).status_code == 200
-    accepted = member.post("/api/v1/household/invites/accept", json={"token": invite_token})
+    received_invites = member.get("/api/v1/household/invites/received")
+    assert received_invites.status_code == 200
+    assert received_invites.json()[0]["household_name"] == "Renamed Cellar"
+    accepted = member.post(f"/api/v1/household/invites/{invite_id}/accept")
     assert accepted.status_code == 200
     assert accepted.json()["role"] == "viewer"
     invited_membership_id = accepted.json()["membership_id"]

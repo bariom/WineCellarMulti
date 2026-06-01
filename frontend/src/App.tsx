@@ -196,8 +196,11 @@ type AppUser = PendingUser & {
 
 type Invite = {
   id: string;
+  household_id?: string | null;
+  household_name?: string | null;
   email: string;
   role: string;
+  visibility_scope?: string;
   expires_at: string;
   accepted_at: string | null;
   invite_token: string | null;
@@ -411,6 +414,7 @@ const translations = {
     myBottles: "My bottles",
     name: "Name",
     noInvites: "No invites",
+    noNotifications: "No notifications",
     noAiAudit: "No AI generations yet",
     noApiKey: "No API key configured",
     noAiUsage: "No AI usage yet",
@@ -452,6 +456,8 @@ const translations = {
     pendingApproval: "Account pending approval",
     pendingApprovalHelp: "Your account was created, but it must be approved by an administrator before login.",
     pendingUsers: "Users pending approval",
+    notifications: "Notifications",
+    reviewUsers: "Review users",
     personalSettings: "Personal settings",
     profileSection: "Profile",
     priority: "Priority",
@@ -649,6 +655,7 @@ const translations = {
     myBottles: "Mie bottiglie",
     name: "Nome",
     noInvites: "Nessun invito",
+    noNotifications: "Nessuna notifica",
     noAiAudit: "Nessuna generazione AI",
     noApiKey: "Nessuna chiave API configurata",
     noAiUsage: "Nessun uso AI registrato",
@@ -690,6 +697,8 @@ const translations = {
     pendingApproval: "Account in attesa di approvazione",
     pendingApprovalHelp: "Il tuo account e stato creato, ma deve essere approvato da un amministratore prima dell'accesso.",
     pendingUsers: "Utenti in attesa di approvazione",
+    notifications: "Notifiche",
+    reviewUsers: "Rivedi utenti",
     personalSettings: "Impostazioni personali",
     profileSection: "Profilo",
     priority: "Priorita",
@@ -1590,6 +1599,8 @@ export function App() {
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
+  const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
@@ -1720,6 +1731,14 @@ export function App() {
     }
   }
 
+  async function loadReceivedInvites(authenticated = session?.authenticated) {
+    if (authenticated) {
+      setReceivedInvites(await api<Invite[]>("/api/v1/household/invites/received"));
+    } else {
+      setReceivedInvites([]);
+    }
+  }
+
   async function loadPasskeys(authenticated = session?.authenticated) {
     if (authenticated) {
       setPasskeys(await api<Passkey[]>("/api/v1/auth/passkeys"));
@@ -1802,11 +1821,12 @@ export function App() {
     setError("");
     const nextSession = await loadSession();
     if (nextSession.authenticated) {
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } else {
       setWines([]);
       setWishlist([]);
       setShareOffers([]);
+      setReceivedInvites([]);
       setUserTags([]);
       setPasskeys([]);
       setHouseholdMemberships([]);
@@ -1860,7 +1880,7 @@ export function App() {
       }
       setAuthDraft(emptyAuthDraft);
       if (nextSession.authenticated) {
-        await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+        await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
@@ -1887,7 +1907,7 @@ export function App() {
       setSession(nextSession);
       applySessionPreferences(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to login with passkey");
     } finally {
@@ -1946,6 +1966,7 @@ export function App() {
     setWines([]);
     setWishlist([]);
     setShareOffers([]);
+    setReceivedInvites([]);
     setUserTags([]);
     setPasskeys([]);
     setHouseholdMemberships([]);
@@ -2170,6 +2191,20 @@ export function App() {
       await loadWines();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update share offer");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function acceptReceivedInvite(invite: Invite) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<Member>(`/api/v1/household/invites/${invite.id}/accept`, { method: "POST" });
+      setReceivedInvites((current) => current.filter((item) => item.id !== invite.id));
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to accept invite");
     } finally {
       setSaving(false);
     }
@@ -2723,6 +2758,7 @@ export function App() {
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
+  const notificationCount = (canAppAdmin ? pendingUsers.length : 0) + receivedInvites.length + shareOffers.length;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -2946,6 +2982,46 @@ export function App() {
               </select>
             ) : null}
             <span>{session?.membership_role}</span>
+            <div className="notification-wrap">
+              <button type="button" className="secondary compact notification-button" onClick={() => setNotificationsOpen((open) => !open)}>
+                {t("notifications")}
+                {notificationCount ? <strong>{notificationCount}</strong> : null}
+              </button>
+              {notificationsOpen ? (
+                <div className="notification-panel">
+                  <div className="notification-heading">
+                    <strong>{t("notifications")}</strong>
+                    <span>{notificationCount}</span>
+                  </div>
+                  {canAppAdmin && pendingUsers.length ? (
+                    <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
+                      <strong>{pendingUsers.length} {t("pendingUsers")}</strong>
+                      <span>{t("reviewUsers")}</span>
+                    </button>
+                  ) : null}
+                  {receivedInvites.map((invite) => (
+                    <div className="notification-item" key={invite.id}>
+                      <strong>{invite.household_name || t("sharedCellar")}</strong>
+                      <span>{t("acceptInvite")} - {invite.role}</span>
+                      <button type="button" className="compact" disabled={saving} onClick={() => acceptReceivedInvite(invite)}>
+                        {t("accept")}
+                      </button>
+                    </div>
+                  ))}
+                  {shareOffers.map((offer) => (
+                    <div className="notification-item" key={offer.id}>
+                      <strong>{offer.wine_name} {offer.wine_vintage}</strong>
+                      <span>{offer.share_pct}% - {offer.created_by_email}</span>
+                      <div className="member-actions">
+                        <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>{t("accept")}</button>
+                        <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>{t("decline")}</button>
+                      </div>
+                    </div>
+                  ))}
+                  {!notificationCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
+                </div>
+              ) : null}
+            </div>
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
               {t("logout")}
             </button>

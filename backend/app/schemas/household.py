@@ -36,6 +36,8 @@ class InviteCreate(BaseModel):
 
 class InviteResponse(BaseModel):
     id: UUID
+    household_id: UUID | None = None
+    household_name: str | None = None
     email: str
     role: str
     visibility_scope: str = "shared"

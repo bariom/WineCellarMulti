@@ -158,6 +158,8 @@ def create_invite(
     db.refresh(invite)
     return InviteResponse(
         id=invite.id,
+        household_id=invite.household_id,
+        household_name=context.household.name,
         email=invite.email,
         role=invite.role,
         visibility_scope=invite.visibility_scope,
@@ -180,6 +182,8 @@ def list_invites(
     return [
         InviteResponse(
             id=invite.id,
+            household_id=invite.household_id,
+            household_name=context.household.name,
             email=invite.email,
             role=invite.role,
             visibility_scope=invite.visibility_scope,
@@ -189,6 +193,42 @@ def list_invites(
         )
         for invite in invites
     ]
+
+
+@router.get("/invites/received", response_model=list[InviteResponse])
+def list_received_invites(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> list[InviteResponse]:
+    now = datetime.now(timezone.utc)
+    invites = db.scalars(
+        select(HouseholdInvite)
+        .where(
+            HouseholdInvite.email == context.user.email.lower(),
+            HouseholdInvite.accepted_at.is_(None),
+            HouseholdInvite.expires_at > now,
+        )
+        .order_by(HouseholdInvite.created_at.desc()),
+    )
+    results: list[InviteResponse] = []
+    for invite in invites:
+        household = db.get(Household, invite.household_id)
+        if household is None:
+            continue
+        results.append(
+            InviteResponse(
+                id=invite.id,
+                household_id=invite.household_id,
+                household_name=household.name,
+                email=invite.email,
+                role=invite.role,
+                visibility_scope=invite.visibility_scope,
+                expires_at=invite.expires_at,
+                accepted_at=invite.accepted_at,
+                invite_token=None,
+            ),
+        )
+    return results
 
 
 @router.delete("/invites/{invite_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -210,14 +250,8 @@ def revoke_invite(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.post("/invites/accept", response_model=MemberResponse)
-def accept_invite(
-    payload: InviteAccept,
-    db: Session = Depends(get_db),
-    context: CurrentContext = Depends(get_current_context),
-) -> MemberResponse:
-    invite = db.scalar(select(HouseholdInvite).where(HouseholdInvite.token_hash == hash_invite_token(payload.token)))
-    if invite is None or invite.accepted_at is not None:
+def accept_invite_record(db: Session, context: CurrentContext, invite: HouseholdInvite) -> MemberResponse:
+    if invite.accepted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
     if invite.expires_at.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc):
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite expired")
@@ -247,6 +281,30 @@ def accept_invite(
     db.commit()
     db.refresh(membership)
     return member_response(db, membership)
+
+
+@router.post("/invites/accept", response_model=MemberResponse)
+def accept_invite(
+    payload: InviteAccept,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> MemberResponse:
+    invite = db.scalar(select(HouseholdInvite).where(HouseholdInvite.token_hash == hash_invite_token(payload.token)))
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    return accept_invite_record(db, context, invite)
+
+
+@router.post("/invites/{invite_id}/accept", response_model=MemberResponse)
+def accept_received_invite(
+    invite_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> MemberResponse:
+    invite = db.get(HouseholdInvite, invite_id)
+    if invite is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
+    return accept_invite_record(db, context, invite)
 
 
 @router.patch("/members/{membership_id}", response_model=MemberResponse)

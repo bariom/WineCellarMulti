@@ -504,6 +504,66 @@ summary:focus-visible {
   font-size: 0.9rem;
 }
 
+.notification-wrap {
+  position: relative;
+}
+
+.notification-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-button strong {
+  display: inline-grid;
+  min-width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--primary-contrast);
+  background: var(--danger);
+  font-size: 0.78rem;
+}
+
+.notification-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 20;
+  display: grid;
+  gap: 10px;
+  width: min(360px, calc(100vw - 32px));
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+}
+
+.notification-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.notification-item {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  color: var(--text);
+  text-align: left;
+  background: var(--surface-muted);
+}
+
+.notification-item span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
 .language-switch {
   display: flex;
   align-items: center;
