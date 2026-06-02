@@ -5828,16 +5828,29 @@ export function App() {
                 <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div className="wine-row-main">
                     <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
-                    <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")} - {displayValue(item.status, locale, "status")}</p>
+                    <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")}</p>
                     <p className="row-secondary">{[displayValue(item.format, locale, "format"), displayValue(item.type, locale, "type"), item.region, item.appellation].filter(Boolean).join(" - ")}</p>
+                    <div className="wishlist-signal-strip">
+                      <span className={`priority-chip priority-${priorityTone(item.priority)}`}>
+                        <small>{t("priority")}</small>
+                        {displayValue(item.priority, locale, "priority")}
+                      </span>
+                      <span className="status-chip">
+                        <small>{t("status")}</small>
+                        {displayValue(item.status, locale, "status")}
+                      </span>
+                      <span className="target-chip">
+                        <small>{t("targetPrice")}</small>
+                        {item.currency} {Number(item.target_price).toFixed(0)}
+                      </span>
+                    </div>
                     <div className="row-meta">
                       {item.merchant ? <span>{item.merchant}</span> : null}
                       {item.notes ? <span>{item.notes}</span> : null}
                     </div>
                   </div>
-                  <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+                  <strong className="wishlist-price">{item.currency} {Number(item.target_price).toFixed(0)}</strong>
                   <div className="row-actions">
-                    <span className={`priority-chip priority-${priorityTone(item.priority)}`}>{displayValue(item.priority, locale, "priority")}</span>
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
                       {t("edit")}
                     </button>

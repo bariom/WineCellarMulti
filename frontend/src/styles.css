@@ -1682,12 +1682,24 @@ textarea {
 .priority-chip {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   border-radius: 999px;
   padding: 6px 10px;
   color: var(--priority-color, #245142);
   background: var(--priority-bg, #e3e9e2);
   font-size: 0.85rem;
   font-weight: 700;
+}
+
+.priority-chip small,
+.status-chip small,
+.target-chip small {
+  color: inherit;
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  opacity: 0.72;
+  text-transform: uppercase;
 }
 
 .priority-high {
@@ -1703,6 +1715,41 @@ textarea {
 .priority-low {
   --priority-color: #245142;
   --priority-bg: rgba(36, 81, 66, 0.16);
+}
+
+.wishlist-signal-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.wishlist-signal-strip .priority-chip,
+.status-chip,
+.target-chip {
+  min-height: 36px;
+  padding: 7px 10px;
+}
+
+.status-chip,
+.target-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
+  font-size: 0.85rem;
+  font-weight: 800;
+}
+
+.target-chip {
+  color: color-mix(in srgb, var(--accent) 86%, var(--text));
+}
+
+.wishlist-price {
+  opacity: 0.72;
 }
 
 .star-rating {
