@@ -1746,14 +1746,29 @@ function toggleListValue(values: string[], value: string) {
   return values.includes(value) ? values.filter((item) => item !== value) : [...values, value].sort((first, second) => first.localeCompare(second));
 }
 
+function rgbaFromHex(color: string, alpha: number) {
+  const hex = color.trim();
+  const normalized = hex.startsWith("#") ? hex.slice(1) : hex;
+  if (!/^[0-9a-fA-F]{6}$/.test(normalized) && !/^[0-9a-fA-F]{3}$/.test(normalized)) return "";
+  const expanded = normalized.length === 3
+    ? normalized.split("").map((char) => `${char}${char}`).join("")
+    : normalized;
+  const red = Number.parseInt(expanded.slice(0, 2), 16);
+  const green = Number.parseInt(expanded.slice(2, 4), 16);
+  const blue = Number.parseInt(expanded.slice(4, 6), 16);
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`;
+}
+
 function tagColorStyle(tagName: string, userTags: UserTag[]) {
   const color = userTags.find((tag) => tag.name === tagName)?.color || "";
+  const backgroundColor = rgbaFromHex(color, 0.22);
+  const insetBorder = rgbaFromHex(color, 0.28);
   return color
     ? {
         borderColor: color,
         color: "var(--text)",
-        backgroundColor: `color-mix(in srgb, ${color} 22%, var(--surface))`,
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 18%, transparent)`,
+        backgroundColor: backgroundColor || `var(--surface-subtle)`,
+        boxShadow: insetBorder ? `inset 0 0 0 1px ${insetBorder}` : undefined,
       }
     : undefined;
 }

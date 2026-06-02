@@ -1474,6 +1474,7 @@ textarea {
   border-radius: 999px;
   padding: 7px 10px;
   background: #f8faf8;
+  color: var(--text);
 }
 
 .tag-choice-list input {
