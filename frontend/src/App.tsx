@@ -1093,6 +1093,10 @@ const landingContent: Record<
         title: "Decide what to drink next",
         body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
       },
+      {
+        title: "AI-assisted if you want it",
+        body: "If you configure your own OpenAI token, Vinaris can help orchestrate notes, drinking windows, value checks, pairings, and other cellar workflows.",
+      },
     ],
   },
   it: {
@@ -1133,6 +1137,10 @@ const landingContent: Record<
       {
         title: "Decidere cosa bere",
         body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
+      },
+      {
+        title: "Supporto AI quando vuoi",
+        body: "Se configuri il tuo token OpenAI, Vinaris puo aiutarti a orchestrare note, finestre di beva, controlli di valore, abbinamenti e altri flussi della cantina.",
       },
     ],
   },
