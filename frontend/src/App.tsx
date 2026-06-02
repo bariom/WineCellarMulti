@@ -147,6 +147,8 @@ type WishlistItem = {
   region: string;
   appellation: string;
   target_price: string;
+  ai_market_price: string;
+  ai_market_price_currency: string;
   currency: string;
   merchant: string;
   priority: string;
@@ -409,6 +411,7 @@ const translations = {
     aiAudit: "AI audit",
     aiSettings: "AI settings",
     aiStrategy: "AI strategy",
+    aiMarketPrice: "AI market price",
     aiTargetPrice: "AI target price",
     aiUsage: "AI usage",
     allTime: "All time",
@@ -618,6 +621,7 @@ const translations = {
     tagName: "Tag name",
     tags: "Tags",
     targetPrice: "Target price",
+    marketEstimate: "Market estimate",
     targetValue: "Target value",
     theme: "Theme",
     themeSystem: "System",
@@ -687,6 +691,7 @@ const translations = {
     aiAudit: "Audit AI",
     aiSettings: "Impostazioni AI",
     aiStrategy: "Strategia AI",
+    aiMarketPrice: "Prezzo mercato AI",
     aiTargetPrice: "Prezzo target AI",
     aiUsage: "Uso AI",
     allTime: "Totale",
@@ -896,6 +901,7 @@ const translations = {
     tagName: "Nome tag",
     tags: "Tag",
     targetPrice: "Prezzo target",
+    marketEstimate: "Stima di mercato",
     targetValue: "Valore target",
     theme: "Tema",
     themeSystem: "Sistema",
@@ -1503,6 +1509,8 @@ function offlineWishlistItem(raw: Record<string, unknown>, index: number): Wishl
     region: rawString(raw.region),
     appellation: rawString(raw.appellation),
     target_price: rawString(raw.target_price, "0"),
+    ai_market_price: rawString(raw.ai_market_price),
+    ai_market_price_currency: rawString(raw.ai_market_price_currency),
     currency: rawString(raw.currency, "CHF"),
     merchant: rawString(raw.merchant),
     priority: rawString(raw.priority, "Medium"),
@@ -2323,6 +2331,7 @@ function WishlistDetail({
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
+  const aiMarketPrice = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
@@ -2331,7 +2340,10 @@ function WishlistDetail({
           <h2><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name}</h2>
           <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
         </div>
-        <strong>{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+        <div className="wishlist-price-block">
+          <span>{t("targetPrice")}</span>
+          <strong className="wishlist-price">{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+        </div>
       </div>
       <div className="ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("strategy")}>
@@ -2350,6 +2362,8 @@ function WishlistDetail({
         <DetailField label={t("priority")} value={displayValue(item.priority, locale, "priority")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("purpose")} value={displayValue(item.purpose, locale, "purpose")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("status")} value={displayValue(item.status, locale, "status")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("targetPrice")} value={`${item.currency} ${Number(item.target_price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("aiMarketPrice")} value={aiMarketPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>
       {item.notes ? (
@@ -5824,7 +5838,10 @@ export function App() {
                   </div>
                 ) : null}
               </div>
-            )) : filteredWishlist.map((item) => (
+            )) : filteredWishlist.map((item) => {
+              const targetPriceValue = `${item.currency} ${Number(item.target_price).toFixed(0)}`;
+              const aiMarketPriceValue = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
+              return (
               <div className="list-item-block" key={item.id}>
                 <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div className="wine-row-main">
@@ -5840,17 +5857,22 @@ export function App() {
                         <small>{t("status")}</small>
                         {displayValue(item.status, locale, "status")}
                       </span>
-                      <span className="target-chip">
-                        <small>{t("targetPrice")}</small>
-                        {item.currency} {Number(item.target_price).toFixed(0)}
-                      </span>
+                      {aiMarketPriceValue ? (
+                        <span className="target-chip ai-market-chip">
+                          <small>{t("marketEstimate")}</small>
+                          {aiMarketPriceValue}
+                        </span>
+                      ) : null}
                     </div>
                     <div className="row-meta">
                       {item.merchant ? <span>{item.merchant}</span> : null}
                       {item.notes ? <span>{item.notes}</span> : null}
                     </div>
                   </div>
-                  <strong className="wishlist-price">{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+                  <div className="wishlist-price-block">
+                    <span>{t("targetPrice")}</span>
+                    <strong className="wishlist-price">{targetPriceValue}</strong>
+                  </div>
                   <div className="row-actions">
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
                       {t("edit")}
@@ -5876,7 +5898,7 @@ export function App() {
                   </div>
                 ) : null}
               </div>
-            ))}
+            )})}
           </section>
           ) : null}
 

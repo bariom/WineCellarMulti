@@ -1702,6 +1702,21 @@ textarea {
   text-transform: uppercase;
 }
 
+.wishlist-price-block {
+  display: grid;
+  gap: 4px;
+  justify-items: end;
+  min-width: 108px;
+}
+
+.wishlist-price-block span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
 .priority-high {
   --priority-color: #8f1d2d;
   --priority-bg: rgba(164, 42, 62, 0.16);
@@ -1748,8 +1763,13 @@ textarea {
   color: color-mix(in srgb, var(--accent) 86%, var(--text));
 }
 
+.ai-market-chip {
+  color: color-mix(in srgb, var(--primary) 82%, var(--text));
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-muted));
+}
+
 .wishlist-price {
-  opacity: 0.72;
+  opacity: 1;
 }
 
 .star-rating {

@@ -13,6 +13,8 @@ class WishlistBase(BaseModel):
     region: str = ""
     appellation: str = ""
     target_price: Decimal = Field(default=Decimal("0"), ge=0)
+    ai_market_price: Decimal | None = Field(default=None, ge=0)
+    ai_market_price_currency: str = ""
     currency: str = "CHF"
     merchant: str = ""
     priority: str = "Medium"
@@ -38,6 +40,8 @@ class WishlistUpdate(BaseModel):
     region: str | None = None
     appellation: str | None = None
     target_price: Decimal | None = Field(default=None, ge=0)
+    ai_market_price: Decimal | None = Field(default=None, ge=0)
+    ai_market_price_currency: str | None = None
     currency: str | None = None
     merchant: str | None = None
     priority: str | None = None

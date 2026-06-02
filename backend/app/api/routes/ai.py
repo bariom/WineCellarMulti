@@ -812,33 +812,39 @@ def generate_wishlist_target_price(
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
-        "name": "wishlist_target_price",
+        "name": "wishlist_market_price",
         "schema": {
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "target_price": {"type": "number"},
-                "currency": {"type": "string"},
+                "market_price": {"type": "number"},
+                "market_price_currency": {"type": "string"},
                 "price_advice": {"type": "string"},
                 "recommended_status": {"type": "string"},
             },
-            "required": ["target_price", "currency", "price_advice", "recommended_status"],
+            "required": ["market_price", "market_price_currency", "price_advice", "recommended_status"],
         },
     }
     response = create_response(
         user_settings.value_model,
-        f"You estimate a sensible target purchase price for a wishlist wine. Return JSON only. Be conservative. {response_language_instruction(payload.locale)}",
-        f"Suggest a target buy price for this wishlist item. Keep currency preferably {item.currency}.\n\n{wishlist_context(item)}",
+        f"You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. {response_language_instruction(payload.locale)}",
+        (
+            f"Estimate the current market price for this wishlist item. "
+            f"The user target price is {item.currency} {item.target_price}. "
+            f"Keep market price currency preferably {item.currency}. "
+            "Use price_advice to compare the user target price with the estimated market price.\n\n"
+            f"{wishlist_context(item)}"
+        ),
         api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
     try:
-        target_price = Decimal(str(result["target_price"])).quantize(Decimal("0.01"))
+        market_price = Decimal(str(result["market_price"])).quantize(Decimal("0.01"))
     except (InvalidOperation, KeyError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid target price") from exc
-    item.target_price = max(target_price, Decimal("0"))
-    item.currency = str(result.get("currency") or item.currency)[:8]
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid market price") from exc
+    item.ai_market_price = max(market_price, Decimal("0"))
+    item.ai_market_price_currency = str(result.get("market_price_currency") or item.currency)[:8]
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.ai_strategy = str(result["price_advice"])[:3000]
     record_ai_audit(
@@ -848,7 +854,10 @@ def generate_wishlist_target_price(
         entity_id=item.id,
         feature="wishlist_target_price",
         model=user_settings.value_model,
-        summary=f"{item.currency} {item.target_price}: {item.ai_strategy}",
+        summary=(
+            f"Target {item.currency} {item.target_price} / "
+            f"Market {item.ai_market_price_currency or item.currency} {item.ai_market_price}: {item.ai_strategy}"
+        ),
         usage=response.usage,
     )
     db.commit()
