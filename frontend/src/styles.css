@@ -3389,47 +3389,53 @@ textarea {
   }
 
   .hero-panel {
-    gap: 14px;
-    padding: 14px;
+    gap: 12px;
+    padding: 12px;
+    border-radius: 16px;
   }
 
   .hero-copy {
-    gap: 4px;
+    gap: 2px;
   }
 
   .hero-copy h2 {
-    font-size: clamp(1.1rem, 9vw, 1.9rem);
+    font-size: clamp(1.05rem, 8vw, 1.65rem);
+    line-height: 1;
   }
 
   .hero-copy p {
-    font-size: 0.95rem;
+    font-size: 0.84rem;
+    line-height: 1.3;
   }
 
   .hero-kpis {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 8px;
+    gap: 6px;
   }
 
   .hero-kpi {
     min-height: auto;
-    gap: 4px;
-    padding: 10px;
-    border-radius: 12px;
+    gap: 2px;
+    padding: 8px;
+    border-radius: 10px;
+    box-shadow: none;
   }
 
   .hero-kpi span {
-    font-size: 0.66rem;
-    line-height: 1.15;
+    font-size: 0.62rem;
+    line-height: 1.1;
+    letter-spacing: 0.04em;
   }
 
   .hero-kpi strong {
-    font-size: clamp(1rem, 5vw, 1.4rem);
+    font-size: clamp(0.95rem, 4.8vw, 1.25rem);
     line-height: 1;
   }
 
   .hero-kpi p {
-    font-size: 0.82rem;
+    font-size: 0.75rem;
     font-weight: 700;
+    line-height: 1.15;
   }
 
   .dashboard-grid {
@@ -3499,19 +3505,6 @@ textarea {
   .delivery-event-position {
     left: 0 !important;
     right: auto;
-  }
-
-  .hero-panel {
-    padding: 16px;
-  }
-
-  .hero-kpis {
-    grid-template-columns: 1fr;
-  }
-
-  .hero-kpi {
-    min-height: auto;
-    padding: 14px;
   }
 
   .dashboard-card,
@@ -3607,5 +3600,27 @@ textarea {
   .form-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 400px) {
+  .hero-copy p {
+    display: none;
+  }
+
+  .hero-kpi {
+    padding: 7px;
+  }
+
+  .hero-kpi span {
+    font-size: 0.58rem;
+  }
+
+  .hero-kpi strong {
+    font-size: 0.92rem;
+  }
+
+  .hero-kpi p {
+    font-size: 0.7rem;
   }
 }
