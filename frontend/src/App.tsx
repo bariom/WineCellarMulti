@@ -4896,7 +4896,7 @@ export function App() {
                       ))}
                     </div>
                   </article>
-                </section>
+                </DashboardCarousel>
               ) : null}
 
               {dashboardFocus === "readiness" ? (
@@ -4971,7 +4971,7 @@ export function App() {
                       ))}
                     </div>
                   </article>
-                </section>
+                </DashboardCarousel>
               ) : null}
 
               {dashboardFocus === "timeline" ? (
@@ -5034,7 +5034,7 @@ export function App() {
                       <p className="empty-state">{t("noActionItems")}</p>
                     )}
                   </article>
-                </section>
+                </DashboardCarousel>
               ) : null}
 
               {dashboardFocus === "data" ? (
@@ -5125,7 +5125,7 @@ export function App() {
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
-                </section>
+                </DashboardCarousel>
               ) : null}
             </section>
           ) : null}
