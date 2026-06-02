@@ -2948,6 +2948,67 @@ button.stat-card:hover {
   background: var(--surface-muted);
 }
 
+.consume-panel {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--surface-raised) 0%, var(--surface-muted) 100%);
+}
+
+.consume-panel summary {
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.consume-panel[open] summary {
+  margin-bottom: 10px;
+}
+
+.consume-help {
+  margin: 0 0 12px;
+  color: var(--text-muted);
+}
+
+.consume-form {
+  display: grid;
+  gap: 12px;
+}
+
+.consume-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.consume-form label span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.consume-grid {
+  margin-bottom: 0;
+}
+
+.tasting-history-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tasting-history-entry {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-muted);
+}
+
+.tasting-history-entry p {
+  margin: 0;
+}
+
 .ai-audit-detail summary {
   display: flex;
   align-items: center;

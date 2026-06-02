@@ -71,6 +71,26 @@ class WineUpdate(BaseModel):
     scores: list[dict] | None = None
 
 
+class WineTastingEntryResponse(BaseModel):
+    id: UUID
+    consumed_at: date
+    note: str
+    rating: int = Field(default=0, ge=0, le=6)
+    occasion: str = ""
+    pairing: str = ""
+    companions: str = ""
+    created_at: datetime
+
+
+class WineConsume(BaseModel):
+    consumed_at: date | None = None
+    note: str = ""
+    tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_occasion: str = ""
+    tasting_pairing: str = ""
+    tasting_companions: str = ""
+
+
 class WineValueHistoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -116,6 +136,7 @@ class WineResponse(BaseModel):
     tags: list[str]
     grapes: list[dict]
     scores: list[dict]
+    tasting_history: list[WineTastingEntryResponse] = Field(default_factory=list)
     value_history: list[WineValueHistoryResponse] = Field(default_factory=list)
 
 

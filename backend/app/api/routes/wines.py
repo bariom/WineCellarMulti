@@ -1,4 +1,5 @@
 import json
+import uuid
 from datetime import datetime, timezone
 from decimal import Decimal, ROUND_HALF_UP
 from functools import lru_cache
@@ -13,7 +14,7 @@ from app.api.deps import CurrentContext, get_current_context, require_admin_cont
 from app.api.routes.tags import get_or_create_user_tag
 from app.db.session import get_db
 from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
-from app.schemas.wine import WineCreate, WineResponse, WineShareOfferCreate, WineShareOfferResponse, WineUpdate
+from app.schemas.wine import WineConsume, WineCreate, WineResponse, WineShareOfferCreate, WineShareOfferResponse, WineUpdate
 
 
 router = APIRouter()
@@ -161,6 +162,28 @@ def normalize_owner_rows(raw_owners: list[dict]) -> list[dict]:
     return owners
 
 
+def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
+    entries: list[dict] = []
+    for raw_entry in raw_entries or []:
+        consumed_at = str(raw_entry.get("consumed_at") or "").strip()
+        created_at = str(raw_entry.get("created_at") or "").strip()
+        if not consumed_at or not created_at:
+            continue
+        entries.append(
+            {
+                "id": str(raw_entry.get("id") or uuid.uuid4()),
+                "consumed_at": consumed_at,
+                "note": str(raw_entry.get("note") or "").strip(),
+                "rating": max(0, min(int(raw_entry.get("rating") or 0), 6)),
+                "occasion": str(raw_entry.get("occasion") or "").strip(),
+                "pairing": str(raw_entry.get("pairing") or "").strip(),
+                "companions": str(raw_entry.get("companions") or "").strip(),
+                "created_at": created_at,
+            },
+        )
+    return entries
+
+
 def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct: Decimal) -> None:
     cleaned_email = owner_email.strip().lower()
     cleaned_name = owner_name.strip() or cleaned_email
@@ -228,6 +251,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         tags=[],
         grapes=source.grapes,
         scores=source.scores,
+        tasting_history=normalize_tasting_history([dict(entry) for entry in (source.tasting_history or [])]),
     )
 
 
@@ -448,6 +472,45 @@ def update_wine(
     return wine_response(
         wine,
         tag_names if tag_names is not None else user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.post("/{wine_id}/consume", response_model=WineResponse)
+def consume_wine_bottle(
+    wine_id: UUID,
+    payload: WineConsume,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    if wine.quantity <= 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No bottles left to consume")
+
+    tasting_entry = {
+        "id": str(uuid.uuid4()),
+        "consumed_at": (payload.consumed_at or datetime.now(timezone.utc).date()).isoformat(),
+        "note": payload.note.strip(),
+        "rating": payload.tasting_rating,
+        "occasion": payload.tasting_occasion.strip(),
+        "pairing": payload.tasting_pairing.strip(),
+        "companions": payload.tasting_companions.strip(),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    wine.tasting_history = normalize_tasting_history([*(wine.tasting_history or []), tasting_entry])
+    wine.quantity = max(wine.quantity - 1, 0)
+    if payload.tasting_rating > 0:
+        wine.rating = payload.tasting_rating
+    if wine.quantity == 0:
+        wine.status = "Consumed"
+    elif wine.status.lower() not in {"delivered", "consegnato", "consumed", "bevuto"}:
+        wine.status = "Delivered"
+
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
         wine_value_history_by_wine(db, [wine.id]).get(wine.id),
     )
 

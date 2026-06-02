@@ -49,7 +49,26 @@ type Wine = {
   tags: string[];
   grapes: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
   scores: Array<{ critic: string; score: string; note: string }>;
+  tasting_history: Array<{
+    id: string;
+    consumed_at: string;
+    note: string;
+    rating: number;
+    occasion: string;
+    pairing: string;
+    companions: string;
+    created_at: string;
+  }>;
   value_history: Array<{ id: string; value: string; currency: string; source: string; recorded_at: string }>;
+};
+
+type ConsumeWineDraft = {
+  consumed_at: string;
+  note: string;
+  tasting_rating: string;
+  tasting_occasion: string;
+  tasting_pairing: string;
+  tasting_companions: string;
 };
 
 type CatalogWine = {
@@ -398,6 +417,15 @@ const emptyRedeemCodeDraft: RedeemCodeDraft = {
   expires_at: "",
 };
 
+const emptyConsumeWineDraft = (): ConsumeWineDraft => ({
+  consumed_at: new Date().toISOString().slice(0, 10),
+  note: "",
+  tasting_rating: "0",
+  tasting_occasion: "",
+  tasting_pairing: "",
+  tasting_companions: "",
+});
+
 const translations = {
   en: {
     accept: "Accept",
@@ -435,6 +463,17 @@ const translations = {
     createAccount: "Create account",
     createInvite: "Create invite",
     createRedeemCode: "Create redeem code",
+    consumeBottle: "Bottle consumed",
+    consumeBottleHelp: "Decrease the cellar quantity by one and store tasting details in history.",
+    tastingHistory: "Tasting history",
+    tastingDate: "Tasting date",
+    tastingNote: "Tasting note",
+    tastingOccasion: "Occasion",
+    tastingPairing: "Pairing",
+    tastingCompanions: "With",
+    tastingRating: "Tasting rating",
+    saveTasting: "Save tasting",
+    noTastingHistory: "No tasting notes recorded yet.",
     critic: "Critic",
     configured: "Configured",
     contactSupport: "Contact support",
@@ -718,6 +757,17 @@ const translations = {
     createAccount: "Crea account",
     createInvite: "Crea invito",
     createRedeemCode: "Crea codice redeem",
+    consumeBottle: "Bevuta 1",
+    consumeBottleHelp: "Scala di una bottiglia la cantina e registra i dati di degustazione nello storico.",
+    tastingHistory: "Storico degustazioni",
+    tastingDate: "Data degustazione",
+    tastingNote: "Nota degustazione",
+    tastingOccasion: "Occasione",
+    tastingPairing: "Abbinamento",
+    tastingCompanions: "Con chi",
+    tastingRating: "Voto degustazione",
+    saveTasting: "Salva degustazione",
+    noTastingHistory: "Nessuna degustazione registrata.",
     critic: "Critico",
     configured: "Configurata",
     contactSupport: "Contatta supporto",
@@ -1501,6 +1551,16 @@ function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       percentage_to: grape.percentage_to === undefined ? undefined : rawNumber(grape.percentage_to),
     })),
     scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
+    tasting_history: rawArray(raw.tasting_history).map((entry, entryIndex) => ({
+      id: rawString(entry.id, `offline-tasting-${index}-${entryIndex}`),
+      consumed_at: rawString(entry.consumed_at),
+      note: rawString(entry.note),
+      rating: rawNumber(entry.rating),
+      occasion: rawString(entry.occasion),
+      pairing: rawString(entry.pairing),
+      companions: rawString(entry.companions),
+      created_at: rawString(entry.created_at),
+    })),
     value_history: rawArray(raw.value_history).map((entry, entryIndex) => ({
       id: rawString(entry.id, `offline-value-${index}-${entryIndex}`),
       value: rawString(entry.value),
@@ -2178,13 +2238,54 @@ function hasSharedOwnership(wine: Wine) {
   return wine.owners.length > 0 || Number(wine.owner_share_pct || 100) < 100;
 }
 
+function TastingHistorySection({
+  entries,
+  t,
+}: {
+  entries: Wine["tasting_history"];
+  t: (key: TranslationKey) => string;
+}) {
+  const orderedEntries = [...entries].sort((first, second) => second.consumed_at.localeCompare(first.consumed_at));
+
+  return (
+    <div className="detail-section">
+      <h3>{t("tastingHistory")}</h3>
+      {orderedEntries.length ? (
+        <div className="tasting-history-list">
+          {orderedEntries.map((entry) => (
+            <article className="tasting-history-entry" key={entry.id}>
+              <div className="section-heading">
+                <strong>{formatDisplayDate(entry.consumed_at)}</strong>
+                {entry.rating ? <span>{t("tastingRating")}: {entry.rating}/6</span> : null}
+              </div>
+              {entry.note ? <p>{entry.note}</p> : null}
+              {entry.occasion || entry.pairing || entry.companions ? (
+                <div className="chip-list">
+                  {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
+                  {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
+                  {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      ) : (
+        <p className="empty-state">{t("noTastingHistory")}</p>
+      )}
+    </div>
+  );
+}
+
 function WineDetail({
   wine,
   session,
   auditEntries,
   canGenerate,
+  canWrite,
+  saving,
   generating,
   onGenerate,
+  onConsume,
   t,
   locale,
 }: {
@@ -2192,8 +2293,11 @@ function WineDetail({
   session: Session | null;
   auditEntries: AiAuditLog[];
   canGenerate: boolean;
+  canWrite: boolean;
+  saving: boolean;
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
+  onConsume: (payload: ConsumeWineDraft) => Promise<void>;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -2208,6 +2312,17 @@ function WineDetail({
   const currentYear = new Date().getFullYear();
   const currentYearInWindow = currentYear >= drinkStart && currentYear <= drinkEnd;
   const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
+  const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+
+  useEffect(() => {
+    setConsumeDraft(emptyConsumeWineDraft());
+  }, [wine.id]);
+
+  async function submitConsume(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onConsume(consumeDraft);
+    setConsumeDraft(emptyConsumeWineDraft());
+  }
 
   return (
     <section className={`wine-detail tone-${wineTone(wine.type)}`}>
@@ -2252,6 +2367,80 @@ function WineDetail({
       </div>
 
       <ValueHistoryChart wine={wine} t={t} />
+
+      {canWrite && wine.quantity > 0 ? (
+        <details className="detail-section consume-panel">
+          <summary>
+            <span>{t("consumeBottle")}</span>
+          </summary>
+          <p className="consume-help">{t("consumeBottleHelp")}</p>
+          <form className="consume-form" onSubmit={submitConsume}>
+            <div className="detail-grid consume-grid">
+              <label>
+                <span>{t("tastingDate")}</span>
+                <input
+                  type="date"
+                  value={consumeDraft.consumed_at}
+                  onChange={(event) => setConsumeDraft({ ...consumeDraft, consumed_at: event.target.value })}
+                  disabled={saving}
+                />
+              </label>
+              <label>
+                <span>{t("tastingRating")}</span>
+                <select
+                  value={consumeDraft.tasting_rating}
+                  onChange={(event) => setConsumeDraft({ ...consumeDraft, tasting_rating: event.target.value })}
+                  disabled={saving}
+                >
+                  {Array.from({ length: 7 }).map((_, index) => (
+                    <option key={index} value={String(index)}>
+                      {index === 0 ? t("notSpecified") : `${index}/6`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                <span>{t("tastingOccasion")}</span>
+                <input
+                  value={consumeDraft.tasting_occasion}
+                  onChange={(event) => setConsumeDraft({ ...consumeDraft, tasting_occasion: event.target.value })}
+                  disabled={saving}
+                />
+              </label>
+              <label>
+                <span>{t("tastingPairing")}</span>
+                <input
+                  value={consumeDraft.tasting_pairing}
+                  onChange={(event) => setConsumeDraft({ ...consumeDraft, tasting_pairing: event.target.value })}
+                  disabled={saving}
+                />
+              </label>
+            </div>
+            <label>
+              <span>{t("tastingCompanions")}</span>
+              <input
+                value={consumeDraft.tasting_companions}
+                onChange={(event) => setConsumeDraft({ ...consumeDraft, tasting_companions: event.target.value })}
+                disabled={saving}
+              />
+            </label>
+            <label>
+              <span>{t("tastingNote")}</span>
+              <textarea
+                rows={3}
+                value={consumeDraft.note}
+                onChange={(event) => setConsumeDraft({ ...consumeDraft, note: event.target.value })}
+                disabled={saving}
+              />
+            </label>
+            <div className="form-actions">
+              <button type="submit" disabled={saving}>
+                {saving ? t("working") : t("saveTasting")}
+              </button>
+            </div>
+          </form>
+        </details>
+      ) : null}
 
       {(wine.drink_from || wine.drink_to) ? (
         <div className="drink-window">
@@ -2338,6 +2527,8 @@ function WineDetail({
           {wine.ai_value_notes ? <DetailNote title={t("value")}>{wine.ai_value_notes}</DetailNote> : null}
         </div>
       ) : null}
+
+      <TastingHistorySection entries={wine.tasting_history || []} t={t} />
 
       <details className="detail-section ai-audit-detail">
         <summary>
@@ -3875,6 +4066,34 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
       setGeneratingAi("");
+    }
+  }
+
+  async function consumeWineBottle(wine: Wine, payload: ConsumeWineDraft) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}/consume`, {
+        method: "POST",
+        body: JSON.stringify({
+          consumed_at: payload.consumed_at || undefined,
+          note: payload.note.trim(),
+          tasting_rating: Number(payload.tasting_rating || 0),
+          tasting_occasion: payload.tasting_occasion.trim(),
+          tasting_pairing: payload.tasting_pairing.trim(),
+          tasting_companions: payload.tasting_companions.trim(),
+        }),
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+      if (updated.quantity <= 0 && activeView === "cellar") {
+        setActiveView("history");
+        clearFilters("history");
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to register tasting");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -5687,8 +5906,11 @@ export function App() {
                   session={session}
                   auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedVisibleWine.id)}
                   canGenerate={canGenerateAi}
+                  canWrite={canWriteWine}
+                  saving={saving}
                   generating={generatingAi}
                   onGenerate={(feature) => generateWineAi(selectedVisibleWine, feature)}
+                  onConsume={(payload) => consumeWineBottle(selectedVisibleWine, payload)}
                   t={t}
                   locale={locale}
                 />
@@ -5951,8 +6173,11 @@ export function App() {
                       session={session}
                       auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
                       canGenerate={canGenerateAi}
+                      canWrite={canWriteWine}
+                      saving={saving}
                       generating={generatingAi}
                       onGenerate={(feature) => generateWineAi(wine, feature)}
+                      onConsume={(payload) => consumeWineBottle(wine, payload)}
                       t={t}
                       locale={locale}
                     />

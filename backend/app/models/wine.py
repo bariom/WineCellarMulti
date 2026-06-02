@@ -46,6 +46,7 @@ class Wine(Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     grapes: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    tasting_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
 
 class WineValueHistory(Base):

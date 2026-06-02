@@ -569,6 +569,54 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     assert client.get("/api/v1/wines").json() == []
 
 
+def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Castello Luigi",
+            "producer": "Castello Luigi",
+            "vintage": "2018",
+            "quantity": 2,
+            "price": 120,
+            "currency": "CHF",
+            "status": "Delivered",
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+
+    consumed_once = client.post(
+        f"/api/v1/wines/{wine_id}/consume",
+        json={
+            "consumed_at": "2026-06-02",
+            "note": "Opened for dinner",
+            "tasting_rating": 5,
+            "tasting_occasion": "Dinner",
+            "tasting_pairing": "Risotto",
+            "tasting_companions": "Friends",
+        },
+    )
+    assert consumed_once.status_code == 200
+    assert consumed_once.json()["quantity"] == 1
+    assert consumed_once.json()["status"] == "Delivered"
+    assert consumed_once.json()["rating"] == 5
+    assert len(consumed_once.json()["tasting_history"]) == 1
+    assert consumed_once.json()["tasting_history"][0]["note"] == "Opened for dinner"
+    assert consumed_once.json()["tasting_history"][0]["rating"] == 5
+
+    consumed_twice = client.post(f"/api/v1/wines/{wine_id}/consume", json={"note": "Last bottle"})
+    assert consumed_twice.status_code == 200
+    assert consumed_twice.json()["quantity"] == 0
+    assert consumed_twice.json()["status"] == "Consumed"
+    assert len(consumed_twice.json()["tasting_history"]) == 2
+
+    no_more = client.post(f"/api/v1/wines/{wine_id}/consume", json={})
+    assert no_more.status_code == 400
+
+
 def test_user_tags_can_be_defined_and_assigned_to_wines():
     client = TestClient(app)
     assert register(client).status_code == 201
