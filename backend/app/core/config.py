@@ -37,10 +37,22 @@ class Settings(BaseSettings):
     stripe_success_url: str = "http://localhost:5173/?stripe_checkout=success"
     stripe_cancel_url: str = "http://localhost:5173/?stripe_checkout=cancelled"
     stripe_portal_return_url: str = "http://localhost:5173/?billing_portal=return"
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_use_tls: bool = True
+    smtp_use_ssl: bool = False
+    smtp_from_email: str = ""
+    smtp_from_name: str = "Vinaris"
 
     @property
     def cors_origin_list(self) -> list[str]:
         return [origin.strip() for origin in self.cors_origins.split(",") if origin.strip()]
+
+    @property
+    def smtp_enabled(self) -> bool:
+        return bool(self.smtp_host and self.smtp_from_email)
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 

@@ -143,6 +143,33 @@ def test_register_login_session_and_logout():
     assert login.json()["theme_preference"] == "ticino"
 
 
+def test_pending_registration_sends_admin_email(monkeypatch):
+    from app.api.routes import auth as auth_routes
+
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(auth_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    pending_client = TestClient(app)
+    pending = register(pending_client, email="pending@example.com", password="strong-password-2")
+    assert pending.status_code == 201
+    assert pending.json()["pending_approval"] is True
+
+    assert len(deliveries) == 1
+    assert deliveries[0]["recipients"] == ["owner@example.com"]
+    assert "pending@example.com" in str(deliveries[0]["body"])
+    assert "Main Cellar" in str(deliveries[0]["body"])
+
+
 def test_authenticated_user_can_read_wine_catalog():
     client = TestClient(app)
     assert register(client).status_code == 201

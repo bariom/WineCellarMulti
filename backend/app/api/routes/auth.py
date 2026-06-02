@@ -39,6 +39,7 @@ from app.schemas.auth import (
     UserPreferencesUpdate,
 )
 from app.schemas.session import SessionResponse
+from app.services.email import send_email
 
 
 router = APIRouter(prefix="/auth")
@@ -172,6 +173,34 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
     )
 
 
+def notify_admins_of_pending_registration(db: Session, user: User, household: Household) -> None:
+    admin_emails = list(
+        dict.fromkeys(
+            db.scalars(
+                select(User.email)
+                .where(User.is_app_admin.is_(True))
+                .where(User.is_approved.is_(True))
+                .where(User.is_blocked.is_(False))
+                .order_by(User.email.asc()),
+            ),
+        ),
+    )
+    if not admin_emails:
+        return
+    send_email(
+        recipients=admin_emails,
+        subject=f"[{settings.app_name}] New user awaiting approval",
+        body=(
+            "A new user registration is waiting for approval.\n\n"
+            f"Name: {user.display_name}\n"
+            f"Email: {user.email}\n"
+            f"Cellar name: {household.name}\n"
+            f"Created at: {datetime.now(timezone.utc).isoformat()}\n\n"
+            "Open the Vinaris admin users section to review the request."
+        ),
+    )
+
+
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
     email = payload.email.lower()
@@ -199,6 +228,7 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     db.refresh(household)
     db.refresh(membership)
     if not user.is_approved:
+        notify_admins_of_pending_registration(db, user, household)
         return SessionResponse(authenticated=False, pending_approval=True)
 
     user_session, token = create_session(db, user, household)
