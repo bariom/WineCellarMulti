@@ -1239,6 +1239,7 @@ const helpGuideContent: Record<
         body: "Vinaris supports shared cellars, shared positions, and app notifications for key events.",
         bullets: [
           "Use Settings > Sharing to invite people to your cellar.",
+          "Anyone you invite to a cellar must already have their own Vinaris account.",
           "Notifications help you track invites, redeem codes, approvals, and incoming shared positions.",
           "If you are an app admin, user approvals and redeem codes are managed from Settings.",
         ],
@@ -1301,6 +1302,7 @@ const helpGuideContent: Record<
         body: "Vinaris supporta cantine condivise, posizioni condivise e notifiche in-app per gli eventi importanti.",
         bullets: [
           "Usa Impostazioni > Sharing per invitare persone nella tua cantina.",
+          "Chi inviti in una cantina deve comunque essere già titolare di un account Vinaris.",
           "Le notifiche ti aiutano a seguire inviti, codici redeem, approvazioni e posizioni condivise in arrivo.",
           "Se sei app admin, approvazioni utenti e codici redeem si gestiscono da Impostazioni.",
         ],
