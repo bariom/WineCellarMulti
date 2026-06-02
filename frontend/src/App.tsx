@@ -237,6 +237,7 @@ type BillingStatus = {
     valid_until: string;
     created_at: string;
   }>;
+  available_redeem_codes: RedeemCode[];
 };
 
 type PaymentPlan = "monthly" | "annual";
@@ -625,6 +626,7 @@ const translations = {
     exportData: "Export data",
     exportJson: "Export JSON",
     generatedCode: "Generated code",
+    paidRedeemCode: "Paid redeem code",
     working: "Working",
     youngWine: "Young",
     estimatedCost: "Estimated cost",
@@ -893,6 +895,7 @@ const translations = {
     exportData: "Esportazione dati",
     exportJson: "Esporta JSON",
     generatedCode: "Codice generato",
+    paidRedeemCode: "Codice redeem acquistato",
     working: "Elaborazione",
     youngWine: "Giovane",
     estimatedCost: "Costo stimato",
@@ -2354,8 +2357,16 @@ export function App() {
   async function refreshAfterStripeCheckout() {
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const nextSession = await loadSession();
-      if (nextSession.authenticated && (nextSession.is_app_admin || nextSession.has_active_entitlement)) {
-        await loadData();
+      if (nextSession.authenticated) {
+        const nextStatus = await api<BillingStatus>("/api/v1/billing/status");
+        setBillingStatus(nextStatus);
+        if (nextStatus.available_redeem_codes.length || nextStatus.has_active_entitlement) {
+          await loadData();
+          window.history.replaceState(null, "", window.location.pathname);
+          return;
+        }
+      }
+      if (nextSession.is_app_admin) {
         window.history.replaceState(null, "", window.location.pathname);
         return;
       }
@@ -2783,15 +2794,14 @@ export function App() {
     }
   }
 
-  async function redeemCode(event: FormEvent) {
-    event.preventDefault();
-    if (!redeemInput.trim()) return;
+  async function redeemCodeValue(code: string) {
+    if (!code.trim()) return;
     setSaving(true);
     setError("");
     try {
       const nextStatus = await api<BillingStatus>("/api/v1/billing/redeem", {
         method: "POST",
-        body: JSON.stringify({ code: redeemInput.trim() }),
+        body: JSON.stringify({ code: code.trim() }),
       });
       setBillingStatus(nextStatus);
       setRedeemInput("");
@@ -2801,6 +2811,11 @@ export function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function redeemCode(event: FormEvent) {
+    event.preventDefault();
+    await redeemCodeValue(redeemInput);
   }
 
   async function startCheckout(plan: PaymentPlan) {
@@ -3867,6 +3882,26 @@ export function App() {
               </button>
             </div>
             <p className="empty-state">{t("paymentHelp")}</p>
+            {billingStatus?.available_redeem_codes.length ? (
+              <div className="member-list">
+                {billingStatus.available_redeem_codes.map((code) => (
+                  <div className="member-row" key={code.id}>
+                    <div>
+                      <strong>{t("paidRedeemCode")}</strong>
+                      <span>{code.code || code.code_prefix} - {code.duration_days}d</span>
+                    </div>
+                    {code.code ? (
+                      <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
+                        Copy
+                      </button>
+                    ) : null}
+                    <button type="button" className="compact" disabled={saving || !code.code} onClick={() => code.code && redeemCodeValue(code.code)}>
+                      {t("redeem")}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             <form className="inline-form" onSubmit={redeemCode}>
               <label>
                 <span>{t("redeemCode")}</span>
@@ -5086,6 +5121,26 @@ export function App() {
                     {t("buyAnnual")}
                   </button>
                 </form>
+                {billingStatus?.available_redeem_codes.length ? (
+                  <div className="member-list">
+                    {billingStatus.available_redeem_codes.map((code) => (
+                      <div className="member-row" key={code.id}>
+                        <div>
+                          <strong>{t("paidRedeemCode")}</strong>
+                          <span>{code.code || code.code_prefix} - {code.duration_days}d</span>
+                        </div>
+                        {code.code ? (
+                          <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
+                            Copy
+                          </button>
+                        ) : null}
+                        <button type="button" className="compact" disabled={saving || !code.code} onClick={() => code.code && redeemCodeValue(code.code)}>
+                          {t("redeem")}
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {billingStatus?.has_active_entitlement ? (
                   <p className="empty-state">{t("billing")}: {billingStatus.active_source} - {formatDisplayDate(billingStatus.valid_until)}</p>
                 ) : (

@@ -57,6 +57,7 @@ class StripeCheckoutSession(Base):
     stripe_session_id: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     stripe_subscription_id: Mapped[str | None] = mapped_column(String(255), nullable=True, index=True)
     stripe_customer_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    redeem_code_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("redeem_codes.id", ondelete="SET NULL"), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), default="pending")
     plan: Mapped[str] = mapped_column(String(32), default="annual")
     duration_days: Mapped[int] = mapped_column(Integer)

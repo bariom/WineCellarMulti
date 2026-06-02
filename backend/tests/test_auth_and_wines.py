@@ -225,7 +225,7 @@ def stripe_signature(payload: bytes, secret: str) -> str:
     return f"t={timestamp},v1={digest}"
 
 
-def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
+def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     webhook_secret = "whsec_test"
     monkeypatch.setattr(settings, "stripe_webhook_secret", webhook_secret)
     monkeypatch.setattr(settings, "stripe_monthly_entitlement_days", 31)
@@ -261,9 +261,17 @@ def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
     status_response = client.get("/api/v1/billing/status")
     assert status_response.status_code == 200
     status_payload = status_response.json()
-    assert status_payload["has_active_entitlement"] is True
-    assert status_payload["active_source"] == "stripe"
-    assert len(status_payload["entitlements"]) == 1
+    assert status_payload["has_active_entitlement"] is False
+    assert len(status_payload["entitlements"]) == 0
+    assert len(status_payload["available_redeem_codes"]) == 1
+    paid_code = status_payload["available_redeem_codes"][0]["code"]
+    assert paid_code.startswith("WCM-")
+
+    redeemed = client.post("/api/v1/billing/redeem", json={"code": paid_code})
+    assert redeemed.status_code == 200
+    assert redeemed.json()["has_active_entitlement"] is True
+    assert redeemed.json()["active_source"] == "redeem"
+    assert redeemed.json()["available_redeem_codes"] == []
 
     invoice_event = {
         "id": "evt_invoice_paid",
@@ -286,7 +294,9 @@ def test_stripe_checkout_webhook_grants_entitlement_once(monkeypatch):
     assert renewed.status_code == 204
     duplicate_renewal = client.post("/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers)
     assert duplicate_renewal.status_code == 204
-    assert len(client.get("/api/v1/billing/status").json()["entitlements"]) == 2
+    renewal_status = client.get("/api/v1/billing/status").json()
+    assert len(renewal_status["entitlements"]) == 1
+    assert len(renewal_status["available_redeem_codes"]) == 1
 
 
 def test_stripe_checkout_uses_selected_annual_price(monkeypatch):

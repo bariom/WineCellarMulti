@@ -99,9 +99,39 @@ def create_entitlement(db: Session, user: User, *, source: str, source_id: UUID 
     return entitlement
 
 
+def create_payment_redeem_code(db: Session, user: User, *, label: str, duration_days: int, checkout: StripeCheckoutSession | None = None) -> RedeemCode:
+    clear_code = generate_redeem_code()
+    normalized = normalize_redeem_code(clear_code)
+    code = RedeemCode(
+        code_hash=hash_redeem_code(normalized),
+        code_prefix=clear_code[:8],
+        encrypted_code=encrypt_secret(clear_code),
+        label=label,
+        duration_days=duration_days,
+        max_redemptions=1,
+        email=user.email.lower(),
+    )
+    db.add(code)
+    db.flush()
+    if checkout is not None and checkout.redeem_code_id is None:
+        checkout.redeem_code_id = code.id
+    return code
+
+
 def billing_status(db: Session, user: User) -> BillingStatusResponse:
     current_time = now_utc()
     entitlements = list(db.scalars(select(UserEntitlement).where(UserEntitlement.user_id == user.id).order_by(UserEntitlement.valid_until.desc())))
+    available_codes = list(
+        db.scalars(
+            select(RedeemCode)
+            .where(
+                RedeemCode.email == user.email.lower(),
+                RedeemCode.revoked_at.is_(None),
+                RedeemCode.redeemed_count < RedeemCode.max_redemptions,
+            )
+            .order_by(RedeemCode.created_at.desc()),
+        ),
+    )
     active_valid_until = active_entitlement_valid_until(db, user)
     active_entitlement = next(
         (entitlement for entitlement in entitlements if active_valid_until is not None and as_aware_utc(entitlement.valid_until) >= active_valid_until and as_aware_utc(entitlement.valid_until) > current_time),
@@ -112,6 +142,7 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
         valid_until=active_valid_until,
         active_source=active_entitlement.source if active_entitlement else None,
         entitlements=[entitlement_response(entitlement) for entitlement in entitlements],
+        available_redeem_codes=[redeem_code_response(code) for code in available_codes if code.expires_at is None or as_aware_utc(code.expires_at) > current_time],
     )
 
 
@@ -257,7 +288,7 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
     checkout.amount_total = session.get("amount_total") if session.get("amount_total") is not None else checkout.amount_total
     checkout.currency = session.get("currency") or checkout.currency
     checkout.completed_at = now_utc()
-    create_entitlement(db, user, source="stripe", source_id=checkout.id, duration_days=checkout.duration_days)
+    create_payment_redeem_code(db, user, label=f"Stripe {checkout.plan} access", duration_days=checkout.duration_days, checkout=checkout)
 
 
 def complete_stripe_invoice(db: Session, invoice: dict) -> None:
@@ -276,7 +307,7 @@ def complete_stripe_invoice(db: Session, invoice: dict) -> None:
         return
     checkout.amount_total = invoice.get("amount_paid") if invoice.get("amount_paid") is not None else checkout.amount_total
     checkout.currency = invoice.get("currency") or checkout.currency
-    create_entitlement(db, user, source="stripe", source_id=checkout.id, duration_days=checkout.duration_days)
+    create_payment_redeem_code(db, user, label=f"Stripe {checkout.plan} renewal", duration_days=checkout.duration_days)
 
 
 @router.get("/status", response_model=BillingStatusResponse)

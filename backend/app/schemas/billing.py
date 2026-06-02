@@ -55,3 +55,4 @@ class BillingStatusResponse(BaseModel):
     valid_until: datetime | None
     active_source: str | None
     entitlements: list[EntitlementResponse]
+    available_redeem_codes: list[RedeemCodeResponse] = []
