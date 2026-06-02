@@ -5744,7 +5744,7 @@ export function App() {
             {activeView === "cellar" ? filteredWines.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
-                  <div>
+                  <div className="wine-row-main">
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
                     <p className="row-primary">{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())} - {displayValue(wine.status, locale, "status")}</p>
                     <p className="row-secondary">{[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
@@ -5781,7 +5781,7 @@ export function App() {
             )) : filteredWishlist.map((item) => (
               <div className="list-item-block" key={item.id}>
                 <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
-                  <div>
+                  <div className="wine-row-main">
                     <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
                     <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")} - {displayValue(item.status, locale, "status")}</p>
                     <p className="row-secondary">{[displayValue(item.format, locale, "format"), displayValue(item.type, locale, "type"), item.region, item.appellation].filter(Boolean).join(" - ")}</p>

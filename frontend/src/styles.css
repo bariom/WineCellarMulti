@@ -1762,9 +1762,9 @@ textarea {
 .list-header,
 .wine-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(160px, 220px) auto auto;
+  grid-template-columns: minmax(0, 1.25fr) minmax(148px, 208px) auto auto;
   gap: 16px;
-  align-items: center;
+  align-items: start;
 }
 
 .list-header {
@@ -2469,6 +2469,12 @@ button.stat-card:hover {
   font-size: 1rem;
 }
 
+.wine-row-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
 .wine-row h3 small {
   color: #52635c;
   font-weight: 500;
@@ -2477,13 +2483,14 @@ button.stat-card:hover {
 .row-primary,
 .row-secondary,
 .row-meta span {
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow: visible;
+  text-overflow: clip;
 }
 
 .row-primary,
 .row-secondary {
-  white-space: nowrap;
+  white-space: normal;
+  line-height: 1.38;
 }
 
 .row-meta {
@@ -2497,19 +2504,19 @@ button.stat-card:hover {
 .row-meta span {
   display: inline-flex;
   align-items: center;
-  max-width: 210px;
+  max-width: 100%;
   border-radius: 999px;
   padding: 4px 8px;
   color: #245142;
   background: #eef3ef;
   font-size: 0.78rem;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .mini-drink-window {
   display: grid;
   gap: 5px;
-  min-width: 150px;
+  min-width: 138px;
 }
 
 .mini-window-labels {
