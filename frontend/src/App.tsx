@@ -4066,6 +4066,149 @@ export function App() {
                 ))}
               </div>
             </section>
+
+            <section className="public-showcase-card">
+              <div className="public-section-heading">
+                <p className="eyebrow">{locale === "it" ? "Anteprima applicazione" : "Application preview"}</p>
+                <h3>
+                  {locale === "it"
+                    ? "Tre viste chiave per capire subito come lavora Vinaris."
+                    : "Three key views that show how Vinaris works in practice."}
+                </h3>
+              </div>
+              <div className="public-showcase-grid">
+                <article className="showcase-frame showcase-frame-wide">
+                  <div className="showcase-window">
+                    <div className="showcase-bar">
+                      <span className="showcase-tab active">Home</span>
+                      <span className="showcase-tab">Cellar (45)</span>
+                      <span className="showcase-tab">Wishlist (10)</span>
+                      <span className="showcase-tab">Pairing</span>
+                    </div>
+                    <div className="showcase-hero">
+                      <div>
+                        <p className="eyebrow">Dashboard</p>
+                        <h4>Collector focus</h4>
+                        <span>Omar Bariffi Cellar: 45 wines, 10 wishlist.</span>
+                      </div>
+                      <div className="showcase-kpis">
+                        <div><strong>97</strong><span>My bottles</span></div>
+                        <div><strong>6</strong><span>Shared</span></div>
+                        <div><strong>CHF 4769</strong><span>Total value</span></div>
+                      </div>
+                    </div>
+                    <div className="showcase-dashboard-grid">
+                      <div className="showcase-card">
+                        <span>Priority actions</span>
+                        <strong>Drink now</strong>
+                        <ul>
+                          <li>Krug Grande Cuvée</li>
+                          <li>Dom Pérignon</li>
+                          <li>Tignanello</li>
+                        </ul>
+                      </div>
+                      <div className="showcase-card">
+                        <span>At risk</span>
+                        <strong>Past window</strong>
+                        <ul>
+                          <li>Sassi Grossi</li>
+                          <li>Bidibi</li>
+                        </ul>
+                      </div>
+                      <div className="showcase-card">
+                        <span>Data quality</span>
+                        <strong>39 items</strong>
+                        <ul>
+                          <li>Arzo · Value</li>
+                          <li>Sirio · Value</li>
+                          <li>Blanc de Blancs · Drink window</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="showcase-caption">
+                    <strong>{locale === "it" ? "Dashboard da collezionista" : "Collector dashboard"}</strong>
+                    <span>
+                      {locale === "it"
+                        ? "Priorità, rischi, consegne e qualità dei dati in una schermata leggibile."
+                        : "Priorities, risks, deliveries, and data quality in one readable screen."}
+                    </span>
+                  </div>
+                </article>
+
+                <article className="showcase-frame">
+                  <div className="showcase-window">
+                    <div className="showcase-bar">
+                      <span className="showcase-tab">Collector focus</span>
+                      <span className="showcase-tab active">Timeline</span>
+                      <span className="showcase-tab">Data quality</span>
+                    </div>
+                    <div className="showcase-timeline">
+                      <div className="showcase-timeline-head">
+                        <strong>27/06/2026 - 31/07/2028</strong>
+                        <span>3 future deliveries</span>
+                      </div>
+                      <div className="showcase-timeline-track">
+                        <div className="showcase-track-line" />
+                        <span className="showcase-track-dot left" />
+                        <span className="showcase-track-dot mid" />
+                        <span className="showcase-track-dot right" />
+                      </div>
+                      <div className="showcase-timeline-list">
+                        <div><strong>Le C des Carmes Haut-Brion</strong><span>25d</span></div>
+                        <div><strong>Testamatta</strong><span>28d</span></div>
+                        <div><strong>Chateau Pontet-Canet</strong><span>790d</span></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="showcase-caption">
+                    <strong>{locale === "it" ? "Timeline consegne" : "Delivery timeline"}</strong>
+                    <span>
+                      {locale === "it"
+                        ? "Perfetta per futures, en primeur e arrivi da monitorare."
+                        : "Ideal for futures, en primeur positions, and incoming deliveries."}
+                    </span>
+                  </div>
+                </article>
+
+                <article className="showcase-frame">
+                  <div className="showcase-window">
+                    <div className="showcase-detail-layout">
+                      <div className="showcase-list">
+                        <div className="showcase-list-row"><strong>Blanc De Blancs 2022</strong><span>CHF 32</span></div>
+                        <div className="showcase-list-row active"><strong>Bourgogne blanc les Setilles 2022</strong><span>CHF 28</span></div>
+                        <div className="showcase-list-row"><strong>Bourgogne Chardonnay 2022</strong><span>CHF 28</span></div>
+                      </div>
+                      <div className="showcase-detail-panel">
+                        <div className="showcase-detail-grid">
+                          <div><span>Format</span><strong>Bottle (750ml)</strong></div>
+                          <div><span>Type</span><strong>White</strong></div>
+                          <div><span>Quantity</span><strong>2 bottles</strong></div>
+                          <div><span>Value</span><strong>CHF 28</strong></div>
+                        </div>
+                        <div className="showcase-micro-chart">
+                          <span>Value evolution</span>
+                          <div className="showcase-chart-line" />
+                        </div>
+                        <div className="showcase-drink-strip">
+                          <span>2024</span>
+                          <div className="showcase-drink-track"><strong /></div>
+                          <span>2031</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="showcase-caption">
+                    <strong>{locale === "it" ? "Dettaglio vino" : "Wine detail view"}</strong>
+                    <span>
+                      {locale === "it"
+                        ? "Scheda completa con quantità, valore, cronologia prezzo e finestra di beva."
+                        : "Complete record with quantity, value, price history, and drinking window."}
+                    </span>
+                  </div>
+                </article>
+              </div>
+            </section>
           </section>
 
         <section className="auth-panel" id="auth-panel">
