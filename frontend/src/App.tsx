@@ -1037,6 +1037,107 @@ const emptyAuthDraft: AuthDraft = {
   password: "",
 };
 
+const landingContent: Record<
+  Locale,
+  {
+    headline: string;
+    subheadline: string;
+    description: string;
+    primaryCta: string;
+    secondaryCta: string;
+    collectorTitle: string;
+    collectorBody: string;
+    pricesTitle: string;
+    monthlyLabel: string;
+    annualLabel: string;
+    savingsNote: string;
+    features: Array<{ title: string; body: string }>;
+  }
+> = {
+  en: {
+    headline: "A private wine cellar built for collectors.",
+    subheadline: "Track bottles, maturity, value, deliveries, and wishlists in one shared experience.",
+    description:
+      "Vinaris helps private collectors manage everyday drinking bottles and long-term allocations with a clean workflow designed around what to buy, what to drink, and what to monitor next.",
+    primaryCta: "Login",
+    secondaryCta: "Create account",
+    collectorTitle: "What Vinaris helps you do",
+    collectorBody:
+      "Built for collectors with 20 to 1000+ bottles who want clarity on their cellar without spreadsheets or scattered notes.",
+    pricesTitle: "Simple pricing",
+    monthlyLabel: "CHF 6 / month",
+    annualLabel: "CHF 60 / year",
+    savingsNote: "Annual plan saves CHF 12 compared with monthly billing.",
+    features: [
+      {
+        title: "Catalog bottles and allocations",
+        body: "Register producers, vintages, formats, delivery status, shared ownership, and personal notes.",
+      },
+      {
+        title: "Monitor drinking windows",
+        body: "See which wines are too young, at peak, or drifting past their ideal window.",
+      },
+      {
+        title: "Follow cellar value",
+        body: "Track purchase price, current value, and price history to understand where your cellar is appreciating.",
+      },
+      {
+        title: "Handle futures and deliveries",
+        body: "Manage ordered and en primeur wines, expected arrivals, and the delivery timeline from one place.",
+      },
+      {
+        title: "Keep a focused wishlist",
+        body: "Capture target bottles, target prices, buying priorities, and conversion from wishlist to cellar.",
+      },
+      {
+        title: "Decide what to drink next",
+        body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
+      },
+    ],
+  },
+  it: {
+    headline: "La cantina privata pensata per chi colleziona vino.",
+    subheadline: "Tieni sotto controllo bottiglie, maturazione, valore, consegne e wishlist in un'unica esperienza condivisa.",
+    description:
+      "Vinaris aiuta i collezionisti privati a gestire sia i vini da bere nel quotidiano sia le allocazioni di lungo periodo, con un flusso chiaro su cosa comprare, cosa bere e cosa monitorare.",
+    primaryCta: "Accedi",
+    secondaryCta: "Crea account",
+    collectorTitle: "Che cosa puoi fare con Vinaris",
+    collectorBody:
+      "Pensato per collezionisti con 20 fino a oltre 1000 bottiglie che vogliono chiarezza in cantina senza fogli di calcolo o note sparse.",
+    pricesTitle: "Prezzi semplici",
+    monthlyLabel: "CHF 6 / mese",
+    annualLabel: "CHF 60 / anno",
+    savingsNote: "Il piano annuale ti fa risparmiare CHF 12 rispetto al mensile.",
+    features: [
+      {
+        title: "Catalogare bottiglie e quote",
+        body: "Registra produttori, annate, formati, stato consegna, multiproprietà e note personali.",
+      },
+      {
+        title: "Monitorare la finestra di beva",
+        body: "Vedi subito quali vini sono troppo giovani, al picco o oltre la fase ideale.",
+      },
+      {
+        title: "Seguire il valore della cantina",
+        body: "Controlla prezzo di acquisto, valore attuale e storico per capire dove la cantina cresce.",
+      },
+      {
+        title: "Gestire futures e consegne",
+        body: "Organizza vini ordinati ed en primeur, arrivi attesi e timeline delle consegne in un solo posto.",
+      },
+      {
+        title: "Tenere una wishlist utile",
+        body: "Salva bottiglie target, prezzi desiderati, priorità di acquisto e conversione rapida in cantina.",
+      },
+      {
+        title: "Decidere cosa bere",
+        body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
+      },
+    ],
+  },
+};
+
 const emptyInviteDraft: InviteDraft = {
   email: "",
   role: "viewer",
@@ -2079,6 +2180,7 @@ export function App() {
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
+  const landing = landingContent[locale];
   const wineTemplateSuggestions = [...wines, ...wineCatalog]
     .filter((wine, index, items) => wine.name.trim() && items.findIndex((item) => item.name.trim().toLowerCase() === wine.name.trim().toLowerCase()) === index)
     .sort((first, second) => first.name.localeCompare(second.name));
@@ -2268,6 +2370,13 @@ export function App() {
       setAppUsers([]);
       setPendingUsers([]);
     }
+  }
+
+  function openAuthPanel(mode: "login" | "register") {
+    setAuthMode(mode);
+    window.requestAnimationFrame(() => {
+      document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   }
 
   async function loadBilling(authenticated = session?.authenticated, isAppAdmin = session?.is_app_admin) {
@@ -3791,7 +3900,7 @@ export function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Vinaris</p>
-          <h1>{session?.active_household_name || "Wine Cellar"}</h1>
+          <h1>{authenticated ? session?.active_household_name || "Vinaris" : "Vinaris"}</h1>
         </div>
         {authenticated ? (
           <div className="session-pill">
@@ -3880,7 +3989,19 @@ export function App() {
           </div>
         ) : (
           <div className="session-pill">
-            <span>{t("login")}</span>
+            <label className="language-switch public-language-switch">
+              <span>{t("language")}</span>
+              <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
+                <option value="it">IT</option>
+                <option value="en">EN</option>
+              </select>
+            </label>
+            <button type="button" className="secondary compact" onClick={() => openAuthPanel("login")}>
+              {t("login")}
+            </button>
+            <button type="button" className="compact" onClick={() => openAuthPanel("register")}>
+              {t("register")}
+            </button>
           </div>
         )}
       </header>
@@ -3888,7 +4009,56 @@ export function App() {
       {error ? <p className="error-banner">{error}</p> : null}
 
       {!authenticated ? (
-        <section className="auth-panel">
+        <>
+          <section className="public-landing">
+            <div className="public-hero">
+              <div className="public-hero-copy">
+                <p className="eyebrow">Vinaris</p>
+                <h2>{landing.headline}</h2>
+                <strong>{landing.subheadline}</strong>
+                <p>{landing.description}</p>
+                <div className="public-hero-actions">
+                  <button type="button" onClick={() => openAuthPanel("login")}>
+                    {landing.primaryCta}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => openAuthPanel("register")}>
+                    {landing.secondaryCta}
+                  </button>
+                </div>
+              </div>
+              <aside className="public-pricing-card">
+                <p className="eyebrow">{landing.pricesTitle}</p>
+                <div className="public-price-grid">
+                  <div className="public-price-tile">
+                    <strong>{landing.monthlyLabel}</strong>
+                    <span>{locale === "it" ? "Accesso flessibile per mese" : "Flexible month-to-month access"}</span>
+                  </div>
+                  <div className="public-price-tile public-price-tile-highlight">
+                    <strong>{landing.annualLabel}</strong>
+                    <span>{locale === "it" ? "La scelta migliore per collezionisti attivi" : "Best value for active collectors"}</span>
+                  </div>
+                </div>
+                <p className="public-pricing-note">{landing.savingsNote}</p>
+              </aside>
+            </div>
+
+            <section className="public-features-card">
+              <div className="public-section-heading">
+                <p className="eyebrow">{landing.collectorTitle}</p>
+                <h3>{landing.collectorBody}</h3>
+              </div>
+              <div className="public-feature-grid">
+                {landing.features.map((feature) => (
+                  <article className="public-feature" key={feature.title}>
+                    <h4>{feature.title}</h4>
+                    <p>{feature.body}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+          </section>
+
+        <section className="auth-panel" id="auth-panel">
           {acceptToken ? (
             <div className="invite-notice">
               <strong>{t("inviteLinkDetected")}</strong>
@@ -3943,6 +4113,7 @@ export function App() {
             </label>
           </section>
         </section>
+        </>
       ) : needsRedeem ? (
         <section className="auth-panel">
           <section className="wine-form">
