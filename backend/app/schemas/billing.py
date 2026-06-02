@@ -42,6 +42,10 @@ class CheckoutSessionResponse(BaseModel):
     plan: Literal["monthly", "annual"]
 
 
+class BillingPortalResponse(BaseModel):
+    portal_url: str
+
+
 class EntitlementResponse(BaseModel):
     id: UUID
     source: str

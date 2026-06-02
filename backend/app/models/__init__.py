@@ -3,6 +3,7 @@ from app.models.billing import RedeemCode, RedeemRedemption, StripeCheckoutSessi
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
+from app.models.notification import UserNotification
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.session import UserSession
 from app.models.tags import UserTag, UserWineTag
@@ -25,6 +26,7 @@ __all__ = [
     "User",
     "UserAiSettings",
     "UserEntitlement",
+    "UserNotification",
     "UserPasskey",
     "UserSession",
     "UserTag",

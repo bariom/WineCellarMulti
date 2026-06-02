@@ -266,6 +266,12 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert len(status_payload["available_redeem_codes"]) == 1
     paid_code = status_payload["available_redeem_codes"][0]["code"]
     assert paid_code.startswith("WCM-")
+    notifications = client.get("/api/v1/notifications")
+    assert notifications.status_code == 200
+    assert notifications.json()[0]["kind"] == "redeem_code"
+    read_notification = client.post(f"/api/v1/notifications/{notifications.json()[0]['id']}/read")
+    assert read_notification.status_code == 204
+    assert client.get("/api/v1/notifications").json() == []
 
     redeemed = client.post("/api/v1/billing/redeem", json={"code": paid_code})
     assert redeemed.status_code == 200
@@ -297,6 +303,31 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     renewal_status = client.get("/api/v1/billing/status").json()
     assert len(renewal_status["entitlements"]) == 1
     assert len(renewal_status["available_redeem_codes"]) == 1
+
+    class FakePortalResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self) -> bytes:
+            return b'{"id":"bps_test","url":"https://billing.stripe.test/session"}'
+
+    portal_payload: dict[str, str] = {}
+
+    def fake_portal_urlopen(request, timeout):
+        portal_payload["data"] = request.data.decode("utf-8")
+        portal_payload["timeout"] = str(timeout)
+        return FakePortalResponse()
+
+    monkeypatch.setattr(settings, "stripe_secret_key", "sk_test")
+    monkeypatch.setattr("app.api.routes.billing.urlopen", fake_portal_urlopen)
+    portal = client.post("/api/v1/billing/portal")
+    assert portal.status_code == 200
+    assert portal.json()["portal_url"] == "https://billing.stripe.test/session"
+    parsed_portal = parse_qs(portal_payload["data"])
+    assert parsed_portal["customer"] == ["cus_test"]
 
 
 def test_stripe_checkout_uses_selected_annual_price(monkeypatch):

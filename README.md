@@ -166,7 +166,7 @@ Current AI actions: wine notes, drinking window, value estimate, grape compositi
 
 ## Stripe Payments
 
-Stripe Checkout can activate a user entitlement after payment. Configure these values in `backend/.env`, run `alembic upgrade head`, then restart the backend:
+Stripe Checkout creates a user-specific redeem code after payment. Configure these values in `backend/.env`, run `alembic upgrade head`, then restart the backend:
 
 ```env
 STRIPE_SECRET_KEY=sk_live_or_test_...
@@ -177,6 +177,7 @@ STRIPE_MONTHLY_ENTITLEMENT_DAYS=31
 STRIPE_ANNUAL_ENTITLEMENT_DAYS=365
 STRIPE_SUCCESS_URL=https://vinaris.duckdns.org/?stripe_checkout=success
 STRIPE_CANCEL_URL=https://vinaris.duckdns.org/?stripe_checkout=cancelled
+STRIPE_PORTAL_RETURN_URL=https://vinaris.duckdns.org/?billing_portal=return
 ```
 
 Create the two Stripe prices as recurring prices: one monthly and one annual. `STRIPE_PRICE_ID` is still accepted as a legacy fallback for annual access only. If you do not use an annual Stripe Price ID, configure a one-time annual amount instead:
@@ -193,7 +194,17 @@ Create a Stripe webhook endpoint pointing to:
 https://vinaris.duckdns.org/api/v1/billing/stripe/webhook
 ```
 
-Enable the `checkout.session.completed` and `invoice.paid` events. The webhook is what grants access and renews subscription validity; a browser redirect alone is not trusted.
+Enable these events:
+
+```text
+checkout.session.completed
+invoice.paid
+invoice.payment_failed
+customer.subscription.updated
+customer.subscription.deleted
+```
+
+The webhook creates redeem codes, renewal notifications, and subscription status notifications. A browser redirect alone is not trusted. Enable Stripe Customer Portal in the Stripe dashboard so users can manage or cancel subscriptions from the app.
 
 Find the Linux machine IP with:
 

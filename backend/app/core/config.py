@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"
+    stripe_portal_url: str = "https://api.stripe.com/v1/billing_portal/sessions"
     stripe_price_id: str = ""
     stripe_monthly_price_id: str = ""
     stripe_annual_price_id: str = ""
@@ -35,6 +36,7 @@ class Settings(BaseSettings):
     stripe_annual_entitlement_days: int = 365
     stripe_success_url: str = "http://localhost:5173/?stripe_checkout=success"
     stripe_cancel_url: str = "http://localhost:5173/?stripe_checkout=cancelled"
+    stripe_portal_return_url: str = "http://localhost:5173/?billing_portal=return"
 
     @property
     def cors_origin_list(self) -> list[str]:

@@ -226,6 +226,16 @@ type RedeemCode = {
   is_active: boolean;
 };
 
+type UserNotification = {
+  id: string;
+  kind: string;
+  title: string;
+  message: string;
+  action_url: string | null;
+  created_at: string;
+  read_at: string | null;
+};
+
 type BillingStatus = {
   has_active_entitlement: boolean;
   valid_until: string | null;
@@ -246,6 +256,10 @@ type CheckoutSession = {
   checkout_url: string;
   stripe_session_id: string;
   plan: PaymentPlan;
+};
+
+type BillingPortalSession = {
+  portal_url: string;
 };
 
 type RedeemCodeDraft = {
@@ -488,6 +502,8 @@ const translations = {
     logout: "Logout",
     merchant: "Merchant",
     message: "Message",
+    manageSubscription: "Manage subscription",
+    markRead: "Mark read",
     multiOwnership: "Multi ownership",
     missingDrinkWindow: "Missing drink window",
     missingScores: "Missing scores",
@@ -522,6 +538,7 @@ const translations = {
     ownerShare: "Owner share",
     ownerEmail: "Owner email",
     orderDate: "Order date",
+    open: "Open",
     of: "of",
     ownership: "Ownership",
     pairing: "Pairing",
@@ -757,6 +774,8 @@ const translations = {
     logout: "Esci",
     merchant: "Commerciante",
     message: "Messaggio",
+    manageSubscription: "Gestisci abbonamento",
+    markRead: "Segna letta",
     multiOwnership: "Multiproprieta",
     missingDrinkWindow: "Finestra mancante",
     missingScores: "Punteggi mancanti",
@@ -791,6 +810,7 @@ const translations = {
     ownerShare: "Quota proprietario",
     ownerEmail: "Email proprietario",
     orderDate: "Data ordine",
+    open: "Apri",
     of: "su",
     ownership: "Proprieta",
     pairing: "Abbinamento",
@@ -1998,6 +2018,7 @@ export function App() {
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
+  const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
@@ -2263,6 +2284,14 @@ export function App() {
     setRedeemCodes(nextCodes);
   }
 
+  async function loadNotifications(authenticated = session?.authenticated) {
+    if (authenticated) {
+      setUserNotifications(await api<UserNotification[]>("/api/v1/notifications"));
+    } else {
+      setUserNotifications([]);
+    }
+  }
+
   async function loadAiAudit(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
       setAiAudit(await api<AiAuditLog[]>("/api/v1/ai/audit"));
@@ -2300,10 +2329,10 @@ export function App() {
 
   async function loadAuthenticatedSessionData(nextSession: Session) {
     if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
-      await loadBilling(nextSession.authenticated, nextSession.is_app_admin);
+      await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated)]);
       return;
     }
-    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
   }
 
   async function loadData() {
@@ -2317,6 +2346,7 @@ export function App() {
         setWishlist([]);
         setShareOffers([]);
         setReceivedInvites([]);
+        setUserNotifications([]);
         setUserTags([]);
         setPasskeys([]);
         setHouseholdMemberships([]);
@@ -2338,6 +2368,7 @@ export function App() {
       setWishlist([]);
       setShareOffers([]);
       setReceivedInvites([]);
+      setUserNotifications([]);
       setUserTags([]);
       setPasskeys([]);
       setHouseholdMemberships([]);
@@ -2522,6 +2553,7 @@ export function App() {
     setWishlist([]);
     setShareOffers([]);
     setReceivedInvites([]);
+    setUserNotifications([]);
     setUserTags([]);
     setPasskeys([]);
     setHouseholdMemberships([]);
@@ -2830,6 +2862,37 @@ export function App() {
     }
   }
 
+  async function startBillingPortal() {
+    setSaving(true);
+    setError("");
+    try {
+      const portal = await api<BillingPortalSession>("/api/v1/billing/portal", { method: "POST" });
+      window.location.assign(portal.portal_url);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to open billing portal");
+      setSaving(false);
+    }
+  }
+
+  async function markNotificationRead(notification: UserNotification) {
+    setError("");
+    try {
+      await api<void>(`/api/v1/notifications/${notification.id}/read`, { method: "POST" });
+      setUserNotifications((current) => current.filter((item) => item.id !== notification.id));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update notification");
+    }
+  }
+
+  async function openNotification(notification: UserNotification) {
+    if (notification.action_url?.includes("/settings/profile")) {
+      setActiveView("settings");
+      setSettingsTab("profile");
+    }
+    setNotificationsOpen(false);
+    await markNotificationRead(notification);
+  }
+
   async function createWineShareOffer(wine: Wine) {
     if (!shareDraft.email.trim()) return;
     setSaving(true);
@@ -2898,6 +2961,7 @@ export function App() {
       setSelectedWishlistId(nextWishlist[0]?.id || null);
       setShareOffers([]);
       setReceivedInvites([]);
+      setUserNotifications([]);
       setUserTags([]);
       setPasskeys([]);
       setHouseholdMemberships([]);
@@ -3504,7 +3568,7 @@ export function App() {
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
-  const notificationCount = (canAppAdmin ? pendingUsers.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
+  const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -3763,10 +3827,24 @@ export function App() {
                       <span>
                         {session?.has_active_entitlement && session.entitlement_days_remaining !== null
                           ? `${session.entitlement_days_remaining} ${t("daysRemaining")} - ${formatDisplayDate(session.entitlement_valid_until || "")}`
-                          : t("redeemRequired")}
+                        : t("redeemRequired")}
                       </span>
                     </button>
                   ) : null}
+                  {userNotifications.map((notification) => (
+                    <div className="notification-item" key={notification.id}>
+                      <strong>{notification.title}</strong>
+                      <span>{notification.message}</span>
+                      <div className="member-actions">
+                        <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
+                          {notification.action_url ? t("open") : t("markRead")}
+                        </button>
+                        <button type="button" className="secondary compact" disabled={saving} onClick={() => markNotificationRead(notification)}>
+                          {t("markRead")}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                   {canAppAdmin && pendingUsers.length ? (
                     <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                       <strong>{pendingUsers.length} {t("pendingUsers")}</strong>
@@ -3879,6 +3957,9 @@ export function App() {
               </button>
               <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
                 {saving ? t("working") : t("buyAnnual")}
+              </button>
+              <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
+                {t("manageSubscription")}
               </button>
             </div>
             <p className="empty-state">{t("paymentHelp")}</p>
@@ -5119,6 +5200,9 @@ export function App() {
                   </button>
                   <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
                     {t("buyAnnual")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
+                    {t("manageSubscription")}
                   </button>
                 </form>
                 {billingStatus?.available_redeem_codes.length ? (

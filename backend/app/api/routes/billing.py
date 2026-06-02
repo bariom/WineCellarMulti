@@ -21,8 +21,8 @@ from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
-from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement
-from app.schemas.billing import BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
+from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement, UserNotification
+from app.schemas.billing import BillingPortalResponse, BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
 
 
 router = APIRouter(prefix="/billing")
@@ -99,6 +99,18 @@ def create_entitlement(db: Session, user: User, *, source: str, source_id: UUID 
     return entitlement
 
 
+def create_user_notification(db: Session, user: User, *, kind: str, title: str, message: str, action_url: str | None = None) -> UserNotification:
+    notification = UserNotification(
+        user_id=user.id,
+        kind=kind,
+        title=title,
+        message=message,
+        action_url=action_url,
+    )
+    db.add(notification)
+    return notification
+
+
 def create_payment_redeem_code(db: Session, user: User, *, label: str, duration_days: int, checkout: StripeCheckoutSession | None = None) -> RedeemCode:
     clear_code = generate_redeem_code()
     normalized = normalize_redeem_code(clear_code)
@@ -115,6 +127,14 @@ def create_payment_redeem_code(db: Session, user: User, *, label: str, duration_
     db.flush()
     if checkout is not None and checkout.redeem_code_id is None:
         checkout.redeem_code_id = code.id
+    create_user_notification(
+        db,
+        user,
+        kind="redeem_code",
+        title="Nuovo codice redeem disponibile",
+        message=f"E stato generato un codice redeem da {duration_days} giorni.",
+        action_url="/settings/profile",
+    )
     return code
 
 
@@ -220,6 +240,29 @@ def create_stripe_checkout_session(user: User, plan: str) -> dict:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe checkout is unavailable") from error
 
 
+def create_stripe_portal_session(customer_id: str) -> dict:
+    if not settings.stripe_secret_key:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe is not configured")
+    payload = urlencode({"customer": customer_id, "return_url": settings.stripe_portal_return_url}).encode("utf-8")
+    request = Request(
+        settings.stripe_portal_url,
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {settings.stripe_secret_key}",
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=20) as response:
+            return json.loads(response.read().decode("utf-8"))
+    except HTTPError as error:
+        message = error.read().decode("utf-8", errors="replace")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Stripe portal failed: {message}") from error
+    except (URLError, TimeoutError) as error:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe portal is unavailable") from error
+
+
 def verify_stripe_signature(payload: bytes, signature_header: str | None, tolerance_seconds: int = 300) -> None:
     if not settings.stripe_webhook_secret:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe webhook is not configured")
@@ -310,6 +353,73 @@ def complete_stripe_invoice(db: Session, invoice: dict) -> None:
     create_payment_redeem_code(db, user, label=f"Stripe {checkout.plan} renewal", duration_days=checkout.duration_days)
 
 
+def checkout_for_subscription(db: Session, subscription_id: str) -> StripeCheckoutSession | None:
+    if not subscription_id:
+        return None
+    return db.scalar(
+        select(StripeCheckoutSession)
+        .where(StripeCheckoutSession.stripe_subscription_id == subscription_id)
+        .order_by(StripeCheckoutSession.created_at.desc()),
+    )
+
+
+def notify_subscription_updated(db: Session, subscription: dict) -> None:
+    checkout = checkout_for_subscription(db, str(subscription.get("id") or ""))
+    if checkout is None:
+        return
+    checkout.subscription_status = subscription.get("status") or checkout.subscription_status
+    checkout.cancel_at_period_end = bool(subscription.get("cancel_at_period_end"))
+    user = db.get(User, checkout.user_id)
+    if user is None:
+        return
+    if checkout.cancel_at_period_end:
+        create_user_notification(
+            db,
+            user,
+            kind="subscription",
+            title="Abbonamento in disdetta",
+            message="L'abbonamento restera attivo fino alla fine del periodo gia pagato.",
+            action_url="/settings/profile",
+        )
+
+
+def notify_subscription_deleted(db: Session, subscription: dict) -> None:
+    checkout = checkout_for_subscription(db, str(subscription.get("id") or ""))
+    if checkout is None:
+        return
+    checkout.subscription_status = "canceled"
+    checkout.cancel_at_period_end = False
+    user = db.get(User, checkout.user_id)
+    if user is None:
+        return
+    create_user_notification(
+        db,
+        user,
+        kind="subscription",
+        title="Abbonamento terminato",
+        message="L'abbonamento Stripe e stato cancellato. I codici gia riscattati restano validi fino alla loro scadenza.",
+        action_url="/settings/profile",
+    )
+
+
+def notify_payment_failed(db: Session, invoice: dict) -> None:
+    subscription_id = str(invoice.get("subscription") or "")
+    checkout = checkout_for_subscription(db, subscription_id)
+    if checkout is None:
+        return
+    user = db.get(User, checkout.user_id)
+    if user is None:
+        return
+    create_user_notification(
+        db,
+        user,
+        kind="payment_failed",
+        title="Pagamento non riuscito",
+        message="Stripe non ha potuto incassare il rinnovo. Verifica il metodo di pagamento.",
+        action_url="/settings/profile",
+    )
+
+
 @router.get("/status", response_model=BillingStatusResponse)
 def get_billing_status(
     context: CurrentContext = Depends(get_authenticated_context),
@@ -348,6 +458,28 @@ def create_checkout_session(
     return CheckoutSessionResponse(checkout_url=checkout_url, stripe_session_id=stripe_session_id, plan=payload.plan)
 
 
+@router.post("/portal", response_model=BillingPortalResponse)
+def create_billing_portal_session(
+    context: CurrentContext = Depends(get_authenticated_context),
+    db: Session = Depends(get_db),
+) -> BillingPortalResponse:
+    checkout = db.scalar(
+        select(StripeCheckoutSession)
+        .where(
+            StripeCheckoutSession.user_id == context.user.id,
+            StripeCheckoutSession.stripe_customer_id.is_not(None),
+        )
+        .order_by(StripeCheckoutSession.created_at.desc()),
+    )
+    if checkout is None or not checkout.stripe_customer_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No Stripe customer found for this user")
+    portal = create_stripe_portal_session(checkout.stripe_customer_id)
+    portal_url = str(portal.get("url") or "")
+    if not portal_url:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Stripe did not return a portal URL")
+    return BillingPortalResponse(portal_url=portal_url)
+
+
 @router.post("/stripe/webhook", status_code=status.HTTP_204_NO_CONTENT)
 async def stripe_webhook(
     request: FastAPIRequest,
@@ -372,6 +504,18 @@ async def stripe_webhook(
         invoice = event.get("data", {}).get("object", {})
         if isinstance(invoice, dict):
             complete_stripe_invoice(db, invoice)
+    elif event_type == "invoice.payment_failed":
+        invoice = event.get("data", {}).get("object", {})
+        if isinstance(invoice, dict):
+            notify_payment_failed(db, invoice)
+    elif event_type == "customer.subscription.updated":
+        subscription = event.get("data", {}).get("object", {})
+        if isinstance(subscription, dict):
+            notify_subscription_updated(db, subscription)
+    elif event_type == "customer.subscription.deleted":
+        subscription = event.get("data", {}).get("object", {})
+        if isinstance(subscription, dict):
+            notify_subscription_deleted(db, subscription)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
