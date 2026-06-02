@@ -1797,6 +1797,31 @@ textarea {
   gap: 12px;
 }
 
+.dashboard-carousel-shell {
+  display: grid;
+  gap: 8px;
+}
+
+.dashboard-dots {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.dashboard-dots span {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 34%, transparent);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.dashboard-dots span.active {
+  background: var(--primary);
+  transform: scale(1.18);
+}
+
 .dashboard-card {
   display: grid;
   align-content: start;
@@ -3462,6 +3487,10 @@ textarea {
   .dashboard-grid > .timeline-card {
     flex-basis: 92%;
     min-width: 92%;
+  }
+
+  .dashboard-dots {
+    display: flex;
   }
 
   .public-hero-copy,

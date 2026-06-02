@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, MouseEvent, useEffect, useState } from "react";
+import { ChangeEvent, Children, FormEvent, MouseEvent, ReactNode, UIEvent, useEffect, useState } from "react";
 
 type Session = {
   authenticated: boolean;
@@ -2332,6 +2332,43 @@ function ContactSupportPanel({
   );
 }
 
+function DashboardCarousel({ label, children }: { label: string; children: ReactNode }) {
+  const cards = Children.toArray(children);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  function updateActiveIndex(event: UIEvent<HTMLElement>) {
+    const container = event.currentTarget;
+    const items = Array.from(container.children) as HTMLElement[];
+    if (!items.length) return;
+    const scrollLeft = container.scrollLeft;
+    let nearestIndex = 0;
+    let nearestDistance = Number.POSITIVE_INFINITY;
+    items.forEach((item, index) => {
+      const distance = Math.abs(item.offsetLeft - scrollLeft);
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestIndex = index;
+      }
+    });
+    setActiveIndex(nearestIndex);
+  }
+
+  return (
+    <div className="dashboard-carousel-shell">
+      <section className="dashboard-grid" aria-label={label} onScroll={updateActiveIndex}>
+        {children}
+      </section>
+      {cards.length > 1 ? (
+        <div className="dashboard-dots" aria-hidden="true">
+          {cards.map((_, index) => (
+            <span className={index === activeIndex ? "active" : ""} key={index} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -4653,7 +4690,7 @@ export function App() {
               </div>
 
               {dashboardFocus === "collector" ? (
-              <section className="dashboard-grid" aria-label={t("priorityActions")}>
+              <DashboardCarousel label={t("priorityActions")}>
                 <article className="dashboard-card priority-card">
                   <div className="card-heading">
                     <div>
@@ -4779,11 +4816,11 @@ export function App() {
                     ))}
                   </div>
                 </article>
-              </section>
+              </DashboardCarousel>
               ) : null}
 
               {dashboardFocus === "value" ? (
-                <section className="dashboard-grid" aria-label={t("valueFocus")}>
+                <DashboardCarousel label={t("valueFocus")}>
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -4863,7 +4900,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "readiness" ? (
-                <section className="dashboard-grid" aria-label={t("drinkingWindow")}>
+                <DashboardCarousel label={t("drinkingWindow")}>
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -4938,7 +4975,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "timeline" ? (
-                <section className="dashboard-grid" aria-label={t("deliveryTimeline")}>
+                <DashboardCarousel label={t("deliveryTimeline")}>
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -5001,7 +5038,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "data" ? (
-                <section className="dashboard-grid" aria-label={t("dataFocus")}>
+                <DashboardCarousel label={t("dataFocus")}>
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
