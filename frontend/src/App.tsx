@@ -1306,6 +1306,12 @@ function tokenFromUrl() {
   return params.get("invite") || params.get("token") || "";
 }
 
+function stripeCheckoutResultFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const result = params.get("stripe_checkout");
+  return result === "success" || result === "cancelled" ? result : "";
+}
+
 function inviteLink(token: string) {
   const url = new URL(window.location.href);
   url.search = "";
@@ -2345,12 +2351,27 @@ export function App() {
     }
   }
 
+  async function refreshAfterStripeCheckout() {
+    for (let attempt = 0; attempt < 8; attempt += 1) {
+      const nextSession = await loadSession();
+      if (nextSession.authenticated && (nextSession.is_app_admin || nextSession.has_active_entitlement)) {
+        await loadData();
+        window.history.replaceState(null, "", window.location.pathname);
+        return;
+      }
+      await new Promise((resolve) => window.setTimeout(resolve, 1500));
+    }
+    await loadData();
+  }
+
   useEffect(() => {
     const urlToken = tokenFromUrl();
     if (urlToken) {
       setAcceptToken(urlToken);
     }
-    loadData()
+    const stripeCheckoutResult = stripeCheckoutResultFromUrl();
+    const loader = stripeCheckoutResult === "success" ? refreshAfterStripeCheckout() : loadData();
+    loader
       .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"))
       .finally(() => setLoading(false));
   }, []);
