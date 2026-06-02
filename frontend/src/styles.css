@@ -2588,6 +2588,21 @@ button.stat-card:hover {
   font-size: 1rem;
 }
 
+.note-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  min-height: 18px;
+  margin-left: 6px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--primary) 82%, var(--text));
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  font-size: 0.72rem;
+  line-height: 1;
+  vertical-align: middle;
+}
+
 .wine-row-main {
   display: grid;
   gap: 4px;

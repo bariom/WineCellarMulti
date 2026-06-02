@@ -5850,7 +5850,12 @@ export function App() {
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div className="wine-row-main">
-                    <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
+                    <h3>
+                      <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                      {wine.name}
+                      {wine.notes ? <span className="note-indicator" title={t("notes")} aria-label={t("notes")}>✎</span> : null}
+                      <small>{wine.vintage}</small>
+                    </h3>
                     <p className="row-primary">
                       <span>{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
