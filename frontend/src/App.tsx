@@ -350,6 +350,12 @@ type AuthDraft = {
   password: string;
 };
 
+type ContactSupportDraft = {
+  email: string;
+  subject: string;
+  message: string;
+};
+
 type SortMode = "name" | "vintage" | "value" | "drink_window";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
@@ -427,6 +433,8 @@ const translations = {
     createRedeemCode: "Create redeem code",
     critic: "Critic",
     configured: "Configured",
+    contactSupport: "Contact support",
+    contactSupportHelp: "Use this form if you have trouble with login, payments, invitations, or data.",
     createWine: "Create wine",
     createWishlist: "Create wishlist",
     currentYear: "Current year",
@@ -593,6 +601,7 @@ const translations = {
     scoreValue: "Score",
     search: "Search",
     searchPlaceholder: "Name, producer, region, score...",
+    sendSupportRequest: "Send request",
     selectItemHelp: "Select an item from the list to see the complete detail.",
     sort: "Sort",
     settings: "Settings",
@@ -602,6 +611,7 @@ const translations = {
     settingsSharing: "Sharing",
     settingsUsers: "Users",
     status: "Status",
+    subject: "Subject",
     tag: "Tag",
     tagName: "Tag name",
     tags: "Tags",
@@ -700,6 +710,8 @@ const translations = {
     createRedeemCode: "Crea codice redeem",
     critic: "Critico",
     configured: "Configurata",
+    contactSupport: "Contatta supporto",
+    contactSupportHelp: "Usa questo modulo se hai problemi con accesso, pagamenti, inviti o dati.",
     createWine: "Crea vino",
     createWishlist: "Crea wishlist",
     currentYear: "Anno corrente",
@@ -866,6 +878,7 @@ const translations = {
     scoreValue: "Punteggio",
     search: "Cerca",
     searchPlaceholder: "Nome, produttore, regione, punteggio...",
+    sendSupportRequest: "Invia richiesta",
     selectItemHelp: "Seleziona un elemento dalla lista per vedere il dettaglio completo.",
     sort: "Ordina",
     settings: "Impostazioni",
@@ -875,6 +888,7 @@ const translations = {
     settingsSharing: "Condivisione",
     settingsUsers: "Utenti",
     status: "Stato",
+    subject: "Oggetto",
     tag: "Tag",
     tagName: "Nome tag",
     tags: "Tag",
@@ -1037,6 +1051,12 @@ const emptyAuthDraft: AuthDraft = {
   display_name: "",
   household_name: "Main Cellar",
   password: "",
+};
+
+const emptyContactSupportDraft: ContactSupportDraft = {
+  email: "",
+  subject: "",
+  message: "",
 };
 
 const landingContent: Record<
@@ -2254,6 +2274,46 @@ function AiUsageRow({ label, bucket }: { label: string; bucket: AiUsageBucket })
   );
 }
 
+function ContactSupportPanel({
+  t,
+  draft,
+  setDraft,
+  saving,
+  onSubmit,
+}: {
+  t: (key: TranslationKey) => string;
+  draft: ContactSupportDraft;
+  setDraft: (draft: ContactSupportDraft) => void;
+  saving: boolean;
+  onSubmit: (event: FormEvent<HTMLFormElement>) => Promise<void>;
+}) {
+  return (
+    <details className="support-panel">
+      <summary>
+        <strong>{t("contactSupport")}</strong>
+        <span>{t("contactSupportHelp")}</span>
+      </summary>
+      <form className="support-form" onSubmit={onSubmit}>
+        <label>
+          <span>{t("email")}</span>
+          <input type="email" value={draft.email} onChange={(event) => setDraft({ ...draft, email: event.target.value })} required />
+        </label>
+        <label>
+          <span>{t("subject")}</span>
+          <input value={draft.subject} onChange={(event) => setDraft({ ...draft, subject: event.target.value })} minLength={3} required />
+        </label>
+        <label>
+          <span>{t("message")}</span>
+          <textarea value={draft.message} onChange={(event) => setDraft({ ...draft, message: event.target.value })} rows={5} minLength={10} required />
+        </label>
+        <button type="submit" disabled={saving}>
+          {saving ? t("working") : t("sendSupportRequest")}
+        </button>
+      </form>
+    </details>
+  );
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -2279,6 +2339,7 @@ export function App() {
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
+  const [contactSupportDraft, setContactSupportDraft] = useState<ContactSupportDraft>(emptyContactSupportDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [pairingDish, setPairingDish] = useState("");
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
@@ -2529,6 +2590,31 @@ export function App() {
     window.requestAnimationFrame(() => {
       document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }
+
+  async function submitContactSupport(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setSaving(true);
+    setError("");
+    try {
+      await api<{ accepted: boolean }>("/api/v1/support/contact", {
+        method: "POST",
+        body: JSON.stringify({
+          email: contactSupportDraft.email.trim() || session?.user_email || "",
+          subject: contactSupportDraft.subject.trim(),
+          message: contactSupportDraft.message.trim(),
+        }),
+      });
+      setContactSupportDraft({
+        email: session?.user_email || "",
+        subject: "",
+        message: "",
+      });
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to send support request");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function loadBilling(authenticated = session?.authenticated, isAppAdmin = session?.is_app_admin) {
@@ -3714,6 +3800,16 @@ export function App() {
     return () => window.clearTimeout(timer);
   }, [activeView, filteredWines, pendingWineScrollId]);
 
+  useEffect(() => {
+    if (session?.user_email) {
+      setContactSupportDraft((current) => (current.email ? current : { ...current, email: session.user_email || "" }));
+      return;
+    }
+    if (!authenticated && authDraft.email && !contactSupportDraft.email) {
+      setContactSupportDraft((current) => (current.email ? current : { ...current, email: authDraft.email }));
+    }
+  }, [session?.user_email, authenticated, authDraft.email, contactSupportDraft.email]);
+
   const cellarOwnership = ownershipStats(wines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
@@ -4407,6 +4503,13 @@ export function App() {
               <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
             </label>
           </section>
+          <ContactSupportPanel
+            t={t}
+            draft={contactSupportDraft}
+            setDraft={setContactSupportDraft}
+            saving={saving}
+            onSubmit={submitContactSupport}
+          />
         </section>
         </>
       ) : needsRedeem ? (
@@ -4459,6 +4562,13 @@ export function App() {
               </button>
             </form>
           </section>
+          <ContactSupportPanel
+            t={t}
+            draft={contactSupportDraft}
+            setDraft={setContactSupportDraft}
+            saving={saving}
+            onSubmit={submitContactSupport}
+          />
         </section>
       ) : (
         <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>

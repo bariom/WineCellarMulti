@@ -758,6 +758,48 @@ summary:focus-visible {
   margin-top: 24px;
 }
 
+.support-panel {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.support-panel summary {
+  display: grid;
+  gap: 4px;
+  cursor: pointer;
+}
+
+.support-panel summary strong {
+  color: var(--text);
+}
+
+.support-panel summary span {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.support-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+.support-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.support-form label span {
+  color: #52635c;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
 .public-landing {
   display: grid;
   gap: 20px;

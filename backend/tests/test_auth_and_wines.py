@@ -229,6 +229,43 @@ def test_household_invite_sends_email(monkeypatch):
     assert "viewer" in str(deliveries[0]["body"]).lower()
 
 
+def test_contact_support_sends_email_with_optional_context(monkeypatch):
+    from app.api.routes import support as support_routes
+
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(support_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    anonymous = TestClient(app)
+    response = anonymous.post(
+        "/api/v1/support/contact",
+        json={"email": "guest@example.com", "subject": "Need help", "message": "I cannot understand how to start using the app."},
+    )
+    assert response.status_code == 202
+
+    authenticated = admin_client.post(
+        "/api/v1/support/contact",
+        json={"email": "owner@example.com", "subject": "Billing help", "message": "I need help with the redeem code screen after login."},
+    )
+    assert authenticated.status_code == 202
+
+    assert len(deliveries) == 2
+    assert deliveries[0]["recipients"] == ["owner@example.com"]
+    assert "guest@example.com" in str(deliveries[0]["body"])
+    assert "Authenticated user:" not in str(deliveries[0]["body"])
+    assert "Authenticated user: Cellar Owner <owner@example.com>" in str(deliveries[1]["body"])
+    assert "Active household: Main Cellar" in str(deliveries[1]["body"])
+
+
 def test_authenticated_user_can_read_wine_catalog():
     client = TestClient(app)
     assert register(client).status_code == 201
