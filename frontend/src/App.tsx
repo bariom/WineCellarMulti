@@ -456,6 +456,7 @@ const translations = {
     grapes: "Grapes",
     generateAll: "Generate all",
     highPriority: "High priority",
+    help: "Help",
     home: "Home",
     dashboard: "Dashboard",
     priorityActions: "Priority actions",
@@ -728,6 +729,7 @@ const translations = {
     grapes: "Uve",
     generateAll: "Genera tutti",
     highPriority: "Alta priorita",
+    help: "Guida",
     home: "Home",
     dashboard: "Dashboard",
     priorityActions: "Azioni prioritarie",
@@ -1143,6 +1145,145 @@ const landingContent: Record<
         title: "Supporto AI quando vuoi",
         body: "Se configuri il tuo token OpenAI, Vinaris puo aiutarti a orchestrare note, finestre di beva, controlli di valore, abbinamenti e altri flussi della cantina. I token vengono criptati e archiviati in modo sicuro.",
         highlight: true,
+      },
+    ],
+  },
+};
+
+const helpGuideContent: Record<
+  Locale,
+  {
+    eyebrow: string;
+    title: string;
+    intro: string;
+    sections: Array<{
+      title: string;
+      body: string;
+      bullets: string[];
+    }>;
+  }
+> = {
+  en: {
+    eyebrow: "Guide",
+    title: "How to use Vinaris",
+    intro:
+      "This guide is designed for new collectors. Start from the first section, then use the rest as a quick reference whenever you need to find a feature again.",
+    sections: [
+      {
+        title: "1. Start with your cellar",
+        body: "The Cellar view is where your real collection lives. Add delivered bottles first, then ordered and future deliveries.",
+        bullets: [
+          "Use Add wine to register producer, vintage, quantity, format, status, and purchase price.",
+          "For shared bottles, define ownership and percentages directly in the wine record.",
+          "If you already have data from the previous app, import it from Settings > Data.",
+        ],
+      },
+      {
+        title: "2. Use the dashboard to decide what matters now",
+        body: "Home is not just a summary. It is your operational screen for drinking decisions, upcoming deliveries, and data cleanup.",
+        bullets: [
+          "Collector focus shows what to drink now, risky bottles, deliveries, and missing data.",
+          "Timeline helps you track futures and expected arrivals over time.",
+          "Click the statistic cards to jump directly to filtered wines.",
+        ],
+      },
+      {
+        title: "3. Build a buying workflow with Wishlist",
+        body: "Wishlist keeps future purchases separate from the active cellar until you are ready to convert them.",
+        bullets: [
+          "Add target prices, priority, purpose, and merchant notes.",
+          "Convert wishlist items into cellar positions when you buy them.",
+          "Use AI suggestions, if configured, to refine strategy and target price.",
+        ],
+      },
+      {
+        title: "4. Check details before opening a bottle",
+        body: "Open any wine to see the full card with value, drinking window, notes, ownership, and value history.",
+        bullets: [
+          "The drinking window shows young, ideal, and past-window periods with the current year marker.",
+          "Value evolution tracks the historical pricing points you record over time.",
+          "Edit mode is the place to update scores, tags, quantities, and delivery state.",
+        ],
+      },
+      {
+        title: "5. Add AI only if you want it",
+        body: "Vinaris works without AI, but it can become much more powerful if you configure your own OpenAI token.",
+        bullets: [
+          "AI can help with tasting notes, drinking windows, price checks, grapes, wishlist strategy, and pairings.",
+          "Your token is encrypted and stored securely.",
+          "All AI settings live in Settings > AI and stay under your own control.",
+        ],
+      },
+      {
+        title: "6. Manage access, invitations, and notifications",
+        body: "Vinaris supports shared cellars, shared positions, and app notifications for key events.",
+        bullets: [
+          "Use Settings > Sharing to invite people to your cellar.",
+          "Notifications help you track invites, redeem codes, approvals, and incoming shared positions.",
+          "If you are an app admin, user approvals and redeem codes are managed from Settings.",
+        ],
+      },
+    ],
+  },
+  it: {
+    eyebrow: "Guida",
+    title: "Come usare Vinaris",
+    intro:
+      "Questa guida è pensata per chi entra per la prima volta nell'app. Parti dalla prima sezione e poi usa il resto come riferimento rapido quando vuoi ritrovare una funzione.",
+    sections: [
+      {
+        title: "1. Parti dalla tua cantina",
+        body: "La vista Cantina è il luogo dove vive la collezione reale. Inserisci prima i vini consegnati, poi ordini e consegne future.",
+        bullets: [
+          "Usa Aggiungi vino per registrare produttore, annata, quantità, formato, stato e prezzo di acquisto.",
+          "Per le bottiglie condivise, definisci proprietà e percentuali direttamente nella scheda vino.",
+          "Se hai già dati dalla vecchia app, importali da Impostazioni > Data.",
+        ],
+      },
+      {
+        title: "2. Usa la dashboard per capire cosa conta adesso",
+        body: "La Home non è solo un riepilogo. È la schermata operativa per decidere cosa bere, cosa arriverà e quali dati completare.",
+        bullets: [
+          "Collector focus mostra cosa bere ora, bottiglie a rischio, consegne e dati mancanti.",
+          "Timeline ti aiuta a seguire futures ed arrivi attesi nel tempo.",
+          "Clicca le card statistiche per aprire subito la lista filtrata dei vini.",
+        ],
+      },
+      {
+        title: "3. Costruisci il flusso acquisti con la Wishlist",
+        body: "La Wishlist tiene separate le bottiglie future dalla cantina attiva finché non decidi di comprarle o convertirle.",
+        bullets: [
+          "Aggiungi prezzi target, priorità, scopo e note sul merchant.",
+          "Converti gli elementi wishlist in posizioni di cantina quando acquisti.",
+          "Usa i suggerimenti AI, se configurati, per affinare strategia e prezzo target.",
+        ],
+      },
+      {
+        title: "4. Controlla il dettaglio prima di aprire una bottiglia",
+        body: "Apri un vino per vedere la scheda completa con valore, finestra di beva, note, proprietà e storico del valore.",
+        bullets: [
+          "La finestra di beva evidenzia il periodo giovane, ideale e oltre finestra con l'indicatore dell'anno corrente.",
+          "L'evoluzione valore tiene traccia dei punti prezzo che registri nel tempo.",
+          "La modalità modifica è il posto giusto per aggiornare punteggi, tag, quantità e stato consegna.",
+        ],
+      },
+      {
+        title: "5. Attiva l'AI solo se ti serve",
+        body: "Vinaris funziona anche senza AI, ma può diventare molto più potente se configuri il tuo token OpenAI.",
+        bullets: [
+          "L'AI può aiutarti con note degustative, finestre di beva, controlli di valore, uvaggi, strategia wishlist e abbinamenti.",
+          "Il tuo token viene criptato e archiviato in modo sicuro.",
+          "Tutte le impostazioni AI vivono in Impostazioni > AI e restano sotto il tuo controllo.",
+        ],
+      },
+      {
+        title: "6. Gestisci accessi, inviti e notifiche",
+        body: "Vinaris supporta cantine condivise, posizioni condivise e notifiche in-app per gli eventi importanti.",
+        bullets: [
+          "Usa Impostazioni > Sharing per invitare persone nella tua cantina.",
+          "Le notifiche ti aiutano a seguire inviti, codici redeem, approvazioni e posizioni condivise in arrivo.",
+          "Se sei app admin, approvazioni utenti e codici redeem si gestiscono da Impostazioni.",
+        ],
       },
     ],
   },
@@ -2165,7 +2306,7 @@ export function App() {
   const [offlineMode, setOfflineMode] = useState(false);
   const [offlineFileName, setOfflineFileName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "settings">("home");
+  const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "help" | "settings">("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
@@ -2191,6 +2332,7 @@ export function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
   const landing = landingContent[locale];
+  const helpGuide = helpGuideContent[locale];
   const wineTemplateSuggestions = [...wines, ...wineCatalog]
     .filter((wine, index, items) => wine.name.trim() && items.findIndex((item) => item.name.trim().toLowerCase() === wine.name.trim().toLowerCase()) === index)
     .sort((first, second) => first.name.localeCompare(second.name));
@@ -4319,7 +4461,7 @@ export function App() {
           </section>
         </section>
       ) : (
-        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" ? "home-workspace" : "content-workspace"}`}>
+        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
               {t("home")}
@@ -4332,6 +4474,9 @@ export function App() {
             </button>
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
               {t("pairing")}
+            </button>
+            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+              {t("help")}
             </button>
             <button type="button" className={activeView === "settings" ? "" : "secondary"} onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
               {t("settings")}
@@ -4823,6 +4968,29 @@ export function App() {
           {activeView === "pairing" ? (
             <section className="pairing-view">
               {renderPairingSection()}
+            </section>
+          ) : null}
+
+          {activeView === "help" ? (
+            <section className="help-center">
+              <div className="help-hero">
+                <p className="eyebrow">{helpGuide.eyebrow}</p>
+                <h2>{helpGuide.title}</h2>
+                <p>{helpGuide.intro}</p>
+              </div>
+              <div className="help-grid">
+                {helpGuide.sections.map((section) => (
+                  <article className="help-card" key={section.title}>
+                    <h3>{section.title}</h3>
+                    <p>{section.body}</p>
+                    <ul>
+                      {section.bullets.map((bullet) => (
+                        <li key={bullet}>{bullet}</li>
+                      ))}
+                    </ul>
+                  </article>
+                ))}
+              </div>
             </section>
           ) : null}
 
