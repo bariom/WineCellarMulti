@@ -1,6 +1,6 @@
 """notifications and subscription status
 
-Revision ID: 0024_notifications_and_subscription_status
+Revision ID: 0024_notifications_status
 Revises: 0023_stripe_checkout_redeem_code
 Create Date: 2026-06-02 00:00:00.000000
 """
@@ -9,7 +9,7 @@ from alembic import op
 import sqlalchemy as sa
 
 
-revision = "0024_notifications_and_subscription_status"
+revision = "0024_notifications_status"
 down_revision = "0023_stripe_checkout_redeem_code"
 branch_labels = None
 depends_on = None
