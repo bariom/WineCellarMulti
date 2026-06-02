@@ -905,6 +905,85 @@ summary:focus-visible {
   background: var(--surface);
 }
 
+.public-story-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.8fr);
+  gap: 18px;
+}
+
+.public-story-copy,
+.public-founder-card {
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  box-shadow: var(--shadow-soft);
+}
+
+.public-story-copy {
+  display: grid;
+  gap: 18px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 16%, transparent), transparent 32%),
+    linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
+}
+
+.public-story-copy > p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+  max-width: 72ch;
+}
+
+.public-principles-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.public-principle {
+  display: grid;
+  gap: 8px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 82%, var(--surface-muted));
+}
+
+.public-principle h4,
+.public-founder-card blockquote,
+.public-founder-meta strong {
+  margin: 0;
+  color: var(--text);
+}
+
+.public-principle p,
+.public-founder-meta span {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.public-founder-card {
+  display: grid;
+  gap: 18px;
+  align-content: start;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 8%, var(--surface)) 0%, var(--surface) 100%);
+}
+
+.public-founder-card blockquote {
+  font-size: 1.25rem;
+  line-height: 1.45;
+  letter-spacing: -0.01em;
+}
+
+.public-founder-meta {
+  display: grid;
+  gap: 4px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+
 .public-showcase-card {
   display: grid;
   gap: 18px;
@@ -3025,7 +3104,8 @@ textarea {
   .list-header,
   .wine-row,
   .topbar,
-  .public-hero {
+  .public-hero,
+  .public-story-card {
     grid-template-columns: 1fr;
   }
 
@@ -3155,6 +3235,10 @@ textarea {
 
   .mobile-inline-detail {
     display: block;
+  }
+
+  .public-principles-grid {
+    grid-template-columns: 1fr;
   }
 
   .stats-panel {

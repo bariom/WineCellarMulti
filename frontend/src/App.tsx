@@ -1067,6 +1067,14 @@ const landingContent: Record<
     description: string;
     primaryCta: string;
     secondaryCta: string;
+    storyEyebrow: string;
+    storyTitle: string;
+    storyBody: string;
+    founderQuote: string;
+    founderName: string;
+    founderRole: string;
+    principlesTitle: string;
+    principles: Array<{ title: string; body: string }>;
     collectorTitle: string;
     collectorBody: string;
     pricesTitle: string;
@@ -1083,6 +1091,29 @@ const landingContent: Record<
       "Vinaris helps private collectors manage everyday drinking bottles and long-term allocations with a clean workflow designed around what to buy, what to drink, and what to monitor next.",
     primaryCta: "Login",
     secondaryCta: "Create account",
+    storyEyebrow: "Why Vinaris exists",
+    storyTitle: "Created by a collector who wanted a serious cellar tool, not another generic inventory app.",
+    storyBody:
+      "Vinaris was shaped around a real collector workflow: futures, shared positions, drinking windows, value tracking, and the daily question of what deserves attention now. The goal was to replace scattered spreadsheets, notes, and memory with one system that feels elegant enough to use every week.",
+    founderQuote:
+      "I built Vinaris because I wanted a cellar app that thinks like a collector: structured, calm, and genuinely useful when decisions matter.",
+    founderName: "Omar Bariffi",
+    founderRole: "Founder, collector, and product promoter",
+    principlesTitle: "Built around practical collector decisions",
+    principles: [
+      {
+        title: "Clarity before clutter",
+        body: "The interface is designed to surface drinking readiness, deliveries, value, and missing data without burying the collector in noise.",
+      },
+      {
+        title: "A cellar, not just a list",
+        body: "Vinaris understands ownership, shared positions, price history, maturity, and wishlist flow as one connected system.",
+      },
+      {
+        title: "AI only when it helps",
+        body: "The platform works without AI, but becomes more powerful when collectors choose to connect their own OpenAI token.",
+      },
+    ],
     collectorTitle: "What Vinaris helps you do",
     collectorBody:
       "Built for collectors with 20 to 1000+ bottles who want clarity on their cellar without spreadsheets or scattered notes.",
@@ -1129,6 +1160,29 @@ const landingContent: Record<
       "Vinaris aiuta i collezionisti privati a gestire sia i vini da bere nel quotidiano sia le allocazioni di lungo periodo, con un flusso chiaro su cosa comprare, cosa bere e cosa monitorare.",
     primaryCta: "Accedi",
     secondaryCta: "Crea account",
+    storyEyebrow: "Perche nasce Vinaris",
+    storyTitle: "Creato da un collezionista che voleva uno strumento serio di cantina, non l'ennesima app generica di inventario.",
+    storyBody:
+      "Vinaris nasce da un flusso reale da collezionista: futures, quote condivise, finestre di beva, controllo del valore e la domanda quotidiana su cosa merita attenzione adesso. L'obiettivo era sostituire fogli sparsi, note e memoria con un sistema unico, abbastanza elegante da volerlo usare ogni settimana.",
+    founderQuote:
+      "Ho creato Vinaris perche volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
+    founderName: "Omar Bariffi",
+    founderRole: "Fondatore, collezionista e promotore dell'applicazione",
+    principlesTitle: "Progettato intorno a decisioni reali da collezionista",
+    principles: [
+      {
+        title: "Chiarezza prima del rumore",
+        body: "L'interfaccia mette in evidenza beva, consegne, valore e dati mancanti senza sommergere il collezionista di informazioni inutili.",
+      },
+      {
+        title: "Una cantina, non solo una lista",
+        body: "Vinaris gestisce proprieta, quote condivise, storico prezzi, maturazione e wishlist come un sistema unico.",
+      },
+      {
+        title: "AI solo quando serve",
+        body: "La piattaforma funziona anche senza AI, ma diventa piu potente quando il collezionista sceglie di collegare il proprio token OpenAI.",
+      },
+    ],
     collectorTitle: "Che cosa puoi fare con Vinaris",
     collectorBody:
       "Pensato per collezionisti con 20 fino a oltre 1000 bottiglie che vogliono chiarezza in cantina senza fogli di calcolo o note sparse.",
@@ -4358,6 +4412,32 @@ export function App() {
                   </article>
                 ))}
               </div>
+            </section>
+
+            <section className="public-story-card">
+              <div className="public-story-copy">
+                <div className="public-section-heading">
+                  <p className="eyebrow">{landing.storyEyebrow}</p>
+                  <h3>{landing.storyTitle}</h3>
+                </div>
+                <p>{landing.storyBody}</p>
+                <div className="public-principles-grid">
+                  {landing.principles.map((principle) => (
+                    <article className="public-principle" key={principle.title}>
+                      <h4>{principle.title}</h4>
+                      <p>{principle.body}</p>
+                    </article>
+                  ))}
+                </div>
+              </div>
+              <aside className="public-founder-card">
+                <p className="eyebrow">{landing.principlesTitle}</p>
+                <blockquote>{landing.founderQuote}</blockquote>
+                <div className="public-founder-meta">
+                  <strong>{landing.founderName}</strong>
+                  <span>{landing.founderRole}</span>
+                </div>
+              </aside>
             </section>
 
             <section className="public-showcase-card">
