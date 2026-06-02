@@ -2804,6 +2804,42 @@ button.stat-card:hover {
   text-transform: uppercase;
 }
 
+.wine-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
+}
+
+.wine-status-badge i {
+  font-style: normal;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.wine-status-badge strong {
+  font-size: 0.92rem;
+  line-height: 1.2;
+}
+
+.wine-status-ordered i {
+  color: #8b6a2f;
+}
+
+.wine-status-shipped i {
+  color: #2b6a8f;
+}
+
+.wine-status-delivered i {
+  color: #2f7b55;
+}
+
 .section-heading {
   display: flex;
   justify-content: space-between;

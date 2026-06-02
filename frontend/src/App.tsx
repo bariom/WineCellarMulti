@@ -1977,7 +1977,7 @@ function DetailField({
   emptyLabel,
 }: {
   label: string;
-  value: string | number | null | undefined;
+  value: ReactNode;
   emptyLabel: string;
 }) {
   return (
@@ -1985,6 +1985,32 @@ function DetailField({
       <span>{label}</span>
       <strong>{value || emptyLabel}</strong>
     </div>
+  );
+}
+
+function wineStatusTone(status: string) {
+  const normalized = status.trim().toLowerCase();
+  if (normalized.includes("deliver") || normalized.includes("consegn")) return "delivered";
+  if (normalized.includes("shipp") || normalized.includes("spedit")) return "shipped";
+  if (normalized.includes("order") || normalized.includes("ordin")) return "ordered";
+  return "neutral";
+}
+
+function wineStatusIcon(status: string) {
+  const tone = wineStatusTone(status);
+  if (tone === "delivered") return "●";
+  if (tone === "shipped") return "◔";
+  if (tone === "ordered") return "○";
+  return "•";
+}
+
+function WineStatusBadge({ status, locale }: { status: string; locale: Locale }) {
+  const tone = wineStatusTone(status);
+  return (
+    <span className={`wine-status-badge wine-status-${tone}`}>
+      <i aria-hidden="true">{wineStatusIcon(status)}</i>
+      <strong>{displayValue(status, locale, "status") || status}</strong>
+    </span>
   );
 }
 
@@ -2203,7 +2229,7 @@ function WineDetail({
         <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("status")} value={displayValue(wine.status, locale, "status")} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
         <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} emptyLabel={t("notSpecified")} />
         <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
         <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} emptyLabel={t("notSpecified")} />
