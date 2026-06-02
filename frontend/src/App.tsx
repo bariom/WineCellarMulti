@@ -4369,7 +4369,7 @@ export function App() {
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
-  const missingScoresWines = allMissingScoresWines.slice(0, 5);
+  const missingScoresWines = allMissingScoresWines;
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
@@ -5550,7 +5550,7 @@ export function App() {
                     <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingScoresWines.length === 0} onClick={() => generateMissingWineAi("scores", allMissingScoresWines)}>
                       {generatingAi === "batch-scores" ? t("generating") : t("generateAll")}
                     </button>
-                    <div className="action-list">
+                    <div className="action-list scrollable-action-list">
                       {missingScoresWines.length ? missingScoresWines.map((wine) => (
                         <div className="action-row data-quality-row" key={wine.id}>
                           <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>

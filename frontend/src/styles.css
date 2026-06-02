@@ -2222,6 +2222,12 @@ textarea {
   gap: 8px;
 }
 
+.scrollable-action-list {
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .action-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
