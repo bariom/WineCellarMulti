@@ -1759,6 +1759,12 @@ textarea {
   font-weight: 800;
 }
 
+.status-chip-buy {
+  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-muted));
+}
+
 .target-chip {
   color: color-mix(in srgb, var(--accent) 86%, var(--text));
 }
@@ -2568,6 +2574,15 @@ button.stat-card:hover {
   box-shadow: 0 0 0 2px rgba(36, 81, 66, 0.12);
 }
 
+.wishlist-buy-row {
+  border-color: color-mix(in srgb, var(--accent) 34%, #d8ded7);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.wishlist-buy-row .wine-row-main h3 {
+  color: color-mix(in srgb, var(--accent) 72%, var(--text));
+}
+
 .wine-row h3 {
   margin: 0 0 4px;
   font-size: 1rem;
@@ -3196,6 +3211,15 @@ textarea {
 .wine-row.selected {
   border-color: var(--primary);
   box-shadow: 0 0 0 2px var(--focus);
+}
+
+.wishlist-buy-row {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.wishlist-buy-row .wine-row-main h3 {
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
 }
 
 .detail-title > strong,

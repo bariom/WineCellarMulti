@@ -1806,6 +1806,12 @@ function prioritySortValue(priority: string) {
   return 2;
 }
 
+function isWishlistReadyToBuy(status: string) {
+  const normalized = status.trim().toLowerCase();
+  return ["buy", "ready", "approved", "compra", "acquista", "pronto", "approvato"]
+    .some((word) => normalized.includes(word));
+}
+
 function wineUnitValue(wine: Wine) {
   return Number(wine.current_value || wine.price || 0);
 }
@@ -3997,7 +4003,7 @@ export function App() {
     count: wishlist.length,
     targetValue: wishlist.reduce((total, item) => total + Number(item.target_price || 0), 0),
     highPriority: wishlist.filter((item) => item.priority.toLowerCase() === "high").length,
-    readyToBuy: wishlist.filter((item) => ["buy", "approved", "ready"].some((word) => item.status.toLowerCase().includes(word))).length,
+    readyToBuy: wishlist.filter((item) => isWishlistReadyToBuy(item.status)).length,
   };
   const valueByType = topWineValueGroups(wines, "type");
   const valueByRegion = topWineValueGroups(wines, "region");
@@ -5841,9 +5847,10 @@ export function App() {
             )) : filteredWishlist.map((item) => {
               const targetPriceValue = `${item.currency} ${Number(item.target_price).toFixed(0)}`;
               const aiMarketPriceValue = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
+              const readyToBuy = isWishlistReadyToBuy(item.status);
               return (
               <div className="list-item-block" key={item.id}>
-                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
+                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"}${readyToBuy ? " wishlist-buy-row" : ""} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div className="wine-row-main">
                     <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
                     <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")}</p>
@@ -5853,7 +5860,7 @@ export function App() {
                         <small>{t("priority")}</small>
                         {displayValue(item.priority, locale, "priority")}
                       </span>
-                      <span className="status-chip">
+                      <span className={`status-chip${readyToBuy ? " status-chip-buy" : ""}`}>
                         <small>{t("status")}</small>
                         {displayValue(item.status, locale, "status")}
                       </span>
