@@ -1746,7 +1746,14 @@ function toggleListValue(values: string[], value: string) {
 
 function tagColorStyle(tagName: string, userTags: UserTag[]) {
   const color = userTags.find((tag) => tag.name === tagName)?.color || "";
-  return color ? { borderColor: color, color, backgroundColor: `${color}18` } : undefined;
+  return color
+    ? {
+        borderColor: color,
+        color: "var(--text)",
+        backgroundColor: `color-mix(in srgb, ${color} 22%, var(--surface))`,
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${color} 18%, transparent)`,
+      }
+    : undefined;
 }
 
 function wineTone(type: string) {
