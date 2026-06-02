@@ -23,6 +23,7 @@ from app.core.security import hash_redeem_code
 from app.db.session import get_db
 from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement, UserNotification
 from app.schemas.billing import BillingPortalResponse, BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
+from app.services.email import send_email
 
 
 router = APIRouter(prefix="/billing")
@@ -111,6 +112,20 @@ def create_user_notification(db: Session, user: User, *, kind: str, title: str, 
     return notification
 
 
+def notify_redeem_code_email(*, user: User, code: str, duration_days: int, label: str) -> None:
+    send_email(
+        recipients=[user.email],
+        subject=f"[{settings.app_name}] New redeem code available",
+        body=(
+            "A new Vinaris redeem code has been generated for your account.\n\n"
+            f"Redeem code: {code}\n"
+            f"Duration: {duration_days} days\n"
+            f"Reason: {label}\n\n"
+            "Open the app, go to the redeem code section, and redeem it to activate or extend your access."
+        ),
+    )
+
+
 def create_payment_redeem_code(db: Session, user: User, *, label: str, duration_days: int, checkout: StripeCheckoutSession | None = None) -> RedeemCode:
     clear_code = generate_redeem_code()
     normalized = normalize_redeem_code(clear_code)
@@ -135,6 +150,7 @@ def create_payment_redeem_code(db: Session, user: User, *, label: str, duration_
         message=f"E stato generato un codice redeem da {duration_days} giorni.",
         action_url="/settings/profile",
     )
+    notify_redeem_code_email(user=user, code=clear_code, duration_days=duration_days, label=label)
     return code
 
 

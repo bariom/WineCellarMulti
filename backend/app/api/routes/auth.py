@@ -201,6 +201,32 @@ def notify_admins_of_pending_registration(db: Session, user: User, household: Ho
     )
 
 
+def notify_user_approved(user: User) -> None:
+    send_email(
+        recipients=[user.email],
+        subject=f"[{settings.app_name}] Account approved",
+        body=(
+            "Your Vinaris account has been approved.\n\n"
+            f"Name: {user.display_name}\n"
+            f"Email: {user.email}\n\n"
+            "You can now sign in to the app. If your access period is not active yet, enter a valid redeem code or complete the subscription payment."
+        ),
+    )
+
+
+def notify_user_rejected(user: User) -> None:
+    send_email(
+        recipients=[user.email],
+        subject=f"[{settings.app_name}] Registration not approved",
+        body=(
+            "Your Vinaris registration request was not approved.\n\n"
+            f"Name: {user.display_name}\n"
+            f"Email: {user.email}\n\n"
+            "If you think this is a mistake, contact the application administrator."
+        ),
+    )
+
+
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
     email = payload.email.lower()
@@ -419,6 +445,7 @@ def approve_pending_user(
     user.approved_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
+    notify_user_approved(user)
     return pending_user_response(user)
 
 
@@ -431,6 +458,7 @@ def reject_pending_user(
     user = db.get(User, user_id)
     if user is None or user.is_approved:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
+    notify_user_rejected(user)
     db.delete(user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

@@ -206,9 +206,9 @@ customer.subscription.deleted
 
 The webhook creates redeem codes, renewal notifications, and subscription status notifications. A browser redirect alone is not trusted. Enable Stripe Customer Portal in the Stripe dashboard so users can manage or cancel subscriptions from the app.
 
-## Admin Email Notifications
+## Email Notifications
 
-To receive an email when a new user registers and awaits approval, configure SMTP in `backend/.env`:
+To enable email notifications for new pending users, approval/rejection outcomes, household invites, and Stripe redeem codes, configure SMTP in `backend/.env`:
 
 ```env
 SMTP_HOST=smtp.your-provider.tld
@@ -221,7 +221,7 @@ SMTP_FROM_EMAIL=noreply@your-domain.tld
 SMTP_FROM_NAME=Vinaris
 ```
 
-Emails are sent to all approved, unblocked application admins. If SMTP is not configured, registration still works and the email notification is skipped.
+Emails are sent best-effort. If SMTP is not configured or a delivery fails, the application flow still completes and the email is skipped. Admin alerts go to all approved, unblocked application admins.
 
 Find the Linux machine IP with:
 

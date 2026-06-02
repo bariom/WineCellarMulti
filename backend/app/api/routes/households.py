@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.security import hash_invite_token, new_invite_token
 from app.db.session import get_db
 from app.models import Household, HouseholdInvite, Membership, User
+from app.services.email import send_email
 from app.schemas.household import (
     HouseholdMembershipResponse,
     HouseholdSwitch,
@@ -36,6 +37,21 @@ def member_response(db: Session, membership: Membership) -> MemberResponse:
         display_name=user.display_name,
         role=membership.role,
         visibility_scope=membership.visibility_scope,
+    )
+
+
+def notify_invited_user(*, email: str, household_name: str, role: str, visibility_scope: str, inviter_name: str) -> None:
+    send_email(
+        recipients=[email],
+        subject=f"[{settings.app_name}] Household invitation",
+        body=(
+            "You received a Vinaris household invitation.\n\n"
+            f"Household: {household_name}\n"
+            f"Invited by: {inviter_name}\n"
+            f"Role: {role}\n"
+            f"Visibility: {visibility_scope}\n\n"
+            "Open the app and sign in with this email address to review or accept the invitation."
+        ),
     )
 
 
@@ -156,6 +172,13 @@ def create_invite(
     db.add(invite)
     db.commit()
     db.refresh(invite)
+    notify_invited_user(
+        email=invite.email,
+        household_name=context.household.name,
+        role=invite.role,
+        visibility_scope=invite.visibility_scope,
+        inviter_name=context.user.display_name,
+    )
     return InviteResponse(
         id=invite.id,
         household_id=invite.household_id,

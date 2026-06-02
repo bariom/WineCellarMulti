@@ -170,6 +170,65 @@ def test_pending_registration_sends_admin_email(monkeypatch):
     assert "Main Cellar" in str(deliveries[0]["body"])
 
 
+def test_pending_user_approval_and_rejection_send_user_email(monkeypatch):
+    from app.api.routes import auth as auth_routes
+
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(auth_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    pending_client = TestClient(app)
+    assert register(pending_client, email="approve@example.com", password="strong-password-2").json()["pending_approval"] is True
+    approve_target = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "approve@example.com")
+    approved = admin_client.post(f"/api/v1/auth/pending-users/{approve_target['id']}/approve")
+    assert approved.status_code == 200
+
+    reject_client = TestClient(app)
+    assert register(reject_client, email="reject@example.com", password="strong-password-3").json()["pending_approval"] is True
+    reject_target = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "reject@example.com")
+    rejected = admin_client.delete(f"/api/v1/auth/pending-users/{reject_target['id']}")
+    assert rejected.status_code == 204
+
+    approval_email = next(message for message in deliveries if message["recipients"] == ["approve@example.com"])
+    rejection_email = next(message for message in deliveries if message["recipients"] == ["reject@example.com"])
+    assert "approved" in str(approval_email["subject"]).lower()
+    assert "not approved" in str(rejection_email["subject"]).lower()
+
+
+def test_household_invite_sends_email(monkeypatch):
+    from app.api.routes import households as household_routes
+
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(household_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
+
+    owner = TestClient(app)
+    assert register(owner).status_code == 201
+    invite = owner.post("/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"})
+    assert invite.status_code == 201
+
+    assert len(deliveries) == 1
+    assert deliveries[0]["recipients"] == ["viewer@example.com"]
+    assert "Renamed Cellar" not in str(deliveries[0]["body"])
+    assert "Main Cellar" in str(deliveries[0]["body"])
+    assert "viewer" in str(deliveries[0]["body"]).lower()
+
+
 def test_authenticated_user_can_read_wine_catalog():
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -253,7 +312,18 @@ def stripe_signature(payload: bytes, secret: str) -> str:
 
 
 def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
+    from app.api.routes import billing as billing_routes
+
     webhook_secret = "whsec_test"
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(billing_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
     monkeypatch.setattr(settings, "stripe_webhook_secret", webhook_secret)
     monkeypatch.setattr(settings, "stripe_monthly_entitlement_days", 31)
     client = TestClient(app)
@@ -293,6 +363,7 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert len(status_payload["available_redeem_codes"]) == 1
     paid_code = status_payload["available_redeem_codes"][0]["code"]
     assert paid_code.startswith("WCM-")
+    assert any(message["recipients"] == ["stripe@example.com"] and paid_code in str(message["body"]) for message in deliveries)
     notifications = client.get("/api/v1/notifications")
     assert notifications.status_code == 200
     assert notifications.json()[0]["kind"] == "redeem_code"
@@ -330,6 +401,8 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     renewal_status = client.get("/api/v1/billing/status").json()
     assert len(renewal_status["entitlements"]) == 1
     assert len(renewal_status["available_redeem_codes"]) == 1
+    renewal_code = renewal_status["available_redeem_codes"][0]["code"]
+    assert any(message["recipients"] == ["stripe@example.com"] and renewal_code in str(message["body"]) for message in deliveries)
 
     class FakePortalResponse:
         def __enter__(self):
