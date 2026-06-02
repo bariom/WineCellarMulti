@@ -1101,9 +1101,9 @@ const landingContent: Record<
 > = {
   en: {
     headline: "A private wine cellar built for collectors.",
-    subheadline: "Track bottles, maturity, value, deliveries, and wishlists in one shared experience.",
+    subheadline: "Track bottles, maturity, value, deliveries, history, and wishlists in one shared experience.",
     description:
-      "Vinaris helps private collectors manage everyday drinking bottles and long-term allocations with a clean workflow designed around what to buy, what to drink, and what to monitor next.",
+      "Vinaris helps private collectors manage everyday drinking bottles and long-term allocations with a clean workflow designed around what to buy, what to drink, what to monitor next, and what to preserve in a lasting cellar history.",
     primaryCta: "Login",
     secondaryCta: "Create account",
     storyEyebrow: "Why Vinaris exists",
@@ -1126,7 +1126,7 @@ const landingContent: Record<
       },
       {
         title: "AI only when it helps",
-        body: "The platform works without AI, but becomes more powerful when collectors choose to connect their own OpenAI token.",
+        body: "The platform works without AI, but it reaches its full potential when collectors connect their own OpenAI token and let Vinaris enrich decisions across the cellar.",
       },
     ],
     collectorTitle: "What Vinaris helps you do",
@@ -1154,6 +1154,10 @@ const landingContent: Record<
         body: "Manage ordered and en primeur wines, expected arrivals, and the delivery timeline from one place.",
       },
       {
+        title: "Keep a tasting archive",
+        body: "Move finished wines into history automatically and preserve their notes, scores, value trail, and context for later reference.",
+      },
+      {
         title: "Keep a focused wishlist",
         body: "Capture target bottles, target prices, buying priorities, and conversion from wishlist to cellar.",
       },
@@ -1162,17 +1166,17 @@ const landingContent: Record<
         body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
       },
       {
-        title: "AI-assisted if you want it",
-        body: "If you configure your own OpenAI token, Vinaris can help orchestrate notes, drinking windows, value checks, pairings, and other cellar workflows. Tokens are encrypted and stored securely.",
+        title: "Connect OpenAI to unlock the full workflow",
+        body: "Connecting your own OpenAI token is the fastest way to unlock the full potential of Vinaris: notes, drinking windows, value checks, wishlist strategy, pairings, and richer cellar decisions. Tokens are encrypted and stored securely.",
         highlight: true,
       },
     ],
   },
   it: {
     headline: "La cantina privata pensata per chi colleziona vino.",
-    subheadline: "Tieni sotto controllo bottiglie, maturazione, valore, consegne e wishlist in un'unica esperienza condivisa.",
+    subheadline: "Tieni sotto controllo bottiglie, maturazione, valore, consegne, storico e wishlist in un'unica esperienza condivisa.",
     description:
-      "Vinaris aiuta i collezionisti privati a gestire sia i vini da bere nel quotidiano sia le allocazioni di lungo periodo, con un flusso chiaro su cosa comprare, cosa bere e cosa monitorare.",
+      "Vinaris aiuta i collezionisti privati a gestire sia i vini da bere nel quotidiano sia le allocazioni di lungo periodo, senza perdere memoria dei vini conclusi, con un flusso chiaro su cosa comprare, cosa bere e cosa monitorare.",
     primaryCta: "Accedi",
     secondaryCta: "Crea account",
     storyEyebrow: "Perche nasce Vinaris",
@@ -1195,7 +1199,7 @@ const landingContent: Record<
       },
       {
         title: "AI solo quando serve",
-        body: "La piattaforma funziona anche senza AI, ma diventa piu potente quando il collezionista sceglie di collegare il proprio token OpenAI.",
+        body: "La piattaforma funziona anche senza AI, ma esprime davvero il suo potenziale quando il collezionista collega il proprio token OpenAI e lascia che Vinaris arricchisca le decisioni di cantina.",
       },
     ],
     collectorTitle: "Che cosa puoi fare con Vinaris",
@@ -1223,6 +1227,10 @@ const landingContent: Record<
         body: "Organizza vini ordinati ed en primeur, arrivi attesi e timeline delle consegne in un solo posto.",
       },
       {
+        title: "Conservare uno storico degustativo",
+        body: "Quando una bottiglia finisce, passa nello storico mantenendo note, punteggi, traccia di valore e contesto per consultazioni future.",
+      },
+      {
         title: "Tenere una wishlist utile",
         body: "Salva bottiglie target, prezzi desiderati, priorità di acquisto e conversione rapida in cantina.",
       },
@@ -1231,8 +1239,8 @@ const landingContent: Record<
         body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
       },
       {
-        title: "Supporto AI quando vuoi",
-        body: "Se configuri il tuo token OpenAI, Vinaris puo aiutarti a orchestrare note, finestre di beva, controlli di valore, abbinamenti e altri flussi della cantina. I token vengono criptati e archiviati in modo sicuro.",
+        title: "Collega OpenAI per sbloccare tutto il potenziale",
+        body: "Collegare il tuo token OpenAI e il modo piu rapido per sfruttare davvero Vinaris: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina piu ricche. I token vengono criptati e archiviati in modo sicuro.",
         highlight: true,
       },
     ],
