@@ -2612,6 +2612,13 @@ button.stat-card:hover {
   line-height: 1.38;
 }
 
+.row-primary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .row-meta {
   display: flex;
   gap: 6px;
@@ -2826,6 +2833,20 @@ button.stat-card:hover {
 .wine-status-badge strong {
   font-size: 0.92rem;
   line-height: 1.2;
+}
+
+.wine-status-badge.compact {
+  gap: 6px;
+  min-height: 24px;
+  padding: 3px 8px;
+}
+
+.wine-status-badge.compact i {
+  font-size: 0.78rem;
+}
+
+.wine-status-badge.compact strong {
+  font-size: 0.8rem;
 }
 
 .wine-status-ordered i {

@@ -2004,10 +2004,10 @@ function wineStatusIcon(status: string) {
   return "•";
 }
 
-function WineStatusBadge({ status, locale }: { status: string; locale: Locale }) {
+function WineStatusBadge({ status, locale, compact = false }: { status: string; locale: Locale; compact?: boolean }) {
   const tone = wineStatusTone(status);
   return (
-    <span className={`wine-status-badge wine-status-${tone}`}>
+    <span className={`wine-status-badge wine-status-${tone}${compact ? " compact" : ""}`}>
       <i aria-hidden="true">{wineStatusIcon(status)}</i>
       <strong>{displayValue(status, locale, "status") || status}</strong>
     </span>
@@ -5851,7 +5851,10 @@ export function App() {
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div className="wine-row-main">
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
-                    <p className="row-primary">{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())} - {displayValue(wine.status, locale, "status")}</p>
+                    <p className="row-primary">
+                      <span>{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())}</span>
+                      <WineStatusBadge status={wine.status} locale={locale} compact />
+                    </p>
                     <p className="row-secondary">{[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
                     {wine.rating || wine.tags.length || wine.scores.length ? (
                       <div className="row-meta-stack">
