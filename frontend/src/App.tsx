@@ -362,7 +362,7 @@ type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
-type ViewName = "home" | "cellar" | "wishlist" | "pairing" | "help" | "settings";
+type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
 type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
 type ThemePreference =
@@ -469,6 +469,7 @@ const translations = {
     grapes: "Grapes",
     generateAll: "Generate all",
     highPriority: "High priority",
+    history: "History",
     help: "Help",
     home: "Home",
     dashboard: "Dashboard",
@@ -547,6 +548,7 @@ const translations = {
     blocked: "Blocked",
     noWishlistMatch: "No wishlist items match the current filters",
     noWineMatch: "No wines match the current filters",
+    noHistoryMatch: "No consumed wines match the current filters",
     noPasskeys: "No passkeys registered yet",
     notes: "Notes",
     ownerShare: "Owner share",
@@ -608,6 +610,7 @@ const translations = {
     searchPlaceholder: "Name, producer, region, score...",
     sendSupportRequest: "Send request",
     selectItemHelp: "Select an item from the list to see the complete detail.",
+    consumedWines: "Consumed wines",
     sort: "Sort",
     settings: "Settings",
     settingsAi: "AI",
@@ -749,6 +752,7 @@ const translations = {
     grapes: "Uve",
     generateAll: "Genera tutti",
     highPriority: "Alta priorita",
+    history: "Storico",
     help: "Guida",
     home: "Home",
     dashboard: "Dashboard",
@@ -827,6 +831,7 @@ const translations = {
     blocked: "Bloccato",
     noWishlistMatch: "Nessun elemento wishlist corrisponde ai filtri",
     noWineMatch: "Nessun vino corrisponde ai filtri",
+    noHistoryMatch: "Nessun vino consumato corrisponde ai filtri",
     noPasskeys: "Nessuna passkey registrata",
     notes: "Note",
     ownerShare: "Quota proprietario",
@@ -888,6 +893,7 @@ const translations = {
     searchPlaceholder: "Nome, produttore, regione, punteggio...",
     sendSupportRequest: "Invia richiesta",
     selectItemHelp: "Seleziona un elemento dalla lista per vedere il dettaglio completo.",
+    consumedWines: "Vini consumati",
     sort: "Ordina",
     settings: "Impostazioni",
     settingsAi: "AI",
@@ -2576,7 +2582,7 @@ export function App() {
   const [offlineMode, setOfflineMode] = useState(false);
   const [offlineFileName, setOfflineFileName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
-  const [activeView, setActiveView] = useState<"home" | "cellar" | "wishlist" | "pairing" | "help" | "settings">("home");
+  const [activeView, setActiveView] = useState<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
@@ -3943,17 +3949,22 @@ export function App() {
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
   const normalizedQuery = searchQuery.trim().toLowerCase();
-  const wineTypeOptions = uniqueSorted(wines.map((wine) => wine.type));
+  const cellarWines = wines.filter((wine) => wine.quantity > 0);
+  const historyWines = wines.filter((wine) => wine.quantity <= 0);
+  const isWineCollectionView = activeView === "cellar" || activeView === "history";
+  const activeWineCollection = activeView === "history" ? historyWines : cellarWines;
+  const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
+  const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => wine.type));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
-  const wineStatusOptions = uniqueSorted(wines.map((wine) => wine.status));
+  const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
   const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
-  const tagOptions = uniqueSorted(wines.flatMap((wine) => wine.tags));
+  const tagOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.tags));
   const wineFormTagOptions = uniqueSorted([...userTags.map((tag) => tag.name), ...draft.tags]);
-  const activeTypeOptions = activeView === "cellar" ? wineTypeOptions : wishlistTypeOptions;
-  const activeStatusOptions = activeView === "cellar" ? wineStatusOptions : wishlistStatusOptions;
+  const activeTypeOptions = isWineCollectionView ? wineTypeOptions : wishlistTypeOptions;
+  const activeStatusOptions = isWineCollectionView ? wineStatusOptions : wishlistStatusOptions;
   const currentYear = new Date().getFullYear();
   const now = new Date();
-  const filteredWines = wines
+  const filteredWines = activeWineCollection
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
     .filter((wine) => !typeFilter || wine.type === typeFilter)
     .filter((wine) => !statusFilter || wine.status === statusFilter)
@@ -3995,7 +4006,7 @@ export function App() {
       if (sortMode === "value") return Number(second.target_price || 0) - Number(first.target_price || 0);
       return first.name.localeCompare(second.name);
     });
-  const visibleCount = activeView === "cellar" ? filteredWines.length : filteredWishlist.length;
+  const visibleCount = isWineCollectionView ? filteredWines.length : filteredWishlist.length;
 
   useEffect(() => {
     if (activeView !== "cellar" || !pendingWineScrollId) return;
@@ -4022,7 +4033,7 @@ export function App() {
     }
   }, [session?.user_email, authenticated, authDraft.email, contactSupportDraft.email]);
 
-  const cellarOwnership = ownershipStats(wines, session);
+  const cellarOwnership = ownershipStats(cellarWines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
   const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
@@ -4034,18 +4045,18 @@ export function App() {
     myValue: cellarOwnership.myValue,
     sharedBottles,
     sharedValue,
-    drinkNow: wines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
-    drinkSoon: wines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
-    pastWindow: wines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
-    futureDeliveries: wines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
-    nextDelivery: wines
+    drinkNow: cellarWines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
+    drinkSoon: cellarWines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
+    pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
+    futureDeliveries: cellarWines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
+    nextDelivery: cellarWines
       .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
       .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
       .sort((first, second) => first.days - second.days)[0],
-    missingValue: wines.filter((wine) => !wine.current_value).length,
-    missingDrinkWindow: wines.filter((wine) => !wine.drink_from || !wine.drink_to).length,
-    missingScores: wines.filter((wine) => wine.scores.length === 0).length,
-    aiNotes: wines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
+    missingValue: cellarWines.filter((wine) => !wine.current_value).length,
+    missingDrinkWindow: cellarWines.filter((wine) => !wine.drink_from || !wine.drink_to).length,
+    missingScores: cellarWines.filter((wine) => wine.scores.length === 0).length,
+    aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
   const wishlistStats = {
     count: wishlist.length,
@@ -4053,24 +4064,24 @@ export function App() {
     highPriority: wishlist.filter((item) => item.priority.toLowerCase() === "high").length,
     readyToBuy: wishlist.filter((item) => isWishlistReadyToBuy(item.status)).length,
   };
-  const valueByType = topWineValueGroups(wines, "type");
-  const valueByRegion = topWineValueGroups(wines, "region");
-  const valueByProducer = topProducerGroups(wines);
-  const maturity = maturityBuckets(wines, currentYear, locale);
-  const drinkNowWines = wines
+  const valueByType = topWineValueGroups(cellarWines, "type");
+  const valueByRegion = topWineValueGroups(cellarWines, "region");
+  const valueByProducer = topProducerGroups(cellarWines);
+  const maturity = maturityBuckets(cellarWines, currentYear, locale);
+  const drinkNowWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  const atRiskWines = wines
+  const atRiskWines = cellarWines
     .filter((wine) => wine.drink_to && wine.drink_to < currentYear)
     .sort((first, second) => (first.drink_to || 9999) - (second.drink_to || 9999))
     .slice(0, 5);
-  const upcomingDeliveries = wines
+  const upcomingDeliveries = cellarWines
     .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
     .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
     .sort((first, second) => first.days - second.days)
     .slice(0, 5);
-  const deliveryTimelineItems = wines
+  const deliveryTimelineItems = cellarWines
     .map((wine) => {
       if (!isFutureDeliveryWine(wine, now)) return null;
       const dateMs = new Date(wine.expected_delivery || "").getTime();
@@ -4091,7 +4102,7 @@ export function App() {
     beyond365: deliveryTimelineItems.filter((item) => item.days > 365).length,
     total: deliveryTimelineItems.length,
   };
-  const incompleteWines = wines
+  const incompleteWines = cellarWines
     .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0)
     .sort((first, second) => {
       const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0);
@@ -4099,28 +4110,28 @@ export function App() {
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
-  const peakNowWines = wines
+  const peakNowWines = cellarWines
     .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  const drinkSoonWines = wines
+  const drinkSoonWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2)
     .sort((first, second) => (first.drink_from || 9999) - (second.drink_from || 9999))
     .slice(0, 5);
-  const topValueWines = [...wines]
+  const topValueWines = [...cellarWines]
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  const allMissingValueWines = wines.filter((wine) => !wine.current_value);
-  const allValueRefreshWines = wines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
-  const allMissingDrinkWindowWines = wines.filter((wine) => !wine.drink_from || !wine.drink_to);
-  const allMissingScoresWines = wines.filter((wine) => wine.scores.length === 0);
+  const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
+  const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
+  const allMissingDrinkWindowWines = cellarWines.filter((wine) => !wine.drink_from || !wine.drink_to);
+  const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0);
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
   const missingScoresWines = allMissingScoresWines.slice(0, 5);
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
-  const isCollectionView = activeView === "cellar" || activeView === "wishlist";
+  const isCollectionView = isWineCollectionView || activeView === "wishlist";
   const dashboardFocusLabels: Record<DashboardFocus, string> = {
     collector: t("collectorFocus"),
     value: t("valueFocus"),
@@ -4814,8 +4825,11 @@ export function App() {
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               {t("home")}
             </button>
-            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters("cellar"); }}>
-              {t("cellar")} ({wines.length})
+            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}>
+              {t("cellar")} ({cellarWines.length})
+            </button>
+            <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { setActiveView("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
+              {t("history")} ({historyWines.length})
             </button>
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               {t("wishlist")} ({wishlist.length})
@@ -4836,7 +4850,7 @@ export function App() {
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
-                  <p>{session?.active_household_name || "Wine Cellar"}: {wines.length} {t("wines").toLowerCase()}, {wishlist.length} {t("wishlist").toLowerCase()}.</p>
+                  <p>{session?.active_household_name || "Wine Cellar"}: {cellarWines.length} {t("wines").toLowerCase()}, {wishlist.length} {t("wishlist").toLowerCase()}.</p>
                 </div>
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
                   <div className="hero-kpi">
@@ -5344,13 +5358,15 @@ export function App() {
 
           {isCollectionView ? (
           <aside className="wine-side-panel">
-            {activeView === "cellar" ? (
+            {isWineCollectionView ? (
               <div className="side-panel-actions">
-                <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
-                  {t("addWine")}
-                </button>
-                {selectedWine && !wineFormOpen ? (
-                  <button type="button" className="secondary" onClick={() => startEditWine(selectedWine)} disabled={!canWriteWine}>
+                {activeView === "cellar" ? (
+                  <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
+                    {t("addWine")}
+                  </button>
+                ) : null}
+                {selectedVisibleWine && !wineFormOpen ? (
+                  <button type="button" className="secondary" onClick={() => startEditWine(selectedVisibleWine)} disabled={!canWriteWine}>
                     {t("editSelected")}
                   </button>
                 ) : null}
@@ -5372,7 +5388,7 @@ export function App() {
                 ) : null}
               </div>
             )}
-            {activeView === "cellar" && wineFormOpen ? (
+            {isWineCollectionView && wineFormOpen ? (
               <form className="wine-form" onSubmit={submitWine}>
                 <h2>{editingId ? t("editWine") : t("addWine")}</h2>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
@@ -5649,19 +5665,19 @@ export function App() {
                   </button>
                 </div>
               </form>
-            ) : activeView === "cellar" && selectedWine ? (
+            ) : isWineCollectionView && selectedVisibleWine ? (
               <>
                 <WineDetail
-                  wine={selectedWine}
+                  wine={selectedVisibleWine}
                   session={session}
-                  auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id)}
+                  auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedVisibleWine.id)}
                   canGenerate={canGenerateAi}
                   generating={generatingAi}
-                  onGenerate={(feature) => generateWineAi(selectedWine, feature)}
+                  onGenerate={(feature) => generateWineAi(selectedVisibleWine, feature)}
                   t={t}
                   locale={locale}
                 />
-                {renderSharePanel(selectedWine)}
+                {renderSharePanel(selectedVisibleWine)}
               </>
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail
@@ -5750,7 +5766,7 @@ export function App() {
                 ) : null}
                 <div className="stat-card compact-list ai-card">
                   <span>{t("aiReadiness")}</span>
-                  <strong>{cellarStats.aiNotes} / {wines.length}</strong>
+                  <strong>{cellarStats.aiNotes} / {cellarWines.length}</strong>
                   <p>{t("aiReadinessHelp")}</p>
                 </div>
               </section>
@@ -5801,7 +5817,7 @@ export function App() {
                 </label>
               </div>
               <div className="filter-row">
-                {activeView === "cellar" ? (
+                {isWineCollectionView ? (
                   <div className="filter-choice-group">
                     <span>{t("tag")}</span>
                     <div className="tag-choice-list compact">
@@ -5814,7 +5830,7 @@ export function App() {
                     </div>
                   </div>
                 ) : null}
-                {activeView === "cellar" ? (
+                {isWineCollectionView ? (
                   <label>
                     <span>{t("ownership")}</span>
                     <select value={ownershipFilter} onChange={(event) => setOwnershipFilter(event.target.value)}>
@@ -5831,7 +5847,7 @@ export function App() {
                     <option value="vintage">{t("vintage")}</option>
                     <option value="value">{t("value")}</option>
                     {activeView === "wishlist" ? <option value="priority">{t("priority")}</option> : null}
-                    {activeView === "cellar" ? <option value="drink_window">{t("drinkWindow")}</option> : null}
+                    {isWineCollectionView ? <option value="drink_window">{t("drinkWindow")}</option> : null}
                   </select>
                 </label>
               </div>
@@ -5840,13 +5856,14 @@ export function App() {
               </button>
             </details>
             <div className="list-header">
-              <h2>{activeView === "cellar" ? t("wines") : t("wishlist")}</h2>
-              <span>{visibleCount} / {activeView === "cellar" ? wines.length : wishlist.length} {t("records")}</span>
+              <h2>{activeView === "wishlist" ? t("wishlist") : activeView === "history" ? t("consumedWines") : t("wines")}</h2>
+              <span>{visibleCount} / {isWineCollectionView ? activeWineCollection.length : wishlist.length} {t("records")}</span>
             </div>
             {loading ? <p className="empty-state">{t("loadingData")}</p> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
+            {!loading && activeView === "history" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
-            {activeView === "cellar" ? filteredWines.map((wine) => (
+            {isWineCollectionView ? filteredWines.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div className="wine-row-main">
