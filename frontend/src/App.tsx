@@ -356,7 +356,7 @@ type ContactSupportDraft = {
   message: string;
 };
 
-type SortMode = "name" | "vintage" | "value" | "drink_window";
+type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
@@ -1788,6 +1788,13 @@ function priorityTone(priority: string) {
   if (normalized.includes("high") || normalized.includes("alta")) return "high";
   if (normalized.includes("low") || normalized.includes("bassa")) return "low";
   return "medium";
+}
+
+function prioritySortValue(priority: string) {
+  const tone = priorityTone(priority);
+  if (tone === "high") return 0;
+  if (tone === "medium") return 1;
+  return 2;
 }
 
 function wineUnitValue(wine: Wine) {
@@ -3912,6 +3919,9 @@ export function App() {
     .filter((item) => !typeFilter || item.type === typeFilter)
     .filter((item) => !statusFilter || item.status === statusFilter)
     .sort((first, second) => {
+      if (sortMode === "priority") {
+        return prioritySortValue(first.priority) - prioritySortValue(second.priority) || first.name.localeCompare(second.name);
+      }
       if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
       if (sortMode === "value") return Number(second.target_price || 0) - Number(first.target_price || 0);
       return first.name.localeCompare(second.name);
@@ -4147,14 +4157,14 @@ export function App() {
     setWishlistFormOpen(false);
   }
 
-  function clearFilters() {
+  function clearFilters(nextView: ViewName = activeView) {
     setSearchQuery("");
     setTypeFilter("");
     setStatusFilter("");
     setOwnershipFilter("");
     setQuickWineFilter("");
     setTagFilter([]);
-    setSortMode("name");
+    setSortMode(nextView === "wishlist" ? "priority" : "name");
   }
 
   function applyQuickWineFilter(filter: QuickWineFilter) {
@@ -4732,22 +4742,22 @@ export function App() {
       ) : (
         <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>
           <div className="view-tabs">
-            <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+            <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               {t("home")}
             </button>
-            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters(); }}>
+            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); clearFilters("cellar"); }}>
               {t("cellar")} ({wines.length})
             </button>
-            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters(); }}>
+            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               {t("wishlist")} ({wishlist.length})
             </button>
-            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               {t("pairing")}
             </button>
-            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
               {t("help")}
             </button>
-            <button type="button" className={activeView === "settings" ? "" : "secondary"} onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters(); }}>
+            <button type="button" className={activeView === "settings" ? "" : "secondary"} onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("settings"); }}>
               {t("settings")}
             </button>
           </div>
@@ -5750,6 +5760,7 @@ export function App() {
                     <option value="name">{t("name")}</option>
                     <option value="vintage">{t("vintage")}</option>
                     <option value="value">{t("value")}</option>
+                    {activeView === "wishlist" ? <option value="priority">{t("priority")}</option> : null}
                     {activeView === "cellar" ? <option value="drink_window">{t("drinkWindow")}</option> : null}
                   </select>
                 </label>
