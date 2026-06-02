@@ -360,18 +360,18 @@
 :root[data-theme="ticino"] {
   color-scheme: dark;
   --page: #101312;
-  --surface: #171d1b;
-  --surface-raised: #1d2522;
-  --surface-muted: #242e2a;
-  --surface-subtle: #2d3a34;
-  --text: #f3f0e7;
-  --text-muted: #c3c6b7;
-  --text-soft: #aeb7a4;
-  --border: #3c4b43;
-  --border-strong: #5c6b5c;
+  --surface: #19201d;
+  --surface-raised: #202926;
+  --surface-muted: #27332e;
+  --surface-subtle: #324039;
+  --text: #faf6ee;
+  --text-muted: #d8dacd;
+  --text-soft: #c1c7b8;
+  --border: #4a5a51;
+  --border-strong: #6c7b6f;
   --primary: #d1a85a;
   --primary-contrast: #11130f;
-  --secondary: #30392d;
+  --secondary: #384236;
   --danger: #cf5968;
   --danger-text: #ffe0e4;
   --danger-surface: #35171d;
@@ -2394,6 +2394,38 @@ button.stat-card:hover {
 .compact-list p strong {
   color: #17201c;
   font-size: 1rem;
+}
+
+:root[data-theme="dark"] .stat-card,
+:root[data-theme="red-wine"] .stat-card,
+:root[data-theme="bordeaux"] .stat-card,
+:root[data-theme="burgundy"] .stat-card,
+:root[data-theme="ticino"] .stat-card {
+  background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
+}
+
+:root[data-theme="dark"] .stat-card span,
+:root[data-theme="red-wine"] .stat-card span,
+:root[data-theme="bordeaux"] .stat-card span,
+:root[data-theme="burgundy"] .stat-card span,
+:root[data-theme="ticino"] .stat-card span,
+:root[data-theme="dark"] .stat-card p,
+:root[data-theme="red-wine"] .stat-card p,
+:root[data-theme="bordeaux"] .stat-card p,
+:root[data-theme="burgundy"] .stat-card p,
+:root[data-theme="ticino"] .stat-card p,
+:root[data-theme="dark"] .compact-list p,
+:root[data-theme="red-wine"] .compact-list p,
+:root[data-theme="bordeaux"] .compact-list p,
+:root[data-theme="burgundy"] .compact-list p,
+:root[data-theme="ticino"] .compact-list p {
+  color: var(--text-muted);
+}
+
+:root[data-theme="ticino"] .row-meta span {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-subtle) 78%, var(--surface));
 }
 
 .ai-card {
