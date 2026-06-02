@@ -2520,7 +2520,7 @@ export function App() {
   async function loadWines() {
     const nextWines = await api<Wine[]>("/api/v1/wines");
     setWines(nextWines);
-    setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : nextWines[0]?.id || null));
+    setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : null));
   }
 
   async function loadWineCatalog() {
@@ -2530,7 +2530,7 @@ export function App() {
   async function loadWishlist() {
     const nextWishlist = await api<WishlistItem[]>("/api/v1/wishlist");
     setWishlist(nextWishlist);
-    setSelectedWishlistId((currentId) => (currentId && nextWishlist.some((item) => item.id === currentId) ? currentId : nextWishlist[0]?.id || null));
+    setSelectedWishlistId((currentId) => (currentId && nextWishlist.some((item) => item.id === currentId) ? currentId : null));
   }
 
   async function loadTags(role = session?.membership_role) {
@@ -3322,8 +3322,8 @@ export function App() {
       });
       setWines(nextWines);
       setWishlist(nextWishlist);
-      setSelectedWineId(nextWines[0]?.id || null);
-      setSelectedWishlistId(nextWishlist[0]?.id || null);
+      setSelectedWineId(null);
+      setSelectedWishlistId(null);
       setShareOffers([]);
       setReceivedInvites([]);
       setUserNotifications([]);
