@@ -4072,6 +4072,13 @@ export function App() {
     highPriority: wishlist.filter((item) => item.priority.toLowerCase() === "high").length,
     readyToBuy: wishlist.filter((item) => isWishlistReadyToBuy(item.status)).length,
   };
+  const historyStats = {
+    count: historyWines.length,
+    shared: historyWines.filter((wine) => wine.owners.length > 1).length,
+    notes: historyWines.filter((wine) => wine.notes.trim().length > 0).length,
+    scores: historyWines.filter((wine) => wine.rating > 0 || wine.scores.length > 0).length,
+    aiNotes: historyWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
+  };
   const valueByType = topWineValueGroups(cellarWines, "type");
   const valueByRegion = topWineValueGroups(cellarWines, "region");
   const valueByProducer = topProducerGroups(cellarWines);
@@ -5775,6 +5782,33 @@ export function App() {
                 <div className="stat-card compact-list ai-card">
                   <span>{t("aiReadiness")}</span>
                   <strong>{cellarStats.aiNotes} / {cellarWines.length}</strong>
+                  <p>{t("aiReadinessHelp")}</p>
+                </div>
+              </section>
+            </details>
+            ) : activeView === "history" ? (
+            <details className="stats-panel-wrapper" open>
+              <summary>{t("consumedWines")}</summary>
+              <section className="stats-panel">
+                <div className="stat-card">
+                  <span>{t("consumedWines")}</span>
+                  <strong>{historyStats.count}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>{t("sharedBottles")}</span>
+                  <strong>{historyStats.shared}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>{t("notes")}</span>
+                  <strong>{historyStats.notes}</strong>
+                </div>
+                <div className="stat-card">
+                  <span>{t("scores")}</span>
+                  <strong>{historyStats.scores}</strong>
+                </div>
+                <div className="stat-card compact-list ai-card">
+                  <span>{t("aiReadiness")}</span>
+                  <strong>{historyStats.aiNotes} / {historyWines.length}</strong>
                   <p>{t("aiReadinessHelp")}</p>
                 </div>
               </section>
