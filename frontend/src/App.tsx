@@ -1890,6 +1890,13 @@ function wineUnitValue(wine: Wine) {
   return Number(wine.current_value || wine.price || 0);
 }
 
+function hasVintageForDrinkWindow(wine: Wine) {
+  const vintage = wine.vintage.trim().toLowerCase();
+  if (!vintage) return false;
+  if (["nv", "mv", "sans vintage", "non vintage", "multi vintage"].includes(vintage)) return false;
+  return /\d{4}/.test(vintage);
+}
+
 function isFutureDeliveryWine(wine: Wine, now: Date) {
   if (!wine.expected_delivery) return false;
   const deliveryDate = new Date(wine.expected_delivery);
@@ -4281,7 +4288,7 @@ export function App() {
       .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
       .sort((first, second) => first.days - second.days)[0],
     missingValue: cellarWines.filter((wine) => !wine.current_value).length,
-    missingDrinkWindow: cellarWines.filter((wine) => !wine.drink_from || !wine.drink_to).length,
+    missingDrinkWindow: cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to)).length,
     missingScores: cellarWines.filter((wine) => wine.scores.length === 0).length,
     aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
@@ -4357,7 +4364,7 @@ export function App() {
     .slice(0, 5);
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
   const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
-  const allMissingDrinkWindowWines = cellarWines.filter((wine) => !wine.drink_from || !wine.drink_to);
+  const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
   const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0);
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
