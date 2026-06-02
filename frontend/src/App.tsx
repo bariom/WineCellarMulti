@@ -1095,7 +1095,7 @@ const landingContent: Record<
       },
       {
         title: "AI-assisted if you want it",
-        body: "If you configure your own OpenAI token, Vinaris can help orchestrate notes, drinking windows, value checks, pairings, and other cellar workflows.",
+        body: "If you configure your own OpenAI token, Vinaris can help orchestrate notes, drinking windows, value checks, pairings, and other cellar workflows. Tokens are encrypted and stored securely.",
         highlight: true,
       },
     ],
@@ -1141,7 +1141,7 @@ const landingContent: Record<
       },
       {
         title: "Supporto AI quando vuoi",
-        body: "Se configuri il tuo token OpenAI, Vinaris puo aiutarti a orchestrare note, finestre di beva, controlli di valore, abbinamenti e altri flussi della cantina.",
+        body: "Se configuri il tuo token OpenAI, Vinaris puo aiutarti a orchestrare note, finestre di beva, controlli di valore, abbinamenti e altri flussi della cantina. I token vengono criptati e archiviati in modo sicuro.",
         highlight: true,
       },
     ],
