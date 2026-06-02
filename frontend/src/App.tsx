@@ -360,6 +360,7 @@ type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
+type ViewName = "home" | "cellar" | "wishlist" | "pairing" | "help" | "settings";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
 type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
 type ThemePreference =
