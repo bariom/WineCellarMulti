@@ -1051,7 +1051,7 @@ const landingContent: Record<
     monthlyLabel: string;
     annualLabel: string;
     savingsNote: string;
-    features: Array<{ title: string; body: string }>;
+    features: Array<{ title: string; body: string; highlight?: boolean }>;
   }
 > = {
   en: {
@@ -1096,6 +1096,7 @@ const landingContent: Record<
       {
         title: "AI-assisted if you want it",
         body: "If you configure your own OpenAI token, Vinaris can help orchestrate notes, drinking windows, value checks, pairings, and other cellar workflows.",
+        highlight: true,
       },
     ],
   },
@@ -1141,6 +1142,7 @@ const landingContent: Record<
       {
         title: "Supporto AI quando vuoi",
         body: "Se configuri il tuo token OpenAI, Vinaris puo aiutarti a orchestrare note, finestre di beva, controlli di valore, abbinamenti e altri flussi della cantina.",
+        highlight: true,
       },
     ],
   },
@@ -4057,7 +4059,7 @@ export function App() {
               </div>
               <div className="public-feature-grid">
                 {landing.features.map((feature) => (
-                  <article className="public-feature" key={feature.title}>
+                  <article className={feature.highlight ? "public-feature public-feature-highlight" : "public-feature"} key={feature.title}>
                     <h4>{feature.title}</h4>
                     <p>{feature.body}</p>
                   </article>
