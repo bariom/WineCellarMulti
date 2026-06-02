@@ -2353,13 +2353,15 @@ button.stat-card:hover {
 
 .wine-dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  flex: 0 0 14px;
   margin-right: 8px;
   border-radius: 999px;
   background: var(--wine-tone, #789086);
-  box-shadow: 0 0 0 3px var(--wine-tone-bg, #edf3f0);
-  vertical-align: 0.05em;
+  border: 2px solid var(--wine-tone-bg, #edf3f0);
+  vertical-align: -0.12em;
 }
 
 .wine-row {
