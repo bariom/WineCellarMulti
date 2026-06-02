@@ -5766,7 +5766,7 @@ export function App() {
                   </select>
                 </label>
               </div>
-              <button type="button" className="secondary compact" onClick={clearFilters}>
+              <button type="button" className="secondary compact" onClick={() => clearFilters(activeView)}>
                 {t("clearFilters")}
               </button>
             </details>
