@@ -5772,11 +5772,21 @@ export function App() {
                     <h3><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name} <small>{wine.vintage}</small></h3>
                     <p className="row-primary">{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())} - {displayValue(wine.status, locale, "status")}</p>
                     <p className="row-secondary">{[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
-                    <div className="row-meta">
-                      {wine.rating ? <span><StarRating value={wine.rating} label={t("rating")} /></span> : null}
-                      {wine.tags.slice(0, 2).map((tag) => <span key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
-                      {wine.scores.slice(0, 2).map((score) => <span key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
-                    </div>
+                    {wine.rating || wine.tags.length || wine.scores.length ? (
+                      <div className="row-meta-stack">
+                        {wine.rating || wine.tags.length ? (
+                          <div className="row-meta-group row-meta-group-primary">
+                            {wine.rating ? <span className="row-chip row-rating-chip"><StarRating value={wine.rating} label={t("rating")} /></span> : null}
+                            {wine.tags.slice(0, 3).map((tag) => <span className="row-chip row-tag-chip" key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
+                          </div>
+                        ) : null}
+                        {wine.scores.length ? (
+                          <div className="row-meta-group row-meta-group-secondary">
+                            {wine.scores.slice(0, 3).map((score) => <span className="row-chip row-score-chip" key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <DrinkWindowMini wine={wine} />
                   <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>

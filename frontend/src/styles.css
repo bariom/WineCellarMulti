@@ -2550,6 +2550,48 @@ button.stat-card:hover {
   white-space: normal;
 }
 
+.row-meta-stack {
+  display: grid;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.row-meta-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.row-chip {
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+  min-height: 34px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+  color: var(--text);
+  font-size: 0.78rem;
+  white-space: normal;
+}
+
+.row-rating-chip {
+  padding-inline: 12px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, var(--surface)) 0%, var(--surface-muted) 100%);
+}
+
+.row-tag-chip {
+  background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface));
+}
+
+.row-score-chip {
+  color: color-mix(in srgb, var(--accent) 84%, var(--text));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 11%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) 100%);
+}
+
 .mini-drink-window {
   display: grid;
   gap: 5px;
