@@ -3014,6 +3014,10 @@ textarea {
     padding: 16px 16px 56px;
   }
 
+  .public-landing {
+    display: none;
+  }
+
   .workspace,
   .hero-panel,
   .list-header,
