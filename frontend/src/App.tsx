@@ -1243,6 +1243,15 @@ const helpGuideContent: Record<
           "Notifications help you track invites, redeem codes, approvals, and incoming shared positions.",
         ],
       },
+      {
+        title: "7. Advanced workflows for shared wines",
+        body: "Shared wines work best when each collector keeps their own cellar and Vinaris is used to mirror the shared position correctly.",
+        bullets: [
+          "First invite the other person into your cellar with visibility limited to shared bottles only. This lets them see the shared positions without exposing the rest of your cellar.",
+          "Then use the shared wine detail to send the shared position to the other person's cellar.",
+          "After the recipient accepts, the shared quota appears in their own cellar and both collectors can follow the position from their respective accounts.",
+        ],
+      },
     ],
   },
   it: {
@@ -1303,6 +1312,15 @@ const helpGuideContent: Record<
           "Usa Impostazioni > Sharing per invitare persone nella tua cantina.",
           "Chi inviti in una cantina deve comunque essere già titolare di un account Vinaris.",
           "Le notifiche ti aiutano a seguire inviti, codici redeem, approvazioni e posizioni condivise in arrivo.",
+        ],
+      },
+      {
+        title: "7. Funzionalità avanzate per i vini condivisi",
+        body: "I vini condivisi funzionano al meglio quando ogni collezionista mantiene la propria cantina e Vinaris viene usato per rispecchiare correttamente la posizione condivisa.",
+        bullets: [
+          "Per prima cosa invita l'altra persona nella tua cantina con visibilità limitata alle sole bottiglie condivise. In questo modo vedrà le posizioni condivise senza accedere al resto della tua cantina.",
+          "Poi usa il dettaglio del vino condiviso per inviare quella posizione alla cantina dell'altro condividente.",
+          "Dopo l'accettazione, la quota condivisa compare nella sua cantina personale e entrambi i collezionisti possono seguire la posizione dai rispettivi account.",
         ],
       },
     ],
