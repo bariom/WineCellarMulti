@@ -2324,6 +2324,7 @@ function WineDetail({
 
 function WishlistDetail({
   item,
+  auditEntries,
   canGenerate,
   generating,
   onGenerate,
@@ -2331,6 +2332,7 @@ function WishlistDetail({
   locale,
 }: {
   item: WishlistItem;
+  auditEntries: AiAuditLog[];
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
@@ -2383,6 +2385,26 @@ function WishlistDetail({
           {item.ai_purpose_advice ? <DetailNote title={t("aiPurpose")}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
         </div>
       ) : null}
+
+      <details className="detail-section ai-audit-detail">
+        <summary>
+          <span>{t("aiAudit")}</span>
+          <strong>{auditEntries.length}</strong>
+        </summary>
+        {auditEntries.length ? (
+          <div className="audit-list">
+            {auditEntries.map((entry) => (
+              <div className="audit-row" key={entry.id}>
+                <strong>{entry.feature.replace(/_/g, " ")}</strong>
+                <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                <p>{entry.summary}</p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-state">{t("noAiAudit")}</p>
+        )}
+      </details>
     </section>
   );
 }
@@ -5618,6 +5640,7 @@ export function App() {
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail
                   item={selectedWishlistItem}
+                  auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id)}
                   canGenerate={canGenerateAi}
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                   onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
@@ -5896,6 +5919,7 @@ export function App() {
                   <div className="mobile-inline-detail">
                     <WishlistDetail
                       item={item}
+                      auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
                       canGenerate={canGenerateAi}
                       generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                       onGenerate={(feature) => generateWishlistAi(item, feature)}
