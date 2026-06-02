@@ -1477,6 +1477,10 @@ textarea {
   color: var(--text);
 }
 
+.tag-choice-list label span {
+  color: inherit;
+}
+
 .tag-choice-list input {
   width: auto;
 }
