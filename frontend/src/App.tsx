@@ -452,6 +452,7 @@ const translations = {
     drinkNow: "Drink now",
     drinkWindow: "Drink window",
     drinkingWindow: "Drinking window",
+    peakLabel: "Peak",
     edit: "Edit",
     editSelected: "Edit selected",
     editWine: "Edit wine",
@@ -729,6 +730,7 @@ const translations = {
     drinkNow: "Da bere ora",
     drinkWindow: "Finestra",
     drinkingWindow: "Finestra degustazione",
+    peakLabel: "Picco",
     edit: "Modifica",
     editSelected: "Modifica selezionato",
     editWine: "Modifica vino",
@@ -2199,7 +2201,7 @@ function WineDetail({
           </div>
           <div className="window-labels">
             <span>{drinkStart}</span>
-            <span>Peak {peakStart}-{peakEnd}</span>
+            <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
             <span>{drinkEnd}</span>
           </div>
           {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
