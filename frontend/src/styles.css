@@ -3523,8 +3523,7 @@ textarea {
 }
 
 @media (max-width: 520px) {
-  .form-row,
-  .detail-grid {
+  .form-row {
     grid-template-columns: 1fr;
   }
 
@@ -3595,6 +3594,25 @@ textarea {
   .session-pill > button {
     margin-left: auto;
     min-width: 64px;
+  }
+
+  .detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .detail-field {
+    padding: 10px;
+    gap: 4px;
+  }
+
+  .detail-field span {
+    font-size: 0.72rem;
+  }
+
+  .detail-field strong {
+    font-size: 0.98rem;
+    line-height: 1.24;
   }
 
   .notification-button {
@@ -3851,11 +3869,18 @@ textarea {
 
   .ai-actions {
     display: grid;
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
   }
 
   .ai-actions button {
     width: 100%;
+    min-height: 40px;
+    padding: 8px 6px;
+    font-size: 0.82rem;
+    line-height: 1.2;
+    border-radius: 10px;
   }
 
   .wine-row {
@@ -3902,6 +3927,10 @@ textarea {
 @media (max-width: 400px) {
   .hero-copy p {
     display: none;
+  }
+
+  .ai-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .hero-kpi {
