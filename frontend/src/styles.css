@@ -773,6 +773,52 @@ summary:focus-visible {
   cursor: pointer;
 }
 
+.support-panel summary,
+.collapsible-panel summary,
+.stats-panel-wrapper summary,
+.filter-panel summary,
+.consume-panel summary,
+.ai-audit-detail summary {
+  position: relative;
+  padding-right: 24px;
+  list-style: none;
+}
+
+.support-panel summary::-webkit-details-marker,
+.collapsible-panel summary::-webkit-details-marker,
+.stats-panel-wrapper summary::-webkit-details-marker,
+.filter-panel summary::-webkit-details-marker,
+.consume-panel summary::-webkit-details-marker,
+.ai-audit-detail summary::-webkit-details-marker {
+  display: none;
+}
+
+.support-panel summary::after,
+.collapsible-panel summary::after,
+.stats-panel-wrapper summary::after,
+.filter-panel summary::after,
+.consume-panel summary::after,
+.ai-audit-detail summary::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  content: "▾";
+  transform: translateY(-50%) rotate(-90deg);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.support-panel[open] summary::after,
+.collapsible-panel[open] summary::after,
+.stats-panel-wrapper[open] summary::after,
+.filter-panel[open] summary::after,
+.consume-panel[open] summary::after,
+.ai-audit-detail[open] summary::after {
+  color: var(--text);
+  transform: translateY(-50%) rotate(0deg);
+}
+
 .support-panel summary strong {
   color: var(--text);
 }
