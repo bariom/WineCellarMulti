@@ -1178,6 +1178,7 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
     status: {
       Ordered: "Ordinato",
       Shipped: "Spedito",
+      "To Collect": "Da ritirare",
       Delivered: "Consegnato",
       Consumed: "Bevuto",
       Cancelled: "Annullato",
@@ -2430,6 +2431,7 @@ function DetailField({
 function wineStatusTone(status: string) {
   const normalized = status.trim().toLowerCase();
   if (normalized.includes("deliver") || normalized.includes("consegn")) return "delivered";
+  if (normalized.includes("collect") || normalized.includes("pickup") || normalized.includes("ritir")) return "pickup";
   if (normalized.includes("shipp") || normalized.includes("spedit")) return "shipped";
   if (normalized.includes("order") || normalized.includes("ordin")) return "ordered";
   return "neutral";
@@ -2437,6 +2439,7 @@ function wineStatusTone(status: string) {
 
 function wineStatusIcon(status: string) {
   const tone = wineStatusTone(status);
+  if (tone === "pickup") return "\u25D1";
   if (tone === "delivered") return "●";
   if (tone === "shipped") return "◔";
   if (tone === "ordered") return "○";
@@ -6360,6 +6363,7 @@ export function App() {
                     <select value={draft.status} onChange={(event) => setDraft({ ...draft, status: event.target.value })} disabled={!canWriteWine}>
                       <option value="Ordered">{displayValue("Ordered", locale, "status")}</option>
                       <option value="Shipped">{displayValue("Shipped", locale, "status")}</option>
+                      <option value="To Collect">{displayValue("To Collect", locale, "status")}</option>
                       <option value="Delivered">{displayValue("Delivered", locale, "status")}</option>
                       <option value="Consumed">{displayValue("Consumed", locale, "status")}</option>
                     </select>
