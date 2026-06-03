@@ -1480,6 +1480,7 @@ const helpGuideContent: Record<
         body: "Vinaris works without AI, but it can become much more powerful if you configure your own OpenAI token.",
         bullets: [
           "AI can help with tasting notes, drinking windows, price checks, grapes, wishlist strategy, and pairings.",
+          "If you do not want to use your own token, you can buy an AI Pack directly in the app and let Vinaris handle AI usage for you.",
           "Your token is encrypted and stored securely.",
           "All AI settings live in Settings > AI and stay under your own control.",
         ],
@@ -1551,6 +1552,7 @@ const helpGuideContent: Record<
         body: "Vinaris funziona anche senza AI, ma può diventare molto più potente se configuri il tuo token OpenAI.",
         bullets: [
           "L'AI può aiutarti con note degustative, finestre di beva, controlli di valore, uvaggi, strategia wishlist e abbinamenti.",
+          "Se non vuoi usare una chiave personale, puoi acquistare un AI Pack direttamente nell'app e lasciare a Vinaris la gestione dell'uso AI.",
           "Il tuo token viene criptato e archiviato in modo sicuro.",
           "Tutte le impostazioni AI vivono in Impostazioni > AI e restano sotto il tuo controllo.",
         ],
