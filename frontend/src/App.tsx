@@ -474,6 +474,9 @@ const translations = {
     aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use an app-managed AI Pack purchased through Stripe. This budget is tracked internally against estimated OpenAI usage.",
     buyAiCredits: "Buy AI Pack",
     noAiProvider: "No AI source available",
+    appAiReady: "App AI ready",
+    appAiKeyMissing: "App AI key missing",
+    saveAiSourceHint: "Save AI settings to apply the selected source.",
     aiPurpose: "AI purpose",
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
@@ -789,6 +792,9 @@ const translations = {
     aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare un AI Pack gestito dall'app e acquistato tramite Stripe. Questo budget viene scalato internamente in base al consumo AI stimato.",
     buyAiCredits: "Acquista AI Pack",
     noAiProvider: "Nessuna sorgente AI disponibile",
+    appAiReady: "AI app pronta",
+    appAiKeyMissing: "Chiave AI app mancante",
+    saveAiSourceHint: "Salva le impostazioni AI per applicare la sorgente selezionata.",
     aiPurpose: "Scopo AI",
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
@@ -4327,6 +4333,28 @@ export function App() {
         (aiSettings.provider_mode === "credits" && aiSettings.can_use_app_credits)
       ),
     );
+  const hasAiDraftChanges = Boolean(
+    aiSettings &&
+    (
+      aiSettingsDraft.provider_mode !== aiSettings.provider_mode ||
+      aiSettingsDraft.openai_api_key.trim() ||
+      aiSettingsDraft.ai_notes_model !== aiSettings.ai_notes_model ||
+      aiSettingsDraft.drink_window_model !== aiSettings.drink_window_model ||
+      aiSettingsDraft.value_model !== aiSettings.value_model ||
+      aiSettingsDraft.grape_model !== aiSettings.grape_model ||
+      aiSettingsDraft.wishlist_model !== aiSettings.wishlist_model ||
+      aiSettingsDraft.pairing_model !== aiSettings.pairing_model
+    ),
+  );
+  const aiStatusLabel = !aiSettings
+    ? t("loadingData")
+    : aiSettings.provider_mode === "credits"
+      ? (aiSettings.can_use_app_credits ? t("appAiReady") : t("appAiKeyMissing"))
+      : aiSettings.has_openai_api_key
+        ? t("configured")
+        : aiSettings.can_use_app_credits
+          ? t("appAiReady")
+          : t("noApiKey");
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
@@ -6586,8 +6614,8 @@ export function App() {
                       <span>{t("aiSettings")}</span>
                       <h3>OpenAI</h3>
                     </div>
-                    <strong className={aiSettings?.has_openai_api_key ? "status-pill configured" : "status-pill"}>
-                      {aiSettings?.has_openai_api_key ? t("configured") : t("noApiKey")}
+                    <strong className={(aiSettings?.has_openai_api_key || aiSettings?.can_use_app_credits) ? "status-pill configured" : "status-pill"}>
+                      {aiStatusLabel}
                     </strong>
                   </div>
                   <label>
@@ -6618,6 +6646,12 @@ export function App() {
                     </div>
                     <small>{t("aiBudgetUsage")}</small>
                     <small>{t("aiCreditsHelp")}</small>
+                    {aiSettingsDraft.provider_mode === "credits" && !aiSettings?.can_use_app_credits ? (
+                      <small>{t("appAiKeyMissing")}</small>
+                    ) : null}
+                    {hasAiDraftChanges ? (
+                      <small>{t("saveAiSourceHint")}</small>
+                    ) : null}
                     {billingStatus?.can_purchase_ai_credits ? (
                       <button type="button" className="secondary compact" onClick={() => startCheckout("ai_credits")} disabled={saving}>
                         {t("buyAiCredits")}
