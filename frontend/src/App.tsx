@@ -1212,12 +1212,13 @@ const landingContent: Record<
     description: string;
     primaryCta: string;
     secondaryCta: string;
-    storyEyebrow: string;
-    storyTitle: string;
-    storyBody: string;
-    founderQuote: string;
-    founderName: string;
-    founderRole: string;
+      storyEyebrow: string;
+      storyTitle: string;
+      storyBody: string;
+      founderQuote: string;
+      founderSupport: string;
+      founderName: string;
+      founderRole: string;
     principlesTitle: string;
     principles: Array<{ title: string; body: string }>;
     collectorTitle: string;
@@ -1240,10 +1241,12 @@ const landingContent: Record<
     storyTitle: "Created by a collector who wanted a serious cellar tool, not another generic inventory app.",
     storyBody:
       "Vinaris was shaped around a real collector workflow: futures, shared positions, drinking windows, value tracking, and the daily question of what deserves attention now. The goal was to replace scattered spreadsheets, notes, and memory with one system that feels elegant enough to use every week.",
-    founderQuote:
-      "I built Vinaris because I wanted a cellar app that thinks like a collector: structured, calm, and genuinely useful when decisions matter.",
-    founderName: "Omar Bariffi",
-    founderRole: "Founder, collector, and product promoter",
+     founderQuote:
+        "I built Vinaris because I wanted a cellar app that thinks like a collector: structured, calm, and genuinely useful when decisions matter.",
+      founderSupport:
+        "It is meant to help collectors move from instinct and scattered notes to a clearer routine: what to drink, what to buy, what to wait on, and what to remember after the bottle is gone.",
+     founderName: "Omar Bariffi",
+     founderRole: "Founder, collector, and product promoter",
     principlesTitle: "Built around practical collector decisions",
     principles: [
       {
@@ -1313,10 +1316,12 @@ const landingContent: Record<
     storyTitle: "Creato da un collezionista che voleva uno strumento serio di cantina, non l'ennesima app generica di inventario.",
     storyBody:
       "Vinaris nasce da un flusso reale da collezionista: futures, quote condivise, finestre di beva, controllo del valore e la domanda quotidiana su cosa merita attenzione adesso. L'obiettivo era sostituire fogli sparsi, note e memoria con un sistema unico, abbastanza elegante da volerlo usare ogni settimana.",
-    founderQuote:
-      "Ho creato Vinaris perche volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
-    founderName: "Omar Bariffi",
-    founderRole: "Fondatore, collezionista e promotore dell'applicazione",
+     founderQuote:
+        "Ho creato Vinaris perche volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
+      founderSupport:
+        "L'idea e trasformare memoria, intuito e fogli sparsi in un rito piu chiaro: capire cosa bere, cosa comprare, cosa aspettare e che cosa vale la pena ricordare anche dopo l'ultima bottiglia.",
+     founderName: "Omar Bariffi",
+     founderRole: "Fondatore, collezionista e promotore dell'applicazione",
     principlesTitle: "Progettato intorno a decisioni reali da collezionista",
     principles: [
       {
@@ -5060,14 +5065,15 @@ export function App() {
                   ))}
                 </div>
               </div>
-              <aside className="public-founder-card">
-                <p className="eyebrow">{landing.principlesTitle}</p>
-                <blockquote>{landing.founderQuote}</blockquote>
-                <div className="public-founder-meta">
-                  <strong>{landing.founderName}</strong>
-                  <span>{landing.founderRole}</span>
-                </div>
-              </aside>
+                <aside className="public-founder-card">
+                  <p className="eyebrow">{landing.principlesTitle}</p>
+                  <blockquote>{landing.founderQuote}</blockquote>
+                  <p className="public-founder-support">{landing.founderSupport}</p>
+                  <div className="public-founder-meta">
+                    <strong>{landing.founderName}</strong>
+                    <span>{landing.founderRole}</span>
+                  </div>
+                </aside>
             </section>
 
             <section className="public-showcase-card">

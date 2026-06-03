@@ -1043,7 +1043,8 @@ summary:focus-visible {
 }
 
 .public-principle p,
-.public-founder-meta span {
+.public-founder-meta span,
+.public-founder-support {
   margin: 0;
   color: var(--text-muted);
   line-height: 1.6;
@@ -1061,6 +1062,11 @@ summary:focus-visible {
   font-size: 1.25rem;
   line-height: 1.45;
   letter-spacing: -0.01em;
+}
+
+.public-founder-support {
+  max-width: 38ch;
+  font-size: 0.98rem;
 }
 
 .public-founder-meta {
