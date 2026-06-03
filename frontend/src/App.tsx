@@ -1,4 +1,4 @@
-import { ChangeEvent, Children, FormEvent, MouseEvent, ReactNode, UIEvent, useEffect, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, FormEvent, MouseEvent, ReactNode, UIEvent, useEffect, useState } from "react";
 
 type Session = {
   authenticated: boolean;
@@ -2025,6 +2025,62 @@ function prioritySortValue(priority: string) {
   if (tone === "high") return 0;
   if (tone === "medium") return 1;
   return 2;
+}
+
+type ValueBreakdownItem = { label: string; value: number };
+
+function breakdownColor(label: string, index: number, mode: "type" | "region") {
+  if (mode === "type") {
+    const tone = wineTone(label);
+    if (tone === "red") return "#a52d4a";
+    if (tone === "white") return "#d9b33d";
+    if (tone === "sparkling") return "#c3a34e";
+    if (tone === "rose") return "#d78197";
+    if (tone === "sweet") return "#d98936";
+    return "#5b8f7d";
+  }
+  const palette = ["#2f6f5e", "#9a8549", "#b55d5d", "#6f8ea8", "#8c6cb5", "#5b8f7d"];
+  return palette[index % palette.length];
+}
+
+function breakdownDonutSegments(items: ValueBreakdownItem[], mode: "type" | "region") {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  if (!total) return [];
+  let start = 0;
+  return items.map((item, index) => {
+    const size = (item.value / total) * 100;
+    const segment = {
+      ...item,
+      color: breakdownColor(item.label, index, mode),
+      start,
+      end: start + size,
+      pct: size,
+    };
+    start += size;
+    return segment;
+  });
+}
+
+function BreakdownDonut({
+  items,
+  mode,
+}: {
+  items: ValueBreakdownItem[];
+  mode: "type" | "region";
+}) {
+  const segments = breakdownDonutSegments(items, mode);
+  if (!segments.length) return null;
+  const background = `conic-gradient(${segments.map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`).join(", ")})`;
+  return (
+    <div className="breakdown-donut-wrap">
+      <div className="breakdown-donut" style={{ background }} aria-hidden="true">
+        <div className="breakdown-donut-hole">
+          <strong>{segments.length}</strong>
+          <span>{mode === "type" ? "types" : "regions"}</span>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function isWishlistReadyToBuy(status: string) {
@@ -6530,6 +6586,7 @@ export function App() {
                 {valueByType.length ? (
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("valueByType")}</span>
+                    <BreakdownDonut items={valueByType} mode="type" />
                     {valueByType.map((item) => (
                       <p key={item.label}>
                         <i className={`wine-dot tone-${wineTone(item.label)}`} />
@@ -6541,8 +6598,12 @@ export function App() {
                 {valueByRegion.length ? (
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("topRegions")}</span>
-                    {valueByRegion.map((item) => (
-                      <p key={item.label}>{item.label}: CHF {item.value.toFixed(0)}</p>
+                    <BreakdownDonut items={valueByRegion} mode="region" />
+                    {valueByRegion.map((item, index) => (
+                      <p key={item.label}>
+                        <i className="wine-dot" style={{ "--wine-tone-color": breakdownColor(item.label, index, "region") } as CSSProperties} />
+                        {item.label}: CHF {item.value.toFixed(0)}
+                      </p>
                     ))}
                   </div>
                 ) : null}
