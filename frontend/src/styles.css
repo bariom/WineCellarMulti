@@ -2164,6 +2164,16 @@ textarea {
   text-transform: uppercase;
 }
 
+.stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1rem;
+  margin-right: 0.35rem;
+  font-style: normal;
+  color: var(--primary);
+}
+
 .hero-kpi strong {
   font-size: clamp(1.35rem, 2vw, 2.1rem);
 }

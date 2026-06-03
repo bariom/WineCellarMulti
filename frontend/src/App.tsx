@@ -2123,6 +2123,12 @@ function formatBottleCount(value: number) {
   return String(Math.round(value));
 }
 
+function dashboardStatIcon(kind: "mine" | "shared" | "total") {
+  if (kind === "mine") return "◉";
+  if (kind === "shared") return "◌";
+  return "◈";
+}
+
 function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
   const labels =
     locale === "it"
@@ -5508,17 +5514,17 @@ export function App() {
                 </div>
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
                   <div className="hero-kpi">
-                    <span>{t("myBottles")}</span>
+                    <span><i className="stat-icon" aria-hidden="true">{dashboardStatIcon("mine")}</i>{t("myBottles")}</span>
                     <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
                     <p>CHF {cellarStats.myValue.toFixed(0)}</p>
                   </div>
                   <div className="hero-kpi">
-                    <span>{t("sharedBottles")}</span>
+                    <span><i className="stat-icon" aria-hidden="true">{dashboardStatIcon("shared")}</i>{t("sharedBottles")}</span>
                     <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
                     <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
                   </div>
                   <div className="hero-kpi">
-                    <span>{t("totalValue")}</span>
+                    <span><i className="stat-icon" aria-hidden="true">{dashboardStatIcon("total")}</i>{t("totalValue")}</span>
                     <strong>CHF {cellarStats.totalValue.toFixed(0)}</strong>
                     <p>{cellarStats.bottles} {t("bottles").toLowerCase()}</p>
                   </div>
@@ -6371,17 +6377,17 @@ export function App() {
               </summary>
               <section className="stats-panel">
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
-                  <span>{t("myBottles")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatIcon("mine")}</i>{t("myBottles")}</span>
                   <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
                   <p>CHF {cellarStats.myValue.toFixed(0)}</p>
                 </button>
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "shared" ? "active" : ""}`} onClick={() => applyQuickWineFilter("shared")}>
-                  <span>{t("sharedBottles")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatIcon("shared")}</i>{t("sharedBottles")}</span>
                   <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
                   <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
                 </button>
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
-                  <span>{t("totalValue")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatIcon("total")}</i>{t("totalValue")}</span>
                   <strong>{formatBottleCount(cellarStats.bottles)}</strong>
                   <p>CHF {cellarStats.totalValue.toFixed(0)}</p>
                 </button>
