@@ -1321,7 +1321,7 @@ const landingContent: Record<
         },
         {
           title: "Decide what to drink next",
-          body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
+          body: "Use readiness views, filters, pairings, and collector-focused insights to decide what to open now, what to hold back, and which bottles fit the moment best.",
           ai: true,
         },
         {
@@ -1400,7 +1400,7 @@ const landingContent: Record<
         },
         {
           title: "Decidere cosa bere",
-          body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
+          body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per capire cosa aprire adesso, cosa lasciare in cantina e quali bottiglie si adattano meglio all'occasione.",
           ai: true,
         },
         {
