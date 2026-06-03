@@ -1254,10 +1254,10 @@ const landingContent: Record<
         title: "A cellar, not just a list",
         body: "Vinaris understands ownership, shared positions, price history, maturity, and wishlist flow as one connected system.",
       },
-      {
-        title: "AI only when it helps",
-        body: "The platform works without AI, but it reaches its full potential when collectors connect their own OpenAI token and let Vinaris enrich decisions across the cellar.",
-      },
+        {
+          title: "AI only when it helps",
+          body: "The platform works without AI, but it reaches its full potential when collectors enable AI through their own OpenAI key or an in-app AI Pack and let Vinaris enrich decisions across the cellar.",
+        },
     ],
     collectorTitle: "What Vinaris helps you do",
     collectorBody:
@@ -1295,11 +1295,11 @@ const landingContent: Record<
         title: "Decide what to drink next",
         body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
       },
-      {
-        title: "Connect OpenAI to unlock the full workflow",
-        body: "Connecting your own OpenAI token is the fastest way to unlock the full potential of Vinaris: notes, drinking windows, value checks, wishlist strategy, pairings, and richer cellar decisions. Tokens are encrypted and stored securely.",
-        highlight: true,
-      },
+        {
+          title: "Unlock the full workflow with OpenAI or AI Pack",
+          body: "Unlock the full potential of Vinaris with your own OpenAI key or by purchasing an in-app AI Pack: notes, drinking windows, value checks, wishlist strategy, pairings, and richer cellar decisions. Personal tokens are encrypted and stored securely, while AI Pack usage is handled entirely by the app.",
+          highlight: true,
+        },
     ],
   },
   it: {
@@ -1327,10 +1327,10 @@ const landingContent: Record<
         title: "Una cantina, non solo una lista",
         body: "Vinaris gestisce proprieta, quote condivise, storico prezzi, maturazione e wishlist come un sistema unico.",
       },
-      {
-        title: "AI solo quando serve",
-        body: "La piattaforma funziona anche senza AI, ma esprime davvero il suo potenziale quando il collezionista collega il proprio token OpenAI e lascia che Vinaris arricchisca le decisioni di cantina.",
-      },
+        {
+          title: "AI solo quando serve",
+          body: "La piattaforma funziona anche senza AI, ma esprime davvero il suo potenziale quando il collezionista attiva l'AI con la propria chiave OpenAI oppure con un AI Pack acquistato in-app e lascia che Vinaris arricchisca le decisioni di cantina.",
+        },
     ],
     collectorTitle: "Che cosa puoi fare con Vinaris",
     collectorBody:
@@ -1368,11 +1368,11 @@ const landingContent: Record<
         title: "Decidere cosa bere",
         body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
       },
-      {
-        title: "Collega OpenAI per sbloccare tutto il potenziale",
-        body: "Collegare il tuo token OpenAI e il modo piu rapido per sfruttare davvero Vinaris: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina piu ricche. I token vengono criptati e archiviati in modo sicuro.",
-        highlight: true,
-      },
+        {
+          title: "Sblocca tutto il potenziale con OpenAI o AI Pack",
+          body: "Puoi sfruttare davvero Vinaris con la tua chiave OpenAI oppure acquistando un AI Pack in-app: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina piu ricche. I token personali vengono criptati e archiviati in modo sicuro, mentre l'AI Pack usa la chiave dell'app senza esporla all'utente.",
+          highlight: true,
+        },
     ],
   },
 };
