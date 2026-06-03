@@ -154,9 +154,9 @@ AI generation runs only from the backend.
 Two modes are now supported:
 
 - personal OpenAI key per user
-- Vinaris-managed AI credits purchased via Stripe, using the application OpenAI key server-side
+- Vinaris-managed AI Pack purchased via Stripe, using the application OpenAI key server-side
 
-To enable app-managed AI credits, configure `OPENAI_API_KEY` in `backend/.env`, then restart the backend. This key is never exposed to end users.
+To enable the app-managed AI Pack, configure `OPENAI_API_KEY` in `backend/.env`, then restart the backend. This key is never exposed to end users.
 
 Optional model overrides:
 
@@ -173,9 +173,9 @@ Current AI actions: wine notes, drinking window, value estimate, grape compositi
 
 Users can choose the AI source in the application settings:
 
-- `Automatic`: prefer personal key, otherwise use Vinaris AI credits
+- `Automatic`: prefer personal key, otherwise use Vinaris AI Pack
 - `My OpenAI key`
-- `Vinaris AI credits`
+- `Vinaris AI Pack`
 
 ## Stripe Payments
 
@@ -188,7 +188,7 @@ STRIPE_MONTHLY_PRICE_ID=price_monthly_...
 STRIPE_ANNUAL_PRICE_ID=price_annual_...
 STRIPE_AI_CREDIT_PRICE_ID=price_ai_credits_...
 STRIPE_AI_CREDIT_AMOUNT_USD=5.00
-STRIPE_AI_CREDIT_LABEL=Vinaris AI credits
+STRIPE_AI_CREDIT_LABEL=Vinaris AI Pack
 STRIPE_MONTHLY_ENTITLEMENT_DAYS=31
 STRIPE_ANNUAL_ENTITLEMENT_DAYS=365
 STRIPE_SUCCESS_URL=https://vinaris.duckdns.org/?stripe_checkout=success
@@ -220,7 +220,7 @@ customer.subscription.updated
 customer.subscription.deleted
 ```
 
-`checkout.session.completed` is also used for one-time AI credit purchases. When the AI credit product is bought, the user receives a balance in USD-equivalent AI credits, and future AI requests consume that balance until it reaches zero.
+`checkout.session.completed` is also used for one-time AI Pack purchases. When the AI Pack product is bought, the user receives a balance in USD-equivalent AI budget, and future AI requests consume that balance until it reaches zero.
 
 The webhook creates redeem codes, renewal notifications, and subscription status notifications. A browser redirect alone is not trusted. Enable Stripe Customer Portal in the Stripe dashboard so users can manage or cancel subscriptions from the app.
 

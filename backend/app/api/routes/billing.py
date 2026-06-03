@@ -206,7 +206,7 @@ def stripe_plan_config(plan: str) -> dict[str, str | int]:
             "plan": "ai_credits",
             "price_id": settings.stripe_ai_credit_price_id,
             "duration_days": 0,
-            "label": settings.stripe_ai_credit_label or "Vinaris AI credits",
+            "label": settings.stripe_ai_credit_label or "Vinaris AI Pack",
         }
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payment plan")
 
@@ -380,14 +380,14 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
             amount_usd=ai_credit_amount,
             source="purchase",
             source_id=checkout.id,
-            note=f"Stripe AI credits purchase ({ai_credit_amount} USD)",
+            note=f"Stripe AI Pack purchase ({ai_credit_amount} USD)",
         )
         create_user_notification(
             db,
             user,
             kind="ai_credits",
-            title="Crediti AI ricaricati",
-            message=f"Sono stati aggiunti {ai_credit_amount} USD di crediti AI al tuo saldo.",
+            title="AI Pack ricaricato",
+            message=f"Sono stati aggiunti {ai_credit_amount} USD al tuo budget AI.",
             action_url="/settings/ai",
         )
     else:
