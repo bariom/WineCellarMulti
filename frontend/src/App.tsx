@@ -5071,15 +5071,15 @@ export function App() {
             </section>
 
             <section className="public-showcase-card">
-              <div className="public-section-heading">
-                <p className="eyebrow">{locale === "it" ? "Anteprima applicazione" : "Application preview"}</p>
-                <h3>
-                  {locale === "it"
-                    ? "Tre viste chiave per capire subito come lavora Vinaris."
-                    : "Three key views that show how Vinaris works in practice."}
-                </h3>
-              </div>
-              <div className="public-showcase-grid">
+                <div className="public-section-heading">
+                  <p className="eyebrow">{locale === "it" ? "Anteprima applicazione" : "Application preview"}</p>
+                  <h3>
+                    {locale === "it"
+                      ? "Cinque viste chiave per capire subito come lavora Vinaris."
+                      : "Five key views that show how Vinaris works in practice."}
+                  </h3>
+                </div>
+                <div className="public-showcase-grid">
                 <article className="showcase-frame showcase-frame-wide">
                   <div className="showcase-window">
                     <div className="showcase-bar">
@@ -5174,9 +5174,9 @@ export function App() {
                   </div>
                 </article>
 
-                <article className="showcase-frame">
-                  <div className="showcase-window">
-                    <div className="showcase-detail-layout">
+                  <article className="showcase-frame">
+                    <div className="showcase-window">
+                      <div className="showcase-detail-layout">
                       <div className="showcase-list">
                         <div className="showcase-list-row"><strong>Blanc De Blancs 2022</strong><span>CHF 32</span></div>
                         <div className="showcase-list-row active"><strong>Bourgogne blanc les Setilles 2022</strong><span>CHF 28</span></div>
@@ -5207,12 +5207,96 @@ export function App() {
                       {locale === "it"
                         ? "Scheda completa con quantità, valore, cronologia prezzo e finestra di beva."
                         : "Complete record with quantity, value, price history, and drinking window."}
-                    </span>
-                  </div>
-                </article>
-              </div>
+                      </span>
+                    </div>
+                  </article>
+
+                  <article className="showcase-frame">
+                    <div className="showcase-window">
+                      <div className="showcase-bar">
+                        <span className="showcase-tab">Wishlist</span>
+                        <span className="showcase-tab active">AI strategy</span>
+                        <span className="showcase-tab">Buy now</span>
+                      </div>
+                      <div className="showcase-dashboard-grid">
+                        <div className="showcase-card">
+                          <span>{locale === "it" ? "Priorita" : "Priority"}</span>
+                          <strong>High · {locale === "it" ? "Compra" : "Buy now"}</strong>
+                          <ul>
+                            <li>Sassicaia 2021 · CHF 235</li>
+                            <li>Tignanello 2021 · CHF 118</li>
+                            <li>Krug Grande Cuvée · CHF 178</li>
+                          </ul>
+                        </div>
+                        <div className="showcase-card">
+                          <span>{locale === "it" ? "Analisi AI" : "AI analysis"}</span>
+                          <strong>{locale === "it" ? "Mercato vs target" : "Market vs target"}</strong>
+                          <ul>
+                            <li>{locale === "it" ? "Target utente CHF 118" : "User target CHF 118"}</li>
+                            <li>{locale === "it" ? "Stima AI CHF 132" : "AI estimate CHF 132"}</li>
+                            <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
+                          </ul>
+                        </div>
+                        <div className="showcase-card">
+                          <span>{locale === "it" ? "Focus" : "Focus"}</span>
+                          <strong>{locale === "it" ? "Scopo e abbinamento" : "Purpose and pairing"}</strong>
+                          <ul>
+                            <li>{locale === "it" ? "Cena importante" : "Dinner event"}</li>
+                            <li>{locale === "it" ? "Regalo collezionista" : "Collector gift"}</li>
+                            <li>{locale === "it" ? "Orizzonte 12 mesi" : "12-month horizon"}</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="showcase-caption">
+                      <strong>{locale === "it" ? "Wishlist e decisioni AI" : "Wishlist and AI decisions"}</strong>
+                      <span>
+                        {locale === "it"
+                          ? "Priorita, prezzo target, stima mercato e strategia AI nello stesso punto."
+                          : "Priority, target price, market estimate, and AI strategy in one place."}
+                      </span>
+                    </div>
+                  </article>
+
+                  <article className="showcase-frame">
+                    <div className="showcase-window">
+                      <div className="showcase-bar">
+                        <span className="showcase-tab">Cellar</span>
+                        <span className="showcase-tab active">{locale === "it" ? "Storico" : "History"}</span>
+                        <span className="showcase-tab">{locale === "it" ? "Degustazioni" : "Tastings"}</span>
+                      </div>
+                      <div className="showcase-detail-layout">
+                        <div className="showcase-list">
+                          <div className="showcase-list-row active"><strong>Castello Luigi Rosso 2011</strong><span>{locale === "it" ? "Bevuto" : "Consumed"}</span></div>
+                          <div className="showcase-list-row"><strong>Blanc de Blancs NV</strong><span>{locale === "it" ? "Bevuto" : "Consumed"}</span></div>
+                          <div className="showcase-list-row"><strong>Sassicaia 2015</strong><span>{locale === "it" ? "Archivio" : "Archived"}</span></div>
+                        </div>
+                        <div className="showcase-detail-panel">
+                          <div className="showcase-detail-grid">
+                            <div><span>{locale === "it" ? "Degustato il" : "Tasted on"}</span><strong>01/06/2026</strong></div>
+                            <div><span>{locale === "it" ? "Voto" : "Rating"}</span><strong>5 / 6</strong></div>
+                            <div><span>{locale === "it" ? "Occasione" : "Occasion"}</span><strong>{locale === "it" ? "Cena tra amici" : "Dinner with friends"}</strong></div>
+                            <div><span>{locale === "it" ? "Abbinamento" : "Pairing"}</span><strong>{locale === "it" ? "Brasato" : "Braised beef"}</strong></div>
+                          </div>
+                          <div className="showcase-micro-chart">
+                            <span>{locale === "it" ? "Note degustazione" : "Tasting notes"}</span>
+                            <div className="showcase-chart-line" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="showcase-caption">
+                      <strong>{locale === "it" ? "Storico degustativo" : "Tasting archive"}</strong>
+                      <span>
+                        {locale === "it"
+                          ? "Ogni bottiglia bevuta puo diventare memoria utile per confronti e decisioni future."
+                          : "Every consumed bottle becomes usable memory for future comparisons and decisions."}
+                      </span>
+                    </div>
+                  </article>
+                </div>
+              </section>
             </section>
-          </section>
 
         {isMobileViewport ? publicAuthPanel : null}
         {!isMobileViewport && authModalOpen ? (
