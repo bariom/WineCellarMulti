@@ -4880,7 +4880,7 @@ export function App() {
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
-      <span className="public-brand-mark" aria-hidden="true">V</span>
+      <img className="public-brand-mark" src="/icons/icon.svg" alt="Vinaris" />
       <div className="public-brand-copy">
         <strong>Vinaris</strong>
         <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>

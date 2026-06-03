@@ -484,20 +484,11 @@ summary:focus-visible {
 }
 
 .public-brand-mark {
-  display: inline-grid;
-  place-items: center;
+  display: block;
   width: 48px;
   height: 48px;
-  border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 20%, transparent), transparent 55%),
-    linear-gradient(160deg, color-mix(in srgb, var(--primary) 14%, var(--surface)) 0%, var(--surface) 100%);
-  color: var(--text);
-  font-size: 1.35rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  box-shadow: var(--shadow-soft);
+  object-fit: contain;
+  filter: drop-shadow(0 8px 14px color-mix(in srgb, var(--primary) 12%, transparent));
 }
 
 .public-brand-copy {
