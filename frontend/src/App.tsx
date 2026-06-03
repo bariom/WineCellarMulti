@@ -466,8 +466,8 @@ const translations = {
     aiProviderUserKey: "My OpenAI key",
     aiProviderCredits: "Vinaris AI credits",
     aiCredits: "AI credits",
-    aiCreditBalance: "AI credit balance",
-    aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use app-managed AI credits purchased through Stripe.",
+    aiCreditBalance: "AI budget",
+    aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use app-managed AI credits purchased through Stripe. This budget is tracked internally against estimated OpenAI usage.",
     buyAiCredits: "Buy AI credits",
     noAiProvider: "No AI source available",
     aiPurpose: "AI purpose",
@@ -778,8 +778,8 @@ const translations = {
     aiProviderUserKey: "Mia chiave OpenAI",
     aiProviderCredits: "Crediti AI Vinaris",
     aiCredits: "Crediti AI",
-    aiCreditBalance: "Saldo crediti AI",
-    aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare crediti AI gestiti dall'app e acquistati tramite Stripe.",
+    aiCreditBalance: "Budget AI",
+    aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare crediti AI gestiti dall'app e acquistati tramite Stripe. Questo budget viene scalato internamente in base al consumo AI stimato.",
     buyAiCredits: "Acquista crediti AI",
     noAiProvider: "Nessuna sorgente AI disponibile",
     aiPurpose: "Scopo AI",
@@ -1854,6 +1854,14 @@ function formatGrape(grape: Wine["grapes"][number]) {
 function formatUsd(value: string | number) {
   const amount = Number(value || 0);
   return new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: amount < 1 ? 4 : 2, maximumFractionDigits: 4 }).format(amount);
+}
+
+function formatAiBudget(value: string | number) {
+  const amount = Number(value || 0);
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: amount < 1 ? 4 : 2,
+    maximumFractionDigits: 4,
+  }).format(amount);
 }
 
 function readableLegacyAiText(value: string, kind: "strategy" | "purpose") {
@@ -6503,7 +6511,7 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("notSpecified")}</p>
                 )}
-                <p className="empty-state">{t("aiCreditBalance")}: {formatUsd(billingStatus?.ai_credit_balance_usd || 0)}</p>
+                <p className="empty-state">{t("aiCreditBalance")}: {formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</p>
               </section>
               ) : null}
 
@@ -6537,7 +6545,7 @@ export function App() {
                   </label>
                   <div className="token-box">
                     <strong>{t("aiCreditBalance")}</strong>
-                    <span>{formatUsd(aiSettings?.app_credit_balance_usd || 0)}</span>
+                    <span>{formatAiBudget(aiSettings?.app_credit_balance_usd || 0)}</span>
                     <small>{t("aiCreditsHelp")}</small>
                     {billingStatus?.can_purchase_ai_credits ? (
                       <button type="button" className="secondary compact" onClick={() => startCheckout("ai_credits")} disabled={saving}>
