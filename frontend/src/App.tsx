@@ -1834,6 +1834,9 @@ function stripeCheckoutResultFromUrl() {
   return result === "success" || result === "cancelled" ? result : "";
 }
 
+const STRIPE_CHECKOUT_PLAN_KEY = "vinaris_stripe_checkout_plan";
+const STRIPE_CHECKOUT_BALANCE_KEY = "vinaris_stripe_checkout_balance";
+
 function inviteLink(token: string) {
   const url = new URL(window.location.href);
   url.search = "";
@@ -3244,23 +3247,36 @@ export function App() {
   }
 
   async function refreshAfterStripeCheckout() {
+    const pendingPlan = window.sessionStorage.getItem(STRIPE_CHECKOUT_PLAN_KEY) as PaymentPlan | null;
+    const previousAiBalance = Number(window.sessionStorage.getItem(STRIPE_CHECKOUT_BALANCE_KEY) || "0");
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const nextSession = await loadSession();
       if (nextSession.authenticated) {
         const nextStatus = await api<BillingStatus>("/api/v1/billing/status");
         setBillingStatus(nextStatus);
-        if (nextStatus.available_redeem_codes.length || nextStatus.has_active_entitlement) {
+        const nextAiBalance = Number(nextStatus.ai_credit_balance_usd || 0);
+        const checkoutApplied =
+          pendingPlan === "ai_credits"
+            ? nextAiBalance > previousAiBalance
+            : (nextStatus.available_redeem_codes.length > 0 || nextStatus.has_active_entitlement);
+        if (checkoutApplied) {
           await loadData();
+          window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
+          window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
           window.history.replaceState(null, "", window.location.pathname);
           return;
         }
       }
       if (nextSession.is_app_admin) {
+        window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
+        window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
         window.history.replaceState(null, "", window.location.pathname);
         return;
       }
       await new Promise((resolve) => window.setTimeout(resolve, 1500));
     }
+    window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
+    window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
     await loadData();
   }
 
@@ -3270,6 +3286,10 @@ export function App() {
       setAcceptToken(urlToken);
     }
     const stripeCheckoutResult = stripeCheckoutResultFromUrl();
+    if (stripeCheckoutResult === "cancelled") {
+      window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
+      window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
+    }
     const loader = stripeCheckoutResult === "success" ? refreshAfterStripeCheckout() : loadData();
     loader
       .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"))
@@ -3717,9 +3737,13 @@ export function App() {
     setSaving(true);
     setError("");
     try {
+      window.sessionStorage.setItem(STRIPE_CHECKOUT_PLAN_KEY, plan);
+      window.sessionStorage.setItem(STRIPE_CHECKOUT_BALANCE_KEY, String(Number(billingStatus?.ai_credit_balance_usd || aiSettings?.app_credit_balance_usd || 0)));
       const checkout = await api<CheckoutSession>("/api/v1/billing/checkout", { method: "POST", body: JSON.stringify({ plan }) });
       window.location.assign(checkout.checkout_url);
     } catch (nextError) {
+      window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
+      window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
       setError(nextError instanceof Error ? nextError.message : "Unable to start checkout");
       setSaving(false);
     }
