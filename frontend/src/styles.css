@@ -1831,6 +1831,24 @@ textarea {
   font-size: 0.85rem;
 }
 
+.audit-toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.audit-toolbar label {
+  display: grid;
+  gap: 5px;
+}
+
+.audit-list-scrollable {
+  max-height: 520px;
+  overflow: auto;
+  padding-right: 6px;
+}
+
 .member-actions {
   display: flex;
   align-items: center;
@@ -4214,6 +4232,10 @@ textarea {
 
   .settings-card-heading {
     flex-direction: column;
+  }
+
+  .audit-toolbar {
+    grid-template-columns: 1fr;
   }
 
   .detail-title h2 {

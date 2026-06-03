@@ -481,6 +481,11 @@ const translations = {
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
     aiAudit: "AI audit",
+    showLatest: "Show latest",
+    auditDateFrom: "From date",
+    auditDateTo: "To date",
+    auditResetFilters: "Reset filters",
+    auditResultsCount: "matching actions",
     aiSettings: "AI settings",
     aiStrategy: "AI strategy",
     aiMarketPrice: "AI market price",
@@ -799,6 +804,11 @@ const translations = {
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
     aiAudit: "Audit AI",
+    showLatest: "Mostra ultime",
+    auditDateFrom: "Da data",
+    auditDateTo: "A data",
+    auditResetFilters: "Azzera filtri",
+    auditResultsCount: "azioni trovate",
     aiSettings: "Impostazioni AI",
     aiStrategy: "Strategia AI",
     aiMarketPrice: "Prezzo mercato AI",
@@ -2857,6 +2867,9 @@ export function App() {
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
+  const [aiAuditLimit, setAiAuditLimit] = useState("10");
+  const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
+  const [aiAuditDateTo, setAiAuditDateTo] = useState("");
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [aiSettingsDraft, setAiSettingsDraft] = useState<AiSettingsDraft>(emptyAiSettingsDraft);
@@ -4467,6 +4480,18 @@ export function App() {
   }, [authenticated, acceptToken, isMobileViewport]);
 
   const currentUserEmail = session?.user_email?.toLowerCase();
+  const sortedAiAudit = [...aiAudit].sort((first, second) => second.created_at.localeCompare(first.created_at));
+  const aiAuditFromBoundary = aiAuditDateFrom ? `${aiAuditDateFrom}T00:00:00` : "";
+  const aiAuditToBoundary = aiAuditDateTo ? `${aiAuditDateTo}T23:59:59` : "";
+  const filteredAiAudit = sortedAiAudit.filter((entry) => {
+    if (aiAuditFromBoundary && entry.created_at < aiAuditFromBoundary) return false;
+    if (aiAuditToBoundary && entry.created_at > aiAuditToBoundary) return false;
+    return true;
+  });
+  const parsedAiAuditLimit = Number(aiAuditLimit);
+  const visibleAiAudit = Number.isFinite(parsedAiAuditLimit) && parsedAiAuditLimit > 0
+    ? filteredAiAudit.slice(0, parsedAiAuditLimit)
+    : filteredAiAudit;
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -7310,29 +7335,63 @@ export function App() {
                 </section>
               ) : null}
 
-              {settingsTab === "ai" && canWriteWine ? (
-              <section className="settings-card settings-card-wide">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("aiAudit")}</span>
-                    <h3>{t("aiUsage")}</h3>
+                {settingsTab === "ai" && canWriteWine ? (
+                <section className="settings-card settings-card-wide">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("aiAudit")}</span>
+                      <h3>{t("aiUsage")}</h3>
+                    </div>
                   </div>
-                </div>
-                {aiAudit.length ? (
-                  <div className="audit-list">
-                    {aiAudit.slice(0, 8).map((entry) => (
-                      <div className="audit-row" key={entry.id}>
-                        <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
-                        <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
-                        <p>{entry.summary}</p>
+                  {aiAudit.length ? (
+                    <>
+                      <div className="audit-toolbar">
+                        <label>
+                          <span>{t("showLatest")}</span>
+                          <select value={aiAuditLimit} onChange={(event) => setAiAuditLimit(event.target.value)}>
+                            <option value="10">10</option>
+                            <option value="25">25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                            <option value="0">{t("allTime")}</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>{t("auditDateFrom")}</span>
+                          <input type="date" value={aiAuditDateFrom} onChange={(event) => setAiAuditDateFrom(event.target.value)} />
+                        </label>
+                        <label>
+                          <span>{t("auditDateTo")}</span>
+                          <input type="date" value={aiAuditDateTo} onChange={(event) => setAiAuditDateTo(event.target.value)} />
+                        </label>
+                        <button
+                          type="button"
+                          className="secondary compact"
+                          onClick={() => {
+                            setAiAuditLimit("10");
+                            setAiAuditDateFrom("");
+                            setAiAuditDateTo("");
+                          }}
+                        >
+                          {t("auditResetFilters")}
+                        </button>
                       </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-state">{t("noAiAudit")}</p>
-                )}
-              </section>
-              ) : null}
+                      <p className="empty-state">{filteredAiAudit.length} {t("auditResultsCount")}</p>
+                      <div className="audit-list audit-list-scrollable">
+                      {visibleAiAudit.map((entry) => (
+                        <div className="audit-row" key={entry.id}>
+                          <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
+                          <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                          <p>{entry.summary}</p>
+                        </div>
+                      ))}
+                      </div>
+                    </>
+                  ) : (
+                    <p className="empty-state">{t("noAiAudit")}</p>
+                  )}
+                </section>
+                ) : null}
 
               {settingsTab === "sharing" ? (
               <form className="settings-card" onSubmit={acceptInvite}>
