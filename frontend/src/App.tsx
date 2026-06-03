@@ -6870,9 +6870,11 @@ export function App() {
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(wine.type)}`} />
-                      {wine.name}
+                      <span className="wine-title-row">
+                        <span className="wine-title">{wine.name}</span>
+                        {wine.vintage ? <span className="vintage-label vintage-label--small"><span>{wine.vintage}</span></span> : null}
+                      </span>
                       {wine.notes ? <span className="note-indicator" title={t("notes")} aria-label={t("notes")}>✎</span> : null}
-                      <small>{wine.vintage}</small>
                     </h3>
                     <p className="row-primary">
                       <span>{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())}</span>
@@ -6930,7 +6932,13 @@ export function App() {
               <div className="list-item-block" key={item.id}>
                 <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"}${readyToBuy ? " wishlist-buy-row" : ""} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div className="wine-row-main">
-                    <h3><i className={`wine-dot tone-${wineTone(item.type)}`} />{item.name} <small>{item.vintage}</small></h3>
+                    <h3>
+                      <i className={`wine-dot tone-${wineTone(item.type)}`} />
+                      <span className="wine-title-row">
+                        <span className="wine-title">{item.name}</span>
+                        {item.vintage ? <span className="vintage-label vintage-label--small"><span>{item.vintage}</span></span> : null}
+                      </span>
+                    </h3>
                     <p className="row-primary">{item.producer || t("noProducer")} - {displayValue(item.purpose, locale, "purpose")}</p>
                     <p className="row-secondary">{[displayValue(item.format, locale, "format"), displayValue(item.type, locale, "type"), item.region, item.appellation].filter(Boolean).join(" - ")}</p>
                     <div className="wishlist-signal-strip">
