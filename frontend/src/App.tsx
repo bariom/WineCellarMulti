@@ -511,6 +511,9 @@ const translations = {
     create: "Create",
     createAccount: "Create account",
     confirmPassword: "Confirm password",
+    finalBetaPromo: "Final beta promo",
+    promoNote: "Promo pricing during final beta. Early users lock in the current launch rate while the platform is still being refined.",
+    registerPromoHelp: "Current pricing is promotional during final beta.",
     createInvite: "Create invite",
     createRedeemCode: "Create redeem code",
     consumeBottle: "Bottle consumed",
@@ -835,6 +838,9 @@ const translations = {
     create: "Crea",
     createAccount: "Crea account",
     confirmPassword: "Conferma password",
+    finalBetaPromo: "Promo beta finale",
+    promoNote: "Prezzi promozionali durante la beta finale. Chi entra ora blocca la tariffa di lancio mentre la piattaforma viene ancora rifinita.",
+    registerPromoHelp: "I prezzi attuali sono promozionali durante la beta finale.",
     createInvite: "Crea invito",
     createRedeemCode: "Crea codice redeem",
     consumeBottle: "Bevuta 1",
@@ -4428,6 +4434,10 @@ export function App() {
         </label>
         {authMode === "register" ? (
           <>
+            <div className="invite-notice promo-notice">
+              <strong>{t("finalBetaPromo")}</strong>
+              <span>{t("registerPromoHelp")}</span>
+            </div>
             <label>
               <span>{t("name")}</span>
               <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
@@ -5080,6 +5090,10 @@ export function App() {
                   </div>
                 </div>
                 <p className="public-pricing-note">{landing.savingsNote}</p>
+                <div className="invite-notice promo-notice">
+                  <strong>{t("finalBetaPromo")}</strong>
+                  <span>{t("promoNote")}</span>
+                </div>
               </aside>
             </div>
 
