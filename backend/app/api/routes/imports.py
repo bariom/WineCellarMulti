@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, require_admin_context
 from app.api.routes.wines import normalize_owner_rows
 from app.db.session import get_db
-from app.models import Wine, WineShareOffer, WishlistItem
+from app.models import AiAuditLog, HouseholdInvite, Membership, User, UserTag, Wine, WineShareOffer, WineValueHistory, WishlistItem
 
 
 router = APIRouter(prefix="/imports")
@@ -185,6 +185,83 @@ def model_payload(instance: Wine | WishlistItem) -> dict[str, Any]:
         else:
             result[column.name] = value
     return result
+
+
+def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    wines = list(db.scalars(select(Wine).where(Wine.household_id == household_id).order_by(Wine.name.asc(), Wine.vintage.desc())))
+    wine_ids = [wine.id for wine in wines]
+    value_history_by_wine: dict[UUID, list[dict[str, Any]]] = {wine.id: [] for wine in wines}
+    if wine_ids:
+        value_history = db.scalars(
+            select(WineValueHistory)
+            .where(WineValueHistory.wine_id.in_(wine_ids))
+            .order_by(WineValueHistory.recorded_at.asc(), WineValueHistory.id.asc()),
+        )
+        for entry in value_history:
+            value_history_by_wine.setdefault(entry.wine_id, []).append(model_payload(entry))
+
+    payloads: list[dict[str, Any]] = []
+    for wine in wines:
+        payload = model_payload(wine)
+        payload["value_history"] = value_history_by_wine.get(wine.id, [])
+        payloads.append(payload)
+    return payloads
+
+
+def export_wishlist(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    wishlist = list(db.scalars(select(WishlistItem).where(WishlistItem.household_id == household_id).order_by(WishlistItem.name.asc())))
+    return [model_payload(item) for item in wishlist]
+
+
+def export_members(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    rows = db.execute(
+        select(Membership, User)
+        .join(User, User.id == Membership.user_id)
+        .where(Membership.household_id == household_id)
+        .order_by(User.display_name.asc(), User.email.asc()),
+    ).all()
+    return [
+        {
+            "membership_id": str(membership.id),
+            "user_id": str(user.id),
+            "email": user.email,
+            "display_name": user.display_name,
+            "role": membership.role,
+            "visibility_scope": membership.visibility_scope,
+        }
+        for membership, user in rows
+    ]
+
+
+def export_invites(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    invites = db.scalars(select(HouseholdInvite).where(HouseholdInvite.household_id == household_id).order_by(HouseholdInvite.created_at.desc()))
+    return [
+        {
+            "id": str(invite.id),
+            "email": invite.email,
+            "role": invite.role,
+            "visibility_scope": invite.visibility_scope,
+            "expires_at": invite.expires_at.isoformat(),
+            "accepted_at": invite.accepted_at.isoformat() if invite.accepted_at else None,
+            "created_at": invite.created_at.isoformat(),
+        }
+        for invite in invites
+    ]
+
+
+def export_share_offers(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    offers = db.scalars(select(WineShareOffer).where(WineShareOffer.household_id == household_id).order_by(WineShareOffer.created_at.desc()))
+    return [model_payload(offer) for offer in offers]
+
+
+def export_user_tags(db: Session, user_id: UUID) -> list[dict[str, Any]]:
+    tags = db.scalars(select(UserTag).where(UserTag.user_id == user_id).order_by(UserTag.name.asc()))
+    return [model_payload(tag) for tag in tags]
+
+
+def export_ai_audit(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    logs = db.scalars(select(AiAuditLog).where(AiAuditLog.household_id == household_id).order_by(AiAuditLog.created_at.desc()))
+    return [model_payload(log) for log in logs]
 
 
 def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, Any]:
@@ -401,18 +478,44 @@ def empty_cellar(
 
 @router.get("/export-json")
 def export_json(
+    include_wines: bool = Query(default=True),
+    include_wishlist: bool = Query(default=True),
+    include_members: bool = Query(default=True),
+    include_invites: bool = Query(default=True),
+    include_share_offers: bool = Query(default=True),
+    include_tags: bool = Query(default=True),
+    include_ai_audit: bool = Query(default=True),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_admin_context),
 ) -> dict[str, Any]:
-    wines = list(db.scalars(select(Wine).where(Wine.household_id == context.household.id).order_by(Wine.name.asc(), Wine.vintage.desc())))
-    wishlist = list(db.scalars(select(WishlistItem).where(WishlistItem.household_id == context.household.id).order_by(WishlistItem.name.asc())))
-    return {
-        "schema": "winecellarmulti.export.v1",
+    export_payload: dict[str, Any] = {
+        "schema": "winecellarmulti.export.v2",
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "household": {
             "id": str(context.household.id),
             "name": context.household.name,
         },
-        "wines": [model_payload(wine) for wine in wines],
-        "wishlist": [model_payload(item) for item in wishlist],
+        "included_blocks": [],
     }
+    if include_wines:
+        export_payload["wines"] = export_wines(db, context.household.id)
+        export_payload["included_blocks"].append("wines")
+    if include_wishlist:
+        export_payload["wishlist"] = export_wishlist(db, context.household.id)
+        export_payload["included_blocks"].append("wishlist")
+    if include_members:
+        export_payload["members"] = export_members(db, context.household.id)
+        export_payload["included_blocks"].append("members")
+    if include_invites:
+        export_payload["invites"] = export_invites(db, context.household.id)
+        export_payload["included_blocks"].append("invites")
+    if include_share_offers:
+        export_payload["share_offers"] = export_share_offers(db, context.household.id)
+        export_payload["included_blocks"].append("share_offers")
+    if include_tags:
+        export_payload["user_tags"] = export_user_tags(db, context.user.id)
+        export_payload["included_blocks"].append("user_tags")
+    if include_ai_audit:
+        export_payload["ai_audit"] = export_ai_audit(db, context.household.id)
+        export_payload["included_blocks"].append("ai_audit")
+    return export_payload

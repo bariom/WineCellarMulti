@@ -1678,6 +1678,33 @@ textarea {
   font-size: 0.78rem;
 }
 
+.export-options-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.export-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-subtle);
+  cursor: pointer;
+}
+
+.export-option input {
+  margin: 0;
+}
+
+.export-option span {
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
 .inline-row-form {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;

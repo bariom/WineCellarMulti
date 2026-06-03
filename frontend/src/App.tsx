@@ -377,6 +377,16 @@ type ContactSupportDraft = {
   message: string;
 };
 
+type ExportSelection = {
+  wines: boolean;
+  wishlist: boolean;
+  members: boolean;
+  invites: boolean;
+  share_offers: boolean;
+  user_tags: boolean;
+  ai_audit: boolean;
+};
+
 type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
@@ -425,6 +435,16 @@ const emptyConsumeWineDraft = (): ConsumeWineDraft => ({
   tasting_pairing: "",
   tasting_companions: "",
 });
+
+const defaultExportSelection: ExportSelection = {
+  wines: true,
+  wishlist: true,
+  members: true,
+  invites: true,
+  share_offers: true,
+  user_tags: true,
+  ai_audit: true,
+};
 
 const translations = {
   en: {
@@ -701,6 +721,15 @@ const translations = {
     wishlistItems: "Wishlist items",
     exportData: "Export data",
     exportJson: "Export JSON",
+    exportFullCellarHelp: "Today export can include the full cellar backup. Choose which blocks to include before downloading the JSON.",
+    exportIncludesWines: "Wines",
+    exportIncludesWishlist: "Wishlist",
+    exportIncludesMembers: "Members",
+    exportIncludesInvites: "Invites",
+    exportIncludesShareOffers: "Shared positions",
+    exportIncludesTags: "My tags",
+    exportIncludesAiAudit: "AI audit",
+    exportSensitiveNote: "Passwords, API keys, billing secrets, sessions and passkeys are never exported.",
     generatedCode: "Generated code",
     paidRedeemCode: "Paid redeem code",
     working: "Working",
@@ -995,6 +1024,15 @@ const translations = {
     wishlistItems: "Elementi wishlist",
     exportData: "Esportazione dati",
     exportJson: "Esporta JSON",
+    exportFullCellarHelp: "Ora l'export può includere il backup completo della cantina. Scegli quali blocchi inserire prima di scaricare il JSON.",
+    exportIncludesWines: "Vini",
+    exportIncludesWishlist: "Wishlist",
+    exportIncludesMembers: "Membri",
+    exportIncludesInvites: "Inviti",
+    exportIncludesShareOffers: "Posizioni condivise",
+    exportIncludesTags: "Miei tag",
+    exportIncludesAiAudit: "Audit AI",
+    exportSensitiveNote: "Password, chiavi API, segreti billing, sessioni e passkey non vengono mai esportati.",
     generatedCode: "Codice generato",
     paidRedeemCode: "Codice redeem acquistato",
     working: "Elaborazione",
@@ -2777,6 +2815,7 @@ export function App() {
   const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
   const [redeemInput, setRedeemInput] = useState("");
   const [generatedRedeemCode, setGeneratedRedeemCode] = useState("");
+  const [exportSelection, setExportSelection] = useState<ExportSelection>(defaultExportSelection);
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
@@ -2815,6 +2854,16 @@ export function App() {
   const t = (key: TranslationKey) => translate(locale, key);
   const landing = landingContent[locale];
   const helpGuide = helpGuideContent[locale];
+  const exportBlocks = [
+    { key: "wines", label: t("exportIncludesWines") },
+    { key: "wishlist", label: t("exportIncludesWishlist") },
+    { key: "members", label: t("exportIncludesMembers") },
+    { key: "invites", label: t("exportIncludesInvites") },
+    { key: "share_offers", label: t("exportIncludesShareOffers") },
+    { key: "user_tags", label: t("exportIncludesTags") },
+    { key: "ai_audit", label: t("exportIncludesAiAudit") },
+  ] as const;
+  const hasSelectedExportBlock = exportBlocks.some(({ key }) => exportSelection[key]);
   const wineTemplateSuggestions = [...wines, ...wineCatalog]
     .filter((wine, index, items) => wine.name.trim() && items.findIndex((item) => item.name.trim().toLowerCase() === wine.name.trim().toLowerCase()) === index)
     .sort((first, second) => first.name.localeCompare(second.name));
@@ -3994,12 +4043,16 @@ export function App() {
     setSaving(true);
     setError("");
     try {
-      const payload = await api<Record<string, unknown>>("/api/v1/imports/export-json");
+      const query = new URLSearchParams();
+      for (const [key, value] of Object.entries(exportSelection)) {
+        query.set(`include_${key}`, value ? "true" : "false");
+      }
+      const payload = await api<Record<string, unknown>>(`/api/v1/imports/export-json?${query.toString()}`);
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `winecellarmulti-export-${new Date().toISOString().slice(0, 10)}.json`;
+      link.download = `vinaris-cellar-export-${new Date().toISOString().slice(0, 10)}.json`;
       link.click();
       URL.revokeObjectURL(url);
     } catch (nextError) {
@@ -4102,6 +4155,10 @@ export function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function toggleExportSelection(key: keyof ExportSelection) {
+    setExportSelection((current) => ({ ...current, [key]: !current[key] }));
   }
 
   async function generateMissingWineAi(feature: WineAiFeature, items: Wine[]) {
@@ -6802,11 +6859,28 @@ export function App() {
                       <span>{t("wishlist")}: +{importResult.wishlist_imported}, {t("updatedItems")} {importResult.wishlist_updated}, {t("skipped")} {importResult.wishlist_skipped}</span>
                     </div>
                   ) : null}
+                  <div className="token-box">
+                    <strong>{t("exportData")}</strong>
+                    <span>{t("exportFullCellarHelp")}</span>
+                    <small>{t("exportSensitiveNote")}</small>
+                  </div>
+                  <div className="export-options-grid">
+                    {exportBlocks.map((block) => (
+                      <label className="export-option" key={block.key}>
+                        <input
+                          type="checkbox"
+                          checked={exportSelection[block.key]}
+                          onChange={() => toggleExportSelection(block.key)}
+                        />
+                        <span>{block.label}</span>
+                      </label>
+                    ))}
+                  </div>
                   <div className="inline-form">
                     <button type="button" disabled={saving || !importPayload} onClick={runLegacyImport}>
                       {t("importRun")}
                     </button>
-                    <button type="button" className="secondary" disabled={saving} onClick={exportJson}>
+                    <button type="button" className="secondary" disabled={saving || !hasSelectedExportBlock} onClick={exportJson}>
                       {t("exportJson")}
                     </button>
                   </div>
