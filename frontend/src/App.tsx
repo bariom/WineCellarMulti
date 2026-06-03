@@ -620,6 +620,7 @@ const translations = {
     markRead: "Mark read",
     multiOwnership: "Multi ownership",
     missingDrinkWindow: "Missing drink window",
+    missingGrapes: "Missing grapes",
     missingScores: "Missing scores",
     missingValue: "Missing value",
     myBottles: "My bottles",
@@ -951,6 +952,7 @@ const translations = {
     markRead: "Segna letta",
     multiOwnership: "Multiproprietà",
     missingDrinkWindow: "Finestra mancante",
+    missingGrapes: "Uve mancanti",
     missingScores: "Punteggi mancanti",
     missingValue: "Valore mancante",
     myBottles: "Mie bottiglie",
@@ -4652,7 +4654,7 @@ export function App() {
       if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
       if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
       if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
-      if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0;
+      if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0;
       return true;
     })
     .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
@@ -4723,6 +4725,7 @@ export function App() {
       .sort((first, second) => first.days - second.days)[0],
     missingValue: cellarWines.filter((wine) => !wine.current_value).length,
     missingDrinkWindow: cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to)).length,
+    missingGrapes: cellarWines.filter((wine) => wine.grapes.length === 0).length,
     missingScores: cellarWines.filter((wine) => wine.scores.length === 0).length,
     aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
@@ -4778,10 +4781,10 @@ export function App() {
     total: deliveryTimelineItems.length,
   };
   const incompleteWines = cellarWines
-    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0)
+    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0)
     .sort((first, second) => {
-      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0);
-      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0);
+      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0) + Number(first.grapes.length === 0);
+      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0) + Number(second.grapes.length === 0);
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
@@ -4799,10 +4802,12 @@ export function App() {
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
   const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
+  const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0);
   const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0);
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
+  const missingGrapesWines = allMissingGrapesWines.slice(0, 5);
   const missingScoresWines = allMissingScoresWines;
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
@@ -5689,7 +5694,7 @@ export function App() {
                       <span>{t("incompleteData")}</span>
                       <h2>{t("dataQuality")}</h2>
                     </div>
-                    <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingScores}</strong>
+                      <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores}</strong>
                   </div>
                   <div className="action-list">
                     {incompleteWines.length ? incompleteWines.map((wine) => (
@@ -5983,7 +5988,7 @@ export function App() {
                         <span>{t("incompleteData")}</span>
                         <h2>{t("dataQuality")}</h2>
                       </div>
-                      <strong>{allValueRefreshWines.length + cellarStats.missingDrinkWindow + cellarStats.missingScores}</strong>
+                      <strong>{allValueRefreshWines.length + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores}</strong>
                     </div>
                     <p>{t("aiReadinessHelp")}</p>
                   </article>
@@ -6034,6 +6039,30 @@ export function App() {
                           </button>
                           <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "drink-window")}>
                             {generatingAi === "drink-window" && selectedWineId === wine.id ? t("generating") : t("drinkWindow")}
+                          </button>
+                        </div>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingGrapes")}</span>
+                        <h2>{t("grapes")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingGrapes}</strong>
+                    </div>
+                    <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingGrapesWines.length === 0} onClick={() => generateMissingWineAi("grapes", allMissingGrapesWines)}>
+                      {generatingAi === "batch-grapes" ? t("generating") : t("generateAll")}
+                    </button>
+                    <div className="action-list">
+                      {missingGrapesWines.length ? missingGrapesWines.map((wine) => (
+                        <div className="action-row data-quality-row" key={wine.id}>
+                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
+                          </button>
+                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "grapes")}>
+                            {generatingAi === "grapes" && selectedWineId === wine.id ? t("generating") : t("grapes")}
                           </button>
                         </div>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
@@ -6493,6 +6522,7 @@ export function App() {
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataQuality")}</span>
                   <p>{t("missingValue")}: <strong>{cellarStats.missingValue}</strong></p>
                   <p>{t("missingDrinkWindow")}: <strong>{cellarStats.missingDrinkWindow}</strong></p>
+                  <p>{t("missingGrapes")}: <strong>{cellarStats.missingGrapes}</strong></p>
                   <p>{t("missingScores")}: <strong>{cellarStats.missingScores}</strong></p>
                 </button>
                 {valueByType.length ? (
