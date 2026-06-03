@@ -2089,6 +2089,44 @@ function BreakdownDonut({
   );
 }
 
+function collectorFocusSvgIcon(kind: "drink_now" | "past_window" | "future_deliveries" | "missing_data" | "maturity" | "regions" | "producer") {
+  if (kind === "drink_now") return dashboardStatSvgIcon("drink_now");
+  if (kind === "past_window") return dashboardStatSvgIcon("past_window");
+  if (kind === "future_deliveries") return dashboardStatSvgIcon("future_deliveries");
+  if (kind === "missing_data") return dashboardStatSvgIcon("missing_data");
+  if (kind === "maturity") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 18h14" />
+        <path d="M7 18V9" />
+        <path d="M12 18V5" />
+        <path d="M17 18v-6" />
+        <path d="M4 6h3" />
+        <path d="M10 3h4" />
+        <path d="M16 9h3" />
+      </svg>
+    );
+  }
+  if (kind === "regions") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M4 12h16" />
+        <path d="M12 4a12 12 0 0 1 0 16" />
+        <path d="M12 4a12 12 0 0 0 0 16" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 18V8" />
+      <path d="M12 18V5" />
+      <path d="M18 18v-9" />
+      <path d="M4 18h16" />
+    </svg>
+  );
+}
+
 function isWishlistReadyToBuy(status: string) {
   const normalized = status.trim().toLowerCase();
   return ["buy", "ready", "approved", "compra", "acquista", "pronto", "approvato"]
@@ -5729,7 +5767,7 @@ export function App() {
                   <div className="card-heading">
                     <div>
                       <span>{t("priorityActions")}</span>
-                      <h2>{t("drinkNow")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</i>{t("drinkNow")}</h2>
                     </div>
                     <strong>{cellarStats.drinkNow}</strong>
                   </div>
@@ -5747,7 +5785,7 @@ export function App() {
                   <div className="card-heading">
                     <div>
                       <span>{t("atRiskWines")}</span>
-                      <h2>{t("pastWindow")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("past_window")}</i>{t("pastWindow")}</h2>
                     </div>
                     <strong>{cellarStats.pastWindow}</strong>
                   </div>
@@ -5765,7 +5803,7 @@ export function App() {
                   <button type="button" className="card-heading card-heading-button" onClick={() => setDashboardFocus("timeline")}>
                     <div>
                       <span>{t("upcomingDeliveries")}</span>
-                      <h2>{t("futureDeliveries")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("future_deliveries")}</i>{t("futureDeliveries")}</h2>
                     </div>
                     <strong>{cellarStats.futureDeliveries}</strong>
                   </button>
@@ -5783,7 +5821,7 @@ export function App() {
                   <div className="card-heading">
                     <div>
                       <span>{t("incompleteData")}</span>
-                      <h2>{t("dataQuality")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("missing_data")}</i>{t("dataQuality")}</h2>
                     </div>
                       <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores}</strong>
                   </div>
@@ -5801,7 +5839,7 @@ export function App() {
                   <div className="card-heading">
                     <div>
                       <span>{t("maturityMap")}</span>
-                      <h2>{t("drinkingWindow")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("maturity")}</i>{t("drinkingWindow")}</h2>
                     </div>
                   </div>
                   <div className="maturity-grid">
@@ -5821,7 +5859,7 @@ export function App() {
                   <div className="card-heading">
                     <div>
                       <span>{t("investedMore")}</span>
-                      <h2>{t("topRegions")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("topRegions")}</h2>
                     </div>
                   </div>
                   <div className="bar-list">
@@ -5838,7 +5876,7 @@ export function App() {
                   <div className="card-heading">
                     <div>
                       <span>{t("valueByProducer")}</span>
-                      <h2>{t("producer")}</h2>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("producer")}</i>{t("producer")}</h2>
                     </div>
                   </div>
                   <div className="bar-list">
