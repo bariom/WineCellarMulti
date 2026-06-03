@@ -1241,15 +1241,15 @@ const landingContent: Record<
       founderSupport: string;
       founderName: string;
       founderRole: string;
-    principlesTitle: string;
-    principles: Array<{ title: string; body: string }>;
-    collectorTitle: string;
-    collectorBody: string;
-    pricesTitle: string;
-    monthlyLabel: string;
-    annualLabel: string;
-    savingsNote: string;
-    features: Array<{ title: string; body: string; highlight?: boolean }>;
+      principlesTitle: string;
+      principles: Array<{ title: string; body: string }>;
+      collectorTitle: string;
+      collectorBody: string;
+      pricesTitle: string;
+      monthlyLabel: string;
+      annualLabel: string;
+      savingsNote: string;
+      features: Array<{ title: string; body: string; highlight?: boolean; ai?: boolean }>;
   }
 > = {
   en: {
@@ -1296,14 +1296,16 @@ const landingContent: Record<
         title: "Catalog bottles and allocations",
         body: "Register producers, vintages, formats, delivery status, shared ownership, and personal notes.",
       },
-      {
-        title: "Monitor drinking windows",
-        body: "See which wines are too young, at peak, or drifting past their ideal window.",
-      },
-      {
-        title: "Follow cellar value",
-        body: "Track purchase price, current value, and price history to understand where your cellar is appreciating.",
-      },
+        {
+          title: "Monitor drinking windows",
+          body: "See which wines are too young, at peak, or drifting past their ideal window.",
+          ai: true,
+        },
+        {
+          title: "Follow cellar value",
+          body: "Track purchase price, current value, and price history to understand where your cellar is appreciating.",
+          ai: true,
+        },
       {
         title: "Handle futures and deliveries",
         body: "Manage ordered and en primeur wines, expected arrivals, and the delivery timeline from one place.",
@@ -1312,14 +1314,16 @@ const landingContent: Record<
         title: "Keep a tasting archive",
         body: "Move finished wines into history automatically and preserve their notes, scores, value trail, and context for later reference.",
       },
-      {
-        title: "Keep a focused wishlist",
-        body: "Capture target bottles, target prices, buying priorities, and conversion from wishlist to cellar.",
-      },
-      {
-        title: "Decide what to drink next",
-        body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
-      },
+        {
+          title: "Keep a focused wishlist",
+          body: "Capture target bottles, target prices, buying priorities, and conversion from wishlist to cellar.",
+          ai: true,
+        },
+        {
+          title: "Decide what to drink next",
+          body: "Use readiness views, filters, pairings, and collector-focused insights to choose bottles with confidence.",
+          ai: true,
+        },
         {
           title: "Unlock the full workflow with OpenAI or AI Pack",
           body: "Unlock the full potential of Vinaris with your own OpenAI key or by purchasing an in-app AI Pack: notes, drinking windows, value checks, wishlist strategy, pairings, and richer cellar decisions. Personal tokens are encrypted and stored securely, while AI Pack usage is handled entirely by the app.",
@@ -1371,14 +1375,16 @@ const landingContent: Record<
         title: "Catalogare bottiglie e quote",
         body: "Registra produttori, annate, formati, stato consegna, multiproprietà e note personali.",
       },
-      {
-        title: "Monitorare la finestra di beva",
-        body: "Vedi subito quali vini sono troppo giovani, al picco o oltre la fase ideale.",
-      },
-      {
-        title: "Seguire il valore della cantina",
-        body: "Controlla prezzo di acquisto, valore attuale e storico per capire dove la cantina cresce.",
-      },
+        {
+          title: "Monitorare la finestra di beva",
+          body: "Vedi subito quali vini sono troppo giovani, al picco o oltre la fase ideale.",
+          ai: true,
+        },
+        {
+          title: "Seguire il valore della cantina",
+          body: "Controlla prezzo di acquisto, valore attuale e storico per capire dove la cantina cresce.",
+          ai: true,
+        },
       {
         title: "Gestire futures e consegne",
         body: "Organizza vini ordinati ed en primeur, arrivi attesi e timeline delle consegne in un solo posto.",
@@ -1387,14 +1393,16 @@ const landingContent: Record<
         title: "Conservare uno storico degustativo",
         body: "Quando una bottiglia finisce, passa nello storico mantenendo note, punteggi, traccia di valore e contesto per consultazioni future.",
       },
-      {
-        title: "Tenere una wishlist utile",
-        body: "Salva bottiglie target, prezzi desiderati, priorità di acquisto e conversione rapida in cantina.",
-      },
-      {
-        title: "Decidere cosa bere",
-        body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
-      },
+        {
+          title: "Tenere una wishlist utile",
+          body: "Salva bottiglie target, prezzi desiderati, priorità di acquisto e conversione rapida in cantina.",
+          ai: true,
+        },
+        {
+          title: "Decidere cosa bere",
+          body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per scegliere meglio.",
+          ai: true,
+        },
         {
           title: "Sblocca tutto il potenziale con OpenAI o AI Pack",
           body: "Puoi sfruttare davvero Vinaris con la tua chiave OpenAI oppure acquistando un AI Pack in-app: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina piu ricche. I token personali vengono criptati e archiviati in modo sicuro, mentre l'AI Pack usa la chiave dell'app senza esporla all'utente.",
@@ -5106,15 +5114,16 @@ export function App() {
                 <p className="eyebrow">{landing.collectorTitle}</p>
                 <h3>{landing.collectorBody}</h3>
               </div>
-              <div className="public-feature-grid">
-                {landing.features.map((feature) => (
-                  <article className={feature.highlight ? "public-feature public-feature-highlight" : "public-feature"} key={feature.title}>
+                <div className="public-feature-grid">
+                  {landing.features.map((feature) => (
+                  <article className={`${feature.highlight ? "public-feature public-feature-highlight" : "public-feature"}${feature.ai && !feature.highlight ? " public-feature-ai" : ""}`} key={feature.title}>
+                    {feature.ai && !feature.highlight ? <span className="public-feature-pill">AI</span> : null}
                     <h4>{feature.title}</h4>
                     <p>{feature.body}</p>
                   </article>
                 ))}
-              </div>
-            </section>
+                </div>
+              </section>
 
             <section className="public-story-card">
               <div className="public-story-copy">

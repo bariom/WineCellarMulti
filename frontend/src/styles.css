@@ -1427,6 +1427,25 @@ summary:focus-visible {
   background: linear-gradient(160deg, var(--surface-raised) 0%, var(--surface-muted) 100%);
 }
 
+.public-feature-ai {
+  position: relative;
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+}
+
+.public-feature-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 9px;
+  border-radius: 999px;
+  color: var(--primary-contrast);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--primary) 92%, black 8%);
+}
+
 .public-feature-highlight {
   position: relative;
   border-color: color-mix(in srgb, var(--accent) 54%, var(--border));
