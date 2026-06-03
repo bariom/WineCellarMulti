@@ -2159,77 +2159,6 @@ function DetailField({
   value: ReactNode;
   emptyLabel: string;
 }) {
-  const publicAuthPanel = (
-    <section className="auth-panel" id="auth-panel">
-      {acceptToken ? (
-        <div className="invite-notice">
-          <strong>{t("inviteLinkDetected")}</strong>
-          <span>{t("inviteLinkHelp")}</span>
-        </div>
-      ) : null}
-      <div className="auth-tabs">
-        <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>{t("login")}</button>
-        <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
-      </div>
-      <form className="wine-form" onSubmit={submitAuth}>
-        <h2>{authMode === "register" ? t("createAccount") : t("login")}</h2>
-        {session?.pending_approval ? (
-          <div className="invite-notice">
-            <strong>{t("pendingApproval")}</strong>
-            <span>{t("pendingApprovalHelp")}</span>
-          </div>
-        ) : null}
-        <label>
-          <span>{t("email")}</span>
-          <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
-        </label>
-        {authMode === "register" ? (
-          <>
-            <label>
-              <span>{t("name")}</span>
-              <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
-            </label>
-            <label>
-              <span>{t("cellarName")}</span>
-              <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
-            </label>
-          </>
-        ) : null}
-        <label>
-          <span>{t("password")}</span>
-          <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
-        </label>
-        {authMode === "register" ? (
-          <label>
-            <span>{t("confirmPassword")}</span>
-            <input type="password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
-          </label>
-        ) : null}
-        <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : t("login")}</button>
-        {authMode === "login" ? (
-          <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>
-            {t("passkeyLogin")}
-          </button>
-        ) : null}
-      </form>
-      <section className="wine-form">
-        <h2>{t("offlineBackup")}</h2>
-        <p className="empty-state">{t("offlineBackupHelp")}</p>
-        <label>
-          <span>{t("loadBackup")}</span>
-          <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
-        </label>
-      </section>
-      <ContactSupportPanel
-        t={t}
-        draft={contactSupportDraft}
-        setDraft={setContactSupportDraft}
-        saving={saving}
-        onSubmit={submitContactSupport}
-      />
-    </section>
-  );
-
   return (
     <div className="detail-field">
       <span>{label}</span>
@@ -3391,12 +3320,6 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    if (!authenticated && acceptToken && !isMobileViewport) {
-      setAuthModalOpen(true);
-    }
-  }, [authenticated, acceptToken, isMobileViewport]);
-
-  useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
       const resolvedTheme = themePreference === "system" ? (darkQuery.matches ? "dark" : "light") : themePreference;
@@ -4452,6 +4375,85 @@ export function App() {
         : aiSettings.can_use_app_credits
           ? t("appAiReady")
           : t("noApiKey");
+  const publicAuthPanel = (
+    <section className="auth-panel" id="auth-panel">
+      {acceptToken ? (
+        <div className="invite-notice">
+          <strong>{t("inviteLinkDetected")}</strong>
+          <span>{t("inviteLinkHelp")}</span>
+        </div>
+      ) : null}
+      <div className="auth-tabs">
+        <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>{t("login")}</button>
+        <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
+      </div>
+      <form className="wine-form" onSubmit={submitAuth}>
+        <h2>{authMode === "register" ? t("createAccount") : t("login")}</h2>
+        {session?.pending_approval ? (
+          <div className="invite-notice">
+            <strong>{t("pendingApproval")}</strong>
+            <span>{t("pendingApprovalHelp")}</span>
+          </div>
+        ) : null}
+        <label>
+          <span>{t("email")}</span>
+          <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
+        </label>
+        {authMode === "register" ? (
+          <>
+            <label>
+              <span>{t("name")}</span>
+              <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
+            </label>
+            <label>
+              <span>{t("cellarName")}</span>
+              <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
+            </label>
+          </>
+        ) : null}
+        <label>
+          <span>{t("password")}</span>
+          <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
+        </label>
+        {authMode === "register" ? (
+          <label>
+            <span>{t("confirmPassword")}</span>
+            <input type="password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
+          </label>
+        ) : null}
+        <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : t("login")}</button>
+        {authMode === "login" ? (
+          <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>
+            {t("passkeyLogin")}
+          </button>
+        ) : null}
+      </form>
+      {isMobileViewport ? (
+        <section className="wine-form">
+          <h2>{t("offlineBackup")}</h2>
+          <p className="empty-state">{t("offlineBackupHelp")}</p>
+          <label>
+            <span>{t("loadBackup")}</span>
+            <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
+          </label>
+        </section>
+      ) : null}
+      <ContactSupportPanel
+        t={t}
+        draft={contactSupportDraft}
+        setDraft={setContactSupportDraft}
+        saving={saving}
+        onSubmit={submitContactSupport}
+      />
+    </section>
+  );
+
+  useEffect(() => {
+    if (!authenticated && acceptToken && !isMobileViewport) {
+      setAuthModalOpen(true);
+    }
+  }, [authenticated, acceptToken, isMobileViewport]);
+
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
