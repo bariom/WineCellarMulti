@@ -758,6 +758,46 @@ summary:focus-visible {
   margin-top: 24px;
 }
 
+.auth-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 28px;
+  background: color-mix(in srgb, #08110d 58%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+.auth-modal-card {
+  width: min(100%, 480px);
+  max-height: calc(100vh - 56px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: 22px;
+  background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
+  box-shadow: var(--shadow-strong);
+}
+
+.auth-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.auth-modal-head strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.auth-modal-card .auth-panel {
+  max-width: none;
+  margin-top: 0;
+}
+
 .support-panel {
   display: grid;
   gap: 10px;
