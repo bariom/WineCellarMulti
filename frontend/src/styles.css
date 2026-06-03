@@ -2725,10 +2725,22 @@ button.stat-card:hover {
   grid-column: span 2;
 }
 
+.breakdown-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 132px;
+  gap: 1rem;
+  align-items: center;
+}
+
+.breakdown-list {
+  display: grid;
+  gap: 0.45rem;
+}
+
 .breakdown-donut-wrap {
   display: flex;
-  justify-content: center;
-  margin: 0.2rem 0 0.45rem;
+  justify-content: flex-end;
+  margin: 0;
 }
 
 .breakdown-donut {
@@ -2762,6 +2774,16 @@ button.stat-card:hover {
   margin-top: 0.18rem;
   font-size: 0.58rem;
   letter-spacing: 0.08em;
+}
+
+.breakdown-marker {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 999px;
+  display: inline-block;
+  margin-right: 0.45rem;
+  flex: 0 0 auto;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 35%, transparent);
 }
 
 .stat-card p,

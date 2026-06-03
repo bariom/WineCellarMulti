@@ -6586,25 +6586,33 @@ export function App() {
                 {valueByType.length ? (
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("valueByType")}</span>
-                    <BreakdownDonut items={valueByType} mode="type" />
-                    {valueByType.map((item) => (
-                      <p key={item.label}>
-                        <i className={`wine-dot tone-${wineTone(item.label)}`} />
-                        {item.label}: CHF {item.value.toFixed(0)}
-                      </p>
-                    ))}
+                    <div className="breakdown-layout">
+                      <div className="breakdown-list">
+                        {valueByType.map((item) => (
+                          <p key={item.label}>
+                            <i className={`wine-dot tone-${wineTone(item.label)}`} />
+                            {item.label}: CHF {item.value.toFixed(0)}
+                          </p>
+                        ))}
+                      </div>
+                      <BreakdownDonut items={valueByType} mode="type" />
+                    </div>
                   </div>
                 ) : null}
                 {valueByRegion.length ? (
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("topRegions")}</span>
-                    <BreakdownDonut items={valueByRegion} mode="region" />
-                    {valueByRegion.map((item, index) => (
-                      <p key={item.label}>
-                        <i className="wine-dot" style={{ "--wine-tone-color": breakdownColor(item.label, index, "region") } as CSSProperties} />
-                        {item.label}: CHF {item.value.toFixed(0)}
-                      </p>
-                    ))}
+                    <div className="breakdown-layout">
+                      <div className="breakdown-list">
+                        {valueByRegion.map((item, index) => (
+                          <p key={item.label}>
+                            <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
+                            {item.label}: CHF {item.value.toFixed(0)}
+                          </p>
+                        ))}
+                      </div>
+                      <BreakdownDonut items={valueByRegion} mode="region" />
+                    </div>
                   </div>
                 ) : null}
                 <div className="stat-card compact-list ai-card">
