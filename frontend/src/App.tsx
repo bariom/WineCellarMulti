@@ -4878,6 +4878,16 @@ export function App() {
     );
   }
 
+  const publicBrandLockup = (
+    <div className="public-brand-lockup">
+      <span className="public-brand-mark" aria-hidden="true">V</span>
+      <div className="public-brand-copy">
+        <strong>Vinaris</strong>
+        <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>
+      </div>
+    </div>
+  );
+
   return (
     <main className="app-shell">
       <datalist id="wine-catalog-suggestions">
@@ -4891,8 +4901,14 @@ export function App() {
       </datalist>
       <header className="topbar">
         <div>
-          <p className="eyebrow">Vinaris</p>
-          <h1>{authenticated ? session?.active_household_name || "Vinaris" : "Vinaris"}</h1>
+          {authenticated ? (
+            <>
+              <p className="eyebrow">Vinaris</p>
+              <h1>{session?.active_household_name || "Vinaris"}</h1>
+            </>
+          ) : (
+            publicBrandLockup
+          )}
         </div>
         {authenticated ? (
           <div className="session-pill">
@@ -5005,7 +5021,6 @@ export function App() {
           <section className="public-landing">
             <div className="public-hero">
               <div className="public-hero-copy">
-                <p className="eyebrow">Vinaris</p>
                 <h2>{landing.headline}</h2>
                 <strong>{landing.subheadline}</strong>
                 <p>{landing.description}</p>
