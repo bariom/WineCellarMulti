@@ -1003,6 +1003,84 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     assert [item["name"] for item in wishlist.json()] == ["Roundtrip Wishlist"]
 
 
+def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
+    source = TestClient(app)
+    target = TestClient(app)
+    assert register(source, email="source@example.com").status_code == 201
+    assert register(target, email="target@example.com").status_code == 201
+    pending_users = source.get("/api/v1/auth/pending-users")
+    assert pending_users.status_code == 200
+    target_user = next(user for user in pending_users.json() if user["email"] == "target@example.com")
+    assert source.post(f"/api/v1/auth/pending-users/{target_user['id']}/approve").status_code == 200
+    target_login = target.post("/api/v1/auth/login", json={"email": "target@example.com", "password": "strong-password-1"})
+    assert target_login.status_code == 200
+    target_session = target.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        db.add(
+            UserEntitlement(
+                user_id=uuid.UUID(target_session["user_id"]),
+                source="test",
+                valid_from=datetime.now(timezone.utc),
+                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+            ),
+        )
+        db.commit()
+
+    created_wine = source.post(
+        "/api/v1/wines",
+        json={
+            "name": "Shared Export Wine",
+            "producer": "Source Producer",
+            "quantity": 1,
+            "price": 42,
+            "currency": "CHF",
+        },
+    )
+    assert created_wine.status_code == 201
+    source_session = source.get("/api/v1/session").json()
+    source_wine_id = uuid.UUID(created_wine.json()["id"])
+    audit_id = uuid.uuid4()
+
+    with TestingSessionLocal() as db:
+        db.add(
+            AiAuditLog(
+                id=audit_id,
+                household_id=uuid.UUID(source_session["active_household_id"]),
+                user_id=uuid.UUID(source_session["user_id"]),
+                entity_type="wine",
+                entity_id=source_wine_id,
+                feature="ai_value",
+                model="gpt-5.4-mini",
+                outcome="success",
+                summary="Imported from source household",
+                sources=[],
+                input_tokens=10,
+                cached_input_tokens=0,
+                output_tokens=5,
+                total_tokens=15,
+                estimated_cost_usd=Decimal("0.001000"),
+                created_at=datetime.now(timezone.utc),
+            ),
+        )
+        db.commit()
+
+    exported = source.get(
+        "/api/v1/imports/export-json?include_members=false&include_invites=false&include_share_offers=false&include_tags=false",
+    )
+    assert exported.status_code == 200
+    export_payload = exported.json()
+    assert "ai_audit" in export_payload["included_blocks"]
+
+    preview = target.post("/api/v1/imports/json/preview", json=export_payload)
+    assert preview.status_code == 200
+    assert preview.json()["format"] == "vinaris"
+
+    imported = target.post("/api/v1/imports/json?mode=skip_duplicates", json=export_payload)
+    assert imported.status_code == 200
+    assert imported.json()["wines_imported"] == 1
+    assert imported.json()["ai_audit_imported"] == 1
+
+
 def test_ai_generation_requires_configured_openai_key():
     client = TestClient(app)
     assert register(client).status_code == 201
