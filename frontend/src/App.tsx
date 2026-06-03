@@ -4380,6 +4380,13 @@ export function App() {
         : aiSettings.can_use_app_credits
           ? t("appAiReady")
           : t("noApiKey");
+  const aiSettingsBalance = Number(aiSettings?.app_credit_balance_usd || 0);
+  const billingAiBalance = Number(billingStatus?.ai_credit_balance_usd || 0);
+  const showAiBudgetPanel =
+    Boolean(aiSettings && !aiSettings.has_openai_api_key) ||
+    aiSettingsBalance > 0 ||
+    billingAiBalance > 0 ||
+    aiSettingsDraft.provider_mode === "credits";
   const publicAuthPanel = (
     <section className="auth-panel" id="auth-panel">
       {acceptToken ? (
@@ -6745,19 +6752,21 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("notSpecified")}</p>
                 )}
-                <div className="ai-budget-panel">
-                  <div className="ai-budget-head">
-                    <strong>{t("aiCreditBalance")}</strong>
-                    <span>{formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</span>
-                  </div>
-                  <div className="ai-budget-bar" aria-hidden="true">
-                    <div
-                      className="ai-budget-fill"
-                      style={{ width: `${aiBudgetFillRatio(billingStatus?.ai_credit_balance_usd || 0, billingStatus?.ai_credit_pack_size_usd || 0) * 100}%` }}
-                    />
-                  </div>
-                  <small>{t("aiBudgetUsage")}</small>
-                </div>
+                  {showAiBudgetPanel ? (
+                    <div className="ai-budget-panel">
+                      <div className="ai-budget-head">
+                        <strong>{t("aiCreditBalance")}</strong>
+                        <span>{formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</span>
+                      </div>
+                      <div className="ai-budget-bar" aria-hidden="true">
+                        <div
+                          className="ai-budget-fill"
+                          style={{ width: `${aiBudgetFillRatio(billingStatus?.ai_credit_balance_usd || 0, billingStatus?.ai_credit_pack_size_usd || 0) * 100}%` }}
+                        />
+                      </div>
+                      <small>{t("aiBudgetUsage")}</small>
+                    </div>
+                  ) : null}
               </section>
               ) : null}
 
@@ -6789,29 +6798,31 @@ export function App() {
                       placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
                     />
                   </label>
-                  <div className="token-box">
-                    <strong>{t("aiCreditBalance")}</strong>
-                    <span>{formatAiBudget(aiSettings?.app_credit_balance_usd || 0)}</span>
-                    <div className="ai-budget-bar" aria-hidden="true">
-                      <div
-                        className="ai-budget-fill"
-                        style={{ width: `${aiBudgetFillRatio(aiSettings?.app_credit_balance_usd || 0, aiSettings?.ai_credit_pack_size_usd || 0) * 100}%` }}
-                      />
-                    </div>
-                    <small>{t("aiBudgetUsage")}</small>
-                    <small>{t("aiCreditsHelp")}</small>
-                    {aiSettingsDraft.provider_mode === "credits" && !aiSettings?.can_use_app_credits ? (
-                      <small>{t("appAiKeyMissing")}</small>
+                    {showAiBudgetPanel ? (
+                      <div className="token-box">
+                        <strong>{t("aiCreditBalance")}</strong>
+                        <span>{formatAiBudget(aiSettings?.app_credit_balance_usd || 0)}</span>
+                        <div className="ai-budget-bar" aria-hidden="true">
+                          <div
+                            className="ai-budget-fill"
+                            style={{ width: `${aiBudgetFillRatio(aiSettings?.app_credit_balance_usd || 0, aiSettings?.ai_credit_pack_size_usd || 0) * 100}%` }}
+                          />
+                        </div>
+                        <small>{t("aiBudgetUsage")}</small>
+                        <small>{t("aiCreditsHelp")}</small>
+                        {aiSettingsDraft.provider_mode === "credits" && !aiSettings?.can_use_app_credits ? (
+                          <small>{t("appAiKeyMissing")}</small>
+                        ) : null}
+                        {hasAiDraftChanges ? (
+                          <small>{t("saveAiSourceHint")}</small>
+                        ) : null}
+                        {billingStatus?.can_purchase_ai_credits ? (
+                          <button type="button" className="secondary compact" onClick={() => startCheckout("ai_credits")} disabled={saving}>
+                            {t("buyAiCredits")}
+                          </button>
+                        ) : null}
+                      </div>
                     ) : null}
-                    {hasAiDraftChanges ? (
-                      <small>{t("saveAiSourceHint")}</small>
-                    ) : null}
-                    {billingStatus?.can_purchase_ai_credits ? (
-                      <button type="button" className="secondary compact" onClick={() => startCheckout("ai_credits")} disabled={saving}>
-                        {t("buyAiCredits")}
-                      </button>
-                    ) : null}
-                  </div>
                   <div className="settings-model-grid">
                     <label>
                       <span>{t("aiNotes")}</span>
