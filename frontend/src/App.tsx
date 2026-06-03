@@ -2391,6 +2391,20 @@ function dashboardStatIcon(kind: "mine" | "shared" | "total") {
   return "◈";
 }
 
+function grapesSvgIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 4c1.8 0 3.2 1.3 3.2 3 0 1.4-.9 2.6-2.2 3" />
+      <path d="M12 4c-1.8 0-3.2 1.3-3.2 3 0 1.4.9 2.6 2.2 3" />
+      <path d="M9.3 10c1.8 0 3.2 1.3 3.2 3s-1.4 3-3.2 3-3.2-1.3-3.2-3 1.4-3 3.2-3Z" />
+      <path d="M14.7 10c1.8 0 3.2 1.3 3.2 3s-1.4 3-3.2 3-3.2-1.3-3.2-3 1.4-3 3.2-3Z" />
+      <path d="M12 15.2c1.8 0 3.2 1.3 3.2 3s-1.4 3-3.2 3-3.2-1.3-3.2-3 1.4-3 3.2-3Z" />
+      <path d="M12 4V2.8" />
+      <path d="M12 2.8c1.3 0 2.6-.5 3.5-1.5" />
+    </svg>
+  );
+}
+
 function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
   const labels =
     locale === "it"
@@ -2911,7 +2925,7 @@ function WineDetail({
 
       {wine.grapes.length ? (
         <div className="detail-section">
-          <h3>{t("grapes")}</h3>
+          <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
           <div className="chip-list">
             {wine.grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
           </div>
@@ -6249,7 +6263,7 @@ export function App() {
                     <div className="card-heading">
                       <div>
                         <span>{t("missingGrapes")}</span>
-                        <h2>{t("grapes")}</h2>
+                        <h2><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h2>
                       </div>
                       <strong>{cellarStats.missingGrapes}</strong>
                     </div>
@@ -6452,7 +6466,7 @@ export function App() {
                 </label>
                 <div className="ownership-editor">
                   <div className="section-heading">
-                    <h3>{t("grapes")}</h3>
+                    <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
                     <button
                       type="button"
                       className="secondary compact"
