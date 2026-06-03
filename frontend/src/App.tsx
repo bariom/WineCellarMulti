@@ -376,6 +376,7 @@ type AuthDraft = {
   display_name: string;
   household_name: string;
   password: string;
+  password_confirm: string;
 };
 
 type ContactSupportDraft = {
@@ -498,6 +499,7 @@ const translations = {
     convert: "Convert",
     create: "Create",
     createAccount: "Create account",
+    confirmPassword: "Confirm password",
     createInvite: "Create invite",
     createRedeemCode: "Create redeem code",
     consumeBottle: "Bottle consumed",
@@ -590,6 +592,7 @@ const translations = {
     login: "Login",
     redeemRequired: "A valid redeem code is required to use the application.",
     paymentHelp: "Pay securely with Stripe to activate your service period.",
+    passwordMismatch: "Passwords do not match",
     logout: "Logout",
     merchant: "Merchant",
     message: "Message",
@@ -810,6 +813,7 @@ const translations = {
     convert: "Converti",
     create: "Crea",
     createAccount: "Crea account",
+    confirmPassword: "Conferma password",
     createInvite: "Crea invito",
     createRedeemCode: "Crea codice redeem",
     consumeBottle: "Bevuta 1",
@@ -902,6 +906,7 @@ const translations = {
     login: "Accesso",
     redeemRequired: "Serve un codice redeem valido per usare l'applicativo.",
     paymentHelp: "Paga in modo sicuro con Stripe per attivare il periodo di servizio.",
+    passwordMismatch: "Le password non coincidono",
     logout: "Esci",
     merchant: "Commerciante",
     message: "Messaggio",
@@ -1180,6 +1185,7 @@ const emptyAuthDraft: AuthDraft = {
   display_name: "",
   household_name: "Main Cellar",
   password: "",
+  password_confirm: "",
 };
 
 const emptyContactSupportDraft: ContactSupportDraft = {
@@ -3286,11 +3292,16 @@ export function App() {
     event.preventDefault();
     setSaving(true);
     setError("");
+    if (authMode === "register" && authDraft.password !== authDraft.password_confirm) {
+      setError(t("passwordMismatch"));
+      setSaving(false);
+      return;
+    }
     try {
       const path = authMode === "register" ? "/api/v1/auth/register" : "/api/v1/auth/login";
       const payload =
         authMode === "register"
-          ? authDraft
+          ? { email: authDraft.email, display_name: authDraft.display_name, household_name: authDraft.household_name, password: authDraft.password }
           : { email: authDraft.email, password: authDraft.password };
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
@@ -5080,6 +5091,12 @@ export function App() {
               <span>{t("password")}</span>
               <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
             </label>
+            {authMode === "register" ? (
+              <label>
+                <span>{t("confirmPassword")}</span>
+                <input type="password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
+              </label>
+            ) : null}
             <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : t("login")}</button>
             {authMode === "login" ? (
               <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>
