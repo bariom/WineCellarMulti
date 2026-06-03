@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, RedeemCode, UserAiSettings, Wine
+from app.models import AiAuditLog, Household, RedeemCode, UserAiCreditTransaction, UserAiSettings, Wine
 from app.core.config import settings
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
@@ -465,6 +465,68 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert portal.json()["portal_url"] == "https://billing.stripe.test/session"
     parsed_portal = parse_qs(portal_payload["data"])
     assert parsed_portal["customer"] == ["cus_test"]
+
+
+def test_stripe_ai_pack_checkout_webhook_adds_balance_without_redeem_code(monkeypatch):
+    from app.api.routes import billing as billing_routes
+
+    webhook_secret = "whsec_ai_pack"
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(billing_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "stripe_webhook_secret", webhook_secret)
+    monkeypatch.setattr(settings, "stripe_ai_credit_amount_usd", "5.00")
+
+    client = TestClient(app)
+    registered = register(client, email="aipack@example.com", password="strong-password-5")
+    assert registered.status_code == 201
+    user_id = registered.json()["user_id"]
+
+    event = {
+        "id": "evt_ai_pack_paid",
+        "type": "checkout.session.completed",
+        "data": {
+            "object": {
+                "id": "cs_ai_pack_paid",
+                "client_reference_id": user_id,
+                "customer": "cus_ai_pack",
+                "payment_status": "paid",
+                "amount_total": 500,
+                "currency": "chf",
+                "metadata": {"user_id": user_id, "duration_days": "0", "plan": "ai_credits", "ai_credit_amount_usd": "5.00"},
+            },
+        },
+    }
+    payload = json.dumps(event, separators=(",", ":")).encode("utf-8")
+    headers = {"Stripe-Signature": stripe_signature(payload, webhook_secret), "Content-Type": "application/json"}
+
+    first = client.post("/api/v1/billing/stripe/webhook", content=payload, headers=headers)
+    assert first.status_code == 204
+    second = client.post("/api/v1/billing/stripe/webhook", content=payload, headers=headers)
+    assert second.status_code == 204
+
+    status_payload = client.get("/api/v1/billing/status").json()
+    assert status_payload["has_active_entitlement"] is False
+    assert status_payload["available_redeem_codes"] == []
+    assert Decimal(status_payload["ai_credit_balance_usd"]) == Decimal("5.000000")
+
+    notifications = client.get("/api/v1/notifications")
+    assert notifications.status_code == 200
+    assert notifications.json()[0]["kind"] == "ai_credits"
+
+    assert deliveries == []
+
+    with TestingSessionLocal() as db:
+        redeem_codes = db.query(RedeemCode).all()
+        credit_entries = db.query(UserAiCreditTransaction).all()
+        assert redeem_codes == []
+        assert len(credit_entries) == 1
+        assert credit_entries[0].source == "purchase"
+        assert credit_entries[0].amount_usd == Decimal("5.000000")
 
 
 def test_stripe_checkout_uses_selected_annual_price(monkeypatch):
