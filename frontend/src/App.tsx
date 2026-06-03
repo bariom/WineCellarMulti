@@ -101,6 +101,7 @@ type WineDraft = {
   notes: string;
   owners: Array<{ name: string; email: string; share_pct: string }>;
   tags: string[];
+  grapes: Array<{ name: string; percentage_from: string; percentage_to: string }>;
   scores: Array<{ critic: string; score: string; note: string }>;
 };
 
@@ -558,6 +559,9 @@ const translations = {
     saveTasting: "Save tasting",
     noTastingHistory: "No tasting notes recorded yet.",
     critic: "Critic",
+    grapeName: "Grape",
+    fromPercent: "From %",
+    toPercent: "To %",
     configured: "Configured",
     contactSupport: "Contact support",
     contactSupportHelp: "Use this form if you have trouble with login, payments, invitations, or data.",
@@ -898,6 +902,9 @@ const translations = {
     saveTasting: "Salva degustazione",
     noTastingHistory: "Nessuna degustazione registrata.",
     critic: "Critico",
+    grapeName: "Uva",
+    fromPercent: "Da %",
+    toPercent: "A %",
     configured: "Configurata",
     contactSupport: "Contatta supporto",
     contactSupportHelp: "Usa questo modulo se hai problemi con accesso, pagamenti, inviti o dati.",
@@ -1256,6 +1263,7 @@ const emptyDraft: WineDraft = {
   notes: "",
   owners: [],
   tags: [],
+  grapes: [],
   scores: [],
 };
 
@@ -1847,6 +1855,11 @@ function wineToDraft(wine: Wine): WineDraft {
     notes: wine.notes,
     owners: wine.owners.map((owner) => ({ name: owner.name || "", email: owner.email || "", share_pct: String(owner.share_pct || "") })),
     tags: wine.tags,
+    grapes: wine.grapes.map((grape) => ({
+      name: grape.name || "",
+      percentage_from: grape.percentage_from === undefined ? "" : String(grape.percentage_from),
+      percentage_to: grape.percentage_to === undefined ? "" : String(grape.percentage_to),
+    })),
     scores: wine.scores.map((score) => ({ critic: score.critic || "", score: score.score || "", note: score.note || "" })),
   };
 }
@@ -1875,6 +1888,13 @@ function draftPayload(draft: WineDraft) {
       .map((owner) => ({ name: owner.name.trim(), email: owner.email.trim().toLowerCase(), share_pct: Number(owner.share_pct || 0) }))
       .filter((owner) => owner.name && owner.share_pct > 0),
     tags: draft.tags,
+    grapes: draft.grapes
+      .map((grape) => ({
+        name: grape.name.trim(),
+        percentage_from: grape.percentage_from === "" ? undefined : Number(grape.percentage_from),
+        percentage_to: grape.percentage_to === "" ? undefined : Number(grape.percentage_to),
+      }))
+      .filter((grape) => grape.name),
     scores: draft.scores
       .map((score) => ({ critic: score.critic.trim(), score: score.score.trim(), note: score.note.trim() }))
       .filter((score) => score.critic || score.score || score.note),
@@ -6430,6 +6450,68 @@ export function App() {
                   <span>{t("notes")}</span>
                   <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
                 </label>
+                <div className="ownership-editor">
+                  <div className="section-heading">
+                    <h3>{t("grapes")}</h3>
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      disabled={!canWriteWine}
+                      onClick={() => setDraft({ ...draft, grapes: [...draft.grapes, { name: "", percentage_from: "", percentage_to: "" }] })}
+                    >
+                      +
+                    </button>
+                  </div>
+                  {draft.grapes.length ? draft.grapes.map((grape, index) => (
+                    <div className="grape-edit-row" key={index}>
+                      <input
+                        value={grape.name}
+                        onChange={(event) => setDraft({
+                          ...draft,
+                          grapes: draft.grapes.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item),
+                        })}
+                        placeholder={t("grapeName")}
+                        disabled={!canWriteWine}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={grape.percentage_from}
+                        onChange={(event) => setDraft({
+                          ...draft,
+                          grapes: draft.grapes.map((item, itemIndex) => itemIndex === index ? { ...item, percentage_from: event.target.value } : item),
+                        })}
+                        placeholder={t("fromPercent")}
+                        disabled={!canWriteWine}
+                      />
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        step="0.01"
+                        value={grape.percentage_to}
+                        onChange={(event) => setDraft({
+                          ...draft,
+                          grapes: draft.grapes.map((item, itemIndex) => itemIndex === index ? { ...item, percentage_to: event.target.value } : item),
+                        })}
+                        placeholder={t("toPercent")}
+                        disabled={!canWriteWine}
+                      />
+                      <button
+                        type="button"
+                        className="danger compact"
+                        disabled={!canWriteWine}
+                        onClick={() => setDraft({ ...draft, grapes: draft.grapes.filter((_, itemIndex) => itemIndex !== index) })}
+                      >
+                        {t("delete")}
+                      </button>
+                    </div>
+                  )) : (
+                    <p className="empty-state">{t("missingGrapes")}</p>
+                  )}
+                </div>
                 <div className="ownership-editor">
                   <div className="section-heading">
                     <h3>{t("scores")}</h3>

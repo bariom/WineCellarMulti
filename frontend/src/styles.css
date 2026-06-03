@@ -1680,6 +1680,13 @@ textarea {
   align-items: start;
 }
 
+.grape-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) 120px 120px auto;
+  gap: 8px;
+  align-items: start;
+}
+
 .score-edit-row textarea {
   min-height: 42px;
 }
@@ -4517,6 +4524,7 @@ textarea {
   .tag-admin-row,
   .ownership-edit-row,
   .score-edit-row,
+  .grape-edit-row,
   .inline-row-form,
   .usage-row,
   .member-row,
