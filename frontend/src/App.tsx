@@ -1338,14 +1338,14 @@ const landingContent: Record<
       "Vinaris aiuta i collezionisti privati a gestire sia i vini da bere nel quotidiano sia le allocazioni di lungo periodo, senza perdere memoria dei vini conclusi, con un flusso chiaro su cosa comprare, cosa bere e cosa monitorare.",
     primaryCta: "Accedi",
     secondaryCta: "Crea account",
-    storyEyebrow: "Perche nasce Vinaris",
+    storyEyebrow: "Perché nasce Vinaris",
     storyTitle: "Creato da un collezionista che voleva uno strumento serio di cantina, non l'ennesima app generica di inventario.",
     storyBody:
       "Vinaris nasce da un flusso reale da collezionista: futures, quote condivise, finestre di beva, controllo del valore e la domanda quotidiana su cosa merita attenzione adesso. L'obiettivo era sostituire fogli sparsi, note e memoria con un sistema unico, abbastanza elegante da volerlo usare ogni settimana.",
      founderQuote:
-        "Ho creato Vinaris perche volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
+        "Ho creato Vinaris perché volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
       founderSupport:
-        "L'idea e trasformare memoria, intuito e fogli sparsi in un rito piu chiaro: capire cosa bere, cosa comprare, cosa aspettare e che cosa vale la pena ricordare anche dopo l'ultima bottiglia.",
+        "L'idea è trasformare memoria, intuito e fogli sparsi in un rito più chiaro: capire cosa bere, cosa comprare, cosa aspettare e che cosa vale la pena ricordare anche dopo l'ultima bottiglia.",
      founderName: "Omar Bariffi",
      founderRole: "Fondatore, collezionista e promotore dell'applicazione",
     principlesTitle: "Progettato intorno a decisioni reali da collezionista",
@@ -1356,7 +1356,7 @@ const landingContent: Record<
       },
       {
         title: "Una cantina, non solo una lista",
-        body: "Vinaris gestisce proprieta, quote condivise, storico prezzi, maturazione e wishlist come un sistema unico.",
+          body: "Vinaris gestisce proprietà, quote condivise, storico prezzi, maturazione e wishlist come un sistema unico.",
       },
         {
           title: "AI solo quando serve",
@@ -1405,7 +1405,7 @@ const landingContent: Record<
         },
         {
           title: "Sblocca tutto il potenziale con OpenAI o AI Pack",
-          body: "Puoi sfruttare davvero Vinaris con la tua chiave OpenAI oppure acquistando un AI Pack in-app: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina piu ricche. I token personali vengono criptati e archiviati in modo sicuro, mentre l'AI Pack usa la chiave dell'app senza esporla all'utente.",
+          body: "Puoi sfruttare davvero Vinaris con la tua chiave OpenAI oppure acquistando un AI Pack in-app: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina più ricche. I token personali vengono criptati e archiviati in modo sicuro, mentre l'AI Pack usa la chiave dell'app senza esporla all'utente.",
           highlight: true,
         },
     ],
@@ -5287,7 +5287,7 @@ export function App() {
                     <strong>{locale === "it" ? "Dettaglio vino" : "Wine detail view"}</strong>
                     <span>
                       {locale === "it"
-                        ? "Scheda completa con quantità, valore, cronologia prezzo e finestra di beva."
+                        ? "Scheda completa con quantità, valore, cronologia prezzi e finestra di beva."
                         : "Complete record with quantity, value, price history, and drinking window."}
                       </span>
                     </div>
@@ -5334,7 +5334,7 @@ export function App() {
                       <strong>{locale === "it" ? "Wishlist e decisioni AI" : "Wishlist and AI decisions"}</strong>
                       <span>
                         {locale === "it"
-                          ? "Priorita, prezzo target, stima mercato e strategia AI nello stesso punto."
+                        ? "Priorità, prezzo target, stima mercato e strategia AI nello stesso punto."
                           : "Priority, target price, market estimate, and AI strategy in one place."}
                       </span>
                     </div>
@@ -5375,7 +5375,7 @@ export function App() {
                       <strong>{locale === "it" ? "Storico degustativo" : "Tasting archive"}</strong>
                       <span>
                         {locale === "it"
-                          ? "Ogni bottiglia bevuta puo diventare memoria utile per confronti e decisioni future."
+                        ? "Ogni bottiglia bevuta può diventare memoria utile per confronti e decisioni future."
                           : "Every consumed bottle becomes usable memory for future comparisons and decisions."}
                       </span>
                     </div>
