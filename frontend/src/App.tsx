@@ -2123,7 +2123,7 @@ function formatBottleCount(value: number) {
   return String(Math.round(value));
 }
 
-function dashboardStatSvgIcon(kind: "mine" | "shared" | "total") {
+function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data") {
   if (kind === "mine") {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -2140,6 +2140,56 @@ function dashboardStatSvgIcon(kind: "mine" | "shared" | "total") {
         <circle cx="16" cy="9" r="3" />
         <path d="M3.5 19a4.5 4.5 0 0 1 9 0" />
         <path d="M11.5 19a4.5 4.5 0 0 1 9 0" />
+      </svg>
+    );
+  }
+  if (kind === "drink_now") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M6 4h12" />
+        <path d="M8 4v5a4 4 0 0 0 8 0V4" />
+        <path d="M12 13v7" />
+        <path d="M9 20h6" />
+        <circle cx="18" cy="6" r="2.5" />
+      </svg>
+    );
+  }
+  if (kind === "drink_soon") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v5l3 2" />
+      </svg>
+    );
+  }
+  if (kind === "past_window") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 4v8" />
+        <path d="M12 16h.01" />
+        <path d="M10.3 4.8 4.9 14.2A2 2 0 0 0 6.7 17h10.6a2 2 0 0 0 1.8-2.8l-5.4-9.4a2 2 0 0 0-3.4 0Z" />
+      </svg>
+    );
+  }
+  if (kind === "future_deliveries") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M3 7h11v8H3z" />
+        <path d="M14 10h3l3 3v2h-6z" />
+        <circle cx="7" cy="17" r="2" />
+        <circle cx="17" cy="17" r="2" />
+      </svg>
+    );
+  }
+  if (kind === "missing_data") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M8 6h10" />
+        <path d="M8 12h10" />
+        <path d="M8 18h10" />
+        <path d="M4 6h.01" />
+        <path d="M4 12h.01" />
+        <path d="M4 18h.01" />
       </svg>
     );
   }
@@ -6423,24 +6473,24 @@ export function App() {
                   <p>CHF {cellarStats.totalValue.toFixed(0)}</p>
                 </button>
                 <button type="button" className={`stat-card ${quickWineFilter === "drink_now" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_now")}>
-                  <span>{t("drinkNow")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("drinkNow")}</span>
                   <strong>{cellarStats.drinkNow}</strong>
                 </button>
                 <button type="button" className={`stat-card ${quickWineFilter === "drink_soon" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_soon")}>
-                  <span>{t("drinkIn2Years")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_soon")}</i>{t("drinkIn2Years")}</span>
                   <strong>{cellarStats.drinkSoon}</strong>
                 </button>
                 <button type="button" className={`stat-card ${quickWineFilter === "past_window" ? "active" : ""}`} onClick={() => applyQuickWineFilter("past_window")}>
-                  <span>{t("pastWindow")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("past_window")}</i>{t("pastWindow")}</span>
                   <strong>{cellarStats.pastWindow}</strong>
                 </button>
                 <button type="button" className={`stat-card ${quickWineFilter === "future_deliveries" ? "active" : ""}`} onClick={() => applyQuickWineFilter("future_deliveries")}>
-                  <span>{t("futureDeliveries")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("future_deliveries")}</i>{t("futureDeliveries")}</span>
                   <strong>{cellarStats.futureDeliveries}</strong>
                   {cellarStats.nextDelivery ? <p>{cellarStats.nextDelivery.wine.name}: {cellarStats.nextDelivery.days} days</p> : null}
                 </button>
                 <button type="button" className={`stat-card compact-list ${quickWineFilter === "missing_data" ? "active" : ""}`} onClick={() => applyQuickWineFilter("missing_data")}>
-                  <span>{t("dataQuality")}</span>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataQuality")}</span>
                   <p>{t("missingValue")}: <strong>{cellarStats.missingValue}</strong></p>
                   <p>{t("missingDrinkWindow")}: <strong>{cellarStats.missingDrinkWindow}</strong></p>
                   <p>{t("missingScores")}: <strong>{cellarStats.missingScores}</strong></p>
