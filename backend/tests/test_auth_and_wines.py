@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, Wine
+from app.models import AiAuditLog, Household, Membership, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, Wine
 from app.core.config import settings
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
@@ -1075,10 +1075,22 @@ def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
     assert preview.status_code == 200
     assert preview.json()["format"] == "vinaris"
 
-    imported = target.post("/api/v1/imports/json?mode=skip_duplicates", json=export_payload)
+    imported = target.post(
+        "/api/v1/imports/json?mode=skip_duplicates",
+        json={
+            **export_payload,
+            "import_blocks": ["wines", "wishlist", "user_tags", "ai_audit"],
+        },
+    )
     assert imported.status_code == 200
     assert imported.json()["wines_imported"] == 1
     assert imported.json()["ai_audit_imported"] == 1
+    assert imported.json()["members_imported"] == 0
+
+    with TestingSessionLocal() as db:
+        target_household_id = uuid.UUID(target.get("/api/v1/session").json()["active_household_id"])
+        memberships = list(db.query(Membership).filter(Membership.household_id == target_household_id).all())
+        assert len(memberships) == 1
 
 
 def test_ai_generation_requires_configured_openai_key():

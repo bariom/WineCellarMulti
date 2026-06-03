@@ -308,6 +308,13 @@ def included_export_blocks(payload: dict[str, Any]) -> list[str]:
     return [block for block in SUPPORTED_EXPORT_BLOCKS if isinstance(payload.get(block), list)]
 
 
+def selected_import_blocks(payload: dict[str, Any]) -> list[str]:
+    configured = payload.get("import_blocks")
+    if isinstance(configured, list):
+        return [block for block in configured if block in SUPPORTED_EXPORT_BLOCKS]
+    return included_export_blocks(payload)
+
+
 def clear_household_export_blocks(db: Session, context: CurrentContext, blocks: list[str]) -> tuple[int, int]:
     if "share_offers" in blocks and "wines" not in blocks:
         db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
@@ -475,7 +482,7 @@ def import_vinaris_json_payload(
     db: Session,
     context: CurrentContext,
 ) -> LegacyImportResult:
-    blocks = included_export_blocks(payload)
+    blocks = selected_import_blocks(payload)
     result = LegacyImportResult(wines_imported=0, wishlist_imported=0)
     if mode == "replace_all":
         result.wines_deleted, result.wishlist_deleted = clear_household_export_blocks(db, context, blocks)
@@ -486,7 +493,7 @@ def import_vinaris_json_payload(
     imported_wine_ids: dict[UUID, UUID] = {}
     imported_wishlist_ids: dict[UUID, UUID] = {}
 
-    for raw_wine in payload_list(payload, "wines"):
+    for raw_wine in payload_list(payload, "wines") if "wines" in blocks else []:
         data = legacy_wine_data(raw_wine, context)
         original_id = data["id"]
         key = wine_duplicate_key(data)
@@ -529,7 +536,7 @@ def import_vinaris_json_payload(
                     if field != "id":
                         setattr(value_entry, field, value)
 
-    for raw_item in payload_list(payload, "wishlist"):
+    for raw_item in payload_list(payload, "wishlist") if "wishlist" in blocks else []:
         data = legacy_wishlist_data(raw_item, context)
         original_id = data["id"]
         data["ai_market_price"] = as_optional_decimal(raw_item.get("ai_market_price"))
@@ -557,7 +564,7 @@ def import_vinaris_json_payload(
 
     user_by_email = {user.email.lower(): user for user in db.scalars(select(User))}
 
-    for raw_member in payload_list(payload, "members"):
+    for raw_member in payload_list(payload, "members") if "members" in blocks else []:
         email = as_str(raw_member.get("email")).lower()
         user = user_by_email.get(email)
         if user is None:
@@ -583,7 +590,7 @@ def import_vinaris_json_payload(
             result.members_skipped += 1
 
     existing_invites = list(db.scalars(select(HouseholdInvite).where(HouseholdInvite.household_id == context.household.id)))
-    for raw_invite in payload_list(payload, "invites"):
+    for raw_invite in payload_list(payload, "invites") if "invites" in blocks else []:
         email = as_str(raw_invite.get("email"))
         created_at = as_datetime(raw_invite.get("created_at")) or datetime.now(timezone.utc)
         existing_invite = next((invite for invite in existing_invites if invite.email.lower() == email.lower() and invite.created_at == created_at), None)
@@ -619,7 +626,7 @@ def import_vinaris_json_payload(
         tag.name.lower(): tag
         for tag in db.scalars(select(UserTag).where(UserTag.user_id == context.user.id))
     }
-    for raw_tag in payload_list(payload, "user_tags"):
+    for raw_tag in payload_list(payload, "user_tags") if "user_tags" in blocks else []:
         name = as_str(raw_tag.get("name"))
         if not name:
             result.user_tags_skipped += 1
@@ -638,7 +645,7 @@ def import_vinaris_json_payload(
             result.user_tags_skipped += 1
 
     existing_offers = list(db.scalars(select(WineShareOffer).where(WineShareOffer.household_id == context.household.id)))
-    for raw_offer in payload_list(payload, "share_offers"):
+    for raw_offer in payload_list(payload, "share_offers") if "share_offers" in blocks else []:
         original_wine_id = as_uuid(raw_offer.get("wine_id"))
         mapped_wine_id = imported_wine_ids.get(original_wine_id, original_wine_id)
         wine = db.scalar(select(Wine).where(Wine.id == mapped_wine_id, Wine.household_id == context.household.id))
@@ -692,7 +699,7 @@ def import_vinaris_json_payload(
         result.share_offers_imported += 1
 
     existing_audit = list(db.scalars(select(AiAuditLog).where(AiAuditLog.household_id == context.household.id)))
-    for raw_log in payload_list(payload, "ai_audit"):
+    for raw_log in payload_list(payload, "ai_audit") if "ai_audit" in blocks else []:
         entity_type = as_str(raw_log.get("entity_type"))
         original_entity_id = as_uuid(raw_log.get("entity_id"))
         mapped_entity_id = imported_wine_ids.get(original_entity_id, imported_wishlist_ids.get(original_entity_id, original_entity_id))

@@ -422,6 +422,8 @@ type ExportSelection = {
   ai_audit: boolean;
 };
 
+type ImportSelection = ExportSelection;
+
 type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
@@ -481,6 +483,19 @@ const defaultExportSelection: ExportSelection = {
   user_tags: true,
   ai_audit: true,
 };
+
+function importSelectionFromBlocks(blocks: string[]): ImportSelection {
+  const enabled = new Set(blocks);
+  return {
+    wines: enabled.has("wines"),
+    wishlist: enabled.has("wishlist"),
+    members: false,
+    invites: false,
+    share_offers: false,
+    user_tags: enabled.has("user_tags"),
+    ai_audit: enabled.has("ai_audit"),
+  };
+}
 
 const translations = {
   en: {
@@ -625,6 +640,8 @@ const translations = {
     importSection: "Import",
     importSummary: "Import summary",
     importSupports: "Supports Vinaris exports and legacy WineCellar JSON.",
+    importSelection: "Import selection",
+    importSelectionHelp: "Choose which blocks to restore. Members, invites, and shared positions can grant other users access to this cellar.",
     idealWindow: "Ideal window",
     emptyCellar: "Empty cellar",
     emptyCellarWarning: "Deletes all wines and wishlist items in the active cellar.",
@@ -968,6 +985,8 @@ const translations = {
     importSection: "Importazione",
     importSummary: "Riepilogo import",
     importSupports: "Supporta export Vinaris e JSON legacy WineCellar.",
+    importSelection: "Selezione import",
+    importSelectionHelp: "Scegli quali blocchi ripristinare. Membri, inviti e posizioni condivise possono dare ad altri utenti accesso a questa cantina.",
     idealWindow: "Periodo ideale",
     emptyCellar: "Svuota cantina",
     emptyCellarWarning: "Cancella tutti i vini e gli elementi wishlist della cantina attiva.",
@@ -3210,6 +3229,7 @@ export function App() {
   const [redeemInput, setRedeemInput] = useState("");
   const [generatedRedeemCode, setGeneratedRedeemCode] = useState("");
   const [exportSelection, setExportSelection] = useState<ExportSelection>(defaultExportSelection);
+  const [importSelection, setImportSelection] = useState<ImportSelection>(importSelectionFromBlocks(["wines", "wishlist"]));
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
@@ -4425,6 +4445,7 @@ export function App() {
       setImportPayload(payload);
       setImportFileName(file.name);
       setImportPreview(preview);
+      setImportSelection(importSelectionFromBlocks(preview.included_blocks));
       setImportResult(null);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to import JSON backup");
@@ -4447,7 +4468,10 @@ export function App() {
     try {
       const result = await api<ImportResult>(`/api/v1/imports/json?mode=${importMode}`, {
         method: "POST",
-        body: JSON.stringify(importPayload),
+        body: JSON.stringify({
+          ...importPayload,
+          import_blocks: exportBlocks.filter(({ key }) => importSelection[key]).map(({ key }) => key),
+        }),
       });
       setImportResult(result);
       setImportPreview(null);
@@ -7774,6 +7798,26 @@ export function App() {
                       {[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].length ? (
                         <small>{[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].join(", ")}</small>
                       ) : null}
+                    </div>
+                  ) : null}
+                  {importPreview?.format === "vinaris" ? (
+                    <div className="token-box">
+                      <strong>{t("importSelection")}</strong>
+                      <span>{t("importSelectionHelp")}</span>
+                      <div className="export-options-grid">
+                        {exportBlocks
+                          .filter(({ key }) => importPreview.included_blocks.includes(key))
+                          .map((block) => (
+                            <label className="export-option" key={`import-${block.key}`}>
+                              <input
+                                type="checkbox"
+                                checked={importSelection[block.key]}
+                                onChange={() => setImportSelection((current) => ({ ...current, [block.key]: !current[block.key] }))}
+                              />
+                              <span>{block.label}</span>
+                            </label>
+                          ))}
+                      </div>
                     </div>
                   ) : null}
                   {importResult ? (
