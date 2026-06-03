@@ -5278,9 +5278,13 @@ export function App() {
                             <div><span>{locale === "it" ? "Occasione" : "Occasion"}</span><strong>{locale === "it" ? "Cena tra amici" : "Dinner with friends"}</strong></div>
                             <div><span>{locale === "it" ? "Abbinamento" : "Pairing"}</span><strong>{locale === "it" ? "Brasato" : "Braised beef"}</strong></div>
                           </div>
-                          <div className="showcase-micro-chart">
+                          <div className="showcase-note-block">
                             <span>{locale === "it" ? "Note degustazione" : "Tasting notes"}</span>
-                            <div className="showcase-chart-line" />
+                            <p>
+                              {locale === "it"
+                                ? "Rosso profondo, tannino risolto e finale balsamico. Bottiglia al picco, perfetta per una cena lenta."
+                                : "Deep red, resolved tannins, and a balsamic finish. At peak maturity and ideal for a long dinner."}
+                            </p>
                           </div>
                         </div>
                       </div>

@@ -1356,6 +1356,21 @@ summary:focus-visible {
   gap: 4px;
 }
 
+.showcase-note-block {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.showcase-note-block p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.45;
+}
+
 .public-section-heading {
   display: grid;
   gap: 8px;
