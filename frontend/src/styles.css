@@ -1689,6 +1689,36 @@ textarea {
   overflow-y: auto;
 }
 
+.tag-choice-list.compact.roomy {
+  max-height: 172px;
+  padding-right: 4px;
+  align-content: start;
+}
+
+.grapes-list {
+  display: grid;
+  gap: 8px;
+}
+
+.grapes-list label {
+  width: 100%;
+  border-radius: 14px;
+  align-items: start;
+}
+
+.grapes-list label span {
+  line-height: 1.25;
+}
+
+.filter-choice-search {
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 8px 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
 .filter-choice-group {
   display: grid;
   gap: 6px;

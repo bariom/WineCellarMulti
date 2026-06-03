@@ -501,6 +501,8 @@ const translations = {
     appAiReady: "App AI ready",
     appAiKeyMissing: "App AI key missing",
     saveAiSourceHint: "Save AI settings to apply the selected source.",
+    searchTags: "Search tags",
+    searchGrapes: "Search grapes",
     aiPurpose: "AI purpose",
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
@@ -839,6 +841,8 @@ const translations = {
     appAiReady: "AI app pronta",
     appAiKeyMissing: "Chiave AI app mancante",
     saveAiSourceHint: "Salva le impostazioni AI per applicare la sorgente selezionata.",
+    searchTags: "Cerca tag",
+    searchGrapes: "Cerca uve",
     aiPurpose: "Scopo AI",
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
@@ -3203,6 +3207,8 @@ export function App() {
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [grapeFilter, setGrapeFilter] = useState<string[]>([]);
+  const [tagOptionQuery, setTagOptionQuery] = useState("");
+  const [grapeOptionQuery, setGrapeOptionQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -4789,6 +4795,8 @@ export function App() {
   const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
   const tagOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.tags));
   const grapeOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.grapes.map((grape) => grape.name)));
+  const filteredTagOptions = tagOptions.filter((tag) => tag.toLowerCase().includes(tagOptionQuery.trim().toLowerCase()));
+  const filteredGrapeOptions = grapeOptions.filter((grape) => grape.toLowerCase().includes(grapeOptionQuery.trim().toLowerCase()));
   const wineFormTagOptions = uniqueSorted([...userTags.map((tag) => tag.name), ...draft.tags]);
   const activeTypeOptions = isWineCollectionView ? wineTypeOptions : wishlistTypeOptions;
   const activeStatusOptions = isWineCollectionView ? wineStatusOptions : wishlistStatusOptions;
@@ -5089,6 +5097,8 @@ export function App() {
     setQuickWineFilter("");
     setTagFilter([]);
     setGrapeFilter([]);
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
     setSortMode(nextView === "wishlist" ? "priority" : "name");
   }
 
@@ -5100,6 +5110,8 @@ export function App() {
     setOwnershipFilter("");
     setTagFilter([]);
     setGrapeFilter([]);
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
     setSortMode("name");
     setQuickWineFilter((current) => current === filter ? "" : filter);
     setWineFormOpen(false);
@@ -5120,6 +5132,8 @@ export function App() {
     setOwnershipFilter("");
     setTagFilter([]);
     setGrapeFilter([]);
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
     setQuickWineFilter("");
     setSortMode("name");
     setSelectedWineId(wine.id);
@@ -6856,26 +6870,42 @@ export function App() {
                 {isWineCollectionView ? (
                   <div className="filter-choice-group">
                     <span>{t("tag")}</span>
-                    <div className="tag-choice-list compact">
-                      {tagOptions.length ? tagOptions.map((tag) => (
+                    {tagOptions.length > 6 ? (
+                      <input
+                        className="filter-choice-search"
+                        value={tagOptionQuery}
+                        onChange={(event) => setTagOptionQuery(event.target.value)}
+                        placeholder={t("searchTags")}
+                      />
+                    ) : null}
+                    <div className="tag-choice-list compact roomy">
+                      {filteredTagOptions.length ? filteredTagOptions.map((tag) => (
                         <label key={tag} style={tagFilter.includes(tag) ? tagColorStyle(tag, userTags) : undefined}>
                           <input type="checkbox" checked={tagFilter.includes(tag)} onChange={() => setTagFilter((current) => toggleListValue(current, tag))} />
                           <span>{tag}</span>
                         </label>
-                      )) : <span className="empty-state">{t("allTags")}</span>}
+                      )) : <span className="empty-state">{tagOptions.length ? t("searchTags") : t("allTags")}</span>}
                     </div>
                   </div>
                 ) : null}
                 {isWineCollectionView ? (
                   <div className="filter-choice-group">
                     <span>{t("grapes")}</span>
-                    <div className="tag-choice-list compact">
-                      {grapeOptions.length ? grapeOptions.map((grape) => (
+                    {grapeOptions.length > 6 ? (
+                      <input
+                        className="filter-choice-search"
+                        value={grapeOptionQuery}
+                        onChange={(event) => setGrapeOptionQuery(event.target.value)}
+                        placeholder={t("searchGrapes")}
+                      />
+                    ) : null}
+                    <div className="tag-choice-list compact roomy grapes-list">
+                      {filteredGrapeOptions.length ? filteredGrapeOptions.map((grape) => (
                         <label key={grape} className={grapeFilter.includes(grape) ? "selected-filter-chip" : undefined}>
                           <input type="checkbox" checked={grapeFilter.includes(grape)} onChange={() => setGrapeFilter((current) => toggleListValue(current, grape))} />
                           <span>{grape}</span>
                         </label>
-                      )) : <span className="empty-state">{t("grapes")}</span>}
+                      )) : <span className="empty-state">{grapeOptions.length ? t("searchGrapes") : t("grapes")}</span>}
                     </div>
                   </div>
                 ) : null}
