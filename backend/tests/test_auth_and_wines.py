@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, RedeemCode, UserAiCreditTransaction, UserAiSettings, Wine
+from app.models import AiAuditLog, Household, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, Wine
 from app.core.config import settings
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
@@ -919,7 +919,7 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
 
     exported = client.get("/api/v1/imports/export-json")
     assert exported.status_code == 200
-    assert exported.json()["schema"] == "winecellarmulti.export.v1"
+    assert exported.json()["schema"] == "winecellarmulti.export.v2"
     assert [wine["name"] for wine in exported.json()["wines"]] == ["Imported Wine", "Wanted Wine"]
 
     replacement_payload = {
@@ -977,7 +977,108 @@ def test_ai_generation_requires_configured_openai_key():
 
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
     assert generated.status_code == 503
-    assert "OPENAI_API_KEY" in generated.json()["detail"]
+    assert generated.json()["detail"] == "No AI provider configured"
+
+
+def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    session = client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        current_user = db.get(User, uuid.UUID(session["user_id"]))
+        assert current_user is not None
+        current_user.is_app_admin = False
+        db.add(
+            UserEntitlement(
+                user_id=current_user.id,
+                source="test",
+                valid_from=datetime.now(timezone.utc),
+                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+            ),
+        )
+        db.add(
+            UserAiCreditTransaction(
+                user_id=current_user.id,
+                amount_usd=Decimal("5.000000"),
+                source="purchase",
+                note="Seed AI budget",
+            ),
+        )
+        db.commit()
+
+    created = client.post("/api/v1/wines", json={"name": "AI Wine", "quantity": 1, "price": 20})
+    assert created.status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+    monkeypatch.setattr(settings, "ai_pack_markup_percent", "20")
+
+    def fake_create_response(*args, **kwargs):
+        return OpenAIResponse(
+            text="Structured cellar note.",
+            usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
+    assert generated.status_code == 200
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["estimated_cost_usd"] == "0.003600"
+
+    billing = client.get("/api/v1/billing/status")
+    assert billing.status_code == 200
+    assert billing.json()["ai_credit_balance_usd"] == "4.996400"
+
+
+def test_ai_pack_usage_keeps_base_cost_for_app_admin(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    session = client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        current_user = db.get(User, uuid.UUID(session["user_id"]))
+        assert current_user is not None
+        db.add(
+            UserAiCreditTransaction(
+                user_id=current_user.id,
+                amount_usd=Decimal("5.000000"),
+                source="purchase",
+                note="Seed AI budget",
+            ),
+        )
+        db.commit()
+
+    created = client.post("/api/v1/wines", json={"name": "Admin AI Wine", "quantity": 1, "price": 20})
+    assert created.status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+    monkeypatch.setattr(settings, "ai_pack_markup_percent", "20")
+
+    def fake_create_response(*args, **kwargs):
+        return OpenAIResponse(
+            text="Structured cellar note.",
+            usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
+    assert generated.status_code == 200
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["estimated_cost_usd"] == "0.003000"
+
+    billing = client.get("/api/v1/billing/status")
+    assert billing.status_code == 200
+    assert billing.json()["ai_credit_balance_usd"] == "4.997000"
 
 
 def test_wishlist_ai_features_are_separate(monkeypatch):
@@ -1009,7 +1110,7 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
         elif schema_name == "wishlist_purpose":
             text = '{"recommended_purpose":"Cellar","purpose_advice":"Meglio da cantina.","recommended_priority":"Medium"}'
         else:
-            text = '{"target_price":35,"currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready"}'
+            text = '{"market_price":35,"market_price_currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready"}'
         return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
@@ -1026,7 +1127,8 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
 
     target_price = client.post(f"/api/v1/ai/wishlist/{item_id}/target-price")
     assert target_price.status_code == 200
-    assert target_price.json()["target_price"] == "35.00"
+    assert target_price.json()["target_price"] == "40.00"
+    assert target_price.json()["ai_market_price"] == "35.00"
     assert target_price.json()["status"] == "Ready"
 
     usage = client.get("/api/v1/ai/usage")

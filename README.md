@@ -189,6 +189,7 @@ STRIPE_ANNUAL_PRICE_ID=price_annual_...
 STRIPE_AI_CREDIT_PRICE_ID=price_ai_credits_...
 STRIPE_AI_CREDIT_AMOUNT_USD=5.00
 STRIPE_AI_CREDIT_LABEL=Vinaris AI Pack
+AI_PACK_MARKUP_PERCENT=15
 STRIPE_MONTHLY_ENTITLEMENT_DAYS=31
 STRIPE_ANNUAL_ENTITLEMENT_DAYS=365
 STRIPE_SUCCESS_URL=https://vinaris.duckdns.org/?stripe_checkout=success
@@ -221,6 +222,8 @@ customer.subscription.deleted
 ```
 
 `checkout.session.completed` is also used for one-time AI Pack purchases. When the AI Pack product is bought, the user receives a balance in USD-equivalent AI budget, and future AI requests consume that balance until it reaches zero.
+
+`AI_PACK_MARKUP_PERCENT` adds a configurable spread on AI Pack consumption for end users only. App admins continue to consume AI budget at the base estimated OpenAI cost.
 
 The webhook creates redeem codes, renewal notifications, and subscription status notifications. A browser redirect alone is not trusted. Enable Stripe Customer Portal in the Stripe dashboard so users can manage or cancel subscriptions from the app.
 

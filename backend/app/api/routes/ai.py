@@ -47,6 +47,16 @@ MODEL_PRICING_USD_PER_MILLION_TOKENS = {
 }
 
 
+def ai_pack_markup_percent() -> Decimal:
+    try:
+        markup = Decimal(str(settings.ai_pack_markup_percent or "0"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI Pack markup configuration is invalid") from exc
+    if markup < Decimal("0"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI Pack markup configuration is invalid")
+    return markup
+
+
 def response_language(locale: str) -> str:
     return "Italian" if locale == "it" else "English"
 
@@ -133,6 +143,16 @@ def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
     return cost.quantize(Decimal("0.000001"))
 
 
+def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage) -> Decimal:
+    base_cost = quantize_usd(estimate_cost_usd(model, usage))
+    if provider_source != "credits" or user_is_app_admin:
+        return base_cost
+    markup = ai_pack_markup_percent()
+    if markup <= Decimal("0"):
+        return base_cost
+    return quantize_usd(base_cost * (Decimal("1") + (markup / Decimal("100"))))
+
+
 def user_openai_api_key(user_settings: UserAiSettings) -> str:
     return decrypt_secret(user_settings.openai_api_key)
 
@@ -176,7 +196,12 @@ def create_ai_response(
     provider_source, api_key = select_ai_provider(db, context, user_settings)
     response = create_response(model, system_prompt, user_prompt, api_key=api_key, json_schema=json_schema)
     if provider_source == "credits":
-        cost = quantize_usd(estimate_cost_usd(model, response.usage))
+        cost = billable_cost_usd(
+            user_is_app_admin=context.user.is_app_admin,
+            provider_source=provider_source,
+            model=model,
+            usage=response.usage,
+        )
         create_ai_credit_transaction(
             db,
             context.user,
@@ -201,6 +226,19 @@ def record_ai_audit(
     provider_source: str = "user_key",
 ) -> None:
     token_usage = usage or TokenUsage()
+    base_cost = quantize_usd(estimate_cost_usd(model, token_usage))
+    billed_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=model,
+        usage=token_usage,
+    )
+    source_metadata: dict[str, str] = {"provider_source": provider_source}
+    if provider_source == "credits":
+        source_metadata["base_cost_usd"] = str(base_cost)
+        source_metadata["charged_cost_usd"] = str(billed_cost)
+        if not context.user.is_app_admin:
+            source_metadata["markup_percent"] = str(ai_pack_markup_percent())
     db.add(
         AiAuditLog(
             household_id=context.household.id,
@@ -211,12 +249,12 @@ def record_ai_audit(
             model=model,
             outcome="success",
             summary=clip_summary(summary),
-            sources=(sources or []) + [{"provider_source": provider_source}],
+            sources=(sources or []) + [source_metadata],
             input_tokens=token_usage.input_tokens,
             cached_input_tokens=token_usage.cached_input_tokens,
             output_tokens=token_usage.output_tokens,
             total_tokens=token_usage.total_tokens,
-            estimated_cost_usd=estimate_cost_usd(model, token_usage),
+            estimated_cost_usd=billed_cost,
         ),
     )
 

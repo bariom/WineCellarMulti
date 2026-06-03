@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     stripe_ai_credit_price_id: str = ""
     stripe_ai_credit_amount_usd: str = "5.00"
     stripe_ai_credit_label: str = "Vinaris AI Pack"
+    ai_pack_markup_percent: str = "15"
     stripe_payment_amount_cents: int = 0
     stripe_payment_currency: str = "chf"
     stripe_payment_label: str = "Vinaris access"
