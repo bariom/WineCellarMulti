@@ -747,6 +747,7 @@ const translations = {
     topRegions: "Top regions",
     bottlesByType: "Bottles by type",
     bottlesByRegion: "Bottles by region",
+    winesByRegion: "Wines by region",
     totalValue: "Total value",
     type: "Type",
     updatedItems: "updated",
@@ -1081,6 +1082,7 @@ const translations = {
     topRegions: "Top regioni",
     bottlesByType: "Bottiglie per tipo",
     bottlesByRegion: "Bottiglie per regione",
+    winesByRegion: "Vini per regione",
     totalValue: "Valore totale",
     type: "Tipo",
     updatedItems: "aggiornati",
@@ -2179,6 +2181,17 @@ function topWineBottleGroups(items: Wine[], field: "type" | "region") {
       value: items
         .filter((wine) => (wine[field] || (field === "type" ? "Other" : "Unknown region")) === label)
         .reduce((total, wine) => total + wine.quantity, 0),
+    }))
+    .filter((item) => item.value > 0)
+    .sort((first, second) => second.value - first.value)
+    .slice(0, 5);
+}
+
+function topWineCountGroups(items: Wine[], field: "type" | "region") {
+  return uniqueSorted(items.map((wine) => wine[field] || (field === "type" ? "Other" : "Unknown region")))
+    .map((label) => ({
+      label,
+      value: items.filter((wine) => (wine[field] || (field === "type" ? "Other" : "Unknown region")) === label).length,
     }))
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
@@ -4821,6 +4834,7 @@ export function App() {
   const valueByRegion = topWineValueGroups(cellarWines, "region");
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
   const bottlesByRegion = topWineBottleGroups(cellarWines, "region");
+  const winesByRegion = topWineCountGroups(cellarWines, "region");
   const valueByProducer = topProducerGroups(cellarWines);
   const maturity = maturityBuckets(cellarWines, currentYear, locale);
   const drinkNowWines = cellarWines
@@ -6663,6 +6677,22 @@ export function App() {
                         ))}
                       </div>
                       <BreakdownDonut items={bottlesByRegion} mode="region" />
+                    </div>
+                  </div>
+                ) : null}
+                {winesByRegion.length ? (
+                  <div className="stat-card compact-list type-breakdown">
+                    <span>{t("winesByRegion")}</span>
+                    <div className="breakdown-layout">
+                      <div className="breakdown-list">
+                        {winesByRegion.map((item, index) => (
+                          <p key={item.label}>
+                            <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
+                            {item.label}: {formatBottleCount(item.value)}
+                          </p>
+                        ))}
+                      </div>
+                      <BreakdownDonut items={winesByRegion} mode="region" />
                     </div>
                   </div>
                 ) : null}
