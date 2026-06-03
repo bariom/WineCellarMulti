@@ -745,6 +745,7 @@ const translations = {
     valueToRefresh: "Value to refresh",
     viewerReadOnly: "Viewer access: you can read this cellar, but cannot change wines.",
     vintage: "Vintage",
+    vintageHelp: "For cuvées use MV for multi vintage, or NV if the vintage is unknown.",
     wineDetail: "Wine detail",
     wines: "Wines",
     wishlist: "Wishlist",
@@ -1068,6 +1069,7 @@ const translations = {
     valueToRefresh: "Valori da aggiornare",
     viewerReadOnly: "Accesso viewer: puoi leggere questa cantina, ma non modificare i vini.",
     vintage: "Annata",
+    vintageHelp: "Per le cuvée usa MV per multi vintage, oppure NV se l'annata non è nota.",
     wineDetail: "Dettaglio vino",
     wines: "Vini",
     wishlist: "Wishlist",
@@ -6029,14 +6031,15 @@ export function App() {
                     <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
-                <div className="form-row">
-                  <label>
-                    <span>{t("vintage")}</span>
-                    <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  <label>
-                    <span>{t("quantity")}</span>
-                    <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
+                  <div className="form-row">
+                    <label>
+                      <span>{t("vintage")}</span>
+                      <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
+                      <small className="form-hint">{t("vintageHelp")}</small>
+                    </label>
+                    <label>
+                      <span>{t("quantity")}</span>
+                      <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
                 <label>
