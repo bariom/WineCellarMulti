@@ -182,6 +182,7 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
         entitlements=[entitlement_response(entitlement) for entitlement in entitlements],
         available_redeem_codes=[redeem_code_response(code) for code in available_codes if code.expires_at is None or as_aware_utc(code.expires_at) > current_time],
         ai_credit_balance_usd=ai_credit_balance(db, user),
+        ai_credit_pack_size_usd=stripe_ai_credit_amount() if settings.stripe_ai_credit_price_id else ZERO_USD,
         can_purchase_ai_credits=bool(settings.stripe_ai_credit_price_id),
     )
 

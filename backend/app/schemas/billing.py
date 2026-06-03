@@ -62,4 +62,5 @@ class BillingStatusResponse(BaseModel):
     entitlements: list[EntitlementResponse]
     available_redeem_codes: list[RedeemCodeResponse] = []
     ai_credit_balance_usd: Decimal = Decimal("0")
+    ai_credit_pack_size_usd: Decimal = Decimal("0")
     can_purchase_ai_credits: bool = False

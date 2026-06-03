@@ -270,6 +270,7 @@ type BillingStatus = {
   }>;
   available_redeem_codes: RedeemCode[];
   ai_credit_balance_usd: string;
+  ai_credit_pack_size_usd: string;
   can_purchase_ai_credits: boolean;
 };
 
@@ -343,6 +344,7 @@ type AiSettings = {
   provider_mode: "auto" | "user_key" | "credits";
   provider_options: string[];
   app_credit_balance_usd: string;
+  ai_credit_pack_size_usd: string;
   can_use_app_credits: boolean;
   ai_notes_model: string;
   drink_window_model: string;
@@ -468,6 +470,7 @@ const translations = {
     aiProviderCredits: "Vinaris AI Pack",
     aiCredits: "AI Pack",
     aiCreditBalance: "AI budget",
+    aiBudgetUsage: "Usage",
     aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use an app-managed AI Pack purchased through Stripe. This budget is tracked internally against estimated OpenAI usage.",
     buyAiCredits: "Buy AI Pack",
     noAiProvider: "No AI source available",
@@ -782,6 +785,7 @@ const translations = {
     aiProviderCredits: "Vinaris AI Pack",
     aiCredits: "AI Pack",
     aiCreditBalance: "Budget AI",
+    aiBudgetUsage: "Consumo",
     aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare un AI Pack gestito dall'app e acquistato tramite Stripe. Questo budget viene scalato internamente in base al consumo AI stimato.",
     buyAiCredits: "Acquista AI Pack",
     noAiProvider: "Nessuna sorgente AI disponibile",
@@ -1871,6 +1875,13 @@ function formatAiBudget(value: string | number) {
     minimumFractionDigits: amount < 1 ? 4 : 2,
     maximumFractionDigits: 4,
   }).format(amount);
+}
+
+function aiBudgetFillRatio(balance: string | number, packSize: string | number) {
+  const current = Number(balance || 0);
+  const unit = Number(packSize || 0);
+  if (!Number.isFinite(current) || !Number.isFinite(unit) || unit <= 0) return 0;
+  return Math.max(0, Math.min(current / unit, 1));
 }
 
 function readableLegacyAiText(value: string, kind: "strategy" | "purpose") {
@@ -6552,7 +6563,19 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("notSpecified")}</p>
                 )}
-                <p className="empty-state">{t("aiCreditBalance")}: {formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</p>
+                <div className="ai-budget-panel">
+                  <div className="ai-budget-head">
+                    <strong>{t("aiCreditBalance")}</strong>
+                    <span>{formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</span>
+                  </div>
+                  <div className="ai-budget-bar" aria-hidden="true">
+                    <div
+                      className="ai-budget-fill"
+                      style={{ width: `${aiBudgetFillRatio(billingStatus?.ai_credit_balance_usd || 0, billingStatus?.ai_credit_pack_size_usd || 0) * 100}%` }}
+                    />
+                  </div>
+                  <small>{t("aiBudgetUsage")}</small>
+                </div>
               </section>
               ) : null}
 
@@ -6587,6 +6610,13 @@ export function App() {
                   <div className="token-box">
                     <strong>{t("aiCreditBalance")}</strong>
                     <span>{formatAiBudget(aiSettings?.app_credit_balance_usd || 0)}</span>
+                    <div className="ai-budget-bar" aria-hidden="true">
+                      <div
+                        className="ai-budget-fill"
+                        style={{ width: `${aiBudgetFillRatio(aiSettings?.app_credit_balance_usd || 0, aiSettings?.ai_credit_pack_size_usd || 0) * 100}%` }}
+                      />
+                    </div>
+                    <small>{t("aiBudgetUsage")}</small>
                     <small>{t("aiCreditsHelp")}</small>
                     {billingStatus?.can_purchase_ai_credits ? (
                       <button type="button" className="secondary compact" onClick={() => startCheckout("ai_credits")} disabled={saving}>

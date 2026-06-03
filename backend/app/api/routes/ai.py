@@ -32,6 +32,7 @@ from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
 from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
+from app.api.routes.billing import stripe_ai_credit_amount
 
 
 router = APIRouter(prefix="/ai")
@@ -102,6 +103,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         provider_mode=user_settings.provider_mode,
         provider_options=AI_PROVIDER_OPTIONS,
         app_credit_balance_usd=app_balance,
+        ai_credit_pack_size_usd=stripe_ai_credit_amount() if settings.stripe_ai_credit_price_id else ZERO_USD,
         can_use_app_credits=can_use_app_credits,
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,

@@ -48,6 +48,7 @@ class AiSettingsResponse(BaseModel):
     provider_mode: str
     provider_options: list[str]
     app_credit_balance_usd: Decimal = Decimal("0")
+    ai_credit_pack_size_usd: Decimal = Decimal("0")
     can_use_app_credits: bool = False
     ai_notes_model: str
     drink_window_model: str
