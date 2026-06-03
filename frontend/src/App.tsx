@@ -2414,6 +2414,7 @@ function wineSearchText(wine: Wine) {
     wine.ai_notes,
     wine.rating ? `${wine.rating} stars rating` : "",
     wine.tags.join(" "),
+    wine.grapes.map((grape) => grape.name).join(" "),
     wine.scores.map((score) => `${score.critic} ${score.score} ${score.note}`).join(" "),
   ].join(" ").toLowerCase();
 }
@@ -3197,6 +3198,7 @@ export function App() {
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
+  const [grapeFilter, setGrapeFilter] = useState<string[]>([]);
   const [sortMode, setSortMode] = useState<SortMode>("name");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -4782,6 +4784,7 @@ export function App() {
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
   const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
   const tagOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.tags));
+  const grapeOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.grapes.map((grape) => grape.name)));
   const wineFormTagOptions = uniqueSorted([...userTags.map((tag) => tag.name), ...draft.tags]);
   const activeTypeOptions = isWineCollectionView ? wineTypeOptions : wishlistTypeOptions;
   const activeStatusOptions = isWineCollectionView ? wineStatusOptions : wishlistStatusOptions;
@@ -4811,6 +4814,7 @@ export function App() {
       return true;
     })
     .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
+    .filter((wine) => grapeFilter.length === 0 || grapeFilter.every((grape) => wine.grapes.some((item) => item.name === grape)))
     .sort((first, second) => {
       if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
       if (sortMode === "value") return Number(second.current_value || second.price || 0) - Number(first.current_value || first.price || 0);
@@ -5080,6 +5084,7 @@ export function App() {
     setOwnershipFilter("");
     setQuickWineFilter("");
     setTagFilter([]);
+    setGrapeFilter([]);
     setSortMode(nextView === "wishlist" ? "priority" : "name");
   }
 
@@ -5090,6 +5095,7 @@ export function App() {
     setStatusFilter("");
     setOwnershipFilter("");
     setTagFilter([]);
+    setGrapeFilter([]);
     setSortMode("name");
     setQuickWineFilter((current) => current === filter ? "" : filter);
     setWineFormOpen(false);
@@ -5109,6 +5115,7 @@ export function App() {
     setStatusFilter("");
     setOwnershipFilter("");
     setTagFilter([]);
+    setGrapeFilter([]);
     setQuickWineFilter("");
     setSortMode("name");
     setSelectedWineId(wine.id);
@@ -6852,6 +6859,19 @@ export function App() {
                           <span>{tag}</span>
                         </label>
                       )) : <span className="empty-state">{t("allTags")}</span>}
+                    </div>
+                  </div>
+                ) : null}
+                {isWineCollectionView ? (
+                  <div className="filter-choice-group">
+                    <span>{t("grapes")}</span>
+                    <div className="tag-choice-list compact">
+                      {grapeOptions.length ? grapeOptions.map((grape) => (
+                        <label key={grape} className={grapeFilter.includes(grape) ? "selected-filter-chip" : undefined}>
+                          <input type="checkbox" checked={grapeFilter.includes(grape)} onChange={() => setGrapeFilter((current) => toggleListValue(current, grape))} />
+                          <span>{grape}</span>
+                        </label>
+                      )) : <span className="empty-state">{t("grapes")}</span>}
                     </div>
                   </div>
                 ) : null}

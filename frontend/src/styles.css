@@ -1644,6 +1644,11 @@ textarea {
   color: inherit;
 }
 
+.tag-choice-list label.selected-filter-chip {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+
 .tag-choice-list input {
   width: auto;
 }
