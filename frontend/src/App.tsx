@@ -514,6 +514,8 @@ const translations = {
     finalBetaPromo: "Final beta promo",
     promoNote: "Promo pricing during final beta. Early users lock in the current launch rate while the platform is still being refined.",
     registerPromoHelp: "Current pricing is promotional during final beta.",
+    promoMonthlyPrice: "Monthly access promo: CHF 6 / month.",
+    promoAnnualPrice: "Annual access promo: CHF 60 / year.",
     createInvite: "Create invite",
     createRedeemCode: "Create redeem code",
     consumeBottle: "Bottle consumed",
@@ -841,6 +843,8 @@ const translations = {
     finalBetaPromo: "Promo beta finale",
     promoNote: "Prezzi promozionali durante la beta finale. Chi entra ora blocca la tariffa di lancio mentre la piattaforma viene ancora rifinita.",
     registerPromoHelp: "I prezzi attuali sono promozionali durante la beta finale.",
+    promoMonthlyPrice: "Promo accesso mensile: CHF 6 / mese.",
+    promoAnnualPrice: "Promo accesso annuale: CHF 60 / anno.",
     createInvite: "Crea invito",
     createRedeemCode: "Crea codice redeem",
     consumeBottle: "Bevuta 1",
@@ -5393,6 +5397,11 @@ export function App() {
             <div className="invite-notice">
               <strong>{t("redeemRequired")}</strong>
               <span>{session?.user_email}</span>
+            </div>
+            <div className="invite-notice promo-notice">
+              <strong>{t("finalBetaPromo")}</strong>
+              <span>{t("promoMonthlyPrice")}</span>
+              <span>{t("promoAnnualPrice")}</span>
             </div>
             <div className="form-actions">
               <button type="button" onClick={() => startCheckout("monthly")} disabled={saving}>
