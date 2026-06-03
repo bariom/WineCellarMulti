@@ -28,6 +28,9 @@ class Settings(BaseSettings):
     stripe_price_id: str = ""
     stripe_monthly_price_id: str = ""
     stripe_annual_price_id: str = ""
+    stripe_ai_credit_price_id: str = ""
+    stripe_ai_credit_amount_usd: str = "5.00"
+    stripe_ai_credit_label: str = "Vinaris AI credits"
     stripe_payment_amount_cents: int = 0
     stripe_payment_currency: str = "chf"
     stripe_payment_label: str = "Vinaris access"

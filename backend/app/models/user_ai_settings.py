@@ -14,6 +14,7 @@ class UserAiSettings(Base):
 
     user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     openai_api_key: Mapped[str] = mapped_column(Text, default="")
+    provider_mode: Mapped[str] = mapped_column(String(32), default="auto")
     ai_notes_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-mini")
     drink_window_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
     value_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-mini")

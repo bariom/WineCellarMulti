@@ -269,9 +269,11 @@ type BillingStatus = {
     created_at: string;
   }>;
   available_redeem_codes: RedeemCode[];
+  ai_credit_balance_usd: string;
+  can_purchase_ai_credits: boolean;
 };
 
-type PaymentPlan = "monthly" | "annual";
+type PaymentPlan = "monthly" | "annual" | "ai_credits";
 
 type CheckoutSession = {
   checkout_url: string;
@@ -338,6 +340,10 @@ type AiUsage = {
 
 type AiSettings = {
   has_openai_api_key: boolean;
+  provider_mode: "auto" | "user_key" | "credits";
+  provider_options: string[];
+  app_credit_balance_usd: string;
+  can_use_app_credits: boolean;
   ai_notes_model: string;
   drink_window_model: string;
   value_model: string;
@@ -349,6 +355,7 @@ type AiSettings = {
 
 type AiSettingsDraft = {
   openai_api_key: string;
+  provider_mode: "auto" | "user_key" | "credits";
   ai_notes_model: string;
   drink_window_model: string;
   value_model: string;
@@ -411,6 +418,7 @@ type ThemePreference =
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
+  provider_mode: "auto",
   ai_notes_model: "gpt-5.4-mini",
   drink_window_model: "gpt-5.4",
   value_model: "gpt-5.4-mini",
@@ -453,6 +461,15 @@ const translations = {
     addWine: "Add wine",
     addWishlist: "Add wishlist",
     aiNotes: "AI notes",
+    aiProvider: "AI source",
+    aiProviderAuto: "Automatic",
+    aiProviderUserKey: "My OpenAI key",
+    aiProviderCredits: "Vinaris AI credits",
+    aiCredits: "AI credits",
+    aiCreditBalance: "AI credit balance",
+    aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use app-managed AI credits purchased through Stripe.",
+    buyAiCredits: "Buy AI credits",
+    noAiProvider: "No AI source available",
     aiPurpose: "AI purpose",
     aiReadiness: "AI readiness",
     aiReadinessHelp: "Wines with AI notes or value notes. Missing data above are the first candidates for AI enrichment.",
@@ -756,6 +773,15 @@ const translations = {
     addWine: "Aggiungi vino",
     addWishlist: "Aggiungi wishlist",
     aiNotes: "Note AI",
+    aiProvider: "Sorgente AI",
+    aiProviderAuto: "Automatica",
+    aiProviderUserKey: "Mia chiave OpenAI",
+    aiProviderCredits: "Crediti AI Vinaris",
+    aiCredits: "Crediti AI",
+    aiCreditBalance: "Saldo crediti AI",
+    aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare crediti AI gestiti dall'app e acquistati tramite Stripe.",
+    buyAiCredits: "Acquista crediti AI",
+    noAiProvider: "Nessuna sorgente AI disponibile",
     aiPurpose: "Scopo AI",
     aiReadiness: "Prontezza AI",
     aiReadinessHelp: "Vini con note AI o note valore. I dati mancanti sopra sono i primi candidati per l'arricchimento AI.",
@@ -3131,6 +3157,7 @@ export function App() {
       setAiSettings(nextSettings);
       setAiSettingsDraft({
         openai_api_key: "",
+        provider_mode: nextSettings.provider_mode,
         ai_notes_model: nextSettings.ai_notes_model,
         drink_window_model: nextSettings.drink_window_model,
         value_model: nextSettings.value_model,
@@ -3844,6 +3871,7 @@ export function App() {
       setAiSettings(nextSettings);
       setAiSettingsDraft({
         openai_api_key: "",
+        provider_mode: nextSettings.provider_mode,
         ai_notes_model: nextSettings.ai_notes_model,
         drink_window_model: nextSettings.drink_window_model,
         value_model: nextSettings.value_model,
@@ -4235,7 +4263,16 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
-  const canGenerateAi = canWriteWine && Boolean(aiSettings?.has_openai_api_key);
+  const canGenerateAi =
+    canWriteWine &&
+    Boolean(
+      aiSettings &&
+      (
+        (aiSettings.provider_mode === "auto" && (aiSettings.has_openai_api_key || aiSettings.can_use_app_credits)) ||
+        (aiSettings.provider_mode === "user_key" && aiSettings.has_openai_api_key) ||
+        (aiSettings.provider_mode === "credits" && aiSettings.can_use_app_credits)
+      ),
+    );
   const currentUserEmail = session?.user_email?.toLowerCase();
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
@@ -6435,6 +6472,11 @@ export function App() {
                   <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
                     {t("manageSubscription")}
                   </button>
+                  {billingStatus?.can_purchase_ai_credits ? (
+                    <button type="button" className="secondary" onClick={() => startCheckout("ai_credits")} disabled={saving}>
+                      {t("buyAiCredits")}
+                    </button>
+                  ) : null}
                 </form>
                 {billingStatus?.available_redeem_codes.length ? (
                   <div className="member-list">
@@ -6461,6 +6503,7 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("notSpecified")}</p>
                 )}
+                <p className="empty-state">{t("aiCreditBalance")}: {formatUsd(billingStatus?.ai_credit_balance_usd || 0)}</p>
               </section>
               ) : null}
 
@@ -6476,6 +6519,14 @@ export function App() {
                     </strong>
                   </div>
                   <label>
+                    <span>{t("aiProvider")}</span>
+                    <select value={aiSettingsDraft.provider_mode} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, provider_mode: event.target.value as AiSettingsDraft["provider_mode"] })}>
+                      <option value="auto">{t("aiProviderAuto")}</option>
+                      <option value="user_key">{t("aiProviderUserKey")}</option>
+                      <option value="credits">{t("aiProviderCredits")}</option>
+                    </select>
+                  </label>
+                  <label>
                     <span>OpenAI API key</span>
                     <input
                       type="password"
@@ -6484,6 +6535,16 @@ export function App() {
                       placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
                     />
                   </label>
+                  <div className="token-box">
+                    <strong>{t("aiCreditBalance")}</strong>
+                    <span>{formatUsd(aiSettings?.app_credit_balance_usd || 0)}</span>
+                    <small>{t("aiCreditsHelp")}</small>
+                    {billingStatus?.can_purchase_ai_credits ? (
+                      <button type="button" className="secondary compact" onClick={() => startCheckout("ai_credits")} disabled={saving}>
+                        {t("buyAiCredits")}
+                      </button>
+                    ) : null}
+                  </div>
                   <div className="settings-model-grid">
                     <label>
                       <span>{t("aiNotes")}</span>

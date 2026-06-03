@@ -1,3 +1,4 @@
+from decimal import Decimal
 from datetime import datetime
 from typing import Literal
 from uuid import UUID
@@ -33,13 +34,13 @@ class RedeemRequest(BaseModel):
 
 
 class CheckoutSessionCreate(BaseModel):
-    plan: Literal["monthly", "annual"] = "annual"
+    plan: Literal["monthly", "annual", "ai_credits"] = "annual"
 
 
 class CheckoutSessionResponse(BaseModel):
     checkout_url: str
     stripe_session_id: str
-    plan: Literal["monthly", "annual"]
+    plan: Literal["monthly", "annual", "ai_credits"]
 
 
 class BillingPortalResponse(BaseModel):
@@ -60,3 +61,5 @@ class BillingStatusResponse(BaseModel):
     active_source: str | None
     entitlements: list[EntitlementResponse]
     available_redeem_codes: list[RedeemCodeResponse] = []
+    ai_credit_balance_usd: Decimal = Decimal("0")
+    can_purchase_ai_credits: bool = False

@@ -7,6 +7,7 @@ import secrets
 import string
 import time
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
@@ -24,6 +25,7 @@ from app.db.session import get_db
 from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement, UserNotification
 from app.schemas.billing import BillingPortalResponse, BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
 from app.services.email import send_email
+from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
 
 
 router = APIRouter(prefix="/billing")
@@ -179,6 +181,8 @@ def billing_status(db: Session, user: User) -> BillingStatusResponse:
         active_source=active_entitlement.source if active_entitlement else None,
         entitlements=[entitlement_response(entitlement) for entitlement in entitlements],
         available_redeem_codes=[redeem_code_response(code) for code in available_codes if code.expires_at is None or as_aware_utc(code.expires_at) > current_time],
+        ai_credit_balance_usd=ai_credit_balance(db, user),
+        can_purchase_ai_credits=bool(settings.stripe_ai_credit_price_id),
     )
 
 
@@ -197,15 +201,35 @@ def stripe_plan_config(plan: str) -> dict[str, str | int]:
             "duration_days": max(settings.stripe_annual_entitlement_days or settings.stripe_entitlement_days, 1),
             "label": settings.stripe_payment_label or "Vinaris annual access",
         }
+    if plan == "ai_credits":
+        return {
+            "plan": "ai_credits",
+            "price_id": settings.stripe_ai_credit_price_id,
+            "duration_days": 0,
+            "label": settings.stripe_ai_credit_label or "Vinaris AI credits",
+        }
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid payment plan")
+
+
+def stripe_ai_credit_amount() -> Decimal:
+    try:
+        amount = Decimal(str(settings.stripe_ai_credit_amount_usd))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe AI credit amount is invalid") from exc
+    if amount <= ZERO_USD:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe AI credit amount is not configured")
+    return quantize_usd(amount)
 
 
 def stripe_checkout_payload(user: User, plan: str) -> dict[str, str]:
     plan_config = stripe_plan_config(plan)
     duration_days = int(plan_config["duration_days"])
     price_id = str(plan_config["price_id"] or "")
+    ai_credit_amount = stripe_ai_credit_amount() if plan == "ai_credits" else ZERO_USD
+    if plan == "ai_credits" and not price_id:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe AI credit price is not configured")
     payload = {
-        "mode": "subscription" if price_id else "payment",
+        "mode": "payment" if plan == "ai_credits" else ("subscription" if price_id else "payment"),
         "client_reference_id": str(user.id),
         "customer_email": user.email,
         "success_url": settings.stripe_success_url,
@@ -213,12 +237,13 @@ def stripe_checkout_payload(user: User, plan: str) -> dict[str, str]:
         "metadata[user_id]": str(user.id),
         "metadata[duration_days]": str(duration_days),
         "metadata[plan]": str(plan_config["plan"]),
+        "metadata[ai_credit_amount_usd]": str(ai_credit_amount),
         "line_items[0][quantity]": "1",
     }
     if price_id:
         payload["line_items[0][price]"] = price_id
     else:
-        if plan != "annual":
+        if plan not in {"annual"}:
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Stripe monthly price is not configured")
         amount = settings.stripe_payment_amount_cents
         if amount <= 0:
@@ -347,7 +372,26 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
     checkout.amount_total = session.get("amount_total") if session.get("amount_total") is not None else checkout.amount_total
     checkout.currency = session.get("currency") or checkout.currency
     checkout.completed_at = now_utc()
-    create_payment_redeem_code(db, user, label=f"Stripe {checkout.plan} access", duration_days=checkout.duration_days, checkout=checkout)
+    if checkout.plan == "ai_credits":
+        ai_credit_amount = stripe_ai_credit_amount()
+        create_ai_credit_transaction(
+            db,
+            user,
+            amount_usd=ai_credit_amount,
+            source="purchase",
+            source_id=checkout.id,
+            note=f"Stripe AI credits purchase ({ai_credit_amount} USD)",
+        )
+        create_user_notification(
+            db,
+            user,
+            kind="ai_credits",
+            title="Crediti AI ricaricati",
+            message=f"Sono stati aggiunti {ai_credit_amount} USD di crediti AI al tuo saldo.",
+            action_url="/settings/ai",
+        )
+    else:
+        create_payment_redeem_code(db, user, label=f"Stripe {checkout.plan} access", duration_days=checkout.duration_days, checkout=checkout)
 
 
 def complete_stripe_invoice(db: Session, invoice: dict) -> None:

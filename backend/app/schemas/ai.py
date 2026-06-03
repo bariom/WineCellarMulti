@@ -45,6 +45,10 @@ class AiUsageResponse(BaseModel):
 
 class AiSettingsResponse(BaseModel):
     has_openai_api_key: bool
+    provider_mode: str
+    provider_options: list[str]
+    app_credit_balance_usd: Decimal = Decimal("0")
+    can_use_app_credits: bool = False
     ai_notes_model: str
     drink_window_model: str
     value_model: str
@@ -56,6 +60,7 @@ class AiSettingsResponse(BaseModel):
 
 class AiSettingsUpdate(BaseModel):
     openai_api_key: str | None = None
+    provider_mode: str | None = Field(default=None, pattern="^(auto|user_key|credits)$")
     ai_notes_model: str | None = None
     drink_window_model: str | None = None
     value_model: str | None = None

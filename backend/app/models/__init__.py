@@ -1,5 +1,5 @@
 from app.models.ai_audit import AiAuditLog
-from app.models.billing import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, UserEntitlement
+from app.models.billing import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, UserAiCreditTransaction, UserEntitlement
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
@@ -23,6 +23,7 @@ __all__ = [
     "RedeemRedemption",
     "StripeCheckoutSession",
     "StripeWebhookEvent",
+    "UserAiCreditTransaction",
     "User",
     "UserAiSettings",
     "UserEntitlement",

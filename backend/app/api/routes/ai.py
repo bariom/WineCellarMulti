@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -30,11 +31,13 @@ from app.schemas.ai import (
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
+from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
 
 
 router = APIRouter(prefix="/ai")
 
 MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
+AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
 MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
     "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
@@ -58,12 +61,19 @@ def validate_model(model: str) -> str:
     return model
 
 
+def validate_provider_mode(provider_mode: str) -> str:
+    if provider_mode not in AI_PROVIDER_OPTIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported AI provider mode: {provider_mode}")
+    return provider_mode
+
+
 def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> UserAiSettings:
     user_settings = db.get(UserAiSettings, context.user.id)
     if user_settings is None:
         user_settings = UserAiSettings(
             user_id=context.user.id,
             openai_api_key="",
+            provider_mode="auto",
             ai_notes_model=settings.openai_ai_notes_model,
             drink_window_model=settings.openai_drink_window_model,
             value_model=settings.openai_value_model,
@@ -84,9 +94,15 @@ def ai_wine_response(db: Session, context: CurrentContext, wine: Wine) -> WineRe
     )
 
 
-def ai_settings_response(user_settings: UserAiSettings) -> AiSettingsResponse:
+def ai_settings_response(db: Session, context: CurrentContext, user_settings: UserAiSettings) -> AiSettingsResponse:
+    app_balance = ai_credit_balance(db, context.user)
+    can_use_app_credits = bool(settings.openai_api_key.strip()) and app_balance > ZERO_USD
     return AiSettingsResponse(
         has_openai_api_key=bool(decrypt_secret(user_settings.openai_api_key).strip()),
+        provider_mode=user_settings.provider_mode,
+        provider_options=AI_PROVIDER_OPTIONS,
+        app_credit_balance_usd=app_balance,
+        can_use_app_credits=can_use_app_credits,
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
@@ -115,6 +131,60 @@ def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
     return cost.quantize(Decimal("0.000001"))
 
 
+def user_openai_api_key(user_settings: UserAiSettings) -> str:
+    return decrypt_secret(user_settings.openai_api_key)
+
+
+def select_ai_provider(db: Session, context: CurrentContext, user_settings: UserAiSettings) -> tuple[str, str]:
+    user_key = user_openai_api_key(user_settings).strip()
+    app_key = settings.openai_api_key.strip()
+    balance = ai_credit_balance(db, context.user)
+    mode = user_settings.provider_mode or "auto"
+
+    if mode == "user_key":
+        if user_key:
+            return ("user_key", user_key)
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="No personal OpenAI API key configured")
+    if mode == "credits":
+        if app_key and balance > ZERO_USD:
+            return ("credits", app_key)
+        if not app_key:
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Application OpenAI API key is not configured")
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted")
+
+    if user_key:
+        return ("user_key", user_key)
+    if app_key and balance > ZERO_USD:
+        return ("credits", app_key)
+    if app_key and balance <= ZERO_USD:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted")
+    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No AI provider configured")
+
+
+def create_ai_response(
+    db: Session,
+    context: CurrentContext,
+    user_settings: UserAiSettings,
+    *,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    json_schema: dict[str, Any] | None = None,
+) -> tuple[Any, str]:
+    provider_source, api_key = select_ai_provider(db, context, user_settings)
+    response = create_response(model, system_prompt, user_prompt, api_key=api_key, json_schema=json_schema)
+    if provider_source == "credits":
+        cost = quantize_usd(estimate_cost_usd(model, response.usage))
+        create_ai_credit_transaction(
+            db,
+            context.user,
+            amount_usd=-cost,
+            source="usage",
+            note=f"{model} tokens for {context.household.name}",
+        )
+    return response, provider_source
+
+
 def record_ai_audit(
     db: Session,
     context: CurrentContext,
@@ -126,6 +196,7 @@ def record_ai_audit(
     summary: str,
     sources: list[dict] | None = None,
     usage: TokenUsage | None = None,
+    provider_source: str = "user_key",
 ) -> None:
     token_usage = usage or TokenUsage()
     db.add(
@@ -138,7 +209,7 @@ def record_ai_audit(
             model=model,
             outcome="success",
             summary=clip_summary(summary),
-            sources=sources or [],
+            sources=(sources or []) + [{"provider_source": provider_source}],
             input_tokens=token_usage.input_tokens,
             cached_input_tokens=token_usage.cached_input_tokens,
             output_tokens=token_usage.output_tokens,
@@ -199,7 +270,10 @@ def get_ai_usage(
         for entry in entries
         if utc_datetime(entry.created_at).year == now.year and utc_datetime(entry.created_at).month == now.month
     ]
-    return AiUsageResponse(today=usage_bucket(today), current_month=usage_bucket(current_month), all_time=usage_bucket(entries))
+    usage = AiUsageResponse(today=usage_bucket(today), current_month=usage_bucket(current_month), all_time=usage_bucket(entries))
+    usage.currency = "USD"
+    usage.is_estimate = True
+    return usage
 
 
 @router.get("/settings", response_model=AiSettingsResponse)
@@ -207,7 +281,7 @@ def get_ai_settings(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> AiSettingsResponse:
-    return ai_settings_response(get_or_create_user_ai_settings(db, context))
+    return ai_settings_response(db, context, get_or_create_user_ai_settings(db, context))
 
 
 @router.patch("/settings", response_model=AiSettingsResponse)
@@ -219,6 +293,8 @@ def update_ai_settings(
     user_settings = get_or_create_user_ai_settings(db, context)
     if payload.openai_api_key is not None:
         user_settings.openai_api_key = encrypt_secret(payload.openai_api_key.strip())
+    if payload.provider_mode is not None:
+        user_settings.provider_mode = validate_provider_mode(payload.provider_mode)
     for field in ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model", "pairing_model"]:
         value = getattr(payload, field)
         if value is not None:
@@ -226,7 +302,7 @@ def update_ai_settings(
     user_settings.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user_settings)
-    return ai_settings_response(user_settings)
+    return ai_settings_response(db, context, user_settings)
 
 
 def wine_context(wine: Wine) -> str:
@@ -271,11 +347,6 @@ def wishlist_context(item: WishlistItem) -> str:
             f"AI purpose advice: {item.ai_purpose_advice}",
         ],
     )
-
-
-def user_openai_api_key(user_settings: UserAiSettings) -> str:
-    return decrypt_secret(user_settings.openai_api_key)
-
 
 def pairing_wine_context(wine: Wine) -> dict:
     return {
@@ -410,16 +481,19 @@ def suggest_pairing(
             "required": ["summary", "cellar_matches", "market_recommendations"],
         },
     }
-    response = create_response(
-        user_settings.pairing_model,
-        (
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.pairing_model,
+        system_prompt=(
             "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
             "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
             "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
             "Non inventare che un vino e in cantina se non e nel contesto. "
             f"{response_language_instruction(payload.locale)}"
         ),
-        (
+        user_prompt=(
             f"Piatto o pietanza: {payload.dish}\n"
             f"include_market: {str(payload.include_market).lower()}\n"
             f"market_only: {str(payload.market_only).lower()}\n\n"
@@ -427,7 +501,6 @@ def suggest_pairing(
             f"{wine_context_payload}\n\n"
             "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60."
         ),
-        api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     cleaned = clean_pairing_response(parse_json_response(response.text), {str(wine.id) for wine in cellar_wines}, payload.include_market)
@@ -441,6 +514,7 @@ def suggest_pairing(
         model=user_settings.pairing_model,
         summary=f"{payload.dish}: {cleaned.summary}",
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     return cleaned
@@ -455,15 +529,17 @@ def generate_wine_notes(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
-    response = create_response(
-        user_settings.ai_notes_model,
-        f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
-        f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.ai_notes_model,
+        system_prompt=f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
+        user_prompt=f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
-    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=user_settings.ai_notes_model, summary=notes, usage=response.usage)
+    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=user_settings.ai_notes_model, summary=notes, usage=response.usage, provider_source=provider_source)
     db.commit()
     db.refresh(wine)
     return ai_wine_response(db, context, wine)
@@ -493,11 +569,13 @@ def generate_drink_window(
             "required": ["drink_from", "drink_peak_from", "drink_peak_to", "drink_to", "notes"],
         },
     }
-    response = create_response(
-        user_settings.drink_window_model,
-        f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
-        f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_context(wine)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.drink_window_model,
+        system_prompt=f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
+        user_prompt=f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_context(wine)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -515,6 +593,7 @@ def generate_drink_window(
         model=user_settings.drink_window_model,
         summary=f"{wine.drink_from}-{wine.drink_to}: {wine.drink_window_notes}",
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(wine)
@@ -543,11 +622,13 @@ def generate_wine_value(
             "required": ["current_value", "currency", "notes"],
         },
     }
-    response = create_response(
-        user_settings.value_model,
-        f"You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty. {response_language_instruction(payload.locale)}",
-        f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}.\n\n{wine_context(wine)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.value_model,
+        system_prompt=f"You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty. {response_language_instruction(payload.locale)}",
+        user_prompt=f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}.\n\n{wine_context(wine)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -569,6 +650,7 @@ def generate_wine_value(
         model=user_settings.value_model,
         summary=f"{wine.currency} {wine.current_value}: {wine.ai_value_notes}",
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(wine)
@@ -608,11 +690,13 @@ def generate_grapes(
             "required": ["grapes", "notes"],
         },
     }
-    response = create_response(
-        user_settings.grape_model,
-        f"You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable. {response_language_instruction(payload.locale)}",
-        f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.grape_model,
+        system_prompt=f"You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable. {response_language_instruction(payload.locale)}",
+        user_prompt=f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -629,6 +713,7 @@ def generate_grapes(
         model=user_settings.grape_model,
         summary=note or str(wine.grapes),
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(wine)
@@ -667,13 +752,17 @@ def generate_scores(
             "required": ["scores"],
         },
     }
-    response = create_response(
-        user_settings.ai_notes_model,
-        f"You summarize known wine critic scores cautiously. Return JSON only. {response_language_instruction(payload.locale)}",
-        "Estimate likely published critic scores for this wine only when plausible. "
-        "Prefer well-known critics and include short uncertainty notes. If evidence is weak, return an empty scores array.\n\n"
-        f"{wine_context(wine)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.ai_notes_model,
+        system_prompt=f"You summarize known wine critic scores cautiously. Return JSON only. {response_language_instruction(payload.locale)}",
+        user_prompt=(
+            "Estimate likely published critic scores for this wine only when plausible. "
+            "Prefer well-known critics and include short uncertainty notes. If evidence is weak, return an empty scores array.\n\n"
+            f"{wine_context(wine)}"
+        ),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -698,6 +787,7 @@ def generate_scores(
         model=user_settings.ai_notes_model,
         summary=f"{len(wine.scores)} scores generated",
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(wine)
@@ -727,11 +817,13 @@ def generate_wishlist_strategy(
             "required": ["strategy", "purpose_advice", "recommended_status", "recommended_priority"],
         },
     }
-    response = create_response(
-        user_settings.wishlist_model,
-        f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
-        f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.wishlist_model,
+        system_prompt=f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
+        user_prompt=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -748,6 +840,7 @@ def generate_wishlist_strategy(
         model=user_settings.wishlist_model,
         summary=f"{item.priority} / {item.status}: {item.ai_strategy}",
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(item)
@@ -776,11 +869,13 @@ def generate_wishlist_purpose(
             "required": ["recommended_purpose", "purpose_advice", "recommended_priority"],
         },
     }
-    response = create_response(
-        user_settings.wishlist_model,
-        f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
-        f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_context(item)}",
-        api_key=user_openai_api_key(user_settings),
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.wishlist_model,
+        system_prompt=f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
+        user_prompt=f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_context(item)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -796,6 +891,7 @@ def generate_wishlist_purpose(
         model=user_settings.wishlist_model,
         summary=f"{item.purpose} / {item.priority}: {item.ai_purpose_advice}",
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(item)
@@ -825,17 +921,19 @@ def generate_wishlist_target_price(
             "required": ["market_price", "market_price_currency", "price_advice", "recommended_status"],
         },
     }
-    response = create_response(
-        user_settings.value_model,
-        f"You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. {response_language_instruction(payload.locale)}",
-        (
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.value_model,
+        system_prompt=f"You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. {response_language_instruction(payload.locale)}",
+        user_prompt=(
             f"Estimate the current market price for this wishlist item. "
             f"The user target price is {item.currency} {item.target_price}. "
             f"Keep market price currency preferably {item.currency}. "
             "Use price_advice to compare the user target price with the estimated market price.\n\n"
             f"{wishlist_context(item)}"
         ),
-        api_key=user_openai_api_key(user_settings),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -859,6 +957,7 @@ def generate_wishlist_target_price(
             f"Market {item.ai_market_price_currency or item.currency} {item.ai_market_price}: {item.ai_strategy}"
         ),
         usage=response.usage,
+        provider_source=provider_source,
     )
     db.commit()
     db.refresh(item)
