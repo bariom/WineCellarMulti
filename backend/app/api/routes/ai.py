@@ -383,6 +383,7 @@ def wishlist_context(item: WishlistItem) -> str:
             f"Status: {item.status}",
             f"Merchant: {item.merchant}",
             f"Notes: {item.notes}",
+            f"AI context note: {item.ai_context_note}",
             f"AI strategy: {item.ai_strategy}",
             f"AI purpose advice: {item.ai_purpose_advice}",
         ],

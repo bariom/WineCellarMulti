@@ -1098,12 +1098,14 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
             "priority": "Medium",
             "purpose": "Drink",
             "status": "Evaluate",
+            "ai_context_note": "In my region this bottle usually trades around CHF 150.",
         },
     )
     assert created.status_code == 201
     item_id = created.json()["id"]
 
     def fake_create_response(*args, **kwargs):
+        assert "CHF 150" in args[2]
         schema_name = kwargs["json_schema"]["name"]
         if schema_name == "wishlist_strategy":
             text = '{"strategy":"Compra solo sotto target.","purpose_advice":"Non modificato.","recommended_status":"Watch","recommended_priority":"High"}'

@@ -33,5 +33,6 @@ class WishlistItem(Base):
     status_source: Mapped[str] = mapped_column(String(32), default="manual")
     is_shared: Mapped[str] = mapped_column(String(8), default="0")
     notes: Mapped[str] = mapped_column(Text, default="")
+    ai_context_note: Mapped[str] = mapped_column(Text, default="")
     ai_strategy: Mapped[str] = mapped_column(Text, default="")
     ai_purpose_advice: Mapped[str] = mapped_column(Text, default="")

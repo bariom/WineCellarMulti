@@ -23,6 +23,7 @@ class WishlistBase(BaseModel):
     status_source: str = "manual"
     is_shared: str = "0"
     notes: str = ""
+    ai_context_note: str = ""
     ai_strategy: str = ""
     ai_purpose_advice: str = ""
 
@@ -50,6 +51,7 @@ class WishlistUpdate(BaseModel):
     status_source: str | None = None
     is_shared: str | None = None
     notes: str | None = None
+    ai_context_note: str | None = None
     ai_strategy: str | None = None
     ai_purpose_advice: str | None = None
 

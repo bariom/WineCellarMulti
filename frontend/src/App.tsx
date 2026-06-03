@@ -174,6 +174,7 @@ type WishlistItem = {
   purpose: string;
   status: string;
   notes: string;
+  ai_context_note: string;
   ai_strategy: string;
   ai_purpose_advice: string;
 };
@@ -193,6 +194,7 @@ type WishlistDraft = {
   purpose: string;
   status: string;
   notes: string;
+  ai_context_note: string;
 };
 
 type HouseholdMembership = {
@@ -490,6 +492,8 @@ const translations = {
     aiStrategy: "AI strategy",
     aiMarketPrice: "AI market price",
     aiTargetPrice: "AI market price",
+    aiContextNote: "AI context note",
+    aiContextNoteHelp: "Optional note used by AI as extra context for wishlist strategy, purpose, and market price.",
     aiUsage: "AI usage",
     allTime: "All time",
     allBottles: "All bottles",
@@ -819,6 +823,8 @@ const translations = {
     aiStrategy: "Strategia AI",
     aiMarketPrice: "Prezzo mercato AI",
     aiTargetPrice: "Prezzo mercato AI",
+    aiContextNote: "Nota contesto AI",
+    aiContextNoteHelp: "Nota opzionale usata dall'AI come contesto aggiuntivo per strategia, scopo e prezzo di mercato della wishlist.",
     aiUsage: "Uso AI",
     allTime: "Totale",
     allBottles: "Tutte le bottiglie",
@@ -1590,6 +1596,7 @@ const emptyWishlistDraft: WishlistDraft = {
   purpose: "Drink",
   status: "Evaluate",
   notes: "",
+  ai_context_note: "",
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -1706,6 +1713,7 @@ function offlineWishlistItem(raw: Record<string, unknown>, index: number): Wishl
     purpose: rawString(raw.purpose, "Drink"),
     status: rawString(raw.status, "Evaluate"),
     notes: rawString(raw.notes),
+    ai_context_note: rawString(raw.ai_context_note),
     ai_strategy: rawString(raw.ai_strategy),
     ai_purpose_advice: rawString(raw.ai_purpose_advice),
   };
@@ -1846,6 +1854,7 @@ function wishlistToDraft(item: WishlistItem): WishlistDraft {
     purpose: item.purpose,
     status: item.status,
     notes: item.notes,
+    ai_context_note: item.ai_context_note,
   };
 }
 
@@ -1865,6 +1874,7 @@ function wishlistPayload(draft: WishlistDraft) {
     purpose: draft.purpose,
     status: draft.status,
     notes: draft.notes.trim(),
+    ai_context_note: draft.ai_context_note.trim(),
   };
 }
 
@@ -2745,9 +2755,10 @@ function WishlistDetail({
         <DetailField label={t("aiMarketPrice")} value={aiMarketPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>
-      {item.notes ? (
+      {item.notes || item.ai_context_note ? (
         <div className="notes-grid">
-          <DetailNote title={t("notes")}>{item.notes}</DetailNote>
+          {item.notes ? <DetailNote title={t("notes")}>{item.notes}</DetailNote> : null}
+          {item.ai_context_note ? <DetailNote title={t("aiContextNote")}>{item.ai_context_note}</DetailNote> : null}
         </div>
       ) : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
@@ -6301,6 +6312,11 @@ export function App() {
                 <label>
                   <span>{t("notes")}</span>
                   <textarea value={wishlistDraft.notes} onChange={(event) => setWishlistDraft({ ...wishlistDraft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
+                </label>
+                <label>
+                  <span>{t("aiContextNote")}</span>
+                  <textarea value={wishlistDraft.ai_context_note} onChange={(event) => setWishlistDraft({ ...wishlistDraft, ai_context_note: event.target.value })} rows={3} disabled={!canWriteWine} />
+                  <small>{t("aiContextNoteHelp")}</small>
                 </label>
                 <div className="form-actions">
                   <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingWishlistId ? t("saveChanges") : t("createWishlist")}</button>
