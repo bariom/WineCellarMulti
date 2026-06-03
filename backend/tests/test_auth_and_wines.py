@@ -937,6 +937,72 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert client.get("/api/v1/wines").json() == []
 
 
+def test_vinaris_export_roundtrip_uses_selected_blocks():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    created_wine = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Roundtrip Wine",
+            "producer": "Roundtrip Producer",
+            "vintage": "2019",
+            "quantity": 3,
+            "price": 33,
+            "currency": "CHF",
+            "status": "Delivered",
+            "tags": ["Roundtrip"],
+        },
+    )
+    assert created_wine.status_code == 201
+
+    created_wishlist = client.post(
+        "/api/v1/wishlist",
+        json={
+            "name": "Roundtrip Wishlist",
+            "producer": "Wishlist Producer",
+            "target_price": 55,
+            "currency": "CHF",
+            "priority": "High",
+            "purpose": "Drink",
+        },
+    )
+    assert created_wishlist.status_code == 201
+
+    exported = client.get(
+        "/api/v1/imports/export-json?include_members=false&include_invites=false&include_share_offers=false&include_tags=false&include_ai_audit=false",
+    )
+    assert exported.status_code == 200
+    export_payload = exported.json()
+    assert export_payload["schema"] == "winecellarmulti.export.v2"
+    assert export_payload["included_blocks"] == ["wines", "wishlist"]
+
+    preview = client.post("/api/v1/imports/json/preview", json=export_payload)
+    assert preview.status_code == 200
+    assert preview.json()["format"] == "vinaris"
+    assert preview.json()["included_blocks"] == ["wines", "wishlist"]
+    assert preview.json()["wines_total"] == 1
+    assert preview.json()["wishlist_total"] == 1
+
+    emptied = client.delete("/api/v1/imports/cellar")
+    assert emptied.status_code == 200
+
+    imported = client.post("/api/v1/imports/json?mode=replace_all", json=export_payload)
+    assert imported.status_code == 200
+    assert imported.json()["wines_imported"] == 1
+    assert imported.json()["wishlist_imported"] == 1
+    assert imported.json()["members_imported"] == 0
+    assert imported.json()["user_tags_imported"] == 0
+
+    wines = client.get("/api/v1/wines")
+    assert wines.status_code == 200
+    assert [wine["name"] for wine in wines.json()] == ["Roundtrip Wine"]
+
+    wishlist = client.get("/api/v1/wishlist")
+    assert wishlist.status_code == 200
+    assert [item["name"] for item in wishlist.json()] == ["Roundtrip Wishlist"]
+
+
 def test_ai_generation_requires_configured_openai_key():
     client = TestClient(app)
     assert register(client).status_code == 201

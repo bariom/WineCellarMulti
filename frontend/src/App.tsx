@@ -120,6 +120,8 @@ type Passkey = {
 type ImportMode = "add_all" | "skip_duplicates" | "update_existing" | "replace_all";
 
 type ImportPreview = {
+  format: string;
+  included_blocks: string[];
   wines_total: number;
   wishlist_total: number;
   wine_duplicates: number;
@@ -128,6 +130,11 @@ type ImportPreview = {
   wishlist_new: number;
   sample_wine_duplicates: string[];
   sample_wishlist_duplicates: string[];
+  members_total: number;
+  invites_total: number;
+  share_offers_total: number;
+  user_tags_total: number;
+  ai_audit_total: number;
 };
 
 type ImportResult = {
@@ -139,6 +146,21 @@ type ImportResult = {
   wishlist_updated: number;
   wines_deleted: number;
   wishlist_deleted: number;
+  members_imported: number;
+  members_skipped: number;
+  members_updated: number;
+  invites_imported: number;
+  invites_skipped: number;
+  invites_updated: number;
+  share_offers_imported: number;
+  share_offers_skipped: number;
+  share_offers_updated: number;
+  user_tags_imported: number;
+  user_tags_skipped: number;
+  user_tags_updated: number;
+  ai_audit_imported: number;
+  ai_audit_skipped: number;
+  ai_audit_updated: number;
 };
 
 type WineShareOffer = {
@@ -585,7 +607,7 @@ const translations = {
     cellarSnapshot: "Cellar snapshot",
     cellarStats: "Cellar stats",
     household: "Household",
-    importLegacy: "Import legacy export",
+    importLegacy: "Import JSON backup",
     importMode: "Import mode",
     importModeAdd: "Add everything",
     importModeReplace: "Replace everything",
@@ -596,6 +618,7 @@ const translations = {
     importRun: "Run import",
     importSection: "Import",
     importSummary: "Import summary",
+    importSupports: "Supports Vinaris exports and legacy WineCellar JSON.",
     idealWindow: "Ideal window",
     emptyCellar: "Empty cellar",
     emptyCellarWarning: "Deletes all wines and wishlist items in the active cellar.",
@@ -920,7 +943,7 @@ const translations = {
     cellarSnapshot: "Sintesi cantina",
     cellarStats: "Statistiche cantina",
     household: "Cantina condivisa",
-    importLegacy: "Importa export legacy",
+    importLegacy: "Importa backup JSON",
     importMode: "Modalità import",
     importModeAdd: "Aggiungi tutto",
     importModeReplace: "Sostituisci tutto",
@@ -931,6 +954,7 @@ const translations = {
     importRun: "Esegui import",
     importSection: "Importazione",
     importSummary: "Riepilogo import",
+    importSupports: "Supporta export Vinaris e JSON legacy WineCellar.",
     idealWindow: "Periodo ideale",
     emptyCellar: "Svuota cantina",
     emptyCellarWarning: "Cancella tutti i vini e gli elementi wishlist della cantina attiva.",
@@ -4348,7 +4372,7 @@ export function App() {
     setError("");
     try {
       const payload = JSON.parse(await file.text());
-      const preview = await api<ImportPreview>("/api/v1/imports/legacy-json/preview", {
+      const preview = await api<ImportPreview>("/api/v1/imports/json/preview", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -4357,7 +4381,7 @@ export function App() {
       setImportPreview(preview);
       setImportResult(null);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to import legacy export");
+      setError(nextError instanceof Error ? nextError.message : "Unable to import JSON backup");
     } finally {
       setSaving(false);
       event.target.value = "";
@@ -4375,7 +4399,7 @@ export function App() {
     setSaving(true);
     setError("");
     try {
-      const result = await api<ImportResult>(`/api/v1/imports/legacy-json?mode=${importMode}`, {
+      const result = await api<ImportResult>(`/api/v1/imports/json?mode=${importMode}`, {
         method: "POST",
         body: JSON.stringify(importPayload),
       });
@@ -4383,9 +4407,9 @@ export function App() {
       setImportPreview(null);
       setImportPayload(null);
       setImportFileName("");
-      await Promise.all([loadWines(), loadWishlist()]);
+      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(), loadTags(), loadAiAudit(session?.membership_role)]);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to import legacy export");
+      setError(nextError instanceof Error ? nextError.message : "Unable to import JSON backup");
     } finally {
       setSaving(false);
     }
@@ -7562,6 +7586,10 @@ export function App() {
                       <h3>{t("importSection")}</h3>
                     </div>
                   </div>
+                  <div className="token-box">
+                    <strong>{t("importLegacy")}</strong>
+                    <span>{t("importSupports")}</span>
+                  </div>
                   <label>
                     <span>{t("importMode")}</span>
                     <select value={importMode} onChange={(event) => setImportMode(event.target.value as ImportMode)} disabled={saving}>
@@ -7572,14 +7600,27 @@ export function App() {
                     </select>
                   </label>
                   <label>
-                    <span>WineCellar JSON</span>
+                    <span>Vinaris JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
                   </label>
                   {importPreview ? (
                     <div className="token-box">
                       <strong>{t("importReady")}: {importFileName}</strong>
+                      <span>{importPreview.format === "vinaris" ? "Vinaris export v2" : "Legacy WineCellar JSON"}</span>
+                      {importPreview.included_blocks.length ? <span>{importPreview.included_blocks.join(", ")}</span> : null}
                       <span>{t("wines")}: {importPreview.wine_new} {t("newItems")}, {importPreview.wine_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wines_total}</span>
                       <span>{t("wishlist")}: {importPreview.wishlist_new} {t("newItems")}, {importPreview.wishlist_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wishlist_total}</span>
+                      {importPreview.members_total || importPreview.invites_total || importPreview.share_offers_total || importPreview.user_tags_total || importPreview.ai_audit_total ? (
+                        <small>
+                          {[
+                            importPreview.members_total ? `${t("members")}: ${importPreview.members_total}` : "",
+                            importPreview.invites_total ? `${t("invites")}: ${importPreview.invites_total}` : "",
+                            importPreview.share_offers_total ? `${t("exportIncludesShareOffers")}: ${importPreview.share_offers_total}` : "",
+                            importPreview.user_tags_total ? `${t("tags")}: ${importPreview.user_tags_total}` : "",
+                            importPreview.ai_audit_total ? `${t("aiAudit")}: ${importPreview.ai_audit_total}` : "",
+                          ].filter(Boolean).join(" | ")}
+                        </small>
+                      ) : null}
                       {[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].length ? (
                         <small>{[...importPreview.sample_wine_duplicates, ...importPreview.sample_wishlist_duplicates].join(", ")}</small>
                       ) : null}
@@ -7591,6 +7632,11 @@ export function App() {
                       {(importResult.wines_deleted || importResult.wishlist_deleted) ? <span>{t("emptyCellar")}: {importResult.wines_deleted} {t("wines").toLowerCase()}, {importResult.wishlist_deleted} {t("wishlist").toLowerCase()}</span> : null}
                       <span>{t("wines")}: +{importResult.wines_imported}, {t("updatedItems")} {importResult.wines_updated}, {t("skipped")} {importResult.wines_skipped}</span>
                       <span>{t("wishlist")}: +{importResult.wishlist_imported}, {t("updatedItems")} {importResult.wishlist_updated}, {t("skipped")} {importResult.wishlist_skipped}</span>
+                      {(importResult.members_imported || importResult.members_updated || importResult.members_skipped) ? <span>{t("members")}: +{importResult.members_imported}, {t("updatedItems")} {importResult.members_updated}, {t("skipped")} {importResult.members_skipped}</span> : null}
+                      {(importResult.invites_imported || importResult.invites_updated || importResult.invites_skipped) ? <span>{t("invites")}: +{importResult.invites_imported}, {t("updatedItems")} {importResult.invites_updated}, {t("skipped")} {importResult.invites_skipped}</span> : null}
+                      {(importResult.share_offers_imported || importResult.share_offers_updated || importResult.share_offers_skipped) ? <span>{t("exportIncludesShareOffers")}: +{importResult.share_offers_imported}, {t("updatedItems")} {importResult.share_offers_updated}, {t("skipped")} {importResult.share_offers_skipped}</span> : null}
+                      {(importResult.user_tags_imported || importResult.user_tags_updated || importResult.user_tags_skipped) ? <span>{t("tags")}: +{importResult.user_tags_imported}, {t("updatedItems")} {importResult.user_tags_updated}, {t("skipped")} {importResult.user_tags_skipped}</span> : null}
+                      {(importResult.ai_audit_imported || importResult.ai_audit_updated || importResult.ai_audit_skipped) ? <span>{t("aiAudit")}: +{importResult.ai_audit_imported}, {t("updatedItems")} {importResult.ai_audit_updated}, {t("skipped")} {importResult.ai_audit_skipped}</span> : null}
                     </div>
                   ) : null}
                   <div className="token-box">
