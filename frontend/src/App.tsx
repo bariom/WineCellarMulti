@@ -2709,6 +2709,10 @@ function WishlistDetail({
   canGenerate,
   generating,
   onGenerate,
+  aiContextFeature,
+  aiContextDraft,
+  onAiContextDraftChange,
+  onCancelAiContext,
   t,
   locale,
 }: {
@@ -2717,6 +2721,10 @@ function WishlistDetail({
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
+  aiContextFeature: "strategy" | "purpose" | null;
+  aiContextDraft: string;
+  onAiContextDraftChange: (value: string) => void;
+  onCancelAiContext: () => void;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -2745,6 +2753,28 @@ function WishlistDetail({
           {generating === "target-price" ? t("generating") : t("aiTargetPrice")}
         </button>
       </div>
+      {aiContextFeature ? (
+        <div className="detail-section">
+          <label>
+            <span>{t("aiContextNote")}</span>
+            <textarea
+              value={aiContextDraft}
+              onChange={(event) => onAiContextDraftChange(event.target.value)}
+              rows={3}
+              disabled={Boolean(generating)}
+            />
+            <small>{t("aiContextNoteHelp")}</small>
+          </label>
+          <div className="form-actions">
+            <button type="button" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate(aiContextFeature)}>
+              {generating === aiContextFeature ? t("generating") : aiContextFeature === "strategy" ? t("aiStrategy") : t("aiPurpose")}
+            </button>
+            <button type="button" className="secondary" disabled={Boolean(generating)} onClick={onCancelAiContext}>
+              {t("cancel")}
+            </button>
+          </div>
+        </div>
+      ) : null}
       <div className="detail-grid">
         <DetailField label={t("format")} value={displayValue(item.format, locale, "format")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("type")} value={displayValue(item.type, locale, "type")} emptyLabel={t("notSpecified")} />
@@ -2906,6 +2936,8 @@ export function App() {
   const [aiSettingsDraft, setAiSettingsDraft] = useState<AiSettingsDraft>(emptyAiSettingsDraft);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
+  const [wishlistAiContextFeature, setWishlistAiContextFeature] = useState<"strategy" | "purpose" | null>(null);
+  const [wishlistAiContextDraft, setWishlistAiContextDraft] = useState("");
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
   const [contactSupportDraft, setContactSupportDraft] = useState<ContactSupportDraft>(emptyContactSupportDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
@@ -4343,18 +4375,48 @@ export function App() {
     setGeneratingAi(`wishlist-${feature}`);
     setError("");
     try {
+      let activeItem = item;
+      if ((feature === "strategy" || feature === "purpose")) {
+        const trimmedContext = wishlistAiContextDraft.trim();
+        if (trimmedContext !== (item.ai_context_note || "")) {
+          activeItem = await api<WishlistItem>(`/api/v1/wishlist/${item.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ ai_context_note: trimmedContext }),
+          });
+          setWishlist((current) => current.map((nextItem) => (nextItem.id === activeItem.id ? activeItem : nextItem)));
+          setSelectedWishlistId(activeItem.id);
+        }
+      } else {
+        setWishlistAiContextFeature(null);
+      }
       const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/${feature}`, {
         method: "POST",
         body: JSON.stringify({ locale }),
       });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
+      setWishlistAiContextFeature(null);
+      setWishlistAiContextDraft(updated.ai_context_note || "");
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist strategy");
     } finally {
       setGeneratingAi("");
     }
+  }
+
+  function startWishlistAiGeneration(item: WishlistItem, feature: "strategy" | "purpose" | "target-price") {
+    if (feature === "strategy" || feature === "purpose") {
+      setWishlistAiContextFeature(feature);
+      setWishlistAiContextDraft(item.ai_context_note || "");
+      return;
+    }
+    void generateWishlistAi(item, feature);
+  }
+
+  function cancelWishlistAiContext() {
+    setWishlistAiContextFeature(null);
+    setWishlistAiContextDraft("");
   }
 
   async function generatePairing(event: FormEvent<HTMLFormElement>) {
@@ -4757,6 +4819,7 @@ export function App() {
   function startAddWishlistItem() {
     setWishlistDraft(emptyWishlistDraft);
     setEditingWishlistId(null);
+    cancelWishlistAiContext();
     setWishlistFormOpen(true);
   }
 
@@ -4771,6 +4834,7 @@ export function App() {
     setSelectedWishlistId(item.id);
     setEditingWishlistId(item.id);
     setWishlistDraft(wishlistToDraft(item));
+    cancelWishlistAiContext();
     setWishlistFormOpen(true);
   }
 
@@ -4783,6 +4847,7 @@ export function App() {
   }
 
   function toggleSelectedWishlistItem(item: WishlistItem) {
+    cancelWishlistAiContext();
     setSelectedWishlistId((current) => current === item.id ? null : item.id);
   }
 
@@ -4822,6 +4887,7 @@ export function App() {
   function closeWishlistForm() {
     setEditingWishlistId(null);
     setWishlistDraft(emptyWishlistDraft);
+    cancelWishlistAiContext();
     setWishlistFormOpen(false);
   }
 
@@ -6348,7 +6414,11 @@ export function App() {
                   auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id)}
                   canGenerate={canGenerateAi}
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
-                  onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
+                  onGenerate={(feature) => startWishlistAiGeneration(selectedWishlistItem, feature)}
+                  aiContextFeature={wishlistAiContextFeature}
+                  aiContextDraft={wishlistAiContextDraft}
+                  onAiContextDraftChange={setWishlistAiContextDraft}
+                  onCancelAiContext={cancelWishlistAiContext}
                   t={t}
                   locale={locale}
                 />
@@ -6666,7 +6736,11 @@ export function App() {
                       auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
                       canGenerate={canGenerateAi}
                       generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
-                      onGenerate={(feature) => generateWishlistAi(item, feature)}
+                      onGenerate={(feature) => startWishlistAiGeneration(item, feature)}
+                      aiContextFeature={selectedWishlistId === item.id ? wishlistAiContextFeature : null}
+                      aiContextDraft={selectedWishlistId === item.id ? wishlistAiContextDraft : ""}
+                      onAiContextDraftChange={setWishlistAiContextDraft}
+                      onCancelAiContext={cancelWishlistAiContext}
                       t={t}
                       locale={locale}
                     />
