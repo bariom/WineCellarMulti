@@ -387,7 +387,7 @@ def complete_stripe_checkout(db: Session, session: dict) -> None:
             user,
             kind="ai_credits",
             title="AI Pack ricaricato",
-            message=f"Sono stati aggiunti {ai_credit_amount} USD al tuo budget AI.",
+            message=f"Sono stati aggiunti {ai_credit_amount} al tuo budget AI.",
             action_url="/settings/ai",
         )
     else:
