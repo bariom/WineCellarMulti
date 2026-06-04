@@ -1336,7 +1336,10 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
         elif schema_name == "wishlist_purpose":
             text = '{"recommended_purpose":"Cellar","purpose_advice":"Meglio da cantina.","recommended_priority":"Medium"}'
         else:
-            text = '{"market_price":35,"market_price_currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready"}'
+            text = (
+                '{"market_price":35,"market_price_currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready",'
+                '"market_note":"Buona disponibilita in Svizzera.","market_sources":[{"merchant":"Vergani","country":"Switzerland","price":36,"currency":"CHF","url":"https://example.com/ver","note":"In stock"}]}'
+            )
         return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
@@ -1356,10 +1359,53 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     assert target_price.json()["target_price"] == "40.00"
     assert target_price.json()["ai_market_price"] == "35.00"
     assert target_price.json()["status"] == "Ready"
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    wishlist_target_entry = next(entry for entry in audit.json() if entry["feature"] == "wishlist_target_price")
+    assert any(source.get("kind") == "market_source" and source.get("merchant") == "Vergani" for source in wishlist_target_entry["sources"])
+    assert any(source.get("kind") == "market_note" for source in wishlist_target_entry["sources"])
 
     usage = client.get("/api/v1/ai/usage")
     assert usage.status_code == 200
     assert usage.json()["all_time"]["requests"] == 3
+
+
+def test_wine_value_audit_includes_market_sources(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Dom Perignon", "producer": "Moet", "vintage": "2017", "quantity": 1, "price": 165, "currency": "CHF"},
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+
+    def fake_create_response(*args, **kwargs):
+        assert kwargs["json_schema"]["name"] == "wine_value"
+        return OpenAIResponse(
+            text=(
+                '{"current_value":172,"currency":"CHF","notes":"Stima prudente vicina al mercato.","market_note":"Offerta discreta presso merchant svizzeri.",'
+                '"market_sources":[{"merchant":"Vergani Wiedikon","country":"Switzerland","price":170,"currency":"CHF","url":"https://example.com/vergani"},'
+                '{"merchant":"WeinVogel","country":"Switzerland","price":174,"currency":"CHF","url":"https://example.com/weinvogel","note":"Low stock"}]}'
+            ),
+            usage=TokenUsage(input_tokens=120, output_tokens=60, total_tokens=180),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    generated = client.post(f"/api/v1/ai/wines/{wine_id}/value")
+    assert generated.status_code == 200
+    assert generated.json()["current_value"] == "172.00"
+    assert generated.json()["ai_value_notes"] == "Stima prudente vicina al mercato."
+
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    value_entry = next(entry for entry in audit.json() if entry["feature"] == "ai_value")
+    assert any(source.get("kind") == "market_source" and source.get("merchant") == "Vergani Wiedikon" for source in value_entry["sources"])
+    assert any(source.get("kind") == "market_note" and "merchant svizzeri" in source.get("text", "") for source in value_entry["sources"])
 
 
 def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):

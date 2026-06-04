@@ -345,7 +345,12 @@ type AiAuditLog = {
   total_tokens: number;
   estimated_cost_usd: string;
   created_at: string;
+  sources: Array<Record<string, unknown>>;
 };
+
+type MarketViewContext =
+  | { kind: "wine"; wine: Wine; entry: AiAuditLog }
+  | { kind: "wishlist"; item: WishlistItem; entry: AiAuditLog };
 
 type AiUsageBucket = {
   requests: number;
@@ -532,6 +537,13 @@ const translations = {
     aiStrategy: "AI strategy",
     aiMarketPrice: "AI market price",
     aiTargetPrice: "AI market price",
+    marketValueView: "Market value",
+    viewMarketSources: "View market sources",
+    averageMarketPrice: "Average market price",
+    marketSources: "Sources",
+    marketSourcesUnavailable: "No market sources available for this estimate.",
+    marketAvailability: "Market note",
+    close: "Close",
     aiContextNote: "AI context note",
     aiContextNoteHelp: "Optional note used by AI as extra context for wishlist strategy, purpose, and market price.",
     aiUsage: "AI usage",
@@ -885,6 +897,13 @@ const translations = {
     aiStrategy: "Strategia AI",
     aiMarketPrice: "Prezzo mercato AI",
     aiTargetPrice: "Prezzo mercato AI",
+    marketValueView: "Valore di mercato",
+    viewMarketSources: "Vedi fonti mercato",
+    averageMarketPrice: "Prezzo medio di mercato",
+    marketSources: "Fonti",
+    marketSourcesUnavailable: "Nessuna fonte di mercato disponibile per questa stima.",
+    marketAvailability: "Nota mercato",
+    close: "Chiudi",
     aiContextNote: "Nota contesto AI",
     aiContextNoteHelp: "Nota opzionale usata dall'AI come contesto aggiuntivo per strategia, scopo e prezzo di mercato della wishlist.",
     aiUsage: "Uso AI",
@@ -2719,6 +2738,118 @@ function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: TranslationKey) =
   );
 }
 
+function auditMarketSources(entry: AiAuditLog) {
+  return (entry.sources || [])
+    .filter((source) => source && typeof source === "object" && source.kind === "market_source")
+    .map((source) => ({
+      merchant: rawString(source.merchant),
+      country: rawString(source.country),
+      currency: rawString(source.currency),
+      url: rawString(source.url),
+      note: rawString(source.note),
+      price: Number(source.price),
+    }))
+    .filter((source) => source.merchant && Number.isFinite(source.price));
+}
+
+function auditMarketNote(entry: AiAuditLog) {
+  const noteEntry = (entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "market_note");
+  return noteEntry ? rawString(noteEntry.text) : "";
+}
+
+function averageMarketPrice(sources: ReturnType<typeof auditMarketSources>) {
+  if (!sources.length) return null;
+  return sources.reduce((sum, source) => sum + source.price, 0) / sources.length;
+}
+
+function MarketValueModal({
+  context,
+  t,
+  onClose,
+}: {
+  context: MarketViewContext;
+  t: (key: TranslationKey) => string;
+  onClose: () => void;
+}) {
+  const isWine = context.kind === "wine";
+  const title = isWine ? context.wine.name : context.item.name;
+  const producer = isWine ? context.wine.producer : context.item.producer;
+  const vintage = isWine ? context.wine.vintage : context.item.vintage;
+  const entry = context.entry;
+  const sources = auditMarketSources(entry);
+  const note = auditMarketNote(entry);
+  const marketCurrency = isWine ? context.wine.currency : (context.item.ai_market_price_currency || context.item.currency);
+  const storedMarketPrice = isWine ? Number(context.wine.current_value || 0) : Number(context.item.ai_market_price || 0);
+  const marketPrice = storedMarketPrice > 0 ? storedMarketPrice : (averageMarketPrice(sources) || 0);
+  const referenceLabel = isWine ? t("purchasePrice") : t("targetPrice");
+  const referenceCurrency = isWine ? context.wine.currency : context.item.currency;
+  const referencePrice = isWine ? Number(context.wine.price || 0) : Number(context.item.target_price || 0);
+  const deltaPct = referencePrice > 0 && marketPrice > 0 ? ((marketPrice - referencePrice) / referencePrice) * 100 : null;
+  const deltaPositive = deltaPct !== null && deltaPct >= 0;
+
+  return (
+    <div className="market-modal-overlay" onClick={onClose}>
+      <div className="market-modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="market-modal-head">
+          <div>
+            <h2>{t("marketValueView")}</h2>
+            <strong>{title}</strong>
+            <span>{[producer, vintage].filter(Boolean).join(" • ")}</span>
+          </div>
+          <button type="button" className="secondary compact" onClick={onClose}>
+            {t("close")}
+          </button>
+        </div>
+
+        <div className="market-summary-panel">
+          <span>{t("averageMarketPrice")}</span>
+          <strong>{marketCurrency} {marketPrice.toFixed(2)}</strong>
+          {deltaPct !== null ? (
+            <p className={deltaPositive ? "positive" : "negative"}>
+              {deltaPositive ? "↗" : "↘"} {deltaPct > 0 ? "+" : ""}{deltaPct.toFixed(1)}%
+            </p>
+          ) : null}
+          {referencePrice > 0 ? <small>{referenceLabel}: {referenceCurrency} {referencePrice.toFixed(2)}</small> : null}
+        </div>
+
+        <div className="market-sources-section">
+          <div className="section-heading">
+            <h3>{t("marketSources")}</h3>
+            <span>{sources.length}</span>
+          </div>
+          {sources.length ? (
+            <div className="market-source-list">
+              {sources.map((source, index) => (
+                <a
+                  key={`${source.merchant}-${index}`}
+                  className="market-source-row"
+                  href={source.url || undefined}
+                  target={source.url ? "_blank" : undefined}
+                  rel={source.url ? "noreferrer" : undefined}
+                >
+                  <div>
+                    <strong>{source.merchant}{source.country ? ` (${source.country})` : ""}</strong>
+                    {source.note ? <span>{source.note}</span> : null}
+                  </div>
+                  <b>{source.currency} {source.price.toFixed(2)}</b>
+                </a>
+              ))}
+            </div>
+          ) : (
+            <p className="empty-state">{t("marketSourcesUnavailable")}</p>
+          )}
+          {note ? (
+            <div className="market-note-block">
+              <strong>{t("marketAvailability")}</strong>
+              <p>{note}</p>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function DetailNote({ title, children }: { title: string; children: string }) {
   return (
     <article className="detail-note">
@@ -2786,6 +2917,8 @@ function WineDetail({
   generating,
   onGenerate,
   onConsume,
+  marketAuditEntry,
+  onOpenMarketView,
   t,
   locale,
 }: {
@@ -2798,6 +2931,8 @@ function WineDetail({
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
+  marketAuditEntry: AiAuditLog | null;
+  onOpenMarketView: (entry: AiAuditLog) => void;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -2813,6 +2948,7 @@ function WineDetail({
   const currentYearInWindow = currentYear >= drinkStart && currentYear <= drinkEnd;
   const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+  const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
 
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
@@ -2867,6 +3003,13 @@ function WineDetail({
       </div>
 
       <ValueHistoryChart wine={wine} t={t} />
+      {marketAuditEntry && hasMarketEvidence ? (
+        <div className="market-view-bar">
+          <button type="button" className="secondary compact" onClick={() => onOpenMarketView(marketAuditEntry)}>
+            {t("viewMarketSources")}
+          </button>
+        </div>
+      ) : null}
 
       {canWrite && wine.quantity > 0 ? (
         <details className="detail-section consume-panel">
@@ -3059,6 +3202,8 @@ function WishlistDetail({
   canGenerate,
   generating,
   onGenerate,
+  marketAuditEntry,
+  onOpenMarketView,
   t,
   locale,
 }: {
@@ -3067,10 +3212,13 @@ function WishlistDetail({
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
+  marketAuditEntry: AiAuditLog | null;
+  onOpenMarketView: (entry: AiAuditLog) => void;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
   const aiMarketPrice = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
+  const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
@@ -3105,6 +3253,13 @@ function WishlistDetail({
         <DetailField label={t("aiMarketPrice")} value={aiMarketPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>
+      {marketAuditEntry && hasMarketEvidence ? (
+        <div className="market-view-bar">
+          <button type="button" className="secondary compact" onClick={() => onOpenMarketView(marketAuditEntry)}>
+            {t("viewMarketSources")}
+          </button>
+        </div>
+      ) : null}
       {item.notes || item.ai_context_note ? (
         <div className="notes-grid">
           {item.notes ? <DetailNote title={t("notes")}>{item.notes}</DetailNote> : null}
@@ -3290,6 +3445,7 @@ export function App() {
   const [offlineFileName, setOfflineFileName] = useState("");
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [marketViewContext, setMarketViewContext] = useState<MarketViewContext | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [activeView, setActiveView] = useState<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
@@ -3582,9 +3738,12 @@ export function App() {
 
   async function loadAiAudit(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
-      setAiAudit(await api<AiAuditLog[]>("/api/v1/ai/audit"));
+      const nextAudit = await api<AiAuditLog[]>("/api/v1/ai/audit");
+      setAiAudit(nextAudit);
+      return nextAudit;
     } else {
       setAiAudit([]);
+      return [];
     }
   }
 
@@ -4682,7 +4841,13 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
-      await Promise.all([loadAiAudit(), loadAiUsage()]);
+      const [nextAudit] = await Promise.all([loadAiAudit(), loadAiUsage()]);
+      if (feature === "value") {
+        const marketEntry = nextAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === updated.id && entry.feature === "ai_value");
+        if (marketEntry && auditMarketSources(marketEntry).length) {
+          setMarketViewContext({ kind: "wine", wine: updated, entry: marketEntry });
+        }
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
@@ -4753,7 +4918,13 @@ export function App() {
       });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
-      await Promise.all([loadAiAudit(), loadAiUsage()]);
+      const [nextAudit] = await Promise.all([loadAiAudit(), loadAiUsage()]);
+      if (feature === "target-price") {
+        const marketEntry = nextAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === updated.id && entry.feature === "wishlist_target_price");
+        if (marketEntry && auditMarketSources(marketEntry).length) {
+          setMarketViewContext({ kind: "wishlist", item: updated, entry: marketEntry });
+        }
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist strategy");
     } finally {
@@ -4939,6 +5110,12 @@ export function App() {
   const isWineCollectionView = activeView === "cellar" || activeView === "history";
   const activeWineCollection = activeView === "history" ? historyWines : cellarWines;
   const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
+  const selectedWineMarketAudit = selectedVisibleWine
+    ? aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === selectedVisibleWine.id && entry.feature === "ai_value") || null
+    : null;
+  const selectedWishlistMarketAudit = selectedWishlistItem
+    ? aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id && entry.feature === "wishlist_target_price") || null
+    : null;
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => wine.type));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
@@ -5832,6 +6009,7 @@ export function App() {
             </div>
           </div>
         ) : null}
+        {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} onClose={() => setMarketViewContext(null)} /> : null}
         </>
       ) : needsRedeem ? (
         <section className="auth-panel">
@@ -6847,6 +7025,8 @@ export function App() {
                   generating={generatingAi}
                   onGenerate={(feature) => generateWineAi(selectedVisibleWine, feature)}
                   onConsume={(payload) => consumeWineBottle(selectedVisibleWine, payload)}
+                  marketAuditEntry={selectedWineMarketAudit}
+                  onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine: selectedVisibleWine, entry })}
                   t={t}
                   locale={locale}
                 />
@@ -6859,6 +7039,8 @@ export function App() {
                   canGenerate={canGenerateAi}
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                   onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
+                  marketAuditEntry={selectedWishlistMarketAudit}
+                  onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item: selectedWishlistItem, entry })}
                   t={t}
                   locale={locale}
                 />
@@ -7207,6 +7389,8 @@ export function App() {
                       generating={generatingAi}
                       onGenerate={(feature) => generateWineAi(wine, feature)}
                       onConsume={(payload) => consumeWineBottle(wine, payload)}
+                      marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
+                      onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
                       t={t}
                       locale={locale}
                     />
@@ -7279,6 +7463,8 @@ export function App() {
                       canGenerate={canGenerateAi}
                       generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                       onGenerate={(feature) => generateWishlistAi(item, feature)}
+                      marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id && entry.feature === "wishlist_target_price") || null}
+                      onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item, entry })}
                       t={t}
                       locale={locale}
                     />

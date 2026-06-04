@@ -389,6 +389,44 @@ def wishlist_context(item: WishlistItem) -> str:
         ],
     )
 
+
+def normalize_market_sources(raw_sources: Any, *, default_currency: str) -> list[dict]:
+    if not isinstance(raw_sources, list):
+        return []
+    normalized: list[dict] = []
+    for raw_source in raw_sources[:12]:
+        if not isinstance(raw_source, dict):
+            continue
+        merchant = str(raw_source.get("merchant") or raw_source.get("source") or raw_source.get("name") or "").strip()[:160]
+        if not merchant:
+            continue
+        try:
+            price = Decimal(str(raw_source.get("price"))).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+        if price < Decimal("0"):
+            continue
+        normalized.append(
+            {
+                "kind": "market_source",
+                "merchant": merchant,
+                "country": str(raw_source.get("country") or "").strip()[:80],
+                "price": str(price),
+                "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8] or default_currency,
+                "url": str(raw_source.get("url") or raw_source.get("link") or "").strip()[:500],
+                "note": str(raw_source.get("note") or "").strip()[:240],
+            },
+        )
+    return normalized
+
+
+def market_note_source(note: Any) -> dict | None:
+    text = clip_summary(str(note or ""), limit=500).strip()
+    if not text:
+        return None
+    return {"kind": "market_note", "text": text}
+
+
 def pairing_wine_context(wine: Wine) -> dict:
     return {
         "id": str(wine.id),
@@ -659,8 +697,25 @@ def generate_wine_value(
                 "current_value": {"type": "number"},
                 "currency": {"type": "string"},
                 "notes": {"type": "string"},
+                "market_note": {"type": "string"},
+                "market_sources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "merchant": {"type": "string"},
+                            "country": {"type": "string"},
+                            "price": {"type": "number"},
+                            "currency": {"type": "string"},
+                            "url": {"type": "string"},
+                            "note": {"type": "string"},
+                        },
+                        "required": ["merchant", "price", "currency"],
+                    },
+                },
             },
-            "required": ["current_value", "currency", "notes"],
+            "required": ["current_value", "currency", "notes", "market_note", "market_sources"],
         },
     }
     response, provider_source = create_ai_response(
@@ -668,8 +723,19 @@ def generate_wine_value(
         context,
         user_settings,
         model=user_settings.value_model,
-        system_prompt=f"You estimate wine value cautiously. Return JSON only. If market data is uncertain, keep close to purchase price and explain uncertainty. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}.\n\n{wine_context(wine)}",
+        system_prompt=(
+            "You estimate wine value cautiously. Return JSON only. "
+            "If market data is uncertain, keep close to purchase price and explain uncertainty. "
+            "Provide 3-8 market sources when possible, using an empty array if none can be cited reliably. "
+            "Keep market_note concise and useful. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}. "
+            "For market_sources, list concrete merchants or marketplaces with country, price, currency, and url when available. "
+            "Use market_note for a short availability or confidence comment.\n\n"
+            f"{wine_context(wine)}"
+        ),
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -681,6 +747,9 @@ def generate_wine_value(
     wine.currency = str(result.get("currency") or wine.currency)[:8]
     wine.ai_value_notes = str(result["notes"])[:2000]
     wine.ai_value_estimated_at = datetime.now(timezone.utc)
+    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=wine.currency)
+    note_entry = market_note_source(result.get("market_note") or result.get("notes"))
+    audit_sources = market_sources + ([note_entry] if note_entry else [])
     record_wine_value_history(db, wine, source="ai")
     record_ai_audit(
         db,
@@ -690,6 +759,7 @@ def generate_wine_value(
         feature="ai_value",
         model=user_settings.value_model,
         summary=f"{wine.currency} {wine.current_value}: {wine.ai_value_notes}",
+        sources=audit_sources,
         usage=response.usage,
         provider_source=provider_source,
     )
@@ -958,8 +1028,25 @@ def generate_wishlist_target_price(
                 "market_price_currency": {"type": "string"},
                 "price_advice": {"type": "string"},
                 "recommended_status": {"type": "string"},
+                "market_note": {"type": "string"},
+                "market_sources": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "merchant": {"type": "string"},
+                            "country": {"type": "string"},
+                            "price": {"type": "number"},
+                            "currency": {"type": "string"},
+                            "url": {"type": "string"},
+                            "note": {"type": "string"},
+                        },
+                        "required": ["merchant", "price", "currency"],
+                    },
+                },
             },
-            "required": ["market_price", "market_price_currency", "price_advice", "recommended_status"],
+            "required": ["market_price", "market_price_currency", "price_advice", "recommended_status", "market_note", "market_sources"],
         },
     }
     response, provider_source = create_ai_response(
@@ -967,12 +1054,19 @@ def generate_wishlist_target_price(
         context,
         user_settings,
         model=user_settings.value_model,
-        system_prompt=f"You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. {response_language_instruction(payload.locale)}",
+        system_prompt=(
+            "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
+            "Provide 3-8 market sources when possible, using an empty array if none can be cited reliably. "
+            "Keep market_note concise and useful. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
         user_prompt=(
             f"Estimate the current market price for this wishlist item. "
             f"The user target price is {item.currency} {item.target_price}. "
             f"Keep market price currency preferably {item.currency}. "
-            "Use price_advice to compare the user target price with the estimated market price.\n\n"
+            "Use price_advice to compare the user target price with the estimated market price. "
+            "For market_sources, list concrete merchants or marketplaces with country, price, currency, and url when available. "
+            "Use market_note for a short availability or confidence comment.\n\n"
             f"{wishlist_context(item)}"
         ),
         json_schema=schema,
@@ -986,6 +1080,9 @@ def generate_wishlist_target_price(
     item.ai_market_price_currency = str(result.get("market_price_currency") or item.currency)[:8]
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.ai_strategy = str(result["price_advice"])[:3000]
+    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=item.ai_market_price_currency or item.currency)
+    note_entry = market_note_source(result.get("market_note") or result.get("price_advice"))
+    audit_sources = market_sources + ([note_entry] if note_entry else [])
     record_ai_audit(
         db,
         context,
@@ -997,6 +1094,7 @@ def generate_wishlist_target_price(
             f"Target {item.currency} {item.target_price} / "
             f"Market {item.ai_market_price_currency or item.currency} {item.ai_market_price}: {item.ai_strategy}"
         ),
+        sources=audit_sources,
         usage=response.usage,
         provider_source=provider_source,
     )
