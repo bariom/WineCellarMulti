@@ -7602,7 +7602,7 @@ export function App() {
                   <strong>{t("deleteCellar")}</strong>
                   <span>{t("deleteCellarHelp")}</span>
                   <div className="inline-form">
-                    <button type="button" className="danger" disabled={saving || householdMemberships.length <= 1 || membershipRole !== "owner"} onClick={deleteActiveHousehold}>
+                    <button type="button" className="danger" disabled={saving || householdMemberships.length <= 1 || session?.membership_role !== "owner"} onClick={deleteActiveHousehold}>
                       {t("deleteCellar")}
                     </button>
                   </div>
