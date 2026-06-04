@@ -706,6 +706,34 @@ def test_user_can_create_and_switch_to_second_household():
     assert switched.json()["household_name"] == "Main Cellar"
 
 
+def test_household_deletion_requires_fallback_and_switches_session():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    denied = client.delete("/api/v1/household")
+    assert denied.status_code == 409
+
+    created = client.post("/api/v1/household", json={"name": "Disposable Cellar"})
+    assert created.status_code == 201
+    created_household_id = created.json()["household_id"]
+
+    listed = client.get("/api/v1/household/memberships")
+    assert listed.status_code == 200
+    fallback_household_id = next(entry["household_id"] for entry in listed.json() if entry["household_name"] == "Main Cellar")
+
+    deleted = client.delete("/api/v1/household")
+    assert deleted.status_code == 204
+
+    session = client.get("/api/v1/session")
+    assert session.status_code == 200
+    assert session.json()["active_household_name"] == "Main Cellar"
+    assert session.json()["active_household_id"] == fallback_household_id
+
+    memberships = client.get("/api/v1/household/memberships")
+    assert memberships.status_code == 200
+    assert all(entry["household_id"] != created_household_id for entry in memberships.json())
+
+
 def test_user_tags_can_be_defined_and_assigned_to_wines():
     client = TestClient(app)
     assert register(client).status_code == 201

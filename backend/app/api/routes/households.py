@@ -9,7 +9,7 @@ from app.api.deps import CurrentContext, get_current_context, require_admin_cont
 from app.core.config import settings
 from app.core.security import hash_invite_token, new_invite_token
 from app.db.session import get_db
-from app.models import Household, HouseholdInvite, Membership, User
+from app.models import AiAuditLog, Household, HouseholdInvite, Membership, User, UserSession, Wine, WineShareOffer, WishlistItem
 from app.services.email import send_email
 from app.schemas.household import (
     HouseholdCreate,
@@ -138,6 +138,50 @@ def create_household(
         household_name=household.name,
         role=membership.role,
     )
+
+
+@router.delete("", status_code=status.HTTP_204_NO_CONTENT)
+def delete_active_household(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> Response:
+    if context.membership.role != "owner":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the household owner can delete a cellar")
+
+    member_rows = list(db.scalars(select(Membership).where(Membership.household_id == context.household.id)))
+    fallback_household_by_user: dict[UUID, UUID] = {}
+    for membership in member_rows:
+        fallback = db.scalar(
+            select(Membership.household_id)
+            .where(Membership.user_id == membership.user_id, Membership.household_id != context.household.id)
+            .order_by(Membership.id.asc())
+        )
+        if fallback is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Every member must still have at least one other cellar before this cellar can be deleted",
+            )
+        fallback_household_by_user[membership.user_id] = fallback
+
+    sessions = list(db.scalars(select(UserSession).where(UserSession.active_household_id == context.household.id)))
+    for user_session in sessions:
+        fallback_household_id = fallback_household_by_user.get(user_session.user_id)
+        if fallback_household_id is None:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to reassign active cellar for one or more members")
+        user_session.active_household_id = fallback_household_id
+
+    wine_ids = list(db.scalars(select(Wine.id).where(Wine.household_id == context.household.id)))
+    if wine_ids:
+        db.query(WineShareOffer).filter(WineShareOffer.wine_id.in_(wine_ids)).delete(synchronize_session=False)
+    db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(AiAuditLog).filter(AiAuditLog.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(HouseholdInvite).filter(HouseholdInvite.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(Membership).filter(Membership.household_id == context.household.id).delete(synchronize_session=False)
+    db.delete(context.household)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.patch("", response_model=HouseholdMembershipResponse)

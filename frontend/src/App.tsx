@@ -551,6 +551,9 @@ const translations = {
     cellarName: "Cellar name",
     createCellar: "Create cellar",
     createCellarHelp: "Create a separate cellar for another collection, place, or project. You will switch to it immediately after creation.",
+    deleteCellar: "Delete cellar",
+    deleteCellarHelp: "Delete this cellar and all its wines, wishlist items, shares, invites, and AI audit entries. Every member must already have another cellar.",
+    deleteCellarConfirm: "Delete this cellar permanently? All cellar data inside it will be removed.",
     renameCellar: "Rename cellar",
     clearFilters: "Clear filters",
     convert: "Convert",
@@ -899,6 +902,9 @@ const translations = {
     cellarName: "Nome cantina",
     createCellar: "Crea cantina",
     createCellarHelp: "Crea una cantina separata per un'altra collezione, luogo o progetto. Dopo la creazione passerai subito a quella nuova.",
+    deleteCellar: "Elimina cantina",
+    deleteCellarHelp: "Elimina questa cantina con tutti i suoi vini, wishlist, condivisioni, inviti e audit AI. Ogni membro deve già avere almeno un'altra cantina.",
+    deleteCellarConfirm: "Eliminare definitivamente questa cantina? Tutti i dati contenuti verranno rimossi.",
     renameCellar: "Rinomina cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
@@ -3927,6 +3933,22 @@ export function App() {
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to create cellar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteActiveHousehold() {
+    if (!window.confirm(t("deleteCellarConfirm"))) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api("/api/v1/household", { method: "DELETE" });
+      setHouseholdNameDraft("");
+      setNewHouseholdNameDraft("");
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete cellar");
     } finally {
       setSaving(false);
     }
@@ -7576,6 +7598,15 @@ export function App() {
                   </button>
                 </form>
                 <p className="empty-state">{t("createCellarHelp")}</p>
+                <div className="token-box">
+                  <strong>{t("deleteCellar")}</strong>
+                  <span>{t("deleteCellarHelp")}</span>
+                  <div className="inline-form">
+                    <button type="button" className="danger" disabled={saving || householdMemberships.length <= 1 || membershipRole !== "owner"} onClick={deleteActiveHousehold}>
+                      {t("deleteCellar")}
+                    </button>
+                  </div>
+                </div>
                 {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 <div className="member-list">
                   {members.map((member) => (
