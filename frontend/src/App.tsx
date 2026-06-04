@@ -544,6 +544,7 @@ const translations = {
     marketSourcesUnavailable: "No market sources available for this estimate.",
     marketAvailability: "Market note",
     close: "Close",
+    backToTop: "Back to top",
     aiContextNote: "AI context note",
     aiContextNoteHelp: "Optional note used by AI as extra context for wishlist strategy, purpose, and market price.",
     aiUsage: "AI usage",
@@ -904,6 +905,7 @@ const translations = {
     marketSourcesUnavailable: "Nessuna fonte di mercato disponibile per questa stima.",
     marketAvailability: "Nota mercato",
     close: "Chiudi",
+    backToTop: "Torna in cima",
     aiContextNote: "Nota contesto AI",
     aiContextNoteHelp: "Nota opzionale usata dall'AI come contesto aggiuntivo per strategia, scopo e prezzo di mercato della wishlist.",
     aiUsage: "Uso AI",
@@ -3446,6 +3448,7 @@ export function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [marketViewContext, setMarketViewContext] = useState<MarketViewContext | null>(null);
+  const [showBackToTop, setShowBackToTop] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [activeView, setActiveView] = useState<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
@@ -3907,6 +3910,13 @@ export function App() {
     syncViewport();
     mediaQuery.addEventListener("change", syncViewport);
     return () => mediaQuery.removeEventListener("change", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    const syncScrollState = () => setShowBackToTop(window.scrollY > 520);
+    syncScrollState();
+    window.addEventListener("scroll", syncScrollState, { passive: true });
+    return () => window.removeEventListener("scroll", syncScrollState);
   }, []);
 
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
@@ -8352,6 +8362,17 @@ export function App() {
           ) : null}
         </section>
       )}
+      {showBackToTop ? (
+        <button
+          type="button"
+          className="back-to-top-button"
+          aria-label={t("backToTop")}
+          title={t("backToTop")}
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+        >
+          <span aria-hidden="true">↑</span>
+        </button>
+      ) : null}
       {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} onClose={() => setMarketViewContext(null)} /> : null}
     </main>
   );

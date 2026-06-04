@@ -3605,6 +3605,36 @@ button.stat-card:hover {
   justify-content: flex-end;
 }
 
+.back-to-top-button {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 40;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-raised) 90%, transparent);
+  color: var(--text);
+  box-shadow: 0 14px 28px rgba(20, 28, 24, 0.2);
+  backdrop-filter: blur(10px);
+}
+
+.back-to-top-button span {
+  color: inherit;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.back-to-top-button:hover {
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border-strong));
+  background: color-mix(in srgb, var(--surface-raised) 82%, var(--primary) 18%);
+}
+
 .value-history-chart {
   width: 100%;
   height: 170px;
