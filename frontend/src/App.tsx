@@ -4831,7 +4831,8 @@ export function App() {
     }
   }
 
-  async function generateWineAi(wine: Wine, feature: WineAiFeature) {
+  async function generateWineAi(wine: Wine, feature: WineAiFeature, options?: { openMarketModal?: boolean }) {
+    const openMarketModal = options?.openMarketModal ?? true;
     setGeneratingAi(feature);
     setError("");
     try {
@@ -4842,7 +4843,7 @@ export function App() {
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
       const [nextAudit] = await Promise.all([loadAiAudit(), loadAiUsage()]);
-      if (feature === "value") {
+      if (feature === "value" && openMarketModal) {
         const marketEntry = nextAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === updated.id && entry.feature === "ai_value");
         if (marketEntry && auditMarketSources(marketEntry).length) {
           setMarketViewContext({ kind: "wine", wine: updated, entry: marketEntry });
@@ -4891,16 +4892,16 @@ export function App() {
     if (!items.length) return;
     setGeneratingAi(`batch-${feature}`);
     setError("");
-    try {
-      for (const wine of items) {
-        const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
+      try {
+        for (const wine of items) {
+          const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
           method: "POST",
           body: JSON.stringify({ locale }),
         });
         setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
         setSelectedWineId(updated.id);
-      }
-      await Promise.all([loadAiAudit(), loadAiUsage()]);
+        }
+        await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
