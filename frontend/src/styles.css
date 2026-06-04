@@ -1835,19 +1835,43 @@ textarea {
 }
 
 :root[data-theme="dark"] .tag-choice-list label,
-:root[data-theme="dark"] .grapes-list label {
+:root[data-theme="dark"] .grapes-list label,
+:root[data-theme="red-wine"] .tag-choice-list label,
+:root[data-theme="red-wine"] .grapes-list label,
+:root[data-theme="bordeaux"] .tag-choice-list label,
+:root[data-theme="bordeaux"] .grapes-list label,
+:root[data-theme="burgundy"] .tag-choice-list label,
+:root[data-theme="burgundy"] .grapes-list label,
+:root[data-theme="ticino"] .tag-choice-list label,
+:root[data-theme="ticino"] .grapes-list label {
   background: var(--surface-raised);
   border-color: var(--border-strong);
   color: var(--text);
 }
 
 :root[data-theme="dark"] .tag-choice-list label span,
-:root[data-theme="dark"] .grapes-list label span {
+:root[data-theme="dark"] .grapes-list label span,
+:root[data-theme="red-wine"] .tag-choice-list label span,
+:root[data-theme="red-wine"] .grapes-list label span,
+:root[data-theme="bordeaux"] .tag-choice-list label span,
+:root[data-theme="bordeaux"] .grapes-list label span,
+:root[data-theme="burgundy"] .tag-choice-list label span,
+:root[data-theme="burgundy"] .grapes-list label span,
+:root[data-theme="ticino"] .tag-choice-list label span,
+:root[data-theme="ticino"] .grapes-list label span {
   color: var(--text);
 }
 
 :root[data-theme="dark"] .tag-choice-list label.selected-filter-chip,
-:root[data-theme="dark"] .grapes-list label.selected-filter-chip {
+:root[data-theme="dark"] .grapes-list label.selected-filter-chip,
+:root[data-theme="red-wine"] .tag-choice-list label.selected-filter-chip,
+:root[data-theme="red-wine"] .grapes-list label.selected-filter-chip,
+:root[data-theme="bordeaux"] .tag-choice-list label.selected-filter-chip,
+:root[data-theme="bordeaux"] .grapes-list label.selected-filter-chip,
+:root[data-theme="burgundy"] .tag-choice-list label.selected-filter-chip,
+:root[data-theme="burgundy"] .grapes-list label.selected-filter-chip,
+:root[data-theme="ticino"] .tag-choice-list label.selected-filter-chip,
+:root[data-theme="ticino"] .grapes-list label.selected-filter-chip {
   background: color-mix(in srgb, var(--primary) 22%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--primary) 52%, var(--border-strong));
 }
