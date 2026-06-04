@@ -1834,6 +1834,24 @@ textarea {
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
 }
 
+:root[data-theme="dark"] .tag-choice-list label,
+:root[data-theme="dark"] .grapes-list label {
+  background: var(--surface-raised);
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .tag-choice-list label span,
+:root[data-theme="dark"] .grapes-list label span {
+  color: var(--text);
+}
+
+:root[data-theme="dark"] .tag-choice-list label.selected-filter-chip,
+:root[data-theme="dark"] .grapes-list label.selected-filter-chip {
+  background: color-mix(in srgb, var(--primary) 22%, var(--surface-raised));
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border-strong));
+}
+
 .tag-choice-list input {
   width: auto;
 }
