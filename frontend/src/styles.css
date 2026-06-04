@@ -1819,6 +1819,16 @@ textarea {
   color: inherit;
 }
 
+.tag-choice-list label,
+.grapes-list label {
+  color: var(--text);
+}
+
+.tag-choice-list label span,
+.grapes-list label span {
+  color: var(--text);
+}
+
 .tag-choice-list label.selected-filter-chip {
   border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
   background: color-mix(in srgb, var(--primary) 12%, var(--surface));
