@@ -6009,7 +6009,6 @@ export function App() {
             </div>
           </div>
         ) : null}
-        {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} onClose={() => setMarketViewContext(null)} /> : null}
         </>
       ) : needsRedeem ? (
         <section className="auth-panel">
@@ -8352,6 +8351,7 @@ export function App() {
           ) : null}
         </section>
       )}
+      {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} onClose={() => setMarketViewContext(null)} /> : null}
     </main>
   );
 }
