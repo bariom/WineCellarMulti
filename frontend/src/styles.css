@@ -1546,6 +1546,36 @@ textarea {
   flex-wrap: wrap;
 }
 
+.wishlist-row-actions {
+  align-self: center;
+}
+
+.wishlist-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 8px 12px;
+}
+
+.action-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+}
+
+.action-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.action-label {
+  line-height: 1;
+}
+
 .wine-list {
   display: grid;
   gap: 10px;
@@ -4119,6 +4149,19 @@ textarea {
     min-height: 42px;
   }
 
+  .wishlist-row-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    width: auto;
+  }
+
+  .wishlist-row-actions .wishlist-action-button {
+    flex: 0 0 auto;
+    min-width: 0;
+    padding: 8px 10px;
+  }
+
   .filter-row {
     grid-template-columns: 1fr;
   }
@@ -4515,6 +4558,26 @@ textarea {
 
   .row-actions {
     grid-template-columns: 1fr;
+  }
+
+  .wishlist-row-actions {
+    display: flex;
+    grid-template-columns: none;
+    width: auto;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .wishlist-row-actions .wishlist-action-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 12px;
+  }
+
+  .wishlist-row-actions .action-label {
+    display: none;
   }
 
   .row-meta span {

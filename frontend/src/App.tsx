@@ -2436,6 +2436,36 @@ function grapesSvgIcon() {
   );
 }
 
+function wishlistActionSvgIcon(kind: "edit" | "convert" | "delete") {
+  if (kind === "edit") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5Z" />
+      </svg>
+    );
+  }
+  if (kind === "convert") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M7 7h10" />
+        <path d="m13 3 4 4-4 4" />
+        <path d="M17 17H7" />
+        <path d="m11 21-4-4 4-4" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M3 6h18" />
+      <path d="M8 6V4h8v2" />
+      <path d="M19 6l-1 14H6L5 6" />
+      <path d="M10 11v6" />
+      <path d="M14 11v6" />
+    </svg>
+  );
+}
+
 function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
   const labels =
     locale === "it"
@@ -7214,15 +7244,18 @@ export function App() {
                     <span>{t("targetPrice")}</span>
                     <strong className="wishlist-price">{targetPriceValue}</strong>
                   </div>
-                  <div className="row-actions">
-                    <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }}>
-                      {t("edit")}
+                  <div className="row-actions wishlist-row-actions">
+                    <button type="button" className="secondary wishlist-action-button" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }} aria-label={t("edit")} title={t("edit")}>
+                      <span className="action-icon">{wishlistActionSvgIcon("edit")}</span>
+                      <span className="action-label">{t("edit")}</span>
                     </button>
-                    <button type="button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }}>
-                      {t("convert")}
+                    <button type="button" className="wishlist-action-button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }} aria-label={t("convert")} title={t("convert")}>
+                      <span className="action-icon">{wishlistActionSvgIcon("convert")}</span>
+                      <span className="action-label">{t("convert")}</span>
                     </button>
-                    <button type="button" className="danger" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWishlistItem(item).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist item")); }}>
-                      {t("delete")}
+                    <button type="button" className="danger wishlist-action-button" disabled={!canAdmin} onClick={(event) => { event.stopPropagation(); deleteWishlistItem(item).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist item")); }} aria-label={t("delete")} title={t("delete")}>
+                      <span className="action-icon">{wishlistActionSvgIcon("delete")}</span>
+                      <span className="action-label">{t("delete")}</span>
                     </button>
                   </div>
                 </article>
