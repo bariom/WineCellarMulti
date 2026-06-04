@@ -679,6 +679,33 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
     assert no_more.status_code == 400
 
 
+def test_user_can_create_and_switch_to_second_household():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    before = client.get("/api/v1/household/memberships")
+    assert before.status_code == 200
+    assert len(before.json()) == 1
+    assert before.json()[0]["household_name"] == "Main Cellar"
+
+    created = client.post("/api/v1/household", json={"name": "Test Cellar"})
+    assert created.status_code == 201
+    assert created.json()["household_name"] == "Test Cellar"
+    assert created.json()["role"] == "owner"
+
+    session = client.get("/api/v1/session")
+    assert session.status_code == 200
+    assert session.json()["active_household_name"] == "Test Cellar"
+
+    after = client.get("/api/v1/household/memberships")
+    assert after.status_code == 200
+    assert sorted(entry["household_name"] for entry in after.json()) == ["Main Cellar", "Test Cellar"]
+
+    switched = client.post("/api/v1/household/switch", json={"household_id": before.json()[0]["household_id"]})
+    assert switched.status_code == 200
+    assert switched.json()["household_name"] == "Main Cellar"
+
+
 def test_user_tags_can_be_defined_and_assigned_to_wines():
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -968,6 +995,17 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
         },
     )
     assert created_wishlist.status_code == 201
+    consumed = client.post(
+        f"/api/v1/wines/{created_wine.json()['id']}/consume",
+        json={
+            "consumed_at": "2026-06-03",
+            "note": "Saved in backup history",
+            "tasting_rating": 6,
+        },
+    )
+    assert consumed.status_code == 200
+    assert consumed.json()["quantity"] == 2
+    assert len(consumed.json()["tasting_history"]) == 1
 
     exported = client.get(
         "/api/v1/imports/export-json?include_members=false&include_invites=false&include_share_offers=false&include_tags=false&include_ai_audit=false",
@@ -976,6 +1014,7 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     export_payload = exported.json()
     assert export_payload["schema"] == "winecellarmulti.export.v2"
     assert export_payload["included_blocks"] == ["wines", "wishlist"]
+    assert export_payload["wines"][0]["tasting_history"][0]["note"] == "Saved in backup history"
 
     preview = client.post("/api/v1/imports/json/preview", json=export_payload)
     assert preview.status_code == 200
@@ -997,6 +1036,7 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     wines = client.get("/api/v1/wines")
     assert wines.status_code == 200
     assert [wine["name"] for wine in wines.json()] == ["Roundtrip Wine"]
+    assert wines.json()[0]["tasting_history"][0]["note"] == "Saved in backup history"
 
     wishlist = client.get("/api/v1/wishlist")
     assert wishlist.status_code == 200

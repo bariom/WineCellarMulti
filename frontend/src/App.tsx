@@ -549,6 +549,8 @@ const translations = {
     cancel: "Cancel",
     cellar: "Cellar",
     cellarName: "Cellar name",
+    createCellar: "Create cellar",
+    createCellarHelp: "Create a separate cellar for another collection, place, or project. You will switch to it immediately after creation.",
     renameCellar: "Rename cellar",
     clearFilters: "Clear filters",
     convert: "Convert",
@@ -813,6 +815,7 @@ const translations = {
     exportData: "Export data",
     exportJson: "Export JSON",
     exportFullCellarHelp: "Today export can include the full cellar backup. Choose which blocks to include before downloading the JSON.",
+    exportHistoryIncluded: "Tasting history is stored inside wines and is included when Wines is selected.",
     exportIncludesWines: "Wines",
     exportIncludesWishlist: "Wishlist",
     exportIncludesMembers: "Members",
@@ -894,6 +897,8 @@ const translations = {
     cancel: "Annulla",
     cellar: "Cantina",
     cellarName: "Nome cantina",
+    createCellar: "Crea cantina",
+    createCellarHelp: "Crea una cantina separata per un'altra collezione, luogo o progetto. Dopo la creazione passerai subito a quella nuova.",
     renameCellar: "Rinomina cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
@@ -1158,6 +1163,7 @@ const translations = {
     exportData: "Esportazione dati",
     exportJson: "Esporta JSON",
     exportFullCellarHelp: "Ora l'export può includere il backup completo della cantina. Scegli quali blocchi inserire prima di scaricare il JSON.",
+    exportHistoryIncluded: "Lo storico degustazioni è salvato dentro i vini ed è incluso quando selezioni Vini.",
     exportIncludesWines: "Vini",
     exportIncludesWishlist: "Wishlist",
     exportIncludesMembers: "Membri",
@@ -3231,6 +3237,7 @@ export function App() {
   const [exportSelection, setExportSelection] = useState<ExportSelection>(defaultExportSelection);
   const [importSelection, setImportSelection] = useState<ImportSelection>(importSelectionFromBlocks(["wines", "wishlist"]));
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
+  const [newHouseholdNameDraft, setNewHouseholdNameDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
@@ -3835,6 +3842,7 @@ export function App() {
     setPasskeys([]);
     setHouseholdMemberships([]);
     setHouseholdNameDraft("");
+    setNewHouseholdNameDraft("");
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
@@ -3899,6 +3907,26 @@ export function App() {
       setHouseholdNameDraft(updatedMembership.household_name);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update cellar name");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function createHousehold(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const nextName = newHouseholdNameDraft.trim();
+    if (!nextName) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<HouseholdMembership>("/api/v1/household", {
+        method: "POST",
+        body: JSON.stringify({ name: nextName }),
+      });
+      setNewHouseholdNameDraft("");
+      await loadData();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create cellar");
     } finally {
       setSaving(false);
     }
@@ -7532,6 +7560,22 @@ export function App() {
                     {saving ? t("saving") : t("renameCellar")}
                   </button>
                 </form>
+                <form className="inline-form" onSubmit={createHousehold}>
+                  <label>
+                    <span>{t("createCellar")}</span>
+                    <input
+                      value={newHouseholdNameDraft}
+                      disabled={saving}
+                      onChange={(event) => setNewHouseholdNameDraft(event.target.value)}
+                      placeholder={t("cellarName")}
+                      required
+                    />
+                  </label>
+                  <button type="submit" disabled={saving || !newHouseholdNameDraft.trim()}>
+                    {saving ? t("saving") : t("createCellar")}
+                  </button>
+                </form>
+                <p className="empty-state">{t("createCellarHelp")}</p>
                 {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 <div className="member-list">
                   {members.map((member) => (
@@ -7763,6 +7807,7 @@ export function App() {
                   <div className="token-box">
                     <strong>{t("importLegacy")}</strong>
                     <span>{t("importSupports")}</span>
+                    <small>{t("exportHistoryIncluded")}</small>
                   </div>
                   <label>
                     <span>{t("importMode")}</span>
@@ -7836,6 +7881,7 @@ export function App() {
                   <div className="token-box">
                     <strong>{t("exportData")}</strong>
                     <span>{t("exportFullCellarHelp")}</span>
+                    <small>{t("exportHistoryIncluded")}</small>
                     <small>{t("exportSensitiveNote")}</small>
                   </div>
                   <div className="export-options-grid">

@@ -367,6 +367,7 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "tags": [as_str(tag) for tag in as_list(raw.get("tags")) if as_str(tag)],
         "grapes": as_list(raw.get("grapes")),
         "scores": as_list(raw.get("scores")),
+        "tasting_history": as_list(raw.get("tasting_history")),
     }
 
 
@@ -417,8 +418,13 @@ def existing_by_id_or_key(
     return instance or existing_keys.get(key)
 
 
-def ensure_unused_id(db: Session, model: Any, candidate_id: UUID) -> UUID:
-    return candidate_id if db.get(model, candidate_id) is None else uuid4()
+def ensure_unused_id(db: Session, model: Any, candidate_id: UUID, reserved_ids: set[UUID] | None = None) -> UUID:
+    reserved = reserved_ids if reserved_ids is not None else set()
+    next_id = candidate_id
+    while next_id in reserved or db.get(model, next_id) is not None:
+        next_id = uuid4()
+    reserved.add(next_id)
+    return next_id
 
 
 def existing_wine_keys(db: Session, context: CurrentContext) -> dict[tuple[str, str, str, str, str], Wine]:
@@ -484,6 +490,15 @@ def import_vinaris_json_payload(
 ) -> LegacyImportResult:
     blocks = selected_import_blocks(payload)
     result = LegacyImportResult(wines_imported=0, wishlist_imported=0)
+    reserved_ids: dict[type[Any], set[UUID]] = {
+        Wine: set(),
+        WishlistItem: set(),
+        WineValueHistory: set(),
+        HouseholdInvite: set(),
+        UserTag: set(),
+        WineShareOffer: set(),
+        AiAuditLog: set(),
+    }
     if mode == "replace_all":
         result.wines_deleted, result.wishlist_deleted = clear_household_export_blocks(db, context, blocks)
         db.flush()
@@ -509,7 +524,7 @@ def import_vinaris_json_payload(
             wine = existing
             result.wines_updated += 1
         else:
-            data["id"] = ensure_unused_id(db, Wine, data["id"])
+            data["id"] = ensure_unused_id(db, Wine, data["id"], reserved_ids[Wine])
             wine = Wine(**data)
             db.add(wine)
             wine_keys[key] = wine
@@ -529,7 +544,7 @@ def import_vinaris_json_payload(
                 "recorded_at": as_datetime(raw_entry.get("recorded_at")) or datetime.now(timezone.utc),
             }
             if value_entry is None:
-                value_data["id"] = ensure_unused_id(db, WineValueHistory, value_data["id"])
+                value_data["id"] = ensure_unused_id(db, WineValueHistory, value_data["id"], reserved_ids[WineValueHistory])
                 db.add(WineValueHistory(**value_data))
             elif mode in {"update_existing", "replace_all"}:
                 for field, value in value_data.items():
@@ -555,7 +570,7 @@ def import_vinaris_json_payload(
             item = existing
             result.wishlist_updated += 1
         else:
-            data["id"] = ensure_unused_id(db, WishlistItem, data["id"])
+            data["id"] = ensure_unused_id(db, WishlistItem, data["id"], reserved_ids[WishlistItem])
             item = WishlistItem(**data)
             db.add(item)
             wishlist_keys[key] = item
@@ -605,7 +620,7 @@ def import_vinaris_json_payload(
             result.invites_updated += 1
             continue
         invite_id = as_uuid(raw_invite.get("id"))
-        invite_id = ensure_unused_id(db, HouseholdInvite, invite_id)
+        invite_id = ensure_unused_id(db, HouseholdInvite, invite_id, reserved_ids[HouseholdInvite])
         db.add(
             HouseholdInvite(
                 id=invite_id,
@@ -634,7 +649,7 @@ def import_vinaris_json_payload(
         existing_tag = existing_tags.get(name.lower())
         if existing_tag is None:
             tag_id = as_uuid(raw_tag.get("id"))
-            tag_id = ensure_unused_id(db, UserTag, tag_id)
+            tag_id = ensure_unused_id(db, UserTag, tag_id, reserved_ids[UserTag])
             db.add(UserTag(id=tag_id, user_id=context.user.id, name=name, color=as_str(raw_tag.get("color")), created_at=as_datetime(raw_tag.get("created_at")) or datetime.now(timezone.utc)))
             result.user_tags_imported += 1
             continue
@@ -680,7 +695,7 @@ def import_vinaris_json_payload(
             result.share_offers_updated += 1
             continue
         offer_id = as_uuid(raw_offer.get("id"))
-        offer_id = ensure_unused_id(db, WineShareOffer, offer_id)
+        offer_id = ensure_unused_id(db, WineShareOffer, offer_id, reserved_ids[WineShareOffer])
         db.add(
             WineShareOffer(
                 id=offer_id,
@@ -741,7 +756,7 @@ def import_vinaris_json_payload(
             result.ai_audit_updated += 1
             continue
         log_id = as_uuid(raw_log.get("id"))
-        log_id = ensure_unused_id(db, AiAuditLog, log_id)
+        log_id = ensure_unused_id(db, AiAuditLog, log_id, reserved_ids[AiAuditLog])
         db.add(AiAuditLog(id=log_id, **log_data))
         result.ai_audit_imported += 1
 

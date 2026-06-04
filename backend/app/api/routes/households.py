@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models import Household, HouseholdInvite, Membership, User
 from app.services.email import send_email
 from app.schemas.household import (
+    HouseholdCreate,
     HouseholdMembershipResponse,
     HouseholdSwitch,
     HouseholdUpdate,
@@ -97,6 +98,39 @@ def switch_household(
 
     context.session.active_household_id = household.id
     db.commit()
+    db.refresh(context.session)
+    return HouseholdMembershipResponse(
+        membership_id=membership.id,
+        household_id=household.id,
+        household_name=household.name,
+        role=membership.role,
+    )
+
+
+@router.post("", response_model=HouseholdMembershipResponse, status_code=status.HTTP_201_CREATED)
+def create_household(
+    payload: HouseholdCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> HouseholdMembershipResponse:
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required")
+
+    household = Household(name=name)
+    db.add(household)
+    db.flush()
+    membership = Membership(
+        user_id=context.user.id,
+        household_id=household.id,
+        role="owner",
+        visibility_scope="all",
+    )
+    db.add(membership)
+    context.session.active_household_id = household.id
+    db.commit()
+    db.refresh(household)
+    db.refresh(membership)
     db.refresh(context.session)
     return HouseholdMembershipResponse(
         membership_id=membership.id,
