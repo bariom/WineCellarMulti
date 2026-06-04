@@ -554,6 +554,8 @@ const translations = {
     deleteCellar: "Delete cellar",
     deleteCellarHelp: "Delete this cellar and all its wines, wishlist items, shares, invites, and AI audit entries. Every member must already have another cellar.",
     deleteCellarConfirm: "Delete this cellar permanently? All cellar data inside it will be removed.",
+    deleteCellarTypeName: "Type the cellar name to confirm",
+    deleteCellarMismatch: "The typed name does not match the active cellar.",
     renameCellar: "Rename cellar",
     clearFilters: "Clear filters",
     convert: "Convert",
@@ -905,6 +907,8 @@ const translations = {
     deleteCellar: "Elimina cantina",
     deleteCellarHelp: "Elimina questa cantina con tutti i suoi vini, wishlist, condivisioni, inviti e audit AI. Ogni membro deve già avere almeno un'altra cantina.",
     deleteCellarConfirm: "Eliminare definitivamente questa cantina? Tutti i dati contenuti verranno rimossi.",
+    deleteCellarTypeName: "Scrivi il nome della cantina per confermare",
+    deleteCellarMismatch: "Il nome inserito non corrisponde alla cantina attiva.",
     renameCellar: "Rinomina cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
@@ -3274,6 +3278,7 @@ export function App() {
   const [importSelection, setImportSelection] = useState<ImportSelection>(importSelectionFromBlocks(["wines", "wishlist"]));
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [newHouseholdNameDraft, setNewHouseholdNameDraft] = useState("");
+  const [deleteHouseholdConfirmDraft, setDeleteHouseholdConfirmDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
@@ -3879,6 +3884,7 @@ export function App() {
     setHouseholdMemberships([]);
     setHouseholdNameDraft("");
     setNewHouseholdNameDraft("");
+    setDeleteHouseholdConfirmDraft("");
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
@@ -3969,6 +3975,11 @@ export function App() {
   }
 
   async function deleteActiveHousehold() {
+    const expectedName = session?.active_household_name?.trim() || "";
+    if (!expectedName || deleteHouseholdConfirmDraft.trim() !== expectedName) {
+      setError(t("deleteCellarMismatch"));
+      return;
+    }
     if (!window.confirm(t("deleteCellarConfirm"))) return;
     setSaving(true);
     setError("");
@@ -3976,6 +3987,7 @@ export function App() {
       await api("/api/v1/household", { method: "DELETE" });
       setHouseholdNameDraft("");
       setNewHouseholdNameDraft("");
+      setDeleteHouseholdConfirmDraft("");
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to delete cellar");
@@ -7634,8 +7646,27 @@ export function App() {
                 <div className="token-box">
                   <strong>{t("deleteCellar")}</strong>
                   <span>{t("deleteCellarHelp")}</span>
+                  <label>
+                    <span>{t("deleteCellarTypeName")}</span>
+                    <input
+                      value={deleteHouseholdConfirmDraft}
+                      disabled={saving || householdMemberships.length <= 1 || session?.membership_role !== "owner"}
+                      onChange={(event) => setDeleteHouseholdConfirmDraft(event.target.value)}
+                      placeholder={session?.active_household_name || t("cellarName")}
+                    />
+                  </label>
                   <div className="inline-form">
-                    <button type="button" className="danger" disabled={saving || householdMemberships.length <= 1 || session?.membership_role !== "owner"} onClick={deleteActiveHousehold}>
+                    <button
+                      type="button"
+                      className="danger"
+                      disabled={
+                        saving ||
+                        householdMemberships.length <= 1 ||
+                        session?.membership_role !== "owner" ||
+                        deleteHouseholdConfirmDraft.trim() !== (session?.active_household_name || "").trim()
+                      }
+                      onClick={deleteActiveHousehold}
+                    >
                       {t("deleteCellar")}
                     </button>
                   </div>
