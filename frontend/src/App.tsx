@@ -452,6 +452,7 @@ type ThemePreference =
   | "system"
   | "light"
   | "dark"
+  | "private-cellar"
   | "sepia"
   | "white-wine"
   | "red-wine"
@@ -828,6 +829,7 @@ const translations = {
     themeSystem: "System",
     themeLight: "Light",
     themeDark: "Dark",
+    themePrivateCellar: "Private cellar",
     themeSepia: "Warm cellar",
     themeWhiteWine: "White wine",
     themeRedWine: "Red wine",
@@ -1209,6 +1211,7 @@ const translations = {
     themeSystem: "Sistema",
     themeLight: "Chiaro",
     themeDark: "Scuro",
+    themePrivateCellar: "Cantina privata",
     themeSepia: "Cantina calda",
     themeWhiteWine: "Vino bianco",
     themeRedWine: "Vino rosso",
@@ -1285,6 +1288,7 @@ const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
   { value: "system", label: "themeSystem" },
   { value: "light", label: "themeLight" },
   { value: "dark", label: "themeDark" },
+  { value: "private-cellar", label: "themePrivateCellar" },
   { value: "sepia", label: "themeSepia" },
   { value: "white-wine", label: "themeWhiteWine" },
   { value: "red-wine", label: "themeRedWine" },

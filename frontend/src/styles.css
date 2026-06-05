@@ -64,6 +64,38 @@
     linear-gradient(135deg, #151d19 0%, #101713 100%);
 }
 
+:root[data-theme="private-cellar"] {
+  color-scheme: dark;
+  --page: #15100d;
+  --surface: #211915;
+  --surface-raised: #2a211c;
+  --surface-muted: #30261f;
+  --surface-subtle: #3a2f26;
+  --text: #f6efe4;
+  --text-muted: #cbbb9f;
+  --text-soft: #b49e82;
+  --border: #4c3c31;
+  --border-strong: #705743;
+  --primary: #d5b06b;
+  --primary-contrast: #17110d;
+  --secondary: #32271f;
+  --danger: #c76767;
+  --danger-text: #ffe5e1;
+  --danger-surface: #3a1f1b;
+  --success-surface: #1f231d;
+  --accent: #8d6a35;
+  --drink-young: #d0a64d;
+  --drink-ideal: #7fa16f;
+  --drink-past: #b65e64;
+  --bar-muted: #382c24;
+  --shadow-soft: 0 18px 42px rgba(0, 0, 0, 0.46);
+  --focus: rgba(213, 176, 107, 0.42);
+  --hero-bg:
+    radial-gradient(circle at 10% 12%, rgba(213, 176, 107, 0.12), transparent 28%),
+    radial-gradient(circle at 82% 18%, rgba(255, 244, 220, 0.08), transparent 22%),
+    linear-gradient(135deg, #2a211c 0%, #1a1411 52%, #120d0b 100%);
+}
+
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme]) {
     color-scheme: dark;
@@ -387,6 +419,70 @@
     radial-gradient(circle at 78% 18%, rgba(127, 155, 106, 0.18), transparent 30%),
     radial-gradient(circle at 44% 82%, rgba(209, 168, 90, 0.12), transparent 28%),
     linear-gradient(135deg, #1d2522 0%, #101312 100%);
+}
+
+:root[data-theme="private-cellar"] .topbar {
+  border-bottom-color: color-mix(in srgb, var(--accent) 24%, var(--border));
+}
+
+:root[data-theme="private-cellar"] .eyebrow,
+:root[data-theme="private-cellar"] .hero-copy p,
+:root[data-theme="private-cellar"] .list-header,
+:root[data-theme="private-cellar"] .public-brand-copy span {
+  color: var(--text-soft);
+}
+
+:root[data-theme="private-cellar"] .session-pill,
+:root[data-theme="private-cellar"] .notification-panel,
+:root[data-theme="private-cellar"] .settings-tabs,
+:root[data-theme="private-cellar"] .view-tabs {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, black) 0%, var(--surface) 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme="private-cellar"] .public-hero-copy,
+:root[data-theme="private-cellar"] .public-pricing-card,
+:root[data-theme="private-cellar"] .public-features-card,
+:root[data-theme="private-cellar"] .public-story-card,
+:root[data-theme="private-cellar"] .public-founder-card,
+:root[data-theme="private-cellar"] .public-showcase-card,
+:root[data-theme="private-cellar"] .hero-panel,
+:root[data-theme="private-cellar"] .hero-kpi,
+:root[data-theme="private-cellar"] .dashboard-card,
+:root[data-theme="private-cellar"] .wine-row,
+:root[data-theme="private-cellar"] .settings-card,
+:root[data-theme="private-cellar"] .compare-modal-card,
+:root[data-theme="private-cellar"] .market-modal-card,
+:root[data-theme="private-cellar"] .auth-modal-card {
+  border-color: color-mix(in srgb, var(--accent) 22%, var(--border));
+  background:
+    radial-gradient(circle at top right, rgba(213, 176, 107, 0.08), transparent 26%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, black) 0%, var(--surface) 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+:root[data-theme="private-cellar"] .public-price-tile,
+:root[data-theme="private-cellar"] .stat-card,
+:root[data-theme="private-cellar"] .compare-ai-panel,
+:root[data-theme="private-cellar"] .filter-panel,
+:root[data-theme="private-cellar"] .stats-panel-wrapper,
+:root[data-theme="private-cellar"] .collapsible-panel,
+:root[data-theme="private-cellar"] .support-panel,
+:root[data-theme="private-cellar"] .consume-panel {
+  border-color: color-mix(in srgb, var(--accent) 18%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 96%, black) 0%, var(--surface-muted) 100%);
+}
+
+:root[data-theme="private-cellar"] button.secondary,
+:root[data-theme="private-cellar"] .view-tabs button,
+:root[data-theme="private-cellar"] .settings-tabs button {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-subtle) 90%, black) 0%, var(--secondary) 100%);
+  color: var(--text);
+}
+
+:root[data-theme="private-cellar"] .public-brand-mark {
+  filter: drop-shadow(0 10px 18px rgba(213, 176, 107, 0.18));
 }
 
 * {
