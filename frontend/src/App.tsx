@@ -1458,16 +1458,16 @@ const landingContent: Record<
   }
 > = {
   en: {
-    headline: "A private wine cellar built for collectors.",
-    subheadline: "Track bottles, maturity, value, deliveries, history, and wishlists in one shared experience.",
+    headline: "Manage your wine collection like a professional.",
+    subheadline: "Know what you own, what it is worth, and what deserves attention next.",
     description:
-      "Vinaris helps private collectors manage everyday drinking bottles and long-term allocations with a clean workflow designed around what to buy, what to drink, what to monitor next, and what to preserve in a lasting cellar history.",
+      "Vinaris is built for collectors who want a serious private cellar: a calm, high-trust place to manage value, maturity, deliveries, history, and buying decisions without spreadsheets, scattered notes, or noisy wine-app features.",
     primaryCta: "Login",
     secondaryCta: "Create account",
-    storyEyebrow: "Why Vinaris exists",
-    storyTitle: "Created by a collector who wanted a serious cellar tool, not another generic inventory app.",
+    storyEyebrow: "Private Cellar Intelligence",
+    storyTitle: "Finally, a place to manage a wine collection seriously.",
     storyBody:
-      "Vinaris was shaped around a real collector workflow: futures, shared positions, drinking windows, value tracking, and the daily question of what deserves attention now. The goal was to replace scattered spreadsheets, notes, and memory with one system that feels elegant enough to use every week.",
+      "Vinaris was designed around the real collector workflow: what is ready, what is appreciating, what needs monitoring, what is still arriving, and what deserves a place in the long memory of the cellar. It is meant to feel closer to a private bank dashboard than to a social wine app.",
      founderQuote:
         "I built Vinaris because I wanted a cellar app that thinks like a collector: structured, calm, and genuinely useful when decisions matter.",
       founderSupport:
@@ -1477,76 +1477,72 @@ const landingContent: Record<
     principlesTitle: "Built around practical collector decisions",
     principles: [
       {
-        title: "Clarity before clutter",
-        body: "The interface is designed to surface drinking readiness, deliveries, value, and missing data without burying the collector in noise.",
+        title: "Decision first",
+        body: "The interface surfaces what matters now: cellar value, wines at peak, bottles to watch, and deliveries still pending.",
       },
       {
-        title: "A cellar, not just a list",
-        body: "Vinaris understands ownership, shared positions, price history, maturity, and wishlist flow as one connected system.",
+        title: "A collection, not a record list",
+        body: "Bottles, vintages, shared positions, value history, tasting memory, and buying intent are treated as pieces of one collector system.",
       },
         {
-          title: "AI only when it helps",
-          body: "The platform works without AI, but it reaches its full potential when collectors enable AI through their own OpenAI key or an in-app AI Pack and let Vinaris enrich decisions across the cellar.",
+          title: "Analysis behind the scenes",
+          body: "Market analysis, buying strategy, and pairings can work in the background through a personal key or AI Pack, without turning the product into an AI showcase.",
         },
     ],
-    collectorTitle: "What Vinaris helps you do",
+    collectorTitle: "Collector edition",
     collectorBody:
-      "Built for collectors with 20 to 1000+ bottles who want clarity on their cellar without spreadsheets or scattered notes.",
+      "For collectors with 20 to 1000+ bottles who want a private, structured, and decision-oriented view of the cellar.",
     pricesTitle: "Simple pricing",
     monthlyLabel: "CHF 6 / month",
     annualLabel: "CHF 60 / year",
     savingsNote: "Annual plan saves CHF 12 compared with monthly billing.",
     features: [
       {
-        title: "Catalog bottles and allocations",
-        body: "Register producers, vintages, formats, delivery status, shared ownership, and personal notes.",
+        title: "Build a serious cellar record",
+        body: "Track producers, vintages, formats, delivery status, shared ownership, and personal notes in one coherent archive.",
       },
         {
           title: "Monitor drinking windows",
-          body: "See which wines are too young, at peak, or drifting past their ideal window.",
-          ai: true,
+          body: "See which wines are still too young, which are peaking now, and which bottles need quicker decisions.",
         },
         {
-          title: "Follow cellar value",
-          body: "Track purchase price, current value, and price history to understand where your cellar is appreciating.",
-          ai: true,
+          title: "Read the market around the cellar",
+          body: "Follow purchase price, current value, and price history so the cellar feels managed, not guessed.",
         },
       {
-        title: "Handle futures and deliveries",
-        body: "Manage ordered and en primeur wines, expected arrivals, and the delivery timeline from one place.",
+        title: "Stay on top of futures and deliveries",
+        body: "Manage ordered and en primeur wines, expected arrivals, and delivery timelines without losing track of capital already committed.",
       },
       {
-        title: "Keep a tasting archive",
-        body: "Move finished wines into history automatically and preserve their notes, scores, value trail, and context for later reference.",
+        title: "Preserve a tasting archive",
+        body: "When a bottle is gone, keep the note, score, value trail, and occasion in a lasting cellar memory.",
       },
         {
-          title: "Keep a focused wishlist",
-          body: "Capture target bottles, target prices, buying priorities, and conversion from wishlist to cellar.",
-          ai: true,
+          title: "Keep a disciplined wishlist",
+          body: "Capture target bottles, price goals, buying priorities, and move quickly from idea to cellar position when the time is right.",
         },
         {
-          title: "Decide what to drink next",
-          body: "Use readiness views, filters, pairings, and collector-focused insights to decide what to open now, what to hold back, and which bottles fit the moment best.",
-          ai: true,
+          title: "Decide what to open next",
+          body: "Use readiness views, filters, pairings, and market context to choose what to drink now, what to hold, and what deserves patience.",
         },
         {
-          title: "Unlock the full workflow with OpenAI or AI Pack",
-          body: "Unlock the full potential of Vinaris with your own OpenAI key or by purchasing an in-app AI Pack: notes, drinking windows, value checks, wishlist strategy, pairings, and richer cellar decisions. Personal tokens are encrypted and stored securely, while AI Pack usage is handled entirely by the app.",
+          title: "Market analysis, buying strategy, and pairings when you need them",
+          body: "Vinaris can work with your own OpenAI key or an in-app AI Pack to enrich pricing, strategy, drinking windows, and pairings. The analysis stays behind the scenes so the experience remains calm, collector-focused, and useful.",
           highlight: true,
         },
     ],
   },
   it: {
-    headline: "La cantina privata pensata per chi colleziona vino.",
-    subheadline: "Tieni sotto controllo bottiglie, maturazione, valore, consegne, storico e wishlist in un'unica esperienza condivisa.",
+    headline: "Gestisci la tua collezione come un professionista.",
+    subheadline: "Sapere cosa possiedi, quanto vale e che cosa merita attenzione cambia il modo di collezionare.",
     description:
-      "Vinaris aiuta i collezionisti privati a gestire sia i vini da bere nel quotidiano sia le allocazioni di lungo periodo, senza perdere memoria dei vini conclusi, con un flusso chiaro su cosa comprare, cosa bere e cosa monitorare.",
+      "Vinaris è pensato per chi vuole una cantina privata seria: un luogo sobrio e affidabile dove gestire valore, maturazione, consegne, storico e decisioni di acquisto senza fogli sparsi, memoria fragile o rumore da wine app.",
     primaryCta: "Accedi",
     secondaryCta: "Crea account",
-    storyEyebrow: "Perché nasce Vinaris",
-    storyTitle: "Creato da un collezionista che voleva uno strumento serio di cantina, non l'ennesima app generica di inventario.",
+    storyEyebrow: "Private Cellar Intelligence",
+    storyTitle: "Finalmente un posto dove gestire seriamente la propria collezione di vino.",
     storyBody:
-      "Vinaris nasce da un flusso reale da collezionista: futures, quote condivise, finestre di beva, controllo del valore e la domanda quotidiana su cosa merita attenzione adesso. L'obiettivo era sostituire fogli sparsi, note e memoria con un sistema unico, abbastanza elegante da volerlo usare ogni settimana.",
+      "Vinaris nasce da un flusso reale da collezionista: che cosa è pronto, che cosa si sta rivalutando, che cosa va monitorato, che cosa deve ancora arrivare e che cosa merita di restare nella memoria lunga della cantina. Deve sembrare più una banca privata dei grandi vini che una piattaforma sociale.",
      founderQuote:
         "Ho creato Vinaris perché volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
       founderSupport:
@@ -1556,61 +1552,57 @@ const landingContent: Record<
     principlesTitle: "Progettato intorno a decisioni reali da collezionista",
     principles: [
       {
-        title: "Chiarezza prima del rumore",
-        body: "L'interfaccia mette in evidenza beva, consegne, valore e dati mancanti senza sommergere il collezionista di informazioni inutili.",
+        title: "Prima la decisione",
+        body: "L'interfaccia mette in evidenza valore cantina, vini al picco, bottiglie da monitorare e consegne in sospeso.",
       },
       {
-        title: "Una cantina, non solo una lista",
-          body: "Vinaris gestisce proprietà, quote condivise, storico prezzi, maturazione e wishlist come un sistema unico.",
+        title: "Una collezione, non un elenco",
+          body: "Bottiglie, annate, quote condivise, storico valori, memoria degustativa e intenzioni di acquisto vivono nello stesso sistema da collezionista.",
       },
         {
-          title: "AI solo quando serve",
-          body: "La piattaforma funziona anche senza AI, ma esprime davvero il suo potenziale quando il collezionista attiva l'AI con la propria chiave OpenAI oppure con un AI Pack acquistato in-app e lascia che Vinaris arricchisca le decisioni di cantina.",
+          title: "Analisi dietro le quinte",
+          body: "Analisi mercato, strategia di acquisto e abbinamenti possono lavorare in background con chiave personale o AI Pack, senza trasformare il prodotto in una vetrina sull'AI.",
         },
     ],
-    collectorTitle: "Che cosa puoi fare con Vinaris",
+    collectorTitle: "Collector edition",
     collectorBody:
-      "Pensato per collezionisti con 20 fino a oltre 1000 bottiglie che vogliono chiarezza in cantina senza fogli di calcolo o note sparse.",
+      "Pensato per collezionisti con 20 fino a oltre 1000 bottiglie che vogliono una visione privata, strutturata e decisionale della propria cantina.",
     pricesTitle: "Prezzi semplici",
     monthlyLabel: "CHF 6 / mese",
     annualLabel: "CHF 60 / anno",
     savingsNote: "Il piano annuale ti fa risparmiare CHF 12 rispetto al mensile.",
     features: [
       {
-        title: "Catalogare bottiglie e quote",
-        body: "Registra produttori, annate, formati, stato consegna, multiproprietà e note personali.",
+        title: "Costruire un archivio di cantina serio",
+        body: "Registra produttori, annate, formati, stato consegna, multiproprietà e note personali in un archivio coerente.",
       },
         {
           title: "Monitorare la finestra di beva",
-          body: "Vedi subito quali vini sono troppo giovani, al picco o oltre la fase ideale.",
-          ai: true,
+          body: "Capisci subito quali vini sono ancora troppo giovani, quali sono al picco e quali chiedono decisioni più rapide.",
         },
         {
-          title: "Seguire il valore della cantina",
-          body: "Controlla prezzo di acquisto, valore attuale e storico per capire dove la cantina cresce.",
-          ai: true,
+          title: "Leggere il mercato intorno alla cantina",
+          body: "Controlla prezzo di acquisto, valore attuale e storico così la cantina viene gestita, non intuita.",
         },
       {
-        title: "Gestire futures e consegne",
-        body: "Organizza vini ordinati ed en primeur, arrivi attesi e timeline delle consegne in un solo posto.",
+        title: "Tenere sotto controllo futures e consegne",
+        body: "Organizza vini ordinati ed en primeur, arrivi attesi e timeline delle consegne senza perdere di vista il capitale già impegnato.",
       },
       {
         title: "Conservare uno storico degustativo",
-        body: "Quando una bottiglia finisce, passa nello storico mantenendo note, punteggi, traccia di valore e contesto per consultazioni future.",
+        body: "Quando una bottiglia finisce, conserva nota, punteggio, traccia di valore e occasione in una memoria durevole della cantina.",
       },
         {
-          title: "Tenere una wishlist utile",
-          body: "Salva bottiglie target, prezzi desiderati, priorità di acquisto e conversione rapida in cantina.",
-          ai: true,
+          title: "Tenere una wishlist disciplinata",
+          body: "Salva bottiglie target, obiettivi di prezzo, priorità di acquisto e passa velocemente dall'idea alla cantina quando serve.",
         },
         {
           title: "Decidere cosa bere",
-          body: "Usa viste di prontezza, filtri, abbinamenti e insight da collezionista per capire cosa aprire adesso, cosa lasciare in cantina e quali bottiglie si adattano meglio all'occasione.",
-          ai: true,
+          body: "Usa viste di prontezza, filtri, abbinamenti e contesto di mercato per capire cosa aprire adesso, che cosa lasciare in cantina e dove conviene avere pazienza.",
         },
         {
-          title: "Sblocca tutto il potenziale con OpenAI o AI Pack",
-          body: "Puoi sfruttare davvero Vinaris con la tua chiave OpenAI oppure acquistando un AI Pack in-app: note, finestre di beva, controlli di valore, strategia wishlist, abbinamenti e decisioni di cantina più ricche. I token personali vengono criptati e archiviati in modo sicuro, mentre l'AI Pack usa la chiave dell'app senza esporla all'utente.",
+          title: "Analisi mercato, strategia di acquisto e abbinamenti quando servono",
+          body: "Vinaris può lavorare con la tua chiave OpenAI oppure con un AI Pack in-app per arricchire prezzi, strategia, finestre di beva e abbinamenti. L'analisi resta dietro le quinte, così l'esperienza rimane sobria, utile e da collezionista.",
           highlight: true,
         },
     ],
@@ -6121,9 +6113,24 @@ export function App() {
           <section className="public-landing">
             <div className="public-hero">
               <div className="public-hero-copy">
+                <p className="eyebrow">{locale === "it" ? "Collector edition" : "Collector edition"}</p>
                 <h2>{landing.headline}</h2>
                 <strong>{landing.subheadline}</strong>
                 <p>{landing.description}</p>
+                <div className="public-proof-grid">
+                  <article className="public-proof-tile">
+                    <span>{locale === "it" ? "Valore cantina" : "Cellar value"}</span>
+                    <strong>CHF 4'769</strong>
+                  </article>
+                  <article className="public-proof-tile">
+                    <span>{locale === "it" ? "Finestra ideale" : "Ideal window"}</span>
+                    <strong>{locale === "it" ? "12 vini" : "12 wines"}</strong>
+                  </article>
+                  <article className="public-proof-tile">
+                    <span>{locale === "it" ? "Da monitorare" : "Watch closely"}</span>
+                    <strong>{locale === "it" ? "3 vini" : "3 wines"}</strong>
+                  </article>
+                </div>
                 <div className="public-hero-actions">
                   <button type="button" onClick={() => openAuthPanel("login")}>
                     {landing.primaryCta}
@@ -6135,6 +6142,11 @@ export function App() {
               </div>
               <aside className="public-pricing-card">
                 <p className="eyebrow">{landing.pricesTitle}</p>
+                <div className="public-vintage-mark">
+                  <strong>2016</strong>
+                  <span>Sassicaia</span>
+                  <small>{locale === "it" ? "L'annata come firma della collezione." : "Vintage as the signature of a collection."}</small>
+                </div>
                 <div className="public-price-grid">
                   <div className="public-price-tile">
                     <strong>{landing.monthlyLabel}</strong>
@@ -6158,16 +6170,15 @@ export function App() {
                 <p className="eyebrow">{landing.collectorTitle}</p>
                 <h3>{landing.collectorBody}</h3>
               </div>
-                <div className="public-feature-grid">
-                  {landing.features.map((feature) => (
-                  <article className={`${feature.highlight ? "public-feature public-feature-highlight" : "public-feature"}${feature.ai && !feature.highlight ? " public-feature-ai" : ""}`} key={feature.title}>
-                    {feature.ai && !feature.highlight ? <span className="public-feature-pill">AI</span> : null}
+              <div className="public-feature-grid">
+                {landing.features.map((feature) => (
+                  <article className={feature.highlight ? "public-feature public-feature-highlight" : "public-feature"} key={feature.title}>
                     <h4>{feature.title}</h4>
                     <p>{feature.body}</p>
                   </article>
                 ))}
-                </div>
-              </section>
+              </div>
+            </section>
 
             <section className="public-story-card">
               <div className="public-story-copy">
@@ -6212,24 +6223,28 @@ export function App() {
                       <span className="showcase-tab active">Home</span>
                       <span className="showcase-tab">Cellar (45)</span>
                       <span className="showcase-tab">Wishlist (10)</span>
-                      <span className="showcase-tab">Pairing</span>
+                      <span className="showcase-tab">{locale === "it" ? "Mercato" : "Market"}</span>
                     </div>
                     <div className="showcase-hero">
                       <div>
                         <p className="eyebrow">Dashboard</p>
-                        <h4>Collector focus</h4>
-                        <span>Omar Bariffi Cellar: 45 wines, 10 wishlist.</span>
+                        <h4>{locale === "it" ? "Vista collezionista" : "Collector view"}</h4>
+                        <span>{locale === "it" ? "Una dashboard che suggerisce cosa fare, non solo che cosa possiedi." : "A dashboard that suggests what to do, not only what you own."}</span>
+                      </div>
+                      <div className="showcase-vintage-mark">
+                        <strong>2016</strong>
+                        <span>Sassicaia</span>
                       </div>
                       <div className="showcase-kpis">
-                        <div><strong>97</strong><span>My bottles</span></div>
-                        <div><strong>6</strong><span>Shared</span></div>
-                        <div><strong>CHF 4769</strong><span>Total value</span></div>
+                        <div><strong>CHF 4'769</strong><span>{locale === "it" ? "Valore cantina" : "Cellar value"}</span></div>
+                        <div><strong>{locale === "it" ? "12 vini" : "12 wines"}</strong><span>{locale === "it" ? "Finestra ideale" : "Ideal window"}</span></div>
+                        <div><strong>4</strong><span>{locale === "it" ? "Consegne attese" : "Expected deliveries"}</span></div>
                       </div>
                     </div>
                     <div className="showcase-dashboard-grid">
                       <div className="showcase-card">
-                        <span>Priority actions</span>
-                        <strong>Drink now</strong>
+                        <span>{locale === "it" ? "Decisioni immediate" : "Immediate decisions"}</span>
+                        <strong>{locale === "it" ? "Da aprire ora" : "Open now"}</strong>
                         <ul>
                           <li>Krug Grande Cuvée</li>
                           <li>Dom Pérignon</li>
@@ -6237,20 +6252,20 @@ export function App() {
                         </ul>
                       </div>
                       <div className="showcase-card">
-                        <span>At risk</span>
-                        <strong>Past window</strong>
+                        <span>{locale === "it" ? "Da monitorare" : "Watch closely"}</span>
+                        <strong>{locale === "it" ? "Finestra delicata" : "Narrow window"}</strong>
                         <ul>
                           <li>Sassi Grossi</li>
                           <li>Bidibi</li>
                         </ul>
                       </div>
                       <div className="showcase-card">
-                        <span>Data quality</span>
-                        <strong>39 items</strong>
+                        <span>{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
+                        <strong>{locale === "it" ? "3 vini da rileggere" : "3 wines to review"}</strong>
                         <ul>
-                          <li>Arzo · Value</li>
-                          <li>Sirio · Value</li>
-                          <li>Blanc de Blancs · Drink window</li>
+                          <li>Arzo · {locale === "it" ? "Valore" : "Value"}</li>
+                          <li>Sirio · {locale === "it" ? "Valore" : "Value"}</li>
+                          <li>Blanc de Blancs · {locale === "it" ? "Finestra" : "Window"}</li>
                         </ul>
                       </div>
                     </div>
@@ -6339,30 +6354,30 @@ export function App() {
 
                   <article className="showcase-frame">
                     <div className="showcase-window">
-                      <div className="showcase-bar">
-                        <span className="showcase-tab">Wishlist</span>
-                        <span className="showcase-tab active">AI strategy</span>
-                        <span className="showcase-tab">Buy now</span>
-                      </div>
-                      <div className="showcase-dashboard-grid">
-                        <div className="showcase-card">
-                          <span>{locale === "it" ? "Priorita" : "Priority"}</span>
-                          <strong>High · {locale === "it" ? "Compra" : "Buy now"}</strong>
-                          <ul>
-                            <li>Sassicaia 2021 · CHF 235</li>
+                    <div className="showcase-bar">
+                      <span className="showcase-tab">Wishlist</span>
+                      <span className="showcase-tab active">{locale === "it" ? "Strategia di acquisto" : "Buying strategy"}</span>
+                      <span className="showcase-tab">{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
+                    </div>
+                    <div className="showcase-dashboard-grid">
+                      <div className="showcase-card">
+                        <span>{locale === "it" ? "Priorità" : "Priority"}</span>
+                        <strong>High · {locale === "it" ? "Compra" : "Buy now"}</strong>
+                        <ul>
+                          <li>Sassicaia 2021 · CHF 235</li>
                             <li>Tignanello 2021 · CHF 118</li>
                             <li>Krug Grande Cuvée · CHF 178</li>
                           </ul>
-                        </div>
-                        <div className="showcase-card">
-                          <span>{locale === "it" ? "Analisi AI" : "AI analysis"}</span>
-                          <strong>{locale === "it" ? "Mercato vs target" : "Market vs target"}</strong>
-                          <ul>
-                            <li>{locale === "it" ? "Target utente CHF 118" : "User target CHF 118"}</li>
-                            <li>{locale === "it" ? "Stima AI CHF 132" : "AI estimate CHF 132"}</li>
-                            <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
-                          </ul>
-                        </div>
+                      </div>
+                      <div className="showcase-card">
+                        <span>{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
+                        <strong>{locale === "it" ? "Stima vs target" : "Estimate vs target"}</strong>
+                        <ul>
+                          <li>{locale === "it" ? "Target utente CHF 118" : "User target CHF 118"}</li>
+                          <li>{locale === "it" ? "Stima mercato CHF 132" : "Market estimate CHF 132"}</li>
+                          <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
+                        </ul>
+                      </div>
                         <div className="showcase-card">
                           <span>{locale === "it" ? "Focus" : "Focus"}</span>
                           <strong>{locale === "it" ? "Scopo e abbinamento" : "Purpose and pairing"}</strong>
@@ -6375,11 +6390,11 @@ export function App() {
                       </div>
                     </div>
                     <div className="showcase-caption">
-                      <strong>{locale === "it" ? "Wishlist e decisioni AI" : "Wishlist and AI decisions"}</strong>
+                      <strong>{locale === "it" ? "Wishlist e strategia di acquisto" : "Wishlist and buying strategy"}</strong>
                       <span>
                         {locale === "it"
-                        ? "Priorità, prezzo target, stima mercato e strategia AI nello stesso punto."
-                          : "Priority, target price, market estimate, and AI strategy in one place."}
+                        ? "Priorità, target di prezzo, stima mercato e prossima mossa nello stesso punto."
+                          : "Priority, price target, market estimate, and next move in one place."}
                       </span>
                     </div>
                   </article>
