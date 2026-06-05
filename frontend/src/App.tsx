@@ -1504,10 +1504,12 @@ const landingContent: Record<
         {
           title: "Monitor drinking windows",
           body: "See which wines are still too young, which are peaking now, and which bottles need quicker decisions.",
+          ai: true,
         },
         {
           title: "Read the market around the cellar",
           body: "Follow purchase price, current value, and price history so the cellar feels managed, not guessed.",
+          ai: true,
         },
       {
         title: "Stay on top of futures and deliveries",
@@ -1520,10 +1522,12 @@ const landingContent: Record<
         {
           title: "Keep a disciplined wishlist",
           body: "Capture target bottles, price goals, buying priorities, and move quickly from idea to cellar position when the time is right.",
+          ai: true,
         },
         {
           title: "Decide what to open next",
           body: "Use readiness views, filters, pairings, and market context to choose what to drink now, what to hold, and what deserves patience.",
+          ai: true,
         },
         {
           title: "Market analysis, buying strategy, and pairings when you need them",
@@ -1579,10 +1583,12 @@ const landingContent: Record<
         {
           title: "Monitorare la finestra di beva",
           body: "Capisci subito quali vini sono ancora troppo giovani, quali sono al picco e quali chiedono decisioni più rapide.",
+          ai: true,
         },
         {
           title: "Leggere il mercato intorno alla cantina",
           body: "Controlla prezzo di acquisto, valore attuale e storico così la cantina viene gestita, non intuita.",
+          ai: true,
         },
       {
         title: "Tenere sotto controllo futures e consegne",
@@ -1595,10 +1601,12 @@ const landingContent: Record<
         {
           title: "Tenere una wishlist disciplinata",
           body: "Salva bottiglie target, obiettivi di prezzo, priorità di acquisto e passa velocemente dall'idea alla cantina quando serve.",
+          ai: true,
         },
         {
           title: "Decidere cosa bere",
           body: "Usa viste di prontezza, filtri, abbinamenti e contesto di mercato per capire cosa aprire adesso, che cosa lasciare in cantina e dove conviene avere pazienza.",
+          ai: true,
         },
         {
           title: "Analisi mercato, strategia di acquisto e abbinamenti quando servono",
@@ -6167,7 +6175,8 @@ export function App() {
               </div>
               <div className="public-feature-grid">
                 {landing.features.map((feature) => (
-                  <article className={feature.highlight ? "public-feature public-feature-highlight" : "public-feature"} key={feature.title}>
+                  <article className={`${feature.highlight ? "public-feature public-feature-highlight" : "public-feature"}${feature.ai && !feature.highlight ? " public-feature-ai" : ""}`} key={feature.title}>
+                    {feature.ai && !feature.highlight ? <span className="public-feature-pill">AI</span> : null}
                     <h4>{feature.title}</h4>
                     <p>{feature.body}</p>
                   </article>

@@ -1945,6 +1945,26 @@ summary:focus-visible {
   background: linear-gradient(160deg, var(--surface-raised) 0%, var(--surface-muted) 100%);
 }
 
+.public-feature-ai {
+  position: relative;
+  border-color: color-mix(in srgb, var(--landing-burgundy) 28%, var(--border));
+}
+
+.public-feature-pill {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--landing-burgundy) 32%, var(--border));
+  border-radius: 999px;
+  color: var(--landing-burgundy);
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: color-mix(in srgb, var(--landing-ivory) 90%, var(--surface));
+}
+
 .public-feature-highlight {
   position: relative;
   border-color: color-mix(in srgb, var(--landing-burgundy) 54%, var(--border));
