@@ -3779,6 +3779,12 @@ textarea {
   margin-top: 12px;
 }
 
+.history-section-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
 .stat-card {
   display: grid;
   align-content: start;
@@ -4564,6 +4570,60 @@ button.stat-card:hover {
 
 .tasting-history-entry p {
   margin: 0;
+}
+
+.tasting-archive-list {
+  display: grid;
+  gap: 12px;
+}
+
+.tasting-archive-entry {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
+  box-shadow: var(--shadow-soft);
+}
+
+.tasting-archive-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+}
+
+.tasting-archive-head strong,
+.tasting-archive-summary strong {
+  color: var(--text);
+}
+
+.tasting-archive-head span,
+.tasting-archive-meta,
+.tasting-archive-summary span {
+  color: var(--text-muted);
+}
+
+.tasting-archive-summary {
+  display: grid;
+  gap: 4px;
+  text-align: right;
+  justify-items: end;
+}
+
+.tasting-archive-meta,
+.tasting-archive-note {
+  margin: 0;
+}
+
+.tasting-archive-note {
+  color: var(--text);
+}
+
+.tasting-archive-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 .ai-audit-detail summary {
@@ -5748,6 +5808,22 @@ textarea {
   .form-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .history-section-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .tasting-archive-head {
+    grid-template-columns: 1fr;
+  }
+
+  .tasting-archive-summary,
+  .tasting-archive-actions {
+    justify-items: start;
+    text-align: left;
+    justify-content: flex-start;
   }
 }
 

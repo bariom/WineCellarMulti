@@ -459,6 +459,7 @@ type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
 type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
+type HistorySection = "tastings" | "wines";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
 type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
 type ThemePreference =
@@ -476,6 +477,18 @@ type ThemePreference =
   | "tuscany"
   | "piedmont"
   | "ticino";
+
+type TastingArchiveEntry = {
+  id: string;
+  wine: Wine;
+  consumed_at: string;
+  note: string;
+  rating: number;
+  occasion: string;
+  pairing: string;
+  companions: string;
+  created_at: string;
+};
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
@@ -651,6 +664,14 @@ const translations = {
     tastingRating: "Tasting rating",
     saveTasting: "Save tasting",
     noTastingHistory: "No tasting notes recorded yet.",
+    historyTastings: "Consumed bottles",
+    historyArchivedWines: "Archived wines",
+    latestConsumedBottles: "Latest consumed bottles",
+    tastingEntries: "Tasting entries",
+    ratedTastings: "Rated tastings",
+    tastingNotesSaved: "Tasting notes saved",
+    latestTasted: "Latest tasting",
+    noTastingArchiveMatch: "No consumed bottles match the current filters",
     critic: "Critic",
     grapeName: "Grape",
     fromPercent: "From %",
@@ -1054,6 +1075,14 @@ const translations = {
     tastingRating: "Voto degustazione",
     saveTasting: "Salva degustazione",
     noTastingHistory: "Nessuna degustazione registrata.",
+    historyTastings: "Bottiglie bevute",
+    historyArchivedWines: "Vini archiviati",
+    latestConsumedBottles: "Ultime bottiglie bevute",
+    tastingEntries: "Degustazioni",
+    ratedTastings: "Degustazioni valutate",
+    tastingNotesSaved: "Note degustazione salvate",
+    latestTasted: "Ultima degustazione",
+    noTastingArchiveMatch: "Nessuna bottiglia bevuta corrisponde ai filtri",
     critic: "Critico",
     grapeName: "Uva",
     fromPercent: "Da %",
@@ -3293,6 +3322,64 @@ function TastingHistorySection({
   );
 }
 
+function tastingArchiveSearchText(entry: TastingArchiveEntry) {
+  return [
+    entry.note,
+    entry.occasion,
+    entry.pairing,
+    entry.companions,
+  ]
+    .join(" ")
+    .toLowerCase();
+}
+
+function TastingArchiveSection({
+  entries,
+  t,
+  locale,
+  onOpenWine,
+}: {
+  entries: TastingArchiveEntry[];
+  t: (key: TranslationKey) => string;
+  locale: Locale;
+  onOpenWine: (wine: Wine) => void;
+}) {
+  return (
+    <div className="tasting-archive-list">
+      {entries.map((entry) => (
+        <article className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
+          <div className="tasting-archive-head">
+            <div>
+              <strong>{entry.wine.name}</strong>
+              <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
+            </div>
+            <div className="tasting-archive-summary">
+              <span>{formatDisplayDate(entry.consumed_at)}</span>
+              {entry.rating ? <strong>{entry.rating}/6</strong> : null}
+            </div>
+          </div>
+          <p className="tasting-archive-meta">
+            {[displayValue(entry.wine.format, locale, "format"), displayValue(entry.wine.type, locale, "type"), entry.wine.appellation].filter(Boolean).join(" - ")}
+          </p>
+          {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
+          {entry.occasion || entry.pairing || entry.companions ? (
+            <div className="chip-list">
+              {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
+              {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
+              {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
+            </div>
+          ) : null}
+          <div className="tasting-archive-actions">
+            <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
+              {t("openWine")}
+            </button>
+          </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
 function WineDetail({
   wine,
   session,
@@ -3851,6 +3938,7 @@ export function App() {
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
   const [pairingIgnorePreferences, setPairingIgnorePreferences] = useState(false);
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
+  const [historySection, setHistorySection] = useState<HistorySection>("tastings");
   const [tagDraft, setTagDraft] = useState("");
   const [tagDraftColor, setTagDraftColor] = useState("#245142");
   const [quickTagDraft, setQuickTagDraft] = useState("");
@@ -5384,7 +5472,8 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
-      if (updated.quantity <= 0 && activeView === "cellar") {
+      setHistorySection("tastings");
+      if (activeView === "cellar") {
         setActiveView("history");
         clearFilters("history");
       }
@@ -5638,9 +5727,14 @@ export function App() {
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const cellarWines = wines.filter((wine) => wine.quantity > 0);
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
+  const historyTastingWines = wines.filter((wine) => (wine.tasting_history || []).length > 0);
   const isWineCollectionView = activeView === "cellar" || activeView === "history";
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
-  const activeWineCollection = activeView === "history" ? historyWines : cellarWines;
+  const activeWineCollection = activeView === "history"
+    ? historySection === "tastings"
+      ? historyTastingWines
+      : historyWines
+    : cellarWines;
   const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
@@ -5739,6 +5833,58 @@ export function App() {
       if (sortMode === "drink_window") return (first.drink_from || 9999) - (second.drink_from || 9999);
       return first.name.localeCompare(second.name);
     });
+  const tastingFilterWineIds = new Set(
+    activeWineCollection
+      .filter((wine) => !typeFilter || wine.type === typeFilter)
+      .filter((wine) => !statusFilter || wine.status === statusFilter)
+      .filter((wine) => {
+        const bottlePrice = Number(wine.price || 0);
+        if (hasMinBottlePrice && bottlePrice < minBottlePrice) return false;
+        if (hasMaxBottlePrice && bottlePrice > maxBottlePrice) return false;
+        return true;
+      })
+      .filter((wine) => {
+        if (!ownershipFilter) return true;
+        const share = currentUserSharePct(wine, session);
+        if (ownershipFilter === "mine") return share > 0;
+        if (ownershipFilter === "shared") return share < 100;
+        return true;
+      })
+      .filter((wine) => {
+        if (!quickWineFilter) return true;
+        const share = currentUserSharePct(wine, session);
+        if (quickWineFilter === "mine") return share > 0;
+        if (quickWineFilter === "shared") return share < 100;
+        if (quickWineFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
+        if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
+        if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
+        if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
+        if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0;
+        return true;
+      })
+      .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
+      .filter((wine) => grapeFilter.length === 0 || grapeFilter.every((grape) => wine.grapes.some((item) => item.name === grape)))
+      .map((wine) => wine.id),
+  );
+  const historyTastingEntries = historyTastingWines.flatMap((wine) =>
+    (wine.tasting_history || []).map(
+      (entry): TastingArchiveEntry => ({
+        id: entry.id,
+        wine,
+        consumed_at: entry.consumed_at,
+        note: entry.note,
+        rating: entry.rating,
+        occasion: entry.occasion,
+        pairing: entry.pairing,
+        companions: entry.companions,
+        created_at: entry.created_at,
+      }),
+    ),
+  );
+  const filteredTastingEntries = historyTastingEntries
+    .filter((entry) => tastingFilterWineIds.has(entry.wine.id))
+    .filter((entry) => !normalizedQuery || tastingArchiveSearchText(entry).includes(normalizedQuery) || wineSearchText(entry.wine).includes(normalizedQuery))
+    .sort((first, second) => second.consumed_at.localeCompare(first.consumed_at) || second.created_at.localeCompare(first.created_at));
   const groupedFilteredWines = wineToneOrder
     .map((tone) => {
       const items = filteredWines.filter((wine) => wineTone(wine.type) === tone);
@@ -5766,7 +5912,12 @@ export function App() {
       if (sortMode === "value") return Number(second.target_price || 0) - Number(first.target_price || 0);
       return first.name.localeCompare(second.name);
     });
-  const visibleCount = isWineCollectionView ? filteredWines.length : filteredWishlist.length;
+  const visibleCount =
+    activeView === "history" && historySection === "tastings"
+      ? filteredTastingEntries.length
+      : isWineCollectionView
+        ? filteredWines.length
+        : filteredWishlist.length;
 
   useEffect(() => {
     setCompareWineIds((current) => current.filter((wineId) => wines.some((wine) => wine.id === wineId)));
@@ -5848,6 +5999,12 @@ export function App() {
     scores: historyWines.filter((wine) => wine.rating > 0 || wine.scores.length > 0).length,
     aiNotes: historyWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
+  const tastingStats = {
+    count: historyTastingEntries.length,
+    rated: historyTastingEntries.filter((entry) => entry.rating > 0).length,
+    notes: historyTastingEntries.filter((entry) => entry.note.trim().length > 0).length,
+    latest: "",
+  };
   const valueByType = topWineValueGroups(cellarWines, "type");
   const valueByRegion = topWineValueGroups(cellarWines, "region");
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
@@ -5901,6 +6058,10 @@ export function App() {
     .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
+  const latestConsumedEntries = [...historyTastingEntries]
+    .sort((first, second) => second.consumed_at.localeCompare(first.consumed_at) || second.created_at.localeCompare(first.created_at))
+    .slice(0, 5);
+  tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
   const drinkSoonWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2)
     .sort((first, second) => (first.drink_from || 9999) - (second.drink_from || 9999))
@@ -6132,8 +6293,11 @@ export function App() {
     return entry.entity_type;
   }
 
-  function openWineFromDashboard(wine: Wine) {
-    setActiveView("cellar");
+  function openWineInView(wine: Wine, view: "cellar" | "history", nextHistorySection: HistorySection = "wines") {
+    setActiveView(view);
+    if (view === "history") {
+      setHistorySection(nextHistorySection);
+    }
     setSearchQuery("");
     setTypeFilter("");
     setStatusFilter("");
@@ -6146,9 +6310,17 @@ export function App() {
     setSortMode("name");
     setOpenWineToneGroups((current) => ({ ...current, [wineTone(wine.type)]: true }));
     setSelectedWineId(wine.id);
-    setPendingWineScrollId(wine.id);
+    setPendingWineScrollId(view === "cellar" ? wine.id : null);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
+  }
+
+  function openWineFromDashboard(wine: Wine) {
+    openWineInView(wine, "cellar");
+  }
+
+  function openWineFromTastingArchive(wine: Wine) {
+    openWineInView(wine, "history", "tastings");
   }
 
   function renderPairingSection() {
@@ -6951,6 +7123,27 @@ export function App() {
                         <strong>{days}d</strong>
                       </button>
                     )) : <p className="empty-state">{t("noActionItems")}</p>}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
+                  <button type="button" className="card-heading card-heading-button" onClick={() => { setActiveView("history"); setHistorySection("tastings"); clearFilters("history"); }}>
+                    <div>
+                      <span>{t("tastingEntries")}</span>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</i>{t("latestConsumedBottles")}</h2>
+                    </div>
+                    <strong>{tastingStats.count}</strong>
+                  </button>
+                  <div className="action-list">
+                    {latestConsumedEntries.length ? latestConsumedEntries.map((entry) => (
+                      <button type="button" className="action-row" key={entry.id} onClick={() => openWineFromTastingArchive(entry.wine)}>
+                        <div>
+                          <span><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} />{entry.wine.name}</span>
+                          <strong>{formatDisplayDate(entry.consumed_at)}</strong>
+                        </div>
+                        <strong>{entry.rating ? `${entry.rating}/6` : entry.occasion || entry.pairing || "-"}</strong>
+                      </button>
+                    )) : <p className="empty-state">{t("noTastingHistory")}</p>}
                   </div>
                 </article>
 
@@ -7983,32 +8176,77 @@ export function App() {
               </section>
             </details>
             ) : activeView === "history" ? (
+            <>
+            <div className="history-section-tabs" role="tablist" aria-label={t("history")}>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={historySection === "tastings"}
+                className={historySection === "tastings" ? "" : "secondary"}
+                onClick={() => setHistorySection("tastings")}
+              >
+                {t("historyTastings")}
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={historySection === "wines"}
+                className={historySection === "wines" ? "" : "secondary"}
+                onClick={() => setHistorySection("wines")}
+              >
+                {t("historyArchivedWines")}
+              </button>
+            </div>
             <details className="stats-panel-wrapper" open>
-              <summary>{t("consumedWines")}</summary>
+              <summary>{historySection === "tastings" ? t("historyTastings") : t("consumedWines")}</summary>
               <section className="stats-panel">
-                <div className="stat-card">
-                  <span>{t("consumedWines")}</span>
-                  <strong>{historyStats.count}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>{t("sharedBottles")}</span>
-                  <strong>{historyStats.shared}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>{t("notes")}</span>
-                  <strong>{historyStats.notes}</strong>
-                </div>
-                <div className="stat-card">
-                  <span>{t("scores")}</span>
-                  <strong>{historyStats.scores}</strong>
-                </div>
-                <div className="stat-card compact-list ai-card">
-                  <span>{t("aiReadiness")}</span>
-                  <strong>{historyStats.aiNotes} / {historyWines.length}</strong>
-                  <p>{t("aiReadinessHelp")}</p>
-                </div>
+                {historySection === "tastings" ? (
+                  <>
+                    <div className="stat-card">
+                      <span>{t("tastingEntries")}</span>
+                      <strong>{tastingStats.count}</strong>
+                    </div>
+                    <div className="stat-card">
+                      <span>{t("ratedTastings")}</span>
+                      <strong>{tastingStats.rated}</strong>
+                    </div>
+                    <div className="stat-card">
+                      <span>{t("tastingNotesSaved")}</span>
+                      <strong>{tastingStats.notes}</strong>
+                    </div>
+                    <div className="stat-card compact-list ai-card">
+                      <span>{t("latestTasted")}</span>
+                      <strong>{tastingStats.latest ? formatDisplayDate(tastingStats.latest) : "-"}</strong>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="stat-card">
+                      <span>{t("consumedWines")}</span>
+                      <strong>{historyStats.count}</strong>
+                    </div>
+                    <div className="stat-card">
+                      <span>{t("sharedBottles")}</span>
+                      <strong>{historyStats.shared}</strong>
+                    </div>
+                    <div className="stat-card">
+                      <span>{t("notes")}</span>
+                      <strong>{historyStats.notes}</strong>
+                    </div>
+                    <div className="stat-card">
+                      <span>{t("scores")}</span>
+                      <strong>{historyStats.scores}</strong>
+                    </div>
+                    <div className="stat-card compact-list ai-card">
+                      <span>{t("aiReadiness")}</span>
+                      <strong>{historyStats.aiNotes} / {historyWines.length}</strong>
+                      <p>{t("aiReadinessHelp")}</p>
+                    </div>
+                  </>
+                )}
               </section>
             </details>
+            </>
             ) : (
             <details className="stats-panel-wrapper" open>
               <summary>{t("wishlistItems")}</summary>
@@ -8215,10 +8453,26 @@ export function App() {
               </button>
             </details>
             <div className="list-header">
-              <h2>{activeView === "wishlist" ? t("wishlist") : activeView === "history" ? t("consumedWines") : t("wines")}</h2>
-              <span>{visibleCount} / {isWineCollectionView ? activeWineCollection.length : wishlist.length} {t("records")}</span>
+              <h2>
+                {activeView === "wishlist"
+                  ? t("wishlist")
+                  : activeView === "history"
+                    ? historySection === "tastings"
+                      ? t("historyTastings")
+                      : t("historyArchivedWines")
+                    : t("wines")}
+              </h2>
+              <span>
+                {visibleCount} / {
+                  activeView === "history" && historySection === "tastings"
+                    ? historyTastingEntries.length
+                    : isWineCollectionView
+                      ? activeWineCollection.length
+                      : wishlist.length
+                } {t("records")}
+              </span>
             </div>
-            {isWineCollectionView && compareWineIds.length ? (
+            {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && compareWineIds.length ? (
               <div className="compare-summary-bar">
                 <div>
                   <strong>{t("compareSelection")}</strong>
@@ -8236,9 +8490,13 @@ export function App() {
             ) : null}
             {loading ? <p className="empty-state">{t("loadingData")}</p> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
-            {!loading && activeView === "history" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
+            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
+            {!loading && activeView === "history" && historySection === "tastings" && filteredTastingEntries.length === 0 ? <p className="empty-state">{t("noTastingArchiveMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
-            {isWineCollectionView && groupedFilteredWines.length ? (
+            {activeView === "history" && historySection === "tastings" && filteredTastingEntries.length ? (
+              <TastingArchiveSection entries={filteredTastingEntries} t={t} locale={locale} onOpenWine={openWineFromTastingArchive} />
+            ) : null}
+            {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && groupedFilteredWines.length ? (
               <div className="wine-tone-groups">
                 <p className="list-header list-header-inline">{t("groupedByColor")}</p>
                 {groupedFilteredWines.map((group) => (
