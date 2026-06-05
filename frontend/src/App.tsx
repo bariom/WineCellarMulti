@@ -4455,6 +4455,17 @@ export function App() {
     if (notification.action_url?.includes("/settings/profile")) {
       setActiveView("settings");
       setSettingsTab("profile");
+    } else if (notification.action_url?.includes("/settings/ai")) {
+      setActiveView("settings");
+      setSettingsTab("ai");
+    } else if (notification.action_url?.includes("/home")) {
+      setActiveView("home");
+    } else if (notification.action_url?.includes("/cellar")) {
+      setActiveView("cellar");
+    } else if (notification.action_url?.includes("/wishlist")) {
+      setActiveView("wishlist");
+    } else if (notification.action_url?.includes("/history")) {
+      setActiveView("history");
     }
     setNotificationsOpen(false);
     await markNotificationRead(notification);

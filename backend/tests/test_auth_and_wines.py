@@ -15,7 +15,7 @@ from sqlalchemy.pool import StaticPool
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, Membership, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, Wine
+from app.models import AiAuditLog, Household, Membership, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, UserNotification, Wine
 from app.core.config import settings
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
@@ -257,13 +257,79 @@ def test_contact_support_sends_email_with_optional_context(monkeypatch):
         json={"email": "owner@example.com", "subject": "Billing help", "message": "I need help with the redeem code screen after login."},
     )
     assert authenticated.status_code == 202
-
     assert len(deliveries) == 2
     assert deliveries[0]["recipients"] == ["owner@example.com"]
     assert "guest@example.com" in str(deliveries[0]["body"])
     assert "Authenticated user:" not in str(deliveries[0]["body"])
     assert "Authenticated user: Cellar Owner <owner@example.com>" in str(deliveries[1]["body"])
     assert "Active household: Main Cellar" in str(deliveries[1]["body"])
+
+
+def test_notifications_generate_smart_reminders_without_duplicates():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        household = db.query(Household).filter(Household.name == "Main Cellar").one()
+        db.add_all(
+            [
+                Wine(
+                    household_id=household.id,
+                    created_by_user_id=owner.id,
+                    name="Ready Bottle",
+                    producer="Producer A",
+                    vintage="2020",
+                    quantity=1,
+                    drink_from=2024,
+                    drink_to=2028,
+                ),
+                Wine(
+                    household_id=household.id,
+                    created_by_user_id=owner.id,
+                    name="Past Peak Bottle",
+                    producer="Producer B",
+                    vintage="2015",
+                    quantity=1,
+                    drink_to=2024,
+                ),
+                Wine(
+                    household_id=household.id,
+                    created_by_user_id=owner.id,
+                    name="Delivery Bottle",
+                    producer="Producer C",
+                    vintage="2021",
+                    quantity=1,
+                    status="Ordered",
+                    expected_delivery=(datetime.now(timezone.utc) + timedelta(days=10)).date(),
+                ),
+            ]
+        )
+        db.commit()
+
+    notifications = client.get("/api/v1/notifications")
+    assert notifications.status_code == 200
+    payload = notifications.json()
+    kinds = {item["kind"] for item in payload}
+    assert "smart_drink_now" in kinds
+    assert "smart_past_window" in kinds
+    assert "smart_future_deliveries" in kinds
+
+    with TestingSessionLocal() as db:
+        assert db.query(UserNotification).filter(UserNotification.user_id == db.query(User).filter(User.email == "owner@example.com").one().id).count() == 3
+
+    drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
+    marked = client.post(f"/api/v1/notifications/{drink_now_notification['id']}/read")
+    assert marked.status_code == 204
+
+    refreshed = client.get("/api/v1/notifications")
+    assert refreshed.status_code == 200
+    refreshed_payload = refreshed.json()
+    assert all(item["id"] != drink_now_notification["id"] for item in refreshed_payload)
+    assert not any(item["kind"] == "smart_drink_now" for item in refreshed_payload)
+
+    with TestingSessionLocal() as db:
+        assert db.query(UserNotification).count() == 3
 
 
 def test_authenticated_user_can_read_wine_catalog():

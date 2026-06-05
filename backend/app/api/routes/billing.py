@@ -22,10 +22,11 @@ from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
-from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement, UserNotification
+from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement
 from app.schemas.billing import BillingPortalResponse, BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
 from app.services.email import send_email
 from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
+from app.services.notifications import create_user_notification
 
 
 router = APIRouter(prefix="/billing")
@@ -100,18 +101,6 @@ def create_entitlement(db: Session, user: User, *, source: str, source_id: UUID 
     )
     db.add(entitlement)
     return entitlement
-
-
-def create_user_notification(db: Session, user: User, *, kind: str, title: str, message: str, action_url: str | None = None) -> UserNotification:
-    notification = UserNotification(
-        user_id=user.id,
-        kind=kind,
-        title=title,
-        message=message,
-        action_url=action_url,
-    )
-    db.add(notification)
-    return notification
 
 
 def notify_redeem_code_email(*, user: User, code: str, duration_days: int, label: str) -> None:

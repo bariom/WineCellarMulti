@@ -9,6 +9,7 @@ from app.api.deps import CurrentContext, get_authenticated_context
 from app.db.session import get_db
 from app.models import UserNotification
 from app.schemas.notification import NotificationResponse
+from app.services.notifications import ensure_smart_notifications
 
 
 router = APIRouter(prefix="/notifications")
@@ -32,6 +33,8 @@ def list_notifications(
     context: CurrentContext = Depends(get_authenticated_context),
     db: Session = Depends(get_db),
 ) -> list[NotificationResponse]:
+    if ensure_smart_notifications(db, context):
+        db.commit()
     query = select(UserNotification).where(UserNotification.user_id == context.user.id)
     if not include_read:
         query = query.where(UserNotification.read_at.is_(None))
