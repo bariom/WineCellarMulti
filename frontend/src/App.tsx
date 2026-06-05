@@ -1570,6 +1570,11 @@ const landingContent: Record<
           ai: true,
         },
         {
+          title: "Ask an AI sommelier for pairings",
+          body: "Enter a dish and Vinaris can suggest the best bottles from your cellar, or propose market alternatives when you are planning a dinner or choosing at a restaurant.",
+          ai: true,
+        },
+        {
           title: "Market analysis, buying strategy, and pairings when you need them",
           body: "Vinaris can work with your own OpenAI key or an in-app AI Pack to enrich pricing, strategy, drinking windows, and pairings. The analysis stays behind the scenes so the experience remains calm, collector-focused, and useful.",
           highlight: true,
@@ -1646,6 +1651,11 @@ const landingContent: Record<
         {
           title: "Decidere cosa bere",
           body: "Usa viste di prontezza, filtri, abbinamenti e contesto di mercato per capire cosa aprire adesso, che cosa lasciare in cantina e dove conviene avere pazienza.",
+          ai: true,
+        },
+        {
+          title: "Chiedere abbinamenti a un sommelier AI",
+          body: "Inserisci un piatto e Vinaris può suggerire le bottiglie più adatte dalla tua cantina, oppure proporre alternative di mercato quando organizzi una cena o scegli al ristorante.",
           ai: true,
         },
         {

@@ -1536,6 +1536,11 @@ summary:focus-visible {
   background: rgba(255, 250, 241, 0.08);
 }
 
+.public-pricing-card .promo-notice span,
+.public-pricing-card .promo-notice p {
+  color: color-mix(in srgb, #fffaf1 88%, transparent);
+}
+
 .public-pricing-card .promo-notice strong {
   color: var(--landing-champagne);
 }
