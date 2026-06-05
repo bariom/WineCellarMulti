@@ -105,6 +105,8 @@ type WineDraft = {
   scores: Array<{ critic: string; score: string; note: string }>;
 };
 
+type WineTone = "red" | "white" | "sparkling" | "rose" | "sweet" | "other";
+
 type UserTag = {
   id: string;
   name: string;
@@ -545,6 +547,8 @@ const translations = {
     marketAvailability: "Market note",
     close: "Close",
     backToTop: "Back to top",
+    winesLabel: "wines",
+    groupedByColor: "Grouped by color",
     aiContextNote: "AI context note",
     aiContextNoteHelp: "Optional note used by AI as extra context for wishlist strategy, purpose, and market price.",
     aiUsage: "AI usage",
@@ -906,6 +910,8 @@ const translations = {
     marketAvailability: "Nota mercato",
     close: "Chiudi",
     backToTop: "Torna in cima",
+    winesLabel: "vini",
+    groupedByColor: "Raggruppati per colore",
     aiContextNote: "Nota contesto AI",
     aiContextNoteHelp: "Nota opzionale usata dall'AI come contesto aggiuntivo per strategia, scopo e prezzo di mercato della wishlist.",
     aiUsage: "Uso AI",
@@ -2118,7 +2124,7 @@ function tagColorStyle(tagName: string, userTags: UserTag[]) {
     : undefined;
 }
 
-function wineTone(type: string) {
+function wineTone(type: string): WineTone {
   const normalized = type.toLowerCase();
   if (normalized.includes("red") || normalized.includes("rosso")) return "red";
   if (normalized.includes("white") || normalized.includes("bianco")) return "white";
@@ -2126,6 +2132,17 @@ function wineTone(type: string) {
   if (normalized.includes("ros") || normalized.includes("rose")) return "rose";
   if (normalized.includes("sweet") || normalized.includes("dolce")) return "sweet";
   return "other";
+}
+
+const wineToneOrder: WineTone[] = ["red", "white", "sparkling", "rose", "sweet", "other"];
+
+function wineToneLabel(tone: WineTone, locale: Locale) {
+  if (tone === "red") return displayValue("Red", locale, "type") || "Red";
+  if (tone === "white") return displayValue("White", locale, "type") || "White";
+  if (tone === "sparkling") return displayValue("Sparkling", locale, "type") || "Sparkling";
+  if (tone === "rose") return displayValue("Rosé", locale, "type") || "Rosé";
+  if (tone === "sweet") return displayValue("Sweet", locale, "type") || "Sweet";
+  return displayValue("Other", locale, "type") || "Other";
 }
 
 function priorityTone(priority: string) {
@@ -3449,6 +3466,14 @@ export function App() {
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [marketViewContext, setMarketViewContext] = useState<MarketViewContext | null>(null);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
+    red: false,
+    white: false,
+    sparkling: false,
+    rose: false,
+    sweet: false,
+    other: false,
+  });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [activeView, setActiveView] = useState<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
@@ -5171,6 +5196,21 @@ export function App() {
       if (sortMode === "drink_window") return (first.drink_from || 9999) - (second.drink_from || 9999);
       return first.name.localeCompare(second.name);
     });
+  const groupedFilteredWines = wineToneOrder
+    .map((tone) => {
+      const items = filteredWines.filter((wine) => wineTone(wine.type) === tone);
+      return {
+        tone,
+        label: wineToneLabel(tone, locale),
+        items,
+        wineCount: items.length,
+        bottleCount: items.reduce(
+          (sum, wine) => sum + (activeView === "history" ? Math.max(wine.tasting_history.length, 1) : Number(wine.quantity || 0)),
+          0,
+        ),
+      };
+    })
+    .filter((group) => group.items.length > 0);
   const filteredWishlist = wishlist
     .filter((item) => !normalizedQuery || wishlistSearchText(item).includes(normalizedQuery))
     .filter((item) => !typeFilter || item.type === typeFilter)
@@ -5199,6 +5239,14 @@ export function App() {
 
     return () => window.clearTimeout(timer);
   }, [activeView, filteredWines, pendingWineScrollId]);
+
+  useEffect(() => {
+    if (!selectedWineId || !isWineCollectionView) return;
+    const selectedWine = filteredWines.find((wine) => wine.id === selectedWineId);
+    if (!selectedWine) return;
+    const tone = wineTone(selectedWine.type);
+    setOpenWineToneGroups((current) => (current[tone] ? current : { ...current, [tone]: true }));
+  }, [selectedWineId, filteredWines, isWineCollectionView]);
 
   useEffect(() => {
     if (session?.user_email) {
@@ -5381,6 +5429,10 @@ export function App() {
   }
 
   function toggleSelectedWine(wine: Wine) {
+    const tone = wineTone(wine.type);
+    if (selectedWineId !== wine.id) {
+      setOpenWineToneGroups((groups) => ({ ...groups, [tone]: true }));
+    }
     setSelectedWineId((current) => current === wine.id ? null : wine.id);
   }
 
@@ -5474,6 +5526,7 @@ export function App() {
     setGrapeOptionQuery("");
     setQuickWineFilter("");
     setSortMode("name");
+    setOpenWineToneGroups((current) => ({ ...current, [wineTone(wine.type)]: true }));
     setSelectedWineId(wine.id);
     setPendingWineScrollId(wine.id);
     setWineFormOpen(false);
@@ -7346,7 +7399,27 @@ export function App() {
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
             {!loading && activeView === "history" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
-            {isWineCollectionView ? filteredWines.map((wine) => (
+            {isWineCollectionView && groupedFilteredWines.length ? (
+              <div className="wine-tone-groups">
+                <p className="list-header list-header-inline">{t("groupedByColor")}</p>
+                {groupedFilteredWines.map((group) => (
+                  <section
+                    className={`wine-tone-group tone-${group.tone}${openWineToneGroups[group.tone] ? " open" : ""}`}
+                    key={group.tone}
+                  >
+                    <button
+                      type="button"
+                      className="wine-tone-group-toggle"
+                      aria-expanded={openWineToneGroups[group.tone]}
+                      onClick={() => setOpenWineToneGroups((current) => ({ ...current, [group.tone]: !current[group.tone] }))}
+                    >
+                      <span className={`wine-tone-pill tone-${group.tone}`}>{group.label}</span>
+                      <span className="wine-tone-group-summary">
+                        {group.wineCount} {t("winesLabel")} • {formatBottleCount(group.bottleCount)}
+                      </span>
+                      <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
+                    </button>
+                    {openWineToneGroups[group.tone] ? group.items.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div className="wine-row-main">
@@ -7408,7 +7481,12 @@ export function App() {
                   </div>
                 ) : null}
               </div>
-            )) : filteredWishlist.map((item) => {
+                    )) : null}
+                  </section>
+                ))}
+              </div>
+            ) : null}
+            {!isWineCollectionView ? filteredWishlist.map((item) => {
               const targetPriceValue = `${item.currency} ${Number(item.target_price).toFixed(0)}`;
               const aiMarketPriceValue = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
               const readyToBuy = isWishlistReadyToBuy(item.status);
