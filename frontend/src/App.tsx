@@ -1328,7 +1328,7 @@ function wineFormatOptions(currentFormat: string) {
     : [...canonicalWineFormats];
 }
 
-function wineTypeOptions(currentType: string) {
+function wineTypeSelectOptions(currentType: string) {
   const trimmedCurrentType = currentType.trim();
   return trimmedCurrentType && !canonicalWineTypes.includes(trimmedCurrentType as (typeof canonicalWineTypes)[number])
     ? [trimmedCurrentType, ...canonicalWineTypes]
@@ -6805,7 +6805,7 @@ export function App() {
                     <span>{t("type")}</span>
                     <select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine}>
                       <option value="">-</option>
-                      {wineTypeOptions(draft.type).map((type) => (
+                      {wineTypeSelectOptions(draft.type).map((type) => (
                         <option key={type} value={type}>
                           {displayValue(type, locale, "type")}
                         </option>
