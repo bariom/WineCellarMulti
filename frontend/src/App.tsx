@@ -1264,7 +1264,13 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
       "Magnum (1.5L)": "Magnum (1.5L)",
       "Double Magnum (3L)": "Doppio Magnum (3L)",
       "Jeroboam (3L)": "Jeroboam (3L)",
+      "Rehoboam (4.5L)": "Rehoboam (4.5L)",
+      "Methuselah (6L)": "Mathusalem (6L)",
       "Imperial (6L)": "Imperial (6L)",
+      "Salmanazar (9L)": "Salmanazar (9L)",
+      "Balthazar (12L)": "Balthazar (12L)",
+      "Nebuchadnezzar (15L)": "Nabucodonosor (15L)",
+      "Melchior (18L)": "Melchior (18L)",
     },
     type: {
       Red: "Rosso",
@@ -1299,7 +1305,28 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
   },
 };
 
+const canonicalWineFormats = [
+  "Half bottle (375ml)",
+  "Bottle (750ml)",
+  "Magnum (1.5L)",
+  "Jeroboam (3L)",
+  "Rehoboam (4.5L)",
+  "Methuselah (6L)",
+  "Salmanazar (9L)",
+  "Balthazar (12L)",
+  "Nebuchadnezzar (15L)",
+  "Melchior (18L)",
+  "Imperial (6L)",
+] as const;
+
 const canonicalWineTypes = ["Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"] as const;
+
+function wineFormatOptions(currentFormat: string) {
+  const trimmedCurrentFormat = currentFormat.trim();
+  return trimmedCurrentFormat && !canonicalWineFormats.includes(trimmedCurrentFormat as (typeof canonicalWineFormats)[number])
+    ? [trimmedCurrentFormat, ...canonicalWineFormats]
+    : [...canonicalWineFormats];
+}
 
 function wineTypeOptions(currentType: string) {
   const trimmedCurrentType = currentType.trim();
@@ -6765,7 +6792,14 @@ export function App() {
                 <div className="form-row">
                   <label>
                     <span>{t("format")}</span>
-                    <input value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })} disabled={!canWriteWine} />
+                    <select value={draft.format} onChange={(event) => setDraft({ ...draft, format: event.target.value })} disabled={!canWriteWine}>
+                      <option value="">-</option>
+                      {wineFormatOptions(draft.format).map((format) => (
+                        <option key={format} value={format}>
+                          {displayValue(format, locale, "format")}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                   <label>
                     <span>{t("type")}</span>
