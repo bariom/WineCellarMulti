@@ -2551,6 +2551,22 @@ function grapesSvgIcon() {
   );
 }
 
+function notificationSvgIcon(kind: string) {
+  if (kind === "smart_drink_now") return dashboardStatSvgIcon("drink_now");
+  if (kind === "smart_past_window") return dashboardStatSvgIcon("past_window");
+  if (kind === "smart_future_deliveries") return dashboardStatSvgIcon("future_deliveries");
+  if (kind === "smart_entitlement_expiring") return dashboardStatSvgIcon("missing_data");
+  if (kind === "pending_users") return dashboardStatSvgIcon("shared");
+  if (kind === "invite") return dashboardStatSvgIcon("shared");
+  if (kind === "share_offer") return dashboardStatSvgIcon("shared");
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 10a6 6 0 1 1 12 0c0 4-6 10-6 10S6 14 6 10Z" />
+      <circle cx="12" cy="10" r="2.5" />
+    </svg>
+  );
+}
+
 function wishlistActionSvgIcon(kind: "edit" | "convert" | "delete") {
   if (kind === "edit") {
     return (
@@ -5962,7 +5978,7 @@ export function App() {
                   </div>
                   {authenticated && !session?.is_app_admin ? (
                     <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
-                      <strong>{t("entitlementValidity")}</strong>
+                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("smart_entitlement_expiring")}</i>{t("entitlementValidity")}</strong>
                       <span>
                         {session?.has_active_entitlement && session.entitlement_days_remaining !== null
                           ? `${session.entitlement_days_remaining} ${t("daysRemaining")} - ${formatDisplayDate(session.entitlement_valid_until || "")}`
@@ -5972,7 +5988,7 @@ export function App() {
                   ) : null}
                   {userNotifications.map((notification) => (
                     <div className="notification-item" key={notification.id}>
-                      <strong>{notification.title}</strong>
+                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notification.title}</strong>
                       <span>{notification.message}</span>
                       <div className="member-actions">
                         <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
@@ -5986,13 +6002,13 @@ export function App() {
                   ))}
                   {canAppAdmin && pendingUsers.length ? (
                     <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
-                      <strong>{pendingUsers.length} {t("pendingUsers")}</strong>
+                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
                       <span>{t("reviewUsers")}</span>
                     </button>
                   ) : null}
                   {receivedInvites.map((invite) => (
                     <div className="notification-item" key={invite.id}>
-                      <strong>{invite.household_name || t("sharedCellar")}</strong>
+                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("invite")}</i>{invite.household_name || t("sharedCellar")}</strong>
                       <span>{t("acceptInvite")} - {invite.role}</span>
                       <button type="button" className="compact" disabled={saving} onClick={() => acceptReceivedInvite(invite)}>
                         {t("accept")}
@@ -6001,7 +6017,7 @@ export function App() {
                   ))}
                   {shareOffers.map((offer) => (
                     <div className="notification-item" key={offer.id}>
-                      <strong>{offer.wine_name} {offer.wine_vintage}</strong>
+                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("share_offer")}</i>{offer.wine_name} {offer.wine_vintage}</strong>
                       <span>{offer.share_pct}% - {offer.created_by_email}</span>
                       <div className="member-actions">
                         <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>{t("accept")}</button>

@@ -589,6 +589,27 @@ summary:focus-visible {
   background: var(--surface-muted);
 }
 
+.notification-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.notification-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  color: var(--primary);
+  flex: 0 0 18px;
+}
+
+.notification-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
 .notification-item span {
   color: var(--text-muted);
   font-size: 0.82rem;
