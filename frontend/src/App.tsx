@@ -576,6 +576,7 @@ const translations = {
     buyAccess: "Pay with card",
     buyAnnual: "Buy annual access",
     buyMonthly: "Buy monthly access",
+    resetPriceRange: "Reset",
     bottles: "Bottles",
     cancel: "Cancel",
     cellar: "Cellar",
@@ -958,6 +959,7 @@ const translations = {
     buyAccess: "Paga con carta",
     buyAnnual: "Acquista accesso annuale",
     buyMonthly: "Acquista accesso mensile",
+    resetPriceRange: "Reset",
     bottles: "Bottiglie",
     cancel: "Annulla",
     cellar: "Cantina",
@@ -5438,10 +5440,35 @@ export function App() {
   const activeStatusOptions = isWineCollectionView ? wineStatusOptions : wishlistStatusOptions;
   const currentYear = new Date().getFullYear();
   const now = new Date();
+  const bottlePriceSamples = activeWineCollection
+    .map((wine) => Number(wine.price || 0))
+    .filter((price) => Number.isFinite(price) && price > 0);
+  const bottlePriceRangeMin = bottlePriceSamples.length ? Math.floor(Math.min(...bottlePriceSamples)) : 0;
+  const bottlePriceRangeMaxBase = bottlePriceSamples.length ? Math.ceil(Math.max(...bottlePriceSamples)) : 500;
+  const bottlePriceRangeMax = bottlePriceRangeMaxBase > bottlePriceRangeMin ? bottlePriceRangeMaxBase : bottlePriceRangeMin + 1;
   const minBottlePrice = Number(minBottlePriceFilter);
   const maxBottlePrice = Number(maxBottlePriceFilter);
   const hasMinBottlePrice = minBottlePriceFilter.trim() !== "" && Number.isFinite(minBottlePrice);
   const hasMaxBottlePrice = maxBottlePriceFilter.trim() !== "" && Number.isFinite(maxBottlePrice);
+  const sliderMinBottlePrice = hasMinBottlePrice
+    ? Math.min(Math.max(minBottlePrice, bottlePriceRangeMin), bottlePriceRangeMax)
+    : bottlePriceRangeMin;
+  const sliderMaxBottlePrice = hasMaxBottlePrice
+    ? Math.max(Math.min(maxBottlePrice, bottlePriceRangeMax), sliderMinBottlePrice)
+    : bottlePriceRangeMax;
+  const bottlePriceSpan = Math.max(bottlePriceRangeMax - bottlePriceRangeMin, 1);
+  const bottlePriceSelectionLeft = ((sliderMinBottlePrice - bottlePriceRangeMin) / bottlePriceSpan) * 100;
+  const bottlePriceSelectionRight = ((sliderMaxBottlePrice - bottlePriceRangeMin) / bottlePriceSpan) * 100;
+  const priceHistogramBins = 12;
+  const priceHistogram = Array.from({ length: priceHistogramBins }, (_, index) => {
+    if (!bottlePriceSamples.length) return 0;
+    const start = bottlePriceRangeMin + (bottlePriceSpan / priceHistogramBins) * index;
+    const end = index === priceHistogramBins - 1
+      ? bottlePriceRangeMax + 1
+      : bottlePriceRangeMin + (bottlePriceSpan / priceHistogramBins) * (index + 1);
+    return bottlePriceSamples.filter((price) => price >= start && price < end).length;
+  });
+  const maxHistogramCount = Math.max(...priceHistogram, 1);
   const filteredWines = activeWineCollection
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
     .filter((wine) => !typeFilter || wine.type === typeFilter)
@@ -5808,6 +5835,28 @@ export function App() {
     setTagOptionQuery("");
     setGrapeOptionQuery("");
     setSortMode(nextView === "wishlist" ? "priority" : "name");
+  }
+
+  function updateMinBottlePrice(nextValue: string) {
+    if (nextValue === "") {
+      setMinBottlePriceFilter("");
+      return;
+    }
+    const parsed = Number(nextValue);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = Math.min(Math.max(parsed, bottlePriceRangeMin), sliderMaxBottlePrice);
+    setMinBottlePriceFilter(String(clamped));
+  }
+
+  function updateMaxBottlePrice(nextValue: string) {
+    if (nextValue === "") {
+      setMaxBottlePriceFilter("");
+      return;
+    }
+    const parsed = Number(nextValue);
+    if (!Number.isFinite(parsed)) return;
+    const clamped = Math.max(Math.min(parsed, bottlePriceRangeMax), sliderMinBottlePrice);
+    setMaxBottlePriceFilter(String(clamped));
   }
 
   function applyQuickWineFilter(filter: QuickWineFilter) {
@@ -7673,29 +7722,81 @@ export function App() {
                 </label>
               </div>
               {isWineCollectionView ? (
-                <div className="filter-row">
-                  <label>
-                    <span>{t("minPrice")}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={minBottlePriceFilter}
-                      onChange={(event) => setMinBottlePriceFilter(event.target.value)}
-                      placeholder={t("bottlePrice")}
+                <div className="price-filter-panel">
+                  <div className="price-filter-head">
+                    <span>{t("bottlePrice")}</span>
+                    <button type="button" className="secondary compact" onClick={() => { setMinBottlePriceFilter(""); setMaxBottlePriceFilter(""); }}>
+                      {t("resetPriceRange")}
+                    </button>
+                  </div>
+                  <div className="price-filter-chart" aria-hidden="true">
+                    {priceHistogram.map((count, index) => (
+                      <span
+                        key={index}
+                        className="price-filter-bar"
+                        style={{ height: `${(count / maxHistogramCount) * 100}%` }}
+                      />
+                    ))}
+                  </div>
+                  <div className="price-filter-slider">
+                    <div
+                      className="price-filter-selection"
+                      style={{
+                        left: `${bottlePriceSelectionLeft}%`,
+                        width: `${Math.max(bottlePriceSelectionRight - bottlePriceSelectionLeft, 0)}%`,
+                      }}
                     />
-                  </label>
-                  <label>
-                    <span>{t("maxPrice")}</span>
                     <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={maxBottlePriceFilter}
-                      onChange={(event) => setMaxBottlePriceFilter(event.target.value)}
-                      placeholder={t("bottlePrice")}
+                      type="range"
+                      min={bottlePriceRangeMin}
+                      max={bottlePriceRangeMax}
+                      step="1"
+                      value={sliderMinBottlePrice}
+                      onChange={(event) => updateMinBottlePrice(event.target.value)}
+                      aria-label={t("minPrice")}
                     />
-                  </label>
+                    <input
+                      type="range"
+                      min={bottlePriceRangeMin}
+                      max={bottlePriceRangeMax}
+                      step="1"
+                      value={sliderMaxBottlePrice}
+                      onChange={(event) => updateMaxBottlePrice(event.target.value)}
+                      aria-label={t("maxPrice")}
+                    />
+                  </div>
+                  <div className="price-filter-inputs">
+                    <label>
+                      <span>{t("minPrice")}</span>
+                      <div className="price-filter-input-shell">
+                        <strong>CHF</strong>
+                        <input
+                          type="number"
+                          min={bottlePriceRangeMin}
+                          max={sliderMaxBottlePrice}
+                          step="0.01"
+                          value={minBottlePriceFilter}
+                          onChange={(event) => updateMinBottlePrice(event.target.value)}
+                          placeholder={String(bottlePriceRangeMin)}
+                        />
+                      </div>
+                    </label>
+                    <label>
+                      <span>{t("maxPrice")}</span>
+                      <div className="price-filter-input-shell">
+                        <strong>CHF</strong>
+                        <input
+                          type="number"
+                          min={sliderMinBottlePrice}
+                          max={bottlePriceRangeMax}
+                          step="0.01"
+                          value={maxBottlePriceFilter}
+                          onChange={(event) => updateMaxBottlePrice(event.target.value)}
+                          placeholder={String(bottlePriceRangeMax)}
+                        />
+                      </div>
+                    </label>
+                  </div>
                 </div>
               ) : null}
               <div className="filter-row">
