@@ -2995,35 +2995,15 @@ function CompareWinesModal({
                 </button>
               </div>
               <div className="compare-field-grid">
-                <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("drinkWindow")} value={compareDrinkWindowLabel(wine, t)} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("region")} value={wine.region} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("appellation")} value={wine.appellation} emptyLabel={t("notSpecified")} />
-              </div>
-              <div className="compare-section">
-                <strong>{t("scores")}</strong>
-                <p>{compareScoresLabel(wine, t)}</p>
               </div>
               <div className="compare-section">
                 <strong>{t("grapes")}</strong>
                 <p>{compareGrapesLabel(wine, t)}</p>
               </div>
-              <div className="compare-section">
-                <strong>{t("tags")}</strong>
-                <p>{compareTagsLabel(wine, t)}</p>
-              </div>
-              {wine.notes ? (
-                <div className="compare-section">
-                  <strong>{t("notes")}</strong>
-                  <p>{wine.notes}</p>
-                </div>
-              ) : null}
             </article>
           ))}
         </div>
