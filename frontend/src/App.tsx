@@ -7415,7 +7415,7 @@ export function App() {
                     >
                       <span className={`wine-tone-pill tone-${group.tone}`}>{group.label}</span>
                       <span className="wine-tone-group-summary">
-                        {group.wineCount} {t("winesLabel")} • {formatBottleCount(group.bottleCount)}
+                        {group.wineCount} {t("winesLabel")} • {group.bottleCount} {t("bottles").toLowerCase()}
                       </span>
                       <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
                     </button>
