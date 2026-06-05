@@ -85,10 +85,10 @@ def test_register_login_session_and_logout():
     assert registered.json()["theme_preference"] == "system"
     assert client.get("/api/v1/auth/passkeys").json() == []
 
-    preferences = client.patch("/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "ticino"})
+    preferences = client.patch("/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "private-cellar"})
     assert preferences.status_code == 200
     assert preferences.json()["locale"] == "en"
-    assert preferences.json()["theme_preference"] == "ticino"
+    assert preferences.json()["theme_preference"] == "private-cellar"
 
     pending_client = TestClient(app)
     pending = register(pending_client, email="pending@example.com", password="strong-password-2")
@@ -140,7 +140,7 @@ def test_register_login_session_and_logout():
     assert login.status_code == 200
     assert login.json()["authenticated"] is True
     assert login.json()["locale"] == "en"
-    assert login.json()["theme_preference"] == "ticino"
+    assert login.json()["theme_preference"] == "private-cellar"
 
 
 def test_pending_registration_sends_admin_email(monkeypatch):
