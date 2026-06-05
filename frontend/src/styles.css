@@ -4800,6 +4800,10 @@ button.stat-card:hover {
   padding-right: 0;
 }
 
+.wishlist-ai-summary {
+  margin-top: 2px;
+}
+
 .detail-note {
   display: grid;
   gap: 8px;

@@ -3716,6 +3716,12 @@ function WishlistDetail({
           {generating === "target-price" ? t("generating") : t("aiTargetPrice")}
         </button>
       </div>
+      {item.ai_strategy || item.ai_purpose_advice ? (
+        <div className="notes-grid wishlist-ai-summary">
+          {item.ai_strategy ? <DetailNote title={t("aiStrategy")}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
+          {item.ai_purpose_advice ? <DetailNote title={t("aiPurpose")}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
+        </div>
+      ) : null}
       <div className="detail-grid">
         <DetailField label={t("format")} value={displayValue(item.format, locale, "format")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("type")} value={displayValue(item.type, locale, "type")} emptyLabel={t("notSpecified")} />
@@ -3737,12 +3743,6 @@ function WishlistDetail({
         <div className="notes-grid">
           {item.notes ? <DetailNote title={t("notes")}>{item.notes}</DetailNote> : null}
           {item.ai_context_note ? <DetailNote title={t("aiContextNote")}>{item.ai_context_note}</DetailNote> : null}
-        </div>
-      ) : null}
-      {item.ai_strategy || item.ai_purpose_advice ? (
-        <div className="notes-grid">
-          {item.ai_strategy ? <DetailNote title={t("aiStrategy")}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
-          {item.ai_purpose_advice ? <DetailNote title={t("aiPurpose")}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
         </div>
       ) : null}
 
