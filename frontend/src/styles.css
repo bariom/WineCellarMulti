@@ -2730,9 +2730,9 @@ textarea {
 }
 
 .status-chip-buy {
-  border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
-  color: color-mix(in srgb, var(--accent) 88%, var(--text));
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface-muted));
+  border-color: color-mix(in srgb, var(--primary) 55%, var(--border));
+  color: color-mix(in srgb, var(--primary) 82%, var(--text));
+  background: color-mix(in srgb, var(--primary) 16%, var(--surface-muted));
 }
 
 .target-chip {
@@ -3680,12 +3680,12 @@ button.stat-card:hover {
 }
 
 .wishlist-buy-row {
-  border-color: color-mix(in srgb, var(--accent) 34%, #d8ded7);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 34%, #d8ded7);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .wishlist-buy-row .wine-row-main h3 {
-  color: color-mix(in srgb, var(--accent) 72%, var(--text));
+  color: color-mix(in srgb, var(--primary) 72%, var(--text));
 }
 
 .wine-row h3 {
@@ -4572,12 +4572,12 @@ textarea {
 }
 
 .wishlist-buy-row {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .wishlist-buy-row .wine-row-main h3 {
-  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  color: color-mix(in srgb, var(--primary) 80%, var(--text));
 }
 
 .detail-title > strong,
