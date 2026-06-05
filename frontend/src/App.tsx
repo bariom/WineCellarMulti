@@ -7831,7 +7831,7 @@ export function App() {
                     </button>
                     {openWineToneGroups[group.tone] ? group.items.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected cellar-wine-row" : "wine-row cellar-wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(wine.type)}`} />
@@ -7862,15 +7862,17 @@ export function App() {
                       </div>
                     ) : null}
                   </div>
-                  <DrinkWindowMini wine={wine} />
-                  <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
-                  <div className="row-actions">
-                    <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
-                      {t("compare")}
-                    </button>
-                    <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
-                      {t("edit")}
-                    </button>
+                  <div className="wine-row-rail">
+                    <DrinkWindowMini wine={wine} />
+                    <strong className="wine-row-price">{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+                    <div className="row-actions">
+                      <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
+                        {t("compare")}
+                      </button>
+                      <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
+                        {t("edit")}
+                      </button>
+                    </div>
                   </div>
                 </article>
                 {selectedWineId === wine.id && !wineFormOpen ? (

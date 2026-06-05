@@ -784,15 +784,46 @@ summary:focus-visible {
   gap: 10px;
 }
 
-.content-workspace--full .wine-row {
-  grid-template-columns: minmax(0, 1.7fr) minmax(200px, 280px) minmax(84px, 112px) auto;
+.cellar-wine-row {
+  grid-template-columns: minmax(0, 1.2fr) minmax(360px, 520px);
+  align-items: center;
 }
 
-.content-workspace--full .wine-row-main {
-  max-width: 100%;
+.wine-row-rail {
+  display: grid;
+  grid-template-columns: minmax(148px, 208px) minmax(84px, 112px) auto;
+  gap: 16px;
+  align-items: start;
 }
 
-.content-workspace--full .row-actions {
+.wine-row-price {
+  align-self: center;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.content-workspace--full .cellar-wine-row {
+  grid-template-columns: minmax(0, 1.55fr) minmax(320px, 470px);
+}
+
+.content-workspace--full .wine-row-rail {
+  grid-template-columns: minmax(220px, 300px) auto;
+  grid-template-areas:
+    "graph price"
+    "graph actions";
+  align-items: center;
+}
+
+.content-workspace--full .wine-row-rail .mini-drink-window {
+  grid-area: graph;
+}
+
+.content-workspace--full .wine-row-price {
+  grid-area: price;
+}
+
+.content-workspace--full .cellar-wine-row .row-actions {
+  grid-area: actions;
   justify-content: flex-end;
 }
 
@@ -4536,6 +4567,15 @@ textarea {
 
   .mini-drink-window {
     width: 100%;
+  }
+
+  .cellar-wine-row,
+  .wine-row-rail {
+    grid-template-columns: 1fr;
+  }
+
+  .wine-row-price {
+    justify-self: start;
   }
 
   .topbar,
