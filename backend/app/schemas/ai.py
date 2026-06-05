@@ -115,3 +115,4 @@ class WineCompareResponse(BaseModel):
     occasion: str
     cellar_value: str
     verdict: str
+    estimated_cost_usd: Decimal

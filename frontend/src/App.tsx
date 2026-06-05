@@ -412,6 +412,7 @@ type WineCompareAiResult = {
   occasion: string;
   cellar_value: string;
   verdict: string;
+  estimated_cost_usd: string;
 };
 
 type AuthDraft = {
@@ -594,6 +595,7 @@ const translations = {
     compareNeedTwo: "Select at least 2 wines to compare them.",
     aiCompare: "AI comparison",
     aiCompareOnlyTwo: "AI comparison is available for 2 wines.",
+    aiRequestCost: "AI request cost",
     styleProfile: "Style and profile",
     compareReadiness: "Readiness",
     compareOccasion: "Best occasion",
@@ -971,6 +973,7 @@ const translations = {
     compareNeedTwo: "Seleziona almeno 2 vini per confrontarli.",
     aiCompare: "Confronto AI",
     aiCompareOnlyTwo: "Il confronto AI è disponibile per 2 vini.",
+    aiRequestCost: "Costo richiesta AI",
     styleProfile: "Stile e profilo",
     compareReadiness: "Prontezza",
     compareOccasion: "Occasione ideale",
@@ -2959,6 +2962,10 @@ function CompareWinesModal({
             <div className="compare-section compare-verdict">
               <strong>{t("compareVerdict")}</strong>
               <p>{aiResult.verdict}</p>
+            </div>
+            <div className="compare-ai-cost">
+              <strong>{t("aiRequestCost")}</strong>
+              <span>{formatAiBudget(aiResult.estimated_cost_usd)}</span>
             </div>
           </section>
         ) : null}
@@ -5153,7 +5160,7 @@ export function App() {
         body: JSON.stringify({ wine_ids: compareWineIds, locale }),
       });
       setCompareAiResult(result);
-      await Promise.all([loadAiAudit(), loadAiUsage()]);
+      await Promise.all([loadAiAudit(), loadAiUsage(), loadBilling()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI comparison");
     } finally {

@@ -1518,11 +1518,15 @@ def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
     assert compared.json()["model"] == "gpt-5.5"
     assert "Tignanello vs Dom Perignon" in compared.json()["style_profile"]
     assert "Open Dom Perignon first" in compared.json()["verdict"]
+    assert compared.json()["estimated_cost_usd"] != "0.000000"
+    assert " A " not in f" {compared.json()['readiness']} "
+    assert " B " not in f" {compared.json()['readiness']} "
 
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
     compare_entry = next(entry for entry in audit.json() if entry["feature"] == "wine_compare")
     assert "Tignanello vs Dom Perignon" in compare_entry["summary"]
+    assert compare_entry["estimated_cost_usd"] == compared.json()["estimated_cost_usd"]
 
 
 def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):

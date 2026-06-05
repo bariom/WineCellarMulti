@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
+import re
 from typing import Any
 from uuid import UUID
 
@@ -395,6 +396,23 @@ def compare_wine_context(wine: Wine) -> str:
     )
 
 
+def replace_compare_placeholders(text: str, first_name: str, second_name: str) -> str:
+    result = text or ""
+    replacements = [
+        (r"\bWINE A\b", first_name),
+        (r"\bWINE B\b", second_name),
+        (r"\bWine A\b", first_name),
+        (r"\bWine B\b", second_name),
+        (r"\bA vs B\b", f"{first_name} vs {second_name}"),
+        (r"\bB vs A\b", f"{second_name} vs {first_name}"),
+        (r"\bA(?=\s+(?:è|is|looks|seems|feels|fits|works|goes|suits|va|sembra|appare|resta|rimane|può|can|should))", first_name),
+        (r"\bB(?=\s+(?:è|is|looks|seems|feels|fits|works|goes|suits|va|sembra|appare|resta|rimane|può|can|should))", second_name),
+    ]
+    for pattern, replacement in replacements:
+        result = re.sub(pattern, replacement, result)
+    return result
+
+
 def wishlist_context(item: WishlistItem) -> str:
     return "\n".join(
         [
@@ -555,7 +573,9 @@ def compare_wines(
         system_prompt=(
             "You compare two wines for a private collector. Return JSON only. "
             "Be concise, concrete, and decision-oriented. "
-            "In style_profile, write a direct 'A vs B' style comparison in one short paragraph. "
+            f"Always refer to the wines by their exact names: '{first.name}' and '{second.name}'. "
+            "Never call them A or B in the output. "
+            "In style_profile, write one short direct comparison using the real wine names. "
             "Do not invent unavailable facts; acknowledge uncertainty briefly if needed. "
             f"{response_language_instruction(payload.locale)}"
         ),
@@ -573,13 +593,20 @@ def compare_wines(
         json_schema=schema,
     )
     result = parse_json_response(response.text)
+    charged_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=user_settings.pairing_model,
+        usage=response.usage,
+    )
     compare_response = WineCompareResponse(
         model=user_settings.pairing_model,
-        style_profile=str(result.get("style_profile") or "").strip(),
-        readiness=str(result.get("readiness") or "").strip(),
-        occasion=str(result.get("occasion") or "").strip(),
-        cellar_value=str(result.get("cellar_value") or "").strip(),
-        verdict=str(result.get("verdict") or "").strip(),
+        style_profile=replace_compare_placeholders(str(result.get("style_profile") or "").strip(), first.name, second.name),
+        readiness=replace_compare_placeholders(str(result.get("readiness") or "").strip(), first.name, second.name),
+        occasion=replace_compare_placeholders(str(result.get("occasion") or "").strip(), first.name, second.name),
+        cellar_value=replace_compare_placeholders(str(result.get("cellar_value") or "").strip(), first.name, second.name),
+        verdict=replace_compare_placeholders(str(result.get("verdict") or "").strip(), first.name, second.name),
+        estimated_cost_usd=charged_cost,
     )
     record_ai_audit(
         db,

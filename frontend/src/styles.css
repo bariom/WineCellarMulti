@@ -1047,6 +1047,24 @@ summary:focus-visible {
   border-top: 1px solid var(--border);
 }
 
+.compare-ai-cost {
+  display: flex;
+  justify-content: flex-end;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.compare-ai-cost strong {
+  color: var(--text-muted);
+}
+
+.compare-ai-cost span {
+  color: var(--text);
+  font-weight: 700;
+}
+
 .compare-modal-overlay {
   position: fixed;
   inset: 0;
