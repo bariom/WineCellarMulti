@@ -698,6 +698,11 @@ const translations = {
     peakNow: "At peak now",
     valueByProducer: "Value by producer",
     investedMore: "Where you invested more",
+    keyPosition: "Key position",
+    action: "Action",
+    hold: "Hold",
+    monitor: "Monitor",
+    completeData: "Complete data",
     collectorFocus: "Collector focus",
     cellarSnapshot: "Cellar snapshot",
     cellarStats: "Cellar stats",
@@ -1091,6 +1096,11 @@ const translations = {
     peakNow: "Al picco ora",
     valueByProducer: "Valore per produttore",
     investedMore: "Dove hai investito di più",
+    keyPosition: "Posizione chiave",
+    action: "Azione",
+    hold: "Tenere",
+    monitor: "Monitorare",
+    completeData: "Completa dati",
     collectorFocus: "Focus collezionista",
     cellarSnapshot: "Sintesi cantina",
     cellarStats: "Statistiche cantina",
@@ -5793,6 +5803,18 @@ export function App() {
   const topValueWines = [...cellarWines]
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
+  const keyPositionWine = (
+    [...cellarWines].sort((first, second) => (wineUnitValue(second) * second.quantity) - (wineUnitValue(first) * first.quantity))[0]
+  ) || null;
+  const keyPositionAction = keyPositionWine
+    ? !keyPositionWine.drink_from || !keyPositionWine.drink_to
+      ? t("completeData")
+      : keyPositionWine.drink_to < currentYear
+        ? t("monitor")
+        : keyPositionWine.drink_from <= currentYear && keyPositionWine.drink_to >= currentYear
+          ? t("drinkNow")
+          : t("hold")
+    : "";
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
   const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
@@ -6722,6 +6744,28 @@ export function App() {
 
               {dashboardFocus === "collector" ? (
               <DashboardCarousel label={t("priorityActions")}>
+                <article className="dashboard-card key-position-card">
+                  {keyPositionWine ? (
+                    <button type="button" className="key-position-button" onClick={() => openWineFromDashboard(keyPositionWine)}>
+                      <div className="key-position-head">
+                        <div>
+                          <span>{t("keyPosition")}</span>
+                          <h2><i className={`wine-dot tone-${wineTone(keyPositionWine.type)}`} />{keyPositionWine.name}</h2>
+                          <p>{[keyPositionWine.producer, keyPositionWine.vintage].filter(Boolean).join(" - ")}</p>
+                        </div>
+                        {keyPositionWine.vintage ? <div className="key-position-vintage"><span>{keyPositionWine.vintage}</span></div> : null}
+                      </div>
+                      <div className="key-position-metrics">
+                        <div><span>{t("value")}</span><strong>{keyPositionWine.currency} {(wineUnitValue(keyPositionWine) * keyPositionWine.quantity).toFixed(0)}</strong></div>
+                        <div><span>{t("drinkWindow")}</span><strong>{keyPositionWine.drink_from && keyPositionWine.drink_to ? `${keyPositionWine.drink_from}-${keyPositionWine.drink_to}` : t("notSpecified")}</strong></div>
+                        <div><span>{t("action")}</span><strong>{keyPositionAction}</strong></div>
+                      </div>
+                    </button>
+                  ) : (
+                    <div className="empty-state">{t("noActionItems")}</div>
+                  )}
+                </article>
+
                 <article className="dashboard-card priority-card">
                   <div className="card-heading">
                     <div>
