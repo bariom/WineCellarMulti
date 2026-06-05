@@ -6349,37 +6349,37 @@ export function App() {
 
                   <article className="showcase-frame">
                     <div className="showcase-window">
-                    <div className="showcase-bar">
-                      <span className="showcase-tab">Wishlist</span>
-                      <span className="showcase-tab active">{locale === "it" ? "Strategia di acquisto" : "Buying strategy"}</span>
-                      <span className="showcase-tab">{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
-                    </div>
-                    <div className="showcase-dashboard-grid">
-                      <div className="showcase-card">
-                        <span>{locale === "it" ? "Priorità" : "Priority"}</span>
-                        <strong>High · {locale === "it" ? "Compra" : "Buy now"}</strong>
-                        <ul>
-                          <li>Sassicaia 2021 · CHF 235</li>
-                            <li>Tignanello 2021 · CHF 118</li>
-                            <li>Krug Grande Cuvée · CHF 178</li>
-                          </ul>
+                      <div className="showcase-bar">
+                        <span className="showcase-tab">Wishlist</span>
+                        <span className="showcase-tab active">{locale === "it" ? "Strategia di acquisto" : "Buying strategy"}</span>
+                        <span className="showcase-tab">{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
                       </div>
-                      <div className="showcase-card">
-                        <span>{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
-                        <strong>{locale === "it" ? "Stima vs target" : "Estimate vs target"}</strong>
-                        <ul>
-                          <li>{locale === "it" ? "Target utente CHF 118" : "User target CHF 118"}</li>
-                          <li>{locale === "it" ? "Stima mercato CHF 132" : "Market estimate CHF 132"}</li>
-                          <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
-                        </ul>
-                      </div>
+                      <div className="showcase-dashboard-grid showcase-dashboard-grid-wishlist">
                         <div className="showcase-card">
-                          <span>{locale === "it" ? "Focus" : "Focus"}</span>
-                          <strong>{locale === "it" ? "Scopo e abbinamento" : "Purpose and pairing"}</strong>
+                          <span>{locale === "it" ? "Priorit?" : "Priority"}</span>
+                          <strong>High ? {locale === "it" ? "Compra" : "Buy now"}</strong>
                           <ul>
-                            <li>{locale === "it" ? "Cena importante" : "Dinner event"}</li>
-                            <li>{locale === "it" ? "Regalo collezionista" : "Collector gift"}</li>
-                            <li>{locale === "it" ? "Orizzonte 12 mesi" : "12-month horizon"}</li>
+                            <li>Sassicaia 2021 ? CHF 235</li>
+                            <li>Tignanello 2021 ? CHF 118</li>
+                            <li>Krug Grande Cuv?e ? CHF 178</li>
+                          </ul>
+                        </div>
+                        <div className="showcase-card">
+                          <span>{locale === "it" ? "Analisi mercato" : "Market analysis"}</span>
+                          <strong>{locale === "it" ? "Stima vs target" : "Estimate vs target"}</strong>
+                          <ul>
+                            <li>{locale === "it" ? "Target utente CHF 118" : "User target CHF 118"}</li>
+                            <li>{locale === "it" ? "Stima mercato CHF 132" : "Market estimate CHF 132"}</li>
+                            <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
+                          </ul>
+                        </div>
+                        <div className="showcase-card">
+                          <span>{locale === "it" ? "Strategia" : "Strategy"}</span>
+                          <strong>{locale === "it" ? "Verdetto operativo" : "Operational verdict"}</strong>
+                          <ul>
+                            <li>{locale === "it" ? "Priorit?: alta" : "Priority: high"}</li>
+                            <li>{locale === "it" ? "Mercato sopra il target" : "Market above target"}</li>
+                            <li>{locale === "it" ? "Mossa: comprare ora" : "Move: buy now"}</li>
                           </ul>
                         </div>
                       </div>
@@ -6388,8 +6388,8 @@ export function App() {
                       <strong>{locale === "it" ? "Wishlist e strategia di acquisto" : "Wishlist and buying strategy"}</strong>
                       <span>
                         {locale === "it"
-                        ? "Priorità, target di prezzo, stima mercato e prossima mossa nello stesso punto."
-                          : "Priority, price target, market estimate, and next move in one place."}
+                          ? "Priorit?, target di prezzo, stima mercato e decisione finale nello stesso punto."
+                          : "Priority, price target, market estimate, and next decision in one place."}
                       </span>
                     </div>
                   </article>
