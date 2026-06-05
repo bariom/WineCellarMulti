@@ -5413,8 +5413,14 @@ export function App() {
   const cellarWines = wines.filter((wine) => wine.quantity > 0);
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
   const isWineCollectionView = activeView === "cellar" || activeView === "history";
+  const isCollectionView = isWineCollectionView || activeView === "wishlist";
   const activeWineCollection = activeView === "history" ? historyWines : cellarWines;
   const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
+  const showCollectionSidePanel = isCollectionView && (
+    wineFormOpen ||
+    wishlistFormOpen ||
+    (isWineCollectionView ? Boolean(selectedVisibleWine) : Boolean(selectedWishlistItem))
+  );
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
     .filter((wine): wine is Wine => Boolean(wine));
@@ -5655,7 +5661,6 @@ export function App() {
   const missingScoresWines = allMissingScoresWines;
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
-  const isCollectionView = isWineCollectionView || activeView === "wishlist";
   const dashboardFocusLabels: Record<DashboardFocus, string> = {
     collector: t("collectorFocus"),
     value: t("valueFocus"),
@@ -6458,7 +6463,7 @@ export function App() {
           />
         </section>
       ) : (
-        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>
+        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : showCollectionSidePanel ? "content-workspace" : "content-workspace content-workspace--full"}`}>
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               {t("home")}
@@ -7018,7 +7023,7 @@ export function App() {
             </section>
           ) : null}
 
-          {isCollectionView ? (
+          {isCollectionView && showCollectionSidePanel ? (
           <aside className="wine-side-panel">
             {isWineCollectionView ? (
               <div className="side-panel-actions">
@@ -7766,6 +7771,20 @@ export function App() {
                 {t("clearFilters")}
               </button>
             </details>
+            {isCollectionView && !showCollectionSidePanel ? (
+              <div className="collection-inline-actions">
+                {isWineCollectionView && activeView === "cellar" ? (
+                  <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
+                    {t("addWine")}
+                  </button>
+                ) : null}
+                {activeView === "wishlist" ? (
+                  <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
+                    {t("addWishlist")}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="list-header">
               <h2>{activeView === "wishlist" ? t("wishlist") : activeView === "history" ? t("consumedWines") : t("wines")}</h2>
               <span>{visibleCount} / {isWineCollectionView ? activeWineCollection.length : wishlist.length} {t("records")}</span>
