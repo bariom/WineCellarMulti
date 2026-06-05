@@ -1491,7 +1491,7 @@ const landingContent: Record<
     headline: "Manage your wine collection like a professional.",
     subheadline: "Know what you own, what it is worth, and what deserves attention next.",
     description:
-      "Vinaris is built for collectors who want a serious private cellar: a calm, high-trust place to manage value, maturity, deliveries, history, and buying decisions without spreadsheets, scattered notes, or noisy wine-app features.",
+      "Vinaris is a private cellar intelligence platform for collectors who want discipline, memory, and sharper decisions around bottles that matter.",
     primaryCta: "Login",
     secondaryCta: "Create account",
     storyEyebrow: "Private Cellar Intelligence",
@@ -1570,7 +1570,7 @@ const landingContent: Record<
     headline: "Gestisci la tua collezione come un professionista.",
     subheadline: "Sapere cosa possiedi, quanto vale e che cosa merita attenzione cambia il modo di collezionare.",
     description:
-      "Vinaris è pensato per chi vuole una cantina privata seria: un luogo sobrio e affidabile dove gestire valore, maturazione, consegne, storico e decisioni di acquisto senza fogli sparsi, memoria fragile o rumore da wine app.",
+      "Vinaris è una piattaforma di private cellar intelligence per collezionisti che vogliono disciplina, memoria e decisioni più lucide sulle bottiglie che contano.",
     primaryCta: "Accedi",
     secondaryCta: "Crea account",
     storyEyebrow: "Private Cellar Intelligence",
@@ -6247,6 +6247,12 @@ export function App() {
                 <h2>{landing.headline}</h2>
                 <strong>{landing.subheadline}</strong>
                 <p>{landing.description}</p>
+                <div className="public-collector-strip" aria-label={locale === "it" ? "Indicatori collezionista" : "Collector signals"}>
+                  <span>{locale === "it" ? "Valore" : "Value"}</span>
+                  <span>{locale === "it" ? "Maturità" : "Maturity"}</span>
+                  <span>{locale === "it" ? "Mercato" : "Market"}</span>
+                  <span>{locale === "it" ? "Memoria" : "Memory"}</span>
+                </div>
                 <div className="public-proof-grid">
                   <article className="public-proof-tile">
                     <span>{locale === "it" ? "Valore cantina" : "Cellar value"}</span>
@@ -6271,6 +6277,19 @@ export function App() {
                 </div>
               </div>
               <aside className="public-pricing-card">
+                <div className="public-bottle-card" aria-hidden="true">
+                  <div>
+                    <span>{locale === "it" ? "Posizione chiave" : "Key position"}</span>
+                    <strong>Tignanello</strong>
+                    <small>Antinori · 2021</small>
+                  </div>
+                  <div className="public-vintage-seal">2021</div>
+                  <dl>
+                    <div><dt>{locale === "it" ? "Valore" : "Value"}</dt><dd>CHF 720</dd></div>
+                    <div><dt>{locale === "it" ? "Finestra" : "Window"}</dt><dd>2027-2042</dd></div>
+                    <div><dt>{locale === "it" ? "Azione" : "Action"}</dt><dd>{locale === "it" ? "Tenere" : "Hold"}</dd></div>
+                  </dl>
+                </div>
                 <p className="eyebrow">{landing.pricesTitle}</p>
                 <div className="public-price-grid">
                   <div className="public-price-tile">

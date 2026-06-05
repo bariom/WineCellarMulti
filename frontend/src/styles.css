@@ -1357,39 +1357,54 @@ summary:focus-visible {
 }
 
 .public-landing {
-  --landing-burgundy: #6d1f33;
-  --landing-burgundy-deep: #34161b;
-  --landing-ivory: #f7efe3;
-  --landing-outline: color-mix(in srgb, var(--landing-burgundy) 36%, var(--border));
-  --landing-panel: linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 22%, var(--surface)) 0%, var(--surface) 100%);
+  --landing-burgundy: #7a1733;
+  --landing-burgundy-deep: #1b0e12;
+  --landing-burgundy-ink: #2a1018;
+  --landing-ivory: #fbf4e7;
+  --landing-champagne: #d8ae5f;
+  --landing-outline: color-mix(in srgb, var(--landing-burgundy) 38%, var(--border));
+  --landing-panel: linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 18%, var(--surface)) 0%, var(--surface) 100%);
   display: grid;
-  gap: 20px;
+  gap: 26px;
   margin-top: 24px;
 }
 
 .public-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(280px, 0.9fr);
-  gap: 18px;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
+  gap: 0;
   align-items: stretch;
+  min-height: 560px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 42%, transparent);
+  border-radius: 18px;
+  background:
+    linear-gradient(115deg, rgba(27, 14, 18, 0.96) 0%, rgba(42, 16, 24, 0.92) 48%, rgba(122, 23, 51, 0.88) 100%),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 28px);
+  box-shadow: 0 34px 70px color-mix(in srgb, var(--landing-burgundy-deep) 26%, transparent);
 }
 
 .public-hero-copy,
 .public-pricing-card,
 .public-features-card {
-  padding: 24px;
+  padding: 28px;
   border: 1px solid var(--landing-outline);
-  border-radius: 20px;
+  border-radius: 10px;
   background: var(--landing-panel);
   box-shadow: 0 20px 36px color-mix(in srgb, var(--landing-burgundy-deep) 12%, transparent);
 }
 
 .public-hero-copy {
   display: grid;
-  gap: 14px;
+  align-content: center;
+  gap: 18px;
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--landing-burgundy) 12%, transparent), transparent 34%),
-    linear-gradient(140deg, color-mix(in srgb, var(--landing-ivory) 90%, white 10%) 0%, var(--surface) 100%);
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 58%),
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 100%);
+  box-shadow: none;
 }
 
 .public-hero-copy h2,
@@ -1400,14 +1415,18 @@ summary:focus-visible {
 }
 
 .public-hero-copy h2 {
-  font-size: clamp(2rem, 4vw, 3.4rem);
-  line-height: 0.94;
-  max-width: 11ch;
+  color: #fffaf1;
+  font-size: clamp(2.65rem, 5vw, 5.4rem);
+  line-height: 0.9;
+  max-width: 12ch;
+  text-wrap: balance;
 }
 
 .public-hero-copy strong {
-  font-size: 1.05rem;
-  color: var(--landing-burgundy);
+  max-width: 700px;
+  color: var(--landing-champagne);
+  font-size: clamp(1.08rem, 1.6vw, 1.45rem);
+  line-height: 1.35;
 }
 
 .public-hero-copy p,
@@ -1418,6 +1437,35 @@ summary:focus-visible {
   line-height: 1.55;
 }
 
+.public-hero-copy > p:not(.eyebrow) {
+  max-width: 720px;
+  color: color-mix(in srgb, #fffaf1 78%, transparent);
+  font-size: 1.04rem;
+}
+
+.public-hero-copy .eyebrow {
+  color: color-mix(in srgb, var(--landing-champagne) 86%, white 14%);
+}
+
+.public-collector-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  max-width: 720px;
+}
+
+.public-collector-strip span {
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 44%, transparent);
+  border-radius: 999px;
+  color: color-mix(in srgb, #fffaf1 92%, transparent);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.06);
+}
+
 .public-hero-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1425,62 +1473,128 @@ summary:focus-visible {
   margin-top: 6px;
 }
 
+.public-hero-actions button {
+  border-color: var(--landing-champagne);
+  color: var(--landing-burgundy-ink);
+  background: linear-gradient(180deg, #f1d58f 0%, var(--landing-champagne) 100%);
+}
+
+.public-hero-actions button.secondary {
+  color: #fffaf1;
+  background: rgba(255, 255, 255, 0.08);
+  border-color: color-mix(in srgb, var(--landing-champagne) 44%, transparent);
+}
+
 .public-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
+  max-width: 760px;
 }
 
 .public-proof-tile {
   display: grid;
   gap: 6px;
-  padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--landing-burgundy) 24%, var(--border));
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--landing-ivory) 86%, var(--surface));
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 36%, transparent);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.075);
+  backdrop-filter: blur(10px);
 }
 
 .public-proof-tile span,
 .public-vintage-mark small {
-  color: var(--text-muted);
+  color: color-mix(in srgb, #fffaf1 66%, transparent);
   font-size: 0.82rem;
 }
 
 .public-proof-tile strong {
-  color: var(--landing-burgundy-deep);
-  font-size: 1.15rem;
+  color: #fffaf1;
+  font-size: 1.25rem;
 }
 
 .public-pricing-card {
   display: grid;
   gap: 14px;
   align-content: start;
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--landing-champagne) 32%, transparent);
+  border-radius: 0;
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--landing-burgundy) 16%, transparent), transparent 32%),
-    linear-gradient(160deg, color-mix(in srgb, var(--landing-burgundy-deep) 12%, var(--surface)) 0%, var(--surface-muted) 100%);
+    linear-gradient(180deg, rgba(255, 250, 241, 0.14) 0%, rgba(255, 250, 241, 0.08) 100%);
+  box-shadow: none;
 }
 
-.public-vintage-mark {
+.public-pricing-card > .eyebrow,
+.public-pricing-card .public-pricing-note {
+  color: color-mix(in srgb, #fffaf1 78%, transparent);
+}
+
+.public-pricing-card .promo-notice {
+  border-color: color-mix(in srgb, var(--landing-champagne) 42%, transparent);
+  color: #fffaf1;
+  background: rgba(255, 250, 241, 0.08);
+}
+
+.public-pricing-card .promo-notice strong {
+  color: var(--landing-champagne);
+}
+
+.public-bottle-card {
   display: grid;
-  gap: 2px;
-  padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--landing-burgundy) 22%, var(--border));
-  border-radius: 18px;
-  background: linear-gradient(145deg, color-mix(in srgb, var(--landing-ivory) 92%, white 8%) 0%, color-mix(in srgb, var(--surface) 92%, var(--landing-ivory)) 100%);
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 42%, transparent);
+  border-radius: 10px;
+  color: #fffaf1;
+  background:
+    linear-gradient(160deg, rgba(255, 250, 241, 0.12), rgba(255, 250, 241, 0.05)),
+    rgba(27, 14, 18, 0.42);
 }
 
-.public-vintage-mark strong {
-  color: var(--landing-burgundy);
+.public-bottle-card strong {
+  display: block;
+  color: #fffaf1;
+  font-size: 1.55rem;
+}
+
+.public-bottle-card span,
+.public-bottle-card small,
+.public-bottle-card dt {
+  color: color-mix(in srgb, #fffaf1 62%, transparent);
+}
+
+.public-vintage-seal {
+  justify-self: start;
+  padding: 8px 18px 10px;
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 60%, transparent);
+  border-radius: 6px 18px 18px 6px;
+  color: var(--landing-champagne);
   font-family: "Georgia", "Times New Roman", serif;
-  font-size: clamp(3rem, 5vw, 4.8rem);
-  line-height: 0.9;
+  font-size: 3.4rem;
+  line-height: 1;
   letter-spacing: 0.04em;
+  background: rgba(255, 250, 241, 0.08);
 }
 
-.public-vintage-mark span {
-  color: var(--text);
-  font-size: 1.3rem;
-  font-weight: 700;
+.public-bottle-card dl {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+}
+
+.public-bottle-card dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--landing-champagne) 26%, transparent);
+}
+
+.public-bottle-card dd {
+  margin: 0;
+  color: #fffaf1;
+  font-weight: 800;
 }
 
 .public-price-grid {
@@ -1492,14 +1606,14 @@ summary:focus-visible {
   display: grid;
   gap: 6px;
   padding: 16px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 28%, transparent);
+  border-radius: 8px;
+  background: rgba(255, 250, 241, 0.9);
 }
 
 .public-price-tile strong {
   font-size: 1.45rem;
-  color: var(--text);
+  color: var(--landing-burgundy-ink);
 }
 
 .public-price-tile span {
@@ -1508,8 +1622,23 @@ summary:focus-visible {
 }
 
 .public-price-tile-highlight {
-  border-color: color-mix(in srgb, var(--landing-burgundy) 52%, var(--border));
-  background: linear-gradient(160deg, color-mix(in srgb, var(--landing-burgundy) 12%, var(--surface)) 0%, var(--surface) 100%);
+  border-color: color-mix(in srgb, var(--landing-champagne) 70%, transparent);
+  background: linear-gradient(160deg, #fffaf1 0%, color-mix(in srgb, var(--landing-champagne) 18%, #fffaf1) 100%);
+}
+
+:root[data-theme="private-cellar"] .public-hero .public-hero-copy {
+  border: 0;
+  background:
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 58%),
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 100%);
+  box-shadow: none;
+}
+
+:root[data-theme="private-cellar"] .public-hero .public-pricing-card {
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--landing-champagne) 32%, transparent);
+  background: linear-gradient(180deg, rgba(255, 250, 241, 0.14) 0%, rgba(255, 250, 241, 0.08) 100%);
+  box-shadow: none;
 }
 
 .public-features-card {
