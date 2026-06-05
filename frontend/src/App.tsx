@@ -5416,11 +5416,6 @@ export function App() {
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
   const activeWineCollection = activeView === "history" ? historyWines : cellarWines;
   const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
-  const showCollectionSidePanel = isCollectionView && (
-    wineFormOpen ||
-    wishlistFormOpen ||
-    (isWineCollectionView ? Boolean(selectedVisibleWine) : Boolean(selectedWishlistItem))
-  );
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
     .filter((wine): wine is Wine => Boolean(wine));
@@ -6463,7 +6458,7 @@ export function App() {
           />
         </section>
       ) : (
-        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : showCollectionSidePanel ? "content-workspace" : "content-workspace content-workspace--full"}`}>
+        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               {t("home")}
@@ -7023,7 +7018,7 @@ export function App() {
             </section>
           ) : null}
 
-          {isCollectionView && showCollectionSidePanel ? (
+          {isCollectionView ? (
           <aside className="wine-side-panel">
             {isWineCollectionView ? (
               <div className="side-panel-actions">
@@ -7771,20 +7766,6 @@ export function App() {
                 {t("clearFilters")}
               </button>
             </details>
-            {isCollectionView && !showCollectionSidePanel ? (
-              <div className="collection-inline-actions">
-                {isWineCollectionView && activeView === "cellar" ? (
-                  <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
-                    {t("addWine")}
-                  </button>
-                ) : null}
-                {activeView === "wishlist" ? (
-                  <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
-                    {t("addWishlist")}
-                  </button>
-                ) : null}
-              </div>
-            ) : null}
             <div className="list-header">
               <h2>{activeView === "wishlist" ? t("wishlist") : activeView === "history" ? t("consumedWines") : t("wines")}</h2>
               <span>{visibleCount} / {isWineCollectionView ? activeWineCollection.length : wishlist.length} {t("records")}</span>
@@ -7831,7 +7812,7 @@ export function App() {
                     </button>
                     {openWineToneGroups[group.tone] ? group.items.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
-                <article className={`${selectedWineId === wine.id ? "wine-row selected cellar-wine-row" : "wine-row cellar-wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(wine.type)}`} />
@@ -7862,17 +7843,15 @@ export function App() {
                       </div>
                     ) : null}
                   </div>
-                  <div className="wine-row-rail">
-                    <DrinkWindowMini wine={wine} />
-                    <strong className="wine-row-price">{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
-                    <div className="row-actions">
-                      <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
-                        {t("compare")}
-                      </button>
-                      <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
-                        {t("edit")}
-                      </button>
-                    </div>
+                  <DrinkWindowMini wine={wine} />
+                  <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+                  <div className="row-actions">
+                    <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
+                      {t("compare")}
+                    </button>
+                    <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
+                      {t("edit")}
+                    </button>
                   </div>
                 </article>
                 {selectedWineId === wine.id && !wineFormOpen ? (
