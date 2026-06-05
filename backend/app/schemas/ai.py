@@ -104,6 +104,7 @@ class PairingResponse(BaseModel):
     model: str
     cellar_matches: list[PairingCellarMatch] = Field(default_factory=list)
     market_recommendations: dict[str, list[PairingMarketWine]] = Field(default_factory=dict)
+    estimated_cost_usd: Decimal = Decimal("0")
 
 
 class WineCompareRequest(BaseModel):

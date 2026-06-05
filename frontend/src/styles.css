@@ -3424,6 +3424,12 @@ textarea {
   color: var(--text-muted);
 }
 
+.pairing-request-cost {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .pairing-result h3,
 .pairing-market-tier h4 {
   margin: 0 0 8px;

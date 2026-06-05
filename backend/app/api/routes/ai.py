@@ -596,7 +596,13 @@ def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_
                     for item in items[:2]
                     if isinstance(item, dict) and str(item.get("name") or "").strip()
                 ]
-    return PairingResponse(summary=str(payload.get("summary") or "").strip(), model="", cellar_matches=cleaned_matches, market_recommendations=market)
+    return PairingResponse(
+        summary=str(payload.get("summary") or "").strip(),
+        model="",
+        cellar_matches=cleaned_matches,
+        market_recommendations=market,
+        estimated_cost_usd=Decimal("0"),
+    )
 
 
 @router.post("/compare-wines", response_model=WineCompareResponse)
@@ -778,6 +784,13 @@ def suggest_pairing(
     )
     cleaned = clean_pairing_response(parse_json_response(response.text), {str(wine.id) for wine in cellar_wines}, payload.include_market)
     cleaned.model = user_settings.pairing_model
+    charged_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=user_settings.pairing_model,
+        usage=response.usage,
+    )
+    cleaned.estimated_cost_usd = charged_cost
     record_ai_audit(
         db,
         context,

@@ -405,6 +405,7 @@ type PairingResult = {
   model: string;
   cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
   market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
+  estimated_cost_usd: string;
 };
 
 type WineCompareAiResult = {
@@ -6158,7 +6159,11 @@ export function App() {
             <span>{t("pairing")}</span>
             <h2>{t("pairingSubmit")}</h2>
           </div>
-          {pairingResult?.model ? <strong>{pairingResult.model}</strong> : null}
+          {pairingResult?.estimated_cost_usd ? (
+            <small className="pairing-request-cost">
+              {t("aiRequestCost")}: {formatAiBudget(pairingResult.estimated_cost_usd)}
+            </small>
+          ) : null}
         </div>
         <form className="pairing-form" onSubmit={generatePairing}>
           <label>
