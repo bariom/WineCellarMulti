@@ -6991,7 +6991,7 @@ export function App() {
               {t("cellar")} ({cellarWines.length})
             </button>
             <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { setActiveView("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
-              {t("history")} ({historyWines.length})
+              {t("history")}
             </button>
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               {t("wishlist")} ({wishlist.length})
