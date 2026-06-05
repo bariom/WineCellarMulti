@@ -576,6 +576,13 @@ const translations = {
     renameCellar: "Rename cellar",
     clearFilters: "Clear filters",
     convert: "Convert",
+    compare: "Compare",
+    compareSelection: "Wine comparison",
+    compareSelected: "Selected for comparison",
+    openCompare: "Open comparison",
+    clearCompare: "Clear comparison",
+    compareLimit: "You can compare up to 4 wines.",
+    compareNeedTwo: "Select at least 2 wines to compare them.",
     create: "Create",
     createAccount: "Create account",
     confirmPassword: "Confirm password",
@@ -939,6 +946,13 @@ const translations = {
     renameCellar: "Rinomina cantina",
     clearFilters: "Pulisci filtri",
     convert: "Converti",
+    compare: "Confronta",
+    compareSelection: "Confronto vini",
+    compareSelected: "Selezionati per confronto",
+    openCompare: "Apri confronto",
+    clearCompare: "Pulisci confronto",
+    compareLimit: "Puoi confrontare al massimo 4 vini.",
+    compareNeedTwo: "Seleziona almeno 2 vini per confrontarli.",
     create: "Crea",
     createAccount: "Crea account",
     confirmPassword: "Conferma password",
@@ -2817,6 +2831,108 @@ function averageMarketPrice(sources: ReturnType<typeof auditMarketSources>) {
   return sources.reduce((sum, source) => sum + source.price, 0) / sources.length;
 }
 
+function compareDrinkWindowLabel(wine: Wine, t: (key: TranslationKey) => string) {
+  if (!wine.drink_from && !wine.drink_to) return t("notSpecified");
+  if (wine.drink_from && wine.drink_to) return `${wine.drink_from}-${wine.drink_to}`;
+  if (wine.drink_from) return `${wine.drink_from}-...`;
+  return `...-${wine.drink_to}`;
+}
+
+function compareScoresLabel(wine: Wine, t: (key: TranslationKey) => string) {
+  if (!wine.scores.length) return t("notSpecified");
+  return wine.scores.slice(0, 2).map((score) => `${score.critic} ${score.score}`.trim()).join(" • ");
+}
+
+function compareGrapesLabel(wine: Wine, t: (key: TranslationKey) => string) {
+  if (!wine.grapes.length) return t("notSpecified");
+  return wine.grapes.slice(0, 4).map((grape) => formatGrape(grape)).join(" • ");
+}
+
+function compareTagsLabel(wine: Wine, t: (key: TranslationKey) => string) {
+  if (!wine.tags.length) return t("notSpecified");
+  return wine.tags.slice(0, 4).join(" • ");
+}
+
+function CompareWinesModal({
+  wines,
+  session,
+  t,
+  locale,
+  onClose,
+  onRemove,
+}: {
+  wines: Wine[];
+  session: Session | null;
+  t: (key: TranslationKey) => string;
+  locale: Locale;
+  onClose: () => void;
+  onRemove: (wineId: string) => void;
+}) {
+  return (
+    <div className="compare-modal-overlay" onClick={onClose}>
+      <div className="compare-modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="compare-modal-head">
+          <div>
+            <h2>{t("compareSelection")}</h2>
+            <span>{wines.length} {t("winesLabel")}</span>
+          </div>
+          <button type="button" className="secondary compact" onClick={onClose}>
+            {t("close")}
+          </button>
+        </div>
+        <div className="compare-columns">
+          {wines.map((wine) => (
+            <article className={`compare-wine-card tone-${wineTone(wine.type)}`} key={wine.id}>
+              <div className="compare-wine-head">
+                <div>
+                  <h3>
+                    <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                    {wine.name}
+                  </h3>
+                  <span>{[wine.producer, wine.vintage].filter(Boolean).join(" • ")}</span>
+                </div>
+                <button type="button" className="secondary compact" onClick={() => onRemove(wine.id)}>
+                  {t("remove")}
+                </button>
+              </div>
+              <div className="compare-field-grid">
+                <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("drinkWindow")} value={compareDrinkWindowLabel(wine, t)} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("region")} value={wine.region} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("appellation")} value={wine.appellation} emptyLabel={t("notSpecified")} />
+              </div>
+              <div className="compare-section">
+                <strong>{t("scores")}</strong>
+                <p>{compareScoresLabel(wine, t)}</p>
+              </div>
+              <div className="compare-section">
+                <strong>{t("grapes")}</strong>
+                <p>{compareGrapesLabel(wine, t)}</p>
+              </div>
+              <div className="compare-section">
+                <strong>{t("tags")}</strong>
+                <p>{compareTagsLabel(wine, t)}</p>
+              </div>
+              {wine.notes ? (
+                <div className="compare-section">
+                  <strong>{t("notes")}</strong>
+                  <p>{wine.notes}</p>
+                </div>
+              ) : null}
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MarketValueModal({
   context,
   t,
@@ -3501,6 +3617,8 @@ export function App() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [marketViewContext, setMarketViewContext] = useState<MarketViewContext | null>(null);
+  const [compareWineIds, setCompareWineIds] = useState<string[]>([]);
+  const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
     red: false,
@@ -5193,6 +5311,9 @@ export function App() {
   const isWineCollectionView = activeView === "cellar" || activeView === "history";
   const activeWineCollection = activeView === "history" ? historyWines : cellarWines;
   const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
+  const comparedWines = compareWineIds
+    .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
+    .filter((wine): wine is Wine => Boolean(wine));
   const selectedWineMarketAudit = selectedVisibleWine
     ? aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === selectedVisibleWine.id && entry.feature === "ai_value") || null
     : null;
@@ -5271,6 +5392,10 @@ export function App() {
       return first.name.localeCompare(second.name);
     });
   const visibleCount = isWineCollectionView ? filteredWines.length : filteredWishlist.length;
+
+  useEffect(() => {
+    setCompareWineIds((current) => current.filter((wineId) => wines.some((wine) => wine.id === wineId)));
+  }, [wines]);
 
   useEffect(() => {
     if (activeView !== "cellar" || !pendingWineScrollId) return;
@@ -5485,6 +5610,34 @@ export function App() {
 
   function toggleSelectedWishlistItem(item: WishlistItem) {
     setSelectedWishlistId((current) => current === item.id ? null : item.id);
+  }
+
+  function toggleCompareWine(wine: Wine) {
+    setCompareWineIds((current) => {
+      if (current.includes(wine.id)) {
+        return current.filter((wineId) => wineId !== wine.id);
+      }
+      if (current.length >= 4) {
+        setError(t("compareLimit"));
+        return current;
+      }
+      setError("");
+      return [...current, wine.id];
+    });
+  }
+
+  function clearComparedWines() {
+    setCompareWineIds([]);
+    setCompareModalOpen(false);
+  }
+
+  function openCompareModal() {
+    if (compareWineIds.length < 2) {
+      setError(t("compareNeedTwo"));
+      return;
+    }
+    setError("");
+    setCompareModalOpen(true);
   }
 
   function renderSharePanel(wine: Wine) {
@@ -6755,9 +6908,24 @@ export function App() {
                   </button>
                 ) : null}
                 {selectedVisibleWine && !wineFormOpen ? (
-                  <button type="button" className="secondary" onClick={() => startEditWine(selectedVisibleWine)} disabled={!canWriteWine}>
-                    {t("editSelected")}
-                  </button>
+                  <>
+                    <button type="button" className={compareWineIds.includes(selectedVisibleWine.id) ? "" : "secondary"} onClick={() => toggleCompareWine(selectedVisibleWine)}>
+                      {compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
+                    </button>
+                    <button type="button" className="secondary" onClick={() => startEditWine(selectedVisibleWine)} disabled={!canWriteWine}>
+                      {t("editSelected")}
+                    </button>
+                  </>
+                ) : null}
+                {compareWineIds.length ? (
+                  <>
+                    <button type="button" className="secondary" onClick={openCompareModal}>
+                      {t("openCompare")} ({compareWineIds.length}/4)
+                    </button>
+                    <button type="button" className="secondary" onClick={clearComparedWines}>
+                      {t("clearCompare")}
+                    </button>
+                  </>
                 ) : null}
               </div>
             ) : (
@@ -7456,6 +7624,22 @@ export function App() {
               <h2>{activeView === "wishlist" ? t("wishlist") : activeView === "history" ? t("consumedWines") : t("wines")}</h2>
               <span>{visibleCount} / {isWineCollectionView ? activeWineCollection.length : wishlist.length} {t("records")}</span>
             </div>
+            {isWineCollectionView && compareWineIds.length ? (
+              <div className="compare-summary-bar">
+                <div>
+                  <strong>{t("compareSelection")}</strong>
+                  <span>{compareWineIds.length}/4 {t("compareSelected").toLowerCase()}</span>
+                </div>
+                <div className="compare-summary-actions">
+                  <button type="button" className="secondary compact" onClick={openCompareModal}>
+                    {t("openCompare")}
+                  </button>
+                  <button type="button" className="secondary compact" onClick={clearComparedWines}>
+                    {t("clearCompare")}
+                  </button>
+                </div>
+              </div>
+            ) : null}
             {loading ? <p className="empty-state">{t("loadingData")}</p> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
             {!loading && activeView === "history" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
@@ -7516,6 +7700,9 @@ export function App() {
                   <DrinkWindowMini wine={wine} />
                   <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                   <div className="row-actions">
+                    <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
+                      {t("compare")}
+                    </button>
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
                       {t("edit")}
                     </button>
@@ -8513,6 +8700,16 @@ export function App() {
         </button>
       ) : null}
       {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} onClose={() => setMarketViewContext(null)} /> : null}
+      {compareModalOpen && comparedWines.length ? (
+        <CompareWinesModal
+          wines={comparedWines}
+          session={session}
+          t={t}
+          locale={locale}
+          onClose={() => setCompareModalOpen(false)}
+          onRemove={(wineId) => setCompareWineIds((current) => current.filter((id) => id !== wineId))}
+        />
+      ) : null}
     </main>
   );
 }
