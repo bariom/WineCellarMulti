@@ -1299,6 +1299,15 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
   },
 };
 
+const canonicalWineTypes = ["Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"] as const;
+
+function wineTypeOptions(currentType: string) {
+  const trimmedCurrentType = currentType.trim();
+  return trimmedCurrentType && !canonicalWineTypes.includes(trimmedCurrentType as (typeof canonicalWineTypes)[number])
+    ? [trimmedCurrentType, ...canonicalWineTypes]
+    : [...canonicalWineTypes];
+}
+
 function displayValue(value: string | null | undefined, locale: Locale, group: string) {
   if (!value) return "";
   return localizedDisplayValues[locale]?.[group]?.[value] || value;
@@ -6760,7 +6769,14 @@ export function App() {
                   </label>
                   <label>
                     <span>{t("type")}</span>
-                    <input value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine} />
+                    <select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} disabled={!canWriteWine}>
+                      <option value="">-</option>
+                      {wineTypeOptions(draft.type).map((type) => (
+                        <option key={type} value={type}>
+                          {displayValue(type, locale, "type")}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
                 <div className="form-row">
