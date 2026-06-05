@@ -784,6 +784,18 @@ summary:focus-visible {
   gap: 10px;
 }
 
+.content-workspace--full .wine-row {
+  grid-template-columns: minmax(0, 1.7fr) minmax(200px, 280px) minmax(84px, 112px) auto;
+}
+
+.content-workspace--full .wine-row-main {
+  max-width: 100%;
+}
+
+.content-workspace--full .row-actions {
+  justify-content: flex-end;
+}
+
 .settings-workspace {
   grid-template-columns: minmax(0, 1fr);
 }
