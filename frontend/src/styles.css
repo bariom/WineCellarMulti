@@ -1702,27 +1702,6 @@ summary:focus-visible {
   gap: 10px;
 }
 
-.showcase-vintage-mark {
-  display: grid;
-  align-content: center;
-  justify-items: end;
-  min-width: 110px;
-}
-
-.showcase-vintage-mark strong {
-  color: var(--landing-burgundy);
-  font-family: "Georgia", "Times New Roman", serif;
-  font-size: 2.4rem;
-  line-height: 0.9;
-  letter-spacing: 0.04em;
-}
-
-.showcase-vintage-mark span {
-  color: var(--text);
-  font-size: 0.9rem;
-  font-weight: 700;
-}
-
 .showcase-kpis div,
 .showcase-card,
 .showcase-timeline,
@@ -1756,6 +1735,10 @@ summary:focus-visible {
   gap: 6px;
   margin: 0;
   padding-left: 18px;
+}
+
+.showcase-dashboard-grid-wishlist {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .showcase-timeline {
@@ -4736,10 +4719,6 @@ textarea {
   .public-showcase-grid,
   .showcase-detail-grid {
     grid-template-columns: 1fr;
-  }
-
-  .showcase-vintage-mark {
-    justify-items: start;
   }
 
   .mini-drink-window {

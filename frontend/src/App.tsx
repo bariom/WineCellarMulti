@@ -6235,10 +6235,6 @@ export function App() {
                         <h4>{locale === "it" ? "Vista collezionista" : "Collector view"}</h4>
                         <span>{locale === "it" ? "Una dashboard che suggerisce cosa fare, non solo che cosa possiedi." : "A dashboard that suggests what to do, not only what you own."}</span>
                       </div>
-                      <div className="showcase-vintage-mark">
-                        <strong>2016</strong>
-                        <span>Sassicaia</span>
-                      </div>
                       <div className="showcase-kpis">
                         <div><strong>CHF 4'769</strong><span>{locale === "it" ? "Valore cantina" : "Cellar value"}</span></div>
                         <div><strong>{locale === "it" ? "12 vini" : "12 wines"}</strong><span>{locale === "it" ? "Finestra ideale" : "Ideal window"}</span></div>
@@ -6365,12 +6361,12 @@ export function App() {
                       </div>
                       <div className="showcase-dashboard-grid showcase-dashboard-grid-wishlist">
                         <div className="showcase-card">
-                          <span>{locale === "it" ? "Priorit?" : "Priority"}</span>
-                          <strong>High ? {locale === "it" ? "Compra" : "Buy now"}</strong>
+                          <span>{locale === "it" ? "Priorità" : "Priority"}</span>
+                          <strong>High · {locale === "it" ? "Compra" : "Buy now"}</strong>
                           <ul>
-                            <li>Sassicaia 2021 ? CHF 235</li>
-                            <li>Tignanello 2021 ? CHF 118</li>
-                            <li>Krug Grande Cuv?e ? CHF 178</li>
+                            <li>Sassicaia 2021 · CHF 235</li>
+                            <li>Tignanello 2021 · CHF 118</li>
+                            <li>Krug Grande Cuvée · CHF 178</li>
                           </ul>
                         </div>
                         <div className="showcase-card">
@@ -6382,22 +6378,13 @@ export function App() {
                             <li>{locale === "it" ? "Azione: comprare ora" : "Action: buy now"}</li>
                           </ul>
                         </div>
-                        <div className="showcase-card">
-                          <span>{locale === "it" ? "Strategia" : "Strategy"}</span>
-                          <strong>{locale === "it" ? "Verdetto operativo" : "Operational verdict"}</strong>
-                          <ul>
-                            <li>{locale === "it" ? "Priorit?: alta" : "Priority: high"}</li>
-                            <li>{locale === "it" ? "Mercato sopra il target" : "Market above target"}</li>
-                            <li>{locale === "it" ? "Mossa: comprare ora" : "Move: buy now"}</li>
-                          </ul>
-                        </div>
                       </div>
                     </div>
                     <div className="showcase-caption">
                       <strong>{locale === "it" ? "Wishlist e strategia di acquisto" : "Wishlist and buying strategy"}</strong>
                       <span>
                         {locale === "it"
-                          ? "Priorit?, target di prezzo, stima mercato e decisione finale nello stesso punto."
+                          ? "Priorità, target di prezzo, stima mercato e decisione finale nello stesso punto."
                           : "Priority, price target, market estimate, and next decision in one place."}
                       </span>
                     </div>
