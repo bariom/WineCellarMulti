@@ -594,8 +594,8 @@ const translations = {
     appellation: "Appellation",
     billing: "Subscription management",
     buyAccess: "Pay with card",
-    buyAnnual: "Buy annual access",
-    buyMonthly: "Buy monthly access",
+    buyAnnual: "Buy annual subscription",
+    buyMonthly: "Buy monthly subscription",
     resetPriceRange: "Reset",
     bottles: "Bottles",
     cancel: "Cancel",
@@ -992,8 +992,8 @@ const translations = {
     appellation: "Denominazione",
     billing: "Gestione iscrizione",
     buyAccess: "Paga con carta",
-    buyAnnual: "Acquista accesso annuale",
-    buyMonthly: "Acquista accesso mensile",
+    buyAnnual: "Acquista abbonamento annuale",
+    buyMonthly: "Acquista abbonamento mensile",
     resetPriceRange: "Reset",
     bottles: "Bottiglie",
     cancel: "Annulla",
@@ -8485,9 +8485,7 @@ export function App() {
                 ) : null}
                 {billingStatus?.has_active_entitlement ? (
                   <p className="empty-state">{t("billing")}: {billingStatus.active_source} - {formatDisplayDate(billingStatus.valid_until)}</p>
-                ) : (
-                  <p className="empty-state">{t("notSpecified")}</p>
-                )}
+                ) : null}
                   {showAiBudgetPanel ? (
                     <div className="ai-budget-panel">
                       <div className="ai-budget-head">
