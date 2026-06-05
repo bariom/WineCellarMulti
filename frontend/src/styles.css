@@ -3509,6 +3509,12 @@ textarea {
   gap: 10px;
 }
 
+.stats-panel-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
 .stat-card {
   display: grid;
   align-content: start;

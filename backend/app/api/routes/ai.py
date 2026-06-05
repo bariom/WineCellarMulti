@@ -30,6 +30,7 @@ from app.schemas.ai import (
     PairingResponse,
     WineCompareRequest,
     WineCompareResponse,
+    WishlistPortfolioStrategyResponse,
 )
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
@@ -434,6 +435,61 @@ def wishlist_context(item: WishlistItem) -> str:
             f"AI purpose advice: {item.ai_purpose_advice}",
         ],
     )
+
+
+def wishlist_priority_rank(priority: str) -> int:
+    normalized = str(priority or "").strip().lower()
+    if "high" in normalized or "alta" in normalized:
+        return 0
+    if "medium" in normalized or "media" in normalized:
+        return 1
+    if "low" in normalized or "bassa" in normalized:
+        return 2
+    return 3
+
+
+def wishlist_ready_to_buy(status: str) -> bool:
+    normalized = str(status or "").strip().lower()
+    return any(word in normalized for word in ["buy", "ready", "approved", "compra", "acquista", "pronto", "approvato"])
+
+
+def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -> str:
+    sorted_items = sorted(
+        items,
+        key=lambda item: (wishlist_priority_rank(item.priority), -float(item.target_price or 0), item.name.lower()),
+    )
+    high_priority_count = sum(1 for item in items if wishlist_priority_rank(item.priority) == 0)
+    ready_to_buy_count = sum(1 for item in items if wishlist_ready_to_buy(item.status))
+    total_target_value = sum(Decimal(str(item.target_price or 0)) for item in items)
+    lines = [
+        f"Household: {household_name}",
+        f"Wishlist items: {len(items)}",
+        f"High priority items: {high_priority_count}",
+        f"Ready to buy items: {ready_to_buy_count}",
+        f"Total target value: CHF {total_target_value.quantize(Decimal('0.01'))}",
+        "",
+        "Wishlist portfolio:",
+    ]
+    for index, item in enumerate(sorted_items[:40], start=1):
+        lines.extend(
+            [
+                (
+                    f"{index}. {item.name} | Producer: {item.producer or 'Unknown'} | Vintage: {item.vintage or 'n/d'} | "
+                    f"Target: {item.currency} {Decimal(str(item.target_price or 0)).quantize(Decimal('0.01'))} | "
+                    f"Priority: {item.priority or 'Unknown'} | Purpose: {item.purpose or 'Unknown'} | Status: {item.status or 'Unknown'}"
+                ),
+                f"   Region/Appellation: {item.region or 'n/d'} / {item.appellation or 'n/d'}",
+                f"   Merchant: {item.merchant or 'n/d'}",
+                f"   Market estimate: {item.ai_market_price_currency or item.currency} {item.ai_market_price}" if item.ai_market_price else "   Market estimate: unknown",
+                f"   Notes: {item.notes or 'none'}",
+                f"   AI context note: {item.ai_context_note or 'none'}",
+                f"   Existing AI strategy: {item.ai_strategy or 'none'}",
+                f"   Existing AI purpose advice: {item.ai_purpose_advice or 'none'}",
+            ],
+        )
+    if len(sorted_items) > 40:
+        lines.append(f"... {len(sorted_items) - 40} more items omitted from the detailed list, but included in the summary counts.")
+    return "\n".join(lines)
 
 
 def normalize_market_sources(raw_sources: Any, *, default_currency: str) -> list[dict]:
@@ -1231,3 +1287,101 @@ def generate_wishlist_target_price(
     db.commit()
     db.refresh(item)
     return item
+
+
+@router.post("/wishlist/portfolio-strategy", response_model=WishlistPortfolioStrategyResponse)
+def generate_wishlist_portfolio_strategy(
+    payload: AiGenerationRequest = AiGenerationRequest(),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WishlistPortfolioStrategyResponse:
+    user_settings = get_or_create_user_ai_settings(db, context)
+    items = list(
+        db.scalars(
+            select(WishlistItem)
+            .where(WishlistItem.household_id == context.household.id)
+            .order_by(WishlistItem.name),
+        ),
+    )
+    if not items:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wishlist is empty")
+    schema = {
+        "name": "wishlist_portfolio_strategy",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "overview": {"type": "string"},
+                "buy_now": {"type": "string"},
+                "wait_watch": {"type": "string"},
+                "allocation": {"type": "string"},
+                "next_step": {"type": "string"},
+            },
+            "required": ["overview", "buy_now", "wait_watch", "allocation", "next_step"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.wishlist_model,
+        system_prompt=(
+            "You are a disciplined private wine buying advisor working at the portfolio level. Return JSON only. "
+            "You are advising a serious collector, not a casual shopper. "
+            "Be concrete, concise, and decision-oriented. "
+            "Assume capital is finite and the collector wants to prioritize well. "
+            "Use the actual wine names when useful. Do not invent missing facts; acknowledge uncertainty briefly when necessary. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            "Build a practical buying strategy for this full wishlist portfolio.\n\n"
+            "Return:\n"
+            "- overview: short summary of the current wishlist posture and what stands out\n"
+            "- buy_now: which items deserve priority now and why\n"
+            "- wait_watch: which items should be monitored, repriced, or deferred\n"
+            "- allocation: how the collector should think about capital allocation across the wishlist\n"
+            "- next_step: one concise operational next step\n\n"
+            f"{wishlist_portfolio_context(items, context.household.name)}"
+        ),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    charged_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=user_settings.wishlist_model,
+        usage=response.usage,
+    )
+    strategy_response = WishlistPortfolioStrategyResponse(
+        model=user_settings.wishlist_model,
+        overview=str(result.get("overview") or "").strip(),
+        buy_now=str(result.get("buy_now") or "").strip(),
+        wait_watch=str(result.get("wait_watch") or "").strip(),
+        allocation=str(result.get("allocation") or "").strip(),
+        next_step=str(result.get("next_step") or "").strip(),
+        estimated_cost_usd=charged_cost,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="household",
+        entity_id=context.household.id,
+        feature="wishlist_portfolio_strategy",
+        model=user_settings.wishlist_model,
+        summary=f"{strategy_response.overview} Next: {strategy_response.next_step}",
+        sources=[
+            {
+                "kind": "wishlist_portfolio_strategy",
+                "overview": strategy_response.overview,
+                "buy_now": strategy_response.buy_now,
+                "wait_watch": strategy_response.wait_watch,
+                "allocation": strategy_response.allocation,
+                "next_step": strategy_response.next_step,
+                "item_count": len(items),
+            },
+        ],
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return strategy_response

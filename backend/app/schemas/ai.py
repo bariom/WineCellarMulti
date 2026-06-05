@@ -116,3 +116,13 @@ class WineCompareResponse(BaseModel):
     cellar_value: str
     verdict: str
     estimated_cost_usd: Decimal
+
+
+class WishlistPortfolioStrategyResponse(BaseModel):
+    model: str
+    overview: str
+    buy_now: str
+    wait_watch: str
+    allocation: str
+    next_step: str
+    estimated_cost_usd: Decimal

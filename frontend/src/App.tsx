@@ -415,6 +415,16 @@ type WineCompareAiResult = {
   estimated_cost_usd: string;
 };
 
+type WishlistPortfolioStrategy = {
+  model: string;
+  overview: string;
+  buy_now: string;
+  wait_watch: string;
+  allocation: string;
+  next_step: string;
+  estimated_cost_usd: string;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -548,6 +558,16 @@ const translations = {
     auditResultsCount: "matching actions",
     aiSettings: "AI settings",
     aiStrategy: "AI strategy",
+    wishlistPortfolioStrategy: "Wishlist buying strategy",
+    wishlistPortfolioStrategyHelp: "Review the full wishlist as a collector portfolio and decide what to prioritize now versus monitor.",
+    generateWishlistPortfolioStrategy: "Generate buying strategy",
+    refreshWishlistPortfolioStrategy: "Refresh buying strategy",
+    noWishlistPortfolioStrategy: "No wishlist-wide buying strategy generated yet.",
+    wishlistStrategyOverview: "Overview",
+    wishlistStrategyBuyNow: "Buy now",
+    wishlistStrategyWaitWatch: "Wait / watch",
+    wishlistStrategyAllocation: "Capital allocation",
+    wishlistStrategyNextStep: "Next step",
     aiMarketPrice: "AI market price",
     aiTargetPrice: "AI market price",
     marketValueView: "Market value",
@@ -931,6 +951,16 @@ const translations = {
     auditResultsCount: "azioni trovate",
     aiSettings: "Impostazioni AI",
     aiStrategy: "Strategia AI",
+    wishlistPortfolioStrategy: "Strategia d'acquisto wishlist",
+    wishlistPortfolioStrategyHelp: "Valuta l'intera wishlist come portafoglio da collezionista e capisci cosa prioritizzare ora rispetto a cosa monitorare.",
+    generateWishlistPortfolioStrategy: "Genera strategia d'acquisto",
+    refreshWishlistPortfolioStrategy: "Aggiorna strategia d'acquisto",
+    noWishlistPortfolioStrategy: "Nessuna strategia d'acquisto complessiva generata finora.",
+    wishlistStrategyOverview: "Quadro generale",
+    wishlistStrategyBuyNow: "Da comprare ora",
+    wishlistStrategyWaitWatch: "Attendere / monitorare",
+    wishlistStrategyAllocation: "Allocazione capitale",
+    wishlistStrategyNextStep: "Prossimo passo",
     aiMarketPrice: "Prezzo mercato AI",
     aiTargetPrice: "Prezzo mercato AI",
     marketValueView: "Valore di mercato",
@@ -2880,6 +2910,20 @@ function auditMarketNote(entry: AiAuditLog) {
   return noteEntry ? rawString(noteEntry.text) : "";
 }
 
+function auditWishlistPortfolioStrategy(entry: AiAuditLog): WishlistPortfolioStrategy | null {
+  const strategyEntry = (entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "wishlist_portfolio_strategy");
+  if (!strategyEntry) return null;
+  return {
+    model: entry.model,
+    overview: rawString(strategyEntry.overview),
+    buy_now: rawString(strategyEntry.buy_now),
+    wait_watch: rawString(strategyEntry.wait_watch),
+    allocation: rawString(strategyEntry.allocation),
+    next_step: rawString(strategyEntry.next_step),
+    estimated_cost_usd: rawString(entry.estimated_cost_usd),
+  };
+}
+
 function averageMarketPrice(sources: ReturnType<typeof auditMarketSources>) {
   if (!sources.length) return null;
   return sources.reduce((sum, source) => sum + source.price, 0) / sources.length;
@@ -3548,6 +3592,52 @@ function WishlistDetail({
   );
 }
 
+function WishlistPortfolioStrategyPanel({
+  strategy,
+  canGenerate,
+  generating,
+  onGenerate,
+  t,
+}: {
+  strategy: WishlistPortfolioStrategy | null;
+  canGenerate: boolean;
+  generating: boolean;
+  onGenerate: () => void;
+  t: (key: TranslationKey) => string;
+}) {
+  return (
+    <section className="wine-detail">
+      <div className="detail-title">
+        <div>
+          <p className="eyebrow">{t("wishlist")}</p>
+          <h2>{t("wishlistPortfolioStrategy")}</h2>
+          <span>{t("wishlistPortfolioStrategyHelp")}</span>
+        </div>
+        <button type="button" className="secondary compact" disabled={!canGenerate || generating} onClick={onGenerate}>
+          {generating ? t("generating") : strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
+        </button>
+      </div>
+      {strategy ? (
+        <>
+          <div className="notes-grid">
+            <DetailNote title={t("wishlistStrategyOverview")}>{strategy.overview}</DetailNote>
+            <DetailNote title={t("wishlistStrategyBuyNow")}>{strategy.buy_now}</DetailNote>
+            <DetailNote title={t("wishlistStrategyWaitWatch")}>{strategy.wait_watch}</DetailNote>
+            <DetailNote title={t("wishlistStrategyAllocation")}>{strategy.allocation}</DetailNote>
+            <DetailNote title={t("wishlistStrategyNextStep")}>{strategy.next_step}</DetailNote>
+          </div>
+          <div className="compare-ai-cost">
+            <strong>{t("aiRequestCost")}</strong>
+            <span>{formatAiBudget(strategy.estimated_cost_usd)}</span>
+          </div>
+        </>
+      ) : (
+        <p className="empty-state">{t("noWishlistPortfolioStrategy")}</p>
+      )}
+    </section>
+  );
+}
+
 function AiUsageRow({ label, bucket }: { label: string; bucket: AiUsageBucket }) {
   return (
     <div className="usage-row">
@@ -3701,6 +3791,7 @@ export function App() {
   const [compareWineIds, setCompareWineIds] = useState<string[]>([]);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareAiResult, setCompareAiResult] = useState<WineCompareAiResult | null>(null);
+  const [wishlistPortfolioStrategy, setWishlistPortfolioStrategy] = useState<WishlistPortfolioStrategy | null>(null);
   const [compareAiLoading, setCompareAiLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
@@ -4337,6 +4428,7 @@ export function App() {
     setAiUsage(null);
     setAiSettings(null);
     setAiSettingsDraft(emptyAiSettingsDraft);
+    setWishlistPortfolioStrategy(null);
   }
 
   async function switchHousehold(householdId: string) {
@@ -5239,6 +5331,23 @@ export function App() {
     }
   }
 
+  async function generateWishlistPortfolioStrategy() {
+    setGeneratingAi("wishlist-portfolio-strategy");
+    setError("");
+    try {
+      const result = await api<WishlistPortfolioStrategy>("/api/v1/ai/wishlist/portfolio-strategy", {
+        method: "POST",
+        body: JSON.stringify({ locale }),
+      });
+      setWishlistPortfolioStrategy(result);
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist buying strategy");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
   async function generatePairing(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!pairingDish.trim()) {
@@ -5427,6 +5536,15 @@ export function App() {
   const selectedWishlistMarketAudit = selectedWishlistItem
     ? aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id && entry.feature === "wishlist_target_price") || null
     : null;
+  const latestWishlistPortfolioAudit =
+    aiAudit.find(
+      (entry) =>
+        entry.entity_type === "household" &&
+        entry.entity_id === session?.active_household_id &&
+        entry.feature === "wishlist_portfolio_strategy",
+    ) || null;
+  const visibleWishlistPortfolioStrategy =
+    wishlistPortfolioStrategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => wine.type));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
@@ -5561,6 +5679,10 @@ export function App() {
     const tone = wineTone(selectedWine.type);
     setOpenWineToneGroups((current) => (current[tone] ? current : { ...current, [tone]: true }));
   }, [selectedWineId, filteredWines, isWineCollectionView]);
+
+  useEffect(() => {
+    setWishlistPortfolioStrategy(null);
+  }, [session?.active_household_id]);
 
   useEffect(() => {
     if (session?.user_email) {
@@ -7511,6 +7633,14 @@ export function App() {
                   t={t}
                   locale={locale}
                 />
+            ) : activeView === "wishlist" ? (
+                <WishlistPortfolioStrategyPanel
+                  strategy={visibleWishlistPortfolioStrategy}
+                  canGenerate={canGenerateAi && wishlist.length > 0}
+                  generating={generatingAi === "wishlist-portfolio-strategy"}
+                  onGenerate={generateWishlistPortfolioStrategy}
+                  t={t}
+                />
             ) : (
               <div className="wine-detail empty-detail">
                 <h2>{t("noItemSelected")}</h2>
@@ -7703,6 +7833,20 @@ export function App() {
                   <strong>{wishlistStats.readyToBuy}</strong>
                 </div>
               </section>
+              <div className="stats-panel-actions">
+                <button
+                  type="button"
+                  className="secondary compact"
+                  disabled={!canGenerateAi || generatingAi === "wishlist-portfolio-strategy" || wishlist.length === 0}
+                  onClick={() => generateWishlistPortfolioStrategy()}
+                >
+                  {generatingAi === "wishlist-portfolio-strategy"
+                    ? t("generating")
+                    : visibleWishlistPortfolioStrategy
+                      ? t("refreshWishlistPortfolioStrategy")
+                      : t("generateWishlistPortfolioStrategy")}
+                </button>
+              </div>
             </details>
             )}
             <details className="filter-panel">

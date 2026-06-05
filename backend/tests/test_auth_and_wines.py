@@ -1436,6 +1436,77 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     assert usage.json()["all_time"]["requests"] == 3
 
 
+def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "wishlist_model": "gpt-5.5"}).status_code == 200
+    first = client.post(
+        "/api/v1/wishlist",
+        json={
+            "name": "Sassicaia",
+            "producer": "Tenuta San Guido",
+            "vintage": "2021",
+            "target_price": 235,
+            "currency": "CHF",
+            "priority": "High",
+            "purpose": "Cellar",
+            "status": "Monitor",
+        },
+    )
+    second = client.post(
+        "/api/v1/wishlist",
+        json={
+            "name": "Tignanello",
+            "producer": "Antinori",
+            "vintage": "2021",
+            "target_price": 118,
+            "currency": "CHF",
+            "priority": "High",
+            "purpose": "Drink",
+            "status": "Buy",
+        },
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    def fake_create_response(*args, **kwargs):
+        prompt = args[2]
+        assert "Wishlist portfolio" in prompt
+        assert "Sassicaia" in prompt
+        assert "Tignanello" in prompt
+        assert kwargs["json_schema"]["name"] == "wishlist_portfolio_strategy"
+        return OpenAIResponse(
+            text=(
+                '{"overview":"La wishlist è concentrata su pochi acquisti forti e leggibili.",'
+                '"buy_now":"Compra Tignanello se resta in area target: è il candidato più pronto e disciplinato.",'
+                '"wait_watch":"Tieni Sassicaia sotto osservazione finché il mercato non rientra meglio nei tuoi parametri.",'
+                '"allocation":"Difendi più budget sui vini ad alta convinzione e limita gli acquisti tattici secondari.",'
+                '"next_step":"Aggiorna le stime di mercato mancanti e rivedi la wishlist a shortlist operativa."}'
+            ),
+            usage=TokenUsage(input_tokens=180, output_tokens=90, total_tokens=270),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    strategy = client.post("/api/v1/ai/wishlist/portfolio-strategy")
+    assert strategy.status_code == 200
+    assert strategy.json()["model"] == "gpt-5.5"
+    assert "Tignanello" in strategy.json()["buy_now"]
+
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    strategy_entry = next(entry for entry in audit.json() if entry["feature"] == "wishlist_portfolio_strategy")
+    strategy_source = next(source for source in strategy_entry["sources"] if source.get("kind") == "wishlist_portfolio_strategy")
+    assert strategy_source["item_count"] == 2
+    assert "shortlist operativa" in strategy_source["next_step"]
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["requests"] == 1
+
+
 def test_wine_value_audit_includes_market_sources(monkeypatch):
     from app.api.routes import ai as ai_routes
 
