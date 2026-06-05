@@ -405,6 +405,15 @@ type PairingResult = {
   market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
 };
 
+type WineCompareAiResult = {
+  model: string;
+  style_profile: string;
+  readiness: string;
+  occasion: string;
+  cellar_value: string;
+  verdict: string;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -583,6 +592,13 @@ const translations = {
     clearCompare: "Clear comparison",
     compareLimit: "You can compare up to 4 wines.",
     compareNeedTwo: "Select at least 2 wines to compare them.",
+    aiCompare: "AI comparison",
+    aiCompareOnlyTwo: "AI comparison is available for 2 wines.",
+    styleProfile: "Style and profile",
+    compareReadiness: "Readiness",
+    compareOccasion: "Best occasion",
+    compareCellarValue: "Cellar and value",
+    compareVerdict: "Verdict",
     create: "Create",
     createAccount: "Create account",
     confirmPassword: "Confirm password",
@@ -953,6 +969,13 @@ const translations = {
     clearCompare: "Pulisci confronto",
     compareLimit: "Puoi confrontare al massimo 4 vini.",
     compareNeedTwo: "Seleziona almeno 2 vini per confrontarli.",
+    aiCompare: "Confronto AI",
+    aiCompareOnlyTwo: "Il confronto AI è disponibile per 2 vini.",
+    styleProfile: "Stile e profilo",
+    compareReadiness: "Prontezza",
+    compareOccasion: "Occasione ideale",
+    compareCellarValue: "Cantina e valore",
+    compareVerdict: "Verdetto",
     create: "Crea",
     createAccount: "Crea account",
     confirmPassword: "Conferma password",
@@ -2858,6 +2881,10 @@ function CompareWinesModal({
   session,
   t,
   locale,
+  canGenerateAi,
+  aiResult,
+  aiLoading,
+  onRunAiCompare,
   onClose,
   onRemove,
 }: {
@@ -2865,6 +2892,10 @@ function CompareWinesModal({
   session: Session | null;
   t: (key: TranslationKey) => string;
   locale: Locale;
+  canGenerateAi: boolean;
+  aiResult: WineCompareAiResult | null;
+  aiLoading: boolean;
+  onRunAiCompare: () => void;
   onClose: () => void;
   onRemove: (wineId: string) => void;
 }) {
@@ -2880,6 +2911,41 @@ function CompareWinesModal({
             {t("close")}
           </button>
         </div>
+        <div className="compare-ai-toolbar">
+          {wines.length === 2 ? (
+            <button type="button" className="secondary" disabled={!canGenerateAi || aiLoading} onClick={onRunAiCompare}>
+              {aiLoading ? t("generating") : t("aiCompare")}
+            </button>
+          ) : (
+            <p className="empty-state">{t("aiCompareOnlyTwo")}</p>
+          )}
+        </div>
+        {aiResult ? (
+          <section className="compare-ai-panel">
+            <div className="compare-ai-grid">
+              <div className="compare-section">
+                <strong>{t("styleProfile")}</strong>
+                <p>{aiResult.style_profile}</p>
+              </div>
+              <div className="compare-section">
+                <strong>{t("compareReadiness")}</strong>
+                <p>{aiResult.readiness}</p>
+              </div>
+              <div className="compare-section">
+                <strong>{t("compareOccasion")}</strong>
+                <p>{aiResult.occasion}</p>
+              </div>
+              <div className="compare-section">
+                <strong>{t("compareCellarValue")}</strong>
+                <p>{aiResult.cellar_value}</p>
+              </div>
+            </div>
+            <div className="compare-section compare-verdict">
+              <strong>{t("compareVerdict")}</strong>
+              <p>{aiResult.verdict}</p>
+            </div>
+          </section>
+        ) : null}
         <div className="compare-columns">
           {wines.map((wine) => (
             <article className={`compare-wine-card tone-${wineTone(wine.type)}`} key={wine.id}>
@@ -3619,6 +3685,8 @@ export function App() {
   const [marketViewContext, setMarketViewContext] = useState<MarketViewContext | null>(null);
   const [compareWineIds, setCompareWineIds] = useState<string[]>([]);
   const [compareModalOpen, setCompareModalOpen] = useState(false);
+  const [compareAiResult, setCompareAiResult] = useState<WineCompareAiResult | null>(null);
+  const [compareAiLoading, setCompareAiLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
     red: false,
@@ -5056,6 +5124,27 @@ export function App() {
     }
   }
 
+  async function generateCompareAi() {
+    if (compareWineIds.length !== 2) {
+      setError(t("aiCompareOnlyTwo"));
+      return;
+    }
+    setCompareAiLoading(true);
+    setError("");
+    try {
+      const result = await api<WineCompareAiResult>("/api/v1/ai/compare-wines", {
+        method: "POST",
+        body: JSON.stringify({ wine_ids: compareWineIds, locale }),
+      });
+      setCompareAiResult(result);
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate AI comparison");
+    } finally {
+      setCompareAiLoading(false);
+    }
+  }
+
   async function consumeWineBottle(wine: Wine, payload: ConsumeWineDraft) {
     setSaving(true);
     setError("");
@@ -5629,6 +5718,7 @@ export function App() {
   function clearComparedWines() {
     setCompareWineIds([]);
     setCompareModalOpen(false);
+    setCompareAiResult(null);
   }
 
   function openCompareModal() {
@@ -5637,6 +5727,7 @@ export function App() {
       return;
     }
     setError("");
+    setCompareAiResult(null);
     setCompareModalOpen(true);
   }
 
@@ -8706,8 +8797,18 @@ export function App() {
           session={session}
           t={t}
           locale={locale}
-          onClose={() => setCompareModalOpen(false)}
-          onRemove={(wineId) => setCompareWineIds((current) => current.filter((id) => id !== wineId))}
+          canGenerateAi={canGenerateAi}
+          aiResult={compareAiResult}
+          aiLoading={compareAiLoading}
+          onRunAiCompare={generateCompareAi}
+          onClose={() => {
+            setCompareModalOpen(false);
+            setCompareAiResult(null);
+          }}
+          onRemove={(wineId) => {
+            setCompareWineIds((current) => current.filter((id) => id !== wineId));
+            setCompareAiResult(null);
+          }}
         />
       ) : null}
     </main>

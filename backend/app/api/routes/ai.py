@@ -27,6 +27,8 @@ from app.schemas.ai import (
     PairingMarketWine,
     PairingRequest,
     PairingResponse,
+    WineCompareRequest,
+    WineCompareResponse,
 )
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
@@ -367,6 +369,32 @@ def wine_context(wine: Wine) -> str:
     )
 
 
+def compare_wine_context(wine: Wine) -> str:
+    return "\n".join(
+        [
+            f"Name: {wine.name}",
+            f"Producer: {wine.producer}",
+            f"Vintage: {wine.vintage}",
+            f"Type: {wine.type}",
+            f"Format: {wine.format}",
+            f"Region: {wine.region}",
+            f"Appellation: {wine.appellation}",
+            f"Status: {wine.status}",
+            f"Quantity: {wine.quantity}",
+            f"Purchase price: {wine.currency} {wine.price}",
+            f"Current value: {wine.currency} {wine.current_value}" if wine.current_value is not None else "Current value: unknown",
+            f"Drink window: {wine.drink_from}-{wine.drink_to}" if wine.drink_from or wine.drink_to else "Drink window: unknown",
+            f"Rating: {wine.rating or 'unknown'}",
+            f"Scores: {wine.scores}",
+            f"Grapes: {wine.grapes}",
+            f"Tags: {', '.join(wine.tags)}",
+            f"Notes: {wine.notes}",
+            f"AI notes: {wine.ai_notes}",
+            f"AI value notes: {wine.ai_value_notes}",
+        ],
+    )
+
+
 def wishlist_context(item: WishlistItem) -> str:
     return "\n".join(
         [
@@ -491,6 +519,81 @@ def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_
                     if isinstance(item, dict) and str(item.get("name") or "").strip()
                 ]
     return PairingResponse(summary=str(payload.get("summary") or "").strip(), model="", cellar_matches=cleaned_matches, market_recommendations=market)
+
+
+@router.post("/compare-wines", response_model=WineCompareResponse)
+def compare_wines(
+    payload: WineCompareRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineCompareResponse:
+    user_settings = get_or_create_user_ai_settings(db, context)
+    selected_wines = [get_household_wine(db, context, wine_id) for wine_id in payload.wine_ids]
+    if len(selected_wines) != 2:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Exactly 2 wines are required")
+    first, second = selected_wines
+    schema = {
+        "name": "wine_compare",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "style_profile": {"type": "string"},
+                "readiness": {"type": "string"},
+                "occasion": {"type": "string"},
+                "cellar_value": {"type": "string"},
+                "verdict": {"type": "string"},
+            },
+            "required": ["style_profile", "readiness", "occasion", "cellar_value", "verdict"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.pairing_model,
+        system_prompt=(
+            "You compare two wines for a private collector. Return JSON only. "
+            "Be concise, concrete, and decision-oriented. "
+            "In style_profile, write a direct 'A vs B' style comparison in one short paragraph. "
+            "Do not invent unavailable facts; acknowledge uncertainty briefly if needed. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            "Compare these two wines for a collector deciding what to open, keep, or prioritize.\n\n"
+            "Return:\n"
+            "- style_profile: direct A vs B on style and profile\n"
+            "- readiness: which is more ready now vs better to hold\n"
+            "- occasion: which suits what occasion better\n"
+            "- cellar_value: which seems more compelling in cellar/value terms\n"
+            "- verdict: one clear recommendation sentence\n\n"
+            f"WINE A\n{compare_wine_context(first)}\n\n"
+            f"WINE B\n{compare_wine_context(second)}"
+        ),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    compare_response = WineCompareResponse(
+        model=user_settings.pairing_model,
+        style_profile=str(result.get("style_profile") or "").strip(),
+        readiness=str(result.get("readiness") or "").strip(),
+        occasion=str(result.get("occasion") or "").strip(),
+        cellar_value=str(result.get("cellar_value") or "").strip(),
+        verdict=str(result.get("verdict") or "").strip(),
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="comparison",
+        entity_id=context.household.id,
+        feature="wine_compare",
+        model=user_settings.pairing_model,
+        summary=f"{first.name} vs {second.name}: {compare_response.verdict}",
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return compare_response
 
 
 @router.post("/pairing", response_model=PairingResponse)

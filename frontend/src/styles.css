@@ -1001,6 +1001,31 @@ summary:focus-visible {
   flex-wrap: wrap;
 }
 
+.compare-ai-toolbar {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.compare-ai-panel {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface-raised);
+}
+
+.compare-ai-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.compare-verdict {
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
 .compare-modal-overlay {
   position: fixed;
   inset: 0;
@@ -5048,6 +5073,10 @@ textarea {
     width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .compare-ai-grid {
+    grid-template-columns: 1fr;
   }
 
   .compare-columns {

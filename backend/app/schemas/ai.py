@@ -101,3 +101,17 @@ class PairingResponse(BaseModel):
     model: str
     cellar_matches: list[PairingCellarMatch] = Field(default_factory=list)
     market_recommendations: dict[str, list[PairingMarketWine]] = Field(default_factory=dict)
+
+
+class WineCompareRequest(BaseModel):
+    wine_ids: list[UUID] = Field(min_length=2, max_length=2)
+    locale: str = Field(default="it", pattern="^(it|en)$")
+
+
+class WineCompareResponse(BaseModel):
+    model: str
+    style_profile: str
+    readiness: str
+    occasion: str
+    cellar_value: str
+    verdict: str

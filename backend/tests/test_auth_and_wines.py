@@ -1474,6 +1474,57 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
     assert any(source.get("kind") == "market_note" and "merchant svizzeri" in source.get("text", "") for source in value_entry["sources"])
 
 
+def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+    first = client.post(
+        "/api/v1/wines",
+        json={"name": "Tignanello", "producer": "Antinori", "vintage": "2021", "quantity": 1, "price": 140, "currency": "CHF", "type": "Red", "region": "Tuscany"},
+    )
+    second = client.post(
+        "/api/v1/wines",
+        json={"name": "Dom Perignon", "producer": "Moet", "vintage": "2015", "quantity": 1, "price": 180, "currency": "CHF", "type": "Sparkling", "region": "Champagne"},
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    def fake_create_response(*args, **kwargs):
+        prompt = args[2]
+        assert "WINE A" in prompt
+        assert "WINE B" in prompt
+        assert "Tignanello" in prompt
+        assert "Dom Perignon" in prompt
+        return OpenAIResponse(
+            text=(
+                '{"style_profile":"Tignanello vs Dom Perignon: Tignanello is darker, more structured, and more savory, while Dom Perignon is brighter, finer, and more lifted.",'
+                '"readiness":"Dom Perignon looks easier to open now, while Tignanello can still benefit from more time.",'
+                '"occasion":"Choose Dom Perignon for celebration and aperitif energy; choose Tignanello for a deeper dinner table moment.",'
+                '"cellar_value":"Tignanello feels more cellar-driven as a red to follow over time, while Dom Perignon offers more immediate prestige and versatility.",'
+                '"verdict":"Open Dom Perignon first if the goal is immediacy and finesse; keep Tignanello for a more structured meal or a later date."}'
+            ),
+            usage=TokenUsage(input_tokens=220, output_tokens=140, total_tokens=360),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    compared = client.post(
+        "/api/v1/ai/compare-wines",
+        json={"wine_ids": [first.json()["id"], second.json()["id"]], "locale": "en"},
+    )
+    assert compared.status_code == 200
+    assert compared.json()["model"] == "gpt-5.5"
+    assert "Tignanello vs Dom Perignon" in compared.json()["style_profile"]
+    assert "Open Dom Perignon first" in compared.json()["verdict"]
+
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    compare_entry = next(entry for entry in audit.json() if entry["feature"] == "wine_compare")
+    assert "Tignanello vs Dom Perignon" in compare_entry["summary"]
+
+
 def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     from app.api.routes import ai as ai_routes
 
