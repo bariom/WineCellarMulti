@@ -6142,11 +6142,6 @@ export function App() {
               </div>
               <aside className="public-pricing-card">
                 <p className="eyebrow">{landing.pricesTitle}</p>
-                <div className="public-vintage-mark">
-                  <strong>2016</strong>
-                  <span>Sassicaia</span>
-                  <small>{locale === "it" ? "L'annata come firma della collezione." : "Vintage as the signature of a collection."}</small>
-                </div>
                 <div className="public-price-grid">
                   <div className="public-price-tile">
                     <strong>{landing.monthlyLabel}</strong>
