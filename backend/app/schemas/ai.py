@@ -56,6 +56,7 @@ class AiSettingsResponse(BaseModel):
     grape_model: str
     wishlist_model: str
     pairing_model: str
+    pairing_preferences: str = ""
     model_options: list[str]
 
 
@@ -68,6 +69,7 @@ class AiSettingsUpdate(BaseModel):
     grape_model: str | None = None
     wishlist_model: str | None = None
     pairing_model: str | None = None
+    pairing_preferences: str | None = Field(default=None, max_length=2000)
 
 
 class AiGenerationRequest(BaseModel):
@@ -78,6 +80,7 @@ class PairingRequest(BaseModel):
     dish: str = Field(min_length=2, max_length=240)
     include_market: bool = False
     market_only: bool = False
+    ignore_preferences: bool = False
     locale: str = Field(default="it", pattern="^(it|en)$")
 
 

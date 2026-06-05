@@ -3402,6 +3402,11 @@ textarea {
   gap: 6px;
 }
 
+.pairing-preferences-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
 .pairing-option {
   display: flex !important;
   align-items: center;

@@ -95,6 +95,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             grape_model=settings.openai_grape_model,
             wishlist_model=settings.openai_wishlist_model,
             pairing_model=settings.openai_pairing_model,
+            pairing_preferences="",
         )
         db.add(user_settings)
         db.flush()
@@ -125,6 +126,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         grape_model=user_settings.grape_model,
         wishlist_model=user_settings.wishlist_model,
         pairing_model=user_settings.pairing_model,
+        pairing_preferences=user_settings.pairing_preferences or "",
         model_options=MODEL_OPTIONS,
     )
 
@@ -343,6 +345,8 @@ def update_ai_settings(
         value = getattr(payload, field)
         if value is not None:
             setattr(user_settings, field, validate_model(value))
+    if payload.pairing_preferences is not None:
+        user_settings.pairing_preferences = payload.pairing_preferences.strip()[:2000]
     user_settings.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user_settings)
@@ -686,6 +690,7 @@ def suggest_pairing(
     context: CurrentContext = Depends(require_write_context),
 ) -> PairingResponse:
     user_settings = get_or_create_user_ai_settings(db, context)
+    pairing_preferences = "" if payload.ignore_preferences else (user_settings.pairing_preferences or "").strip()
     cellar_wines = [] if payload.market_only else list(
         db.scalars(
             select(Wine)
@@ -756,12 +761,15 @@ def suggest_pairing(
             "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
             "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
             "Non inventare che un vino e in cantina se non e nel contesto. "
+            "Se ricevi gusti personali dell'utente, trattali come preferenze morbide e non come vincoli assoluti. "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
             f"Piatto o pietanza: {payload.dish}\n"
             f"include_market: {str(payload.include_market).lower()}\n"
             f"market_only: {str(payload.market_only).lower()}\n\n"
+            f"gusti_personali: {pairing_preferences or 'none'}\n"
+            f"ignore_preferences: {str(payload.ignore_preferences).lower()}\n\n"
             "Vini disponibili in cantina, solo questi possono essere scelti come cellar_matches:\n"
             f"{wine_context_payload}\n\n"
             "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60."

@@ -384,6 +384,7 @@ type AiSettings = {
   grape_model: string;
   wishlist_model: string;
   pairing_model: string;
+  pairing_preferences: string;
   model_options: string[];
 };
 
@@ -396,6 +397,7 @@ type AiSettingsDraft = {
   grape_model: string;
   wishlist_model: string;
   pairing_model: string;
+  pairing_preferences: string;
 };
 
 type PairingResult = {
@@ -483,6 +485,7 @@ const emptyAiSettingsDraft: AiSettingsDraft = {
   grape_model: "gpt-5.4-nano",
   wishlist_model: "gpt-5.4",
   pairing_model: "gpt-5.4",
+  pairing_preferences: "",
 };
 
 const emptyRedeemCodeDraft: RedeemCodeDraft = {
@@ -785,6 +788,11 @@ const translations = {
     pairing: "Pairing",
     pairingCellarMatches: "From your cellar",
     pairingDish: "Dish or food",
+    pairingPreferences: "My pairing tastes",
+    pairingPreferencesHelp: "Describe your preferences once and Vinaris will use them by default during pairing.",
+    pairingPreferencesPlaceholder: "E.g. I prefer fresh, precise wines, low oak, little sweetness, and I usually avoid heavy tannins with spicy dishes.",
+    pairingIgnorePreferences: "Ignore my tastes for this request",
+    savePairingPreferences: "Save tastes",
     pairingEmptyDish: "Enter a dish first.",
     pairingIncludeMarket: "Also show 2 bottles outside my cellar",
     pairingMarketFallback: "Suggested bottles to buy",
@@ -1183,6 +1191,11 @@ const translations = {
     pairing: "Abbinamento",
     pairingCellarMatches: "Dalla tua cantina",
     pairingDish: "Piatto o pietanza",
+    pairingPreferences: "I miei gusti per gli abbinamenti",
+    pairingPreferencesHelp: "Descrivi una volta le tue preferenze e Vinaris le userà di default negli abbinamenti.",
+    pairingPreferencesPlaceholder: "Es. Preferisco vini freschi e precisi, poco legno, poca dolcezza ed evito tannini aggressivi con piatti speziati.",
+    pairingIgnorePreferences: "Ignora i miei gusti per questa richiesta",
+    savePairingPreferences: "Salva gusti",
     pairingEmptyDish: "Inserisci prima un piatto.",
     pairingIncludeMarket: "Mostra anche 2 proposte fuori cantina",
     pairingMarketFallback: "Bottiglie suggerite da acquistare",
@@ -3835,6 +3848,7 @@ export function App() {
   const [pairingDish, setPairingDish] = useState("");
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
+  const [pairingIgnorePreferences, setPairingIgnorePreferences] = useState(false);
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
   const [tagDraft, setTagDraft] = useState("");
   const [tagDraftColor, setTagDraftColor] = useState("#245142");
@@ -4202,6 +4216,7 @@ export function App() {
         grape_model: nextSettings.grape_model,
         wishlist_model: nextSettings.wishlist_model,
         pairing_model: nextSettings.pairing_model,
+        pairing_preferences: nextSettings.pairing_preferences || "",
       });
     } else {
       setAiSettings(null);
@@ -5019,9 +5034,30 @@ export function App() {
         grape_model: nextSettings.grape_model,
         wishlist_model: nextSettings.wishlist_model,
         pairing_model: nextSettings.pairing_model,
+        pairing_preferences: nextSettings.pairing_preferences || "",
       });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save AI settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function savePairingPreferences() {
+    setSaving(true);
+    setError("");
+    try {
+      const nextSettings = await api<AiSettings>("/api/v1/ai/settings", {
+        method: "PATCH",
+        body: JSON.stringify({ pairing_preferences: aiSettingsDraft.pairing_preferences }),
+      });
+      setAiSettings(nextSettings);
+      setAiSettingsDraft((current) => ({
+        ...current,
+        pairing_preferences: nextSettings.pairing_preferences || "",
+      }));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to save pairing preferences");
     } finally {
       setSaving(false);
     }
@@ -5439,6 +5475,7 @@ export function App() {
           dish: pairingDish.trim(),
           include_market: pairingIncludeMarket,
           market_only: pairingMarketOnly,
+          ignore_preferences: pairingIgnorePreferences,
           locale,
         }),
       });
@@ -5479,7 +5516,8 @@ export function App() {
       aiSettingsDraft.value_model !== aiSettings.value_model ||
       aiSettingsDraft.grape_model !== aiSettings.grape_model ||
       aiSettingsDraft.wishlist_model !== aiSettings.wishlist_model ||
-      aiSettingsDraft.pairing_model !== aiSettings.pairing_model
+      aiSettingsDraft.pairing_model !== aiSettings.pairing_model ||
+      aiSettingsDraft.pairing_preferences !== aiSettings.pairing_preferences
     ),
   );
   const aiStatusLabel = !aiSettings
@@ -6124,8 +6162,33 @@ export function App() {
         </div>
         <form className="pairing-form" onSubmit={generatePairing}>
           <label>
+            <span>{t("pairingPreferences")}</span>
+            <textarea
+              value={aiSettingsDraft.pairing_preferences}
+              onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
+              placeholder={t("pairingPreferencesPlaceholder")}
+              rows={4}
+              disabled={!canWriteWine || saving}
+            />
+            <small>{t("pairingPreferencesHelp")}</small>
+          </label>
+          <div className="pairing-preferences-actions">
+            <button
+              type="button"
+              className="secondary compact"
+              disabled={!canWriteWine || saving || (aiSettings?.pairing_preferences || "") === aiSettingsDraft.pairing_preferences}
+              onClick={() => savePairingPreferences()}
+            >
+              {t("savePairingPreferences")}
+            </button>
+          </div>
+          <label>
             <span>{t("pairingDish")}</span>
             <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+          </label>
+          <label className="pairing-option">
+            <input type="checkbox" checked={pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
+            <span>{t("pairingIgnorePreferences")}</span>
           </label>
           <label className="pairing-option">
             <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
@@ -8531,6 +8594,16 @@ export function App() {
                       onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
                       placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
                     />
+                  </label>
+                  <label>
+                    <span>{t("pairingPreferences")}</span>
+                    <textarea
+                      value={aiSettingsDraft.pairing_preferences}
+                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
+                      placeholder={t("pairingPreferencesPlaceholder")}
+                      rows={4}
+                    />
+                    <small>{t("pairingPreferencesHelp")}</small>
                   </label>
                     {showAiBudgetPanel ? (
                       <div className="token-box">
