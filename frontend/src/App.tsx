@@ -567,6 +567,9 @@ const translations = {
     allStatuses: "All statuses",
     allTags: "All tags",
     allTypes: "All types",
+    bottlePrice: "Bottle price",
+    minPrice: "Min price",
+    maxPrice: "Max price",
     appellation: "Appellation",
     billing: "Billing",
     buyAccess: "Pay with card",
@@ -945,6 +948,9 @@ const translations = {
     allStatuses: "Tutti gli stati",
     allTags: "Tutti i tag",
     allTypes: "Tutti i tipi",
+    bottlePrice: "Prezzo bottiglia",
+    minPrice: "Prezzo min",
+    maxPrice: "Prezzo max",
     appellation: "Denominazione",
     billing: "Iscrizione",
     buyAccess: "Paga con carta",
@@ -3738,6 +3744,8 @@ export function App() {
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [grapeFilter, setGrapeFilter] = useState<string[]>([]);
+  const [minBottlePriceFilter, setMinBottlePriceFilter] = useState("");
+  const [maxBottlePriceFilter, setMaxBottlePriceFilter] = useState("");
   const [tagOptionQuery, setTagOptionQuery] = useState("");
   const [grapeOptionQuery, setGrapeOptionQuery] = useState("");
   const [sortMode, setSortMode] = useState<SortMode>("name");
@@ -5445,10 +5453,20 @@ export function App() {
   const activeStatusOptions = isWineCollectionView ? wineStatusOptions : wishlistStatusOptions;
   const currentYear = new Date().getFullYear();
   const now = new Date();
+  const minBottlePrice = Number(minBottlePriceFilter);
+  const maxBottlePrice = Number(maxBottlePriceFilter);
+  const hasMinBottlePrice = minBottlePriceFilter.trim() !== "" && Number.isFinite(minBottlePrice);
+  const hasMaxBottlePrice = maxBottlePriceFilter.trim() !== "" && Number.isFinite(maxBottlePrice);
   const filteredWines = activeWineCollection
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
     .filter((wine) => !typeFilter || wine.type === typeFilter)
     .filter((wine) => !statusFilter || wine.status === statusFilter)
+    .filter((wine) => {
+      const bottlePrice = Number(wine.price || 0);
+      if (hasMinBottlePrice && bottlePrice < minBottlePrice) return false;
+      if (hasMaxBottlePrice && bottlePrice > maxBottlePrice) return false;
+      return true;
+    })
     .filter((wine) => {
       if (!ownershipFilter) return true;
       const share = currentUserSharePct(wine, session);
@@ -5801,6 +5819,8 @@ export function App() {
     setQuickWineFilter("");
     setTagFilter([]);
     setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
     setTagOptionQuery("");
     setGrapeOptionQuery("");
     setSortMode(nextView === "wishlist" ? "priority" : "name");
@@ -5814,6 +5834,8 @@ export function App() {
     setOwnershipFilter("");
     setTagFilter([]);
     setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
     setTagOptionQuery("");
     setGrapeOptionQuery("");
     setSortMode("name");
@@ -7666,6 +7688,32 @@ export function App() {
                   </select>
                 </label>
               </div>
+              {isWineCollectionView ? (
+                <div className="filter-row">
+                  <label>
+                    <span>{t("minPrice")}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={minBottlePriceFilter}
+                      onChange={(event) => setMinBottlePriceFilter(event.target.value)}
+                      placeholder={t("bottlePrice")}
+                    />
+                  </label>
+                  <label>
+                    <span>{t("maxPrice")}</span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={maxBottlePriceFilter}
+                      onChange={(event) => setMaxBottlePriceFilter(event.target.value)}
+                      placeholder={t("bottlePrice")}
+                    />
+                  </label>
+                </div>
+              ) : null}
               <div className="filter-row">
                 {isWineCollectionView ? (
                   <div className="filter-choice-group">
