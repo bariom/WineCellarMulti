@@ -62,8 +62,23 @@ def upgrade() -> None:
     )
 
     bind = op.get_bind()
-    households = list(bind.execute(sa.text("SELECT DISTINCT household_id, max(created_by_user_id) AS created_by_user_id FROM wishlist_items GROUP BY household_id")))
-    for household_id, created_by_user_id in households:
+    household_rows = list(
+        bind.execute(
+            sa.text(
+                """
+                SELECT household_id, created_by_user_id
+                FROM wishlist_items
+                ORDER BY household_id
+                """,
+            ),
+        ),
+    )
+    household_creator_map: dict[uuid.UUID, uuid.UUID | None] = {}
+    for household_id, created_by_user_id in household_rows:
+        if household_id not in household_creator_map or household_creator_map[household_id] is None:
+            household_creator_map[household_id] = created_by_user_id
+
+    for household_id, created_by_user_id in household_creator_map.items():
         list_id = uuid.uuid4()
         bind.execute(
             wishlist_lists.insert().values(
