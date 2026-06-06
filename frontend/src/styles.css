@@ -6306,23 +6306,24 @@ textarea {
   }
 
   .dashboard-card {
-    gap: 10px;
+    gap: 8px;
   }
 
   .card-heading {
-    gap: 10px;
+    align-items: start;
+    gap: 8px;
   }
 
   .card-heading h2 {
-    font-size: 0.98rem;
+    font-size: 0.94rem;
   }
 
   .card-heading > strong {
-    font-size: 1.35rem;
+    font-size: 1.24rem;
   }
 
   .action-row {
-    padding: 7px 0;
+    padding: 6px 0;
   }
 
   .action-row strong,
@@ -6342,12 +6343,12 @@ textarea {
   }
 
   .detail-title h2 {
-    font-size: 1.3rem;
+    font-size: 1.18rem;
   }
 
   .ai-actions {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     padding: 10px;
   }
@@ -6355,9 +6356,9 @@ textarea {
   .ai-actions button {
     width: 100%;
     min-height: 40px;
-    padding: 8px 6px;
-    font-size: 0.82rem;
-    line-height: 1.2;
+    padding: 8px 8px;
+    font-size: 0.8rem;
+    line-height: 1.15;
     border-radius: 10px;
   }
 
@@ -6433,11 +6434,72 @@ textarea {
   .wishlist-price-block {
     width: 100%;
     justify-items: start;
-    gap: 4px;
+    gap: 5px;
+    min-width: 0;
+    padding: 10px;
+    border-radius: 14px;
   }
 
   .wishlist-market-estimate {
     text-align: left;
+  }
+
+  .wishlist-mobile-ai-preview-note {
+    gap: 5px;
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .wishlist-signal-strip {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .wishlist-signal-strip .priority-chip,
+  .wishlist-signal-strip .status-chip,
+  .wishlist-signal-strip .target-chip {
+    min-height: 34px;
+    padding: 6px 9px;
+    font-size: 0.8rem;
+  }
+
+  .wine-detail {
+    gap: 14px;
+    padding: 12px;
+  }
+
+  .detail-title {
+    gap: 10px;
+    padding-bottom: 10px;
+  }
+
+  .detail-title > strong {
+    font-size: 1.05rem;
+  }
+
+  .detail-grid {
+    gap: 8px;
+  }
+
+  .detail-field {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .dashboard-grid > .dashboard-card {
+    flex-basis: 88%;
+    min-width: 88%;
+  }
+
+  .dashboard-grid > .key-position-card,
+  .dashboard-grid > .wide-card,
+  .dashboard-grid > .timeline-card {
+    flex-basis: 92%;
+    min-width: 92%;
+  }
+
+  .dashboard-dots {
+    margin-top: -2px;
   }
 
   .row-meta span {
@@ -6516,7 +6578,7 @@ textarea {
   }
 
   .ai-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .hero-kpi {
