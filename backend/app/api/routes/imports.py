@@ -15,10 +15,13 @@ from app.api.deps import CurrentContext, require_admin_context
 from app.api.routes.wines import normalize_owner_rows
 from app.core.security import hash_invite_token, new_invite_token
 from app.db.session import get_db
-from app.models import AiAuditLog, HouseholdInvite, Membership, User, UserTag, Wine, WineShareOffer, WineValueHistory, WishlistItem
+from app.models import AiAuditLog, HouseholdInvite, Membership, User, UserTag, Wine, WineShareOffer, WineValueHistory, WishlistItem, WishlistList
 
 
 router = APIRouter(prefix="/imports")
+
+DEFAULT_WISHLIST_LIST_NAME = "Wishlist"
+WishlistDuplicateKey = tuple[str, str, str, str, str, str]
 
 
 class LegacyImportResult(BaseModel):
@@ -185,8 +188,9 @@ def wine_duplicate_key(data: dict[str, Any]) -> tuple[str, str, str, str, str]:
     )
 
 
-def wishlist_duplicate_key(data: dict[str, Any]) -> tuple[str, str, str, str, str]:
+def wishlist_duplicate_key(data: dict[str, Any]) -> WishlistDuplicateKey:
     return (
+        normalize_key_part(data.get("wishlist_list_id")),
         normalize_key_part(data.get("name")),
         normalize_key_part(data.get("producer")),
         normalize_key_part(data.get("vintage")),
@@ -234,6 +238,11 @@ def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
 def export_wishlist(db: Session, household_id: UUID) -> list[dict[str, Any]]:
     wishlist = list(db.scalars(select(WishlistItem).where(WishlistItem.household_id == household_id).order_by(WishlistItem.name.asc())))
     return [model_payload(item) for item in wishlist]
+
+
+def export_wishlist_lists(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    wishlist_lists = list(db.scalars(select(WishlistList).where(WishlistList.household_id == household_id).order_by(WishlistList.name.asc(), WishlistList.id.asc())))
+    return [model_payload(item) for item in wishlist_lists]
 
 
 def export_members(db: Session, household_id: UUID) -> list[dict[str, Any]]:
@@ -329,7 +338,75 @@ def clear_household_export_blocks(db: Session, context: CurrentContext, blocks: 
         wines_deleted = db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
     if "wishlist" in blocks:
         wishlist_deleted = db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
+        db.query(WishlistList).filter(WishlistList.household_id == context.household.id).delete(synchronize_session=False)
     return wines_deleted, wishlist_deleted
+
+
+def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) -> WishlistList:
+    wishlist_list = db.scalar(
+        select(WishlistList)
+        .where(WishlistList.household_id == context.household.id)
+        .order_by(WishlistList.name.asc(), WishlistList.id.asc()),
+    )
+    if wishlist_list is not None:
+        return wishlist_list
+    wishlist_list = WishlistList(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        name=DEFAULT_WISHLIST_LIST_NAME,
+        description="",
+    )
+    db.add(wishlist_list)
+    db.flush()
+    return wishlist_list
+
+
+def existing_wishlist_lists_by_name(db: Session, context: CurrentContext) -> dict[str, WishlistList]:
+    return {
+        wishlist_list.name.strip().lower(): wishlist_list
+        for wishlist_list in db.scalars(select(WishlistList).where(WishlistList.household_id == context.household.id))
+    }
+
+
+def prepare_import_wishlist_lists(
+    payload: dict[str, Any],
+    db: Session,
+    context: CurrentContext,
+    reserved_ids: set[UUID] | None = None,
+    create_missing: bool = True,
+) -> tuple[dict[UUID, UUID], dict[str, UUID]]:
+    existing_by_name = existing_wishlist_lists_by_name(db, context)
+    default_list = get_or_create_default_wishlist_list(db, context) if create_missing else next(iter(existing_by_name.values()), None)
+    list_id_map: dict[UUID, UUID] = {}
+    list_name_map: dict[str, UUID] = {}
+    raw_lists = payload_list(payload, "wishlist_lists") if isinstance(payload.get("wishlist_lists"), list) else []
+    for raw_list in raw_lists:
+        original_id = as_uuid(raw_list.get("id"))
+        name = as_str(raw_list.get("name")) or DEFAULT_WISHLIST_LIST_NAME
+        description = as_str(raw_list.get("description"))
+        normalized_name = name.strip().lower()
+        existing = existing_by_name.get(normalized_name)
+        if existing is None:
+            if not create_missing:
+                continue
+            list_id = ensure_unused_id(db, WishlistList, original_id, reserved_ids)
+            existing = WishlistList(
+                id=list_id,
+                household_id=context.household.id,
+                created_by_user_id=context.user.id,
+                name=name,
+                description=description,
+            )
+            db.add(existing)
+            db.flush()
+            existing_by_name[normalized_name] = existing
+        elif description and not existing.description:
+            existing.description = description
+        list_id_map[original_id] = existing.id
+        list_name_map[normalized_name] = existing.id
+    if not list_name_map and default_list is not None:
+        list_name_map[default_list.name.strip().lower()] = default_list.id
+    return list_id_map, list_name_map
 
 
 def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, Any]:
@@ -371,10 +448,11 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
     }
 
 
-def legacy_wishlist_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, Any]:
+def legacy_wishlist_data(raw: dict[str, Any], context: CurrentContext, wishlist_list_id: UUID) -> dict[str, Any]:
     return {
         "id": as_uuid(raw.get("id")),
         "household_id": context.household.id,
+        "wishlist_list_id": wishlist_list_id,
         "created_by_user_id": context.user.id,
         "name": as_str(raw.get("name")) or "Unnamed wishlist item",
         "producer": as_str(raw.get("producer")),
@@ -411,8 +489,8 @@ def existing_by_id_or_key(
     model: type[Wine] | type[WishlistItem],
     household_id: UUID,
     data: dict[str, Any],
-    key: tuple[str, str, str, str, str],
-    existing_keys: dict[tuple[str, str, str, str, str], Wine | WishlistItem],
+    key: tuple[str, ...],
+    existing_keys: dict[tuple[str, ...], Wine | WishlistItem],
 ) -> Wine | WishlistItem | None:
     instance = db.scalar(select(model).where(model.id == data["id"], model.household_id == household_id))
     return instance or existing_keys.get(key)
@@ -432,7 +510,7 @@ def existing_wine_keys(db: Session, context: CurrentContext) -> dict[tuple[str, 
     return {wine_duplicate_key(model_payload(wine)): wine for wine in wines}
 
 
-def existing_wishlist_keys(db: Session, context: CurrentContext) -> dict[tuple[str, str, str, str, str], WishlistItem]:
+def existing_wishlist_keys(db: Session, context: CurrentContext) -> dict[WishlistDuplicateKey, WishlistItem]:
     items = db.scalars(select(WishlistItem).where(WishlistItem.household_id == context.household.id))
     return {wishlist_duplicate_key(model_payload(item)): item for item in items}
 
@@ -451,6 +529,8 @@ def vinaris_preview_payload(payload: dict[str, Any], db: Session, context: Curre
     raw_wishlist = payload_list(payload, "wishlist")
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
+    _, wishlist_list_name_map = prepare_import_wishlist_lists(payload, db, context, create_missing=False)
+    default_wishlist_list = next(iter(existing_wishlist_lists_by_name(db, context).values()), None)
     wine_duplicates: list[str] = []
     wishlist_duplicates: list[str] = []
 
@@ -459,7 +539,10 @@ def vinaris_preview_payload(payload: dict[str, Any], db: Session, context: Curre
         if existing_by_id_or_key(db, Wine, context.household.id, data, wine_duplicate_key(data), wine_keys):
             wine_duplicates.append(data["name"])
     for raw_item in raw_wishlist:
-        data = legacy_wishlist_data(raw_item, context)
+        raw_list_name = as_str(raw_item.get("wishlist_list_name"))
+        mapped_list_id = wishlist_list_name_map.get(raw_list_name.strip().lower()) if raw_list_name else None
+        mapped_list_id = mapped_list_id or (default_wishlist_list.id if default_wishlist_list else UUID(int=0))
+        data = legacy_wishlist_data(raw_item, context, mapped_list_id)
         if existing_by_id_or_key(db, WishlistItem, context.household.id, data, wishlist_duplicate_key(data), wishlist_keys):
             wishlist_duplicates.append(data["name"])
 
@@ -493,6 +576,7 @@ def import_vinaris_json_payload(
     reserved_ids: dict[type[Any], set[UUID]] = {
         Wine: set(),
         WishlistItem: set(),
+        WishlistList: set(),
         WineValueHistory: set(),
         HouseholdInvite: set(),
         UserTag: set(),
@@ -505,6 +589,8 @@ def import_vinaris_json_payload(
 
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
+    wishlist_list_id_map, wishlist_list_name_map = prepare_import_wishlist_lists(payload, db, context, reserved_ids[WishlistList])
+    default_wishlist_list = next(iter(existing_wishlist_lists_by_name(db, context).values()), None)
     imported_wine_ids: dict[UUID, UUID] = {}
     imported_wishlist_ids: dict[UUID, UUID] = {}
 
@@ -552,7 +638,13 @@ def import_vinaris_json_payload(
                         setattr(value_entry, field, value)
 
     for raw_item in payload_list(payload, "wishlist") if "wishlist" in blocks else []:
-        data = legacy_wishlist_data(raw_item, context)
+        raw_list_id = as_uuid(raw_item.get("wishlist_list_id"))
+        raw_list_name = as_str(raw_item.get("wishlist_list_name"))
+        mapped_list_id = wishlist_list_id_map.get(raw_list_id)
+        if mapped_list_id is None and raw_list_name:
+            mapped_list_id = wishlist_list_name_map.get(raw_list_name.strip().lower())
+        mapped_list_id = mapped_list_id or default_wishlist_list.id
+        data = legacy_wishlist_data(raw_item, context, mapped_list_id)
         original_id = data["id"]
         data["ai_market_price"] = as_optional_decimal(raw_item.get("ai_market_price"))
         data["ai_market_price_currency"] = as_str(raw_item.get("ai_market_price_currency"))
@@ -768,6 +860,7 @@ def clear_household_cellar(db: Session, context: CurrentContext) -> tuple[int, i
     db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
     wines_deleted = db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
     wishlist_deleted = db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(WishlistList).filter(WishlistList.household_id == context.household.id).delete(synchronize_session=False)
     return wines_deleted, wishlist_deleted
 
 
@@ -780,6 +873,7 @@ def preview_legacy_json(
     raw_wines, raw_wishlist = legacy_payload_lists(payload)
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
+    default_wishlist_list = next(iter(existing_wishlist_lists_by_name(db, context).values()), None)
     wine_duplicates = []
     wishlist_duplicates = []
 
@@ -788,7 +882,7 @@ def preview_legacy_json(
         if existing_by_id_or_key(db, Wine, context.household.id, data, wine_duplicate_key(data), wine_keys):
             wine_duplicates.append(data["name"])
     for raw_item in raw_wishlist:
-        data = legacy_wishlist_data(raw_item, context)
+        data = legacy_wishlist_data(raw_item, context, default_wishlist_list.id if default_wishlist_list else UUID(int=0))
         if existing_by_id_or_key(db, WishlistItem, context.household.id, data, wishlist_duplicate_key(data), wishlist_keys):
             wishlist_duplicates.append(data["name"])
 
@@ -831,6 +925,7 @@ def import_legacy_json(
         db.flush()
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
+    default_wishlist_list = get_or_create_default_wishlist_list(db, context)
 
     for raw_wine in wines:
         data = legacy_wine_data(raw_wine, context)
@@ -853,7 +948,7 @@ def import_legacy_json(
         result.wines_imported += 1
 
     for raw_item in wishlist:
-        data = legacy_wishlist_data(raw_item, context)
+        data = legacy_wishlist_data(raw_item, context, default_wishlist_list.id)
         key = wishlist_duplicate_key(data)
         existing = existing_by_id_or_key(db, WishlistItem, context.household.id, data, key, wishlist_keys)
         if mode == "skip_duplicates" and existing is not None:
@@ -924,6 +1019,7 @@ def export_json(
         export_payload["included_blocks"].append("wines")
     if include_wishlist:
         export_payload["wishlist"] = export_wishlist(db, context.household.id)
+        export_payload["wishlist_lists"] = export_wishlist_lists(db, context.household.id)
         export_payload["included_blocks"].append("wishlist")
     if include_members:
         export_payload["members"] = export_members(db, context.household.id)

@@ -183,6 +183,7 @@ type WineShareOffer = {
 type WishlistItem = {
   id: string;
   household_id: string;
+  wishlist_list_id: string;
   name: string;
   producer: string;
   vintage: string;
@@ -204,7 +205,16 @@ type WishlistItem = {
   ai_purpose_advice: string;
 };
 
+type WishlistList = {
+  id: string;
+  household_id: string;
+  name: string;
+  description: string;
+  item_count: number;
+};
+
 type WishlistDraft = {
+  wishlist_list_id: string;
   name: string;
   producer: string;
   vintage: string;
@@ -425,6 +435,9 @@ type WishlistPortfolioStrategy = {
   wait_watch: string;
   allocation: string;
   next_step: string;
+  wishlist_list_id: string;
+  wishlist_list_name: string;
+  item_count: number;
   estimated_cost_usd: string;
 };
 
@@ -577,6 +590,13 @@ const translations = {
     aiStrategy: "AI strategy",
     wishlistPortfolioStrategy: "Wishlist buying strategy",
     wishlistPortfolioStrategyHelp: "Review the full wishlist as a collector portfolio and decide what to prioritize now versus monitor.",
+    wishlistList: "Wishlist list",
+    wishlistLists: "Wishlists",
+    createWishlistList: "New list",
+    renameWishlistList: "Rename list",
+    deleteWishlistList: "Delete list",
+    wishlistListName: "List name",
+    wishlistListDeleteHelp: "Items in this list will be moved to another wishlist.",
     generateWishlistPortfolioStrategy: "Generate buying strategy",
     refreshWishlistPortfolioStrategy: "Refresh buying strategy",
     noWishlistPortfolioStrategy: "No wishlist-wide buying strategy generated yet.",
@@ -988,6 +1008,13 @@ const translations = {
     aiStrategy: "Strategia AI",
     wishlistPortfolioStrategy: "Strategia d'acquisto wishlist",
     wishlistPortfolioStrategyHelp: "Valuta l'intera wishlist come portafoglio da collezionista e capisci cosa prioritizzare ora rispetto a cosa monitorare.",
+    wishlistList: "Lista wishlist",
+    wishlistLists: "Wishlist",
+    createWishlistList: "Nuova lista",
+    renameWishlistList: "Rinomina lista",
+    deleteWishlistList: "Elimina lista",
+    wishlistListName: "Nome lista",
+    wishlistListDeleteHelp: "Gli elementi presenti verranno spostati in un'altra wishlist.",
     generateWishlistPortfolioStrategy: "Genera strategia d'acquisto",
     refreshWishlistPortfolioStrategy: "Aggiorna strategia d'acquisto",
     noWishlistPortfolioStrategy: "Nessuna strategia d'acquisto complessiva generata finora.",
@@ -1932,6 +1959,7 @@ const emptyInviteDraft: InviteDraft = {
 };
 
 const emptyWishlistDraft: WishlistDraft = {
+  wishlist_list_id: "",
   name: "",
   producer: "",
   vintage: "",
@@ -2047,6 +2075,7 @@ function offlineWishlistItem(raw: Record<string, unknown>, index: number): Wishl
   return {
     id: rawString(raw.id, `offline-wishlist-${index}`),
     household_id: rawString(raw.household_id, "offline"),
+    wishlist_list_id: rawString(raw.wishlist_list_id, "offline-default"),
     name: rawString(raw.name, "Unnamed wishlist item"),
     producer: rawString(raw.producer),
     vintage: rawString(raw.vintage),
@@ -2202,6 +2231,7 @@ function draftPayload(draft: WineDraft) {
 
 function wishlistToDraft(item: WishlistItem): WishlistDraft {
   return {
+    wishlist_list_id: item.wishlist_list_id,
     name: item.name,
     producer: item.producer,
     vintage: item.vintage,
@@ -2222,6 +2252,7 @@ function wishlistToDraft(item: WishlistItem): WishlistDraft {
 
 function wishlistPayload(draft: WishlistDraft) {
   return {
+    wishlist_list_id: draft.wishlist_list_id,
     name: draft.name.trim(),
     producer: draft.producer.trim(),
     vintage: draft.vintage.trim(),
@@ -3039,6 +3070,9 @@ function auditWishlistPortfolioStrategy(entry: AiAuditLog): WishlistPortfolioStr
     wait_watch: rawString(strategyEntry.wait_watch),
     allocation: rawString(strategyEntry.allocation),
     next_step: rawString(strategyEntry.next_step),
+    wishlist_list_id: rawString(strategyEntry.wishlist_list_id),
+    wishlist_list_name: rawString(strategyEntry.wishlist_list_name),
+    item_count: rawNumber(strategyEntry.item_count),
     estimated_cost_usd: rawString(entry.estimated_cost_usd),
   };
 }
@@ -3908,6 +3942,7 @@ export function App() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [wineCatalog, setWineCatalog] = useState<CatalogWine[]>([]);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
+  const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
   const [shareOffers, setShareOffers] = useState<WineShareOffer[]>([]);
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
@@ -3987,6 +4022,7 @@ export function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
+  const [selectedWishlistListId, setSelectedWishlistListId] = useState<string>("");
   const [pendingWineScrollId, setPendingWineScrollId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
@@ -4139,8 +4175,19 @@ export function App() {
     setWineCatalog(await api<CatalogWine[]>("/api/v1/wines/catalog"));
   }
 
-  async function loadWishlist() {
-    const nextWishlist = await api<WishlistItem[]>("/api/v1/wishlist");
+  async function loadWishlistLists() {
+    const nextLists = await api<WishlistList[]>("/api/v1/wishlist/lists");
+    setWishlistLists(nextLists);
+    setSelectedWishlistListId((currentId) => {
+      if (currentId && nextLists.some((item) => item.id === currentId)) return currentId;
+      return nextLists[0]?.id || "";
+    });
+    return nextLists;
+  }
+
+  async function loadWishlist(listId = selectedWishlistListId) {
+    const query = listId ? `?wishlist_list_id=${encodeURIComponent(listId)}` : "";
+    const nextWishlist = await api<WishlistItem[]>(`/api/v1/wishlist${query}`);
     setWishlist(nextWishlist);
     setSelectedWishlistId((currentId) => (currentId && nextWishlist.some((item) => item.id === currentId) ? currentId : null));
   }
@@ -4318,7 +4365,11 @@ export function App() {
       await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated)]);
       return;
     }
-    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+    const nextLists = await loadWishlistLists();
+    const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
+      ? selectedWishlistListId
+      : nextLists[0]?.id || "";
+    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
   }
 
   async function loadData() {
@@ -4330,6 +4381,7 @@ export function App() {
         setWines([]);
         setWineCatalog([]);
         setWishlist([]);
+        setWishlistLists([]);
         setShareOffers([]);
         setReceivedInvites([]);
         setUserNotifications([]);
@@ -4352,6 +4404,7 @@ export function App() {
       setWines([]);
       setWineCatalog([]);
       setWishlist([]);
+      setWishlistLists([]);
       setShareOffers([]);
       setReceivedInvites([]);
       setUserNotifications([]);
@@ -4597,11 +4650,12 @@ export function App() {
     setRedeemInput("");
     setGeneratedRedeemCode("");
     setDraft(emptyDraft);
-    setWishlistDraft(emptyWishlistDraft);
+    setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: "" });
     setEditingId(null);
     setEditingWishlistId(null);
     setSelectedWineId(null);
     setSelectedWishlistId(null);
+    setSelectedWishlistListId("");
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     setAiAudit([]);
@@ -4615,11 +4669,12 @@ export function App() {
     setError("");
     await api<Session>("/api/v1/household/switch", { method: "POST", body: JSON.stringify({ household_id: householdId }) });
     setDraft(emptyDraft);
-    setWishlistDraft(emptyWishlistDraft);
+    setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: "" });
     setEditingId(null);
     setEditingWishlistId(null);
     setSelectedWineId(null);
     setSelectedWishlistId(null);
+    setSelectedWishlistListId("");
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     await loadData();
@@ -5027,6 +5082,22 @@ export function App() {
       const household = rawObject(payload.household);
       const nextWines = rawArray(payload.wines).map(offlineWine);
       const nextWishlist = rawArray(payload.wishlist).map(offlineWishlistItem);
+      const nextWishlistLists = rawArray(payload.wishlist_lists).map((item, index) => ({
+        id: rawString(item.id, `offline-wishlist-list-${index}`),
+        household_id: rawString(item.household_id, rawString(household.id, "offline")),
+        name: rawString(item.name, `Wishlist ${index + 1}`),
+        description: rawString(item.description),
+        item_count: nextWishlist.filter((wishlistItem) => wishlistItem.wishlist_list_id === rawString(item.id, `offline-wishlist-list-${index}`)).length,
+      }));
+      const derivedWishlistLists = nextWishlistLists.length
+        ? nextWishlistLists
+        : [{
+            id: "offline-default",
+            household_id: rawString(household.id, "offline"),
+            name: "Wishlist",
+            description: "",
+            item_count: nextWishlist.length,
+          }];
       setOfflineMode(true);
       setOfflineFileName(file.name);
       setSession({
@@ -5046,6 +5117,8 @@ export function App() {
       });
       setWines(nextWines);
       setWishlist(nextWishlist);
+      setWishlistLists(derivedWishlistLists);
+      setSelectedWishlistListId(derivedWishlistLists[0]?.id || "");
       setSelectedWineId(null);
       setSelectedWishlistId(null);
       setShareOffers([]);
@@ -5249,10 +5322,10 @@ export function App() {
       } else {
         await api<WishlistItem>("/api/v1/wishlist", { method: "POST", body: JSON.stringify(payload) });
       }
-      setWishlistDraft(emptyWishlistDraft);
+      setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
       setEditingWishlistId(null);
       setWishlistFormOpen(false);
-      await loadWishlist();
+      await Promise.all([loadWishlist(), loadWishlistLists()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wishlist item");
     } finally {
@@ -5306,7 +5379,7 @@ export function App() {
       setImportPreview(null);
       setImportPayload(null);
       setImportFileName("");
-      await Promise.all([loadWines(), loadWishlist(), loadHouseholdData(), loadTags(), loadAiAudit(session?.membership_role)]);
+      await Promise.all([loadWines(), loadWishlist(), loadWishlistLists(), loadHouseholdData(), loadTags(), loadAiAudit(session?.membership_role)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to import JSON backup");
     } finally {
@@ -5329,7 +5402,7 @@ export function App() {
       setImportFileName("");
       setSelectedWineId(null);
       setSelectedWishlistId(null);
-      await Promise.all([loadWines(), loadWishlist()]);
+      await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to empty cellar");
     } finally {
@@ -5386,10 +5459,10 @@ export function App() {
     await api<void>(`/api/v1/wishlist/${item.id}`, { method: "DELETE" });
     if (editingWishlistId === item.id) {
       setEditingWishlistId(null);
-      setWishlistDraft(emptyWishlistDraft);
+      setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
       setWishlistFormOpen(false);
     }
-    await loadWishlist();
+    await Promise.all([loadWishlist(), loadWishlistLists()]);
   }
 
   async function convertWishlistItem(item: WishlistItem) {
@@ -5400,7 +5473,7 @@ export function App() {
       await api<{ wine_id: string }>(`/api/v1/wishlist/${item.id}/convert`, { method: "POST" });
       setWishlistFormOpen(false);
       setEditingWishlistId(null);
-      await Promise.all([loadWines(), loadWishlist()]);
+      await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
       setActiveView("cellar");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to convert wishlist item");
@@ -5534,12 +5607,13 @@ export function App() {
   }
 
   async function generateWishlistPortfolioStrategy() {
+    if (!selectedWishlistListId) return;
     setGeneratingAi("wishlist-portfolio-strategy");
     setError("");
     try {
       const result = await api<WishlistPortfolioStrategy>("/api/v1/ai/wishlist/portfolio-strategy", {
         method: "POST",
-        body: JSON.stringify({ locale }),
+        body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId }),
       });
       setWishlistPortfolioStrategy(result);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
@@ -5724,6 +5798,8 @@ export function App() {
     : filteredAiAudit;
   const selectedWine = wines.find((wine) => wine.id === selectedWineId) || null;
   const selectedWishlistItem = wishlist.find((item) => item.id === selectedWishlistId) || null;
+  const selectedWishlistList = wishlistLists.find((item) => item.id === selectedWishlistListId) || null;
+  const totalWishlistItemCount = wishlistLists.reduce((sum, item) => sum + item.item_count, 0);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const cellarWines = wines.filter((wine) => wine.quantity > 0);
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
@@ -5750,7 +5826,8 @@ export function App() {
       (entry) =>
         entry.entity_type === "household" &&
         entry.entity_id === session?.active_household_id &&
-        entry.feature === "wishlist_portfolio_strategy",
+        entry.feature === "wishlist_portfolio_strategy" &&
+        rawString((entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "wishlist_portfolio_strategy")?.wishlist_list_id) === selectedWishlistListId,
     ) || null;
   const visibleWishlistPortfolioStrategy =
     wishlistPortfolioStrategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);
@@ -5951,6 +6028,20 @@ export function App() {
   }, [session?.active_household_id]);
 
   useEffect(() => {
+    if (offlineMode || !session?.authenticated || !selectedWishlistListId) return;
+    loadWishlist(selectedWishlistListId).catch((nextError) => {
+      setError(nextError instanceof Error ? nextError.message : "Unable to load wishlist");
+    });
+    setSelectedWishlistId(null);
+    setWishlistPortfolioStrategy(null);
+  }, [selectedWishlistListId]);
+
+  useEffect(() => {
+    if (!selectedWishlistListId) return;
+    setWishlistDraft((current) => current.wishlist_list_id ? current : { ...current, wishlist_list_id: selectedWishlistListId });
+  }, [selectedWishlistListId]);
+
+  useEffect(() => {
     if (session?.user_email) {
       setContactSupportDraft((current) => (current.email ? current : { ...current, email: session.user_email || "" }));
       return;
@@ -6128,9 +6219,64 @@ export function App() {
   }
 
   function startAddWishlistItem() {
-    setWishlistDraft(emptyWishlistDraft);
+    setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
     setEditingWishlistId(null);
     setWishlistFormOpen(true);
+  }
+
+  async function createWishlistList() {
+    const name = window.prompt(t("wishlistListName"), "");
+    if (!name || !name.trim()) return;
+    setSaving(true);
+    setError("");
+    try {
+      const created = await api<WishlistList>("/api/v1/wishlist/lists", {
+        method: "POST",
+        body: JSON.stringify({ name: name.trim(), description: "" }),
+      });
+      const nextLists = await loadWishlistLists();
+      setSelectedWishlistListId(created.id || nextLists[0]?.id || "");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create wishlist list");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function renameWishlistList() {
+    if (!selectedWishlistList) return;
+    const name = window.prompt(t("wishlistListName"), selectedWishlistList.name);
+    if (!name || !name.trim() || name.trim() === selectedWishlistList.name) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<WishlistList>(`/api/v1/wishlist/lists/${selectedWishlistList.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      await loadWishlistLists();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to rename wishlist list");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteWishlistList() {
+    if (!selectedWishlistList) return;
+    if (!window.confirm(`${t("deleteWishlistList")}: ${selectedWishlistList.name}\n\n${t("wishlistListDeleteHelp")}`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const destination = await api<WishlistList>(`/api/v1/wishlist/lists/${selectedWishlistList.id}`, { method: "DELETE" });
+      const nextLists = await loadWishlistLists();
+      setSelectedWishlistListId(destination.id || nextLists[0]?.id || "");
+      setSelectedWishlistId(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete wishlist list");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function startEditWine(wine: Wine) {
@@ -6228,7 +6374,7 @@ export function App() {
 
   function closeWishlistForm() {
     setEditingWishlistId(null);
-    setWishlistDraft(emptyWishlistDraft);
+    setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
     setWishlistFormOpen(false);
   }
 
@@ -7012,7 +7158,7 @@ export function App() {
               {t("history")}
             </button>
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
-              {t("wishlist")} ({wishlist.length})
+              {t("wishlist")} ({totalWishlistItemCount})
             </button>
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               {t("pairing")}
@@ -7030,7 +7176,7 @@ export function App() {
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
-                  <p>{session?.active_household_name || "Wine Cellar"}: {cellarWines.length} {t("wines").toLowerCase()}, {wishlist.length} {t("wishlist").toLowerCase()}.</p>
+                  <p>{session?.active_household_name || "Wine Cellar"}: {cellarWines.length} {t("wines").toLowerCase()}, {totalWishlistItemCount} {t("wishlist").toLowerCase()}.</p>
                 </div>
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
                   <div className="hero-kpi">
@@ -7917,6 +8063,14 @@ export function App() {
               <form className="wine-form" onSubmit={submitWishlist}>
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
                 <label>
+                  <span>{t("wishlistList")}</span>
+                  <select value={wishlistDraft.wishlist_list_id} onChange={(event) => setWishlistDraft({ ...wishlistDraft, wishlist_list_id: event.target.value })} required disabled={!canWriteWine}>
+                    {wishlistLists.map((wishlistList) => (
+                      <option key={wishlistList.id} value={wishlistList.id}>{wishlistList.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
                   <span>{t("name")}</span>
                   <input list="wine-catalog-suggestions" value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} />
                 </label>
@@ -8268,6 +8422,23 @@ export function App() {
             ) : (
             <details className="stats-panel-wrapper" open>
               <summary>{t("wishlistItems")}</summary>
+              <div className="stats-panel-actions wishlist-list-toolbar">
+                <label className="wishlist-list-select">
+                  <span>{t("wishlistList")}</span>
+                  <select value={selectedWishlistListId} onChange={(event) => setSelectedWishlistListId(event.target.value)} disabled={saving || wishlistLists.length === 0}>
+                    {wishlistLists.map((wishlistList) => (
+                      <option key={wishlistList.id} value={wishlistList.id}>
+                        {wishlistList.name} ({wishlistList.item_count})
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <div className="inline-actions">
+                  <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={createWishlistList}>{t("createWishlistList")}</button>
+                  <button type="button" className="secondary compact" disabled={!canWriteWine || saving || !selectedWishlistList} onClick={renameWishlistList}>{t("renameWishlistList")}</button>
+                  <button type="button" className="danger compact" disabled={!canAdmin || saving || wishlistLists.length <= 1 || !selectedWishlistList} onClick={deleteWishlistList}>{t("deleteWishlistList")}</button>
+                </div>
+              </div>
               <section className="stats-panel">
                 <div className="stat-card">
                   <span>{t("wishlistItems")}</span>

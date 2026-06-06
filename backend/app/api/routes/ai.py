@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
 from app.api.routes.wines import get_household_wine, record_wine_value_history, user_can_see_wine, user_tag_names_by_wine, wine_response, wine_value_history_by_wine
-from app.api.routes.wishlist import get_household_wishlist_item
+from app.api.routes.wishlist import get_household_wishlist_item, get_household_wishlist_list, get_or_create_default_wishlist_list
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.db.session import get_db
@@ -30,6 +30,7 @@ from app.schemas.ai import (
     PairingResponse,
     WineCompareRequest,
     WineCompareResponse,
+    WishlistPortfolioStrategyRequest,
     WishlistPortfolioStrategyResponse,
 )
 from app.schemas.wine import WineResponse
@@ -1312,15 +1313,23 @@ def generate_wishlist_target_price(
 
 @router.post("/wishlist/portfolio-strategy", response_model=WishlistPortfolioStrategyResponse)
 def generate_wishlist_portfolio_strategy(
-    payload: AiGenerationRequest = AiGenerationRequest(),
+    payload: WishlistPortfolioStrategyRequest = WishlistPortfolioStrategyRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistPortfolioStrategyResponse:
     user_settings = get_or_create_user_ai_settings(db, context)
+    wishlist_list = (
+        get_household_wishlist_list(db, context, payload.wishlist_list_id)
+        if payload.wishlist_list_id
+        else get_or_create_default_wishlist_list(db, context)
+    )
     items = list(
         db.scalars(
             select(WishlistItem)
-            .where(WishlistItem.household_id == context.household.id)
+            .where(
+                WishlistItem.household_id == context.household.id,
+                WishlistItem.wishlist_list_id == wishlist_list.id,
+            )
             .order_by(WishlistItem.name),
         ),
     )
@@ -1355,7 +1364,7 @@ def generate_wishlist_portfolio_strategy(
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
-            "Build a practical buying strategy for this full wishlist portfolio.\n\n"
+            f"Build a practical buying strategy for this wishlist portfolio named '{wishlist_list.name}'.\n\n"
             "Return:\n"
             "- overview: short summary of the current wishlist posture and what stands out\n"
             "- buy_now: which items deserve priority now and why\n"
@@ -1380,6 +1389,9 @@ def generate_wishlist_portfolio_strategy(
         wait_watch=str(result.get("wait_watch") or "").strip(),
         allocation=str(result.get("allocation") or "").strip(),
         next_step=str(result.get("next_step") or "").strip(),
+        wishlist_list_id=wishlist_list.id,
+        wishlist_list_name=wishlist_list.name,
+        item_count=len(items),
         estimated_cost_usd=charged_cost,
     )
     record_ai_audit(
@@ -1398,6 +1410,8 @@ def generate_wishlist_portfolio_strategy(
                 "wait_watch": strategy_response.wait_watch,
                 "allocation": strategy_response.allocation,
                 "next_step": strategy_response.next_step,
+                "wishlist_list_id": str(wishlist_list.id),
+                "wishlist_list_name": wishlist_list.name,
                 "item_count": len(items),
             },
         ],

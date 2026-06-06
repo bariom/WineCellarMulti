@@ -3825,6 +3825,38 @@ textarea {
   margin-top: 12px;
 }
 
+.wishlist-list-toolbar {
+  justify-content: space-between;
+  align-items: end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wishlist-list-select {
+  display: grid;
+  gap: 6px;
+  min-width: min(100%, 320px);
+}
+
+.wishlist-list-select span {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.wishlist-list-select select {
+  min-width: 220px;
+}
+
+.inline-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .history-section-tabs {
   display: flex;
   gap: 8px;

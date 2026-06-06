@@ -9,11 +9,22 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.db.base import Base
 
 
+class WishlistList(Base):
+    __tablename__ = "wishlist_lists"
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    household_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    name: Mapped[str] = mapped_column(String(120), default="Wishlist")
+    description: Mapped[str] = mapped_column(Text, default="")
+
+
 class WishlistItem(Base):
     __tablename__ = "wishlist_items"
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     household_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True)
+    wishlist_list_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("wishlist_lists.id", ondelete="CASCADE"), index=True)
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String(200), index=True)
     producer: Mapped[str] = mapped_column(String(200), default="")

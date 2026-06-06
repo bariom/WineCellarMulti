@@ -76,6 +76,10 @@ class AiGenerationRequest(BaseModel):
     locale: str = Field(default="it", pattern="^(it|en)$")
 
 
+class WishlistPortfolioStrategyRequest(AiGenerationRequest):
+    wishlist_list_id: UUID | None = None
+
+
 class PairingRequest(BaseModel):
     dish: str = Field(min_length=2, max_length=240)
     include_market: bool = False
@@ -129,4 +133,7 @@ class WishlistPortfolioStrategyResponse(BaseModel):
     wait_watch: str
     allocation: str
     next_step: str
+    wishlist_list_id: UUID | None = None
+    wishlist_list_name: str = ""
+    item_count: int = 0
     estimated_cost_usd: Decimal

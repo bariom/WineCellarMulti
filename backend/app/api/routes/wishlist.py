@@ -1,16 +1,56 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.db.session import get_db
-from app.models import Wine, WishlistItem
-from app.schemas.wishlist import WishlistCreate, WishlistResponse, WishlistUpdate
+from app.models import Wine, WishlistItem, WishlistList
+from app.schemas.wishlist import (
+    WishlistCreate,
+    WishlistListCreate,
+    WishlistListResponse,
+    WishlistListUpdate,
+    WishlistResponse,
+    WishlistUpdate,
+)
 
 
 router = APIRouter(prefix="/wishlist")
+
+DEFAULT_WISHLIST_LIST_NAME = "Wishlist"
+
+
+def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) -> WishlistList:
+    wishlist_list = db.scalar(
+        select(WishlistList)
+        .where(WishlistList.household_id == context.household.id)
+        .order_by(WishlistList.name.asc(), WishlistList.id.asc()),
+    )
+    if wishlist_list is not None:
+        return wishlist_list
+    wishlist_list = WishlistList(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        name=DEFAULT_WISHLIST_LIST_NAME,
+        description="",
+    )
+    db.add(wishlist_list)
+    db.flush()
+    return wishlist_list
+
+
+def get_household_wishlist_list(db: Session, context: CurrentContext, list_id: UUID) -> WishlistList:
+    wishlist_list = db.scalar(
+        select(WishlistList).where(
+            WishlistList.id == list_id,
+            WishlistList.household_id == context.household.id,
+        ),
+    )
+    if wishlist_list is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wishlist list not found")
+    return wishlist_list
 
 
 def get_household_wishlist_item(db: Session, context: CurrentContext, item_id: UUID) -> WishlistItem:
@@ -25,15 +65,168 @@ def get_household_wishlist_item(db: Session, context: CurrentContext, item_id: U
     return item
 
 
+def wishlist_list_counts(db: Session, household_id: UUID) -> dict[UUID, int]:
+    rows = db.execute(
+        select(WishlistItem.wishlist_list_id, func.count(WishlistItem.id))
+        .where(WishlistItem.household_id == household_id)
+        .group_by(WishlistItem.wishlist_list_id),
+    ).all()
+    return {list_id: count for list_id, count in rows}
+
+
+@router.get("/lists", response_model=list[WishlistListResponse])
+def list_wishlist_lists(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> list[WishlistListResponse]:
+    existing_count = db.scalar(select(func.count(WishlistList.id)).where(WishlistList.household_id == context.household.id)) or 0
+    default_list = get_or_create_default_wishlist_list(db, context)
+    if existing_count == 0:
+        db.commit()
+        db.refresh(default_list)
+    counts = wishlist_list_counts(db, context.household.id)
+    rows = list(
+        db.scalars(
+            select(WishlistList)
+            .where(WishlistList.household_id == context.household.id)
+            .order_by(WishlistList.name.asc(), WishlistList.id.asc()),
+        ),
+    )
+    if not rows:
+        rows = [default_list]
+    return [
+        WishlistListResponse.model_validate(
+            {
+                "id": wishlist_list.id,
+                "household_id": wishlist_list.household_id,
+                "name": wishlist_list.name,
+                "description": wishlist_list.description,
+                "item_count": counts.get(wishlist_list.id, 0),
+            },
+        )
+        for wishlist_list in rows
+    ]
+
+
+@router.post("/lists", response_model=WishlistListResponse, status_code=status.HTTP_201_CREATED)
+def create_wishlist_list(
+    payload: WishlistListCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WishlistListResponse:
+    wishlist_list = WishlistList(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        name=payload.name.strip(),
+        description=payload.description.strip(),
+    )
+    db.add(wishlist_list)
+    db.commit()
+    db.refresh(wishlist_list)
+    return WishlistListResponse.model_validate(
+        {
+            "id": wishlist_list.id,
+            "household_id": wishlist_list.household_id,
+            "name": wishlist_list.name,
+            "description": wishlist_list.description,
+            "item_count": 0,
+        },
+    )
+
+
+@router.patch("/lists/{list_id}", response_model=WishlistListResponse)
+def update_wishlist_list(
+    list_id: UUID,
+    payload: WishlistListUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WishlistListResponse:
+    wishlist_list = get_household_wishlist_list(db, context, list_id)
+    if payload.name is not None:
+        wishlist_list.name = payload.name.strip()
+    if payload.description is not None:
+        wishlist_list.description = payload.description.strip()
+    db.commit()
+    db.refresh(wishlist_list)
+    item_count = db.scalar(
+        select(func.count(WishlistItem.id)).where(
+            WishlistItem.household_id == context.household.id,
+            WishlistItem.wishlist_list_id == wishlist_list.id,
+        ),
+    ) or 0
+    return WishlistListResponse.model_validate(
+        {
+            "id": wishlist_list.id,
+            "household_id": wishlist_list.household_id,
+            "name": wishlist_list.name,
+            "description": wishlist_list.description,
+            "item_count": item_count,
+        },
+    )
+
+
+@router.delete("/lists/{list_id}", response_model=WishlistListResponse)
+def delete_wishlist_list(
+    list_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> WishlistListResponse:
+    wishlist_list = get_household_wishlist_list(db, context, list_id)
+    household_lists = list(
+        db.scalars(
+            select(WishlistList)
+            .where(WishlistList.household_id == context.household.id)
+            .order_by(WishlistList.name.asc(), WishlistList.id.asc()),
+        ),
+    )
+    if len(household_lists) <= 1:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="At least one wishlist must remain")
+    destination = next((item for item in household_lists if item.id != wishlist_list.id), None)
+    if destination is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No destination wishlist available")
+    db.query(WishlistItem).filter(
+        WishlistItem.household_id == context.household.id,
+        WishlistItem.wishlist_list_id == wishlist_list.id,
+    ).update({"wishlist_list_id": destination.id}, synchronize_session=False)
+    db.delete(wishlist_list)
+    db.commit()
+    item_count = db.scalar(
+        select(func.count(WishlistItem.id)).where(
+            WishlistItem.household_id == context.household.id,
+            WishlistItem.wishlist_list_id == destination.id,
+        ),
+    ) or 0
+    return WishlistListResponse.model_validate(
+        {
+            "id": destination.id,
+            "household_id": destination.household_id,
+            "name": destination.name,
+            "description": destination.description,
+            "item_count": item_count,
+        },
+    )
+
+
 @router.get("", response_model=list[WishlistResponse])
 def list_wishlist(
+    wishlist_list_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> list[WishlistItem]:
+    existing_count = db.scalar(select(func.count(WishlistList.id)).where(WishlistList.household_id == context.household.id)) or 0
+    default_list = get_or_create_default_wishlist_list(db, context)
+    if existing_count == 0:
+        db.commit()
+        db.refresh(default_list)
+    active_list_id = wishlist_list_id or default_list.id
+    get_household_wishlist_list(db, context, active_list_id)
     return list(
         db.scalars(
             select(WishlistItem)
-            .where(WishlistItem.household_id == context.household.id)
+            .where(
+                WishlistItem.household_id == context.household.id,
+                WishlistItem.wishlist_list_id == active_list_id,
+            )
             .order_by(WishlistItem.priority.asc(), WishlistItem.name.asc()),
         ),
     )
@@ -45,6 +238,7 @@ def create_wishlist_item(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
+    get_household_wishlist_list(db, context, payload.wishlist_list_id)
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -64,7 +258,10 @@ def update_wishlist_item(
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
     item = get_household_wishlist_item(db, context, item_id)
-    for field, value in payload.model_dump(exclude_unset=True).items():
+    updates = payload.model_dump(exclude_unset=True)
+    if "wishlist_list_id" in updates:
+        get_household_wishlist_list(db, context, updates["wishlist_list_id"])
+    for field, value in updates.items():
         setattr(item, field, value)
     db.commit()
     db.refresh(item)

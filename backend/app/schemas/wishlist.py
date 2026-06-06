@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class WishlistBase(BaseModel):
+    wishlist_list_id: UUID
     name: str = Field(min_length=1, max_length=200)
     producer: str = ""
     vintage: str = ""
@@ -33,6 +34,7 @@ class WishlistCreate(WishlistBase):
 
 
 class WishlistUpdate(BaseModel):
+    wishlist_list_id: UUID | None = None
     name: str | None = Field(default=None, min_length=1, max_length=200)
     producer: str | None = None
     vintage: str | None = None
@@ -61,3 +63,25 @@ class WishlistResponse(WishlistBase):
 
     id: UUID
     household_id: UUID
+
+
+class WishlistListBase(BaseModel):
+    name: str = Field(min_length=1, max_length=120)
+    description: str = Field(default="", max_length=1000)
+
+
+class WishlistListCreate(WishlistListBase):
+    pass
+
+
+class WishlistListUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    description: str | None = Field(default=None, max_length=1000)
+
+
+class WishlistListResponse(WishlistListBase):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    household_id: UUID
+    item_count: int = 0

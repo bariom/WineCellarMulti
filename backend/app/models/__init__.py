@@ -11,7 +11,7 @@ from app.models.user import User
 from app.models.user_ai_settings import UserAiSettings
 from app.models.wine import Wine, WineValueHistory
 from app.models.wine_share import WineShareOffer
-from app.models.wishlist import WishlistItem
+from app.models.wishlist import WishlistItem, WishlistList
 
 __all__ = [
     "AiAuditLog",
@@ -36,4 +36,5 @@ __all__ = [
     "WineValueHistory",
     "WineShareOffer",
     "WishlistItem",
+    "WishlistList",
 ]
