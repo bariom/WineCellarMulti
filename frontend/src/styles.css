@@ -24,6 +24,11 @@
   --drink-past: #c95866;
   --bar-muted: #e8ede8;
   --shadow-soft: 0 10px 28px rgba(23, 32, 28, 0.04);
+  --shadow-premium: 0 20px 44px rgba(23, 32, 28, 0.08);
+  --collector-edge: rgba(194, 172, 102, 0.28);
+  --collector-glow: rgba(194, 172, 102, 0.12);
+  --collector-sheen: rgba(255, 255, 255, 0.56);
+  --collector-depth: rgba(18, 24, 21, 0.05);
   --focus: rgba(36, 81, 66, 0.32);
   --hero-bg:
     radial-gradient(circle at top left, rgba(194, 172, 102, 0.24), transparent 36%),
@@ -57,6 +62,11 @@
   --drink-past: #d45a6e;
   --bar-muted: #26352e;
   --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.38);
+  --shadow-premium: 0 22px 48px rgba(0, 0, 0, 0.46);
+  --collector-edge: rgba(215, 189, 109, 0.34);
+  --collector-glow: rgba(215, 189, 109, 0.14);
+  --collector-sheen: rgba(255, 255, 255, 0.08);
+  --collector-depth: rgba(0, 0, 0, 0.22);
   --focus: rgba(107, 194, 159, 0.42);
   --hero-bg:
     radial-gradient(circle at top left, rgba(215, 189, 109, 0.18), transparent 38%),
@@ -89,6 +99,11 @@
   --drink-past: #b65e64;
   --bar-muted: #382c24;
   --shadow-soft: 0 18px 42px rgba(0, 0, 0, 0.46);
+  --shadow-premium: 0 24px 56px rgba(0, 0, 0, 0.52);
+  --collector-edge: rgba(213, 176, 107, 0.42);
+  --collector-glow: rgba(213, 176, 107, 0.12);
+  --collector-sheen: rgba(255, 243, 220, 0.08);
+  --collector-depth: rgba(0, 0, 0, 0.3);
   --focus: rgba(213, 176, 107, 0.42);
   --hero-bg:
     radial-gradient(circle at 10% 12%, rgba(213, 176, 107, 0.12), transparent 28%),
@@ -3145,10 +3160,15 @@ textarea {
 
 .hero-kpi,
 .dashboard-card {
-  border: 1px solid #d8ded7;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.86);
-  box-shadow: 0 10px 28px rgba(23, 32, 28, 0.04);
+  border: 1px solid color-mix(in srgb, var(--border) 74%, var(--collector-edge));
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 32%, transparent), transparent 42%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 82%, transparent), transparent 34%),
+    color-mix(in srgb, var(--surface) 90%, var(--surface-raised));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 92%, transparent),
+    var(--shadow-soft);
 }
 
 .hero-kpi {
@@ -3248,7 +3268,18 @@ textarea {
   align-content: start;
   gap: 14px;
   min-width: 0;
-  padding: 16px;
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+}
+
+.dashboard-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 0%, color-mix(in srgb, var(--collector-glow) 58%, transparent) 100%);
+  pointer-events: none;
+  opacity: 0.55;
 }
 
 .key-position-card {
@@ -3866,14 +3897,22 @@ textarea {
 .stat-card {
   display: grid;
   align-content: start;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
-  padding: 14px;
-  border: 1px solid #d8ded7;
-  border-radius: 10px;
-  background: #fff;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 24%, transparent), transparent 48%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 68%, transparent), transparent 28%),
+    color-mix(in srgb, var(--surface) 90%, var(--surface-raised));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 90%, transparent),
+    0 14px 30px color-mix(in srgb, var(--collector-depth) 100%, transparent);
   color: var(--text);
   text-align: left;
+  position: relative;
+  overflow: hidden;
 }
 
 button.stat-card {
@@ -3881,37 +3920,47 @@ button.stat-card {
 }
 
 button.stat-card:hover {
-  border-color: var(--primary);
-  box-shadow: 0 12px 26px color-mix(in srgb, var(--primary) 13%, transparent);
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--collector-edge));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 90%, transparent),
+    var(--shadow-premium);
+  transform: translateY(-2px);
 }
 
 .stat-card.active {
-  border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 62%, var(--collector-edge));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 11%, transparent), transparent 44%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 90%, transparent), transparent 28%),
+    color-mix(in srgb, var(--surface) 88%, var(--surface-raised));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 24%, transparent),
+    0 18px 36px color-mix(in srgb, var(--collector-depth) 100%, transparent);
 }
 
 .stat-card span {
-  color: #52635c;
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.03em;
+  color: var(--text-soft);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
 .stat-card strong {
-  color: #17201c;
-  font-size: 1.2rem;
+  color: var(--text);
+  font-size: clamp(1.35rem, 1.6vw, 1.9rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
 }
 
 .ownership-stat {
-  border-top: 4px solid #245142;
+  border-top: 4px solid color-mix(in srgb, var(--primary) 84%, var(--accent));
 }
 
 .ownership-stat p {
   margin: 0;
-  color: #52635c;
+  color: var(--text-soft);
   font-weight: 700;
 }
 
@@ -4075,24 +4124,46 @@ button.stat-card:hover {
 }
 
 .wine-row {
-  padding: 14px;
-  border: 1px solid #d8ded7;
-  border-left: 6px solid var(--wine-tone, #d8ded7);
-  border-radius: 8px;
-  background: #fff;
+  position: relative;
+  padding: 16px 16px 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-left: 0;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 40%),
+    radial-gradient(circle at 88% 14%, color-mix(in srgb, var(--collector-glow) 78%, transparent), transparent 20%),
+    radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--collector-glow) 32%, transparent), transparent 24%),
+    color-mix(in srgb, var(--surface) 90%, var(--surface-raised));
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 88%, transparent),
+    0 12px 28px color-mix(in srgb, var(--collector-depth) 100%, transparent);
+  transition: border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease, background-color 0.18s ease;
+}
+
+.wine-row::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 5px;
+  border-radius: 18px 0 0 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--wine-tone, #d8ded7) 98%, white 2%), color-mix(in srgb, var(--wine-tone, #d8ded7) 68%, black 32%));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--wine-tone, #d8ded7) 28%, transparent);
 }
 
 .wine-row:hover {
-  border-color: #9aa99f;
-  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--collector-edge) 72%, var(--border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 92%, transparent),
+    var(--shadow-premium);
+  transform: translateY(-2px);
 }
 
 .wine-row.selected {
-  border-color: #245142;
-  border-left-color: var(--wine-tone, #245142);
-  box-shadow: 0 0 0 2px rgba(36, 81, 66, 0.12);
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--collector-edge));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--primary) 26%, transparent),
+    var(--shadow-premium);
 }
 
 .wishlist-buy-row {
@@ -4106,7 +4177,8 @@ button.stat-card:hover {
 
 .wine-row h3 {
   margin: 0 0 4px;
-  font-size: 1rem;
+  font-size: 1.08rem;
+  letter-spacing: -0.02em;
 }
 
 .wine-title-row {
@@ -4119,7 +4191,7 @@ button.stat-card:hover {
 }
 
 .wine-title {
-  font-weight: 700;
+  font-weight: 800;
   min-width: 0;
 }
 
@@ -4131,18 +4203,19 @@ button.stat-card:hover {
   min-width: 82px;
   height: 38px;
   padding: 0 18px 0 14px;
-  background: linear-gradient(180deg, #f7f0df 0%, #eadfca 100%);
-  border: 1px solid #d6c7a8;
-  border-radius: 4px 14px 14px 4px;
-  color: #8b3f35;
-  font-family: "Georgia", "Times New Roman", serif;
-  font-size: 26px;
+  background: linear-gradient(180deg, #fff7ea 0%, #efe1c7 100%);
+  border: 1px solid #c8ab72;
+  border-radius: 6px 16px 16px 6px;
+  color: #934638;
+  font-family: "Iowan Old Style", "Georgia", "Times New Roman", serif;
+  font-size: 1.4rem;
   font-weight: 500;
-  letter-spacing: 1px;
+  letter-spacing: 0.08em;
   line-height: 1;
   box-shadow:
-    0 2px 4px rgba(0, 0, 0, 0.12),
-    inset 0 1px 0 rgba(255, 255, 255, 0.65);
+    0 8px 18px rgba(0, 0, 0, 0.14),
+    inset 0 1px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -1px 0 rgba(130, 95, 48, 0.1);
   transform: rotate(-1deg);
   user-select: none;
   flex: 0 0 auto;
@@ -4171,7 +4244,7 @@ button.stat-card:hover {
     radial-gradient(circle at 70% 60%, rgba(120, 80, 40, 0.06), transparent 18%);
   border-radius: inherit;
   pointer-events: none;
-  opacity: 0.45;
+  opacity: 0.66;
 }
 
 .vintage-label span {
@@ -4180,12 +4253,12 @@ button.stat-card:hover {
 }
 
 .vintage-label--small {
-  min-width: 56px;
-  height: 24px;
-  padding: 0 12px 0 9px;
-  font-size: 0.92rem;
-  letter-spacing: 0.04em;
-  border-radius: 4px 10px 10px 4px;
+  min-width: 62px;
+  height: 28px;
+  padding: 0 13px 0 10px;
+  font-size: 0.98rem;
+  letter-spacing: 0.06em;
+  border-radius: 4px 12px 12px 4px;
   transform: rotate(-1deg) translateY(-1px);
 }
 
@@ -4236,8 +4309,14 @@ button.stat-card:hover {
 .row-primary {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
+  font-weight: 600;
+}
+
+.row-secondary {
+  color: color-mix(in srgb, var(--text-soft) 88%, var(--text));
+  font-size: 0.96rem;
 }
 
 .row-meta {
@@ -4254,8 +4333,8 @@ button.stat-card:hover {
   max-width: 100%;
   border-radius: 999px;
   padding: 4px 8px;
-  color: #245142;
-  background: #eef3ef;
+  color: color-mix(in srgb, var(--primary) 78%, var(--text));
+  background: color-mix(in srgb, var(--surface-subtle) 72%, var(--surface));
   font-size: 0.78rem;
   white-space: normal;
 }
@@ -4302,10 +4381,31 @@ button.stat-card:hover {
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 11%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) 100%);
 }
 
+.row-value {
+  align-self: start;
+  justify-self: end;
+  color: var(--text);
+  font-size: clamp(1.22rem, 1.8vw, 1.55rem);
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
+}
+
+.row-value::before {
+  content: "";
+  display: block;
+  width: 64px;
+  height: 2px;
+  margin: 0 0 10px auto;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--collector-edge) 84%, transparent));
+}
+
 .mini-drink-window {
   display: grid;
-  gap: 5px;
-  min-width: 138px;
+  gap: 7px;
+  min-width: 162px;
 }
 
 .mini-window-labels {
@@ -4313,48 +4413,64 @@ button.stat-card:hover {
   justify-content: space-between;
   gap: 8px;
   color: var(--text-muted);
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.69rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
 }
 
 .mini-window-track {
   position: relative;
-  height: 10px;
+  height: 14px;
   overflow: visible;
   border-radius: 999px;
   background:
     linear-gradient(
       90deg,
-      color-mix(in srgb, var(--drink-young) 70%, var(--surface)) 0%,
-      color-mix(in srgb, var(--drink-young) 42%, var(--surface)) 42%,
-      color-mix(in srgb, var(--drink-past) 38%, var(--surface)) 100%
+      color-mix(in srgb, var(--drink-young) 78%, var(--surface)) 0%,
+      color-mix(in srgb, var(--drink-young) 56%, var(--surface)) 18%,
+      color-mix(in srgb, var(--drink-ideal) 34%, var(--surface)) 48%,
+      color-mix(in srgb, var(--drink-past) 46%, var(--surface)) 100%
     );
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 72%, transparent);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--border) 72%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 56%, transparent);
+}
+
+.mini-window-track::before {
+  content: "";
+  position: absolute;
+  inset: 3px 0 auto;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--collector-sheen) 90%, transparent), transparent);
+  pointer-events: none;
 }
 
 .mini-window-peak {
   position: absolute;
-  inset-block: -1px;
+  inset-block: -2px;
   border-radius: 999px;
   background: linear-gradient(90deg, var(--drink-ideal), color-mix(in srgb, var(--drink-ideal) 70%, var(--accent)));
-  box-shadow: 0 0 0 2px var(--surface), 0 5px 12px color-mix(in srgb, var(--drink-ideal) 24%, transparent);
+  box-shadow:
+    0 0 0 2px var(--surface),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent),
+    0 8px 16px color-mix(in srgb, var(--drink-ideal) 24%, transparent);
 }
 
 .mini-window-current {
   position: absolute;
-  top: -5px;
-  bottom: -5px;
-  width: 3px;
+  top: -6px;
+  bottom: -6px;
+  width: 4px;
   border-radius: 999px;
   background: var(--text);
-  box-shadow: 0 0 0 2px var(--surface);
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 6px color-mix(in srgb, var(--collector-glow) 64%, transparent);
   transform: translateX(-50%);
 }
 
 .wine-row p,
 .empty-state {
   margin: 0;
-  color: #52635c;
+  color: var(--text-soft);
 }
 
 .wine-detail {
@@ -4362,10 +4478,16 @@ button.stat-card:hover {
   align-content: start;
   gap: 18px;
   padding: 20px;
-  border: 1px solid #d8ded7;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
   border-top: 6px solid var(--wine-tone, #d8ded7);
-  border-radius: 12px;
-  background: #fff;
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 84%, transparent), transparent 28%),
+    color-mix(in srgb, var(--surface) 92%, var(--surface-raised));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 82%, transparent),
+    0 18px 36px color-mix(in srgb, var(--collector-depth) 100%, transparent);
 }
 
 .empty-detail p {
@@ -4419,9 +4541,11 @@ button.stat-card:hover {
   display: grid;
   gap: 6px;
   padding: 12px;
-  border: 1px solid #e3e9e2;
-  border-radius: 10px;
-  background: #f8faf8;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 14%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
 }
 
 .detail-field span,
@@ -5824,8 +5948,14 @@ textarea {
     padding: 12px;
   }
 
-  .wine-row > strong {
+  .row-value,
+  .wishlist-price {
     font-size: 1.1rem;
+  }
+
+  .row-value::before {
+    width: 44px;
+    margin-bottom: 8px;
   }
 
   .row-actions {

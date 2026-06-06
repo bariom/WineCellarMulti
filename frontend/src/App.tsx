@@ -8748,7 +8748,7 @@ export function App() {
                     ) : null}
                   </div>
                   <DrinkWindowMini wine={wine} />
-                  <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+                  <strong className="row-value">{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
                   <div className="row-actions">
                     <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
                       {t("compare")}
