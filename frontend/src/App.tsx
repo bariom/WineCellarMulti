@@ -6483,71 +6483,80 @@ export function App() {
                 {notificationCount ? <strong>{notificationCount}</strong> : null}
               </button>
               {notificationsOpen ? (
-                <div className="notification-panel">
-                  <div className="notification-heading">
-                    <strong>{t("notifications")}</strong>
-                    <div className="notification-heading-actions">
-                      <span>{notificationCount}</span>
-                      <button
-                        type="button"
-                        className="secondary compact notification-close-button"
-                        onClick={() => setNotificationsOpen(false)}
-                      >
-                        {t("cancel")}
-                      </button>
+                <>
+                  <button
+                    type="button"
+                    className="notification-backdrop"
+                    aria-label={t("cancel")}
+                    onClick={() => setNotificationsOpen(false)}
+                  />
+                  <div className="notification-panel" role="dialog" aria-modal="true" aria-label={t("notifications")} onClick={(event) => event.stopPropagation()}>
+                    <div className="notification-heading">
+                      <strong>{t("notifications")}</strong>
+                      <div className="notification-heading-actions">
+                        <span>{notificationCount}</span>
+                        <button
+                          type="button"
+                          className="secondary compact notification-close-button"
+                          aria-label={t("cancel")}
+                          onClick={() => setNotificationsOpen(false)}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
+                    {authenticated && !session?.is_app_admin ? (
+                      <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("smart_entitlement_expiring")}</i>{t("entitlementValidity")}</strong>
+                        <span>
+                          {session?.has_active_entitlement && session.entitlement_days_remaining !== null
+                            ? `${session.entitlement_days_remaining} ${t("daysRemaining")} - ${formatDisplayDate(session.entitlement_valid_until || "")}`
+                          : t("redeemRequired")}
+                        </span>
+                      </button>
+                    ) : null}
+                    {userNotifications.map((notification) => (
+                      <div className="notification-item" key={notification.id}>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notification.title}</strong>
+                        <span>{notification.message}</span>
+                        <div className="member-actions">
+                          <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
+                            {notification.action_url ? t("open") : t("markRead")}
+                          </button>
+                          <button type="button" className="secondary compact" disabled={saving} onClick={() => markNotificationRead(notification)}>
+                            {t("markRead")}
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                    {canAppAdmin && pendingUsers.length ? (
+                      <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
+                        <span>{t("reviewUsers")}</span>
+                      </button>
+                    ) : null}
+                    {receivedInvites.map((invite) => (
+                      <div className="notification-item" key={invite.id}>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("invite")}</i>{invite.household_name || t("sharedCellar")}</strong>
+                        <span>{t("acceptInvite")} - {invite.role}</span>
+                        <button type="button" className="compact" disabled={saving} onClick={() => acceptReceivedInvite(invite)}>
+                          {t("accept")}
+                        </button>
+                      </div>
+                    ))}
+                    {shareOffers.map((offer) => (
+                      <div className="notification-item" key={offer.id}>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("share_offer")}</i>{offer.wine_name} {offer.wine_vintage}</strong>
+                        <span>{offer.share_pct}% - {offer.created_by_email}</span>
+                        <div className="member-actions">
+                          <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>{t("accept")}</button>
+                          <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>{t("decline")}</button>
+                        </div>
+                      </div>
+                    ))}
+                    {!notificationCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
                   </div>
-                  {authenticated && !session?.is_app_admin ? (
-                    <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
-                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("smart_entitlement_expiring")}</i>{t("entitlementValidity")}</strong>
-                      <span>
-                        {session?.has_active_entitlement && session.entitlement_days_remaining !== null
-                          ? `${session.entitlement_days_remaining} ${t("daysRemaining")} - ${formatDisplayDate(session.entitlement_valid_until || "")}`
-                        : t("redeemRequired")}
-                      </span>
-                    </button>
-                  ) : null}
-                  {userNotifications.map((notification) => (
-                    <div className="notification-item" key={notification.id}>
-                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notification.title}</strong>
-                      <span>{notification.message}</span>
-                      <div className="member-actions">
-                        <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
-                          {notification.action_url ? t("open") : t("markRead")}
-                        </button>
-                        <button type="button" className="secondary compact" disabled={saving} onClick={() => markNotificationRead(notification)}>
-                          {t("markRead")}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                  {canAppAdmin && pendingUsers.length ? (
-                    <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
-                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
-                      <span>{t("reviewUsers")}</span>
-                    </button>
-                  ) : null}
-                  {receivedInvites.map((invite) => (
-                    <div className="notification-item" key={invite.id}>
-                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("invite")}</i>{invite.household_name || t("sharedCellar")}</strong>
-                      <span>{t("acceptInvite")} - {invite.role}</span>
-                      <button type="button" className="compact" disabled={saving} onClick={() => acceptReceivedInvite(invite)}>
-                        {t("accept")}
-                      </button>
-                    </div>
-                  ))}
-                  {shareOffers.map((offer) => (
-                    <div className="notification-item" key={offer.id}>
-                      <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("share_offer")}</i>{offer.wine_name} {offer.wine_vintage}</strong>
-                      <span>{offer.share_pct}% - {offer.created_by_email}</span>
-                      <div className="member-actions">
-                        <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>{t("accept")}</button>
-                        <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>{t("decline")}</button>
-                      </div>
-                    </div>
-                  ))}
-                  {!notificationCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
-                </div>
+                </>
               ) : null}
             </div> : null}
             <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
