@@ -6486,7 +6486,16 @@ export function App() {
                 <div className="notification-panel">
                   <div className="notification-heading">
                     <strong>{t("notifications")}</strong>
-                    <span>{notificationCount}</span>
+                    <div className="notification-heading-actions">
+                      <span>{notificationCount}</span>
+                      <button
+                        type="button"
+                        className="secondary compact notification-close-button"
+                        onClick={() => setNotificationsOpen(false)}
+                      >
+                        {t("cancel")}
+                      </button>
+                    </div>
                   </div>
                   {authenticated && !session?.is_app_admin ? (
                     <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
