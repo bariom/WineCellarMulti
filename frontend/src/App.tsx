@@ -8291,6 +8291,15 @@ export function App() {
                       : t("generateWishlistPortfolioStrategy")}
                 </button>
               </div>
+              {isMobileViewport && !selectedWishlistItem ? (
+                <WishlistPortfolioStrategyPanel
+                  strategy={visibleWishlistPortfolioStrategy}
+                  canGenerate={canGenerateAi && wishlist.length > 0}
+                  generating={generatingAi === "wishlist-portfolio-strategy"}
+                  onGenerate={generateWishlistPortfolioStrategy}
+                  t={t}
+                />
+              ) : null}
             </details>
             )}
             <details className="filter-panel">
