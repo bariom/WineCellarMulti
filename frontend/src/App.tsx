@@ -3817,14 +3817,14 @@ function WishlistPortfolioStrategyPanel({
   t: (key: TranslationKey) => string;
 }) {
   return (
-    <section className="wine-detail">
+    <section className="wine-detail wishlist-portfolio-panel">
       <div className="detail-title">
         <div>
           <p className="eyebrow">{t("wishlist")}</p>
           <h2>{t("wishlistPortfolioStrategy")}</h2>
           <span>{t("wishlistPortfolioStrategyHelp")}</span>
         </div>
-        <button type="button" className="secondary compact" disabled={!canGenerate || generating} onClick={onGenerate}>
+        <button type="button" className="secondary compact wishlist-strategy-cta" disabled={!canGenerate || generating} onClick={onGenerate}>
           {generating ? t("generating") : strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
         </button>
       </div>
