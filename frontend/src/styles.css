@@ -1475,8 +1475,21 @@ summary:focus-visible {
   --landing-outline: color-mix(in srgb, var(--landing-burgundy) 38%, var(--border));
   --landing-panel: linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 18%, var(--surface)) 0%, var(--surface) 100%);
   display: grid;
-  gap: 26px;
+  gap: 30px;
   margin-top: 24px;
+  padding: 8px 0 18px;
+  position: relative;
+}
+
+.public-landing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 12% 4%, rgba(216, 174, 95, 0.12), transparent 26%),
+    radial-gradient(circle at 84% 18%, rgba(122, 23, 51, 0.12), transparent 24%);
+  pointer-events: none;
+  opacity: 0.85;
 }
 
 .public-hero {
@@ -1484,37 +1497,54 @@ summary:focus-visible {
   grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.85fr);
   gap: 0;
   align-items: stretch;
-  min-height: 560px;
+  min-height: 620px;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--landing-champagne) 42%, transparent);
-  border-radius: 18px;
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 48%, transparent);
+  border-radius: 30px;
   background:
-    linear-gradient(115deg, rgba(27, 14, 18, 0.96) 0%, rgba(42, 16, 24, 0.92) 48%, rgba(122, 23, 51, 0.88) 100%),
+    radial-gradient(circle at 10% 12%, rgba(216, 174, 95, 0.16), transparent 24%),
+    radial-gradient(circle at 82% 14%, rgba(255, 250, 241, 0.08), transparent 20%),
+    linear-gradient(115deg, rgba(27, 14, 18, 0.98) 0%, rgba(42, 16, 24, 0.94) 48%, rgba(122, 23, 51, 0.88) 100%),
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0 1px, transparent 1px 28px);
-  box-shadow: 0 34px 70px color-mix(in srgb, var(--landing-burgundy-deep) 26%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 241, 0.08),
+    0 40px 90px color-mix(in srgb, var(--landing-burgundy-deep) 32%, transparent);
+  position: relative;
+}
+
+.public-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.04) 52%, transparent 100%);
+  pointer-events: none;
 }
 
 .public-hero-copy,
 .public-pricing-card,
 .public-features-card {
-  padding: 28px;
+  padding: 32px;
   border: 1px solid var(--landing-outline);
-  border-radius: 10px;
+  border-radius: 18px;
   background: var(--landing-panel);
-  box-shadow: 0 20px 36px color-mix(in srgb, var(--landing-burgundy-deep) 12%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 241, 0.08),
+    0 20px 36px color-mix(in srgb, var(--landing-burgundy-deep) 12%, transparent);
 }
 
 .public-hero-copy {
   display: grid;
   align-content: center;
-  gap: 18px;
+  gap: 22px;
   min-height: 100%;
   border: 0;
   border-radius: 0;
   background:
-    linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 58%),
-    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.08) 100%);
+    radial-gradient(circle at top left, rgba(216, 174, 95, 0.1), transparent 26%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent 58%),
+    linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.1) 100%);
   box-shadow: none;
+  position: relative;
 }
 
 .public-hero-copy h2,
@@ -1526,16 +1556,17 @@ summary:focus-visible {
 
 .public-hero-copy h2 {
   color: #fffaf1;
-  font-size: clamp(2.65rem, 5vw, 5.4rem);
-  line-height: 0.9;
-  max-width: 12ch;
+  font-size: clamp(2.9rem, 5.3vw, 5.9rem);
+  line-height: 0.88;
+  max-width: 11ch;
+  letter-spacing: -0.055em;
   text-wrap: balance;
 }
 
 .public-hero-copy strong {
   max-width: 700px;
   color: var(--landing-champagne);
-  font-size: clamp(1.08rem, 1.6vw, 1.45rem);
+  font-size: clamp(1.1rem, 1.7vw, 1.5rem);
   line-height: 1.35;
 }
 
@@ -1550,7 +1581,8 @@ summary:focus-visible {
 .public-hero-copy > p:not(.eyebrow) {
   max-width: 720px;
   color: color-mix(in srgb, #fffaf1 78%, transparent);
-  font-size: 1.04rem;
+  font-size: 1.06rem;
+  line-height: 1.72;
 }
 
 .public-hero-copy .eyebrow {
@@ -1565,7 +1597,7 @@ summary:focus-visible {
 }
 
 .public-collector-strip span {
-  padding: 7px 10px;
+  padding: 8px 12px;
   border: 1px solid color-mix(in srgb, var(--landing-champagne) 44%, transparent);
   border-radius: 999px;
   color: color-mix(in srgb, #fffaf1 92%, transparent);
@@ -1573,7 +1605,10 @@ summary:focus-visible {
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.06);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.04)),
+    rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 1px 0 rgba(255, 250, 241, 0.08);
 }
 
 .public-hero-actions {
@@ -1587,6 +1622,7 @@ summary:focus-visible {
   border-color: var(--landing-champagne);
   color: var(--landing-burgundy-ink);
   background: linear-gradient(180deg, #f1d58f 0%, var(--landing-champagne) 100%);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
 }
 
 .public-hero-actions button.secondary {
@@ -1598,18 +1634,21 @@ summary:focus-visible {
 .public-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
   max-width: 760px;
 }
 
 .public-proof-tile {
   display: grid;
   gap: 6px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid color-mix(in srgb, var(--landing-champagne) 36%, transparent);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.075);
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.05)),
+    rgba(255, 255, 255, 0.065);
   backdrop-filter: blur(10px);
+  box-shadow: inset 0 1px 0 rgba(255, 250, 241, 0.08);
 }
 
 .public-proof-tile span,
@@ -1620,18 +1659,20 @@ summary:focus-visible {
 
 .public-proof-tile strong {
   color: #fffaf1;
-  font-size: 1.25rem;
+  font-size: 1.42rem;
+  letter-spacing: -0.03em;
 }
 
 .public-pricing-card {
   display: grid;
-  gap: 14px;
+  gap: 18px;
   align-content: start;
   border: 0;
   border-left: 1px solid color-mix(in srgb, var(--landing-champagne) 32%, transparent);
   border-radius: 0;
   background:
-    linear-gradient(180deg, rgba(255, 250, 241, 0.14) 0%, rgba(255, 250, 241, 0.08) 100%);
+    radial-gradient(circle at top right, rgba(216, 174, 95, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 250, 241, 0.16) 0%, rgba(255, 250, 241, 0.08) 100%);
   box-shadow: none;
 }
 
@@ -1658,19 +1699,24 @@ summary:focus-visible {
 .public-bottle-card {
   display: grid;
   gap: 18px;
-  padding: 22px;
+  padding: 24px;
   border: 1px solid color-mix(in srgb, var(--landing-champagne) 42%, transparent);
-  border-radius: 10px;
+  border-radius: 22px;
   color: #fffaf1;
   background:
-    linear-gradient(160deg, rgba(255, 250, 241, 0.12), rgba(255, 250, 241, 0.05)),
+    radial-gradient(circle at top right, rgba(216, 174, 95, 0.12), transparent 24%),
+    linear-gradient(160deg, rgba(255, 250, 241, 0.14), rgba(255, 250, 241, 0.05)),
     rgba(27, 14, 18, 0.42);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 250, 241, 0.08),
+    0 24px 40px rgba(0, 0, 0, 0.18);
 }
 
 .public-bottle-card strong {
   display: block;
   color: #fffaf1;
-  font-size: 1.55rem;
+  font-size: 1.7rem;
+  letter-spacing: -0.03em;
 }
 
 .public-bottle-card span,
@@ -1681,15 +1727,18 @@ summary:focus-visible {
 
 .public-vintage-seal {
   justify-self: start;
-  padding: 8px 18px 10px;
+  padding: 10px 20px 12px;
   border: 1px solid color-mix(in srgb, var(--landing-champagne) 60%, transparent);
-  border-radius: 6px 18px 18px 6px;
+  border-radius: 8px 22px 22px 8px;
   color: var(--landing-champagne);
   font-family: "Georgia", "Times New Roman", serif;
-  font-size: 3.4rem;
+  font-size: 3.7rem;
   line-height: 1;
   letter-spacing: 0.04em;
-  background: rgba(255, 250, 241, 0.08);
+  background:
+    linear-gradient(180deg, rgba(255, 250, 241, 0.12), rgba(255, 250, 241, 0.04)),
+    rgba(255, 250, 241, 0.06);
+  box-shadow: inset 0 1px 0 rgba(255, 250, 241, 0.08);
 }
 
 .public-bottle-card dl {
@@ -1720,15 +1769,17 @@ summary:focus-visible {
 .public-price-tile {
   display: grid;
   gap: 6px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid color-mix(in srgb, var(--landing-champagne) 28%, transparent);
-  border-radius: 8px;
+  border-radius: 16px;
   background: rgba(255, 250, 241, 0.9);
+  box-shadow: 0 14px 26px rgba(0, 0, 0, 0.08);
 }
 
 .public-price-tile strong {
-  font-size: 1.45rem;
+  font-size: 1.6rem;
   color: var(--landing-burgundy-ink);
+  letter-spacing: -0.03em;
 }
 
 .public-price-tile span {
@@ -1758,8 +1809,11 @@ summary:focus-visible {
 
 .public-features-card {
   display: grid;
-  gap: 18px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 10%, var(--surface)) 0%, var(--surface) 100%);
+  gap: 22px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--landing-champagne) 10%, transparent), transparent 24%),
+    linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 10%, var(--surface)) 0%, var(--surface) 100%);
 }
 
 .public-story-card {
@@ -1770,9 +1824,9 @@ summary:focus-visible {
 
 .public-story-copy,
 .public-founder-card {
-  padding: 24px;
+  padding: 28px;
   border: 1px solid var(--landing-outline);
-  border-radius: 20px;
+  border-radius: 24px;
   box-shadow: 0 20px 36px color-mix(in srgb, var(--landing-burgundy-deep) 10%, transparent);
 }
 
@@ -1794,16 +1848,18 @@ summary:focus-visible {
 .public-principles-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .public-principle {
   display: grid;
   gap: 8px;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: color-mix(in srgb, var(--surface) 82%, var(--surface-muted));
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.55), transparent 44%),
+    color-mix(in srgb, var(--surface) 82%, var(--surface-muted));
 }
 
 .public-principle h4,
@@ -1849,12 +1905,14 @@ summary:focus-visible {
 
 .public-showcase-card {
   display: grid;
-  gap: 18px;
-  padding: 24px;
+  gap: 22px;
+  padding: 28px;
   border: 1px solid var(--landing-outline);
-  border-radius: 20px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 8%, var(--surface)) 0%, var(--surface-muted) 100%);
-  box-shadow: 0 20px 36px color-mix(in srgb, var(--landing-burgundy-deep) 10%, transparent);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 88% 8%, color-mix(in srgb, var(--landing-champagne) 10%, transparent), transparent 20%),
+    linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy-deep) 8%, var(--surface)) 0%, var(--surface-muted) 100%);
+  box-shadow: 0 24px 46px color-mix(in srgb, var(--landing-burgundy-deep) 12%, transparent);
 }
 
 .public-showcase-grid {
@@ -1866,6 +1924,7 @@ summary:focus-visible {
 .showcase-frame {
   display: grid;
   gap: 12px;
+  align-content: start;
 }
 
 .showcase-frame-wide {
@@ -1874,24 +1933,28 @@ summary:focus-visible {
 
 .showcase-window {
   overflow: hidden;
-  border: 1px solid var(--border);
-  border-radius: 18px;
-  background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--surface) 82%, transparent);
+  border: 1px solid color-mix(in srgb, var(--landing-burgundy) 16%, var(--border));
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.58), transparent 36%),
+    linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--surface) 82%, transparent),
+    0 20px 38px rgba(34, 18, 24, 0.08);
 }
 
 .showcase-bar {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 14px;
+  padding: 16px 16px 14px;
   border-bottom: 1px solid var(--border);
   background: color-mix(in srgb, var(--surface-subtle) 48%, var(--surface));
 }
 
 .showcase-tab {
-  padding: 8px 12px;
-  border-radius: 10px;
+  padding: 8px 13px;
+  border-radius: 12px;
   color: var(--text-muted);
   font-size: 0.84rem;
   font-weight: 700;
@@ -1907,8 +1970,10 @@ summary:focus-visible {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) auto minmax(260px, 0.9fr);
   gap: 14px;
-  padding: 16px;
-  background: linear-gradient(135deg, color-mix(in srgb, var(--landing-ivory) 90%, white 10%) 0%, color-mix(in srgb, var(--surface) 94%, var(--landing-ivory)) 100%);
+  padding: 20px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--landing-champagne) 18%, transparent), transparent 26%),
+    linear-gradient(135deg, color-mix(in srgb, var(--landing-ivory) 92%, white 8%) 0%, color-mix(in srgb, var(--surface) 94%, var(--landing-ivory)) 100%);
 }
 
 .showcase-hero h4,
@@ -1950,10 +2015,12 @@ summary:focus-visible {
 .showcase-card,
 .showcase-timeline,
 .showcase-detail-panel {
-  padding: 14px;
+  padding: 16px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.6), transparent 40%),
+    var(--surface);
 }
 
 .showcase-kpis strong {
@@ -1972,6 +2039,7 @@ summary:focus-visible {
 .showcase-card {
   display: grid;
   gap: 8px;
+  box-shadow: 0 10px 22px rgba(34, 18, 24, 0.05);
 }
 
 .showcase-card ul {
@@ -1988,7 +2056,7 @@ summary:focus-visible {
 .showcase-timeline {
   display: grid;
   gap: 14px;
-  margin: 16px;
+  margin: 18px;
 }
 
 .showcase-timeline-head {
@@ -2058,7 +2126,7 @@ summary:focus-visible {
 .showcase-list {
   display: grid;
   gap: 10px;
-  padding: 16px;
+  padding: 18px;
   border-right: 1px solid var(--border);
 }
 
@@ -2070,7 +2138,7 @@ summary:focus-visible {
 .showcase-detail-panel {
   display: grid;
   gap: 12px;
-  margin: 16px;
+  margin: 18px;
 }
 
 .showcase-detail-grid {
@@ -2160,16 +2228,19 @@ summary:focus-visible {
 .public-feature-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
+  gap: 16px;
 }
 
 .public-feature {
   display: grid;
   gap: 8px;
-  padding: 18px;
+  padding: 20px;
   border: 1px solid var(--border);
-  border-radius: 16px;
-  background: linear-gradient(160deg, var(--surface-raised) 0%, var(--surface-muted) 100%);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.5), transparent 42%),
+    linear-gradient(160deg, var(--surface-raised) 0%, var(--surface-muted) 100%);
+  box-shadow: 0 14px 28px color-mix(in srgb, var(--landing-burgundy-deep) 8%, transparent);
 }
 
 .public-feature-ai {
@@ -2983,9 +3054,9 @@ textarea {
 
 .wishlist-price-block {
   display: grid;
-  gap: 4px;
+  gap: 8px;
   justify-items: end;
-  min-width: 108px;
+  min-width: 154px;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
   border-radius: 16px;
@@ -3077,6 +3148,31 @@ textarea {
 
 .wishlist-price-block .wishlist-price {
   text-shadow: 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
+}
+
+.wishlist-market-estimate {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--collector-edge) 54%, transparent);
+  text-align: right;
+}
+
+.wishlist-market-estimate small {
+  color: var(--text-soft);
+  font-size: 0.64rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.wishlist-market-estimate strong {
+  color: color-mix(in srgb, var(--primary) 84%, var(--text));
+  font-size: 0.96rem;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
 }
 
 .wishlist-mobile-ai-preview {
@@ -4224,6 +4320,8 @@ button.stat-card:hover {
 
 .wine-row {
   position: relative;
+  grid-template-columns: minmax(0, 1.7fr) minmax(170px, 260px) auto;
+  grid-template-rows: auto auto;
   padding: 16px 16px 16px 18px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
   border-left: 0;
@@ -4238,6 +4336,8 @@ button.stat-card:hover {
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 88%, transparent),
     0 12px 28px color-mix(in srgb, var(--collector-depth) 100%, transparent);
   transition: border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease, background-color 0.18s ease;
+  column-gap: 18px;
+  row-gap: 10px;
 }
 
 .wine-row::before {
@@ -4384,7 +4484,9 @@ button.stat-card:hover {
 
 .wine-row-main {
   display: grid;
-  gap: 4px;
+  grid-column: 1;
+  grid-row: 1 / span 2;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -4411,6 +4513,10 @@ button.stat-card:hover {
   gap: 10px;
   flex-wrap: wrap;
   font-weight: 600;
+}
+
+.row-primary span:first-child {
+  min-width: 0;
 }
 
 .row-secondary {
@@ -4440,8 +4546,8 @@ button.stat-card:hover {
 
 .row-meta-stack {
   display: grid;
-  gap: 6px;
-  margin-top: 8px;
+  gap: 5px;
+  margin-top: 6px;
 }
 
 .row-meta-group {
@@ -4456,13 +4562,13 @@ button.stat-card:hover {
   display: inline-flex;
   align-items: center;
   max-width: 100%;
-  min-height: 34px;
-  padding: 5px 10px;
+  min-height: 30px;
+  padding: 4px 9px;
   border-radius: 999px;
   border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
   background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
   color: var(--text);
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   white-space: normal;
 }
 
@@ -4481,6 +4587,8 @@ button.stat-card:hover {
 }
 
 .row-value {
+  grid-column: 3;
+  grid-row: 1;
   align-self: start;
   justify-self: end;
   color: var(--text);
@@ -4499,6 +4607,20 @@ button.stat-card:hover {
   margin: 0 0 10px auto;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--collector-edge) 84%, transparent));
+}
+
+.wine-row > .mini-drink-window {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+}
+
+.wine-row > .row-actions {
+  grid-column: 3;
+  grid-row: 2;
+  justify-self: end;
+  align-self: start;
+  justify-content: flex-end;
 }
 
 .mini-drink-window {

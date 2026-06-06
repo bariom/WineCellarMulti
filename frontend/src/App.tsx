@@ -8810,12 +8810,6 @@ export function App() {
                         <small>{t("status")}</small>
                         {displayValue(item.status, locale, "status")}
                       </span>
-                      {aiMarketPriceValue ? (
-                        <span className="target-chip ai-market-chip">
-                          <small>{t("marketEstimate")}</small>
-                          {aiMarketPriceValue}
-                        </span>
-                      ) : null}
                     </div>
                     <div className="row-meta">
                       {item.merchant ? <span>{item.merchant}</span> : null}
@@ -8841,6 +8835,12 @@ export function App() {
                   <div className="wishlist-price-block">
                     <span>{t("targetPrice")}</span>
                     <strong className="wishlist-price">{targetPriceValue}</strong>
+                    {aiMarketPriceValue ? (
+                      <div className="wishlist-market-estimate">
+                        <small>{t("marketEstimate")}</small>
+                        <strong>{aiMarketPriceValue}</strong>
+                      </div>
+                    ) : null}
                   </div>
                   <div className="row-actions wishlist-row-actions">
                     <button type="button" className="secondary wishlist-action-button" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWishlistItem(item); }} aria-label={t("edit")} title={t("edit")}>
