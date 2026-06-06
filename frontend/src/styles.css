@@ -2944,6 +2944,29 @@ textarea {
   opacity: 1;
 }
 
+.wishlist-mobile-ai-preview {
+  display: none;
+}
+
+.wishlist-mobile-ai-preview-note {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+}
+
+.wishlist-mobile-ai-preview-note strong,
+.wishlist-mobile-ai-preview-note p {
+  margin: 0;
+}
+
+.wishlist-mobile-ai-preview-note p {
+  color: var(--text);
+  line-height: 1.4;
+}
+
 .star-rating {
   display: inline-flex;
   gap: 1px;
@@ -5759,6 +5782,12 @@ textarea {
 
   .wishlist-row-actions .action-label {
     display: none;
+  }
+
+  .wishlist-mobile-ai-preview {
+    display: grid;
+    gap: 8px;
+    margin-top: 10px;
   }
 
   .row-meta span {

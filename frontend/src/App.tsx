@@ -8623,6 +8623,22 @@ export function App() {
                       {item.merchant ? <span>{item.merchant}</span> : null}
                       {item.notes ? <span>{item.notes}</span> : null}
                     </div>
+                    {selectedWishlistId === item.id && (item.ai_strategy || item.ai_purpose_advice) ? (
+                      <div className="wishlist-mobile-ai-preview">
+                        {item.ai_strategy ? (
+                          <div className="wishlist-mobile-ai-preview-note">
+                            <strong>{t("aiStrategy")}</strong>
+                            <p>{readableLegacyAiText(item.ai_strategy, "strategy")}</p>
+                          </div>
+                        ) : null}
+                        {item.ai_purpose_advice ? (
+                          <div className="wishlist-mobile-ai-preview-note">
+                            <strong>{t("aiPurpose")}</strong>
+                            <p>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="wishlist-price-block">
                     <span>{t("targetPrice")}</span>
