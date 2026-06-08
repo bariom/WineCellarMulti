@@ -82,6 +82,36 @@ class WineTastingEntryResponse(BaseModel):
     created_at: datetime
 
 
+class TastingArchiveItemResponse(BaseModel):
+    wine_id: UUID
+    wine_name: str
+    wine_producer: str = ""
+    wine_vintage: str = ""
+    wine_format: str = ""
+    wine_type: str = ""
+    wine_region: str = ""
+    wine_appellation: str = ""
+    wine_status: str = ""
+    consumed_at: date
+    note: str = ""
+    rating: int = Field(default=0, ge=0, le=6)
+    occasion: str = ""
+    pairing: str = ""
+    companions: str = ""
+    created_at: datetime
+    tasting_id: UUID
+
+
+class TastingArchivePageResponse(BaseModel):
+    total: int
+    limit: int
+    offset: int
+    rated_count: int
+    notes_count: int
+    latest_consumed_at: date | None = None
+    items: list[TastingArchiveItemResponse] = Field(default_factory=list)
+
+
 class WineConsume(BaseModel):
     consumed_at: date | None = None
     note: str = ""
@@ -114,6 +144,7 @@ class WineResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
+    details_loaded: bool = True
     household_id: UUID
     name: str
     producer: str

@@ -6,9 +6,9 @@ from functools import lru_cache
 from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, defer
 
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.api.routes.tags import get_or_create_user_tag
@@ -20,6 +20,8 @@ from app.schemas.wine import (
     WineResponse,
     WineShareOfferCreate,
     WineShareOfferResponse,
+    TastingArchiveItemResponse,
+    TastingArchivePageResponse,
     WineTastingEntryUpdate,
     WineUpdate,
 )
@@ -117,13 +119,59 @@ def record_wine_value_history(db: Session, wine: Wine, *, source: str) -> None:
     )
 
 
-def wine_response(wine: Wine, tag_names: list[str] | None = None, value_history: list[WineValueHistory] | None = None) -> WineResponse:
-    response = WineResponse.model_validate(wine)
-    if value_history is not None:
-        response = response.model_copy(update={"value_history": value_history})
-    if tag_names is not None and tag_names:
-        return response.model_copy(update={"tags": tag_names})
-    return response
+def wine_response(
+    wine: Wine,
+    tag_names: list[str] | None = None,
+    value_history: list[WineValueHistory] | None = None,
+    *,
+    include_details: bool = True,
+) -> WineResponse:
+    if include_details:
+        response = WineResponse.model_validate(wine)
+        response = response.model_copy(update={"details_loaded": True})
+        if value_history is not None:
+            response = response.model_copy(update={"value_history": value_history})
+        if tag_names is not None and tag_names:
+            return response.model_copy(update={"tags": tag_names})
+        return response
+
+    return WineResponse(
+        id=wine.id,
+        details_loaded=False,
+        household_id=wine.household_id,
+        name=wine.name,
+        producer=wine.producer,
+        vintage=wine.vintage,
+        quantity=wine.quantity,
+        currency=wine.currency,
+        price=wine.price,
+        current_value=wine.current_value,
+        status=wine.status,
+        format=wine.format,
+        type=wine.type,
+        region=wine.region,
+        appellation=wine.appellation,
+        merchant=wine.merchant,
+        order_date=wine.order_date,
+        expected_delivery=wine.expected_delivery,
+        owner_share_pct=wine.owner_share_pct,
+        notes=wine.notes,
+        ai_notes=wine.ai_notes,
+        drink_from=wine.drink_from,
+        drink_peak_from=wine.drink_peak_from,
+        drink_peak_to=wine.drink_peak_to,
+        drink_to=wine.drink_to,
+        drink_window_notes=wine.drink_window_notes,
+        ai_value_notes=wine.ai_value_notes,
+        ai_value_estimated_at=wine.ai_value_estimated_at,
+        rating=wine.rating,
+        owners=wine.owners or [],
+        tags=tag_names or [],
+        grapes=wine.grapes or [],
+        scores=wine.scores or [],
+        tasting_history=[],
+        value_history=[],
+    )
 
 
 def share_offer_response(db: Session, offer: WineShareOffer) -> WineShareOfferResponse:
@@ -190,6 +238,47 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
             },
         )
     return entries
+
+
+def tasting_archive_entry_matches(entry: dict, wine: Wine, query: str) -> bool:
+    if not query:
+        return True
+    haystack = " ".join(
+        [
+            wine.name,
+            wine.producer,
+            wine.vintage,
+            wine.region,
+            wine.appellation,
+            str(entry.get("note") or ""),
+            str(entry.get("occasion") or ""),
+            str(entry.get("pairing") or ""),
+            str(entry.get("companions") or ""),
+        ],
+    ).lower()
+    return query in haystack
+
+
+def tasting_archive_entry(entry: dict, wine: Wine) -> TastingArchiveItemResponse:
+    return TastingArchiveItemResponse(
+        wine_id=wine.id,
+        wine_name=wine.name,
+        wine_producer=wine.producer,
+        wine_vintage=wine.vintage,
+        wine_format=wine.format,
+        wine_type=wine.type,
+        wine_region=wine.region,
+        wine_appellation=wine.appellation,
+        wine_status=wine.status,
+        consumed_at=entry["consumed_at"],
+        note=str(entry.get("note") or ""),
+        rating=int(entry.get("rating") or 0),
+        occasion=str(entry.get("occasion") or ""),
+        pairing=str(entry.get("pairing") or ""),
+        companions=str(entry.get("companions") or ""),
+        created_at=entry["created_at"],
+        tasting_id=entry["id"],
+    )
 
 
 def tasting_entry_index(wine: Wine, tasting_id: UUID) -> tuple[list[dict], int]:
@@ -293,6 +382,7 @@ def list_wines(
     wines = list(
         db.scalars(
             select(Wine)
+            .options(defer(Wine.tasting_history))
             .where(Wine.household_id == context.household.id)
             .order_by(Wine.name.asc(), Wine.vintage.desc()),
         ),
@@ -300,8 +390,77 @@ def list_wines(
     wines = [wine for wine in wines if user_can_see_wine(context, wine)]
     wine_ids = [wine.id for wine in wines]
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
-    history_by_wine = wine_value_history_by_wine(db, wine_ids)
-    return [wine_response(wine, tags_by_wine.get(wine.id), history_by_wine.get(wine.id)) for wine in wines]
+    return [wine_response(wine, tags_by_wine.get(wine.id), include_details=False) for wine in wines]
+
+
+@router.get("/tasting-archive", response_model=TastingArchivePageResponse)
+def list_tasting_archive(
+    q: str = Query(default=""),
+    type: str = Query(default=""),
+    status_filter: str = Query(default="", alias="status"),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> TastingArchivePageResponse:
+    wines = list(
+        db.scalars(
+            select(Wine)
+            .where(Wine.household_id == context.household.id)
+            .order_by(Wine.name.asc(), Wine.vintage.desc()),
+        ),
+    )
+    query = q.strip().lower()
+    normalized_type = type.strip().lower()
+    normalized_status = status_filter.strip().lower()
+
+    visible_items: list[TastingArchiveItemResponse] = []
+    rated_count = 0
+    notes_count = 0
+    latest_consumed_at = None
+
+    for wine in wines:
+        if not user_can_see_wine(context, wine):
+            continue
+        if normalized_type and wine.type.strip().lower() != normalized_type:
+            continue
+        if normalized_status and wine.status.strip().lower() != normalized_status:
+            continue
+
+        for raw_entry in normalize_tasting_history([dict(entry) for entry in (wine.tasting_history or [])]):
+            consumed_at = raw_entry.get("consumed_at")
+            created_at = raw_entry.get("created_at")
+            if not consumed_at or not created_at:
+                continue
+            entry = {
+                **raw_entry,
+                "id": UUID(str(raw_entry["id"])),
+                "consumed_at": date.fromisoformat(str(consumed_at)),
+                "created_at": datetime.fromisoformat(str(created_at)),
+            }
+            if not tasting_archive_entry_matches(entry, wine, query):
+                continue
+            if entry["rating"] > 0:
+                rated_count += 1
+            if str(entry.get("note") or "").strip():
+                notes_count += 1
+            if latest_consumed_at is None or entry["consumed_at"] > latest_consumed_at:
+                latest_consumed_at = entry["consumed_at"]
+            visible_items.append(tasting_archive_entry(entry, wine))
+
+    visible_items.sort(key=lambda item: (item.consumed_at, item.created_at), reverse=True)
+    total = len(visible_items)
+    page_items = visible_items[offset:offset + limit]
+
+    return TastingArchivePageResponse(
+        total=total,
+        limit=limit,
+        offset=offset,
+        rated_count=rated_count,
+        notes_count=notes_count,
+        latest_consumed_at=latest_consumed_at,
+        items=page_items,
+    )
 
 
 @router.get("/catalog")

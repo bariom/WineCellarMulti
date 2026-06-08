@@ -18,6 +18,7 @@ type Session = {
 
 type Wine = {
   id: string;
+  details_loaded: boolean;
   household_id: string;
   name: string;
   producer: string;
@@ -178,6 +179,36 @@ type WineShareOffer = {
   status: string;
   created_at: string;
   decided_at: string | null;
+};
+
+type TastingArchiveApiItem = {
+  tasting_id: string;
+  wine_id: string;
+  wine_name: string;
+  wine_producer: string;
+  wine_vintage: string;
+  wine_format: string;
+  wine_type: string;
+  wine_region: string;
+  wine_appellation: string;
+  wine_status: string;
+  consumed_at: string;
+  note: string;
+  rating: number;
+  occasion: string;
+  pairing: string;
+  companions: string;
+  created_at: string;
+};
+
+type TastingArchivePage = {
+  total: number;
+  limit: number;
+  offset: number;
+  rated_count: number;
+  notes_count: number;
+  latest_consumed_at: string | null;
+  items: TastingArchiveApiItem[];
 };
 
 type WishlistItem = {
@@ -503,6 +534,8 @@ type TastingArchiveEntry = {
   created_at: string;
 };
 
+const TASTING_ARCHIVE_PAGE_SIZE = 50;
+
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
   provider_mode: "auto",
@@ -703,6 +736,9 @@ const translations = {
     ratedTastings: "Rated tastings",
     tastingNotesSaved: "Tasting notes saved",
     latestTasted: "Latest tasting",
+    showingResults: "Showing",
+    previousPage: "Previous",
+    nextPage: "Next",
     noTastingArchiveMatch: "No consumed bottles match the current filters",
     critic: "Critic",
     grapeName: "Grape",
@@ -1128,6 +1164,9 @@ const translations = {
     ratedTastings: "Degustazioni valutate",
     tastingNotesSaved: "Note degustazione salvate",
     latestTasted: "Ultima degustazione",
+    showingResults: "Visualizzati",
+    previousPage: "Precedente",
+    nextPage: "Successivo",
     noTastingArchiveMatch: "Nessuna bottiglia bevuta corrisponde ai filtri",
     critic: "Critico",
     grapeName: "Uva",
@@ -2048,6 +2087,12 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 function extractApiErrorText(message: string) {
   const trimmedMessage = String(message || "").trim();
   if (!trimmedMessage) return "";
+  if (trimmedMessage.startsWith("<")) {
+    const titleMatch = trimmedMessage.match(/<title>(.*?)<\/title>/i);
+    const headingMatch = trimmedMessage.match(/<h1[^>]*>(.*?)<\/h1>/i);
+    const htmlSummary = titleMatch?.[1] || headingMatch?.[1] || trimmedMessage.replace(/<[^>]+>/g, " ");
+    return htmlSummary.replace(/\s+/g, " ").trim();
+  }
   try {
     const parsed = JSON.parse(trimmedMessage) as { detail?: unknown; message?: unknown };
     if (parsed && typeof parsed === "object") {
@@ -2068,6 +2113,12 @@ function formatUserErrorMessage(message: string, locale: Locale) {
   const text = String(message || "").trim();
   if (!text) return "";
   const normalized = text.toLowerCase();
+
+  if (normalized.includes("413 request entity too large") || normalized.includes("request entity too large")) {
+    return locale === "it"
+      ? "Il file di backup e' troppo grande per essere caricato in una sola richiesta. Riduci la dimensione del file oppure aumenta ulteriormente il limite di upload del server."
+      : "The backup file is too large to upload in a single request. Reduce the file size or increase the server upload limit.";
+  }
 
   if (normalized.includes("openai request failed")) {
     if (
@@ -2137,6 +2188,7 @@ function rawNullableString(value: unknown) {
 function offlineWine(raw: Record<string, unknown>, index: number): Wine {
   return {
     id: rawString(raw.id, `offline-wine-${index}`),
+    details_loaded: raw.details_loaded === undefined ? true : Boolean(raw.details_loaded),
     household_id: rawString(raw.household_id, "offline"),
     name: rawString(raw.name, "Unnamed wine"),
     producer: rawString(raw.producer),
@@ -2440,6 +2492,24 @@ function formatAiBudget(value: string | number) {
     minimumFractionDigits: amount < 1 ? 4 : 2,
     maximumFractionDigits: 4,
   }).format(amount);
+}
+
+function numberLocale(locale: Locale) {
+  return locale === "it" ? "it-CH" : "en-CH";
+}
+
+function formatMoney(
+  value: string | number | null | undefined,
+  currency: string,
+  locale: Locale,
+  minimumFractionDigits = 0,
+  maximumFractionDigits = 0,
+) {
+  const amount = Number(value || 0);
+  return `${currency} ${new Intl.NumberFormat(numberLocale(locale), {
+    minimumFractionDigits,
+    maximumFractionDigits,
+  }).format(amount)}`;
 }
 
 function parsePriceHintAmount(value: string) {
@@ -3390,8 +3460,8 @@ function CompareWinesModal({
                 </button>
               </div>
               <div className="compare-field-grid">
-                <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
-                <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
+                <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("drinkWindow")} value={compareDrinkWindowLabel(wine, t)} emptyLabel={t("notSpecified")} />
                 <DetailField label={t("region")} value={wine.region} emptyLabel={t("notSpecified")} />
               </div>
@@ -3410,10 +3480,12 @@ function CompareWinesModal({
 function MarketValueModal({
   context,
   t,
+  locale,
   onClose,
 }: {
   context: MarketViewContext;
   t: (key: TranslationKey) => string;
+  locale: Locale;
   onClose: () => void;
 }) {
   const isWine = context.kind === "wine";
@@ -3449,13 +3521,13 @@ function MarketValueModal({
 
         <div className="market-summary-panel">
           <span>{t("averageMarketPrice")}</span>
-          <strong>{marketCurrency} {marketPrice.toFixed(2)}</strong>
+          <strong>{formatMoney(marketPrice, marketCurrency, locale, 2, 2)}</strong>
           {deltaPct !== null ? (
             <p className={deltaPositive ? "positive" : "negative"}>
               {deltaPositive ? "↗" : "↘"} {deltaPct > 0 ? "+" : ""}{deltaPct.toFixed(1)}%
             </p>
           ) : null}
-          {referencePrice > 0 ? <small>{referenceLabel}: {referenceCurrency} {referencePrice.toFixed(2)}</small> : null}
+          {referencePrice > 0 ? <small>{referenceLabel}: {formatMoney(referencePrice, referenceCurrency, locale, 2, 2)}</small> : null}
         </div>
 
         <div className="market-sources-section">
@@ -3477,7 +3549,7 @@ function MarketValueModal({
                     <strong>{source.merchant}{source.country ? ` (${source.country})` : ""}</strong>
                     {source.note ? <span>{source.note}</span> : null}
                   </div>
-                  <b>{source.currency} {source.price.toFixed(2)}</b>
+                  <b>{formatMoney(source.price, source.currency, locale, 2, 2)}</b>
                 </a>
               ))}
             </div>
@@ -3779,6 +3851,46 @@ function tastingArchiveSearchText(entry: TastingArchiveEntry) {
     .toLowerCase();
 }
 
+function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
+  return {
+    id: item.wine_id,
+    details_loaded: false,
+    household_id: "",
+    name: item.wine_name,
+    producer: item.wine_producer,
+    vintage: item.wine_vintage,
+    quantity: 0,
+    currency: "CHF",
+    price: "0",
+    current_value: null,
+    status: item.wine_status,
+    format: item.wine_format,
+    type: item.wine_type,
+    region: item.wine_region,
+    appellation: item.wine_appellation,
+    merchant: "",
+    order_date: null,
+    expected_delivery: null,
+    owner_share_pct: "100",
+    notes: "",
+    ai_notes: "",
+    drink_from: null,
+    drink_peak_from: null,
+    drink_peak_to: null,
+    drink_to: null,
+    drink_window_notes: "",
+    ai_value_notes: "",
+    ai_value_estimated_at: null,
+    rating: 0,
+    owners: [],
+    tags: [],
+    grapes: [],
+    scores: [],
+    tasting_history: [],
+    value_history: [],
+  };
+}
+
 function TastingArchiveSection({
   entries,
   saving,
@@ -3954,7 +4066,7 @@ function WineDetail({
           {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
           <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
         </div>
-        <strong>{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+        <strong>{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
       </div>
 
       <div className="ai-actions">
@@ -3982,8 +4094,8 @@ function WineDetail({
         <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
         <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
         <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("purchasePrice")} value={`${wine.currency} ${Number(wine.price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("currentValue")} value={wine.current_value ? `${wine.currency} ${Number(wine.current_value).toFixed(0)}` : ""} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
         <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
       </div>
@@ -4211,7 +4323,7 @@ function WishlistDetail({
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
-  const aiMarketPrice = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
+  const aiMarketPrice = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
@@ -4223,7 +4335,7 @@ function WishlistDetail({
         </div>
         <div className="wishlist-price-block">
           <span>{t("targetPrice")}</span>
-          <strong className="wishlist-price">{item.currency} {Number(item.target_price).toFixed(0)}</strong>
+          <strong className="wishlist-price">{formatMoney(item.target_price, item.currency, locale)}</strong>
         </div>
       </div>
       <div className="ai-actions">
@@ -4250,7 +4362,7 @@ function WishlistDetail({
         <DetailField label={t("priority")} value={displayValue(item.priority, locale, "priority")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("purpose")} value={displayValue(item.purpose, locale, "purpose")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("status")} value={displayValue(item.status, locale, "status")} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("targetPrice")} value={`${item.currency} ${Number(item.target_price).toFixed(0)}`} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("targetPrice")} value={formatMoney(item.target_price, item.currency, locale)} emptyLabel={t("notSpecified")} />
         <DetailField label={t("aiMarketPrice")} value={aiMarketPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>
@@ -4484,6 +4596,10 @@ export function App() {
   const [pairingIgnorePreferences, setPairingIgnorePreferences] = useState(false);
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
+  const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
+  const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
+  const [tastingArchiveOffset, setTastingArchiveOffset] = useState(0);
+  const [tastingArchiveLoading, setTastingArchiveLoading] = useState(false);
   const [tagDraft, setTagDraft] = useState("");
   const [tagDraftColor, setTagDraftColor] = useState("#245142");
   const [quickTagDraft, setQuickTagDraft] = useState("");
@@ -4693,6 +4809,45 @@ export function App() {
     setWineCatalog(await api<CatalogWine[]>("/api/v1/wines/catalog"));
   }
 
+  async function loadTastingArchive(offset = tastingArchiveOffset) {
+    if (offlineMode || !session?.authenticated) {
+      setTastingArchivePage(null);
+      return;
+    }
+    setTastingArchiveLoading(true);
+    try {
+      const query = new URLSearchParams();
+      if (searchQuery.trim()) query.set("q", searchQuery.trim());
+      if (typeFilter) query.set("type", typeFilter);
+      if (statusFilter) query.set("status", statusFilter);
+      query.set("limit", String(TASTING_ARCHIVE_PAGE_SIZE));
+      query.set("offset", String(offset));
+      const nextPage = await api<TastingArchivePage>(`/api/v1/wines/tasting-archive?${query.toString()}`);
+      setTastingArchivePage(nextPage);
+      setTastingArchiveOffset(nextPage.offset);
+    } finally {
+      setTastingArchiveLoading(false);
+    }
+  }
+
+  async function loadTastingArchiveOverview(authenticated = session?.authenticated) {
+    if (offlineMode || !authenticated) {
+      setTastingArchiveOverview(null);
+      return;
+    }
+    const query = new URLSearchParams();
+    query.set("limit", "5");
+    query.set("offset", "0");
+    const nextPage = await api<TastingArchivePage>(`/api/v1/wines/tasting-archive?${query.toString()}`);
+    setTastingArchiveOverview(nextPage);
+  }
+
+  async function loadWineDetail(wineId: string) {
+    const detailedWine = await api<Wine>(`/api/v1/wines/${wineId}`);
+    setWines((current) => current.map((wine) => (wine.id === detailedWine.id ? detailedWine : wine)));
+    return detailedWine;
+  }
+
   async function loadWishlistLists() {
     const nextLists = await api<WishlistList[]>("/api/v1/wishlist/lists");
     setWishlistLists(nextLists);
@@ -4887,7 +5042,7 @@ export function App() {
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
       : nextLists[0]?.id || "";
-    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role)]);
+    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
   }
 
   async function loadData() {
@@ -4914,6 +5069,7 @@ export function App() {
         setAiUsage(null);
         setAiSettings(null);
         setAiSettingsDraft(emptyAiSettingsDraft);
+        setTastingArchiveOverview(null);
         await loadAuthenticatedSessionData(nextSession);
       } else {
         await loadAuthenticatedSessionData(nextSession);
@@ -4937,6 +5093,7 @@ export function App() {
       setAiUsage(null);
       setAiSettings(null);
       setAiSettingsDraft(emptyAiSettingsDraft);
+      setTastingArchiveOverview(null);
       setBillingStatus(null);
       setRedeemCodes([]);
     }
@@ -5180,6 +5337,9 @@ export function App() {
     setAiUsage(null);
     setAiSettings(null);
     setAiSettingsDraft(emptyAiSettingsDraft);
+    setTastingArchivePage(null);
+    setTastingArchiveOverview(null);
+    setTastingArchiveOffset(0);
     setWishlistPortfolioStrategy(null);
   }
 
@@ -5193,6 +5353,9 @@ export function App() {
     setSelectedWineId(null);
     setSelectedWishlistId(null);
     setSelectedWishlistListId("");
+    setTastingArchivePage(null);
+    setTastingArchiveOverview(null);
+    setTastingArchiveOffset(0);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     await loadData();
@@ -6063,6 +6226,10 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
+      await loadTastingArchiveOverview();
+      if (!offlineMode && activeView === "history" && historySection === "tastings") {
+        await loadTastingArchive(tastingArchiveOffset);
+      }
       setHistorySection("tastings");
       if (activeView === "cellar") {
         setActiveView("history");
@@ -6092,6 +6259,10 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
+      await loadTastingArchiveOverview();
+      if (!offlineMode && activeView === "history" && historySection === "tastings") {
+        await loadTastingArchive(tastingArchiveOffset);
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update tasting");
       throw nextError;
@@ -6109,6 +6280,10 @@ export function App() {
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
+      await loadTastingArchiveOverview();
+      if (!offlineMode && activeView === "history" && historySection === "tastings") {
+        await loadTastingArchive(tastingArchiveOffset);
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to delete tasting");
       throw nextError;
@@ -6365,15 +6540,20 @@ export function App() {
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const cellarWines = wines.filter((wine) => wine.quantity > 0);
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
-  const historyTastingWines = wines.filter((wine) => (wine.tasting_history || []).length > 0);
   const isWineCollectionView = activeView === "cellar" || activeView === "history";
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
   const activeWineCollection = activeView === "history"
     ? historySection === "tastings"
-      ? historyTastingWines
+      ? wines
       : historyWines
     : cellarWines;
-  const selectedVisibleWine = selectedWine && activeWineCollection.some((wine) => wine.id === selectedWine.id) ? selectedWine : null;
+  const selectedVisibleWine = selectedWine
+    ? activeView === "history" && historySection === "tastings"
+      ? selectedWine
+      : activeWineCollection.some((wine) => wine.id === selectedWine.id)
+        ? selectedWine
+        : null
+    : null;
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
     .filter((wine): wine is Wine => Boolean(wine));
@@ -6516,7 +6696,7 @@ export function App() {
       .filter((wine) => grapeFilter.length === 0 || grapeFilter.every((grape) => wine.grapes.some((item) => item.name === grape)))
       .map((wine) => wine.id),
   );
-  const historyTastingEntries = historyTastingWines.flatMap((wine) =>
+  const historyTastingEntries = wines.flatMap((wine) =>
     (wine.tasting_history || []).map(
       (entry): TastingArchiveEntry => ({
         id: entry.id,
@@ -6535,6 +6715,23 @@ export function App() {
     .filter((entry) => tastingFilterWineIds.has(entry.wine.id))
     .filter((entry) => !normalizedQuery || tastingArchiveSearchText(entry).includes(normalizedQuery) || wineSearchText(entry.wine).includes(normalizedQuery))
     .sort((first, second) => second.consumed_at.localeCompare(first.consumed_at) || second.created_at.localeCompare(first.created_at));
+  const usingPagedTastingArchive = !offlineMode && activeView === "history" && historySection === "tastings";
+  const pagedTastingEntries = (tastingArchivePage?.items || []).map((item): TastingArchiveEntry => {
+    const wine = wines.find((candidate) => candidate.id === item.wine_id) || tastingArchiveItemToWine(item);
+    return {
+      id: item.tasting_id,
+      wine,
+      consumed_at: item.consumed_at,
+      note: item.note,
+      rating: item.rating,
+      occasion: item.occasion,
+      pairing: item.pairing,
+      companions: item.companions,
+      created_at: item.created_at,
+    };
+  });
+  const visibleTastingEntries = usingPagedTastingArchive ? pagedTastingEntries : filteredTastingEntries;
+  const tastingArchiveTotalCount = usingPagedTastingArchive ? tastingArchivePage?.total || 0 : historyTastingEntries.length;
   const groupedFilteredWines = wineToneOrder
     .map((tone) => {
       const items = filteredWines.filter((wine) => wineTone(wine.type) === tone);
@@ -6564,7 +6761,7 @@ export function App() {
     });
   const visibleCount =
     activeView === "history" && historySection === "tastings"
-      ? filteredTastingEntries.length
+      ? visibleTastingEntries.length
       : isWineCollectionView
         ? filteredWines.length
         : filteredWishlist.length;
@@ -6601,6 +6798,11 @@ export function App() {
   }, [session?.active_household_id]);
 
   useEffect(() => {
+    if (offlineMode || activeView !== "history" || historySection !== "tastings") return;
+    setTastingArchiveOffset(0);
+  }, [offlineMode, activeView, historySection, searchQuery, typeFilter, statusFilter, session?.active_household_id]);
+
+  useEffect(() => {
     if (offlineMode || !session?.authenticated || !selectedWishlistListId) return;
     loadWishlist(selectedWishlistListId).catch((nextError) => {
       setError(nextError instanceof Error ? nextError.message : "Unable to load wishlist");
@@ -6623,6 +6825,26 @@ export function App() {
       setContactSupportDraft((current) => (current.email ? current : { ...current, email: authDraft.email }));
     }
   }, [session?.user_email, authenticated, authDraft.email, contactSupportDraft.email]);
+
+  useEffect(() => {
+    if (offlineMode || !session?.authenticated) {
+      setTastingArchivePage(null);
+      return;
+    }
+    if (activeView !== "history" || historySection !== "tastings") return;
+    loadTastingArchive(tastingArchiveOffset).catch((nextError) => {
+      setError(nextError instanceof Error ? nextError.message : "Unable to load tasting archive");
+    });
+  }, [offlineMode, session?.authenticated, session?.active_household_id, activeView, historySection, searchQuery, typeFilter, statusFilter, tastingArchiveOffset]);
+
+  useEffect(() => {
+    if (offlineMode || !session?.authenticated || !selectedWineId) return;
+    const wine = wines.find((item) => item.id === selectedWineId);
+    if (!wine || wine.details_loaded) return;
+    loadWineDetail(selectedWineId).catch((nextError) => {
+      setError(nextError instanceof Error ? nextError.message : "Unable to load wine details");
+    });
+  }, [offlineMode, session?.authenticated, selectedWineId, wines]);
 
   const cellarOwnership = ownershipStats(cellarWines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
@@ -6664,10 +6886,10 @@ export function App() {
     aiNotes: historyWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
   const tastingStats = {
-    count: historyTastingEntries.length,
-    rated: historyTastingEntries.filter((entry) => entry.rating > 0).length,
-    notes: historyTastingEntries.filter((entry) => entry.note.trim().length > 0).length,
-    latest: "",
+    count: offlineMode ? historyTastingEntries.length : tastingArchiveOverview?.total || 0,
+    rated: offlineMode ? historyTastingEntries.filter((entry) => entry.rating > 0).length : tastingArchiveOverview?.rated_count || 0,
+    notes: offlineMode ? historyTastingEntries.filter((entry) => entry.note.trim().length > 0).length : tastingArchiveOverview?.notes_count || 0,
+    latest: offlineMode ? "" : tastingArchiveOverview?.latest_consumed_at || "",
   };
   const valueByType = topWineValueGroups(cellarWines, "type");
   const valueByRegion = topWineValueGroups(cellarWines, "region");
@@ -6722,10 +6944,27 @@ export function App() {
     .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  const latestConsumedEntries = [...historyTastingEntries]
-    .sort((first, second) => second.consumed_at.localeCompare(first.consumed_at) || second.created_at.localeCompare(first.created_at))
-    .slice(0, 5);
-  tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
+  const latestConsumedEntries = offlineMode
+    ? [...historyTastingEntries]
+        .sort((first, second) => second.consumed_at.localeCompare(first.consumed_at) || second.created_at.localeCompare(first.created_at))
+        .slice(0, 5)
+    : (tastingArchiveOverview?.items || []).map((item): TastingArchiveEntry => {
+        const wine = wines.find((candidate) => candidate.id === item.wine_id) || tastingArchiveItemToWine(item);
+        return {
+          id: item.tasting_id,
+          wine,
+          consumed_at: item.consumed_at,
+          note: item.note,
+          rating: item.rating,
+          occasion: item.occasion,
+          pairing: item.pairing,
+          companions: item.companions,
+          created_at: item.created_at,
+        };
+      });
+  if (offlineMode) {
+    tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
+  }
   const drinkSoonWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2)
     .sort((first, second) => (first.drink_from || 9999) - (second.drink_from || 9999))
@@ -7905,16 +8144,16 @@ export function App() {
                   <div className="hero-kpi">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
                     <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
-                    <p>CHF {cellarStats.myValue.toFixed(0)}</p>
+                    <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
                   </div>
                   <div className="hero-kpi">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
                     <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
-                    <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
+                    <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                   </div>
                   <div className="hero-kpi">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
-                    <strong>CHF {cellarStats.totalValue.toFixed(0)}</strong>
+                    <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
                     <p>{cellarStats.bottles} {t("bottles").toLowerCase()}</p>
                   </div>
                 </div>
@@ -7949,7 +8188,7 @@ export function App() {
                         {keyPositionWine.vintage ? <div className="key-position-vintage"><span>{keyPositionWine.vintage}</span></div> : null}
                       </div>
                       <div className="key-position-metrics">
-                        <div><span>{t("value")}</span><strong>{keyPositionWine.currency} {(wineUnitValue(keyPositionWine) * keyPositionWine.quantity).toFixed(0)}</strong></div>
+                        <div><span>{t("value")}</span><strong>{formatMoney(wineUnitValue(keyPositionWine) * keyPositionWine.quantity, keyPositionWine.currency, locale)}</strong></div>
                         <div><span>{t("drinkWindow")}</span><strong>{keyPositionWine.drink_from && keyPositionWine.drink_to ? `${keyPositionWine.drink_from}-${keyPositionWine.drink_to}` : t("notSpecified")}</strong></div>
                         <div><span>{t("action")}</span><strong>{keyPositionAction}</strong></div>
                       </div>
@@ -8082,7 +8321,7 @@ export function App() {
                   <div className="bar-list">
                     {valueByRegion.map((item) => (
                       <div className="bar-row" key={item.label}>
-                        <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                        <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
                         <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
                       </div>
                     ))}
@@ -8099,7 +8338,7 @@ export function App() {
                   <div className="bar-list">
                     {valueByProducer.map((item) => (
                       <div className="bar-row" key={item.label}>
-                        <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                        <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
                         <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
                       </div>
                     ))}
@@ -8114,11 +8353,11 @@ export function App() {
                     <div className="card-heading">
                       <div>
                         <span>{t("totalValue")}</span>
-                        <h2>CHF {cellarStats.totalValue.toFixed(0)}</h2>
+                        <h2>{formatMoney(cellarStats.totalValue, "CHF", locale)}</h2>
                       </div>
                       <strong>{formatBottleCount(cellarStats.bottles)}</strong>
                     </div>
-                    <p>{t("myBottles")}: CHF {cellarStats.myValue.toFixed(0)} · {t("sharedBottles")}: CHF {cellarStats.sharedValue.toFixed(0)}</p>
+                    <p>{t("myBottles")}: {formatMoney(cellarStats.myValue, "CHF", locale)} · {t("sharedBottles")}: {formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                   </article>
                   <article className="dashboard-card">
                     <div className="card-heading">
@@ -8147,7 +8386,7 @@ export function App() {
                     <div className="bar-list">
                       {valueByRegion.map((item) => (
                         <div className="bar-row" key={item.label}>
-                          <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                          <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
                           <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
                         </div>
                       ))}
@@ -8163,7 +8402,7 @@ export function App() {
                     <div className="bar-list">
                       {valueByProducer.map((item) => (
                         <div className="bar-row" key={item.label}>
-                          <div><span>{item.label}</span><strong>CHF {item.value.toFixed(0)}</strong></div>
+                          <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
                           <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
                         </div>
                       ))}
@@ -8180,7 +8419,7 @@ export function App() {
                       {topValueWines.map((wine) => (
                         <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>CHF {wineUnitValue(wine).toFixed(0)}</strong>
+                          <strong>{formatMoney(wineUnitValue(wine), "CHF", locale)}</strong>
                         </button>
                       ))}
                     </div>
@@ -8960,17 +9199,17 @@ export function App() {
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
                   <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
-                  <p>CHF {cellarStats.myValue.toFixed(0)}</p>
+                  <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
                 </button>
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "shared" ? "active" : ""}`} onClick={() => applyQuickWineFilter("shared")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
                   <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
-                  <p>CHF {cellarStats.sharedValue.toFixed(0)}</p>
+                  <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                 </button>
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
                   <strong>{formatBottleCount(cellarStats.bottles)}</strong>
-                  <p>CHF {cellarStats.totalValue.toFixed(0)}</p>
+                  <p>{formatMoney(cellarStats.totalValue, "CHF", locale)}</p>
                 </button>
                 <button type="button" className={`stat-card ${quickWineFilter === "drink_now" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_now")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("drinkNow")}</span>
@@ -9004,7 +9243,7 @@ export function App() {
                         {valueByType.map((item) => (
                           <p key={item.label}>
                             <i className={`wine-dot tone-${wineTone(item.label)}`} />
-                            {item.label}: CHF {item.value.toFixed(0)}
+                            {item.label}: {formatMoney(item.value, "CHF", locale)}
                           </p>
                         ))}
                       </div>
@@ -9020,7 +9259,7 @@ export function App() {
                         {valueByRegion.map((item, index) => (
                           <p key={item.label}>
                             <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
-                            {item.label}: CHF {item.value.toFixed(0)}
+                            {item.label}: {formatMoney(item.value, "CHF", locale)}
                           </p>
                         ))}
                       </div>
@@ -9182,7 +9421,7 @@ export function App() {
                 </div>
                 <div className="stat-card">
                   <span>{t("targetValue")}</span>
-                  <strong>CHF {wishlistStats.targetValue.toFixed(0)}</strong>
+                  <strong>{formatMoney(wishlistStats.targetValue, "CHF", locale)}</strong>
                 </div>
                 <div className="stat-card">
                   <span>{t("highPriority")}</span>
@@ -9401,7 +9640,7 @@ export function App() {
               <span>
                 {visibleCount} / {
                   activeView === "history" && historySection === "tastings"
-                    ? historyTastingEntries.length
+                    ? tastingArchiveTotalCount
                     : isWineCollectionView
                       ? activeWineCollection.length
                       : wishlist.length
@@ -9424,21 +9663,48 @@ export function App() {
                 </div>
               </div>
             ) : null}
-            {loading ? <LoadingState label={t("loadingData")} /> : null}
+            {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
             {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
-            {!loading && activeView === "history" && historySection === "tastings" && filteredTastingEntries.length === 0 ? <p className="empty-state">{t("noTastingArchiveMatch")}</p> : null}
+            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? <p className="empty-state">{t("noTastingArchiveMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
-            {activeView === "history" && historySection === "tastings" && filteredTastingEntries.length ? (
-              <TastingArchiveSection
-                entries={filteredTastingEntries}
-                saving={saving}
-                t={t}
-                locale={locale}
-                onOpenWine={openWineFromTastingArchive}
-                onUpdateEntry={updateWineTastingEntry}
-                onDeleteEntry={deleteWineTastingEntry}
-              />
+            {activeView === "history" && historySection === "tastings" && visibleTastingEntries.length ? (
+              <>
+                {usingPagedTastingArchive ? (
+                  <div className="pagination-bar">
+                    <span>
+                      {t("showingResults")} {tastingArchiveOffset + 1}-{Math.min(tastingArchiveOffset + visibleTastingEntries.length, tastingArchiveTotalCount)} / {tastingArchiveTotalCount}
+                    </span>
+                    <div className="pagination-actions">
+                      <button
+                        type="button"
+                        className="secondary compact"
+                        disabled={tastingArchiveLoading || tastingArchiveOffset <= 0}
+                        onClick={() => setTastingArchiveOffset((current) => Math.max(current - TASTING_ARCHIVE_PAGE_SIZE, 0))}
+                      >
+                        {t("previousPage")}
+                      </button>
+                      <button
+                        type="button"
+                        className="secondary compact"
+                        disabled={tastingArchiveLoading || tastingArchiveOffset + visibleTastingEntries.length >= tastingArchiveTotalCount}
+                        onClick={() => setTastingArchiveOffset((current) => current + TASTING_ARCHIVE_PAGE_SIZE)}
+                      >
+                        {t("nextPage")}
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+                <TastingArchiveSection
+                  entries={visibleTastingEntries}
+                  saving={saving}
+                  t={t}
+                  locale={locale}
+                  onOpenWine={openWineFromTastingArchive}
+                  onUpdateEntry={updateWineTastingEntry}
+                  onDeleteEntry={deleteWineTastingEntry}
+                />
+              </>
             ) : null}
             {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && groupedFilteredWines.length ? (
               <div className="wine-tone-groups">
@@ -9494,7 +9760,7 @@ export function App() {
                     ) : null}
                   </div>
                   <DrinkWindowMini wine={wine} />
-                  <strong className="row-value">{wine.currency} {Number(wine.current_value || wine.price).toFixed(0)}</strong>
+                  <strong className="row-value">{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
                   <div className="row-actions">
                     <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
                       {t("compare")}
@@ -9533,8 +9799,8 @@ export function App() {
               </div>
             ) : null}
             {!isWineCollectionView ? filteredWishlist.map((item) => {
-              const targetPriceValue = `${item.currency} ${Number(item.target_price).toFixed(0)}`;
-              const aiMarketPriceValue = item.ai_market_price ? `${item.ai_market_price_currency || item.currency} ${Number(item.ai_market_price).toFixed(0)}` : "";
+              const targetPriceValue = formatMoney(item.target_price, item.currency, locale);
+              const aiMarketPriceValue = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
               const readyToBuy = isWishlistReadyToBuy(item.status);
               return (
               <div className="list-item-block" key={item.id}>
@@ -10524,7 +10790,7 @@ export function App() {
           <span aria-hidden="true">↑</span>
         </button>
       ) : null}
-      {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} onClose={() => setMarketViewContext(null)} /> : null}
+      {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} locale={locale} onClose={() => setMarketViewContext(null)} /> : null}
       {compareModalOpen && comparedWines.length ? (
         <CompareWinesModal
           wines={comparedWines}
