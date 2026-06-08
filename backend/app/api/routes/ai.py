@@ -556,6 +556,13 @@ def pairing_wine_context(wine: Wine) -> dict:
     }
 
 
+def pairing_budget_value_chf(wine: Wine) -> Decimal:
+    reference_value = wine.current_value if wine.current_value is not None else wine.price
+    if reference_value is None:
+        return Decimal("0")
+    return Decimal(str(reference_value))
+
+
 def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_market: bool) -> PairingResponse:
     matches = payload.get("cellar_matches", [])
     if not isinstance(matches, list):
@@ -698,6 +705,7 @@ def suggest_pairing(
 ) -> PairingResponse:
     user_settings = get_or_create_user_ai_settings(db, context)
     pairing_preferences = "" if payload.ignore_preferences else (user_settings.pairing_preferences or "").strip()
+    max_price_chf = Decimal(str(payload.max_price_chf)) if payload.max_price_chf is not None else None
     cellar_wines = [] if payload.market_only else list(
         db.scalars(
             select(Wine)
@@ -709,6 +717,8 @@ def suggest_pairing(
         ),
     )
     cellar_wines = [wine for wine in cellar_wines if user_can_see_wine(context, wine)]
+    if max_price_chf is not None:
+        cellar_wines = [wine for wine in cellar_wines if pairing_budget_value_chf(wine) <= max_price_chf]
     wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
     schema = {
         "name": "wine_pairing",
@@ -773,12 +783,15 @@ def suggest_pairing(
         ),
         user_prompt=(
             f"Piatto o pietanza: {payload.dish}\n"
+            f"budget_massimo_chf: {str(max_price_chf) if max_price_chf is not None else 'none'}\n"
             f"include_market: {str(payload.include_market).lower()}\n"
             f"market_only: {str(payload.market_only).lower()}\n\n"
             f"gusti_personali: {pairing_preferences or 'none'}\n"
             f"ignore_preferences: {str(payload.ignore_preferences).lower()}\n\n"
             "Vini disponibili in cantina, solo questi possono essere scelti come cellar_matches:\n"
             f"{wine_context_payload}\n\n"
+            "Se e presente un budget massimo in CHF, privilegia chiaramente bottiglie entro quel tetto e non proporre cellar_matches sopra budget. "
+            "Se include_market e true, le proposte di mercato devono stare entro il budget quando possibile. "
             "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60."
         ),
         json_schema=schema,

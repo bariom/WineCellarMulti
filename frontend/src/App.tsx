@@ -830,6 +830,8 @@ const translations = {
     pairing: "Pairing",
     pairingCellarMatches: "From your cellar",
     pairingDish: "Dish or food",
+    pairingMaxPrice: "Max budget (CHF)",
+    pairingMaxPriceHelp: "Optional. Use it when you want a good match within a spending limit, not necessarily the best bottle overall.",
     pairingPreferences: "My pairing tastes",
     pairingPreferencesHelp: "Describe your preferences once and Vinaris will use them by default during pairing.",
     pairingPreferencesPlaceholder: "E.g. I prefer fresh, precise wines, low oak, little sweetness, and I usually avoid heavy tannins with spicy dishes.",
@@ -1248,6 +1250,8 @@ const translations = {
     pairing: "Abbinamento",
     pairingCellarMatches: "Dalla tua cantina",
     pairingDish: "Piatto o pietanza",
+    pairingMaxPrice: "Budget massimo (CHF)",
+    pairingMaxPriceHelp: "Facoltativo. Usalo quando vuoi un buon abbinamento entro una soglia di spesa, non per forza la bottiglia migliore in assoluto.",
     pairingPreferences: "I miei gusti per gli abbinamenti",
     pairingPreferencesHelp: "Descrivi una volta le tue preferenze e Vinaris le userà di default negli abbinamenti.",
     pairingPreferencesPlaceholder: "Es. Preferisco vini freschi e precisi, poco legno, poca dolcezza ed evito tannini aggressivi con piatti speziati.",
@@ -3808,26 +3812,32 @@ function WishlistPortfolioStrategyPanel({
   canGenerate,
   generating,
   onGenerate,
+  open,
+  onToggle,
   t,
 }: {
   strategy: WishlistPortfolioStrategy | null;
   canGenerate: boolean;
   generating: boolean;
   onGenerate: () => void;
+  open: boolean;
+  onToggle: (open: boolean) => void;
   t: (key: TranslationKey) => string;
 }) {
   return (
-    <section className="wine-detail wishlist-portfolio-panel">
-      <div className="detail-title">
-        <div>
-          <p className="eyebrow">{t("wishlist")}</p>
-          <h2>{t("wishlistPortfolioStrategy")}</h2>
-          <span>{t("wishlistPortfolioStrategyHelp")}</span>
+    <details className="wine-detail wishlist-portfolio-panel wishlist-strategy-details" open={open} onToggle={(event) => onToggle((event.currentTarget as HTMLDetailsElement).open)}>
+      <summary className="wishlist-strategy-summary">
+        <div className="detail-title">
+          <div>
+            <p className="eyebrow">{t("wishlist")}</p>
+            <h2>{t("wishlistPortfolioStrategy")}</h2>
+            <span>{t("wishlistPortfolioStrategyHelp")}</span>
+          </div>
+          <button type="button" className="secondary compact wishlist-strategy-cta" disabled={!canGenerate || generating} onClick={(event) => { event.preventDefault(); onGenerate(); }}>
+            {generating ? t("generating") : strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
+          </button>
         </div>
-        <button type="button" className="secondary compact wishlist-strategy-cta" disabled={!canGenerate || generating} onClick={onGenerate}>
-          {generating ? t("generating") : strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
-        </button>
-      </div>
+      </summary>
       {strategy ? (
         <>
           <div className="notes-grid">
@@ -3845,7 +3855,7 @@ function WishlistPortfolioStrategyPanel({
       ) : (
         <p className="empty-state">{t("noWishlistPortfolioStrategy")}</p>
       )}
-    </section>
+    </details>
   );
 }
 
@@ -3969,6 +3979,7 @@ export function App() {
   const [contactSupportDraft, setContactSupportDraft] = useState<ContactSupportDraft>(emptyContactSupportDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [pairingDish, setPairingDish] = useState("");
+  const [pairingMaxPrice, setPairingMaxPrice] = useState("");
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
   const [pairingIgnorePreferences, setPairingIgnorePreferences] = useState(false);
@@ -4006,6 +4017,7 @@ export function App() {
   const [compareModalOpen, setCompareModalOpen] = useState(false);
   const [compareAiResult, setCompareAiResult] = useState<WineCompareAiResult | null>(null);
   const [wishlistPortfolioStrategy, setWishlistPortfolioStrategy] = useState<WishlistPortfolioStrategy | null>(null);
+  const [wishlistPortfolioStrategyOpen, setWishlistPortfolioStrategyOpen] = useState(false);
   const [compareAiLoading, setCompareAiLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
@@ -5616,6 +5628,7 @@ export function App() {
         body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId }),
       });
       setWishlistPortfolioStrategy(result);
+      setWishlistPortfolioStrategyOpen(true);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate wishlist buying strategy");
@@ -5637,6 +5650,7 @@ export function App() {
         method: "POST",
         body: JSON.stringify({
           dish: pairingDish.trim(),
+          max_price_chf: pairingMaxPrice.trim() ? Number(pairingMaxPrice.trim()) : null,
           include_market: pairingIncludeMarket,
           market_only: pairingMarketOnly,
           ignore_preferences: pairingIgnorePreferences,
@@ -5831,6 +5845,9 @@ export function App() {
     ) || null;
   const visibleWishlistPortfolioStrategy =
     wishlistPortfolioStrategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);
+  useEffect(() => {
+    setWishlistPortfolioStrategyOpen(!visibleWishlistPortfolioStrategy);
+  }, [selectedWishlistListId, visibleWishlistPortfolioStrategy]);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => wine.type));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
@@ -6508,6 +6525,20 @@ export function App() {
           <label>
             <span>{t("pairingDish")}</span>
             <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+          </label>
+          <label>
+            <span>{t("pairingMaxPrice")}</span>
+            <input
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={pairingMaxPrice}
+              onChange={(event) => setPairingMaxPrice(event.target.value)}
+              placeholder="60"
+              disabled={!canGenerateAi || generatingAi === "pairing"}
+            />
+            <small>{t("pairingMaxPriceHelp")}</small>
           </label>
           <label className="pairing-option">
             <input type="checkbox" checked={pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
@@ -8201,6 +8232,8 @@ export function App() {
                   canGenerate={canGenerateAi && wishlist.length > 0}
                   generating={generatingAi === "wishlist-portfolio-strategy"}
                   onGenerate={generateWishlistPortfolioStrategy}
+                  open={wishlistPortfolioStrategyOpen}
+                  onToggle={setWishlistPortfolioStrategyOpen}
                   t={t}
                 />
             ) : (
@@ -8477,6 +8510,8 @@ export function App() {
                   canGenerate={canGenerateAi && wishlist.length > 0}
                   generating={generatingAi === "wishlist-portfolio-strategy"}
                   onGenerate={generateWishlistPortfolioStrategy}
+                  open={wishlistPortfolioStrategyOpen}
+                  onToggle={setWishlistPortfolioStrategyOpen}
                   t={t}
                 />
               ) : null}

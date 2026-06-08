@@ -4880,6 +4880,48 @@ button.stat-card:hover {
   align-items: start;
 }
 
+.wishlist-strategy-details {
+  gap: 12px;
+}
+
+.wishlist-strategy-summary {
+  display: block;
+  list-style: none;
+  cursor: pointer;
+}
+
+.wishlist-strategy-summary::-webkit-details-marker {
+  display: none;
+}
+
+.wishlist-strategy-summary .detail-title {
+  margin: 0;
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.wishlist-strategy-summary .detail-title > div {
+  position: relative;
+  padding-right: 26px;
+}
+
+.wishlist-strategy-summary .detail-title > div::after {
+  content: "";
+  position: absolute;
+  top: 0.5rem;
+  right: 0;
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid color-mix(in srgb, var(--collector-edge) 84%, var(--text));
+  border-bottom: 2px solid color-mix(in srgb, var(--collector-edge) 84%, var(--text));
+  transform: rotate(45deg);
+  transition: transform 0.18s ease;
+}
+
+.wishlist-strategy-details[open] .wishlist-strategy-summary .detail-title > div::after {
+  transform: rotate(-135deg) translateY(-2px);
+}
+
 .wishlist-strategy-cta {
   align-self: start;
 }

@@ -82,6 +82,7 @@ class WishlistPortfolioStrategyRequest(AiGenerationRequest):
 
 class PairingRequest(BaseModel):
     dish: str = Field(min_length=2, max_length=240)
+    max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     include_market: bool = False
     market_only: bool = False
     ignore_preferences: bool = False
