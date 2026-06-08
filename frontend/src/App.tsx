@@ -3077,84 +3077,7 @@ function LoadingSpinner({ size = "md" }: { size?: "sm" | "md" }) {
 }
 
 function SommelierAiIllustration() {
-  return (
-    <svg viewBox="0 0 320 360" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <defs>
-        <linearGradient id="sommelier-bg" x1="26" y1="18" x2="288" y2="334" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#7F203B" />
-          <stop offset="0.48" stopColor="#4C203E" />
-          <stop offset="1" stopColor="#1E2D29" />
-        </linearGradient>
-        <linearGradient id="sommelier-metal" x1="123" y1="86" x2="219" y2="288" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F6F0E4" />
-          <stop offset="0.42" stopColor="#CCD4D5" />
-          <stop offset="1" stopColor="#7E9197" />
-        </linearGradient>
-        <linearGradient id="sommelier-gold" x1="69" y1="38" x2="266" y2="296" gradientUnits="userSpaceOnUse">
-          <stop stopColor="#F4D27B" />
-          <stop offset="1" stopColor="#B98A35" />
-        </linearGradient>
-        <filter id="sommelier-glow" x="0" y="0" width="320" height="360" filterUnits="userSpaceOnUse" colorInterpolationFilters="sRGB">
-          <feGaussianBlur stdDeviation="18" result="blur" />
-          <feBlend in="SourceGraphic" in2="blur" mode="screen" />
-        </filter>
-      </defs>
-      <rect x="18" y="18" width="284" height="324" rx="18" fill="url(#sommelier-bg)" stroke="rgba(255,255,255,0.14)" />
-      <g opacity="0.9" filter="url(#sommelier-glow)">
-        <path d="M51 79H267" stroke="url(#sommelier-gold)" strokeOpacity="0.45" strokeWidth="2" />
-        <path d="M47 127H274" stroke="url(#sommelier-gold)" strokeOpacity="0.28" strokeWidth="2" />
-        <path d="M46 173H271" stroke="url(#sommelier-gold)" strokeOpacity="0.22" strokeWidth="2" />
-        <path d="M50 220H270" stroke="url(#sommelier-gold)" strokeOpacity="0.18" strokeWidth="2" />
-        <path d="M158 54V304" stroke="url(#sommelier-gold)" strokeOpacity="0.18" strokeWidth="2" />
-        <path d="M103 82L215 248" stroke="#80D7C1" strokeOpacity="0.24" strokeWidth="2" />
-        <path d="M228 93L119 257" stroke="#80D7C1" strokeOpacity="0.2" strokeWidth="2" />
-      </g>
-      <g opacity="0.92">
-        <circle cx="56" cy="90" r="17" fill="#FAEFD8" fillOpacity="0.9" />
-        <path d="M48 90h16M56 82v16" stroke="#8C6427" strokeWidth="2.3" strokeLinecap="round" />
-        <circle cx="102" cy="78" r="15" fill="#F2D28A" fillOpacity="0.95" />
-        <path d="M95 82c5-8 12-8 16 0" stroke="#753228" strokeWidth="2.2" strokeLinecap="round" />
-        <circle cx="250" cy="86" r="14" fill="#FAEFD8" fillOpacity="0.92" />
-        <path d="M246 79h8l3 5-3 6h-8l-3-6 3-5Z" stroke="#8C6427" strokeWidth="2" />
-        <circle cx="270" cy="115" r="13" fill="#F2D28A" fillOpacity="0.95" />
-        <path d="M270 107v15M263 114h14" stroke="#7C203B" strokeWidth="2.2" strokeLinecap="round" />
-        <circle cx="76" cy="236" r="17" fill="#F2D28A" fillOpacity="0.95" />
-        <path d="M69 242c7-14 13-14 15 0" stroke="#7C203B" strokeWidth="2.2" strokeLinecap="round" />
-      </g>
-      <g>
-        <ellipse cx="164" cy="312" rx="58" ry="12" fill="#0E1412" fillOpacity="0.42" />
-        <path d="M132 238c10 27 20 37 29 37 10 0 18-11 28-37l14-59c4-16-5-31-21-35l-14-4a30 30 0 0 0-17 0l-14 4c-16 4-25 19-21 35l16 59Z" fill="url(#sommelier-metal)" />
-        <path d="M150 171c4 8 11 13 18 13s14-5 18-13" stroke="#607278" strokeWidth="2.2" strokeLinecap="round" />
-        <path d="M143 197h40M140 218h45M149 241h26" stroke="#607278" strokeOpacity="0.8" strokeWidth="2" strokeLinecap="round" />
-        <path d="M160 118c-28 0-45 18-45 44 0 25 17 47 45 47 29 0 45-22 45-47 0-26-16-44-45-44Z" fill="url(#sommelier-metal)" />
-        <path d="M136 136c7-17 41-17 48 0" stroke="#607278" strokeWidth="2.2" strokeLinecap="round" />
-        <circle cx="144" cy="161" r="4.3" fill="#4F6368" />
-        <circle cx="176" cy="161" r="4.3" fill="#4F6368" />
-        <path d="M150 182c8 4 14 4 22 0" stroke="#7C203B" strokeWidth="2.8" strokeLinecap="round" />
-        <path d="M147 110c2-14 12-22 24-22s22 8 24 22" stroke="#7A8E95" strokeWidth="8" strokeLinecap="round" />
-        <circle cx="160" cy="90" r="9" fill="#D6DFE0" stroke="#6E8288" strokeWidth="3" />
-        <path d="M121 184c-13 3-25 10-33 20-12 15-18 32-18 53v15" stroke="#7A8E95" strokeWidth="10" strokeLinecap="round" />
-        <path d="M199 184c13 3 25 10 33 20 12 15 18 32 18 53v15" stroke="#7A8E95" strokeWidth="10" strokeLinecap="round" />
-        <path d="M91 254c8 0 15-6 18-16l7-21c3-10 13-14 22-12" stroke="#C8D2D4" strokeWidth="8" strokeLinecap="round" />
-        <path d="M229 252c-8 0-15-6-18-16l-7-21c-3-10-13-14-22-12" stroke="#C8D2D4" strokeWidth="8" strokeLinecap="round" />
-      </g>
-      <g>
-        <path d="M100 231c7 0 13 6 13 13 0 9-7 21-13 29-6-8-13-20-13-29 0-7 6-13 13-13Z" fill="#F6F0E4" stroke="#8C6427" strokeWidth="2" />
-        <path d="M91 244h18l-2 4c-1 3-4 5-7 5s-6-2-7-5l-2-4Z" fill="#8C223E" />
-        <path d="M100 230v-13" stroke="#F6F0E4" strokeWidth="2" strokeLinecap="round" />
-      </g>
-      <g opacity="0.95">
-        <circle cx="221" cy="223" r="22" fill="#221A17" fillOpacity="0.45" stroke="url(#sommelier-gold)" strokeOpacity="0.45" />
-        <path d="M209 223h24M221 211v24" stroke="#F3CF7A" strokeWidth="2.3" strokeLinecap="round" />
-      </g>
-      <g opacity="0.9">
-        <circle cx="235" cy="270" r="4" fill="#F3CF7A" />
-        <circle cx="250" cy="253" r="3" fill="#80D7C1" />
-        <circle cx="258" cy="285" r="3.5" fill="#F3CF7A" />
-        <circle cx="225" cy="291" r="3.2" fill="#80D7C1" />
-      </g>
-    </svg>
-  );
+  return <img src="/images/sommelier_ai.png" alt="Sommelier AI" loading="lazy" />;
 }
 
 function LoadingState({ label, compact = false }: { label: string; compact?: boolean }) {
@@ -7137,7 +7060,15 @@ export function App() {
       .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0) || [];
     const cheapestCellarMatch = cellarMatchBudgetValues.length ? Math.min(...cellarMatchBudgetValues) : null;
     const pairingResultCount = (pairingResult?.cellar_matches.length || 0) + Object.values(pairingResult?.market_recommendations || {}).reduce((total, items) => total + items.length, 0);
-    const pairingPreviewMatches = pairingResult?.cellar_matches.slice(0, 2) || [];
+    const pairingPreviewItems = [
+      ...(pairingResult?.cellar_matches.map((match) => ({ key: `cellar-${match.wine_id}`, name: match.wine_name })) || []),
+      ...(["low", "medium", "high"] as const).flatMap((tier) =>
+        (pairingResult?.market_recommendations[tier] || []).map((item, index) => ({
+          key: `${tier}-${item.name}-${index}`,
+          name: item.name,
+        })),
+      ),
+    ].slice(0, 4);
     return (
       <section className="pairing-card">
         <div className="card-heading">
@@ -7332,13 +7263,11 @@ export function App() {
                 <span>{locale === "it" ? "Proposte consigliate" : "Suggested matches"}</span>
                 <strong>{pairingResultCount ? `${pairingResultCount}` : (locale === "it" ? "In attesa di una richiesta" : "Waiting for a request")}</strong>
               </div>
-              {pairingPreviewMatches.length ? (
+              {pairingPreviewItems.length ? (
                 <div className="pairing-sidekick-list">
-                  {pairingPreviewMatches.map((match) => (
-                    <article key={`sidekick-${match.wine_id}`} className="pairing-sidekick-item">
-                      <strong>{match.wine_name}</strong>
-                      <span>{match.producer || (locale === "it" ? "Dalla tua cantina" : "From your cellar")}</span>
-                      <p>{match.reason}</p>
+                  {pairingPreviewItems.map((item) => (
+                    <article key={item.key} className="pairing-sidekick-item">
+                      <strong>{item.name}</strong>
                     </article>
                   ))}
                 </div>

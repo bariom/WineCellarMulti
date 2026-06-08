@@ -3741,10 +3741,11 @@ textarea {
     0 12px 30px color-mix(in srgb, var(--collector-depth) 56%, transparent);
 }
 
-.pairing-sidekick-illustration svg {
+.pairing-sidekick-illustration img {
   display: block;
   width: 100%;
   height: auto;
+  object-fit: contain;
 }
 
 .pairing-sidekick-list {
@@ -3754,8 +3755,8 @@ textarea {
 
 .pairing-sidekick-item {
   display: grid;
-  gap: 4px;
-  padding: 12px;
+  gap: 2px;
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
   border-radius: 12px;
   background: color-mix(in srgb, var(--surface-muted) 94%, transparent);
@@ -3763,10 +3764,9 @@ textarea {
 
 .pairing-sidekick-item strong {
   color: var(--text);
+  font-size: 0.95rem;
 }
 
-.pairing-sidekick-item span,
-.pairing-sidekick-item p,
 .pairing-sidekick-empty {
   margin: 0;
   color: var(--text-muted);
