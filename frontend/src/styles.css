@@ -5266,6 +5266,20 @@ button.stat-card:hover {
   margin: 0;
 }
 
+.tasting-history-head {
+  align-items: start;
+}
+
+.tasting-history-head > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.tasting-history-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .tasting-archive-list {
   display: grid;
   gap: 12px;
@@ -5317,7 +5331,34 @@ button.stat-card:hover {
 
 .tasting-archive-actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: flex-end;
+}
+
+.tasting-entry-editor {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.tasting-entry-editor label {
+  display: grid;
+  gap: 6px;
+}
+
+.tasting-entry-editor label span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tasting-entry-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .ai-audit-detail summary {

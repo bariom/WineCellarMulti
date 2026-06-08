@@ -91,6 +91,15 @@ class WineConsume(BaseModel):
     tasting_companions: str = ""
 
 
+class WineTastingEntryUpdate(BaseModel):
+    consumed_at: date
+    note: str = ""
+    tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_occasion: str = ""
+    tasting_pairing: str = ""
+    tasting_companions: str = ""
+
+
 class WineValueHistoryResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

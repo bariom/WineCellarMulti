@@ -14,7 +14,15 @@ from app.api.deps import CurrentContext, get_current_context, require_admin_cont
 from app.api.routes.tags import get_or_create_user_tag
 from app.db.session import get_db
 from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
-from app.schemas.wine import WineConsume, WineCreate, WineResponse, WineShareOfferCreate, WineShareOfferResponse, WineUpdate
+from app.schemas.wine import (
+    WineConsume,
+    WineCreate,
+    WineResponse,
+    WineShareOfferCreate,
+    WineShareOfferResponse,
+    WineTastingEntryUpdate,
+    WineUpdate,
+)
 
 
 router = APIRouter()
@@ -182,6 +190,15 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
             },
         )
     return entries
+
+
+def tasting_entry_index(wine: Wine, tasting_id: UUID) -> tuple[list[dict], int]:
+    entries = normalize_tasting_history([dict(entry) for entry in (wine.tasting_history or [])])
+    tasting_id_str = str(tasting_id)
+    for index, entry in enumerate(entries):
+        if entry.get("id") == tasting_id_str:
+            return entries, index
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tasting entry not found")
 
 
 def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct: Decimal) -> None:
@@ -505,6 +522,58 @@ def consume_wine_bottle(
         wine.status = "Consumed"
     elif wine.status.lower() not in {"delivered", "consegnato", "consumed", "bevuto"}:
         wine.status = "Delivered"
+
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.patch("/{wine_id}/tastings/{tasting_id}", response_model=WineResponse)
+def update_wine_tasting_entry(
+    wine_id: UUID,
+    tasting_id: UUID,
+    payload: WineTastingEntryUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    entries, index = tasting_entry_index(wine, tasting_id)
+    current_entry = entries[index]
+    entries[index] = {
+        **current_entry,
+        "consumed_at": payload.consumed_at.isoformat(),
+        "note": payload.note.strip(),
+        "rating": payload.tasting_rating,
+        "occasion": payload.tasting_occasion.strip(),
+        "pairing": payload.tasting_pairing.strip(),
+        "companions": payload.tasting_companions.strip(),
+    }
+    wine.tasting_history = normalize_tasting_history(entries)
+
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.delete("/{wine_id}/tastings/{tasting_id}", response_model=WineResponse)
+def delete_wine_tasting_entry(
+    wine_id: UUID,
+    tasting_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    entries, index = tasting_entry_index(wine, tasting_id)
+    entries.pop(index)
+    wine.tasting_history = normalize_tasting_history(entries)
 
     db.commit()
     db.refresh(wine)

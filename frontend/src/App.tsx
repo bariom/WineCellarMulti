@@ -1,4 +1,4 @@
-import { CSSProperties, ChangeEvent, Children, FormEvent, MouseEvent, ReactNode, UIEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, UIEvent, useEffect, useRef, useState } from "react";
 
 type Session = {
   authenticated: boolean;
@@ -531,6 +531,17 @@ const emptyConsumeWineDraft = (): ConsumeWineDraft => ({
   tasting_pairing: "",
   tasting_companions: "",
 });
+
+function consumeDraftFromTastingEntry(entry: Wine["tasting_history"][number]): ConsumeWineDraft {
+  return {
+    consumed_at: entry.consumed_at || new Date().toISOString().slice(0, 10),
+    note: entry.note || "",
+    tasting_rating: String(entry.rating || 0),
+    tasting_occasion: entry.occasion || "",
+    tasting_pairing: entry.pairing || "",
+    tasting_companions: entry.companions || "",
+  };
+}
 
 const defaultExportSelection: ExportSelection = {
   wines: true,
@@ -3341,14 +3352,127 @@ function hasSharedOwnership(wine: Wine) {
   return wine.owners.length > 0 || Number(wine.owner_share_pct || 100) < 100;
 }
 
+function TastingEntryEditor({
+  draft,
+  setDraft,
+  saving,
+  t,
+  onSave,
+  onCancel,
+  onDelete,
+}: {
+  draft: ConsumeWineDraft;
+  setDraft: Dispatch<SetStateAction<ConsumeWineDraft>>;
+  saving: boolean;
+  t: (key: TranslationKey) => string;
+  onSave: () => Promise<void>;
+  onCancel: () => void;
+  onDelete: () => Promise<void>;
+}) {
+  return (
+    <div className="tasting-entry-editor">
+      <div className="detail-grid consume-grid">
+        <label>
+          <span>{t("tastingDate")}</span>
+          <input
+            type="date"
+            value={draft.consumed_at}
+            onChange={(event) => setDraft((current) => ({ ...current, consumed_at: event.target.value }))}
+            disabled={saving}
+          />
+        </label>
+        <label>
+          <span>{t("tastingRating")}</span>
+          <select
+            value={draft.tasting_rating}
+            onChange={(event) => setDraft((current) => ({ ...current, tasting_rating: event.target.value }))}
+            disabled={saving}
+          >
+            {Array.from({ length: 7 }).map((_, index) => (
+              <option key={index} value={String(index)}>
+                {index === 0 ? t("notSpecified") : `${index}/6`}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          <span>{t("tastingOccasion")}</span>
+          <input
+            value={draft.tasting_occasion}
+            onChange={(event) => setDraft((current) => ({ ...current, tasting_occasion: event.target.value }))}
+            disabled={saving}
+          />
+        </label>
+        <label>
+          <span>{t("tastingPairing")}</span>
+          <input
+            value={draft.tasting_pairing}
+            onChange={(event) => setDraft((current) => ({ ...current, tasting_pairing: event.target.value }))}
+            disabled={saving}
+          />
+        </label>
+      </div>
+      <label>
+        <span>{t("tastingCompanions")}</span>
+        <input
+          value={draft.tasting_companions}
+          onChange={(event) => setDraft((current) => ({ ...current, tasting_companions: event.target.value }))}
+          disabled={saving}
+        />
+      </label>
+      <label>
+        <span>{t("notes")}</span>
+        <textarea
+          rows={3}
+          value={draft.note}
+          onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))}
+          disabled={saving}
+        />
+      </label>
+      <div className="tasting-entry-actions">
+        <button type="button" disabled={saving} onClick={() => onSave().catch(() => undefined)}>
+          {saving ? t("saving") : t("saveChanges")}
+        </button>
+        <button type="button" className="secondary compact" disabled={saving} onClick={onCancel}>
+          {t("cancel")}
+        </button>
+        <button type="button" className="danger compact" disabled={saving} onClick={() => onDelete().catch(() => undefined)}>
+          {t("delete")}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TastingHistorySection({
+  wine,
   entries,
+  canWrite,
+  saving,
+  onUpdateEntry,
+  onDeleteEntry,
   t,
 }: {
+  wine: Wine;
   entries: Wine["tasting_history"];
+  canWrite: boolean;
+  saving: boolean;
+  onUpdateEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
+  onDeleteEntry: (wine: Wine, entryId: string) => Promise<void>;
   t: (key: TranslationKey) => string;
 }) {
   const orderedEntries = [...entries].sort((first, second) => second.consumed_at.localeCompare(first.consumed_at));
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+
+  useEffect(() => {
+    if (!editingId) return;
+    const matchingEntry = entries.find((entry) => entry.id === editingId);
+    if (!matchingEntry) {
+      setEditingId(null);
+      setEditDraft(emptyConsumeWineDraft());
+    }
+  }, [entries, editingId]);
 
   return (
     <div className="detail-section">
@@ -3357,18 +3481,61 @@ function TastingHistorySection({
         <div className="tasting-history-list">
           {orderedEntries.map((entry) => (
             <article className="tasting-history-entry" key={entry.id}>
-              <div className="section-heading">
-                <strong>{formatDisplayDate(entry.consumed_at)}</strong>
-                {entry.rating ? <span>{t("tastingRating")}: {entry.rating}/6</span> : null}
-              </div>
-              {entry.note ? <p>{entry.note}</p> : null}
-              {entry.occasion || entry.pairing || entry.companions ? (
-                <div className="chip-list">
-                  {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
-                  {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
-                  {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
+              <div className="section-heading tasting-history-head">
+                <div>
+                  <strong>{formatDisplayDate(entry.consumed_at)}</strong>
+                  {entry.rating ? <span>{t("tastingRating")}: {entry.rating}/6</span> : null}
                 </div>
-              ) : null}
+                {canWrite ? (
+                  <div className="tasting-history-actions">
+                    <button
+                      type="button"
+                      className="secondary compact"
+                      disabled={saving}
+                      onClick={() => {
+                        setEditingId(entry.id);
+                        setEditDraft(consumeDraftFromTastingEntry(entry));
+                      }}
+                    >
+                      {t("edit")}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              {editingId === entry.id ? (
+                <TastingEntryEditor
+                  draft={editDraft}
+                  setDraft={setEditDraft}
+                  saving={saving}
+                  t={t}
+                  onSave={async () => {
+                    await onUpdateEntry(wine, entry.id, editDraft);
+                    setEditingId(null);
+                    setEditDraft(emptyConsumeWineDraft());
+                  }}
+                  onCancel={() => {
+                    setEditingId(null);
+                    setEditDraft(emptyConsumeWineDraft());
+                  }}
+                  onDelete={async () => {
+                    if (!window.confirm(t("delete"))) return;
+                    await onDeleteEntry(wine, entry.id);
+                    setEditingId(null);
+                    setEditDraft(emptyConsumeWineDraft());
+                  }}
+                />
+              ) : (
+                <>
+                  {entry.note ? <p>{entry.note}</p> : null}
+                  {entry.occasion || entry.pairing || entry.companions ? (
+                    <div className="chip-list">
+                      {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
+                      {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
+                      {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
+                    </div>
+                  ) : null}
+                </>
+              )}
             </article>
           ))}
         </div>
@@ -3392,15 +3559,33 @@ function tastingArchiveSearchText(entry: TastingArchiveEntry) {
 
 function TastingArchiveSection({
   entries,
+  saving,
   t,
   locale,
   onOpenWine,
+  onUpdateEntry,
+  onDeleteEntry,
 }: {
   entries: TastingArchiveEntry[];
+  saving: boolean;
   t: (key: TranslationKey) => string;
   locale: Locale;
   onOpenWine: (wine: Wine) => void;
+  onUpdateEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
+  onDeleteEntry: (wine: Wine, entryId: string) => Promise<void>;
 }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+
+  useEffect(() => {
+    if (!editingId) return;
+    const matchingEntry = entries.find((entry) => entry.id === editingId);
+    if (!matchingEntry) {
+      setEditingId(null);
+      setEditDraft(emptyConsumeWineDraft());
+    }
+  }, [entries, editingId]);
+
   return (
     <div className="tasting-archive-list">
       {entries.map((entry) => (
@@ -3418,19 +3603,56 @@ function TastingArchiveSection({
           <p className="tasting-archive-meta">
             {[displayValue(entry.wine.format, locale, "format"), displayValue(entry.wine.type, locale, "type"), entry.wine.appellation].filter(Boolean).join(" - ")}
           </p>
-          {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
-          {entry.occasion || entry.pairing || entry.companions ? (
-            <div className="chip-list">
-              {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
-              {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
-              {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
-            </div>
-          ) : null}
-          <div className="tasting-archive-actions">
-            <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
-              {t("openWine")}
-            </button>
-          </div>
+          {editingId === entry.id ? (
+            <TastingEntryEditor
+              draft={editDraft}
+              setDraft={setEditDraft}
+              saving={saving}
+              t={t}
+              onSave={async () => {
+                await onUpdateEntry(entry.wine, entry.id, editDraft);
+                setEditingId(null);
+                setEditDraft(emptyConsumeWineDraft());
+              }}
+              onCancel={() => {
+                setEditingId(null);
+                setEditDraft(emptyConsumeWineDraft());
+              }}
+              onDelete={async () => {
+                if (!window.confirm(t("delete"))) return;
+                await onDeleteEntry(entry.wine, entry.id);
+                setEditingId(null);
+                setEditDraft(emptyConsumeWineDraft());
+              }}
+            />
+          ) : (
+            <>
+              {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
+              {entry.occasion || entry.pairing || entry.companions ? (
+                <div className="chip-list">
+                  {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
+                  {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
+                  {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
+                </div>
+              ) : null}
+              <div className="tasting-archive-actions">
+                <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
+                  {t("openWine")}
+                </button>
+                <button
+                  type="button"
+                  className="secondary compact"
+                  disabled={saving}
+                  onClick={() => {
+                    setEditingId(entry.id);
+                    setEditDraft(consumeDraftFromTastingEntry(entry));
+                  }}
+                >
+                  {t("edit")}
+                </button>
+              </div>
+            </>
+          )}
         </article>
       ))}
     </div>
@@ -3447,6 +3669,8 @@ function WineDetail({
   generating,
   onGenerate,
   onConsume,
+  onUpdateTastingEntry,
+  onDeleteTastingEntry,
   marketAuditEntry,
   onOpenMarketView,
   t,
@@ -3461,6 +3685,8 @@ function WineDetail({
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
+  onUpdateTastingEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
+  onDeleteTastingEntry: (wine: Wine, entryId: string) => Promise<void>;
   marketAuditEntry: AiAuditLog | null;
   onOpenMarketView: (entry: AiAuditLog) => void;
   t: (key: TranslationKey) => string;
@@ -3701,7 +3927,15 @@ function WineDetail({
         </div>
       ) : null}
 
-      <TastingHistorySection entries={wine.tasting_history || []} t={t} />
+      <TastingHistorySection
+        wine={wine}
+        entries={wine.tasting_history || []}
+        canWrite={canWrite}
+        saving={saving}
+        onUpdateEntry={onUpdateTastingEntry}
+        onDeleteEntry={onDeleteTastingEntry}
+        t={t}
+      />
 
       <details className="detail-section ai-audit-detail">
         <summary>
@@ -5593,6 +5827,48 @@ export function App() {
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to register tasting");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateWineTastingEntry(wine: Wine, entryId: string, payload: ConsumeWineDraft) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}/tastings/${entryId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          consumed_at: payload.consumed_at,
+          note: payload.note.trim(),
+          tasting_rating: Number(payload.tasting_rating || 0),
+          tasting_occasion: payload.tasting_occasion.trim(),
+          tasting_pairing: payload.tasting_pairing.trim(),
+          tasting_companions: payload.tasting_companions.trim(),
+        }),
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update tasting");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteWineTastingEntry(wine: Wine, entryId: string) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}/tastings/${entryId}`, {
+        method: "DELETE",
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete tasting");
+      throw nextError;
     } finally {
       setSaving(false);
     }
@@ -8278,6 +8554,8 @@ export function App() {
                   generating={generatingAi}
                   onGenerate={(feature) => generateWineAi(selectedVisibleWine, feature)}
                   onConsume={(payload) => consumeWineBottle(selectedVisibleWine, payload)}
+                  onUpdateTastingEntry={updateWineTastingEntry}
+                  onDeleteTastingEntry={deleteWineTastingEntry}
                   marketAuditEntry={selectedWineMarketAudit}
                   onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine: selectedVisibleWine, entry })}
                   t={t}
@@ -8798,7 +9076,15 @@ export function App() {
             {!loading && activeView === "history" && historySection === "tastings" && filteredTastingEntries.length === 0 ? <p className="empty-state">{t("noTastingArchiveMatch")}</p> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <p className="empty-state">{t("noWishlistMatch")}</p> : null}
             {activeView === "history" && historySection === "tastings" && filteredTastingEntries.length ? (
-              <TastingArchiveSection entries={filteredTastingEntries} t={t} locale={locale} onOpenWine={openWineFromTastingArchive} />
+              <TastingArchiveSection
+                entries={filteredTastingEntries}
+                saving={saving}
+                t={t}
+                locale={locale}
+                onOpenWine={openWineFromTastingArchive}
+                onUpdateEntry={updateWineTastingEntry}
+                onDeleteEntry={deleteWineTastingEntry}
+              />
             ) : null}
             {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && groupedFilteredWines.length ? (
               <div className="wine-tone-groups">
@@ -8876,6 +9162,8 @@ export function App() {
                       generating={generatingAi}
                       onGenerate={(feature) => generateWineAi(wine, feature)}
                       onConsume={(payload) => consumeWineBottle(wine, payload)}
+                      onUpdateTastingEntry={updateWineTastingEntry}
+                      onDeleteTastingEntry={deleteWineTastingEntry}
                       marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
                       onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
                       t={t}
