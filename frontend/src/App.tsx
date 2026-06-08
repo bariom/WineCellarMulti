@@ -2968,6 +2968,42 @@ function StarRating({ value, label }: { value: number; label: string }) {
   );
 }
 
+function LoadingSpinner({ size = "md" }: { size?: "sm" | "md" }) {
+  return (
+    <span className={`loading-spinner loading-spinner-${size}`} aria-hidden="true">
+      <span />
+      <span />
+      <span />
+    </span>
+  );
+}
+
+function LoadingState({ label, compact = false }: { label: string; compact?: boolean }) {
+  return (
+    <div className={`loading-state${compact ? " compact" : ""}`} role="status" aria-live="polite">
+      <LoadingSpinner size={compact ? "sm" : "md"} />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+function ButtonBusyContent({
+  busy,
+  idleLabel,
+  busyLabel,
+}: {
+  busy: boolean;
+  idleLabel: string;
+  busyLabel: string;
+}) {
+  return (
+    <span className={`button-busy-label${busy ? " is-busy" : ""}`}>
+      {busy ? <LoadingSpinner size="sm" /> : null}
+      <span>{busy ? busyLabel : idleLabel}</span>
+    </span>
+  );
+}
+
 function RatingInput({
   value,
   disabled,
@@ -3189,12 +3225,13 @@ function CompareWinesModal({
         <div className="compare-ai-toolbar">
           {wines.length === 2 ? (
             <button type="button" className="secondary" disabled={!canGenerateAi || aiLoading} onClick={onRunAiCompare}>
-              {aiLoading ? t("generating") : t("aiCompare")}
+              <ButtonBusyContent busy={aiLoading} idleLabel={t("aiCompare")} busyLabel={t("generating")} />
             </button>
           ) : (
             <p className="empty-state">{t("aiCompareOnlyTwo")}</p>
           )}
         </div>
+        {aiLoading ? <LoadingState label={t("generating")} compact /> : null}
         {aiResult ? (
           <section className="compare-ai-panel">
             <div className="compare-ai-grid">
@@ -3788,21 +3825,22 @@ function WineDetail({
 
       <div className="ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
-          {generating === "notes" ? t("generating") : t("aiNotes")}
+          <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("drink-window")}>
-          {generating === "drink-window" ? t("generating") : t("drinkWindow")}
+          <ButtonBusyContent busy={generating === "drink-window"} idleLabel={t("drinkWindow")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("value")}>
-          {generating === "value" ? t("generating") : t("value")}
+          <ButtonBusyContent busy={generating === "value"} idleLabel={t("value")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
-          {generating === "grapes" ? t("generating") : t("grapes")}
+          <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("scores")}>
-          {generating === "scores" ? t("generating") : t("scores")}
+          <ButtonBusyContent busy={generating === "scores"} idleLabel={t("scores")} busyLabel={t("generating")} />
         </button>
       </div>
+      {generating ? <LoadingState label={t("generating")} compact /> : null}
 
       <div className="detail-grid">
         <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
@@ -3892,7 +3930,7 @@ function WineDetail({
             </label>
             <div className="form-actions">
               <button type="submit" disabled={saving}>
-                {saving ? t("working") : t("saveTasting")}
+                <ButtonBusyContent busy={saving} idleLabel={t("saveTasting")} busyLabel={t("working")} />
               </button>
             </div>
           </form>
@@ -4056,15 +4094,16 @@ function WishlistDetail({
       </div>
       <div className="ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("strategy")}>
-          {generating === "strategy" ? t("generating") : t("aiStrategy")}
+          <ButtonBusyContent busy={generating === "strategy"} idleLabel={t("aiStrategy")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("purpose")}>
-          {generating === "purpose" ? t("generating") : t("aiPurpose")}
+          <ButtonBusyContent busy={generating === "purpose"} idleLabel={t("aiPurpose")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("target-price")}>
-          {generating === "target-price" ? t("generating") : t("aiTargetPrice")}
+          <ButtonBusyContent busy={generating === "target-price"} idleLabel={t("aiTargetPrice")} busyLabel={t("generating")} />
         </button>
       </div>
+      {generating ? <LoadingState label={t("generating")} compact /> : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
         <div className="notes-grid wishlist-ai-summary">
           {item.ai_strategy ? <DetailNote title={t("aiStrategy")}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
@@ -4155,10 +4194,15 @@ function WishlistPortfolioStrategyPanel({
             ) : null}
           </div>
           <button type="button" className="secondary compact wishlist-strategy-cta" disabled={!canGenerate || generating} onClick={(event) => { event.preventDefault(); onGenerate(); }}>
-            {generating ? t("generating") : strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
+            <ButtonBusyContent
+              busy={generating}
+              idleLabel={strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
+              busyLabel={t("generating")}
+            />
           </button>
         </div>
       </summary>
+      {generating ? <LoadingState label={t("generating")} compact /> : null}
       {strategy ? (
         <>
           <div className="notes-grid">
@@ -6977,8 +7021,9 @@ export function App() {
             <span>{t("pairingMarketOnly")}</span>
           </label>
           <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
-            {generatingAi === "pairing" ? t("generating") : t("pairingSubmit")}
+            <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} />
           </button>
+          {generatingAi === "pairing" ? <LoadingState label={t("generating")} compact /> : null}
           {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
         </form>
         {pairingResult ? (
@@ -9171,7 +9216,7 @@ export function App() {
                 </div>
               </div>
             ) : null}
-            {loading ? <p className="empty-state">{t("loadingData")}</p> : null}
+            {loading ? <LoadingState label={t("loadingData")} /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? <p className="empty-state">{t("noWineMatch")}</p> : null}
             {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <p className="empty-state">{t("noHistoryMatch")}</p> : null}
             {!loading && activeView === "history" && historySection === "tastings" && filteredTastingEntries.length === 0 ? <p className="empty-state">{t("noTastingArchiveMatch")}</p> : null}
@@ -10008,6 +10053,7 @@ export function App() {
                     <span>Vinaris JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
                   </label>
+                  {saving && !importPreview && !importResult ? <LoadingState label={t("loadingData")} compact /> : null}
                   {importPreview ? (
                     <div className="token-box">
                       <strong>{t("importReady")}: {importFileName}</strong>
@@ -10051,6 +10097,11 @@ export function App() {
                       </div>
                     </div>
                   ) : null}
+                  <div className="inline-form">
+                    <button type="button" disabled={saving || !importPayload} onClick={runLegacyImport}>
+                      <ButtonBusyContent busy={saving && Boolean(importPayload)} idleLabel={t("importRun")} busyLabel={t("loadingData")} />
+                    </button>
+                  </div>
                   {importResult ? (
                     <div className="token-box">
                       <strong>{t("importSummary")}</strong>
@@ -10083,9 +10134,6 @@ export function App() {
                     ))}
                   </div>
                   <div className="inline-form">
-                    <button type="button" disabled={saving || !importPayload} onClick={runLegacyImport}>
-                      {t("importRun")}
-                    </button>
                     <button type="button" className="secondary" disabled={saving || !hasSelectedExportBlock} onClick={exportJson}>
                       {t("exportJson")}
                     </button>
