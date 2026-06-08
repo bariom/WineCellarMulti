@@ -6398,7 +6398,7 @@ export function App() {
     if (!selectedWine) return;
     const tone = wineTone(selectedWine.type);
     setOpenWineToneGroups((current) => (current[tone] ? current : { ...current, [tone]: true }));
-  }, [selectedWineId, filteredWines, isWineCollectionView]);
+  }, [selectedWineId, isWineCollectionView, wines]);
 
   useEffect(() => {
     setWishlistPortfolioStrategy(null);
