@@ -7213,6 +7213,11 @@ button:hover {
   box-shadow: var(--luxury-press-shadow);
 }
 
+.workspace {
+  background: transparent;
+  box-shadow: none;
+}
+
 .stats-panel-wrapper,
 .filter-panel,
 .compare-summary-bar,

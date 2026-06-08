@@ -2776,11 +2776,11 @@ function ownedBottleCount(wine: Wine, session: Session | null) {
   return Math.round((wine.quantity * currentUserSharePct(wine, session)) / 100);
 }
 
-function wineQuantityLabel(wine: Wine, session: Session | null, bottlesLabel: string) {
+function wineQuantityLabel(wine: Wine, session: Session | null, bottlesLabel: string, locale: Locale) {
   const owned = ownedBottleCount(wine, session);
   const isShared = wine.owners.length > 0 || currentUserSharePct(wine, session) < 100;
-  if (isShared) return `${owned} ${bottlesLabel} di ${wine.quantity} condivise`;
-  return `${wine.quantity} ${bottlesLabel}`;
+  if (isShared) return `${formatBottleCount(owned, locale)} ${bottlesLabel} di ${formatBottleCount(wine.quantity, locale)} condivise`;
+  return `${formatBottleCount(wine.quantity, locale)} ${bottlesLabel}`;
 }
 
 function ownershipStats(items: Wine[], session: Session | null) {
@@ -2845,8 +2845,10 @@ function topProducerGroups(items: Wine[]) {
     .slice(0, 5);
 }
 
-function formatBottleCount(value: number) {
-  return String(Math.round(value));
+function formatBottleCount(value: number, locale: Locale) {
+  return new Intl.NumberFormat(numberLocale(locale), {
+    maximumFractionDigits: 0,
+  }).format(Math.round(value));
 }
 
 function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data") {
@@ -4093,7 +4095,7 @@ function WineDetail({
         <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
         <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase())} emptyLabel={t("notSpecified")} />
+        <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)} emptyLabel={t("notSpecified")} />
         <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
         <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
@@ -8143,12 +8145,12 @@ export function App() {
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
                   <div className="hero-kpi">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
-                    <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
+                    <strong>{formatBottleCount(cellarStats.myBottles, locale)}</strong>
                     <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
                   </div>
                   <div className="hero-kpi">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
-                    <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
+                    <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
                     <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                   </div>
                   <div className="hero-kpi">
@@ -8355,7 +8357,7 @@ export function App() {
                         <span>{t("totalValue")}</span>
                         <h2>{formatMoney(cellarStats.totalValue, "CHF", locale)}</h2>
                       </div>
-                      <strong>{formatBottleCount(cellarStats.bottles)}</strong>
+                      <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
                     </div>
                     <p>{t("myBottles")}: {formatMoney(cellarStats.myValue, "CHF", locale)} · {t("sharedBottles")}: {formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                   </article>
@@ -9198,17 +9200,17 @@ export function App() {
               <section className="stats-panel">
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
-                  <strong>{formatBottleCount(cellarStats.myBottles)}</strong>
+                  <strong>{formatBottleCount(cellarStats.myBottles, locale)}</strong>
                   <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
                 </button>
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "shared" ? "active" : ""}`} onClick={() => applyQuickWineFilter("shared")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
-                  <strong>{formatBottleCount(cellarStats.sharedBottles)}</strong>
+                  <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
                   <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                 </button>
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
-                  <strong>{formatBottleCount(cellarStats.bottles)}</strong>
+                  <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
                   <p>{formatMoney(cellarStats.totalValue, "CHF", locale)}</p>
                 </button>
                 <button type="button" className={`stat-card ${quickWineFilter === "drink_now" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_now")}>
@@ -9275,7 +9277,7 @@ export function App() {
                         {bottlesByType.map((item) => (
                           <p key={item.label}>
                             <i className={`wine-dot tone-${wineTone(item.label)}`} />
-                            {item.label}: {formatBottleCount(item.value)}
+                            {item.label}: {formatBottleCount(item.value, locale)}
                           </p>
                         ))}
                       </div>
@@ -9291,7 +9293,7 @@ export function App() {
                         {bottlesByRegion.map((item, index) => (
                           <p key={item.label}>
                             <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
-                            {item.label}: {formatBottleCount(item.value)}
+                            {item.label}: {formatBottleCount(item.value, locale)}
                           </p>
                         ))}
                       </div>
@@ -9307,7 +9309,7 @@ export function App() {
                         {winesByRegion.map((item, index) => (
                           <p key={item.label}>
                             <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
-                            {item.label}: {formatBottleCount(item.value)}
+                            {item.label}: {formatBottleCount(item.value, locale)}
                           </p>
                         ))}
                       </div>
@@ -9722,7 +9724,7 @@ export function App() {
                     >
                       <span className={`wine-tone-pill tone-${group.tone}`}>{group.label}</span>
                       <span className="wine-tone-group-summary">
-                        {group.wineCount} {t("winesLabel")} • {group.bottleCount} {t("bottles").toLowerCase()}
+                        {formatBottleCount(group.wineCount, locale)} {t("winesLabel")} • {formatBottleCount(group.bottleCount, locale)} {t("bottles").toLowerCase()}
                       </span>
                       <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
                     </button>
@@ -9739,7 +9741,7 @@ export function App() {
                       {wine.notes ? <span className="note-indicator" title={t("notes")} aria-label={t("notes")}>✎</span> : null}
                     </h3>
                     <p className="row-primary">
-                      <span>{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase())}</span>
+                      <span>{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
                     </p>
                     <p className="row-secondary">{[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
