@@ -2681,7 +2681,7 @@ function formatBottleCount(value: number) {
   return String(Math.round(value));
 }
 
-function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data") {
+function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data") {
   if (kind === "mine") {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -2739,6 +2739,16 @@ function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | 
       </svg>
     );
   }
+  if (kind === "to_collect") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M4 7h12v9H4z" />
+        <path d="M16 10h2.5l1.5 2v4H16z" />
+        <path d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h1A1.5 1.5 0 0 1 12 5.5V7" />
+        <path d="m9 12 2 2 4-4" />
+      </svg>
+    );
+  }
   if (kind === "missing_data") {
     return (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -2786,6 +2796,7 @@ function notificationSvgIcon(kind: string) {
   if (kind === "smart_drink_now") return dashboardStatSvgIcon("drink_now");
   if (kind === "smart_past_window") return dashboardStatSvgIcon("past_window");
   if (kind === "smart_future_deliveries") return dashboardStatSvgIcon("future_deliveries");
+  if (kind === "smart_to_collect") return dashboardStatSvgIcon("to_collect");
   if (kind === "smart_entitlement_expiring") return dashboardStatSvgIcon("missing_data");
   if (kind === "pending_users") return dashboardStatSvgIcon("shared");
   if (kind === "invite") return dashboardStatSvgIcon("shared");

@@ -37,6 +37,11 @@ def is_future_delivery_wine(wine: Wine, today: date) -> bool:
     return not any(value in status for value in DELIVERED_STATUSES)
 
 
+def is_to_collect_wine(wine: Wine) -> bool:
+    status = (wine.status or "").strip().lower()
+    return any(value in status for value in ("collect", "pickup", "ritir"))
+
+
 def create_user_notification(
     db: Session,
     user: User,
@@ -99,6 +104,16 @@ def _notification_copy(locale: str, key: str, **values: object) -> tuple[str, st
         return (
             "Upcoming deliveries",
             f"You have {values['count']} future deliveries. The next one is expected on {values['next_date']}.",
+        )
+    if key == "to_collect":
+        if italian:
+            return (
+                "Bottiglie da ritirare",
+                f"Hai {values['count']} vini in stato Da ritirare in {values['household_name']}.",
+            )
+        return (
+            "Bottles to collect",
+            f"You have {values['count']} wines marked To Collect in {values['household_name']}.",
         )
     if key == "entitlement_expiring":
         if italian:
@@ -212,6 +227,32 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
                     fingerprint=fingerprint,
                 )
                 created += 0 if before else 1
+
+        to_collect_count = sum(1 for wine in wines if is_to_collect_wine(wine))
+        if to_collect_count:
+            title, message = _notification_copy(
+                locale,
+                "to_collect",
+                count=to_collect_count,
+                household_name=context.household.name,
+            )
+            fingerprint = f"smart:{context.household.id}:to_collect:{to_collect_count}"
+            before = db.scalar(
+                select(UserNotification.id).where(
+                    UserNotification.user_id == context.user.id,
+                    UserNotification.fingerprint == fingerprint,
+                )
+            )
+            create_user_notification(
+                db,
+                context.user,
+                kind="smart_to_collect",
+                title=title,
+                message=message,
+                action_url="/cellar",
+                fingerprint=fingerprint,
+            )
+            created += 0 if before else 1
 
     if not context.user.is_app_admin and context.entitlement_valid_until is not None:
         valid_until = as_aware_utc(context.entitlement_valid_until)
