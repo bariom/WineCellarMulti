@@ -42,6 +42,34 @@ def is_to_collect_wine(wine: Wine) -> bool:
     return any(value in status for value in ("collect", "pickup", "ritir"))
 
 
+def to_collect_summary(wines: list[Wine]) -> tuple[str, str]:
+    ordered_wines = sorted(
+        wines,
+        key=lambda wine: (
+            (wine.merchant or "").strip().lower(),
+            (wine.producer or "").strip().lower(),
+            (wine.name or "").strip().lower(),
+            (wine.vintage or "").strip().lower(),
+        ),
+    )
+    preview = ordered_wines[:2]
+    summary_parts: list[str] = []
+    fingerprint_parts: list[str] = []
+    for wine in preview:
+        merchant = (wine.merchant or "").strip()
+        wine_label = " ".join(part for part in [wine.name.strip(), wine.vintage.strip()] if part).strip() or "Wine"
+        if merchant:
+            summary_parts.append(f"{wine_label} ({merchant})")
+            fingerprint_parts.append(f"{wine_label}|{merchant}")
+        else:
+            summary_parts.append(wine_label)
+            fingerprint_parts.append(wine_label)
+    remaining = max(len(ordered_wines) - len(preview), 0)
+    if remaining:
+        summary_parts.append(f"+{remaining}")
+    return ", ".join(summary_parts), ";".join(fingerprint_parts)
+
+
 def create_user_notification(
     db: Session,
     user: User,
@@ -109,11 +137,11 @@ def _notification_copy(locale: str, key: str, **values: object) -> tuple[str, st
         if italian:
             return (
                 "Bottiglie da ritirare",
-                f"Hai {values['count']} vini in stato Da ritirare in {values['household_name']}.",
+                f"Hai {values['count']} vini in stato Da ritirare in {values['household_name']}: {values['wine_summary']}.",
             )
         return (
             "Bottles to collect",
-            f"You have {values['count']} wines marked To Collect in {values['household_name']}.",
+            f"You have {values['count']} wines marked To Collect in {values['household_name']}: {values['wine_summary']}.",
         )
     if key == "entitlement_expiring":
         if italian:
@@ -228,15 +256,18 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
                 )
                 created += 0 if before else 1
 
-        to_collect_count = sum(1 for wine in wines if is_to_collect_wine(wine))
-        if to_collect_count:
+        to_collect_wines = [wine for wine in wines if is_to_collect_wine(wine)]
+        if to_collect_wines:
+            to_collect_count = len(to_collect_wines)
+            wine_summary, fingerprint_summary = to_collect_summary(to_collect_wines)
             title, message = _notification_copy(
                 locale,
                 "to_collect",
                 count=to_collect_count,
                 household_name=context.household.name,
+                wine_summary=wine_summary,
             )
-            fingerprint = f"smart:{context.household.id}:to_collect:{to_collect_count}"
+            fingerprint = f"smart:{context.household.id}:to_collect:{to_collect_count}:{fingerprint_summary}"
             before = db.scalar(
                 select(UserNotification.id).where(
                     UserNotification.user_id == context.user.id,
