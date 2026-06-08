@@ -843,6 +843,7 @@ const translations = {
     pairingDish: "Dish or food",
     pairingMaxPrice: "Max budget (CHF)",
     pairingMaxPriceHelp: "Optional. Use it when you want a good match within a spending limit, not necessarily the best bottle overall.",
+    pairingNoBudget: "No limit",
     pairingPreferences: "My pairing tastes",
     pairingPreferencesHelp: "Describe your preferences once and Vinaris will use them by default during pairing.",
     pairingPreferencesPlaceholder: "E.g. I prefer fresh, precise wines, low oak, little sweetness, and I usually avoid heavy tannins with spicy dishes.",
@@ -1266,6 +1267,7 @@ const translations = {
     pairingDish: "Piatto o pietanza",
     pairingMaxPrice: "Budget massimo (CHF)",
     pairingMaxPriceHelp: "Facoltativo. Usalo quando vuoi un buon abbinamento entro una soglia di spesa, non per forza la bottiglia migliore in assoluto.",
+    pairingNoBudget: "Nessun limite",
     pairingPreferences: "I miei gusti per gli abbinamenti",
     pairingPreferencesHelp: "Descrivi una volta le tue preferenze e Vinaris le userà di default negli abbinamenti.",
     pairingPreferencesPlaceholder: "Es. Preferisco vini freschi e precisi, poco legno, poca dolcezza ed evito tannini aggressivi con piatti speziati.",
@@ -3444,6 +3446,37 @@ function TastingEntryEditor({
   );
 }
 
+function TastingEntryMeta({
+  note,
+  occasion,
+  pairing,
+  companions,
+  t,
+}: {
+  note: string;
+  occasion: string;
+  pairing: string;
+  companions: string;
+  t: (key: TranslationKey) => string;
+}) {
+  const indicators = [
+    note ? t("notes") : "",
+    occasion ? t("tastingOccasion") : "",
+    pairing ? t("tastingPairing") : "",
+    companions ? t("tastingCompanions") : "",
+  ].filter(Boolean);
+
+  if (!indicators.length) return null;
+
+  return (
+    <div className="tasting-entry-meta">
+      {indicators.map((indicator) => (
+        <span key={indicator}>{indicator}</span>
+      ))}
+    </div>
+  );
+}
+
 function TastingHistorySection({
   wine,
   entries,
@@ -3526,6 +3559,13 @@ function TastingHistorySection({
                 />
               ) : (
                 <>
+                  <TastingEntryMeta
+                    note={entry.note}
+                    occasion={entry.occasion}
+                    pairing={entry.pairing}
+                    companions={entry.companions}
+                    t={t}
+                  />
                   {entry.note ? <p>{entry.note}</p> : null}
                   {entry.occasion || entry.pairing || entry.companions ? (
                     <div className="chip-list">
@@ -3627,6 +3667,13 @@ function TastingArchiveSection({
             />
           ) : (
             <>
+              <TastingEntryMeta
+                note={entry.note}
+                occasion={entry.occasion}
+                pairing={entry.pairing}
+                companions={entry.companions}
+                t={t}
+              />
               {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
               {entry.occasion || entry.pairing || entry.companions ? (
                 <div className="chip-list">
@@ -6802,6 +6849,12 @@ export function App() {
   function renderPairingSection() {
     const activePairingBudget = Number(pairingMaxPrice || 0);
     const hasPairingBudget = Number.isFinite(activePairingBudget) && activePairingBudget > 0;
+    const cellarBottleValues = wines
+      .map((wine) => Number(wine.current_value || wine.price || 0))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const pairingBudgetSliderMax = Math.max(250, Math.ceil(Math.max(...cellarBottleValues, 250) / 50) * 50);
+    const pairingBudgetSliderValue = hasPairingBudget ? Math.min(activePairingBudget, pairingBudgetSliderMax) : 0;
+    const pairingBudgetPresets = [40, 80, 150].filter((value) => value < pairingBudgetSliderMax);
     const cellarMatchBudgetValues = pairingResult?.cellar_matches
       .map((match) => {
         const wine = wines.find((item) => item.id === match.wine_id);
@@ -6825,6 +6878,61 @@ export function App() {
         </div>
         <form className="pairing-form" onSubmit={generatePairing}>
           <label>
+            <span>{t("pairingDish")}</span>
+            <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+          </label>
+          <div className="pairing-budget-control">
+            <div className="pairing-budget-head">
+              <span>{t("pairingMaxPrice")}</span>
+              <strong>{hasPairingBudget ? `CHF ${activePairingBudget.toFixed(0)}` : t("pairingNoBudget")}</strong>
+            </div>
+            <input
+              type="range"
+              min="0"
+              max={pairingBudgetSliderMax}
+              step="5"
+              value={pairingBudgetSliderValue}
+              onChange={(event) => {
+                const value = Number(event.target.value);
+                setPairingMaxPrice(value > 0 ? String(value) : "");
+              }}
+              disabled={!canGenerateAi || generatingAi === "pairing"}
+              aria-label={t("pairingMaxPrice")}
+            />
+            <div className="pairing-budget-fields">
+              <label>
+                <span>CHF</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  inputMode="numeric"
+                  value={pairingMaxPrice}
+                  onChange={(event) => setPairingMaxPrice(event.target.value)}
+                  placeholder="60"
+                  disabled={!canGenerateAi || generatingAi === "pairing"}
+                />
+              </label>
+              <div className="pairing-budget-presets">
+                <button type="button" className={!hasPairingBudget ? "selected" : ""} disabled={!canGenerateAi || generatingAi === "pairing"} onClick={() => setPairingMaxPrice("")}>
+                  {t("pairingNoBudget")}
+                </button>
+                {pairingBudgetPresets.map((preset) => (
+                  <button
+                    type="button"
+                    className={activePairingBudget === preset ? "selected" : ""}
+                    disabled={!canGenerateAi || generatingAi === "pairing"}
+                    key={preset}
+                    onClick={() => setPairingMaxPrice(String(preset))}
+                  >
+                    CHF {preset}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <small>{t("pairingMaxPriceHelp")}</small>
+          </div>
+          <label className="pairing-preferences-field">
             <span>{t("pairingPreferences")}</span>
             <textarea
               value={aiSettingsDraft.pairing_preferences}
@@ -6845,24 +6953,6 @@ export function App() {
               {t("savePairingPreferences")}
             </button>
           </div>
-          <label>
-            <span>{t("pairingDish")}</span>
-            <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
-          </label>
-          <label>
-            <span>{t("pairingMaxPrice")}</span>
-            <input
-              type="number"
-              min="1"
-              step="1"
-              inputMode="numeric"
-              value={pairingMaxPrice}
-              onChange={(event) => setPairingMaxPrice(event.target.value)}
-              placeholder="60"
-              disabled={!canGenerateAi || generatingAi === "pairing"}
-            />
-            <small>{t("pairingMaxPriceHelp")}</small>
-          </label>
           <label className="pairing-option">
             <input type="checkbox" checked={pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
             <span>{t("pairingIgnorePreferences")}</span>

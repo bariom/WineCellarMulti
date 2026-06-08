@@ -3677,6 +3677,80 @@ textarea {
   gap: 6px;
 }
 
+.pairing-budget-control {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent));
+  border-radius: 14px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 86%, transparent), color-mix(in srgb, var(--surface-muted) 92%, transparent));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 9%, transparent);
+}
+
+.pairing-budget-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.pairing-budget-head span,
+.pairing-budget-fields label span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pairing-budget-head strong {
+  color: var(--accent);
+  font-size: 1.28rem;
+}
+
+.pairing-budget-control input[type="range"] {
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--accent);
+}
+
+.pairing-budget-fields {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: end;
+}
+
+.pairing-budget-fields label {
+  display: grid;
+  gap: 5px;
+}
+
+.pairing-budget-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pairing-budget-presets button {
+  min-height: 36px;
+  padding: 7px 11px;
+  border-color: color-mix(in srgb, var(--border) 70%, var(--accent));
+  background: color-mix(in srgb, var(--surface-muted) 88%, transparent);
+  color: var(--text);
+  font-size: 0.86rem;
+}
+
+.pairing-budget-presets button.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface));
+  color: var(--text);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--accent) 14%, transparent);
+}
+
 .pairing-preferences-actions {
   display: flex;
   justify-content: flex-start;
@@ -5266,6 +5340,26 @@ button.stat-card:hover {
   margin: 0;
 }
 
+.tasting-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tasting-entry-meta span {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
 .tasting-history-head {
   align-items: start;
 }
@@ -5940,6 +6034,14 @@ textarea {
 
   .pairing-market-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pairing-budget-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .pairing-budget-presets button {
+    flex: 1 1 auto;
   }
 
   .help-grid {
