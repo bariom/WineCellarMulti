@@ -776,6 +776,45 @@ summary:focus-visible {
   background: #fff0f2;
 }
 
+.app-error-banner {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-top: 12px;
+  box-shadow: var(--shadow-soft);
+  scroll-margin-top: 18px;
+}
+
+.app-error-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.app-error-copy strong {
+  font-size: 0.92rem;
+}
+
+.app-error-copy span {
+  color: inherit;
+  line-height: 1.45;
+}
+
+.app-error-close {
+  flex-shrink: 0;
+}
+
+@media (max-width: 640px) {
+  .app-error-banner {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .app-error-close {
+    align-self: flex-end;
+  }
+}
+
 .invite-notice {
   display: grid;
   gap: 4px;

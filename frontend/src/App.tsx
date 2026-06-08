@@ -2039,10 +2039,77 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
   });
   if (!response.ok) {
     const message = await response.text();
-    throw new Error(message || `Request failed: ${response.status}`);
+    throw new Error(extractApiErrorText(message) || `Request failed: ${response.status}`);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
+}
+
+function extractApiErrorText(message: string) {
+  const trimmedMessage = String(message || "").trim();
+  if (!trimmedMessage) return "";
+  try {
+    const parsed = JSON.parse(trimmedMessage) as { detail?: unknown; message?: unknown };
+    if (parsed && typeof parsed === "object") {
+      if (typeof parsed.detail === "string" && parsed.detail.trim()) return parsed.detail.trim();
+      if (Array.isArray(parsed.detail) && parsed.detail.length) {
+        const firstDetail = parsed.detail[0] as { msg?: unknown };
+        if (typeof firstDetail?.msg === "string" && firstDetail.msg.trim()) return firstDetail.msg.trim();
+      }
+      if (typeof parsed.message === "string" && parsed.message.trim()) return parsed.message.trim();
+    }
+  } catch {
+    return trimmedMessage;
+  }
+  return trimmedMessage;
+}
+
+function formatUserErrorMessage(message: string, locale: Locale) {
+  const text = String(message || "").trim();
+  if (!text) return "";
+  const normalized = text.toLowerCase();
+
+  if (normalized.includes("openai request failed")) {
+    if (
+      normalized.includes("timeout")
+      || normalized.includes("timed out")
+      || normalized.includes("disconnect/reset before headers")
+      || normalized.includes("upstream connect error")
+    ) {
+      return locale === "it"
+        ? "La richiesta AI ha impiegato troppo tempo. Riprova tra qualche secondo."
+        : "The AI request took too long. Please try again in a few seconds.";
+    }
+    return locale === "it"
+      ? "Il servizio AI non ha risposto correttamente. Riprova tra poco."
+      : "The AI service did not respond correctly. Please try again shortly.";
+  }
+
+  if (normalized.includes("no verified live market price sources found")) {
+    return locale === "it"
+      ? "Non sono state trovate fonti di mercato live sufficientemente affidabili per questo vino. Verifica nome, produttore e annata, poi riprova."
+      : "No sufficiently reliable live market sources were found for this wine. Check name, producer, and vintage, then try again.";
+  }
+
+  if (normalized.includes("ai credits exhausted")) {
+    return locale === "it"
+      ? "Il saldo AI Pack e' esaurito. Acquista un nuovo AI Pack oppure usa la tua chiave OpenAI."
+      : "Your AI Pack balance is exhausted. Buy a new AI Pack or use your personal OpenAI key.";
+  }
+
+  if (normalized.includes("no personal openai api key configured")) {
+    return locale === "it"
+      ? "Non hai configurato una chiave OpenAI personale."
+      : "You have not configured a personal OpenAI key.";
+  }
+
+  if (normalized.includes("no ai provider configured") || normalized.includes("application openai api key is not configured")) {
+    return locale === "it"
+      ? "L'AI non e' configurata correttamente in questo momento."
+      : "AI is not configured correctly at the moment.";
+  }
+
+  return text;
 }
 
 function rawObject(value: unknown): Record<string, unknown> {
@@ -4485,9 +4552,11 @@ export function App() {
   const [saving, setSaving] = useState(false);
   const [generatingAi, setGeneratingAi] = useState("");
   const [error, setError] = useState("");
+  const errorBannerRef = useRef<HTMLDivElement | null>(null);
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
+  const visibleError = formatUserErrorMessage(error, locale);
   const landing = landingContent[locale];
   const helpGuide = helpGuideContent[locale];
   const exportBlocks = [
@@ -4564,6 +4633,11 @@ export function App() {
     setLocale(nextSession.locale || "it");
     setThemePreference(nextSession.theme_preference || "system");
   }
+
+  useEffect(() => {
+    if (!visibleError) return;
+    errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [visibleError]);
 
   async function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
@@ -7315,7 +7389,17 @@ export function App() {
         )}
       </header>
 
-      {error ? <p className="error-banner">{error}</p> : null}
+      {visibleError ? (
+        <div ref={errorBannerRef} className="error-banner app-error-banner" role="alert" aria-live="assertive">
+          <div className="app-error-copy">
+            <strong>{locale === "it" ? "Attenzione" : "Attention"}</strong>
+            <span>{visibleError}</span>
+          </div>
+          <button type="button" className="secondary compact app-error-close" onClick={() => setError("")}>
+            {t("close")}
+          </button>
+        </div>
+      ) : null}
 
       {!authenticated ? (
         <>
