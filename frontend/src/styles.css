@@ -647,6 +647,7 @@ summary:focus-visible {
 
 .notification-wrap {
   position: relative;
+  z-index: 110;
 }
 
 .notification-button {
@@ -670,14 +671,16 @@ summary:focus-visible {
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 60;
+  z-index: 120;
   display: grid;
   gap: 10px;
   width: min(360px, calc(100vw - 32px));
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: var(--surface);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface) 94%, var(--surface-raised));
   box-shadow: var(--shadow-soft);
 }
 
@@ -4090,6 +4093,7 @@ textarea {
   align-items: end;
   gap: 12px;
   flex-wrap: wrap;
+  margin-bottom: 16px;
 }
 
 .wishlist-list-select {
@@ -4356,9 +4360,8 @@ button.stat-card:hover {
   position: relative;
   grid-template-columns: minmax(0, 1.7fr) minmax(170px, 260px) auto;
   grid-template-rows: auto auto;
-  padding: 16px 16px 16px 18px;
+  padding: 16px 16px 16px 20px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-left: 0;
   border-radius: 18px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 40%),
@@ -4377,11 +4380,11 @@ button.stat-card:hover {
 .wine-row::before {
   content: "";
   position: absolute;
-  inset: 0 auto 0 0;
-  width: 5px;
-  border-radius: 18px 0 0 18px;
+  inset: 6px auto 6px 6px;
+  width: 4px;
+  border-radius: 999px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--wine-tone, #d8ded7) 98%, white 2%), color-mix(in srgb, var(--wine-tone, #d8ded7) 68%, black 32%));
-  box-shadow: 0 0 22px color-mix(in srgb, var(--wine-tone, #d8ded7) 28%, transparent);
+  box-shadow: 0 0 16px color-mix(in srgb, var(--wine-tone, #d8ded7) 22%, transparent);
 }
 
 .wine-row:hover {
@@ -4986,6 +4989,7 @@ button.stat-card:hover {
   margin: 0;
   color: var(--text-muted);
   line-height: 1.45;
+  max-width: 72ch;
 }
 
 .wishlist-strategy-details[open] .wishlist-strategy-summary .detail-title > div::after {

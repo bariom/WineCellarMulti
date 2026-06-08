@@ -3858,7 +3858,7 @@ function WishlistPortfolioStrategyPanel({
                   <span>{t("records")}</span>
                   <strong>{formatAiBudget(strategy.estimated_cost_usd)}</strong>
                 </div>
-                <p>{clipUiText(strategy.buy_now || strategy.overview, 118)}</p>
+                <p>{clipUiText(strategy.buy_now || strategy.overview, 168)}</p>
               </div>
             ) : null}
           </div>
