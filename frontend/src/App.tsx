@@ -1,4 +1,4 @@
-import { CSSProperties, ChangeEvent, Children, FormEvent, MouseEvent, ReactNode, UIEvent, useEffect, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, FormEvent, MouseEvent, ReactNode, UIEvent, useEffect, useRef, useState } from "react";
 
 type Session = {
   authenticated: boolean;
@@ -842,6 +842,9 @@ const translations = {
     pairingMarketFallback: "Suggested bottles to buy",
     pairingMarketOnly: "Restaurant mode: ignore my cellar",
     pairingModelUsed: "Model used",
+    pairingWithinBudget: "Within budget",
+    pairingAboveBudget: "Above budget, exception",
+    pairingBestValue: "Best value",
     pairingNoCellarMatch: "No ideal bottle found in your cellar.",
     pairingPlaceholder: "E.g. mushroom risotto, braised beef, sushi",
     pairingSubmit: "Find pairing",
@@ -1262,6 +1265,9 @@ const translations = {
     pairingMarketFallback: "Bottiglie suggerite da acquistare",
     pairingMarketOnly: "Sono al ristorante: ignora la mia cantina",
     pairingModelUsed: "Modello usato",
+    pairingWithinBudget: "Entro budget",
+    pairingAboveBudget: "Fuori budget, eccezione",
+    pairingBestValue: "Miglior valore",
     pairingNoCellarMatch: "Nessuna bottiglia ideale trovata in cantina.",
     pairingPlaceholder: "Es. risotto ai funghi, brasato, sushi",
     pairingSubmit: "Trova abbinamento",
@@ -2323,6 +2329,19 @@ function formatAiBudget(value: string | number) {
     minimumFractionDigits: amount < 1 ? 4 : 2,
     maximumFractionDigits: 4,
   }).format(amount);
+}
+
+function parsePriceHintAmount(value: string) {
+  const match = value.match(/(\d+(?:[.,]\d+)?)/);
+  if (!match) return null;
+  const amount = Number(match[1].replace(",", "."));
+  return Number.isFinite(amount) ? amount : null;
+}
+
+function clipUiText(value: string, limit = 120) {
+  const trimmed = value.trim();
+  if (trimmed.length <= limit) return trimmed;
+  return `${trimmed.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
 function aiBudgetFillRatio(balance: string | number, packSize: string | number) {
@@ -3832,6 +3851,16 @@ function WishlistPortfolioStrategyPanel({
             <p className="eyebrow">{t("wishlist")}</p>
             <h2>{t("wishlistPortfolioStrategy")}</h2>
             <span>{t("wishlistPortfolioStrategyHelp")}</span>
+            {strategy && !open ? (
+              <div className="wishlist-strategy-preview">
+                <div className="wishlist-strategy-preview-meta">
+                  <strong>{strategy.item_count}</strong>
+                  <span>{t("records")}</span>
+                  <strong>{formatAiBudget(strategy.estimated_cost_usd)}</strong>
+                </div>
+                <p>{clipUiText(strategy.buy_now || strategy.overview, 118)}</p>
+              </div>
+            ) : null}
           </div>
           <button type="button" className="secondary compact wishlist-strategy-cta" disabled={!canGenerate || generating} onClick={(event) => { event.preventDefault(); onGenerate(); }}>
             {generating ? t("generating") : strategy ? t("refreshWishlistPortfolioStrategy") : t("generateWishlistPortfolioStrategy")}
@@ -5845,8 +5874,16 @@ export function App() {
     ) || null;
   const visibleWishlistPortfolioStrategy =
     wishlistPortfolioStrategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);
+  const previousWishlistListIdRef = useRef(selectedWishlistListId);
   useEffect(() => {
-    setWishlistPortfolioStrategyOpen(!visibleWishlistPortfolioStrategy);
+    if (previousWishlistListIdRef.current !== selectedWishlistListId) {
+      previousWishlistListIdRef.current = selectedWishlistListId;
+      setWishlistPortfolioStrategyOpen(!visibleWishlistPortfolioStrategy);
+      return;
+    }
+    if (!visibleWishlistPortfolioStrategy) {
+      setWishlistPortfolioStrategyOpen(true);
+    }
   }, [selectedWishlistListId, visibleWishlistPortfolioStrategy]);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => wine.type));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
@@ -6487,6 +6524,16 @@ export function App() {
   }
 
   function renderPairingSection() {
+    const activePairingBudget = Number(pairingMaxPrice || 0);
+    const hasPairingBudget = Number.isFinite(activePairingBudget) && activePairingBudget > 0;
+    const cellarMatchBudgetValues = pairingResult?.cellar_matches
+      .map((match) => {
+        const wine = wines.find((item) => item.id === match.wine_id);
+        if (!wine) return null;
+        return Number(wine.current_value || wine.price || 0);
+      })
+      .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0) || [];
+    const cheapestCellarMatch = cellarMatchBudgetValues.length ? Math.min(...cellarMatchBudgetValues) : null;
     return (
       <section className="pairing-card">
         <div className="card-heading">
@@ -6571,6 +6618,19 @@ export function App() {
                     }}>
                       <strong>{match.wine_name}</strong>
                       <span>{match.producer}</span>
+                      {(() => {
+                        const wine = wines.find((item) => item.id === match.wine_id);
+                        const referenceValue = Number(wine?.current_value || wine?.price || 0);
+                        const withinBudget = hasPairingBudget && Number.isFinite(referenceValue) && referenceValue > 0 && referenceValue <= activePairingBudget;
+                        const bestValue = hasPairingBudget && withinBudget && cheapestCellarMatch !== null && Math.abs(referenceValue - cheapestCellarMatch) < 0.0001;
+                        if (!hasPairingBudget) return null;
+                        return (
+                          <div className="pairing-badge-row">
+                            <span className={`pairing-budget-badge ${withinBudget ? "within" : "over"}`}>{withinBudget ? t("pairingWithinBudget") : t("pairingAboveBudget")}</span>
+                            {bestValue ? <span className="pairing-budget-badge value">{t("pairingBestValue")}</span> : null}
+                          </div>
+                        );
+                      })()}
                       <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
                       {match.serving_note ? <span>{match.serving_note}</span> : null}
                     </button>
@@ -6589,6 +6649,17 @@ export function App() {
                         <article key={`${tier}-${item.name}-${item.producer}`}>
                           <strong>{item.name}</strong>
                           {item.producer ? <span>{item.producer}</span> : null}
+                          {(() => {
+                            if (!hasPairingBudget) return null;
+                            const hintAmount = parsePriceHintAmount(item.price_hint);
+                            const withinBudget = hintAmount !== null && hintAmount <= activePairingBudget;
+                            return (
+                              <div className="pairing-badge-row">
+                                <span className={`pairing-budget-badge ${withinBudget ? "within" : "over"}`}>{withinBudget ? t("pairingWithinBudget") : t("pairingAboveBudget")}</span>
+                                {tier === "low" && withinBudget ? <span className="pairing-budget-badge value">{t("pairingBestValue")}</span> : null}
+                              </div>
+                            );
+                          })()}
                           {item.price_hint ? <span>{item.price_hint}</span> : null}
                           <p>{item.reason}</p>
                         </article>

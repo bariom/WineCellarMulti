@@ -3725,6 +3725,40 @@ textarea {
   text-align: left;
 }
 
+.pairing-badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.pairing-budget-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pairing-budget-badge.within {
+  color: color-mix(in srgb, var(--primary) 82%, var(--text));
+  background: color-mix(in srgb, var(--primary) 13%, var(--surface-muted));
+}
+
+.pairing-budget-badge.over {
+  color: color-mix(in srgb, #8f1d2d 86%, var(--text));
+  background: color-mix(in srgb, #8f1d2d 12%, var(--surface-muted));
+}
+
+.pairing-budget-badge.value {
+  color: color-mix(in srgb, var(--accent) 88%, var(--text));
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface-muted));
+}
+
 .pairing-match span,
 .pairing-market-tier span,
 .pairing-market-tier p {
@@ -4916,6 +4950,42 @@ button.stat-card:hover {
   border-bottom: 2px solid color-mix(in srgb, var(--collector-edge) 84%, var(--text));
   transform: rotate(45deg);
   transition: transform 0.18s ease;
+}
+
+.wishlist-strategy-preview {
+  display: grid;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-radius: 14px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 12%, transparent), transparent 44%),
+    color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.wishlist-strategy-preview-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.wishlist-strategy-preview-meta strong {
+  color: var(--text);
+  font-size: 0.82rem;
+  letter-spacing: 0;
+}
+
+.wishlist-strategy-preview p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.45;
 }
 
 .wishlist-strategy-details[open] .wishlist-strategy-summary .detail-title > div::after {
