@@ -3679,7 +3679,98 @@ textarea {
 
 .pairing-view {
   display: grid;
-  max-width: 980px;
+  max-width: 1240px;
+}
+
+.pairing-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 360px);
+  gap: 18px;
+  align-items: start;
+}
+
+.pairing-main {
+  display: grid;
+  gap: 16px;
+}
+
+.pairing-sidekick {
+  display: grid;
+  gap: 14px;
+  position: sticky;
+  top: 18px;
+}
+
+.pairing-sidekick-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 94%, transparent), color-mix(in srgb, var(--surface-muted) 98%, transparent));
+  box-shadow: var(--shadow-soft);
+}
+
+.pairing-sidekick-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.pairing-sidekick-heading span {
+  color: var(--accent);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.pairing-sidekick-heading strong {
+  color: var(--text);
+  font-size: 1rem;
+}
+
+.pairing-sidekick-illustration {
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 44%, var(--border));
+  border-radius: 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--surface-subtle) 82%, transparent), color-mix(in srgb, var(--surface-muted) 96%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #fff 10%, transparent),
+    0 12px 30px color-mix(in srgb, var(--collector-depth) 56%, transparent);
+}
+
+.pairing-sidekick-illustration svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.pairing-sidekick-list {
+  display: grid;
+  gap: 10px;
+}
+
+.pairing-sidekick-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 94%, transparent);
+}
+
+.pairing-sidekick-item strong {
+  color: var(--text);
+}
+
+.pairing-sidekick-item span,
+.pairing-sidekick-item p,
+.pairing-sidekick-empty {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.5;
 }
 
 .help-center {
@@ -6190,6 +6281,14 @@ textarea {
 
   .pairing-market-grid {
     grid-template-columns: 1fr;
+  }
+
+  .pairing-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .pairing-sidekick {
+    display: none;
   }
 
   .pairing-budget-fields {
