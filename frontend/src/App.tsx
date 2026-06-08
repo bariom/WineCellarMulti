@@ -622,6 +622,7 @@ const translations = {
     viewMarketSources: "View market sources",
     averageMarketPrice: "Average market price",
     marketSources: "Sources",
+    webSources: "Web sources checked",
     marketSourcesUnavailable: "No market sources available for this estimate.",
     marketAvailability: "Market note",
     close: "Close",
@@ -1046,6 +1047,7 @@ const translations = {
     viewMarketSources: "Vedi fonti mercato",
     averageMarketPrice: "Prezzo medio di mercato",
     marketSources: "Fonti",
+    webSources: "Fonti web verificate",
     marketSourcesUnavailable: "Nessuna fonte di mercato disponibile per questa stima.",
     marketAvailability: "Nota mercato",
     close: "Chiudi",
@@ -1474,6 +1476,11 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
       Delivered: "Consegnato",
       Consumed: "Bevuto",
       Cancelled: "Annullato",
+      Evaluate: "Valutare",
+      Monitor: "Monitorare",
+      Buy: "Comprare",
+      GoodPrice: "Buon prezzo",
+      Skipped: "Scartato",
     },
     priority: {
       High: "Alta",
@@ -1484,7 +1491,9 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
       Cellar: "Cantina",
       Drink: "Bere",
       Gift: "Regalo",
+      Invest: "Investimento",
       Investment: "Investimento",
+      Compare: "Confronto",
       Other: "Altro",
     },
   },
@@ -1505,6 +1514,16 @@ const canonicalWineFormats = [
 ] as const;
 
 const canonicalWineTypes = ["Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"] as const;
+const canonicalWishlistPriorities = ["High", "Medium", "Low"] as const;
+const canonicalWishlistPurposes = ["Drink", "Cellar", "Invest", "Gift", "Compare"] as const;
+const canonicalWishlistStatuses = ["Evaluate", "Monitor", "Buy", "GoodPrice", "Skipped"] as const;
+
+function selectOptionsWithCurrent(currentValue: string, canonicalOptions: readonly string[]) {
+  const trimmedCurrentValue = currentValue.trim();
+  return trimmedCurrentValue && !canonicalOptions.includes(trimmedCurrentValue)
+    ? [trimmedCurrentValue, ...canonicalOptions]
+    : [...canonicalOptions];
+}
 
 function wineFormatOptions(currentFormat: string) {
   const trimmedCurrentFormat = currentFormat.trim();
@@ -1518,6 +1537,18 @@ function wineTypeSelectOptions(currentType: string) {
   return trimmedCurrentType && !canonicalWineTypes.includes(trimmedCurrentType as (typeof canonicalWineTypes)[number])
     ? [trimmedCurrentType, ...canonicalWineTypes]
     : [...canonicalWineTypes];
+}
+
+function wishlistPrioritySelectOptions(currentPriority: string) {
+  return selectOptionsWithCurrent(currentPriority, canonicalWishlistPriorities);
+}
+
+function wishlistPurposeSelectOptions(currentPurpose: string) {
+  return selectOptionsWithCurrent(currentPurpose, canonicalWishlistPurposes);
+}
+
+function wishlistStatusSelectOptions(currentStatus: string) {
+  return selectOptionsWithCurrent(currentStatus, canonicalWishlistStatuses);
 }
 
 function displayValue(value: string | null | undefined, locale: Locale, group: string) {
@@ -3138,6 +3169,16 @@ function auditMarketSources(entry: AiAuditLog) {
     .filter((source) => source.merchant && Number.isFinite(source.price));
 }
 
+function auditWebSearchSources(entry: AiAuditLog) {
+  return (entry.sources || [])
+    .filter((source) => source && typeof source === "object" && source.kind === "web_search_source")
+    .map((source) => ({
+      title: rawString(source.title),
+      url: rawString(source.url),
+    }))
+    .filter((source) => source.url);
+}
+
 function auditMarketNote(entry: AiAuditLog) {
   const noteEntry = (entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "market_note");
   return noteEntry ? rawString(noteEntry.text) : "";
@@ -3310,6 +3351,7 @@ function MarketValueModal({
   const vintage = isWine ? context.wine.vintage : context.item.vintage;
   const entry = context.entry;
   const sources = auditMarketSources(entry);
+  const webSources = auditWebSearchSources(entry);
   const note = auditMarketNote(entry);
   const marketCurrency = isWine ? context.wine.currency : (context.item.ai_market_price_currency || context.item.currency);
   const storedMarketPrice = isWine ? Number(context.wine.current_value || 0) : Number(context.item.ai_market_price || 0);
@@ -3368,9 +3410,30 @@ function MarketValueModal({
                 </a>
               ))}
             </div>
-          ) : (
+          ) : !webSources.length ? (
             <p className="empty-state">{t("marketSourcesUnavailable")}</p>
-          )}
+          ) : null}
+          {webSources.length ? (
+            <div className="market-web-sources">
+              <strong>{t("webSources")}</strong>
+              <div className="market-source-list">
+                {webSources.map((source, index) => (
+                  <a
+                    key={`${source.url}-${index}`}
+                    className="market-source-row market-source-row-web"
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    <div>
+                      <strong>{source.title || source.url}</strong>
+                      <span>{source.url}</span>
+                    </div>
+                  </a>
+                ))}
+              </div>
+            </div>
+          ) : null}
           {note ? (
             <div className="market-note-block">
               <strong>{t("marketAvailability")}</strong>
@@ -8619,7 +8682,14 @@ export function App() {
                   </label>
                   <label>
                     <span>{t("type")}</span>
-                    <input value={wishlistDraft.type} onChange={(event) => setWishlistDraft({ ...wishlistDraft, type: event.target.value })} disabled={!canWriteWine} />
+                    <select value={wishlistDraft.type} onChange={(event) => setWishlistDraft({ ...wishlistDraft, type: event.target.value })} disabled={!canWriteWine}>
+                      <option value="">-</option>
+                      {wineTypeSelectOptions(wishlistDraft.type).map((type) => (
+                        <option key={type} value={type}>
+                          {displayValue(type, locale, "type")}
+                        </option>
+                      ))}
+                    </select>
                   </label>
                 </div>
                 <div className="form-row">
@@ -8646,30 +8716,32 @@ export function App() {
                   <label>
                     <span>{t("priority")}</span>
                     <select value={wishlistDraft.priority} onChange={(event) => setWishlistDraft({ ...wishlistDraft, priority: event.target.value })} disabled={!canWriteWine}>
-                      <option>High</option>
-                      <option>Medium</option>
-                      <option>Low</option>
+                      {wishlistPrioritySelectOptions(wishlistDraft.priority).map((priority) => (
+                        <option key={priority} value={priority}>
+                          {displayValue(priority, locale, "priority")}
+                        </option>
+                      ))}
                     </select>
                   </label>
                   <label>
                     <span>{t("purpose")}</span>
                     <select value={wishlistDraft.purpose} onChange={(event) => setWishlistDraft({ ...wishlistDraft, purpose: event.target.value })} disabled={!canWriteWine}>
-                      <option>Drink</option>
-                      <option>Cellar</option>
-                      <option>Invest</option>
-                      <option>Gift</option>
-                      <option>Compare</option>
+                      {wishlistPurposeSelectOptions(wishlistDraft.purpose).map((purpose) => (
+                        <option key={purpose} value={purpose}>
+                          {displayValue(purpose, locale, "purpose")}
+                        </option>
+                      ))}
                     </select>
                   </label>
                 </div>
                 <label>
                   <span>{t("status")}</span>
                   <select value={wishlistDraft.status} onChange={(event) => setWishlistDraft({ ...wishlistDraft, status: event.target.value })} disabled={!canWriteWine}>
-                    <option>Evaluate</option>
-                    <option>Monitor</option>
-                    <option>Buy</option>
-                    <option>GoodPrice</option>
-                    <option>Skipped</option>
+                    {wishlistStatusSelectOptions(wishlistDraft.status).map((status) => (
+                      <option key={status} value={status}>
+                        {displayValue(status, locale, "status")}
+                      </option>
+                    ))}
                   </select>
                 </label>
                 <label>

@@ -150,8 +150,18 @@ def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
     return cost.quantize(Decimal("0.000001"))
 
 
-def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage) -> Decimal:
-    base_cost = quantize_usd(estimate_cost_usd(model, usage))
+def web_search_tool_cost_usd(call_count: int) -> Decimal:
+    try:
+        unit_cost = Decimal(str(settings.openai_web_search_tool_cost_usd or "0"))
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenAI web search cost configuration is invalid") from exc
+    if unit_cost < Decimal("0"):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenAI web search cost configuration is invalid")
+    return quantize_usd(unit_cost * Decimal(max(call_count, 0)))
+
+
+def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage, extra_cost_usd: Decimal = Decimal("0")) -> Decimal:
+    base_cost = quantize_usd(estimate_cost_usd(model, usage) + extra_cost_usd)
     if provider_source != "credits" or user_is_app_admin:
         return base_cost
     markup = ai_pack_markup_percent()
@@ -199,16 +209,40 @@ def create_ai_response(
     system_prompt: str,
     user_prompt: str,
     json_schema: dict[str, Any] | None = None,
+    web_search: bool = False,
+    charge_immediately: bool = True,
 ) -> tuple[Any, str]:
     provider_source, api_key = select_ai_provider(db, context, user_settings)
-    response = create_response(model, system_prompt, user_prompt, api_key=api_key, json_schema=json_schema)
-    if provider_source == "credits":
-        cost = billable_cost_usd(
-            user_is_app_admin=context.user.is_app_admin,
-            provider_source=provider_source,
+    response = create_response(model, system_prompt, user_prompt, api_key=api_key, json_schema=json_schema, web_search=web_search)
+    if charge_immediately:
+        charge_ai_usage(
+            db,
+            context,
+            provider_source,
             model=model,
             usage=response.usage,
+            extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
         )
+    return response, provider_source
+
+
+def charge_ai_usage(
+    db: Session,
+    context: CurrentContext,
+    provider_source: str,
+    *,
+    model: str,
+    usage: TokenUsage,
+    extra_cost_usd: Decimal = Decimal("0"),
+) -> Decimal:
+    cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=model,
+        usage=usage,
+        extra_cost_usd=extra_cost_usd,
+    )
+    if provider_source == "credits":
         create_ai_credit_transaction(
             db,
             context.user,
@@ -216,7 +250,7 @@ def create_ai_response(
             source="usage",
             note=f"{model} tokens for {context.household.name}",
         )
-    return response, provider_source
+    return cost
 
 
 def record_ai_audit(
@@ -231,19 +265,23 @@ def record_ai_audit(
     sources: list[dict] | None = None,
     usage: TokenUsage | None = None,
     provider_source: str = "user_key",
+    extra_cost_usd: Decimal = Decimal("0"),
 ) -> None:
     token_usage = usage or TokenUsage()
-    base_cost = quantize_usd(estimate_cost_usd(model, token_usage))
+    base_cost = quantize_usd(estimate_cost_usd(model, token_usage) + extra_cost_usd)
     billed_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
         model=model,
         usage=token_usage,
+        extra_cost_usd=extra_cost_usd,
     )
     source_metadata: dict[str, str] = {"provider_source": provider_source}
     if provider_source == "credits":
         source_metadata["base_cost_usd"] = str(base_cost)
         source_metadata["charged_cost_usd"] = str(billed_cost)
+        if extra_cost_usd > ZERO_USD:
+            source_metadata["external_tool_cost_usd"] = str(quantize_usd(extra_cost_usd))
         if not context.user.is_app_admin:
             source_metadata["markup_percent"] = str(ai_pack_markup_percent())
     db.add(
@@ -497,7 +535,7 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
     return "\n".join(lines)
 
 
-def normalize_market_sources(raw_sources: Any, *, default_currency: str) -> list[dict]:
+def normalize_market_sources(raw_sources: Any, *, default_currency: str, require_url: bool = False) -> list[dict]:
     if not isinstance(raw_sources, list):
         return []
     normalized: list[dict] = []
@@ -513,6 +551,9 @@ def normalize_market_sources(raw_sources: Any, *, default_currency: str) -> list
             continue
         if price < Decimal("0"):
             continue
+        url = str(raw_source.get("url") or raw_source.get("link") or "").strip()[:500]
+        if require_url and not url:
+            continue
         normalized.append(
             {
                 "kind": "market_source",
@@ -520,11 +561,42 @@ def normalize_market_sources(raw_sources: Any, *, default_currency: str) -> list
                 "country": str(raw_source.get("country") or "").strip()[:80],
                 "price": str(price),
                 "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8] or default_currency,
-                "url": str(raw_source.get("url") or raw_source.get("link") or "").strip()[:500],
+                "url": url,
                 "note": str(raw_source.get("note") or "").strip()[:240],
+                "verified": bool(url),
             },
         )
     return normalized
+
+
+def web_search_source_entries(web_sources: tuple[dict[str, str], ...]) -> list[dict]:
+    entries: list[dict] = []
+    for source in web_sources[:12]:
+        url = str(source.get("url") or "").strip()[:500]
+        if not url:
+            continue
+        entries.append(
+            {
+                "kind": "web_search_source",
+                "url": url,
+                "title": str(source.get("title") or "").strip()[:200],
+            },
+        )
+    return entries
+
+
+def value_currency_instruction(currency: str) -> str:
+    target_currency = (currency or "CHF").strip().upper()[:8]
+    return (
+        f"Return the final estimate in {target_currency}. "
+        f"If a source is listed in EUR, USD, GBP, or another currency, convert it mentally to {target_currency} before setting the final estimate and mention the conversion basis in market_note. "
+        "Do not average raw prices across different currencies. "
+        "Use the user's purchase or target price only as a comparison reference, never as an anchor for the market estimate. "
+        "Prioritize exact matches for producer, cuvee/name, vintage, bottle format, and region/appellation. "
+        "Do not use generic category comparables such as 'similar Barbaresco' unless no exact source is available; if you must use comparables, say so clearly in market_note and keep confidence lower. "
+        "Use live web search. Prefer real retailer or marketplace listings with a URL; do not invent source URLs or quote source names as exact listings if you cannot identify a concrete listing. "
+        "For Swiss cellars, favor Swiss retail availability and final consumer pricing when available, including VAT and typical local-market premium."
+    )
 
 
 def market_note_source(note: Any) -> dict | None:
@@ -946,31 +1018,47 @@ def generate_wine_value(
         model=user_settings.value_model,
         system_prompt=(
             "You estimate wine value cautiously. Return JSON only. "
-            "If market data is uncertain, keep close to purchase price and explain uncertainty. "
-            "Provide 3-8 market sources when possible, using an empty array if none can be cited reliably. "
+            "Use live web search for current market prices. "
+            "If verified market data is uncertain, keep close to the best verified sources and explain uncertainty. "
+            "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
             "Keep market_note concise and useful. "
+            f"{value_currency_instruction(wine.currency)} "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
-            f"Estimate current unit value for this wine. Currency should preferably remain {wine.currency}. "
-            "For market_sources, list concrete merchants or marketplaces with country, price, currency, and url when available. "
+            f"Estimate current unit value for this exact wine. Final current_value and currency must be {wine.currency}. "
+            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
             "Use market_note for a short availability or confidence comment.\n\n"
             f"{wine_context(wine)}"
         ),
         json_schema=schema,
+        web_search=True,
+        charge_immediately=False,
     )
+    extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     result = parse_json_response(response.text)
     try:
         value = Decimal(str(result["current_value"])).quantize(Decimal("0.01"))
     except (InvalidOperation, KeyError) as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid value") from exc
+    result_currency = str(result.get("currency") or wine.currency)[:8]
+    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
+    if not market_sources:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
+    charge_ai_usage(
+        db,
+        context,
+        provider_source,
+        model=user_settings.value_model,
+        usage=response.usage,
+        extra_cost_usd=extra_cost,
+    )
     wine.current_value = max(value, Decimal("0"))
-    wine.currency = str(result.get("currency") or wine.currency)[:8]
+    wine.currency = result_currency
     wine.ai_value_notes = str(result["notes"])[:2000]
     wine.ai_value_estimated_at = datetime.now(timezone.utc)
-    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=wine.currency)
     note_entry = market_note_source(result.get("market_note") or result.get("notes"))
-    audit_sources = market_sources + ([note_entry] if note_entry else [])
+    audit_sources = market_sources + web_search_source_entries(response.web_sources) + ([note_entry] if note_entry else [])
     record_wine_value_history(db, wine, source="ai")
     record_ai_audit(
         db,
@@ -983,6 +1071,7 @@ def generate_wine_value(
         sources=audit_sources,
         usage=response.usage,
         provider_source=provider_source,
+        extra_cost_usd=extra_cost,
     )
     db.commit()
     db.refresh(wine)
@@ -1277,33 +1366,49 @@ def generate_wishlist_target_price(
         model=user_settings.value_model,
         system_prompt=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
-            "Provide 3-8 market sources when possible, using an empty array if none can be cited reliably. "
+            "Use live web search for current market prices. "
+            "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
             "Keep market_note concise and useful. "
+            f"{value_currency_instruction(item.currency)} "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
-            f"Estimate the current market price for this wishlist item. "
-            f"The user target price is {item.currency} {item.target_price}. "
-            f"Keep market price currency preferably {item.currency}. "
+            f"Estimate the current market price for this exact wishlist item. "
+            f"Final market_price and market_price_currency must be {item.currency}. "
+            f"The user target price is {item.currency} {item.target_price}; use it only to evaluate opportunity after estimating market price independently. "
             "Use price_advice to compare the user target price with the estimated market price. "
-            "For market_sources, list concrete merchants or marketplaces with country, price, currency, and url when available. "
+            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
             "Use market_note for a short availability or confidence comment.\n\n"
             f"{wishlist_context(item)}"
         ),
         json_schema=schema,
+        web_search=True,
+        charge_immediately=False,
     )
+    extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     result = parse_json_response(response.text)
     try:
         market_price = Decimal(str(result["market_price"])).quantize(Decimal("0.01"))
     except (InvalidOperation, KeyError) as exc:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid market price") from exc
+    result_currency = str(result.get("market_price_currency") or item.currency)[:8]
+    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
+    if not market_sources:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
+    charge_ai_usage(
+        db,
+        context,
+        provider_source,
+        model=user_settings.value_model,
+        usage=response.usage,
+        extra_cost_usd=extra_cost,
+    )
     item.ai_market_price = max(market_price, Decimal("0"))
-    item.ai_market_price_currency = str(result.get("market_price_currency") or item.currency)[:8]
+    item.ai_market_price_currency = result_currency
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.ai_strategy = str(result["price_advice"])[:3000]
-    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=item.ai_market_price_currency or item.currency)
     note_entry = market_note_source(result.get("market_note") or result.get("price_advice"))
-    audit_sources = market_sources + ([note_entry] if note_entry else [])
+    audit_sources = market_sources + web_search_source_entries(response.web_sources) + ([note_entry] if note_entry else [])
     record_ai_audit(
         db,
         context,
@@ -1318,6 +1423,7 @@ def generate_wishlist_target_price(
         sources=audit_sources,
         usage=response.usage,
         provider_source=provider_source,
+        extra_cost_usd=extra_cost,
     )
     db.commit()
     db.refresh(item)

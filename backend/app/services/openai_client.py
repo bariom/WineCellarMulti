@@ -23,6 +23,8 @@ class TokenUsage:
 class OpenAIResponse:
     text: str
     usage: TokenUsage
+    web_sources: tuple[dict[str, str], ...] = ()
+    web_search_calls: int = 0
 
 
 def int_from_payload(value: Any) -> int:
@@ -67,6 +69,35 @@ def extract_response_text(payload: dict[str, Any]) -> str:
     return "\n".join(parts).strip()
 
 
+def extract_web_sources(payload: dict[str, Any]) -> tuple[dict[str, str], ...]:
+    sources: list[dict[str, str]] = []
+    seen_urls: set[str] = set()
+    for item in payload.get("output", []):
+        if not isinstance(item, dict):
+            continue
+        action = item.get("action")
+        if not isinstance(action, dict):
+            continue
+        for source in action.get("sources", []):
+            if not isinstance(source, dict):
+                continue
+            url = str(source.get("url") or "").strip()
+            if not url or url in seen_urls:
+                continue
+            seen_urls.add(url)
+            sources.append(
+                {
+                    "url": url,
+                    "title": str(source.get("title") or "").strip(),
+                },
+            )
+    return tuple(sources)
+
+
+def count_web_search_calls(payload: dict[str, Any]) -> int:
+    return sum(1 for item in payload.get("output", []) if isinstance(item, dict) and item.get("type") == "web_search_call")
+
+
 def parse_json_response(text: str) -> dict[str, Any]:
     cleaned = text.strip()
     if cleaned.startswith("```"):
@@ -82,7 +113,15 @@ def parse_json_response(text: str) -> dict[str, Any]:
     return parsed
 
 
-def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key: str | None = None, json_schema: dict[str, Any] | None = None) -> OpenAIResponse:
+def create_response(
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    *,
+    api_key: str | None = None,
+    json_schema: dict[str, Any] | None = None,
+    web_search: bool = False,
+) -> OpenAIResponse:
     active_api_key = settings.openai_api_key if api_key is None else api_key.strip()
     if not active_api_key:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OPENAI_API_KEY is not configured")
@@ -103,6 +142,21 @@ def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key
                 "strict": True,
             },
         }
+    if web_search:
+        body["tools"] = [
+            {
+                "type": "web_search",
+                "external_web_access": True,
+                "user_location": {
+                    "type": "approximate",
+                    "country": "CH",
+                    "region": "Ticino",
+                    "timezone": "Europe/Zurich",
+                },
+            },
+        ]
+        body["tool_choice"] = "required"
+        body["include"] = ["web_search_call.action.sources"]
 
     request = urllib.request.Request(
         settings.openai_responses_url,
@@ -125,4 +179,9 @@ def create_response(model: str, system_prompt: str, user_prompt: str, *, api_key
     text = extract_response_text(payload)
     if not text:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an empty response")
-    return OpenAIResponse(text=text, usage=extract_token_usage(payload))
+    return OpenAIResponse(
+        text=text,
+        usage=extract_token_usage(payload),
+        web_sources=extract_web_sources(payload),
+        web_search_calls=count_web_search_calls(payload),
+    )

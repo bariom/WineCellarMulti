@@ -1116,6 +1116,35 @@ summary:focus-visible {
   font-size: 1rem;
 }
 
+.market-web-sources {
+  display: grid;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.market-web-sources > strong {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.market-source-row-web {
+  align-items: center;
+}
+
+.market-source-row-web div {
+  min-width: 0;
+}
+
+.market-source-row-web span {
+  max-width: min(62ch, 100%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .market-note-block {
   display: grid;
   gap: 6px;
