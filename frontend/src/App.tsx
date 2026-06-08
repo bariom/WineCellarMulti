@@ -7061,11 +7061,12 @@ export function App() {
     const cheapestCellarMatch = cellarMatchBudgetValues.length ? Math.min(...cellarMatchBudgetValues) : null;
     const pairingResultCount = (pairingResult?.cellar_matches.length || 0) + Object.values(pairingResult?.market_recommendations || {}).reduce((total, items) => total + items.length, 0);
     const pairingPreviewItems = [
-      ...(pairingResult?.cellar_matches.map((match) => ({ key: `cellar-${match.wine_id}`, name: match.wine_name })) || []),
+      ...(pairingResult?.cellar_matches.map((match) => ({ key: `cellar-${match.wine_id}`, name: match.wine_name, producer: match.producer })) || []),
       ...(["low", "medium", "high"] as const).flatMap((tier) =>
         (pairingResult?.market_recommendations[tier] || []).map((item, index) => ({
           key: `${tier}-${item.name}-${index}`,
           name: item.name,
+          producer: item.producer,
         })),
       ),
     ].slice(0, 4);
@@ -7268,6 +7269,7 @@ export function App() {
                   {pairingPreviewItems.map((item) => (
                     <article key={item.key} className="pairing-sidekick-item">
                       <strong>{item.name}</strong>
+                      {item.producer ? <span>{item.producer}</span> : null}
                     </article>
                   ))}
                 </div>

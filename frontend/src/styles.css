@@ -3767,6 +3767,7 @@ textarea {
   font-size: 0.95rem;
 }
 
+.pairing-sidekick-item span,
 .pairing-sidekick-empty {
   margin: 0;
   color: var(--text-muted);
