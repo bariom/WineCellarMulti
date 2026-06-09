@@ -213,7 +213,7 @@ const helpGuideContentV2: typeof helpGuideContent = {
         bullets: [
           "Create multiple wishlist lists when you want to separate themes such as reds, Champagne, restaurant buys, or short-term opportunities.",
           "Add target prices, priority, purpose, merchant notes, and optional AI context notes.",
-          "Use AI suggestions, if configured, to refine buying strategy, purpose, and live market price.",
+          "[AI] Use AI suggestions, if configured, to refine buying strategy, purpose, and live market price.",
           "Convert wishlist items into cellar positions when you buy them, or delete a whole list knowing its items are deleted with it.",
         ],
       },
@@ -221,7 +221,8 @@ const helpGuideContentV2: typeof helpGuideContent = {
         title: "4. Use wine details as your decision screen",
         body: "Open any wine to see the full card with value, drinking window, notes, ownership, grapes, scores, and value history.",
         bullets: [
-          "The drinking window shows young, ideal, and past-window periods with the current year marker.",
+          "[AI] The drinking window shows young, ideal, and past-window periods with the current year marker when AI window data has been generated.",
+          "[AI] Market price checks can enrich the wine card with AI-assisted live pricing and source-backed value context.",
           "Value evolution tracks the historical pricing points you record over time.",
           "Edit mode is the place to update scores, tags, grapes, quantities, format, and delivery state.",
         ],
@@ -250,11 +251,11 @@ const helpGuideContentV2: typeof helpGuideContent = {
         title: "7. Use the sommelier and comparison tools",
         body: "Vinaris is not only a cellar ledger. It also helps you decide what to open, what to buy, and how two bottles differ.",
         bullets: [
-          "Pairing lets you enter a dish and ask the AI sommelier for the best matches from your cellar or from the market.",
+          "[AI] Pairing lets you enter a dish and ask the AI sommelier for the best matches from your cellar or from the market.",
           "You can save personal pairing preferences and optionally ignore them for a single request when you want a neutral recommendation.",
           "Set a max pairing budget when you want a good match under a price ceiling, not necessarily the best bottle in the cellar.",
           "Wine comparison helps you place two to four wines side by side before opening or buying.",
-          "AI comparison works best on two wines and returns style, readiness, occasion, and cellar-value judgment.",
+          "[AI] AI comparison works best on two wines and returns style, readiness, occasion, and cellar-value judgment.",
         ],
       },
       {
@@ -318,7 +319,7 @@ const helpGuideContentV2: typeof helpGuideContent = {
         bullets: [
           "Crea piu liste wishlist quando vuoi separare temi diversi, come rossi, Champagne, acquisti da ristorante o opportunita di breve periodo.",
           "Aggiungi prezzi target, priorita, scopo, note merchant e, se utile, una nota contesto AI.",
-          "Usa i suggerimenti AI, se configurati, per affinare strategia di acquisto, scopo e prezzo di mercato live.",
+          "[AI] Usa i suggerimenti AI, se configurati, per affinare strategia di acquisto, scopo e prezzo di mercato live.",
           "Converti gli elementi wishlist in posizioni di cantina quando acquisti, oppure elimina una lista sapendo che anche i suoi elementi verranno eliminati.",
         ],
       },
@@ -326,7 +327,8 @@ const helpGuideContentV2: typeof helpGuideContent = {
         title: "4. Usa il dettaglio vino come schermo decisionale",
         body: "Apri un vino per vedere la scheda completa con valore, finestra di beva, note, proprieta, uve, punteggi e storico del valore.",
         bullets: [
-          "La finestra di beva evidenzia il periodo giovane, ideale e oltre finestra con l'indicatore dell'anno corrente.",
+          "[AI] La finestra di beva evidenzia il periodo giovane, ideale e oltre finestra con l'indicatore dell'anno corrente quando hai generato i dati AI della finestra.",
+          "[AI] I controlli di prezzo possono arricchire la scheda vino con valore di mercato live assistito da AI e fonti verificate.",
           "L'evoluzione valore tiene traccia dei punti prezzo che registri nel tempo.",
           "La modalita modifica e il posto giusto per aggiornare punteggi, tag, uve, quantita, formato e stato consegna.",
         ],
@@ -355,11 +357,11 @@ const helpGuideContentV2: typeof helpGuideContent = {
         title: "7. Usa sommelier AI e confronto vini",
         body: "Vinaris non e solo un registro di cantina. Ti aiuta anche a decidere cosa aprire, cosa comprare e come due bottiglie si differenziano.",
         bullets: [
-          "Abbinamento ti permette di inserire un piatto e chiedere al sommelier AI i match migliori dalla tua cantina o dal mercato.",
+          "[AI] Abbinamento ti permette di inserire un piatto e chiedere al sommelier AI i match migliori dalla tua cantina o dal mercato.",
           "Puoi salvare i tuoi gusti personali per gli abbinamenti e ignorarli su una singola richiesta quando vuoi un responso piu neutro.",
           "Puoi fissare un budget massimo per ottenere un abbinamento buono entro una certa soglia di prezzo, non per forza la bottiglia migliore in assoluto.",
           "Confronto vini ti aiuta a mettere due fino a quattro bottiglie fianco a fianco prima di aprirle o comprarle.",
-          "Il confronto AI funziona al meglio su due vini e restituisce stile, prontezza, occasione ideale e giudizio cantina/valore.",
+          "[AI] Il confronto AI funziona al meglio su due vini e restituisce stile, prontezza, occasione ideale e giudizio cantina/valore.",
         ],
       },
       {
@@ -2757,6 +2759,14 @@ function parsePriceHintAmount(value: string) {
   if (!match) return null;
   const amount = Number(match[1].replace(",", "."));
   return Number.isFinite(amount) ? amount : null;
+}
+
+function parseHelpBullet(value: string) {
+  const marker = "[AI] ";
+  if (value.startsWith(marker)) {
+    return { isAi: true, text: value.slice(marker.length) };
+  }
+  return { isAi: false, text: value };
 }
 
 function clipUiText(value: string, limit = 120) {
@@ -9013,9 +9023,15 @@ export function App() {
                     <h3>{section.title}</h3>
                     <p>{section.body}</p>
                     <ul>
-                      {section.bullets.map((bullet) => (
-                        <li key={bullet}>{bullet}</li>
-                      ))}
+                      {section.bullets.map((bullet) => {
+                        const parsedBullet = parseHelpBullet(bullet);
+                        return (
+                          <li key={bullet}>
+                            {parsedBullet.isAi ? <span className="help-ai-badge">AI</span> : null}
+                            <span>{parsedBullet.text}</span>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </article>
                 ))}
