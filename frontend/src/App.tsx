@@ -3171,6 +3171,15 @@ function LoadingSpinner({ size = "md" }: { size?: "sm" | "md" }) {
   );
 }
 
+function notificationBellIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M7 9a5 5 0 1 1 10 0c0 5 2 6 2 6H5s2-1 2-6" />
+      <path d="M10 19a2.4 2.4 0 0 0 4 0" />
+    </svg>
+  );
+}
+
 function SommelierAiIllustration() {
   return <img src="/images/sommelier_ai.png" alt="Sommelier AI" loading="lazy" />;
 }
@@ -7660,8 +7669,9 @@ export function App() {
             <span>{session?.membership_role}</span>
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
             {!offlineMode ? <div className="notification-wrap">
-              <button type="button" className="secondary compact notification-button" onClick={() => setNotificationsOpen((open) => !open)}>
-                {t("notifications")}
+              <button type="button" className="secondary compact notification-button" aria-label={t("notifications")} title={t("notifications")} onClick={() => setNotificationsOpen((open) => !open)}>
+                <span className="notification-button-icon" aria-hidden="true">{notificationBellIcon()}</span>
+                <span className="notification-button-label">{t("notifications")}</span>
                 {notificationCount ? <strong>{notificationCount}</strong> : null}
               </button>
               {notificationsOpen ? (
