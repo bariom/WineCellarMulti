@@ -1,12 +1,11 @@
-const CACHE_NAME = "winecellarmulti-shell-v1";
+const CACHE_NAME = "winecellarmulti-shell-v2";
 const APP_SHELL = [
   "/",
   "/manifest.webmanifest",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
   "/icons/maskable-512.png",
-  "/icons/icon.svg",
-  "/icons/maskable-icon.svg"
+  "/icons/logo.png"
 ];
 
 self.addEventListener("install", (event) => {

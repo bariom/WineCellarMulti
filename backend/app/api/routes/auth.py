@@ -150,7 +150,9 @@ def session_response_for(db: Session, user: User, household: Household, membersh
 
 
 def user_is_preapproved(db: Session, email: str) -> bool:
-    return db.scalar(select(User)) is None
+    if db.scalar(select(User)) is None:
+        return True
+    return not settings.registration_requires_approval
 
 
 def pending_user_response(user: User) -> PendingUserResponse:
@@ -234,14 +236,13 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
-    is_first_user = db.scalar(select(User)) is None
     is_approved = user_is_preapproved(db, email)
     user = User(
         email=email,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
         is_approved=is_approved,
-        is_app_admin=is_first_user,
+        is_app_admin=db.scalar(select(User)) is None,
         approved_at=datetime.now(timezone.utc) if is_approved else None,
     )
     household = Household(name=payload.household_name.strip())

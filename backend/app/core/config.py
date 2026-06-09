@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_ttl_days: int = 30
     invite_ttl_days: int = 7
+    registration_requires_approval: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     openai_api_key: str = ""
     openai_responses_url: str = "https://api.openai.com/v1/responses"
@@ -22,6 +23,8 @@ class Settings(BaseSettings):
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"
     openai_web_search_tool_cost_usd: str = "0"
+    api4ai_wine_recognition_url: str = "https://api4ai.cloud/wine-rec/v1/results"
+    api4ai_api_key: str = ""
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"

@@ -143,6 +143,27 @@ def test_register_login_session_and_logout():
     assert login.json()["theme_preference"] == "private-cellar"
 
 
+def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
+    monkeypatch.setattr(settings, "registration_requires_approval", False)
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    user_client = TestClient(app)
+    registered = register(user_client, email="production@example.com", password="strong-password-2")
+    assert registered.status_code == 201
+    assert registered.json()["authenticated"] is True
+    assert registered.json()["pending_approval"] is False
+    assert registered.json()["is_app_admin"] is False
+
+    login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
+    assert login.status_code == 200
+
+    pending_users = admin_client.get("/api/v1/auth/pending-users")
+    assert pending_users.status_code == 200
+    assert pending_users.json() == []
+
+
 def test_pending_registration_sends_admin_email(monkeypatch):
     from app.api.routes import auth as auth_routes
 
@@ -336,11 +357,11 @@ def test_authenticated_user_can_read_wine_catalog():
     client = TestClient(app)
     assert register(client).status_code == 201
 
-    response = client.get("/api/v1/wines/catalog")
+    response = client.get("/api/v1/wines/catalog?q=chateau&limit=10")
     assert response.status_code == 200
     catalog = response.json()
-    assert len(catalog) > 400
-    assert {"name", "producer", "region", "appellation", "type", "format"} <= set(catalog[0])
+    assert 1 <= len(catalog) <= 10
+    assert {"id", "name", "producer", "region", "appellation", "type", "format"} <= set(catalog[0])
 
 
 def test_app_admin_can_create_and_user_can_redeem_code():

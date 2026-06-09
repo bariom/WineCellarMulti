@@ -2511,6 +2511,36 @@ summary:focus-visible {
   font-weight: 700;
 }
 
+.recognition-box {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--panel) 82%, var(--primary) 8%);
+}
+
+.recognition-box input[type="file"] {
+  width: 100%;
+}
+
+.recognition-results {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.recognition-results > strong {
+  width: 100%;
+  color: var(--text);
+}
+
+.recognition-results > span {
+  width: 100%;
+  color: var(--text-muted);
+}
+
 .form-hint {
   margin: 0;
   color: var(--text-muted);

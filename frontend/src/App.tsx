@@ -73,12 +73,22 @@ type ConsumeWineDraft = {
 };
 
 type CatalogWine = {
+  id?: string;
   name: string;
   producer: string;
   region: string;
   appellation: string;
   type: string;
   format: string;
+  country?: string;
+  grapes_text?: string;
+  source?: string;
+};
+
+type WineRecognitionResult = {
+  suggestions: Array<{ label: string; confidence: number | null; vintage: string; producer: string; type: string }>;
+  matches: CatalogWine[];
+  raw_best_label: string;
 };
 
 type WineDraft = {
@@ -820,6 +830,11 @@ const translations = {
     acceptInvite: "Accept invite",
     addWine: "Add wine",
     addWishlist: "Add to wishlist",
+    recognizeWine: "Recognize from photo",
+    recognizingWine: "Recognizing...",
+    recognitionSuggestions: "Recognition suggestions",
+    recognitionNoMatch: "No catalog match yet. Apply a suggestion and the catalog can be enriched.",
+    useSuggestion: "Use suggestion",
     aiNotes: "AI notes",
     aiProvider: "AI source",
     aiProviderAuto: "Automatic",
@@ -1248,6 +1263,11 @@ const translations = {
     acceptInvite: "Accetta invito",
     addWine: "Aggiungi vino",
     addWishlist: "Aggiungi a wishlist",
+    recognizeWine: "Riconosci da foto",
+    recognizingWine: "Riconoscimento...",
+    recognitionSuggestions: "Suggerimenti riconoscimento",
+    recognitionNoMatch: "Nessuna corrispondenza nel catalogo. Applica un suggerimento e il catalogo potrà essere arricchito.",
+    useSuggestion: "Usa suggerimento",
     aiNotes: "Note AI",
     aiProvider: "Sorgente AI",
     aiProviderAuto: "Automatica",
@@ -2291,9 +2311,10 @@ const emptyWishlistDraft: WishlistDraft = {
 };
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
+  const isFormData = init?.body instanceof FormData;
   const response = await fetch(path, {
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers: { ...(isFormData ? {} : { "Content-Type": "application/json" }), ...init?.headers },
     ...init,
   });
   if (!response.ok) {
@@ -4843,6 +4864,9 @@ export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
   const [wineCatalog, setWineCatalog] = useState<CatalogWine[]>([]);
+  const [wineRecognitionResult, setWineRecognitionResult] = useState<WineRecognitionResult | null>(null);
+  const [wineRecognitionTarget, setWineRecognitionTarget] = useState<"wine" | "wishlist">("wine");
+  const [wineRecognitionLoading, setWineRecognitionLoading] = useState(false);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
@@ -5032,6 +5056,75 @@ export function App() {
     });
   }
 
+  function applyCatalogWineToDraft(item: CatalogWine, target: "wine" | "wishlist") {
+    if (target === "wishlist") {
+      setWishlistDraft((current) => ({
+        ...current,
+        name: item.name || current.name,
+        producer: item.producer || current.producer,
+        region: item.region || current.region,
+        appellation: item.appellation || current.appellation,
+        format: item.format || current.format,
+        type: item.type || current.type,
+      }));
+      return;
+    }
+    setDraft((current) => ({
+      ...current,
+      name: item.name || current.name,
+      producer: item.producer || current.producer,
+      region: item.region || current.region,
+      appellation: item.appellation || current.appellation,
+      format: item.format || current.format,
+      type: item.type || current.type,
+    }));
+  }
+
+  async function applyRecognitionSuggestion(suggestion: WineRecognitionResult["suggestions"][number], target: "wine" | "wishlist") {
+    const catalogItem: CatalogWine = {
+      name: suggestion.label,
+      producer: suggestion.producer,
+      region: "",
+      appellation: "",
+      type: suggestion.type,
+      format: "Bottle (750ml)",
+    };
+    applyCatalogWineToDraft(catalogItem, target);
+    try {
+      const created = await api<CatalogWine>("/api/v1/wines/catalog", {
+        method: "POST",
+        body: JSON.stringify({ ...catalogItem, aliases: [suggestion.label] }),
+      });
+      setWineCatalog((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+    } catch {
+      // The draft is still useful even if catalog enrichment is denied or already exists.
+    }
+  }
+
+  async function recognizeWineImage(file: File, target: "wine" | "wishlist") {
+    const formData = new FormData();
+    formData.append("image", file);
+    setWineRecognitionLoading(true);
+    setWineRecognitionTarget(target);
+    setWineRecognitionResult(null);
+    try {
+      const result = await api<WineRecognitionResult>("/api/v1/wines/catalog/recognize", {
+        method: "POST",
+        body: formData,
+      });
+      setWineRecognitionResult(result);
+      if (result.matches[0]) {
+        applyCatalogWineToDraft(result.matches[0], target);
+      } else if (result.suggestions[0]) {
+        await applyRecognitionSuggestion(result.suggestions[0], target);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to recognize wine");
+    } finally {
+      setWineRecognitionLoading(false);
+    }
+  }
+
   function applySessionPreferences(nextSession: Session) {
     setLocale(nextSession.locale || "it");
     setThemePreference(nextSession.theme_preference || "system");
@@ -5041,6 +5134,27 @@ export function App() {
     if (!visibleError) return;
     errorBannerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [visibleError]);
+
+  useEffect(() => {
+    if (!session?.authenticated) return;
+    const query = (wineFormOpen ? draft.name : wishlistFormOpen ? wishlistDraft.name : "").trim();
+    if (query.length < 2) {
+      setWineCatalog([]);
+      return;
+    }
+    const abortController = new AbortController();
+    const timer = window.setTimeout(() => {
+      api<CatalogWine[]>(`/api/v1/wines/catalog?q=${encodeURIComponent(query)}&limit=20`, { signal: abortController.signal })
+        .then(setWineCatalog)
+        .catch((nextError) => {
+          if ((nextError as Error).name !== "AbortError") setWineCatalog([]);
+        });
+    }, 180);
+    return () => {
+      window.clearTimeout(timer);
+      abortController.abort();
+    };
+  }, [draft.name, wishlistDraft.name, wineFormOpen, wishlistFormOpen, session?.authenticated]);
 
   async function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
@@ -5086,10 +5200,6 @@ export function App() {
     const nextWines = await api<Wine[]>("/api/v1/wines");
     setWines(nextWines);
     setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : null));
-  }
-
-  async function loadWineCatalog() {
-    setWineCatalog(await api<CatalogWine[]>("/api/v1/wines/catalog"));
   }
 
   async function loadTastingArchive(offset = tastingArchiveOffset) {
@@ -5325,7 +5435,7 @@ export function App() {
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
       : nextLists[0]?.id || "";
-    await Promise.all([loadWines(), loadWineCatalog(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
+    await Promise.all([loadWines(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
   }
 
   async function loadData() {
@@ -7849,7 +7959,7 @@ export function App() {
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
-      <img className="public-brand-mark" src="/icons/icon.svg" alt="Vinaris" />
+      <img className="public-brand-mark" src="/icons/logo.png" alt="Vinaris" />
       <div className="public-brand-copy">
         <strong>Vinaris</strong>
         <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>
@@ -9090,6 +9200,37 @@ export function App() {
               <form className="wine-form" onSubmit={submitWine}>
                 <h2>{editingId ? t("editWine") : t("addWine")}</h2>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
+                {!editingId ? (
+                  <div className="recognition-box">
+                    <label>
+                      <span>{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
+                      <input type="file" accept="image/png,image/jpeg,image/webp" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void recognizeWineImage(file, "wine");
+                        event.currentTarget.value = "";
+                      }} />
+                    </label>
+                    {wineRecognitionResult && wineRecognitionTarget === "wine" ? (
+                      <div className="recognition-results">
+                        <strong>{t("recognitionSuggestions")}</strong>
+                        {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
+                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => applyCatalogWineToDraft(match, "wine")}>
+                            {[match.name, match.producer, match.region].filter(Boolean).join(" - ")}
+                          </button>
+                        )) : (
+                          <>
+                            <span>{t("recognitionNoMatch")}</span>
+                            {wineRecognitionResult.suggestions.map((suggestion) => (
+                              <button key={suggestion.label} type="button" className="secondary compact" onClick={() => void applyRecognitionSuggestion(suggestion, "wine")}>
+                                {t("useSuggestion")}: {suggestion.label}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <label>
                   <span>{t("name")}</span>
                   <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
@@ -9352,6 +9493,37 @@ export function App() {
             ) : activeView === "wishlist" && wishlistFormOpen ? (
               <form className="wine-form" onSubmit={submitWishlist}>
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
+                {!editingWishlistId ? (
+                  <div className="recognition-box">
+                    <label>
+                      <span>{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
+                      <input type="file" accept="image/png,image/jpeg,image/webp" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        if (file) void recognizeWineImage(file, "wishlist");
+                        event.currentTarget.value = "";
+                      }} />
+                    </label>
+                    {wineRecognitionResult && wineRecognitionTarget === "wishlist" ? (
+                      <div className="recognition-results">
+                        <strong>{t("recognitionSuggestions")}</strong>
+                        {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
+                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => applyCatalogWineToDraft(match, "wishlist")}>
+                            {[match.name, match.producer, match.region].filter(Boolean).join(" - ")}
+                          </button>
+                        )) : (
+                          <>
+                            <span>{t("recognitionNoMatch")}</span>
+                            {wineRecognitionResult.suggestions.map((suggestion) => (
+                              <button key={suggestion.label} type="button" className="secondary compact" onClick={() => void applyRecognitionSuggestion(suggestion, "wishlist")}>
+                                {t("useSuggestion")}: {suggestion.label}
+                              </button>
+                            ))}
+                          </>
+                        )}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <label>
                   <span>{t("wishlistList")}</span>
                   <select value={wishlistDraft.wishlist_list_id} onChange={(event) => setWishlistDraft({ ...wishlistDraft, wishlist_list_id: event.target.value })} required disabled={!canWriteWine}>
