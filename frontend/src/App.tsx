@@ -3394,6 +3394,13 @@ function CompareWinesModal({
   onClose: () => void;
   onRemove: (wineId: string) => void;
 }) {
+  const aiResultRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!aiResult || !aiResultRef.current) return;
+    aiResultRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [aiResult]);
+
   return (
     <div className="compare-modal-overlay" onClick={onClose}>
       <div className="compare-modal-card" onClick={(event) => event.stopPropagation()}>
@@ -3417,7 +3424,7 @@ function CompareWinesModal({
         </div>
         {aiLoading ? <LoadingState label={t("generating")} compact /> : null}
         {aiResult ? (
-          <section className="compare-ai-panel">
+          <section className="compare-ai-panel" ref={aiResultRef}>
             <div className="compare-ai-grid">
               <div className="compare-section">
                 <strong>{t("styleProfile")}</strong>
