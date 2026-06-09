@@ -7979,11 +7979,14 @@ export function App() {
         ))}
       </datalist>
       <header className="topbar">
-        <div>
+        <div className="topbar-brand">
           {authenticated ? (
             <>
-              <p className="eyebrow">Vinaris</p>
-              <h1>{session?.active_household_name || "Vinaris"}</h1>
+              <img className="topbar-brand-mark" src="/icons/logo.png" alt="Vinaris" />
+              <div>
+                <p className="eyebrow">Vinaris</p>
+                <h1>{session?.active_household_name || "Vinaris"}</h1>
+              </div>
             </>
           ) : (
             publicBrandLockup

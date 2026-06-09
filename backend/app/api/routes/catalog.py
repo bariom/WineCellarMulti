@@ -116,9 +116,20 @@ def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionS
 
     def visit(value: object) -> None:
         if isinstance(value, dict):
-            label = value.get("label") or value.get("name") or value.get("class") or value.get("wine")
-            confidence = value.get("confidence") or value.get("score") or value.get("probability")
+            classes = value.get("classes")
+            if isinstance(classes, dict):
+                for label, confidence in classes.items():
+                    if not isinstance(label, str) or not label.strip():
+                        continue
+                    try:
+                        confidence_value = float(confidence) if confidence is not None else None
+                    except (TypeError, ValueError):
+                        confidence_value = None
+                    suggestions.append(CatalogRecognitionSuggestion(label=label.strip(), confidence=confidence_value))
+                return
+            label = value.get("label") or value.get("class") or value.get("wine")
             if isinstance(label, str) and label.strip():
+                confidence = value.get("confidence") or value.get("score") or value.get("probability")
                 try:
                     confidence_value = float(confidence) if confidence is not None else None
                 except (TypeError, ValueError):

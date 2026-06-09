@@ -364,6 +364,36 @@ def test_authenticated_user_can_read_wine_catalog():
     assert {"id", "name", "producer", "region", "appellation", "type", "format"} <= set(catalog[0])
 
 
+def test_wine_recognition_parser_uses_api4ai_classes():
+    from app.api.routes.catalog import extract_recognition_suggestions
+
+    suggestions = extract_recognition_suggestions(
+        {
+            "results": [
+                {
+                    "status": {"code": "ok", "message": "Success"},
+                    "entities": [
+                        {
+                            "kind": "classes",
+                            "name": "wine-image-classes",
+                            "classes": {
+                                "buitenverwachting 1769 vintage 2000": 0.6465678215026855,
+                                "raventos i blanc cava reserva brut l'hereu 2012": 0.621323823928833,
+                            },
+                        },
+                    ],
+                },
+            ],
+        },
+    )
+
+    assert [suggestion.label for suggestion in suggestions] == [
+        "buitenverwachting 1769 vintage 2000",
+        "raventos i blanc cava reserva brut l'hereu 2012",
+    ]
+    assert suggestions[0].confidence == 0.6465678215026855
+
+
 def test_app_admin_can_create_and_user_can_redeem_code():
     admin_client = TestClient(app)
     registered = register(admin_client)
