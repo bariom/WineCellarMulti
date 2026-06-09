@@ -9204,7 +9204,7 @@ export function App() {
                   <div className="recognition-box">
                     <label>
                       <span>{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
-                      <input type="file" accept="image/png,image/jpeg,image/webp" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
+                      <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
                         const file = event.target.files?.[0];
                         if (file) void recognizeWineImage(file, "wine");
                         event.currentTarget.value = "";
@@ -9497,7 +9497,7 @@ export function App() {
                   <div className="recognition-box">
                     <label>
                       <span>{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
-                      <input type="file" accept="image/png,image/jpeg,image/webp" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
+                      <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
                         const file = event.target.files?.[0];
                         if (file) void recognizeWineImage(file, "wishlist");
                         event.currentTarget.value = "";
