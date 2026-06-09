@@ -5137,6 +5137,7 @@ button.stat-card:hover {
 .detail-field {
   display: grid;
   gap: 6px;
+  min-width: 0;
   padding: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
   border-radius: 14px;
@@ -5152,6 +5153,20 @@ button.stat-card:hover {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.detail-field > strong {
+  min-width: 0;
+}
+
+.detail-field .wine-status-badge {
+  min-width: 0;
+  width: 100%;
+}
+
+.detail-field .wine-status-badge strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .wine-status-badge {
