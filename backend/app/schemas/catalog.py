@@ -33,6 +33,8 @@ class CatalogRecognitionSuggestion(BaseModel):
     confidence: float | None = None
     vintage: str = ""
     producer: str = ""
+    region: str = ""
+    appellation: str = ""
     type: str = ""
 
 

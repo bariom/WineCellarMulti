@@ -5,6 +5,7 @@ import mimetypes
 import re
 import uuid
 from datetime import datetime, timezone
+from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -26,6 +27,10 @@ CATALOG_PATH = Path(__file__).resolve().parents[2] / "wine_catalog.json"
 
 def normalize_catalog_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
+
+
+def clean_recognition_text(value: object) -> str:
+    return re.sub(r"\s+", " ", unescape(str(value or "")).strip())
 
 
 def build_search_text(*parts: str) -> str:
@@ -167,16 +172,18 @@ def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionS
             classes = value.get("classes")
             if isinstance(classes, dict):
                 for label, confidence in classes.items():
-                    if not isinstance(label, str) or not label.strip():
+                    clean_label = clean_recognition_text(label)
+                    if not clean_label:
                         continue
                     try:
                         confidence_value = float(confidence) if confidence is not None else None
                     except (TypeError, ValueError):
                         confidence_value = None
-                    suggestions.append(CatalogRecognitionSuggestion(label=label.strip(), confidence=confidence_value))
+                    suggestions.append(CatalogRecognitionSuggestion(label=clean_label, confidence=confidence_value))
                 return
             label = value.get("label") or value.get("class") or value.get("wine")
-            if isinstance(label, str) and label.strip():
+            clean_label = clean_recognition_text(label)
+            if clean_label:
                 confidence = value.get("confidence") or value.get("score") or value.get("probability")
                 try:
                     confidence_value = float(confidence) if confidence is not None else None
@@ -184,11 +191,13 @@ def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionS
                     confidence_value = None
                 suggestions.append(
                     CatalogRecognitionSuggestion(
-                        label=label.strip(),
+                        label=clean_label,
                         confidence=confidence_value,
-                        vintage=str(value.get("vintage") or "").strip(),
-                        producer=str(value.get("producer") or value.get("winery") or "").strip(),
-                        type=str(value.get("type") or "").strip(),
+                        vintage=clean_recognition_text(value.get("vintage")),
+                        producer=clean_recognition_text(value.get("producer") or value.get("winery")),
+                        region=clean_recognition_text(value.get("region")),
+                        appellation=clean_recognition_text(value.get("appellation") or value.get("denomination") or value.get("appellation_name")),
+                        type=clean_recognition_text(value.get("type")),
                     ),
                 )
             for child in value.values():
@@ -261,6 +270,25 @@ def create_wine_catalog_entry(
         .where(WineCatalogAlias.normalized_alias == normalized_name),
     )
     if existing is not None:
+        changed = False
+        for field in ("producer", "region", "appellation", "type", "format", "country", "grapes_text"):
+            next_value = str(getattr(payload, field) or "").strip()
+            if next_value and not getattr(existing, field):
+                setattr(existing, field, next_value)
+                changed = True
+        if changed:
+            existing.search_text = build_search_text(
+                existing.name,
+                existing.producer,
+                existing.region,
+                existing.appellation,
+                existing.type,
+                existing.country,
+                existing.grapes_text,
+            )
+            existing.updated_at = datetime.now(timezone.utc)
+            db.commit()
+            db.refresh(existing)
         return catalog_response(existing)
     entry = ensure_catalog_entry_for_wine_data(db, payload.model_dump(), source="manual")
     if entry is None:

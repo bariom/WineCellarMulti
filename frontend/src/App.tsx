@@ -86,7 +86,7 @@ type CatalogWine = {
 };
 
 type WineRecognitionResult = {
-  suggestions: Array<{ label: string; confidence: number | null; vintage: string; producer: string; type: string }>;
+  suggestions: Array<{ label: string; confidence: number | null; vintage: string; producer: string; region: string; appellation: string; type: string }>;
   matches: CatalogWine[];
   raw_best_label: string;
 };
@@ -3134,6 +3134,19 @@ function formatBottleCount(value: number, locale: Locale) {
   }).format(Math.round(value));
 }
 
+function formatRecognitionConfidence(value: number | null, locale: Locale) {
+  if (typeof value !== "number" || Number.isNaN(value)) return "";
+  const percentage = value <= 1 ? value * 100 : value;
+  return `${new Intl.NumberFormat(numberLocale(locale), {
+    maximumFractionDigits: 1,
+  }).format(percentage)}%`;
+}
+
+function recognitionSuggestionLabel(label: string, confidence: number | null, locale: Locale) {
+  const confidenceLabel = formatRecognitionConfidence(confidence, locale);
+  return confidenceLabel ? `${label} · ${confidenceLabel}` : label;
+}
+
 function dashboardStatSvgIcon(kind: "mine" | "shared" | "total" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data") {
   if (kind === "mine") {
     return (
@@ -5092,22 +5105,30 @@ export function App() {
     }));
   }
 
-  async function applyRecognitionSuggestion(suggestion: WineRecognitionResult["suggestions"][number], target: "wine" | "wishlist") {
-    let catalogItem: CatalogWine = {
-      name: suggestion.label,
-      producer: suggestion.producer,
-      region: "",
-      appellation: "",
-      type: suggestion.type,
-      format: "Bottle (750ml)",
-    };
+  function needsWineLabelEnrichment(item: CatalogWine) {
+    return !item.producer?.trim() || !item.type?.trim() || !item.region?.trim() || !item.appellation?.trim();
+  }
+
+  function clearWineRecognitionState() {
+    setWineRecognitionResult(null);
+    setWineEnrichmentLoading(false);
+  }
+
+  async function enrichCatalogSuggestionIfNeeded(catalogItem: CatalogWine, label: string, target: "wine" | "wishlist") {
+    if (!needsWineLabelEnrichment(catalogItem)) return catalogItem;
     setWineEnrichmentLoading(true);
     try {
       const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
         method: "POST",
-        body: JSON.stringify({ label: suggestion.label, locale }),
+        body: JSON.stringify({ label, locale }),
       });
-      catalogItem = {
+      if (target === "wine" && enrichment.vintage) {
+        setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+      }
+      if (target === "wishlist" && enrichment.vintage) {
+        setWishlistDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+      }
+      return {
         ...catalogItem,
         name: enrichment.name || catalogItem.name,
         producer: enrichment.producer || catalogItem.producer,
@@ -5115,27 +5136,40 @@ export function App() {
         appellation: enrichment.appellation || catalogItem.appellation,
         type: enrichment.type || catalogItem.type,
       };
-      if (target === "wine" && enrichment.vintage) {
-        setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
-      }
-      if (target === "wishlist" && enrichment.vintage) {
-        setWishlistDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
-      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to enrich recognized wine");
+      return catalogItem;
     } finally {
       setWineEnrichmentLoading(false);
     }
+  }
+
+  async function applyRecognizedCatalogItem(item: CatalogWine, label: string, target: "wine" | "wishlist") {
+    const catalogItem = await enrichCatalogSuggestionIfNeeded(item, label, target);
     applyCatalogWineToDraft(catalogItem, target);
     try {
       const created = await api<CatalogWine>("/api/v1/wines/catalog", {
         method: "POST",
-        body: JSON.stringify({ ...catalogItem, aliases: [suggestion.label] }),
+        body: JSON.stringify({ ...catalogItem, aliases: [label] }),
       });
-      setWineCatalog((current) => [created, ...current.filter((item) => item.id !== created.id)]);
+      setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
     } catch {
       // The draft is still useful even if catalog enrichment is denied or already exists.
+    } finally {
+      clearWineRecognitionState();
     }
+  }
+
+  async function applyRecognitionSuggestion(suggestion: WineRecognitionResult["suggestions"][number], target: "wine" | "wishlist") {
+    const catalogItem: CatalogWine = {
+      name: suggestion.label,
+      producer: suggestion.producer,
+      region: suggestion.region,
+      appellation: suggestion.appellation,
+      type: suggestion.type,
+      format: "Bottle (750ml)",
+    };
+    await applyRecognizedCatalogItem(catalogItem, suggestion.label, target);
   }
 
   async function recognizeWineImage(file: File, target: "wine" | "wishlist") {
@@ -5151,7 +5185,7 @@ export function App() {
       });
       setWineRecognitionResult(result);
       if (result.matches[0]) {
-        applyCatalogWineToDraft(result.matches[0], target);
+        await applyRecognizedCatalogItem(result.matches[0], result.raw_best_label || result.matches[0].name, target);
       } else if (result.suggestions[0]) {
         await applyRecognitionSuggestion(result.suggestions[0], target);
       }
@@ -7493,12 +7527,16 @@ export function App() {
   };
 
   function startAddWine() {
+    clearWineRecognitionState();
+    setWineRecognitionTarget("wine");
     setDraft(emptyDraft);
     setEditingId(null);
     setWineFormOpen(true);
   }
 
   function startAddWishlistItem() {
+    clearWineRecognitionState();
+    setWineRecognitionTarget("wishlist");
     setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
     setEditingWishlistId(null);
     setWishlistFormOpen(true);
@@ -7560,6 +7598,7 @@ export function App() {
   }
 
   function startEditWine(wine: Wine) {
+    clearWineRecognitionState();
     setSelectedWineId(wine.id);
     setEditingId(wine.id);
     setDraft(wineToDraft(wine));
@@ -7567,6 +7606,7 @@ export function App() {
   }
 
   function startEditWishlistItem(item: WishlistItem) {
+    clearWineRecognitionState();
     setSelectedWishlistId(item.id);
     setEditingWishlistId(item.id);
     setWishlistDraft(wishlistToDraft(item));
@@ -7647,12 +7687,14 @@ export function App() {
   }
 
   function closeWineForm() {
+    clearWineRecognitionState();
     setEditingId(null);
     setDraft(emptyDraft);
     setWineFormOpen(false);
   }
 
   function closeWishlistForm() {
+    clearWineRecognitionState();
     setEditingWishlistId(null);
     setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
     setWishlistFormOpen(false);
@@ -9255,15 +9297,15 @@ export function App() {
                         <strong>{t("recognitionSuggestions")}</strong>
                         {wineEnrichmentLoading ? <span>{t("generating")}</span> : null}
                         {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
-                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => applyCatalogWineToDraft(match, "wine")}>
-                            {[match.name, match.producer, match.region].filter(Boolean).join(" - ")}
+                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => void applyRecognizedCatalogItem(match, wineRecognitionResult.raw_best_label || match.name, "wine")}>
+                            {recognitionSuggestionLabel([match.name, match.producer, match.region].filter(Boolean).join(" - "), wineRecognitionResult.suggestions[0]?.confidence ?? null, locale)}
                           </button>
                         )) : (
                           <>
                             <span>{t("recognitionNoMatch")}</span>
                             {wineRecognitionResult.suggestions.map((suggestion) => (
                               <button key={suggestion.label} type="button" className="secondary compact" onClick={() => void applyRecognitionSuggestion(suggestion, "wine")}>
-                                {t("useSuggestion")}: {suggestion.label}
+                                {t("useSuggestion")}: {recognitionSuggestionLabel(suggestion.label, suggestion.confidence, locale)}
                               </button>
                             ))}
                           </>
@@ -9549,15 +9591,15 @@ export function App() {
                         <strong>{t("recognitionSuggestions")}</strong>
                         {wineEnrichmentLoading ? <span>{t("generating")}</span> : null}
                         {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
-                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => applyCatalogWineToDraft(match, "wishlist")}>
-                            {[match.name, match.producer, match.region].filter(Boolean).join(" - ")}
+                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => void applyRecognizedCatalogItem(match, wineRecognitionResult.raw_best_label || match.name, "wishlist")}>
+                            {recognitionSuggestionLabel([match.name, match.producer, match.region].filter(Boolean).join(" - "), wineRecognitionResult.suggestions[0]?.confidence ?? null, locale)}
                           </button>
                         )) : (
                           <>
                             <span>{t("recognitionNoMatch")}</span>
                             {wineRecognitionResult.suggestions.map((suggestion) => (
                               <button key={suggestion.label} type="button" className="secondary compact" onClick={() => void applyRecognitionSuggestion(suggestion, "wishlist")}>
-                                {t("useSuggestion")}: {suggestion.label}
+                                {t("useSuggestion")}: {recognitionSuggestionLabel(suggestion.label, suggestion.confidence, locale)}
                               </button>
                             ))}
                           </>
