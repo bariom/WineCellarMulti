@@ -2528,6 +2528,7 @@ function formatMoney(
 ) {
   const amount = Number(value || 0);
   return `${currency} ${new Intl.NumberFormat(numberLocale(locale), {
+    useGrouping: true,
     minimumFractionDigits,
     maximumFractionDigits,
   }).format(amount)}`;
@@ -2868,6 +2869,7 @@ function topProducerGroups(items: Wine[]) {
 
 function formatBottleCount(value: number, locale: Locale) {
   return new Intl.NumberFormat(numberLocale(locale), {
+    useGrouping: true,
     maximumFractionDigits: 0,
   }).format(Math.round(value));
 }
@@ -5266,7 +5268,12 @@ export function App() {
       setShowOfflineBackupPanel(false);
       setAuthDraft(emptyAuthDraft);
       if (nextSession.authenticated) {
-        await loadAuthenticatedSessionData(nextSession);
+        setLoading(true);
+        try {
+          await loadAuthenticatedSessionData(nextSession);
+        } finally {
+          setLoading(false);
+        }
       }
     } catch (nextError) {
       const nextMessage = nextError instanceof Error ? nextError.message : "Unable to authenticate";
@@ -5297,7 +5304,13 @@ export function App() {
       setSession(nextSession);
       applySessionPreferences(nextSession);
       setAuthDraft(emptyAuthDraft);
-      await loadAuthenticatedSessionData(nextSession);
+      setShowOfflineBackupPanel(false);
+      setLoading(true);
+      try {
+        await loadAuthenticatedSessionData(nextSession);
+      } finally {
+        setLoading(false);
+      }
     } catch (nextError) {
       const nextMessage = nextError instanceof Error ? nextError.message : "Unable to login with passkey";
       if (isConnectivityError(nextMessage)) {
@@ -8225,7 +8238,7 @@ export function App() {
                   <div className="hero-kpi">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
                     <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
-                    <p>{cellarStats.bottles} {t("bottles").toLowerCase()}</p>
+                    <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
                   </div>
                 </div>
               </section>
@@ -8329,7 +8342,7 @@ export function App() {
                       <span>{t("tastingEntries")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</i>{t("latestConsumedBottles")}</h2>
                     </div>
-                    <strong>{tastingStats.count}</strong>
+                    <strong>{formatBottleCount(tastingStats.count, locale)}</strong>
                   </button>
                   <div className="action-list">
                     {latestConsumedEntries.length ? latestConsumedEntries.map((entry) => (
@@ -9422,15 +9435,15 @@ export function App() {
                   <>
                     <div className="stat-card">
                       <span>{t("tastingEntries")}</span>
-                      <strong>{tastingStats.count}</strong>
+                      <strong>{formatBottleCount(tastingStats.count, locale)}</strong>
                     </div>
                     <div className="stat-card">
                       <span>{t("ratedTastings")}</span>
-                      <strong>{tastingStats.rated}</strong>
+                      <strong>{formatBottleCount(tastingStats.rated, locale)}</strong>
                     </div>
                     <div className="stat-card">
                       <span>{t("tastingNotesSaved")}</span>
-                      <strong>{tastingStats.notes}</strong>
+                      <strong>{formatBottleCount(tastingStats.notes, locale)}</strong>
                     </div>
                     <div className="stat-card compact-list ai-card">
                       <span>{t("latestTasted")}</span>
@@ -9441,11 +9454,11 @@ export function App() {
                   <>
                     <div className="stat-card">
                       <span>{t("consumedWines")}</span>
-                      <strong>{historyStats.count}</strong>
+                      <strong>{formatBottleCount(historyStats.count, locale)}</strong>
                     </div>
                     <div className="stat-card">
                       <span>{t("sharedBottles")}</span>
-                      <strong>{historyStats.shared}</strong>
+                      <strong>{formatBottleCount(historyStats.shared, locale)}</strong>
                     </div>
                     <div className="stat-card">
                       <span>{t("notes")}</span>
@@ -9488,7 +9501,7 @@ export function App() {
               <section className="stats-panel">
                 <div className="stat-card">
                   <span>{t("wishlistItems")}</span>
-                  <strong>{wishlistStats.count}</strong>
+                  <strong>{formatBottleCount(wishlistStats.count, locale)}</strong>
                 </div>
                 <div className="stat-card">
                   <span>{t("targetValue")}</span>
@@ -9496,11 +9509,11 @@ export function App() {
                 </div>
                 <div className="stat-card">
                   <span>{t("highPriority")}</span>
-                  <strong>{wishlistStats.highPriority}</strong>
+                  <strong>{formatBottleCount(wishlistStats.highPriority, locale)}</strong>
                 </div>
                 <div className="stat-card">
                   <span>{t("readyToBuy")}</span>
-                  <strong>{wishlistStats.readyToBuy}</strong>
+                  <strong>{formatBottleCount(wishlistStats.readyToBuy, locale)}</strong>
                 </div>
               </section>
               <div className="stats-panel-actions">
