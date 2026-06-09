@@ -988,6 +988,9 @@ summary:focus-visible {
   display: flex;
   grid-column: 1 / -1;
   gap: 8px;
+  padding: 2px;
+  border-radius: 18px;
+  overflow: hidden;
 }
 
 .auth-panel {
