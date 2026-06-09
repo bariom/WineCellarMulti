@@ -181,27 +181,25 @@ def delete_wishlist_list(
     )
     if len(household_lists) <= 1:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="At least one wishlist must remain")
-    destination = next((item for item in household_lists if item.id != wishlist_list.id), None)
-    if destination is None:
+    fallback_list = next((item for item in household_lists if item.id != wishlist_list.id), None)
+    if fallback_list is None:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No destination wishlist available")
-    db.query(WishlistItem).filter(
-        WishlistItem.household_id == context.household.id,
-        WishlistItem.wishlist_list_id == wishlist_list.id,
-    ).update({"wishlist_list_id": destination.id}, synchronize_session=False)
+
     db.delete(wishlist_list)
     db.commit()
+
     item_count = db.scalar(
         select(func.count(WishlistItem.id)).where(
             WishlistItem.household_id == context.household.id,
-            WishlistItem.wishlist_list_id == destination.id,
+            WishlistItem.wishlist_list_id == fallback_list.id,
         ),
     ) or 0
     return WishlistListResponse.model_validate(
         {
-            "id": destination.id,
-            "household_id": destination.household_id,
-            "name": destination.name,
-            "description": destination.description,
+            "id": fallback_list.id,
+            "household_id": fallback_list.household_id,
+            "name": fallback_list.name,
+            "description": fallback_list.description,
             "item_count": item_count,
         },
     )
