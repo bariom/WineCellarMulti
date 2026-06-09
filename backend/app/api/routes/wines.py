@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, defer
 
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
+from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.api.routes.tags import get_or_create_user_tag
 from app.db.session import get_db
 from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
@@ -568,6 +569,7 @@ def create_wine(
     )
     db.add(wine)
     db.flush()
+    ensure_catalog_entry_for_wine_data(db, data)
     record_wine_value_history(db, wine, source="manual")
     set_user_wine_tags(db, context, wine, tag_names)
     db.commit()

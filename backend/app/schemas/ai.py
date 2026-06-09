@@ -76,6 +76,21 @@ class AiGenerationRequest(BaseModel):
     locale: str = Field(default="it", pattern="^(it|en)$")
 
 
+class WineLabelEnrichmentRequest(AiGenerationRequest):
+    label: str = Field(min_length=2, max_length=260)
+
+
+class WineLabelEnrichmentResponse(BaseModel):
+    name: str = ""
+    producer: str = ""
+    vintage: str = ""
+    type: str = ""
+    region: str = ""
+    appellation: str = ""
+    confidence: str = "low"
+    notes: str = ""
+
+
 class WishlistPortfolioStrategyRequest(AiGenerationRequest):
     wishlist_list_id: UUID | None = None
 

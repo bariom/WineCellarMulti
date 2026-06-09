@@ -30,6 +30,8 @@ from app.schemas.ai import (
     PairingResponse,
     WineCompareRequest,
     WineCompareResponse,
+    WineLabelEnrichmentRequest,
+    WineLabelEnrichmentResponse,
     WishlistPortfolioStrategyRequest,
     WishlistPortfolioStrategyResponse,
 )
@@ -915,6 +917,81 @@ def generate_wine_notes(
     db.commit()
     db.refresh(wine)
     return ai_wine_response(db, context, wine)
+
+
+@router.post("/wine-label/enrich", response_model=WineLabelEnrichmentResponse)
+def enrich_wine_label(
+    payload: WineLabelEnrichmentRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineLabelEnrichmentResponse:
+    user_settings = get_or_create_user_ai_settings(db, context)
+    model = validate_model(settings.openai_grape_model)
+    schema = {
+        "name": "wine_label_enrichment",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "name": {"type": "string"},
+                "producer": {"type": "string"},
+                "vintage": {"type": "string"},
+                "type": {"type": "string"},
+                "region": {"type": "string"},
+                "appellation": {"type": "string"},
+                "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
+                "notes": {"type": "string"},
+            },
+            "required": ["name", "producer", "vintage", "type", "region", "appellation", "confidence", "notes"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=model,
+        system_prompt=(
+            "You normalize wine label recognition results into cellar catalog fields. "
+            "Use only broadly established wine knowledge and the provided label. "
+            "If a field is uncertain, return an empty string and set confidence accordingly."
+        ),
+        user_prompt=(
+            f"{response_language_instruction(payload.locale)}\n"
+            "Extract basic structured data from this recognized wine label.\n\n"
+            f"Recognized label: {payload.label}\n\n"
+            "Guidelines:\n"
+            "- name should be the cuvee/wine name without vintage when possible.\n"
+            "- producer should be winery/domain/brand.\n"
+            "- vintage should be a four-digit year, NV, MV, or empty.\n"
+            "- type should be one of common cellar types such as Red, White, Sparkling, Rose, Sweet.\n"
+            "- region and appellation should be filled only if reasonably known from the label.\n"
+        ),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    cleaned = WineLabelEnrichmentResponse(
+        name=str(result.get("name") or payload.label).strip(),
+        producer=str(result.get("producer") or "").strip(),
+        vintage=str(result.get("vintage") or "").strip(),
+        type=str(result.get("type") or "").strip(),
+        region=str(result.get("region") or "").strip(),
+        appellation=str(result.get("appellation") or "").strip(),
+        confidence=str(result.get("confidence") or "low").strip() or "low",
+        notes=str(result.get("notes") or "").strip(),
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="catalog",
+        entity_id=context.household.id,
+        feature="wine_label_enrichment",
+        model=model,
+        summary=f"{payload.label}: {cleaned.producer} {cleaned.name} {cleaned.vintage}".strip(),
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return cleaned
 
 
 @router.post("/wines/{wine_id}/drink-window", response_model=WineResponse)

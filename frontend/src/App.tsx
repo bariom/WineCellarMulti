@@ -91,6 +91,17 @@ type WineRecognitionResult = {
   raw_best_label: string;
 };
 
+type WineLabelEnrichment = {
+  name: string;
+  producer: string;
+  vintage: string;
+  type: string;
+  region: string;
+  appellation: string;
+  confidence: string;
+  notes: string;
+};
+
 type WineDraft = {
   name: string;
   producer: string;
@@ -4867,6 +4878,7 @@ export function App() {
   const [wineRecognitionResult, setWineRecognitionResult] = useState<WineRecognitionResult | null>(null);
   const [wineRecognitionTarget, setWineRecognitionTarget] = useState<"wine" | "wishlist">("wine");
   const [wineRecognitionLoading, setWineRecognitionLoading] = useState(false);
+  const [wineEnrichmentLoading, setWineEnrichmentLoading] = useState(false);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
@@ -5081,7 +5093,7 @@ export function App() {
   }
 
   async function applyRecognitionSuggestion(suggestion: WineRecognitionResult["suggestions"][number], target: "wine" | "wishlist") {
-    const catalogItem: CatalogWine = {
+    let catalogItem: CatalogWine = {
       name: suggestion.label,
       producer: suggestion.producer,
       region: "",
@@ -5089,6 +5101,31 @@ export function App() {
       type: suggestion.type,
       format: "Bottle (750ml)",
     };
+    setWineEnrichmentLoading(true);
+    try {
+      const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
+        method: "POST",
+        body: JSON.stringify({ label: suggestion.label, locale }),
+      });
+      catalogItem = {
+        ...catalogItem,
+        name: enrichment.name || catalogItem.name,
+        producer: enrichment.producer || catalogItem.producer,
+        region: enrichment.region || catalogItem.region,
+        appellation: enrichment.appellation || catalogItem.appellation,
+        type: enrichment.type || catalogItem.type,
+      };
+      if (target === "wine" && enrichment.vintage) {
+        setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+      }
+      if (target === "wishlist" && enrichment.vintage) {
+        setWishlistDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to enrich recognized wine");
+    } finally {
+      setWineEnrichmentLoading(false);
+    }
     applyCatalogWineToDraft(catalogItem, target);
     try {
       const created = await api<CatalogWine>("/api/v1/wines/catalog", {
@@ -9216,6 +9253,7 @@ export function App() {
                     {wineRecognitionResult && wineRecognitionTarget === "wine" ? (
                       <div className="recognition-results">
                         <strong>{t("recognitionSuggestions")}</strong>
+                        {wineEnrichmentLoading ? <span>{t("generating")}</span> : null}
                         {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
                           <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => applyCatalogWineToDraft(match, "wine")}>
                             {[match.name, match.producer, match.region].filter(Boolean).join(" - ")}
@@ -9509,6 +9547,7 @@ export function App() {
                     {wineRecognitionResult && wineRecognitionTarget === "wishlist" ? (
                       <div className="recognition-results">
                         <strong>{t("recognitionSuggestions")}</strong>
+                        {wineEnrichmentLoading ? <span>{t("generating")}</span> : null}
                         {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
                           <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => applyCatalogWineToDraft(match, "wishlist")}>
                             {[match.name, match.producer, match.region].filter(Boolean).join(" - ")}

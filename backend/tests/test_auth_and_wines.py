@@ -394,6 +394,61 @@ def test_wine_recognition_parser_uses_api4ai_classes():
     assert suggestions[0].confidence == 0.6465678215026855
 
 
+def test_create_wine_adds_missing_entry_to_catalog():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Unique Catalog Test",
+            "producer": "Producer Test",
+            "quantity": 1,
+            "type": "Red",
+            "region": "Ticino",
+            "appellation": "Ticino DOC",
+            "format": "Bottle (750ml)",
+        },
+    )
+    assert created.status_code == 201
+
+    catalog = client.get("/api/v1/wines/catalog?q=unique%20catalog%20test")
+    assert catalog.status_code == 200
+    assert catalog.json()[0]["name"] == "Unique Catalog Test"
+    assert catalog.json()[0]["producer"] == "Producer Test"
+
+
+def test_ai_wine_label_enrichment(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+
+    def fake_create_response(*args, **kwargs):
+        return OpenAIResponse(
+            text=json.dumps(
+                {
+                    "name": "Grattamacco Bolgheri Superiore",
+                    "producer": "Grattamacco",
+                    "vintage": "2016",
+                    "type": "Red",
+                    "region": "Tuscany",
+                    "appellation": "Bolgheri Superiore",
+                    "confidence": "high",
+                    "notes": "Known Tuscan red.",
+                },
+            ),
+            usage=TokenUsage(input_tokens=10, output_tokens=20, total_tokens=30),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "grattamacco bolgheri superiore 2016"})
+    assert response.status_code == 200
+    assert response.json()["producer"] == "Grattamacco"
+    assert response.json()["appellation"] == "Bolgheri Superiore"
+
+
 def test_app_admin_can_create_and_user_can_redeem_code():
     admin_client = TestClient(app)
     registered = register(admin_client)

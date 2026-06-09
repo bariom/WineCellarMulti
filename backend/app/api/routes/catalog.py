@@ -111,6 +111,54 @@ def search_catalog_entries(db: Session, query: str, limit: int) -> list[WineCata
     return list(db.scalars(statement.order_by(WineCatalogEntry.name.asc()).limit(limit)))
 
 
+def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str = "user_saved") -> WineCatalogEntry | None:
+    name = str(data.get("name") or "").strip()
+    if not name:
+        return None
+    producer = str(data.get("producer") or "").strip()
+    aliases = {name, f"{producer} {name}".strip()}
+    for alias in aliases:
+        normalized = normalize_catalog_text(alias)
+        if not normalized:
+            continue
+        existing = db.scalar(
+            select(WineCatalogEntry)
+            .join(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
+            .where(WineCatalogAlias.normalized_alias == normalized),
+        )
+        if existing is not None:
+            changed = False
+            for field in ("producer", "region", "appellation", "type", "format"):
+                next_value = str(data.get(field) or "").strip()
+                if next_value and not getattr(existing, field):
+                    setattr(existing, field, next_value)
+                    changed = True
+            if changed:
+                existing.search_text = build_search_text(existing.name, existing.producer, existing.region, existing.appellation, existing.type, existing.country, existing.grapes_text)
+                existing.updated_at = datetime.now(timezone.utc)
+            return existing
+
+    entry = WineCatalogEntry(
+        name=name,
+        producer=producer,
+        region=str(data.get("region") or "").strip(),
+        appellation=str(data.get("appellation") or "").strip(),
+        type=str(data.get("type") or "").strip(),
+        format=str(data.get("format") or "").strip(),
+        source=source,
+        search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), str(data.get("type") or "")),
+        created_at=datetime.now(timezone.utc),
+        updated_at=datetime.now(timezone.utc),
+    )
+    db.add(entry)
+    db.flush()
+    for alias in aliases:
+        normalized = normalize_catalog_text(alias)
+        if normalized and db.scalar(select(WineCatalogAlias.id).where(WineCatalogAlias.normalized_alias == normalized)) is None:
+            db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source=source, created_at=datetime.now(timezone.utc)))
+    return entry
+
+
 def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionSuggestion]:
     suggestions: list[CatalogRecognitionSuggestion] = []
 
@@ -214,22 +262,12 @@ def create_wine_catalog_entry(
     )
     if existing is not None:
         return catalog_response(existing)
-    entry = WineCatalogEntry(
-        name=payload.name.strip(),
-        producer=payload.producer.strip(),
-        region=payload.region.strip(),
-        appellation=payload.appellation.strip(),
-        type=payload.type.strip(),
-        format=payload.format.strip(),
-        country=payload.country.strip(),
-        grapes_text=payload.grapes_text.strip(),
-        source="manual",
-        search_text=build_search_text(payload.name, payload.producer, payload.region, payload.appellation, payload.type, payload.country, payload.grapes_text),
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
-    )
-    db.add(entry)
-    db.flush()
+    entry = ensure_catalog_entry_for_wine_data(db, payload.model_dump(), source="manual")
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Catalog wine name is required")
+    entry.country = payload.country.strip() or entry.country
+    entry.grapes_text = payload.grapes_text.strip() or entry.grapes_text
+    entry.search_text = build_search_text(entry.name, entry.producer, entry.region, entry.appellation, entry.type, entry.country, entry.grapes_text)
     aliases = {payload.name.strip(), f"{payload.producer.strip()} {payload.name.strip()}".strip(), *[alias.strip() for alias in payload.aliases]}
     for alias in aliases:
         normalized = normalize_catalog_text(alias)
