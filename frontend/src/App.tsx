@@ -5184,9 +5184,10 @@ export function App() {
         body: formData,
       });
       setWineRecognitionResult(result);
-      if (result.matches[0]) {
+      const resultCount = result.matches.length || result.suggestions.length;
+      if (result.matches.length === 1 && resultCount === 1) {
         await applyRecognizedCatalogItem(result.matches[0], result.raw_best_label || result.matches[0].name, target);
-      } else if (result.suggestions[0]) {
+      } else if (!result.matches.length && result.suggestions.length === 1) {
         await applyRecognitionSuggestion(result.suggestions[0], target);
       }
     } catch (nextError) {
