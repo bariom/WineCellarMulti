@@ -5161,12 +5161,15 @@ button.stat-card:hover {
 
 .detail-field .wine-status-badge {
   min-width: 0;
-  width: 100%;
+  width: fit-content;
+  max-width: 100%;
+  justify-self: start;
 }
 
 .detail-field .wine-status-badge strong {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .wine-status-badge {
@@ -6675,31 +6678,40 @@ textarea {
   .session-pill {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    gap: 6px 8px;
+    gap: 5px 8px;
     width: 100%;
     max-width: 100%;
-    padding: 6px;
+    padding: 5px;
     overflow: visible;
-    border-radius: 12px;
+    border-radius: 10px;
   }
 
   .session-pill strong {
-    grid-column: 1 / -1;
+    grid-column: 1;
+    grid-row: 1;
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: 0.96rem;
+    font-size: 0.92rem;
     line-height: 1.15;
   }
 
   .session-pill > span {
-    grid-column: 1;
-    justify-self: start;
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+    align-self: center;
     white-space: nowrap;
-    font-size: 0.74rem;
+    font-size: 0.72rem;
     line-height: 1.1;
     opacity: 0.9;
+  }
+
+  .session-pill > span + span {
+    grid-column: 1 / -1;
+    grid-row: auto;
+    justify-self: start;
   }
 
   .session-pill > select {
@@ -6707,8 +6719,8 @@ textarea {
     min-width: 0;
     max-width: 100%;
     width: 100%;
-    min-height: 38px;
-    padding-block: 6px;
+    min-height: 34px;
+    padding-block: 4px;
   }
 
   .session-pill > button {
@@ -6723,21 +6735,39 @@ textarea {
   }
 
   .session-pill .notification-wrap .notification-button {
-    min-height: 38px;
-    padding: 0 10px;
-    font-size: 0.92rem;
+    min-height: 34px;
+    padding: 0 9px;
+    font-size: 0.88rem;
   }
 
   .session-pill .notification-wrap .notification-button strong {
     grid-column: auto;
-    font-size: 0.86rem;
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.74rem;
   }
 
   .session-pill > button:last-child {
     grid-column: 2;
     justify-self: end;
-    min-height: 38px;
-    padding-inline: 12px;
+    min-height: 34px;
+    padding-inline: 10px;
+  }
+
+  .detail-field .wine-status-badge {
+    min-height: 24px;
+    padding: 4px 8px;
+    gap: 6px;
+  }
+
+  .detail-field .wine-status-badge i {
+    font-size: 0.78rem;
+  }
+
+  .detail-field .wine-status-badge strong {
+    font-size: 0.76rem;
+    line-height: 1;
+    letter-spacing: 0.02em;
   }
 
   .session-pill .language-switch {

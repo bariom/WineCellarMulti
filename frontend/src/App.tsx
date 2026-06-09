@@ -2120,6 +2120,12 @@ function formatUserErrorMessage(message: string, locale: Locale) {
       : "The backup file is too large to upload in a single request. Reduce the file size or increase the server upload limit.";
   }
 
+  if (isConnectivityError(text)) {
+    return locale === "it"
+      ? "Connessione non disponibile. Puoi riprovare il login quando torni online oppure caricare un backup offline in sola lettura."
+      : "No network connection is available. You can try logging in again when you are back online or load an offline backup in read-only mode.";
+  }
+
   if (normalized.includes("openai request failed")) {
     if (
       normalized.includes("timeout")
@@ -2161,6 +2167,21 @@ function formatUserErrorMessage(message: string, locale: Locale) {
   }
 
   return text;
+}
+
+function isConnectivityError(message: string) {
+  const normalized = String(message || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized.includes("failed to fetch")
+    || normalized.includes("networkerror")
+    || normalized.includes("load failed")
+    || normalized.includes("network request failed")
+    || normalized.includes("fetch failed")
+    || normalized.includes("offline")
+    || normalized.includes("internet")
+    || normalized.includes("connection")
+  );
 }
 
 function rawObject(value: unknown): Record<string, unknown> {
@@ -4656,6 +4677,8 @@ export function App() {
   const [wishlistPortfolioStrategyOpen, setWishlistPortfolioStrategyOpen] = useState(false);
   const [compareAiLoading, setCompareAiLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [isOnline, setIsOnline] = useState(() => navigator.onLine);
+  const [showOfflineBackupPanel, setShowOfflineBackupPanel] = useState(() => !navigator.onLine);
   const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
     red: false,
     white: false,
@@ -5206,6 +5229,20 @@ export function App() {
     return () => window.removeEventListener("scroll", syncScrollState);
   }, []);
 
+  useEffect(() => {
+    const syncOnlineState = () => {
+      const nextOnline = navigator.onLine;
+      setIsOnline(nextOnline);
+      setShowOfflineBackupPanel(!nextOnline);
+    };
+    window.addEventListener("online", syncOnlineState);
+    window.addEventListener("offline", syncOnlineState);
+    return () => {
+      window.removeEventListener("online", syncOnlineState);
+      window.removeEventListener("offline", syncOnlineState);
+    };
+  }, []);
+
   async function submitAuth(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setSaving(true);
@@ -5226,12 +5263,17 @@ export function App() {
       if (nextSession.authenticated) {
         applySessionPreferences(nextSession);
       }
+      setShowOfflineBackupPanel(false);
       setAuthDraft(emptyAuthDraft);
       if (nextSession.authenticated) {
         await loadAuthenticatedSessionData(nextSession);
       }
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to authenticate");
+      const nextMessage = nextError instanceof Error ? nextError.message : "Unable to authenticate";
+      if (isConnectivityError(nextMessage)) {
+        setShowOfflineBackupPanel(true);
+      }
+      setError(nextMessage);
     } finally {
       setSaving(false);
     }
@@ -5257,7 +5299,11 @@ export function App() {
       setAuthDraft(emptyAuthDraft);
       await loadAuthenticatedSessionData(nextSession);
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to login with passkey");
+      const nextMessage = nextError instanceof Error ? nextError.message : "Unable to login with passkey";
+      if (isConnectivityError(nextMessage)) {
+        setShowOfflineBackupPanel(true);
+      }
+      setError(nextMessage);
     } finally {
       setSaving(false);
     }
@@ -6461,6 +6507,7 @@ export function App() {
     aiSettingsBalance > 0 ||
     billingAiBalance > 0 ||
     aiSettingsDraft.provider_mode === "credits";
+  const canShowOfflineBackupPanel = !isOnline || showOfflineBackupPanel;
   const publicAuthPanel = (
     <section className="auth-panel" id="auth-panel">
       {acceptToken ? (
@@ -6518,7 +6565,7 @@ export function App() {
           </button>
         ) : null}
       </form>
-      {isMobileViewport ? (
+      {canShowOfflineBackupPanel ? (
         <section className="wine-form">
           <h2>{t("offlineBackup")}</h2>
           <p className="empty-state">{t("offlineBackupHelp")}</p>
