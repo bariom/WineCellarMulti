@@ -5437,6 +5437,47 @@ button.stat-card:hover {
   font-size: 0.92rem;
 }
 
+.global-loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--page) 70%, rgba(6, 10, 8, 0.58));
+  backdrop-filter: blur(7px);
+}
+
+.global-loading-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-width: min(100%, 280px);
+  padding: 22px 24px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 42%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 62%, transparent), transparent 28%),
+    color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 80%, transparent),
+    0 24px 54px color-mix(in srgb, var(--collector-depth) 66%, transparent);
+  text-align: center;
+}
+
+.global-loading-card strong {
+  color: var(--text);
+  font-size: 1.02rem;
+}
+
+.global-loading-card span {
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .loading-spinner {
   display: inline-grid;
   grid-auto-flow: column;

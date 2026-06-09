@@ -3161,6 +3161,18 @@ function LoadingState({ label, compact = false }: { label: string; compact?: boo
   );
 }
 
+function GlobalLoadingOverlay({ label }: { label: string }) {
+  return (
+    <div className="global-loading-overlay" role="status" aria-live="polite" aria-busy="true">
+      <div className="global-loading-card">
+        <LoadingSpinner size="md" />
+        <strong>{label}</strong>
+        <span>Vinaris</span>
+      </div>
+    </div>
+  );
+}
+
 function ButtonBusyContent({
   busy,
   idleLabel,
@@ -5056,10 +5068,36 @@ export function App() {
 
   async function loadData() {
     if (offlineMode) return;
+    setLoading(true);
     setError("");
-    const nextSession = await loadSession();
-    if (nextSession.authenticated) {
-      if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
+    try {
+      const nextSession = await loadSession();
+      if (nextSession.authenticated) {
+        if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
+          setWines([]);
+          setWineCatalog([]);
+          setWishlist([]);
+          setWishlistLists([]);
+          setShareOffers([]);
+          setReceivedInvites([]);
+          setUserNotifications([]);
+          setUserTags([]);
+          setPasskeys([]);
+          setHouseholdMemberships([]);
+          setMembers([]);
+          setInvites([]);
+          setPendingUsers([]);
+          setAppUsers([]);
+          setAiAudit([]);
+          setAiUsage(null);
+          setAiSettings(null);
+          setAiSettingsDraft(emptyAiSettingsDraft);
+          setTastingArchiveOverview(null);
+          await loadAuthenticatedSessionData(nextSession);
+        } else {
+          await loadAuthenticatedSessionData(nextSession);
+        }
+      } else {
         setWines([]);
         setWineCatalog([]);
         setWishlist([]);
@@ -5079,32 +5117,11 @@ export function App() {
         setAiSettings(null);
         setAiSettingsDraft(emptyAiSettingsDraft);
         setTastingArchiveOverview(null);
-        await loadAuthenticatedSessionData(nextSession);
-      } else {
-        await loadAuthenticatedSessionData(nextSession);
+        setBillingStatus(null);
+        setRedeemCodes([]);
       }
-    } else {
-      setWines([]);
-      setWineCatalog([]);
-      setWishlist([]);
-      setWishlistLists([]);
-      setShareOffers([]);
-      setReceivedInvites([]);
-      setUserNotifications([]);
-      setUserTags([]);
-      setPasskeys([]);
-      setHouseholdMemberships([]);
-      setMembers([]);
-      setInvites([]);
-      setPendingUsers([]);
-      setAppUsers([]);
-      setAiAudit([]);
-      setAiUsage(null);
-      setAiSettings(null);
-      setAiSettingsDraft(emptyAiSettingsDraft);
-      setTastingArchiveOverview(null);
-      setBillingStatus(null);
-      setRedeemCodes([]);
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -5153,9 +5170,7 @@ export function App() {
       window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
     }
     const loader = stripeCheckoutResult === "success" ? refreshAfterStripeCheckout() : loadData();
-    loader
-      .catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"))
-      .finally(() => setLoading(false));
+    loader.catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"));
   }, []);
 
   useEffect(() => {
@@ -10788,6 +10803,7 @@ export function App() {
           ) : null}
         </section>
       )}
+      {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
       {showBackToTop ? (
         <button
           type="button"
