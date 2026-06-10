@@ -1,5 +1,7 @@
 import json
 import math
+import secrets
+import string
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
@@ -24,9 +26,10 @@ from webauthn.helpers.structs import (
 
 from app.api.deps import CurrentContext, active_entitlement_valid_until, build_session_response, get_authenticated_context, get_current_context, require_app_admin_context
 from app.core.config import settings
-from app.core.security import hash_email_verification_token, hash_password, hash_session_token, new_email_verification_token, new_session_token, verify_password
+from app.core.crypto import encrypt_secret
+from app.core.security import hash_email_verification_token, hash_password, hash_redeem_code, hash_session_token, new_email_verification_token, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
+from app.models import Household, Membership, PasskeyChallenge, RedeemCode, User, UserEntitlement, UserPasskey, UserSession
 from app.schemas.auth import (
     EmailVerificationRequest,
     LoginRequest,
@@ -42,11 +45,15 @@ from app.schemas.auth import (
 )
 from app.schemas.session import SessionResponse
 from app.services.email import send_email
+from app.services.notifications import create_user_notification
 
 
 router = APIRouter(prefix="/auth")
 
 PASSKEY_CHALLENGE_TTL_MINUTES = 5
+TRIAL_ACCESS_DAYS = 3
+TRIAL_REDEEM_KIND = "trial"
+CODE_ALPHABET = string.ascii_uppercase + string.digits
 
 
 def request_origin(request: Request) -> str:
@@ -61,6 +68,63 @@ def request_rp_id(request: Request) -> str:
 
 def utc_datetime(value: datetime) -> datetime:
     return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
+def normalize_redeem_code(code: str) -> str:
+    return "".join(character for character in code.upper() if character.isalnum())
+
+
+def generate_redeem_code() -> str:
+    raw = "".join(secrets.choice(CODE_ALPHABET) for _ in range(16))
+    return f"WCM-{raw[:4]}-{raw[4:8]}-{raw[8:12]}-{raw[12:]}"
+
+
+def user_can_receive_trial_code(user: User) -> bool:
+    return user.is_approved and not user.is_app_admin and not user_requires_email_verification(user) and not user.is_blocked
+
+
+def ensure_trial_redeem_code(db: Session, user: User) -> RedeemCode | None:
+    if not user_can_receive_trial_code(user):
+        return None
+    existing_trial_entitlement = db.scalar(
+        select(UserEntitlement.id)
+        .where(UserEntitlement.user_id == user.id, UserEntitlement.source == TRIAL_REDEEM_KIND)
+        .order_by(UserEntitlement.created_at.desc()),
+    )
+    if existing_trial_entitlement is not None:
+        return None
+    existing_trial_code = db.scalar(
+        select(RedeemCode)
+        .where(RedeemCode.email == user.email.lower(), RedeemCode.kind == TRIAL_REDEEM_KIND)
+        .order_by(RedeemCode.created_at.desc()),
+    )
+    if existing_trial_code is not None:
+        return existing_trial_code
+
+    clear_code = generate_redeem_code()
+    normalized = normalize_redeem_code(clear_code)
+    trial_code = RedeemCode(
+        code_hash=hash_redeem_code(normalized),
+        code_prefix=clear_code[:8],
+        encrypted_code=encrypt_secret(clear_code),
+        kind=TRIAL_REDEEM_KIND,
+        label="Vinaris trial access",
+        duration_days=TRIAL_ACCESS_DAYS,
+        max_redemptions=1,
+        email=user.email.lower(),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=TRIAL_ACCESS_DAYS),
+    )
+    db.add(trial_code)
+    create_user_notification(
+        db,
+        user,
+        kind="trial_redeem_code",
+        title="Trial Vinaris disponibile",
+        message="E disponibile un codice trial da 3 giorni per iniziare a usare Vinaris.",
+        action_url="/settings/profile",
+        fingerprint=f"trial-redeem-code:{user.id}",
+    )
+    return trial_code
 
 
 def store_passkey_challenge(db: Session, challenge: bytes, purpose: str, user: User | None = None) -> None:
@@ -181,18 +245,35 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
     )
 
 
-def notify_admins_of_pending_registration(db: Session, user: User, household: Household) -> None:
-    admin_emails = list(
-        dict.fromkeys(
-            db.scalars(
-                select(User.email)
-                .where(User.is_app_admin.is_(True))
-                .where(User.is_approved.is_(True))
-                .where(User.is_blocked.is_(False))
-                .order_by(User.email.asc()),
-            ),
+def active_app_admins(db: Session) -> list[User]:
+    return list(
+        db.scalars(
+            select(User)
+            .where(User.is_app_admin.is_(True))
+            .where(User.is_approved.is_(True))
+            .where(User.is_blocked.is_(False))
+            .order_by(User.email.asc()),
         ),
     )
+
+
+def notify_admins_of_auto_approved_registration(db: Session, user: User, household: Household) -> None:
+    for admin in active_app_admins(db):
+        if admin.id == user.id:
+            continue
+        create_user_notification(
+            db,
+            admin,
+            kind="new_user_registration",
+            title="Nuovo utente registrato",
+            message=f"{user.display_name} <{user.email}> ha creato un account per {household.name}.",
+            action_url="/settings/users",
+            fingerprint=f"new-user-registration:{user.id}",
+        )
+
+
+def notify_admins_of_pending_registration(db: Session, user: User, household: Household) -> None:
+    admin_emails = list(dict.fromkeys(admin.email for admin in active_app_admins(db)))
     if not admin_emails:
         return
     send_email(
@@ -261,6 +342,7 @@ def verify_email_token(payload: EmailVerificationRequest, db: Session) -> User:
     user.email_verified_at = datetime.now(timezone.utc)
     user.email_verification_token_hash = ""
     user.email_verification_expires_at = None
+    ensure_trial_redeem_code(db, user)
     db.commit()
     db.refresh(user)
     return user
@@ -295,10 +377,13 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     db.flush()
     membership = Membership(user_id=user.id, household_id=household.id, role="owner")
     db.add(membership)
+    ensure_trial_redeem_code(db, user)
     if requires_email_verification:
         verification_url = f"{request_origin(request)}/?email_verify_token={email_verification_token}"
         if not notify_user_email_verification(user, verification_url):
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Unable to send email verification link")
+    if is_approved and not first_user:
+        notify_admins_of_auto_approved_registration(db, user, household)
     db.commit()
     db.refresh(user)
     db.refresh(household)
@@ -511,6 +596,7 @@ def approve_pending_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
     user.is_approved = True
     user.approved_at = datetime.now(timezone.utc)
+    ensure_trial_redeem_code(db, user)
     db.commit()
     db.refresh(user)
     notify_user_approved(user)

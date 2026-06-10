@@ -58,6 +58,7 @@ def redeem_code_response(code: RedeemCode, clear_code: str | None = None) -> Red
         id=code.id,
         code=clear_code or decrypt_secret(code.encrypted_code),
         code_prefix=code.code_prefix,
+        kind=code.kind,
         label=code.label,
         duration_days=code.duration_days,
         max_redemptions=code.max_redemptions,
@@ -124,6 +125,7 @@ def create_payment_redeem_code(db: Session, user: User, *, label: str, duration_
         code_hash=hash_redeem_code(normalized),
         code_prefix=clear_code[:8],
         encrypted_code=encrypt_secret(clear_code),
+        kind="standard",
         label=label,
         duration_days=duration_days,
         max_redemptions=1,
@@ -591,6 +593,7 @@ def create_redeem_code(
         code_hash=hash_redeem_code(normalized),
         code_prefix=clear_code[:8],
         encrypted_code=encrypt_secret(clear_code),
+        kind="standard",
         label=payload.label.strip(),
         duration_days=payload.duration_days,
         max_redemptions=payload.max_redemptions,
@@ -645,6 +648,14 @@ def redeem_code(
     existing_redemption = db.scalar(select(RedeemRedemption).where(RedeemRedemption.redeem_code_id == code.id, RedeemRedemption.user_id == context.user.id))
     if existing_redemption is not None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Redeem code already redeemed by this user")
+    if code.kind == "trial":
+        existing_trial = db.scalar(
+            select(UserEntitlement)
+            .where(UserEntitlement.user_id == context.user.id, UserEntitlement.source == "trial")
+            .order_by(UserEntitlement.created_at.desc()),
+        )
+        if existing_trial is not None:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Trial redeem code already used by this user")
 
     latest_entitlement = db.scalar(
         select(UserEntitlement)
@@ -654,7 +665,7 @@ def redeem_code(
     valid_from = as_aware_utc(latest_entitlement.valid_until) if latest_entitlement else current_time
     entitlement = UserEntitlement(
         user_id=context.user.id,
-        source="redeem",
+        source="trial" if code.kind == "trial" else "redeem",
         source_id=code.id,
         valid_from=valid_from,
         valid_until=valid_from + timedelta(days=code.duration_days),

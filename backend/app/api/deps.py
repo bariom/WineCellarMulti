@@ -31,7 +31,7 @@ def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
     )
     for entitlement in entitlements:
         valid_until = entitlement.valid_until.replace(tzinfo=timezone.utc) if entitlement.valid_until.tzinfo is None else entitlement.valid_until.astimezone(timezone.utc)
-        if entitlement.source == "redeem" and entitlement.source_id is not None:
+        if entitlement.source in {"redeem", "trial"} and entitlement.source_id is not None:
             code = db.get(RedeemCode, entitlement.source_id)
             if code is None or code.revoked_at is not None:
                 continue

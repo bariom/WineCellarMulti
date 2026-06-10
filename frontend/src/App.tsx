@@ -541,6 +541,7 @@ type RedeemCode = {
   id: string;
   code: string | null;
   code_prefix: string;
+  kind: string;
   label: string;
   duration_days: number;
   max_redemptions: number;
@@ -1263,6 +1264,7 @@ const translations = {
     exportSensitiveNote: "Passwords, API keys, billing secrets, sessions and passkeys are never exported.",
     generatedCode: "Generated code",
     paidRedeemCode: "Paid redeem code",
+    trialRedeemCode: "3-day trial redeem code",
     working: "Working",
     youngWine: "Young",
     estimatedCost: "Estimated cost",
@@ -1707,6 +1709,7 @@ const translations = {
     exportSensitiveNote: "Password, chiavi API, segreti billing, sessioni e passkey non vengono mai esportati.",
     generatedCode: "Codice generato",
     paidRedeemCode: "Codice redeem acquistato",
+    trialRedeemCode: "Codice trial 3 giorni",
     working: "Elaborazione",
     youngWine: "Giovane",
     estimatedCost: "Costo stimato",
@@ -8715,7 +8718,7 @@ export function App() {
                 {billingStatus.available_redeem_codes.map((code) => (
                   <div className="member-row" key={code.id}>
                     <div>
-                      <strong>{t("paidRedeemCode")}</strong>
+                      <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
                       <span>{code.code || code.code_prefix} - {code.duration_days}d</span>
                     </div>
                     {code.code ? (
@@ -10747,7 +10750,7 @@ export function App() {
                     {billingStatus.available_redeem_codes.map((code) => (
                       <div className="member-row" key={code.id}>
                         <div>
-                          <strong>{t("paidRedeemCode")}</strong>
+                          <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
                           <span>{code.code || code.code_prefix} - {code.duration_days}d</span>
                         </div>
                         {code.code ? (

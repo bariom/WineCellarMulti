@@ -166,6 +166,10 @@ def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
     assert registered.json()["authenticated"] is False
     assert registered.json()["pending_approval"] is False
     assert registered.json()["pending_email_verification"] is True
+    admin_notifications = admin_client.get("/api/v1/notifications")
+    assert admin_notifications.status_code == 200
+    assert admin_notifications.json()[0]["kind"] == "new_user_registration"
+    assert "production@example.com" in admin_notifications.json()[0]["message"]
 
     blocked_login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
     assert blocked_login.status_code == 403
@@ -526,7 +530,8 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     revoked = admin_client.delete(f"/api/v1/billing/redeem-codes/{unused_code_id}")
     assert revoked.status_code == 204
     listed_after_revoke = admin_client.get("/api/v1/billing/redeem-codes")
-    assert listed_after_revoke.json()[0]["is_active"] is False
+    revoked_code = next(code for code in listed_after_revoke.json() if code["id"] == unused_code_id)
+    assert revoked_code["is_active"] is False
     force_deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{unused_code_id}?force=true")
     assert force_deleted.status_code == 204
     assert all(code["id"] != unused_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
@@ -540,6 +545,64 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{extra_code_id}")
     assert deleted.status_code == 204
     assert all(code["id"] != extra_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
+
+
+def test_new_user_gets_single_lifetime_trial_redeem_code():
+    from app.api.routes.auth import generate_redeem_code, normalize_redeem_code
+    from app.core.crypto import encrypt_secret
+    from app.core.security import hash_redeem_code
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    user_client = TestClient(app)
+    pending = register(user_client, email="trial@example.com", password="strong-password-2")
+    assert pending.status_code == 201
+    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "trial@example.com")
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+
+    login = user_client.post("/api/v1/auth/login", json={"email": "trial@example.com", "password": "strong-password-2"})
+    assert login.status_code == 200
+    assert login.json()["has_active_entitlement"] is False
+    assert user_client.get("/api/v1/wines").status_code == 402
+
+    status_payload = user_client.get("/api/v1/billing/status").json()
+    assert len(status_payload["available_redeem_codes"]) == 1
+    trial_code = status_payload["available_redeem_codes"][0]
+    assert trial_code["kind"] == "trial"
+    assert trial_code["duration_days"] == 3
+    assert trial_code["max_redemptions"] == 1
+    assert trial_code["email"] == "trial@example.com"
+    assert trial_code["expires_at"] is not None
+
+    redeemed = user_client.post("/api/v1/billing/redeem", json={"code": trial_code["code"]})
+    assert redeemed.status_code == 200
+    assert redeemed.json()["has_active_entitlement"] is True
+    assert redeemed.json()["active_source"] == "trial"
+    assert user_client.get("/api/v1/wines").status_code == 200
+
+    with TestingSessionLocal() as db:
+        user = db.query(User).filter(User.email == "trial@example.com").one()
+        clear_code = generate_redeem_code()
+        normalized = normalize_redeem_code(clear_code)
+        db.add(
+            RedeemCode(
+                code_hash=hash_redeem_code(normalized),
+                code_prefix=clear_code[:8],
+                encrypted_code=encrypt_secret(clear_code),
+                kind="trial",
+                label="Second trial",
+                duration_days=3,
+                max_redemptions=1,
+                email=user.email,
+                expires_at=datetime.now(timezone.utc) + timedelta(days=3),
+            ),
+        )
+        db.commit()
+
+    second_trial = user_client.post("/api/v1/billing/redeem", json={"code": clear_code})
+    assert second_trial.status_code == 400
+    assert "trial" in second_trial.json()["detail"].lower()
 
 
 def stripe_signature(payload: bytes, secret: str) -> str:

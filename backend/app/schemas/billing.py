@@ -18,6 +18,7 @@ class RedeemCodeResponse(BaseModel):
     id: UUID
     code: str | None = None
     code_prefix: str
+    kind: str
     label: str
     duration_days: int
     max_redemptions: int
