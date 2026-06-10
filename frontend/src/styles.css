@@ -2659,6 +2659,11 @@ textarea {
   background: #fbfcfb;
 }
 
+select option {
+  color: #17201c;
+  background: #fbfcfb;
+}
+
 textarea {
   resize: vertical;
 }
