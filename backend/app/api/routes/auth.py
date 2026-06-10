@@ -28,6 +28,7 @@ from app.core.security import hash_email_verification_token, hash_password, hash
 from app.db.session import get_db
 from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
 from app.schemas.auth import (
+    EmailVerificationRequest,
     LoginRequest,
     PasskeyLoginVerifyRequest,
     PasskeyRegistrationOptionsRequest,
@@ -249,6 +250,22 @@ def notify_user_email_verification(user: User, verification_url: str) -> bool:
     )
 
 
+def verify_email_token(payload: EmailVerificationRequest, db: Session) -> User:
+    token_hash = hash_email_verification_token(payload.token)
+    user = db.scalar(select(User).where(User.email_verification_token_hash == token_hash))
+    if user is None or user.email_verification_expires_at is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email confirmation link is invalid")
+    expires_at = utc_datetime(user.email_verification_expires_at)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email confirmation link expired")
+    user.email_verified_at = datetime.now(timezone.utc)
+    user.email_verification_token_hash = ""
+    user.email_verification_expires_at = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
     email = payload.email.lower()
@@ -279,7 +296,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     membership = Membership(user_id=user.id, household_id=household.id, role="owner")
     db.add(membership)
     if requires_email_verification:
-        verification_url = f"{request_origin(request)}/api/v1/auth/verify-email?token={email_verification_token}"
+        verification_url = f"{request_origin(request)}/?email_verify_token={email_verification_token}"
         if not notify_user_email_verification(user, verification_url):
             raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Unable to send email verification link")
     db.commit()
@@ -300,20 +317,15 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
 
 
 @router.get("/verify-email")
-def verify_email(token: str, request: Request, db: Session = Depends(get_db)) -> RedirectResponse:
-    token_hash = hash_email_verification_token(token)
-    user = db.scalar(select(User).where(User.email_verification_token_hash == token_hash))
-    origin = request_origin(request)
-    if user is None or user.email_verification_expires_at is None:
-        return RedirectResponse(f"{origin}/?email_verified=invalid", status_code=status.HTTP_303_SEE_OTHER)
-    expires_at = utc_datetime(user.email_verification_expires_at)
-    if expires_at < datetime.now(timezone.utc):
-        return RedirectResponse(f"{origin}/?email_verified=expired", status_code=status.HTTP_303_SEE_OTHER)
-    user.email_verified_at = datetime.now(timezone.utc)
-    user.email_verification_token_hash = ""
-    user.email_verification_expires_at = None
-    db.commit()
-    return RedirectResponse(f"{origin}/?email_verified=success", status_code=status.HTTP_303_SEE_OTHER)
+def verify_email_link(token: str, request: Request) -> RedirectResponse:
+    # Email security scanners may open GET links automatically; keep verification explicit in the UI.
+    return RedirectResponse(f"{request_origin(request)}/?email_verify_token={token}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/verify-email")
+def confirm_email(payload: EmailVerificationRequest, db: Session = Depends(get_db)) -> dict[str, str]:
+    verify_email_token(payload, db)
+    return {"status": "verified"}
 
 
 @router.post("/login", response_model=SessionResponse)

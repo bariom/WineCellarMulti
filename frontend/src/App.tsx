@@ -1152,7 +1152,10 @@ const translations = {
     pendingApproval: "Account pending approval",
     pendingApprovalHelp: "Your account was created, but it must be approved by an administrator before login.",
     pendingEmailVerification: "Confirm your email",
-    pendingEmailVerificationHelp: "Your account was created. Open the confirmation link sent to your email address before signing in.",
+    pendingEmailVerificationHelp: "Your account was created. Open the confirmation link sent to your email address, then confirm it before signing in.",
+    emailVerificationReady: "Email confirmation ready",
+    emailVerificationReadyHelp: "Confirm this email address now to activate your account. This prevents automatic email scanners from activating accounts.",
+    confirmEmail: "Confirm email",
     emailVerificationSuccess: "Email confirmed. You can now sign in.",
     emailVerificationExpired: "Email confirmation link expired. Register again or contact support.",
     emailVerificationInvalid: "Email confirmation link is invalid.",
@@ -1592,7 +1595,10 @@ const translations = {
     pendingApproval: "Account in attesa di approvazione",
     pendingApprovalHelp: "Il tuo account è stato creato, ma deve essere approvato da un amministratore prima dell'accesso.",
     pendingEmailVerification: "Conferma la tua email",
-    pendingEmailVerificationHelp: "Il tuo account è stato creato. Apri il link di conferma inviato al tuo indirizzo email prima di accedere.",
+    pendingEmailVerificationHelp: "Il tuo account è stato creato. Apri il link inviato al tuo indirizzo email, poi confermalo prima di accedere.",
+    emailVerificationReady: "Conferma email pronta",
+    emailVerificationReadyHelp: "Conferma ora questo indirizzo email per attivare l'account. Questo evita che gli scanner automatici delle email attivino account al posto tuo.",
+    confirmEmail: "Conferma email",
     emailVerificationSuccess: "Email confermata. Ora puoi accedere.",
     emailVerificationExpired: "Il link di conferma email è scaduto. Registrati di nuovo o contatta il supporto.",
     emailVerificationInvalid: "Il link di conferma email non è valido.",
@@ -2753,6 +2759,11 @@ function emailVerificationResultFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const result = params.get("email_verified");
   return result === "success" || result === "expired" || result === "invalid" ? result : "";
+}
+
+function emailVerificationTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("email_verify_token") || "";
 }
 
 const STRIPE_CHECKOUT_PLAN_KEY = "vinaris_stripe_checkout_plan";
@@ -4963,6 +4974,7 @@ export function App() {
   const [quickTagColor, setQuickTagColor] = useState("#245142");
   const [tagEdits, setTagEdits] = useState<Record<string, { name: string; color: string }>>({});
   const [acceptToken, setAcceptToken] = useState("");
+  const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
@@ -5644,6 +5656,13 @@ export function App() {
     }
     const stripeCheckoutResult = stripeCheckoutResultFromUrl();
     const emailVerificationResult = emailVerificationResultFromUrl();
+    const emailVerificationToken = emailVerificationTokenFromUrl();
+    if (emailVerificationToken) {
+      setEmailVerificationToken(emailVerificationToken);
+      setAuthMode("login");
+      setAuthModalOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
     if (emailVerificationResult === "success") {
       setNotice(t("emailVerificationSuccess"));
       window.history.replaceState(null, "", window.location.pathname);
@@ -5745,6 +5764,26 @@ export function App() {
         setShowOfflineBackupPanel(true);
       }
       setError(nextMessage);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function confirmEmailVerification() {
+    if (!emailVerificationToken) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api<{ status: string }>("/api/v1/auth/verify-email", {
+        method: "POST",
+        body: JSON.stringify({ token: emailVerificationToken }),
+      });
+      setEmailVerificationToken("");
+      setNotice(t("emailVerificationSuccess"));
+      setAuthMode("login");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to confirm email");
     } finally {
       setSaving(false);
     }
@@ -6994,6 +7033,15 @@ export function App() {
         <div className="invite-notice">
           <strong>{t("inviteLinkDetected")}</strong>
           <span>{t("inviteLinkHelp")}</span>
+        </div>
+      ) : null}
+      {emailVerificationToken ? (
+        <div className="invite-notice">
+          <strong>{t("emailVerificationReady")}</strong>
+          <span>{t("emailVerificationReadyHelp")}</span>
+          <button type="button" onClick={confirmEmailVerification} disabled={saving}>
+            {saving ? t("working") : t("confirmEmail")}
+          </button>
         </div>
       ) : null}
       <div className="auth-tabs">
