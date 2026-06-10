@@ -4975,6 +4975,7 @@ export function App() {
   const [tagEdits, setTagEdits] = useState<Record<string, { name: string; color: string }>>({});
   const [acceptToken, setAcceptToken] = useState("");
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
+  const [emailVerificationConfirmed, setEmailVerificationConfirmed] = useState(false);
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
@@ -5659,6 +5660,7 @@ export function App() {
     const emailVerificationToken = emailVerificationTokenFromUrl();
     if (emailVerificationToken) {
       setEmailVerificationToken(emailVerificationToken);
+      setEmailVerificationConfirmed(false);
       setAuthMode("login");
       setAuthModalOpen(true);
       window.history.replaceState(null, "", window.location.pathname);
@@ -5745,6 +5747,9 @@ export function App() {
           : { email: authDraft.email, password: authDraft.password };
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
+      if (authMode === "register") {
+        setEmailVerificationConfirmed(false);
+      }
       if (nextSession.authenticated) {
         applySessionPreferences(nextSession);
       }
@@ -5780,8 +5785,11 @@ export function App() {
         body: JSON.stringify({ token: emailVerificationToken }),
       });
       setEmailVerificationToken("");
+      setEmailVerificationConfirmed(true);
+      setSession((current) => (current ? { ...current, pending_email_verification: false } : current));
       setNotice(t("emailVerificationSuccess"));
       setAuthMode("login");
+      setAuthModalOpen(true);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to confirm email");
     } finally {
@@ -7042,6 +7050,11 @@ export function App() {
           <button type="button" onClick={confirmEmailVerification} disabled={saving}>
             {saving ? t("working") : t("confirmEmail")}
           </button>
+        </div>
+      ) : null}
+      {emailVerificationConfirmed ? (
+        <div className="invite-notice">
+          <strong>{t("emailVerificationSuccess")}</strong>
         </div>
       ) : null}
       <div className="auth-tabs">
