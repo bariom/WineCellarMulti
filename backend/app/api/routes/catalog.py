@@ -11,7 +11,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
@@ -152,6 +152,29 @@ def search_catalog_entries(db: Session, query: str, limit: int) -> list[WineCata
             .distinct()
         )
     return list(db.scalars(statement.order_by(WineCatalogEntry.name.asc()).limit(limit)))
+
+
+def search_all_catalog_entries(db: Session, query: str, limit: int) -> list[WineCatalogEntry]:
+    ensure_catalog_seeded(db)
+    normalized = normalize_catalog_text(query)
+    statement = select(WineCatalogEntry)
+    if normalized:
+        like = f"%{normalized}%"
+        statement = (
+            statement.outerjoin(WineCatalogAlias, WineCatalogAlias.catalog_entry_id == WineCatalogEntry.id)
+            .where(
+                or_(
+                    func.lower(WineCatalogEntry.name).like(like),
+                    func.lower(WineCatalogEntry.producer).like(like),
+                    func.lower(WineCatalogEntry.region).like(like),
+                    func.lower(WineCatalogEntry.appellation).like(like),
+                    func.lower(WineCatalogEntry.search_text).like(like),
+                    WineCatalogAlias.normalized_alias.like(like),
+                ),
+            )
+            .distinct()
+        )
+    return list(db.scalars(statement.order_by(WineCatalogEntry.is_active.asc(), WineCatalogEntry.name.asc()).limit(limit)))
 
 
 def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str = "user_saved") -> WineCatalogEntry | None:
@@ -314,6 +337,17 @@ def list_pending_wine_catalog_entries(
     return [catalog_response(entry) for entry in entries]
 
 
+@router.get("/catalog/admin", response_model=list[CatalogWineResponse])
+def list_admin_wine_catalog_entries(
+    q: str = Query(default="", max_length=120),
+    limit: int = Query(default=25, ge=1, le=100),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> list[CatalogWineResponse]:
+    ensure_app_admin(context)
+    return [catalog_response(entry) for entry in search_all_catalog_entries(db, q, limit)]
+
+
 @router.post("/catalog", response_model=CatalogWineResponse, status_code=status.HTTP_201_CREATED)
 def create_wine_catalog_entry(
     payload: CatalogWineCreate,
@@ -363,6 +397,21 @@ def create_wine_catalog_entry(
     db.commit()
     db.refresh(entry)
     return catalog_response(entry)
+
+
+@router.delete("/catalog/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_wine_catalog_entry(
+    entry_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> None:
+    ensure_app_admin(context)
+    entry = db.get(WineCatalogEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
+    db.execute(delete(WineCatalogAlias).where(WineCatalogAlias.catalog_entry_id == entry.id))
+    db.delete(entry)
+    db.commit()
 
 
 @router.post("/catalog/{entry_id}/approve", response_model=CatalogWineResponse)

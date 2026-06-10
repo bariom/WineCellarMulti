@@ -88,6 +88,8 @@ class WineLabelEnrichmentResponse(BaseModel):
     type: str = ""
     region: str = ""
     appellation: str = ""
+    country: str = ""
+    grapes_text: str = ""
     confidence: str = "low"
     notes: str = ""
 

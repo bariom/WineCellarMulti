@@ -928,7 +928,7 @@ def enrich_wine_label(
     if payload.source == "label" and not context.user.can_use_label_recognition:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
     user_settings = get_or_create_user_ai_settings(db, context)
-    model = validate_model(settings.openai_grape_model)
+    model = validate_model(user_settings.grape_model or settings.openai_grape_model)
     schema = {
         "name": "wine_label_enrichment",
         "schema": {
@@ -941,10 +941,12 @@ def enrich_wine_label(
                 "type": {"type": "string"},
                 "region": {"type": "string"},
                 "appellation": {"type": "string"},
+                "country": {"type": "string"},
+                "grapes_text": {"type": "string"},
                 "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
                 "notes": {"type": "string"},
             },
-            "required": ["name", "producer", "vintage", "type", "region", "appellation", "confidence", "notes"],
+            "required": ["name", "producer", "vintage", "type", "region", "appellation", "country", "grapes_text", "confidence", "notes"],
         },
     }
     response, provider_source = create_ai_response(
@@ -953,22 +955,28 @@ def enrich_wine_label(
         user_settings,
         model=model,
         system_prompt=(
-            "You normalize wine label recognition results into cellar catalog fields. "
-            "Use only broadly established wine knowledge and the provided label. "
-            "If a field is uncertain, return an empty string and set confidence accordingly."
+            "You enrich a cellar catalog entry from a wine name or label text. "
+            "Use web search when needed, especially for local or niche wines. "
+            "Prefer winery, official producer, importer, regional authority, or merchant pages over generic snippets. "
+            "If evidence is weak, return empty fields and set confidence accordingly."
         ),
         user_prompt=(
             f"{response_language_instruction(payload.locale)}\n"
-            "Extract basic structured data from this recognized wine label.\n\n"
-            f"Recognized label: {payload.label}\n\n"
+            "Extract structured wine data from this input.\n\n"
+            f"Input: {payload.label}\n"
+            f"Input source: {payload.source}\n\n"
             "Guidelines:\n"
-            "- name should be the cuvee/wine name without vintage when possible.\n"
+            "- name should be the cuvee/wine name without vintage or producer when possible.\n"
             "- producer should be winery/domain/brand.\n"
+            "- If the input contains patterns like 'X di Y', 'X by Y', or 'X de Y', treat Y as a candidate producer and verify it.\n"
             "- vintage should be a four-digit year, NV, MV, or empty.\n"
-            "- type should be one of common cellar types such as Red, White, Sparkling, Rose, Sweet.\n"
-            "- region and appellation should be filled only if reasonably known from the label.\n"
+            "- type should be one of common cellar types such as Red, White, Sparkling, Rose, Sweet, Fortified.\n"
+            "- country, region, and appellation should be filled only if supported.\n"
+            "- grapes_text should summarize the blend/assemblage with percentages when supported, e.g. 'Merlot 80%, Cabernet Franc 20%'.\n"
+            "- notes should briefly state what was found and mention uncertainty if applicable.\n"
         ),
         json_schema=schema,
+        web_search=True,
     )
     result = parse_json_response(response.text)
     cleaned = WineLabelEnrichmentResponse(
@@ -978,6 +986,8 @@ def enrich_wine_label(
         type=str(result.get("type") or "").strip(),
         region=str(result.get("region") or "").strip(),
         appellation=str(result.get("appellation") or "").strip(),
+        country=str(result.get("country") or "").strip(),
+        grapes_text=str(result.get("grapes_text") or "").strip(),
         confidence=str(result.get("confidence") or "low").strip() or "low",
         notes=str(result.get("notes") or "").strip(),
     )

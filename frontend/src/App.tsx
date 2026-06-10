@@ -101,6 +101,8 @@ type WineLabelEnrichment = {
   type: string;
   region: string;
   appellation: string;
+  country: string;
+  grapes_text: string;
   confidence: string;
   notes: string;
 };
@@ -861,6 +863,10 @@ const translations = {
     pendingCatalogEntries: "Catalog entries pending approval",
     approveCatalogEntry: "Approve catalog entry",
     noPendingCatalogEntries: "No catalog entries pending approval",
+    catalogAdminSearch: "Search catalog entries",
+    catalogAdminSearchHelp: "Search active and pending catalog entries by name, producer, region, or alias.",
+    deleteCatalogEntry: "Delete catalog entry",
+    noCatalogAdminResults: "No catalog entries found",
     useSuggestion: "Use suggestion",
     aiNotes: "AI notes",
     aiProvider: "AI source",
@@ -1321,6 +1327,10 @@ const translations = {
     pendingCatalogEntries: "Vini in catalogo da approvare",
     approveCatalogEntry: "Approva entry catalogo",
     noPendingCatalogEntries: "Nessuna entry catalogo da approvare",
+    catalogAdminSearch: "Cerca entry catalogo",
+    catalogAdminSearchHelp: "Cerca entry attive e pending per nome, produttore, regione o alias.",
+    deleteCatalogEntry: "Elimina entry catalogo",
+    noCatalogAdminResults: "Nessuna entry catalogo trovata",
     useSuggestion: "Usa suggerimento",
     aiNotes: "Note AI",
     aiProvider: "Sorgente AI",
@@ -2828,6 +2838,21 @@ function formatGrape(grape: Wine["grapes"][number]) {
   if (from && to && from !== to) return `${grape.name} ${from}-${to}%`;
   if (from || to) return `${grape.name} ${from || to}%`;
   return grape.name;
+}
+
+function grapesFromText(value: string): WineDraft["grapes"] {
+  return value
+    .split(/[,;/+&]|\band\b|\be\b/i)
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .map((part) => {
+      const percentMatch = part.match(/(\d+(?:[.,]\d+)?)\s*%/);
+      const name = part.replace(/\d+(?:[.,]\d+)?\s*%/g, "").trim();
+      const percentage = percentMatch?.[1]?.replace(",", ".") || "";
+      return { name, percentage_from: percentage, percentage_to: percentage };
+    })
+    .filter((grape) => grape.name.length > 1)
+    .slice(0, 8);
 }
 
 function formatUsd(value: string | number) {
@@ -4997,6 +5022,8 @@ export function App() {
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [pendingCatalogEntries, setPendingCatalogEntries] = useState<CatalogWine[]>([]);
+  const [catalogAdminQuery, setCatalogAdminQuery] = useState("");
+  const [catalogAdminResults, setCatalogAdminResults] = useState<CatalogWine[]>([]);
   const [redeemCodes, setRedeemCodes] = useState<RedeemCode[]>([]);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -5202,6 +5229,7 @@ export function App() {
       appellation: item.appellation || current.appellation,
       format: item.format || current.format,
       type: item.type || current.type,
+      grapes: current.grapes.length || !item.grapes_text ? current.grapes : grapesFromText(item.grapes_text),
     }));
   }
 
@@ -5239,6 +5267,8 @@ export function App() {
         region: enrichment.region || catalogItem.region,
         appellation: enrichment.appellation || catalogItem.appellation,
         type: enrichment.type || catalogItem.type,
+        country: enrichment.country || catalogItem.country,
+        grapes_text: enrichment.grapes_text || catalogItem.grapes_text,
       };
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to enrich recognized wine");
@@ -5299,11 +5329,19 @@ export function App() {
         region: enrichment.region,
         appellation: enrichment.appellation,
         type: enrichment.type,
+        country: enrichment.country,
+        grapes_text: enrichment.grapes_text,
         format: draft.format || "Bottle (750ml)",
       };
       applyCatalogWineToDraft(catalogItem, "wine");
       if (enrichment.vintage) {
         setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+      }
+      if (enrichment.grapes_text) {
+        const grapes = grapesFromText(enrichment.grapes_text);
+        if (grapes.length) {
+          setDraft((current) => ({ ...current, grapes: current.grapes.length ? current.grapes : grapes }));
+        }
       }
       if (hasCatalogComplementaryData(catalogItem)) {
         try {
@@ -5569,6 +5607,7 @@ export function App() {
       setAppUsers([]);
       setPendingUsers([]);
       setPendingCatalogEntries([]);
+      setCatalogAdminResults([]);
     }
   }
 
@@ -5577,7 +5616,17 @@ export function App() {
       setPendingCatalogEntries(await api<CatalogWine[]>("/api/v1/wines/catalog/pending"));
     } else {
       setPendingCatalogEntries([]);
+      setCatalogAdminResults([]);
     }
+  }
+
+  async function searchCatalogAdminEntries(query = catalogAdminQuery) {
+    if (!session?.is_app_admin || !query.trim()) {
+      setCatalogAdminResults([]);
+      return;
+    }
+    const results = await api<CatalogWine[]>(`/api/v1/wines/catalog/admin?q=${encodeURIComponent(query.trim())}&limit=50`);
+    setCatalogAdminResults(results);
   }
 
   function openAuthPanel(mode: "login" | "register") {
@@ -5713,6 +5762,7 @@ export function App() {
           setPendingUsers([]);
           setAppUsers([]);
           setPendingCatalogEntries([]);
+          setCatalogAdminResults([]);
           setAiAudit([]);
           setAiUsage(null);
           setAiSettings(null);
@@ -5738,6 +5788,7 @@ export function App() {
         setPendingUsers([]);
         setAppUsers([]);
         setPendingCatalogEntries([]);
+        setCatalogAdminResults([]);
         setAiAudit([]);
         setAiUsage(null);
         setAiSettings(null);
@@ -6052,6 +6103,8 @@ export function App() {
     setPendingUsers([]);
     setAppUsers([]);
     setPendingCatalogEntries([]);
+    setCatalogAdminResults([]);
+    setCatalogAdminQuery("");
     setRedeemCodes([]);
     setBillingStatus(null);
     setRedeemInput("");
@@ -6335,6 +6388,22 @@ export function App() {
     }
   }
 
+  async function deleteCatalogEntry(entry: CatalogWine) {
+    if (!entry.id || !window.confirm(`${t("deleteCatalogEntry")}: ${[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}?`)) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/wines/catalog/${entry.id}`, { method: "DELETE" });
+      setPendingCatalogEntries((current) => current.filter((item) => item.id !== entry.id));
+      setCatalogAdminResults((current) => current.filter((item) => item.id !== entry.id));
+      setWineCatalog((current) => current.filter((item) => item.id !== entry.id));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete catalog entry");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deleteAppUser(user: AppUser) {
     if (!window.confirm(`Delete ${user.email}?`)) return;
     if (!window.confirm(`This permanently removes ${user.email}. Continue?`)) return;
@@ -6575,6 +6644,8 @@ export function App() {
       setPendingUsers([]);
       setAppUsers([]);
       setPendingCatalogEntries([]);
+      setCatalogAdminResults([]);
+      setCatalogAdminQuery("");
       setRedeemCodes([]);
       setBillingStatus(null);
       setAiAudit([]);
@@ -11516,6 +11587,47 @@ export function App() {
                   ) : (
                     <p className="empty-state">{t("noPendingCatalogEntries")}</p>
                   )}
+                </section>
+              ) : null}
+
+              {settingsTab === "users" && canAppAdmin ? (
+                <section className="settings-card settings-card-wide">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("labelRecognitionAccess")}</span>
+                      <h3>{t("catalogAdminSearch")}</h3>
+                      <small>{t("catalogAdminSearchHelp")}</small>
+                    </div>
+                  </div>
+                  <form className="inline-row-form" onSubmit={(event) => { event.preventDefault(); searchCatalogAdminEntries().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to search catalog")); }}>
+                    <input value={catalogAdminQuery} onChange={(event) => setCatalogAdminQuery(event.target.value)} placeholder="Dogaia, 36 lune..." />
+                    <button type="submit" className="secondary compact" disabled={saving || !catalogAdminQuery.trim()}>{t("search")}</button>
+                  </form>
+                  {catalogAdminResults.length ? (
+                    <div className="member-list">
+                      {catalogAdminResults.map((entry) => (
+                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
+                          <div>
+                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
+                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
+                            <span className={entry.is_active ? "status-pill configured" : "status-pill"}>{entry.is_active ? "active" : "pending"}</span>
+                          </div>
+                          <div className="member-actions">
+                            {!entry.is_active ? (
+                              <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
+                                {t("approveCatalogEntry")}
+                              </button>
+                            ) : null}
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
+                              {t("deleteCatalogEntry")}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : catalogAdminQuery.trim() ? (
+                    <p className="empty-state">{t("noCatalogAdminResults")}</p>
+                  ) : null}
                 </section>
               ) : null}
 

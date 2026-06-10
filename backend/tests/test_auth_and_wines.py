@@ -516,6 +516,35 @@ def test_create_catalog_entry_requires_complementary_data():
     assert response.status_code == 422
 
 
+def test_app_admin_can_search_and_delete_catalog_entry():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    created = client.post(
+        "/api/v1/wines/catalog",
+        json={
+            "name": "Dogaia Brivio",
+            "producer": "Guido Brivio",
+            "region": "Ticino",
+            "type": "Red",
+            "aliases": ["Dogaia Brivio"],
+        },
+    )
+    assert created.status_code == 201
+    entry_id = created.json()["id"]
+
+    found = client.get("/api/v1/wines/catalog/admin?q=dogaia")
+    assert found.status_code == 200
+    assert any(entry["id"] == entry_id for entry in found.json())
+
+    deleted = client.delete(f"/api/v1/wines/catalog/{entry_id}")
+    assert deleted.status_code == 204
+
+    found_after_delete = client.get("/api/v1/wines/catalog/admin?q=dogaia")
+    assert found_after_delete.status_code == 200
+    assert all(entry["id"] != entry_id for entry in found_after_delete.json())
+
+
 def test_ai_wine_label_enrichment(monkeypatch):
     from app.api.routes import ai as ai_routes
 
@@ -528,6 +557,7 @@ def test_ai_wine_label_enrichment(monkeypatch):
         db.commit()
 
     def fake_create_response(*args, **kwargs):
+        assert kwargs["web_search"] is True
         return OpenAIResponse(
             text=json.dumps(
                 {
@@ -537,6 +567,8 @@ def test_ai_wine_label_enrichment(monkeypatch):
                     "type": "Red",
                     "region": "Tuscany",
                     "appellation": "Bolgheri Superiore",
+                    "country": "Italy",
+                    "grapes_text": "Cabernet Sauvignon, Merlot, Sangiovese",
                     "confidence": "high",
                     "notes": "Known Tuscan red.",
                 },
@@ -549,6 +581,8 @@ def test_ai_wine_label_enrichment(monkeypatch):
     assert response.status_code == 200
     assert response.json()["producer"] == "Grattamacco"
     assert response.json()["appellation"] == "Bolgheri Superiore"
+    assert response.json()["country"] == "Italy"
+    assert response.json()["grapes_text"] == "Cabernet Sauvignon, Merlot, Sangiovese"
 
 
 def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch):
@@ -580,31 +614,38 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
         )
         db.commit()
 
-    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits", "grape_model": "gpt-5.4"}).status_code == 200
     monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
     monkeypatch.setattr(settings, "ai_pack_markup_percent", "20")
 
     def fake_create_response(*args, **kwargs):
+        assert args[0] == "gpt-5.4"
+        assert kwargs["web_search"] is True
         return OpenAIResponse(
             text=json.dumps(
                 {
-                    "name": "Pergole Torte",
-                    "producer": "Montevertine",
-                    "vintage": "2019",
+                    "name": "Dogaia",
+                    "producer": "Guido Brivio",
+                    "vintage": "",
                     "type": "Red",
-                    "region": "Tuscany",
-                    "appellation": "Toscana IGT",
+                    "region": "Ticino",
+                    "appellation": "Ticino DOC",
+                    "country": "Switzerland",
+                    "grapes_text": "Merlot",
                     "confidence": "high",
-                    "notes": "Known Tuscan red.",
+                    "notes": "Ticino wine found with producer Guido Brivio.",
                 },
             ),
             usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
+            web_search_calls=1,
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "Montevertine Pergole Torte 2019", "source": "manual"})
+    response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "Dogaia di Brivio", "source": "manual"})
     assert response.status_code == 200
-    assert response.json()["producer"] == "Montevertine"
+    assert response.json()["name"] == "Dogaia"
+    assert response.json()["producer"] == "Guido Brivio"
+    assert response.json()["grapes_text"] == "Merlot"
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
