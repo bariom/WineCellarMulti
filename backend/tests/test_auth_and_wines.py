@@ -456,6 +456,10 @@ def test_ai_wine_label_enrichment(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    with TestingSessionLocal() as db:
+        user = db.query(User).filter(User.email == "owner@example.com").one()
+        user.can_use_label_recognition = True
+        db.commit()
 
     def fake_create_response(*args, **kwargs):
         return OpenAIResponse(
@@ -479,6 +483,66 @@ def test_ai_wine_label_enrichment(monkeypatch):
     assert response.status_code == 200
     assert response.json()["producer"] == "Grattamacco"
     assert response.json()["appellation"] == "Bolgheri Superiore"
+
+
+def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    session = client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        current_user = db.get(User, uuid.UUID(session["user_id"]))
+        assert current_user is not None
+        assert current_user.can_use_label_recognition is False
+        current_user.is_app_admin = False
+        db.add(
+            UserEntitlement(
+                user_id=current_user.id,
+                source="test",
+                valid_from=datetime.now(timezone.utc),
+                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+            ),
+        )
+        db.add(
+            UserAiCreditTransaction(
+                user_id=current_user.id,
+                amount_usd=Decimal("5.000000"),
+                source="purchase",
+                note="Seed AI budget",
+            ),
+        )
+        db.commit()
+
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+    monkeypatch.setattr(settings, "ai_pack_markup_percent", "20")
+
+    def fake_create_response(*args, **kwargs):
+        return OpenAIResponse(
+            text=json.dumps(
+                {
+                    "name": "Pergole Torte",
+                    "producer": "Montevertine",
+                    "vintage": "2019",
+                    "type": "Red",
+                    "region": "Tuscany",
+                    "appellation": "Toscana IGT",
+                    "confidence": "high",
+                    "notes": "Known Tuscan red.",
+                },
+            ),
+            usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "Montevertine Pergole Torte 2019", "source": "manual"})
+    assert response.status_code == 200
+    assert response.json()["producer"] == "Montevertine"
+
+    billing = client.get("/api/v1/billing/status")
+    assert billing.status_code == 200
+    assert Decimal(billing.json()["ai_credit_balance_usd"]) < Decimal("5.000000")
 
 
 def test_app_admin_can_create_and_user_can_redeem_code():
@@ -603,6 +667,39 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
     second_trial = user_client.post("/api/v1/billing/redeem", json={"code": clear_code})
     assert second_trial.status_code == 400
     assert "trial" in second_trial.json()["detail"].lower()
+
+
+def test_app_admin_can_enable_label_recognition_for_beta_user():
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    user_client = TestClient(app)
+    pending = register(user_client, email="label-beta@example.com", password="strong-password-2")
+    assert pending.status_code == 201
+    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "label-beta@example.com")
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+
+    login = user_client.post("/api/v1/auth/login", json={"email": "label-beta@example.com", "password": "strong-password-2"})
+    assert login.status_code == 200
+    assert login.json()["can_use_label_recognition"] is False
+    trial_code = user_client.get("/api/v1/billing/status").json()["available_redeem_codes"][0]["code"]
+    assert user_client.post("/api/v1/billing/redeem", json={"code": trial_code}).status_code == 200
+
+    blocked = user_client.post(
+        "/api/v1/wines/catalog/recognize",
+        files={"image": ("label.jpg", b"fake-image", "image/jpeg")},
+    )
+    assert blocked.status_code == 403
+
+    app_user = next(user for user in admin_client.get("/api/v1/auth/users").json() if user["email"] == "label-beta@example.com")
+    assert app_user["can_use_label_recognition"] is False
+    enabled = admin_client.patch(f"/api/v1/auth/users/{app_user['id']}", json={"can_use_label_recognition": True})
+    assert enabled.status_code == 200
+    assert enabled.json()["can_use_label_recognition"] is True
+
+    refreshed_login = user_client.post("/api/v1/auth/login", json={"email": "label-beta@example.com", "password": "strong-password-2"})
+    assert refreshed_login.status_code == 200
+    assert refreshed_login.json()["can_use_label_recognition"] is True
 
 
 def stripe_signature(payload: bytes, secret: str) -> str:

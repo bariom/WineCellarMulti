@@ -326,6 +326,8 @@ async def recognize_wine_label(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> CatalogRecognitionResponse:
+    if not context.user.can_use_label_recognition:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
     content = await image.read()
     if not content:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is empty")

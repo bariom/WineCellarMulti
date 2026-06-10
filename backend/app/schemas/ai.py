@@ -78,6 +78,7 @@ class AiGenerationRequest(BaseModel):
 
 class WineLabelEnrichmentRequest(AiGenerationRequest):
     label: str = Field(min_length=2, max_length=260)
+    source: str = Field(default="label", pattern="^(label|manual)$")
 
 
 class WineLabelEnrichmentResponse(BaseModel):

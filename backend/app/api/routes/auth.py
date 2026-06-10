@@ -239,6 +239,7 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         is_approved=user.is_approved,
         is_app_admin=user.is_app_admin,
         is_blocked=user.is_blocked,
+        can_use_label_recognition=user.can_use_label_recognition,
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,
         entitlement_days_remaining=max(days_remaining, 0) if days_remaining is not None else None,
@@ -637,7 +638,7 @@ def update_user_admin(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    if payload.is_app_admin is None and payload.is_blocked is None:
+    if payload.is_app_admin is None and payload.is_blocked is None and payload.can_use_label_recognition is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No user changes provided")
     if payload.is_app_admin is not None:
         if user.id == context.user.id and not payload.is_app_admin:
@@ -655,6 +656,8 @@ def update_user_admin(
         user.is_blocked = payload.is_blocked
         if payload.is_blocked:
             db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+    if payload.can_use_label_recognition is not None:
+        user.can_use_label_recognition = payload.can_use_label_recognition
     db.commit()
     db.refresh(user)
     return user_admin_response(user, db)

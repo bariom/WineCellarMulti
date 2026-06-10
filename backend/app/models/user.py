@@ -19,6 +19,7 @@ class User(Base):
     is_approved: Mapped[bool] = mapped_column(Boolean, default=True)
     is_app_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_use_label_recognition: Mapped[bool] = mapped_column(Boolean, default=False)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_verification_token_hash: Mapped[str] = mapped_column(String(128), default="", index=True)

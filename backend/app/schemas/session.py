@@ -14,6 +14,7 @@ class SessionResponse(BaseModel):
     pending_email_verification: bool = False
     locale: str = "it"
     theme_preference: str = "system"
+    can_use_label_recognition: bool = False
     has_active_entitlement: bool = False
     entitlement_valid_until: str | None = None
     entitlement_days_remaining: int | None = None

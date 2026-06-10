@@ -925,6 +925,8 @@ def enrich_wine_label(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WineLabelEnrichmentResponse:
+    if payload.source == "label" and not context.user.can_use_label_recognition:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
     user_settings = get_or_create_user_ai_settings(db, context)
     model = validate_model(settings.openai_grape_model)
     schema = {

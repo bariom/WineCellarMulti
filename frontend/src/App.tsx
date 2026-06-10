@@ -12,6 +12,7 @@ type Session = {
   pending_email_verification: boolean;
   locale: Locale;
   theme_preference: ThemePreference;
+  can_use_label_recognition: boolean;
   has_active_entitlement: boolean;
   entitlement_valid_until: string | null;
   entitlement_days_remaining: number | null;
@@ -532,6 +533,7 @@ type AppUser = PendingUser & {
   is_approved: boolean;
   is_app_admin: boolean;
   is_blocked: boolean;
+  can_use_label_recognition: boolean;
   approved_at: string | null;
   entitlement_valid_until: string | null;
   entitlement_days_remaining: number | null;
@@ -850,6 +852,11 @@ const translations = {
     recognitionBetaNotice: "Beta test service. Results below 75% confidence are ignored.",
     recognitionSuggestions: "Recognition suggestions",
     recognitionNoMatch: "No catalog match yet. Apply a suggestion and the catalog can be enriched.",
+    labelRecognitionAccess: "Label recognition",
+    labelRecognitionEnabled: "Label recognition enabled",
+    labelRecognitionDisabled: "Label recognition disabled",
+    searchWineDataWithAi: "Search wine data with AI",
+    searchWineDataWithAiHelp: "No exact catalog match. Use AI to fill producer, region, appellation, type, and vintage from the name you entered.",
     useSuggestion: "Use suggestion",
     aiNotes: "AI notes",
     aiProvider: "AI source",
@@ -1302,6 +1309,11 @@ const translations = {
     recognitionBetaNotice: "Servizio in beta test. I risultati sotto il 75% di confidenza vengono ignorati.",
     recognitionSuggestions: "Suggerimenti riconoscimento",
     recognitionNoMatch: "Nessuna corrispondenza nel catalogo. Applica un suggerimento e il catalogo potrà essere arricchito.",
+    labelRecognitionAccess: "Riconoscimento etichette",
+    labelRecognitionEnabled: "Riconoscimento etichette attivo",
+    labelRecognitionDisabled: "Riconoscimento etichette disattivo",
+    searchWineDataWithAi: "Cerca dati vino con AI",
+    searchWineDataWithAiHelp: "Nessuna corrispondenza esatta nel catalogo. Usa l'AI per compilare produttore, regione, denominazione, tipo e annata dal nome inserito.",
     useSuggestion: "Usa suggerimento",
     aiNotes: "Note AI",
     aiProvider: "Sorgente AI",
@@ -5252,6 +5264,44 @@ export function App() {
     await applyRecognizedCatalogItem(catalogItem, suggestion.label, target);
   }
 
+  async function enrichManualWineDraft() {
+    const label = draft.name.trim();
+    if (!label) return;
+    setWineEnrichmentLoading(true);
+    try {
+      const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
+        method: "POST",
+        body: JSON.stringify({ label, locale, source: "manual" }),
+      });
+      const catalogItem: CatalogWine = {
+        name: enrichment.name || label,
+        producer: enrichment.producer,
+        region: enrichment.region,
+        appellation: enrichment.appellation,
+        type: enrichment.type,
+        format: draft.format || "Bottle (750ml)",
+      };
+      applyCatalogWineToDraft(catalogItem, "wine");
+      if (enrichment.vintage) {
+        setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+      }
+      try {
+        const created = await api<CatalogWine>("/api/v1/wines/catalog", {
+          method: "POST",
+          body: JSON.stringify({ ...catalogItem, aliases: [label] }),
+        });
+        setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
+      } catch {
+        // The AI-filled draft is still useful even if catalog creation is denied or duplicated.
+      }
+      await Promise.all([loadAiSettings(), loadAiUsage(), loadBilling()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to search wine data with AI");
+    } finally {
+      setWineEnrichmentLoading(false);
+    }
+  }
+
   async function recognizeWineImage(file: File, target: "wine" | "wishlist") {
     const formData = new FormData();
     formData.append("image", file);
@@ -5933,6 +5983,7 @@ export function App() {
       pending_email_verification: false,
       locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en",
       theme_preference: "system",
+      can_use_label_recognition: false,
       has_active_entitlement: false,
       entitlement_valid_until: null,
       entitlement_days_remaining: null,
@@ -6201,6 +6252,19 @@ export function App() {
     setError("");
     try {
       await api<AppUser>(`/api/v1/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ is_blocked: !user.is_blocked }) });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleLabelRecognition(user: AppUser) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ can_use_label_recognition: !user.can_use_label_recognition }) });
       await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update user");
@@ -7033,6 +7097,7 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
+  const canUseLabelRecognition = canWriteWine && Boolean(session?.can_use_label_recognition);
   const canGenerateAi =
     canWriteWine &&
     Boolean(
@@ -7043,6 +7108,13 @@ export function App() {
         (aiSettings.provider_mode === "credits" && aiSettings.can_use_app_credits)
       ),
     );
+  const showManualWineAiSearch =
+    (activeView === "cellar" || activeView === "history") &&
+    wineFormOpen &&
+    !editingId &&
+    canGenerateAi &&
+    draft.name.trim().length >= 2 &&
+    !matchingWineTemplate(draft.name);
   const hasAiDraftChanges = Boolean(
     aiSettings &&
     (
@@ -9531,21 +9603,21 @@ export function App() {
               <form className="wine-form" onSubmit={submitWine}>
                 <h2>{editingId ? t("editWine") : t("addWine")}</h2>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
-                {!editingId ? (
+                {!editingId && canUseLabelRecognition ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
                     <span className="recognition-beta-note">{t("recognitionBetaNotice")}</span>
                     <div className="recognition-actions">
                       <label className="recognition-upload-button secondary compact">
                         <span>{t("choosePhotoFile")}</span>
-                        <input type="file" accept="image/*" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
+                        <input type="file" accept="image/*" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
                       </label>
                       <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M7 7l1.4-2h7.2L17 7h2.5A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7H7Z" />
                           <circle cx="12" cy="13" r="4" />
                         </svg>
-                        <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
+                        <input type="file" accept="image/*" capture="environment" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
                       </label>
                     </div>
                     {wineRecognitionResult && wineRecognitionTarget === "wine" ? (
@@ -9574,6 +9646,14 @@ export function App() {
                   <span>{t("name")}</span>
                   <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
                 </label>
+                {showManualWineAiSearch ? (
+                  <div className="inline-row-form">
+                    <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft()}>
+                      {wineEnrichmentLoading ? t("generating") : t("searchWineDataWithAi")}
+                    </button>
+                    <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
+                  </div>
+                ) : null}
                 <label>
                   <span>{t("producer")}</span>
                   <input value={draft.producer} onChange={(event) => setDraft({ ...draft, producer: event.target.value })} disabled={!canWriteWine} />
@@ -9832,21 +9912,21 @@ export function App() {
             ) : activeView === "wishlist" && wishlistFormOpen ? (
               <form className="wine-form" onSubmit={submitWishlist}>
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
-                {!editingWishlistId ? (
+                {!editingWishlistId && canUseLabelRecognition ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
                     <span className="recognition-beta-note">{t("recognitionBetaNotice")}</span>
                     <div className="recognition-actions">
                       <label className="recognition-upload-button secondary compact">
                         <span>{t("choosePhotoFile")}</span>
-                        <input type="file" accept="image/*" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
+                        <input type="file" accept="image/*" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
                       <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
                         <svg viewBox="0 0 24 24" aria-hidden="true">
                           <path d="M7 7l1.4-2h7.2L17 7h2.5A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7H7Z" />
                           <circle cx="12" cy="13" r="4" />
                         </svg>
-                        <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
+                        <input type="file" accept="image/*" capture="environment" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
                     </div>
                     {wineRecognitionResult && wineRecognitionTarget === "wishlist" ? (
@@ -11310,6 +11390,9 @@ export function App() {
                             ) : null}
                             <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
                               {user.is_app_admin ? "App admin" : "Make app admin"}
+                            </button>
+                            <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
+                              {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
                             </button>
                             {user.is_approved ? (
                               <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>
