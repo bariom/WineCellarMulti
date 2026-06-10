@@ -7945,6 +7945,56 @@ export function App() {
     setWishlistFormOpen(false);
   }
 
+  function renderBreakdownDrilldown(title: TranslationKey) {
+    if (!breakdownDrilldown || breakdownDrilldown.title !== title) return null;
+    return (
+      <section className="chart-drilldown-panel">
+        <div className="chart-drilldown-head">
+          <div>
+            <span>{t("chartDrilldown")}</span>
+            <h3>{t(breakdownDrilldown.title)} - {breakdownDrilldown.label}</h3>
+          </div>
+          <button type="button" className="secondary compact" onClick={() => setBreakdownDrilldown(null)}>
+            {t("cancel")}
+          </button>
+        </div>
+        <div className="chart-drilldown-kpis">
+          <div><span>{t("totalValue")}</span><strong>{formatMoney(breakdownTotalValue, "CHF", locale)}</strong></div>
+          <div><span>{t("bottles")}</span><strong>{formatBottleCount(breakdownBottleCount, locale)}</strong></div>
+          <div><span>{t("distinctWines")}</span><strong>{formatBottleCount(breakdownWines.length, locale)}</strong></div>
+          <div><span>{t("averageBottleValue")}</span><strong>{formatMoney(breakdownBottleCount ? breakdownTotalValue / breakdownBottleCount : 0, "CHF", locale)}</strong></div>
+        </div>
+        <div className="chart-drilldown-grid">
+          <div>
+            <strong>{t("topWines")}</strong>
+            <div className="action-list">
+              {breakdownTopWines.length ? breakdownTopWines.map((wine) => (
+                <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                  <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                  <strong>{formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</strong>
+                </button>
+              )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
+            </div>
+          </div>
+          <div>
+            <strong>{t("topProducers")}</strong>
+            <div className="bar-list">
+              {breakdownTopProducers.length ? breakdownTopProducers.map((item) => (
+                <div className="bar-row" key={item.label}>
+                  <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
+                  <div className="bar-track"><span style={{ width: `${Math.max((item.value / Math.max(breakdownTotalValue, 1)) * 100, 5)}%` }} /></div>
+                </div>
+              )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
+            </div>
+          </div>
+        </div>
+        <button type="button" onClick={openBreakdownInCellar}>
+          {t("openFilteredCellar")}
+        </button>
+      </section>
+    );
+  }
+
   function aiEntityName(entry: AiAuditLog) {
     if (entry.entity_type === "wine") return wines.find((wine) => wine.id === entry.entity_id)?.name || entry.entity_type;
     if (entry.entity_type === "wishlist") return wishlist.find((item) => item.id === entry.entity_id)?.name || entry.entity_type;
@@ -10033,6 +10083,7 @@ export function App() {
                   <p>{t("missingScores")}: <strong>{cellarStats.missingScores}</strong></p>
                 </button>
                 {valueByType.length ? (
+                  <>
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("valueByType")}</span>
                     <div className="breakdown-layout">
@@ -10047,8 +10098,11 @@ export function App() {
                       <BreakdownDonut items={valueByType} mode="type" onSelect={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)} />
                     </div>
                   </div>
+                  {renderBreakdownDrilldown("valueByType")}
+                  </>
                 ) : null}
                 {valueByRegion.length ? (
+                  <>
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("topRegions")}</span>
                     <div className="breakdown-layout">
@@ -10063,8 +10117,11 @@ export function App() {
                       <BreakdownDonut items={valueByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("topRegions", "region", "value", item.label)} />
                     </div>
                   </div>
+                  {renderBreakdownDrilldown("topRegions")}
+                  </>
                 ) : null}
                 {bottlesByType.length ? (
+                  <>
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("bottlesByType")}</span>
                     <div className="breakdown-layout">
@@ -10079,8 +10136,11 @@ export function App() {
                       <BreakdownDonut items={bottlesByType} mode="type" onSelect={(item) => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)} />
                     </div>
                   </div>
+                  {renderBreakdownDrilldown("bottlesByType")}
+                  </>
                 ) : null}
                 {bottlesByRegion.length ? (
+                  <>
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("bottlesByRegion")}</span>
                     <div className="breakdown-layout">
@@ -10095,8 +10155,11 @@ export function App() {
                       <BreakdownDonut items={bottlesByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("bottlesByRegion", "region", "bottles", item.label)} />
                     </div>
                   </div>
+                  {renderBreakdownDrilldown("bottlesByRegion")}
+                  </>
                 ) : null}
                 {winesByRegion.length ? (
+                  <>
                   <div className="stat-card compact-list type-breakdown">
                     <span>{t("winesByRegion")}</span>
                     <div className="breakdown-layout">
@@ -10111,6 +10174,8 @@ export function App() {
                       <BreakdownDonut items={winesByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)} />
                     </div>
                   </div>
+                  {renderBreakdownDrilldown("winesByRegion")}
+                  </>
                 ) : null}
                 <div className="stat-card compact-list ai-card">
                   <span>{t("aiReadiness")}</span>
@@ -10118,52 +10183,6 @@ export function App() {
                   <p>{t("aiReadinessHelp")}</p>
                 </div>
               </section>
-              {breakdownDrilldown ? (
-                <section className="chart-drilldown-panel">
-                  <div className="chart-drilldown-head">
-                    <div>
-                      <span>{t("chartDrilldown")}</span>
-                      <h3>{t(breakdownDrilldown.title)} - {breakdownDrilldown.label}</h3>
-                    </div>
-                    <button type="button" className="secondary compact" onClick={() => setBreakdownDrilldown(null)}>
-                      {t("cancel")}
-                    </button>
-                  </div>
-                  <div className="chart-drilldown-kpis">
-                    <div><span>{t("totalValue")}</span><strong>{formatMoney(breakdownTotalValue, "CHF", locale)}</strong></div>
-                    <div><span>{t("bottles")}</span><strong>{formatBottleCount(breakdownBottleCount, locale)}</strong></div>
-                    <div><span>{t("distinctWines")}</span><strong>{formatBottleCount(breakdownWines.length, locale)}</strong></div>
-                    <div><span>{t("averageBottleValue")}</span><strong>{formatMoney(breakdownBottleCount ? breakdownTotalValue / breakdownBottleCount : 0, "CHF", locale)}</strong></div>
-                  </div>
-                  <div className="chart-drilldown-grid">
-                    <div>
-                      <strong>{t("topWines")}</strong>
-                      <div className="action-list">
-                        {breakdownTopWines.length ? breakdownTopWines.map((wine) => (
-                          <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                            <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                            <strong>{formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</strong>
-                          </button>
-                        )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
-                      </div>
-                    </div>
-                    <div>
-                      <strong>{t("topProducers")}</strong>
-                      <div className="bar-list">
-                        {breakdownTopProducers.length ? breakdownTopProducers.map((item) => (
-                          <div className="bar-row" key={item.label}>
-                            <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
-                            <div className="bar-track"><span style={{ width: `${Math.max((item.value / Math.max(breakdownTotalValue, 1)) * 100, 5)}%` }} /></div>
-                          </div>
-                        )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
-                      </div>
-                    </div>
-                  </div>
-                  <button type="button" onClick={openBreakdownInCellar}>
-                    {t("openFilteredCellar")}
-                  </button>
-                </section>
-              ) : null}
             </details>
             ) : activeView === "history" ? (
             <>

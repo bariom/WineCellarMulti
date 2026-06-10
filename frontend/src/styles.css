@@ -4799,8 +4799,9 @@ button.stat-card:hover {
 
 .chart-drilldown-panel {
   display: grid;
+  grid-column: 1 / -1;
   gap: 1rem;
-  margin-top: 1rem;
+  margin-top: -0.25rem;
   padding: 1rem;
   border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
   border-radius: 18px;
