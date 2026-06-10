@@ -846,6 +846,7 @@ const translations = {
     recognizingWine: "Recognizing...",
     choosePhotoFile: "Choose file",
     takeLabelPhoto: "Take label photo",
+    recognitionBetaNotice: "Beta test service. Results below 75% confidence are ignored.",
     recognitionSuggestions: "Recognition suggestions",
     recognitionNoMatch: "No catalog match yet. Apply a suggestion and the catalog can be enriched.",
     useSuggestion: "Use suggestion",
@@ -1289,6 +1290,7 @@ const translations = {
     recognizingWine: "Riconoscimento...",
     choosePhotoFile: "Scegli file",
     takeLabelPhoto: "Scatta foto etichetta",
+    recognitionBetaNotice: "Servizio in beta test. I risultati sotto il 75% di confidenza vengono ignorati.",
     recognitionSuggestions: "Suggerimenti riconoscimento",
     recognitionNoMatch: "Nessuna corrispondenza nel catalogo. Applica un suggerimento e il catalogo potrà essere arricchito.",
     useSuggestion: "Usa suggerimento",
@@ -9410,6 +9412,7 @@ export function App() {
                 {!editingId ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
+                    <span className="recognition-beta-note">{t("recognitionBetaNotice")}</span>
                     <div className="recognition-actions">
                       <label className="recognition-upload-button secondary compact">
                         <span>{t("choosePhotoFile")}</span>
@@ -9710,6 +9713,7 @@ export function App() {
                 {!editingWishlistId ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
+                    <span className="recognition-beta-note">{t("recognitionBetaNotice")}</span>
                     <div className="recognition-actions">
                       <label className="recognition-upload-button secondary compact">
                         <span>{t("choosePhotoFile")}</span>

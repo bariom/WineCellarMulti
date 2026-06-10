@@ -2543,6 +2543,19 @@ summary:focus-visible {
   letter-spacing: 0.03em;
 }
 
+.recognition-beta-note {
+  display: inline-flex;
+  width: fit-content;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--panel));
+  color: var(--text);
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
 .recognition-actions {
   display: flex;
   flex-wrap: wrap;

@@ -23,6 +23,7 @@ from app.schemas.catalog import CatalogRecognitionResponse, CatalogRecognitionSu
 
 router = APIRouter()
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "wine_catalog.json"
+MIN_RECOGNITION_CONFIDENCE_PERCENT = 75.0
 
 
 def normalize_catalog_text(value: str) -> str:
@@ -31,6 +32,17 @@ def normalize_catalog_text(value: str) -> str:
 
 def clean_recognition_text(value: object) -> str:
     return re.sub(r"\s+", " ", unescape(str(value or "")).strip())
+
+
+def recognition_confidence_percent(value: float | None) -> float | None:
+    if value is None:
+        return None
+    return value * 100 if value <= 1 else value
+
+
+def recognition_confidence_is_acceptable(value: float | None) -> bool:
+    confidence_percent = recognition_confidence_percent(value)
+    return confidence_percent is None or confidence_percent >= MIN_RECOGNITION_CONFIDENCE_PERCENT
 
 
 def build_search_text(*parts: str) -> str:
@@ -209,6 +221,8 @@ def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionS
     visit(payload)
     unique: dict[str, CatalogRecognitionSuggestion] = {}
     for suggestion in suggestions:
+        if not recognition_confidence_is_acceptable(suggestion.confidence):
+            continue
         key = normalize_catalog_text(suggestion.label)
         if key and key not in unique:
             unique[key] = suggestion
