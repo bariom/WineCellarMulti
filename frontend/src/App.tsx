@@ -5526,7 +5526,16 @@ export function App() {
         ...nextUsers,
         ...nextPendingUsers
           .filter((pendingUser) => !nextUsers.some((user) => user.id === pendingUser.id))
-          .map((pendingUser) => ({ ...pendingUser, is_approved: false, is_app_admin: false, is_blocked: false, approved_at: null, entitlement_valid_until: null, entitlement_days_remaining: null })),
+          .map((pendingUser) => ({
+            ...pendingUser,
+            is_approved: false,
+            is_app_admin: false,
+            is_blocked: false,
+            can_use_label_recognition: false,
+            approved_at: null,
+            entitlement_valid_until: null,
+            entitlement_days_remaining: null,
+          })),
       ].sort((first, second) => Number(first.is_approved) - Number(second.is_approved) || first.email.localeCompare(second.email));
       setAppUsers(mergedUsers);
       setPendingUsers(mergedUsers.filter((user) => !user.is_approved));
@@ -6491,6 +6500,7 @@ export function App() {
         pending_email_verification: false,
         locale,
         theme_preference: themePreference,
+        can_use_label_recognition: false,
         has_active_entitlement: true,
         entitlement_valid_until: null,
         entitlement_days_remaining: null,
