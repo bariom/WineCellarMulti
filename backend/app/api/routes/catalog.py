@@ -49,6 +49,15 @@ def build_search_text(*parts: str) -> str:
     return normalize_catalog_text(" ".join(part for part in parts if part))
 
 
+def ensure_app_admin(context: CurrentContext) -> None:
+    if not context.user.is_app_admin:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Application admin access required")
+
+
+def has_complementary_catalog_data(data: dict) -> bool:
+    return any(str(data.get(field) or "").strip() for field in ("producer", "region", "appellation", "type", "country", "grapes_text"))
+
+
 def session_has_catalog_alias(db: Session, normalized_alias: str) -> bool:
     return any(
         isinstance(item, WineCatalogAlias) and item.normalized_alias == normalized_alias
@@ -77,6 +86,7 @@ def catalog_response(entry: WineCatalogEntry) -> CatalogWineResponse:
         country=entry.country,
         grapes_text=entry.grapes_text,
         source=entry.source,
+        is_active=entry.is_active,
     )
 
 
@@ -148,6 +158,8 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
     name = str(data.get("name") or "").strip()
     if not name:
         return None
+    if not has_complementary_catalog_data(data):
+        return None
     producer = str(data.get("producer") or "").strip()
     aliases = {name, f"{producer} {name}".strip()}
     for alias in aliases:
@@ -179,6 +191,7 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         type=str(data.get("type") or "").strip(),
         format=str(data.get("format") or "").strip(),
         source=source,
+        is_active=False,
         search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), str(data.get("type") or "")),
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
@@ -284,6 +297,23 @@ def list_wine_catalog(
     return [catalog_response(entry) for entry in search_catalog_entries(db, q, limit)]
 
 
+@router.get("/catalog/pending", response_model=list[CatalogWineResponse])
+def list_pending_wine_catalog_entries(
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> list[CatalogWineResponse]:
+    ensure_app_admin(context)
+    ensure_catalog_seeded(db)
+    entries = db.scalars(
+        select(WineCatalogEntry)
+        .where(WineCatalogEntry.is_active.is_(False))
+        .order_by(WineCatalogEntry.updated_at.desc(), WineCatalogEntry.created_at.desc())
+        .limit(limit),
+    )
+    return [catalog_response(entry) for entry in entries]
+
+
 @router.post("/catalog", response_model=CatalogWineResponse, status_code=status.HTTP_201_CREATED)
 def create_wine_catalog_entry(
     payload: CatalogWineCreate,
@@ -318,15 +348,35 @@ def create_wine_catalog_entry(
             db.commit()
             db.refresh(existing)
         return catalog_response(existing)
+    if not has_complementary_catalog_data(payload.model_dump()):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Catalog entry requires complementary wine data")
     entry = ensure_catalog_entry_for_wine_data(db, payload.model_dump(), source="manual")
     if entry is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Catalog wine name is required")
     entry.country = payload.country.strip() or entry.country
     entry.grapes_text = payload.grapes_text.strip() or entry.grapes_text
+    entry.is_active = False
     entry.search_text = build_search_text(entry.name, entry.producer, entry.region, entry.appellation, entry.type, entry.country, entry.grapes_text)
     aliases = {payload.name.strip(), f"{payload.producer.strip()} {payload.name.strip()}".strip(), *[alias.strip() for alias in payload.aliases]}
     for alias in aliases:
         add_catalog_alias_if_missing(db, entry, alias, source="manual")
+    db.commit()
+    db.refresh(entry)
+    return catalog_response(entry)
+
+
+@router.post("/catalog/{entry_id}/approve", response_model=CatalogWineResponse)
+def approve_wine_catalog_entry(
+    entry_id: uuid.UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CatalogWineResponse:
+    ensure_app_admin(context)
+    entry = db.get(WineCatalogEntry, entry_id)
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
+    entry.is_active = True
+    entry.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(entry)
     return catalog_response(entry)

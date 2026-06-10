@@ -85,6 +85,7 @@ type CatalogWine = {
   country?: string;
   grapes_text?: string;
   source?: string;
+  is_active?: boolean;
 };
 
 type WineRecognitionResult = {
@@ -857,6 +858,9 @@ const translations = {
     labelRecognitionDisabled: "Label recognition disabled",
     searchWineDataWithAi: "Search wine data with AI",
     searchWineDataWithAiHelp: "No exact catalog match. Use AI to fill producer, region, appellation, type, and vintage from the name you entered.",
+    pendingCatalogEntries: "Catalog entries pending approval",
+    approveCatalogEntry: "Approve catalog entry",
+    noPendingCatalogEntries: "No catalog entries pending approval",
     useSuggestion: "Use suggestion",
     aiNotes: "AI notes",
     aiProvider: "AI source",
@@ -1314,6 +1318,9 @@ const translations = {
     labelRecognitionDisabled: "Riconoscimento etichette disattivo",
     searchWineDataWithAi: "Cerca dati vino con AI",
     searchWineDataWithAiHelp: "Nessuna corrispondenza esatta nel catalogo. Usa l'AI per compilare produttore, regione, denominazione, tipo e annata dal nome inserito.",
+    pendingCatalogEntries: "Vini in catalogo da approvare",
+    approveCatalogEntry: "Approva entry catalogo",
+    noPendingCatalogEntries: "Nessuna entry catalogo da approvare",
     useSuggestion: "Usa suggerimento",
     aiNotes: "Note AI",
     aiProvider: "Sorgente AI",
@@ -4989,6 +4996,7 @@ export function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [pendingCatalogEntries, setPendingCatalogEntries] = useState<CatalogWine[]>([]);
   const [redeemCodes, setRedeemCodes] = useState<RedeemCode[]>([]);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
@@ -5201,6 +5209,10 @@ export function App() {
     return !item.producer?.trim() || !item.type?.trim() || !item.region?.trim() || !item.appellation?.trim();
   }
 
+  function hasCatalogComplementaryData(item: CatalogWine) {
+    return Boolean(item.producer?.trim() || item.type?.trim() || item.region?.trim() || item.appellation?.trim() || item.country?.trim() || item.grapes_text?.trim());
+  }
+
   function clearWineRecognitionState() {
     setWineRecognitionResult(null);
     setWineEnrichmentLoading(false);
@@ -5239,12 +5251,20 @@ export function App() {
   async function applyRecognizedCatalogItem(item: CatalogWine, label: string, target: "wine" | "wishlist") {
     const catalogItem = await enrichCatalogSuggestionIfNeeded(item, label, target);
     applyCatalogWineToDraft(catalogItem, target);
+    if (!hasCatalogComplementaryData(catalogItem)) {
+      clearWineRecognitionState();
+      return;
+    }
     try {
       const created = await api<CatalogWine>("/api/v1/wines/catalog", {
         method: "POST",
         body: JSON.stringify({ ...catalogItem, aliases: [label] }),
       });
-      setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
+      if (created.is_active) {
+        setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
+      } else if (session?.is_app_admin) {
+        await loadPendingCatalogEntries(true);
+      }
     } catch {
       // The draft is still useful even if catalog enrichment is denied or already exists.
     } finally {
@@ -5285,14 +5305,20 @@ export function App() {
       if (enrichment.vintage) {
         setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
       }
-      try {
-        const created = await api<CatalogWine>("/api/v1/wines/catalog", {
-          method: "POST",
-          body: JSON.stringify({ ...catalogItem, aliases: [label] }),
-        });
-        setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
-      } catch {
-        // The AI-filled draft is still useful even if catalog creation is denied or duplicated.
+      if (hasCatalogComplementaryData(catalogItem)) {
+        try {
+          const created = await api<CatalogWine>("/api/v1/wines/catalog", {
+            method: "POST",
+            body: JSON.stringify({ ...catalogItem, aliases: [label] }),
+          });
+          if (created.is_active) {
+            setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
+          } else if (session?.is_app_admin) {
+            await loadPendingCatalogEntries(true);
+          }
+        } catch {
+          // The AI-filled draft is still useful even if catalog creation is denied or duplicated.
+        }
       }
       await Promise.all([loadAiSettings(), loadAiUsage(), loadBilling()]);
     } catch (nextError) {
@@ -5542,6 +5568,15 @@ export function App() {
     } else {
       setAppUsers([]);
       setPendingUsers([]);
+      setPendingCatalogEntries([]);
+    }
+  }
+
+  async function loadPendingCatalogEntries(isAppAdmin = session?.is_app_admin) {
+    if (isAppAdmin) {
+      setPendingCatalogEntries(await api<CatalogWine[]>("/api/v1/wines/catalog/pending"));
+    } else {
+      setPendingCatalogEntries([]);
     }
   }
 
@@ -5652,7 +5687,7 @@ export function App() {
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
       : nextLists[0]?.id || "";
-    await Promise.all([loadWines(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
+    await Promise.all([loadWines(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadPendingCatalogEntries(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
   }
 
   async function loadData() {
@@ -5677,6 +5712,7 @@ export function App() {
           setInvites([]);
           setPendingUsers([]);
           setAppUsers([]);
+          setPendingCatalogEntries([]);
           setAiAudit([]);
           setAiUsage(null);
           setAiSettings(null);
@@ -5701,6 +5737,7 @@ export function App() {
         setInvites([]);
         setPendingUsers([]);
         setAppUsers([]);
+        setPendingCatalogEntries([]);
         setAiAudit([]);
         setAiUsage(null);
         setAiSettings(null);
@@ -6014,6 +6051,7 @@ export function App() {
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
+    setPendingCatalogEntries([]);
     setRedeemCodes([]);
     setBillingStatus(null);
     setRedeemInput("");
@@ -6282,6 +6320,21 @@ export function App() {
     }
   }
 
+  async function approveCatalogEntry(entry: CatalogWine) {
+    if (!entry.id) return;
+    setSaving(true);
+    setError("");
+    try {
+      const approved = await api<CatalogWine>(`/api/v1/wines/catalog/${entry.id}/approve`, { method: "POST" });
+      setPendingCatalogEntries((current) => current.filter((item) => item.id !== approved.id));
+      setWineCatalog((current) => [approved, ...current.filter((item) => item.id !== approved.id)]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to approve catalog entry");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function deleteAppUser(user: AppUser) {
     if (!window.confirm(`Delete ${user.email}?`)) return;
     if (!window.confirm(`This permanently removes ${user.email}. Continue?`)) return;
@@ -6521,6 +6574,7 @@ export function App() {
       setInvites([]);
       setPendingUsers([]);
       setAppUsers([]);
+      setPendingCatalogEntries([]);
       setRedeemCodes([]);
       setBillingStatus(null);
       setAiAudit([]);
@@ -7760,7 +7814,7 @@ export function App() {
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
-  const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
+  const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -8467,6 +8521,12 @@ export function App() {
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
                         <span>{t("reviewUsers")}</span>
+                      </button>
+                    ) : null}
+                    {canAppAdmin && pendingCatalogEntries.length ? (
+                      <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("ai_audit")}</i>{pendingCatalogEntries.length} {t("pendingCatalogEntries")}</strong>
+                        <span>{t("approveCatalogEntry")}</span>
                       </button>
                     ) : null}
                     {receivedInvites.map((invite) => (
@@ -11418,6 +11478,43 @@ export function App() {
                     </div>
                   ) : (
                     <p className="empty-state">{t("noActionItems")}</p>
+                  )}
+                </section>
+              ) : null}
+
+              {settingsTab === "users" && canAppAdmin ? (
+                <section className="settings-card settings-card-wide">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{t("labelRecognitionAccess")}</span>
+                      <h3>{t("pendingCatalogEntries")}</h3>
+                    </div>
+                    <div className="member-actions">
+                      <strong>{pendingCatalogEntries.length}</strong>
+                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadPendingCatalogEntries(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load catalog entries"))}>
+                        {t("loadingData")}
+                      </button>
+                    </div>
+                  </div>
+                  {pendingCatalogEntries.length ? (
+                    <div className="member-list">
+                      {pendingCatalogEntries.map((entry) => (
+                        <div className="member-row" key={entry.id || `${entry.producer}-${entry.name}`}>
+                          <div>
+                            <strong>{[entry.producer, entry.name].filter(Boolean).join(" - ") || entry.name}</strong>
+                            <span>{[entry.region, entry.appellation, entry.type].filter(Boolean).join(" - ") || t("noActionItems")}</span>
+                            {entry.country || entry.grapes_text ? <span>{[entry.country, entry.grapes_text].filter(Boolean).join(" - ")}</span> : null}
+                          </div>
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
+                              {t("approveCatalogEntry")}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="empty-state">{t("noPendingCatalogEntries")}</p>
                   )}
                 </section>
               ) : null}

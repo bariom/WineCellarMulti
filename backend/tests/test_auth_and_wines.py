@@ -426,7 +426,7 @@ def test_wine_recognition_parser_uses_api4ai_classes():
     assert suggestions[0].confidence == 0.6465678215026855
 
 
-def test_create_wine_adds_missing_entry_to_catalog():
+def test_create_wine_adds_pending_entry_to_catalog_for_admin_approval():
     client = TestClient(app)
     assert register(client).status_code == 201
 
@@ -446,8 +446,34 @@ def test_create_wine_adds_missing_entry_to_catalog():
 
     catalog = client.get("/api/v1/wines/catalog?q=unique%20catalog%20test")
     assert catalog.status_code == 200
+    assert catalog.json() == []
+
+    pending = client.get("/api/v1/wines/catalog/pending")
+    assert pending.status_code == 200
+    pending_entry = next(entry for entry in pending.json() if entry["name"] == "Unique Catalog Test")
+    assert pending_entry["producer"] == "Producer Test"
+    assert pending_entry["is_active"] is False
+
+    approved = client.post(f"/api/v1/wines/catalog/{pending_entry['id']}/approve")
+    assert approved.status_code == 200
+    assert approved.json()["is_active"] is True
+
+    catalog = client.get("/api/v1/wines/catalog?q=unique%20catalog%20test")
+    assert catalog.status_code == 200
     assert catalog.json()[0]["name"] == "Unique Catalog Test"
     assert catalog.json()[0]["producer"] == "Producer Test"
+
+
+def test_create_wine_without_complementary_data_does_not_create_catalog_entry():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    created = client.post("/api/v1/wines", json={"name": "Only Name Wine", "quantity": 1})
+    assert created.status_code == 201
+
+    pending = client.get("/api/v1/wines/catalog/pending")
+    assert pending.status_code == 200
+    assert all(entry["name"] != "Only Name Wine" for entry in pending.json())
 
 
 def test_create_catalog_entry_ignores_duplicate_aliases_in_same_request():
@@ -468,6 +494,7 @@ def test_create_catalog_entry_ignores_duplicate_aliases_in_same_request():
     )
     assert response.status_code == 201
     assert response.json()["name"] == "Dogaia Brivio"
+    assert response.json()["is_active"] is False
 
     repeated = client.post(
         "/api/v1/wines/catalog",
@@ -479,6 +506,14 @@ def test_create_catalog_entry_ignores_duplicate_aliases_in_same_request():
     )
     assert repeated.status_code == 201
     assert repeated.json()["id"] == response.json()["id"]
+
+
+def test_create_catalog_entry_requires_complementary_data():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    response = client.post("/api/v1/wines/catalog", json={"name": "Dogaia Brivio", "aliases": ["Dogaia Brivio"]})
+    assert response.status_code == 422
 
 
 def test_ai_wine_label_enrichment(monkeypatch):

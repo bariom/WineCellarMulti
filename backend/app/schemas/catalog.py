@@ -14,6 +14,7 @@ class CatalogWineResponse(BaseModel):
     country: str = ""
     grapes_text: str = ""
     source: str = "manual"
+    is_active: bool = True
 
 
 class CatalogWineCreate(BaseModel):
