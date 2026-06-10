@@ -2638,6 +2638,16 @@ summary:focus-visible {
   line-height: 1.35;
 }
 
+.manual-ai-search {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.manual-ai-search .form-hint {
+  max-width: 62ch;
+}
+
 input,
 select,
 textarea {

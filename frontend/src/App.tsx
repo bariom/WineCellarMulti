@@ -9657,7 +9657,7 @@ export function App() {
                   <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
                 </label>
                 {showManualWineAiSearch ? (
-                  <div className="inline-row-form">
+                  <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft()}>
                       {wineEnrichmentLoading ? t("generating") : t("searchWineDataWithAi")}
                     </button>
