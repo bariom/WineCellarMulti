@@ -20,5 +20,8 @@ class User(Base):
     is_app_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    email_verification_token_hash: Mapped[str] = mapped_column(String(128), default="", index=True)
+    email_verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     locale: Mapped[str] = mapped_column(String(8), default="it")
     theme_preference: Mapped[str] = mapped_column(String(32), default="system")

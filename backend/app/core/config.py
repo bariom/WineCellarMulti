@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_ttl_days: int = 30
     invite_ttl_days: int = 7
+    email_verification_ttl_hours: int = 48
     registration_requires_approval: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     openai_api_key: str = ""

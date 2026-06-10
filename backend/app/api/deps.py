@@ -57,6 +57,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "membership_role": None,
             "is_app_admin": False,
             "pending_approval": False,
+            "pending_email_verification": False,
             "locale": "it",
             "theme_preference": "system",
             "has_active_entitlement": False,
@@ -78,6 +79,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
         "pending_approval": False,
+        "pending_email_verification": False,
         "locale": context.user.locale,
         "theme_preference": context.user.theme_preference,
         "has_active_entitlement": context.has_active_entitlement,
@@ -108,7 +110,8 @@ def get_optional_context(
         db.delete(user_session)
         db.commit()
         return None
-    if not user.is_approved or user.is_blocked:
+    email_verification_required = not settings.registration_requires_approval and getattr(user, "email_verified_at", None) is None
+    if not user.is_approved or user.is_blocked or email_verification_required:
         db.delete(user_session)
         db.commit()
         return None

@@ -2610,6 +2610,14 @@ summary:focus-visible {
   color: var(--text-muted);
 }
 
+.app-notice-banner {
+  margin: 12px 0;
+  align-items: center;
+  justify-content: space-between;
+  border-color: color-mix(in srgb, var(--success) 48%, var(--border));
+  background: color-mix(in srgb, var(--success) 10%, var(--panel));
+}
+
 .form-hint {
   margin: 0;
   color: var(--text-muted);

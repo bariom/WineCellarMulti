@@ -4,6 +4,7 @@ from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from webauthn import (
@@ -23,7 +24,7 @@ from webauthn.helpers.structs import (
 
 from app.api.deps import CurrentContext, active_entitlement_valid_until, build_session_response, get_authenticated_context, get_current_context, require_app_admin_context
 from app.core.config import settings
-from app.core.security import hash_password, hash_session_token, new_session_token, verify_password
+from app.core.security import hash_email_verification_token, hash_password, hash_session_token, new_email_verification_token, new_session_token, verify_password
 from app.db.session import get_db
 from app.models import Household, Membership, PasskeyChallenge, User, UserPasskey, UserSession
 from app.schemas.auth import (
@@ -155,6 +156,10 @@ def user_is_preapproved(db: Session, email: str) -> bool:
     return not settings.registration_requires_approval
 
 
+def user_requires_email_verification(user: User) -> bool:
+    return not settings.registration_requires_approval and user.email_verified_at is None
+
+
 def pending_user_response(user: User) -> PendingUserResponse:
     return PendingUserResponse(id=str(user.id), email=user.email, display_name=user.display_name)
 
@@ -229,27 +234,54 @@ def notify_user_rejected(user: User) -> None:
     )
 
 
+def notify_user_email_verification(user: User, verification_url: str) -> bool:
+    return send_email(
+        recipients=[user.email],
+        subject=f"[{settings.app_name}] Confirm your email",
+        body=(
+            "Confirm your Vinaris email address to activate your account.\n\n"
+            f"Name: {user.display_name}\n"
+            f"Email: {user.email}\n\n"
+            f"Open this link within {settings.email_verification_ttl_hours} hours:\n"
+            f"{verification_url}\n\n"
+            "If you did not create this account, you can ignore this message."
+        ),
+    )
+
+
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
-def register(payload: RegisterRequest, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
+def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
     email = payload.email.lower()
     existing = db.scalar(select(User).where(User.email == email))
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
 
+    first_user = db.scalar(select(User)) is None
     is_approved = user_is_preapproved(db, email)
+    requires_email_verification = is_approved and not first_user and not settings.registration_requires_approval
+    if requires_email_verification and not settings.smtp_enabled:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email verification requires SMTP configuration")
+    email_verification_token = new_email_verification_token() if requires_email_verification else ""
     user = User(
         email=email,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
         is_approved=is_approved,
-        is_app_admin=db.scalar(select(User)) is None,
+        is_app_admin=first_user,
         approved_at=datetime.now(timezone.utc) if is_approved else None,
+        email_verified_at=None if requires_email_verification else datetime.now(timezone.utc),
+        email_verification_token_hash=hash_email_verification_token(email_verification_token) if email_verification_token else "",
+        email_verification_expires_at=datetime.now(timezone.utc) + timedelta(hours=settings.email_verification_ttl_hours) if email_verification_token else None,
     )
     household = Household(name=payload.household_name.strip())
     db.add_all([user, household])
     db.flush()
     membership = Membership(user_id=user.id, household_id=household.id, role="owner")
     db.add(membership)
+    if requires_email_verification:
+        verification_url = f"{request_origin(request)}/api/v1/auth/verify-email?token={email_verification_token}"
+        if not notify_user_email_verification(user, verification_url):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Unable to send email verification link")
     db.commit()
     db.refresh(user)
     db.refresh(household)
@@ -257,12 +289,31 @@ def register(payload: RegisterRequest, response: Response, db: Session = Depends
     if not user.is_approved:
         notify_admins_of_pending_registration(db, user, household)
         return SessionResponse(authenticated=False, pending_approval=True)
+    if user_requires_email_verification(user):
+        return SessionResponse(authenticated=False, pending_email_verification=True)
 
     user_session, token = create_session(db, user, household)
     db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)
     return session_response_for(db, user, household, membership, user_session)
+
+
+@router.get("/verify-email")
+def verify_email(token: str, request: Request, db: Session = Depends(get_db)) -> RedirectResponse:
+    token_hash = hash_email_verification_token(token)
+    user = db.scalar(select(User).where(User.email_verification_token_hash == token_hash))
+    origin = request_origin(request)
+    if user is None or user.email_verification_expires_at is None:
+        return RedirectResponse(f"{origin}/?email_verified=invalid", status_code=status.HTTP_303_SEE_OTHER)
+    expires_at = utc_datetime(user.email_verification_expires_at)
+    if expires_at < datetime.now(timezone.utc):
+        return RedirectResponse(f"{origin}/?email_verified=expired", status_code=status.HTTP_303_SEE_OTHER)
+    user.email_verified_at = datetime.now(timezone.utc)
+    user.email_verification_token_hash = ""
+    user.email_verification_expires_at = None
+    db.commit()
+    return RedirectResponse(f"{origin}/?email_verified=success", status_code=status.HTTP_303_SEE_OTHER)
 
 
 @router.post("/login", response_model=SessionResponse)
@@ -272,6 +323,8 @@ def login(payload: LoginRequest, response: Response, db: Session = Depends(get_d
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     if not user.is_approved:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
+    if user_requires_email_verification(user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email verification required")
     if user.is_blocked:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account blocked")
 
@@ -409,6 +462,8 @@ def verify_passkey_login(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User unavailable")
     if not user.is_approved:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account pending approval")
+    if user_requires_email_verification(user):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Email verification required")
     if user.is_blocked:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Account blocked")
     membership = db.scalar(select(Membership).where(Membership.user_id == user.id).order_by(Membership.role.asc()))

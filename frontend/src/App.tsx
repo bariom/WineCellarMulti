@@ -9,6 +9,7 @@ type Session = {
   membership_role: string | null;
   is_app_admin: boolean;
   pending_approval: boolean;
+  pending_email_verification: boolean;
   locale: Locale;
   theme_preference: ThemePreference;
   has_active_entitlement: boolean;
@@ -1150,6 +1151,11 @@ const translations = {
     pendingInvites: "Pending invites",
     pendingApproval: "Account pending approval",
     pendingApprovalHelp: "Your account was created, but it must be approved by an administrator before login.",
+    pendingEmailVerification: "Confirm your email",
+    pendingEmailVerificationHelp: "Your account was created. Open the confirmation link sent to your email address before signing in.",
+    emailVerificationSuccess: "Email confirmed. You can now sign in.",
+    emailVerificationExpired: "Email confirmation link expired. Register again or contact support.",
+    emailVerificationInvalid: "Email confirmation link is invalid.",
     pendingUsers: "Users pending approval",
     redeem: "Redeem",
     redeemCode: "Redeem code",
@@ -1585,6 +1591,11 @@ const translations = {
     pendingInvites: "Inviti pendenti",
     pendingApproval: "Account in attesa di approvazione",
     pendingApprovalHelp: "Il tuo account è stato creato, ma deve essere approvato da un amministratore prima dell'accesso.",
+    pendingEmailVerification: "Conferma la tua email",
+    pendingEmailVerificationHelp: "Il tuo account è stato creato. Apri il link di conferma inviato al tuo indirizzo email prima di accedere.",
+    emailVerificationSuccess: "Email confermata. Ora puoi accedere.",
+    emailVerificationExpired: "Il link di conferma email è scaduto. Registrati di nuovo o contatta il supporto.",
+    emailVerificationInvalid: "Il link di conferma email non è valido.",
     pendingUsers: "Utenti in attesa di approvazione",
     redeem: "Riscatta",
     redeemCode: "Codice redeem",
@@ -2382,6 +2393,12 @@ function formatUserErrorMessage(message: string, locale: Locale) {
       : "No network connection is available. You can try logging in again when you are back online or load an offline backup in read-only mode.";
   }
 
+  if (normalized.includes("email verification required")) {
+    return locale === "it"
+      ? "Devi confermare il tuo indirizzo email prima di accedere. Controlla la posta e apri il link di conferma."
+      : "You must confirm your email address before signing in. Check your inbox and open the confirmation link.";
+  }
+
   if (normalized.includes("openai request failed")) {
     if (
       normalized.includes("timeout")
@@ -2730,6 +2747,12 @@ function stripeCheckoutResultFromUrl() {
   const params = new URLSearchParams(window.location.search);
   const result = params.get("stripe_checkout");
   return result === "success" || result === "cancelled" ? result : "";
+}
+
+function emailVerificationResultFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const result = params.get("email_verified");
+  return result === "success" || result === "expired" || result === "invalid" ? result : "";
 }
 
 const STRIPE_CHECKOUT_PLAN_KEY = "vinaris_stripe_checkout_plan";
@@ -5008,6 +5031,7 @@ export function App() {
   const [saving, setSaving] = useState(false);
   const [generatingAi, setGeneratingAi] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const errorBannerRef = useRef<HTMLDivElement | null>(null);
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
@@ -5619,6 +5643,17 @@ export function App() {
       setAcceptToken(urlToken);
     }
     const stripeCheckoutResult = stripeCheckoutResultFromUrl();
+    const emailVerificationResult = emailVerificationResultFromUrl();
+    if (emailVerificationResult === "success") {
+      setNotice(t("emailVerificationSuccess"));
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (emailVerificationResult === "expired") {
+      setError(t("emailVerificationExpired"));
+      window.history.replaceState(null, "", window.location.pathname);
+    } else if (emailVerificationResult === "invalid") {
+      setError(t("emailVerificationInvalid"));
+      window.history.replaceState(null, "", window.location.pathname);
+    }
     if (stripeCheckoutResult === "cancelled") {
       window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
       window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
@@ -5809,6 +5844,7 @@ export function App() {
       membership_role: null,
       is_app_admin: false,
       pending_approval: false,
+      pending_email_verification: false,
       locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en",
       theme_preference: "system",
       has_active_entitlement: false,
@@ -6302,6 +6338,7 @@ export function App() {
         membership_role: "offline",
         is_app_admin: false,
         pending_approval: false,
+        pending_email_verification: false,
         locale,
         theme_preference: themePreference,
         has_active_entitlement: true,
@@ -6401,6 +6438,7 @@ export function App() {
   async function savePairingPreferences() {
     setSaving(true);
     setError("");
+    setNotice("");
     try {
       const nextSettings = await api<AiSettings>("/api/v1/ai/settings", {
         method: "PATCH",
@@ -6968,6 +7006,12 @@ export function App() {
           <div className="invite-notice">
             <strong>{t("pendingApproval")}</strong>
             <span>{t("pendingApprovalHelp")}</span>
+          </div>
+        ) : null}
+        {session?.pending_email_verification ? (
+          <div className="invite-notice">
+            <strong>{t("pendingEmailVerification")}</strong>
+            <span>{t("pendingEmailVerificationHelp")}</span>
           </div>
         ) : null}
         <label>
@@ -8212,6 +8256,15 @@ export function App() {
             <span>{visibleError}</span>
           </div>
           <button type="button" className="secondary compact app-error-close" onClick={() => setError("")}>
+            {t("close")}
+          </button>
+        </div>
+      ) : null}
+
+      {notice ? (
+        <div className="invite-notice app-notice-banner" role="status" aria-live="polite">
+          <span>{notice}</span>
+          <button type="button" className="secondary compact" onClick={() => setNotice("")}>
             {t("close")}
           </button>
         </div>

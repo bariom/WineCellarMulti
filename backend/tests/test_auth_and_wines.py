@@ -144,7 +144,18 @@ def test_register_login_session_and_logout():
 
 
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
+    from app.api.routes import auth as auth_routes
+
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(auth_routes, "send_email", fake_send_email)
     monkeypatch.setattr(settings, "registration_requires_approval", False)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
 
     admin_client = TestClient(app)
     assert register(admin_client).status_code == 201
@@ -152,12 +163,23 @@ def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
     user_client = TestClient(app)
     registered = register(user_client, email="production@example.com", password="strong-password-2")
     assert registered.status_code == 201
-    assert registered.json()["authenticated"] is True
+    assert registered.json()["authenticated"] is False
     assert registered.json()["pending_approval"] is False
-    assert registered.json()["is_app_admin"] is False
+    assert registered.json()["pending_email_verification"] is True
+
+    blocked_login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
+    assert blocked_login.status_code == 403
+    assert "verification" in blocked_login.json()["detail"].lower()
+
+    verification_email = next(message for message in deliveries if message["recipients"] == ["production@example.com"])
+    verification_url = str(verification_email["body"]).split("/api/v1/auth/verify-email?token=", 1)[1].split()[0]
+    token = parse_qs(f"token={verification_url}")["token"][0]
+    verified = user_client.get(f"/api/v1/auth/verify-email?token={token}", follow_redirects=False)
+    assert verified.status_code == 303
 
     login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
     assert login.status_code == 200
+    assert login.json()["authenticated"] is True
 
     pending_users = admin_client.get("/api/v1/auth/pending-users")
     assert pending_users.status_code == 200
