@@ -49,6 +49,22 @@ def build_search_text(*parts: str) -> str:
     return normalize_catalog_text(" ".join(part for part in parts if part))
 
 
+def session_has_catalog_alias(db: Session, normalized_alias: str) -> bool:
+    return any(
+        isinstance(item, WineCatalogAlias) and item.normalized_alias == normalized_alias
+        for item in db.new
+    )
+
+
+def add_catalog_alias_if_missing(db: Session, entry: WineCatalogEntry, alias: str, *, source: str) -> None:
+    normalized = normalize_catalog_text(alias)
+    if not normalized or session_has_catalog_alias(db, normalized):
+        return
+    if db.scalar(select(WineCatalogAlias.id).where(WineCatalogAlias.normalized_alias == normalized)) is not None:
+        return
+    db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source=source, created_at=datetime.now(timezone.utc)))
+
+
 def catalog_response(entry: WineCatalogEntry) -> CatalogWineResponse:
     return CatalogWineResponse(
         id=entry.id,
@@ -170,9 +186,7 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
     db.add(entry)
     db.flush()
     for alias in aliases:
-        normalized = normalize_catalog_text(alias)
-        if normalized and db.scalar(select(WineCatalogAlias.id).where(WineCatalogAlias.normalized_alias == normalized)) is None:
-            db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source=source, created_at=datetime.now(timezone.utc)))
+        add_catalog_alias_if_missing(db, entry, alias, source=source)
     return entry
 
 
@@ -312,9 +326,7 @@ def create_wine_catalog_entry(
     entry.search_text = build_search_text(entry.name, entry.producer, entry.region, entry.appellation, entry.type, entry.country, entry.grapes_text)
     aliases = {payload.name.strip(), f"{payload.producer.strip()} {payload.name.strip()}".strip(), *[alias.strip() for alias in payload.aliases]}
     for alias in aliases:
-        normalized = normalize_catalog_text(alias)
-        if normalized and db.scalar(select(WineCatalogAlias.id).where(WineCatalogAlias.normalized_alias == normalized)) is None:
-            db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source="manual", created_at=datetime.now(timezone.utc)))
+        add_catalog_alias_if_missing(db, entry, alias, source="manual")
     db.commit()
     db.refresh(entry)
     return catalog_response(entry)

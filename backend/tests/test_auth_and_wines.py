@@ -450,6 +450,37 @@ def test_create_wine_adds_missing_entry_to_catalog():
     assert catalog.json()[0]["producer"] == "Producer Test"
 
 
+def test_create_catalog_entry_ignores_duplicate_aliases_in_same_request():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    response = client.post(
+        "/api/v1/wines/catalog",
+        json={
+            "name": "Dogaia Brivio",
+            "producer": "",
+            "region": "Ticino",
+            "appellation": "Ticino DOC",
+            "type": "Red",
+            "format": "Bottle (750ml)",
+            "aliases": ["Dogaia Brivio"],
+        },
+    )
+    assert response.status_code == 201
+    assert response.json()["name"] == "Dogaia Brivio"
+
+    repeated = client.post(
+        "/api/v1/wines/catalog",
+        json={
+            "name": "Dogaia Brivio",
+            "producer": "",
+            "aliases": ["Dogaia Brivio"],
+        },
+    )
+    assert repeated.status_code == 201
+    assert repeated.json()["id"] == response.json()["id"]
+
+
 def test_ai_wine_label_enrichment(monkeypatch):
     from app.api.routes import ai as ai_routes
 
