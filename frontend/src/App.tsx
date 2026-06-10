@@ -1232,6 +1232,13 @@ const translations = {
     bottlesByType: "Bottles by type",
     bottlesByRegion: "Bottles by region",
     winesByRegion: "Wines by region",
+    chartDrilldown: "Chart detail",
+    openFilteredCellar: "Open filtered cellar",
+    topWines: "Top wines",
+    topProducers: "Top producers",
+    averageBottleValue: "Average bottle value",
+    distinctWines: "Distinct wines",
+    noDrilldownWines: "No wines in this segment",
     totalValue: "Total value",
     type: "Type",
     updatedItems: "updated",
@@ -1677,6 +1684,13 @@ const translations = {
     bottlesByType: "Bottiglie per tipo",
     bottlesByRegion: "Bottiglie per regione",
     winesByRegion: "Vini per regione",
+    chartDrilldown: "Dettaglio grafico",
+    openFilteredCellar: "Apri cantina filtrata",
+    topWines: "Top vini",
+    topProducers: "Top produttori",
+    averageBottleValue: "Valore medio bottiglia",
+    distinctWines: "Vini distinti",
+    noDrilldownWines: "Nessun vino in questo segmento",
     totalValue: "Valore totale",
     type: "Tipo",
     updatedItems: "aggiornati",
@@ -2957,6 +2971,17 @@ function prioritySortValue(priority: string) {
 }
 
 type ValueBreakdownItem = { label: string; value: number };
+type BreakdownMetric = "value" | "bottles" | "wines";
+type BreakdownDrilldown = {
+  title: TranslationKey;
+  dimension: "type" | "region";
+  metric: BreakdownMetric;
+  label: string;
+} | null;
+
+function wineGroupValue(wine: Wine, field: "type" | "region") {
+  return wine[field] || (field === "type" ? "Other" : "Unknown region");
+}
 
 function breakdownColor(label: string, index: number, mode: "type" | "region") {
   if (mode === "type") {
@@ -2993,21 +3018,29 @@ function breakdownDonutSegments(items: ValueBreakdownItem[], mode: "type" | "reg
 function BreakdownDonut({
   items,
   mode,
+  onSelect,
 }: {
   items: ValueBreakdownItem[];
   mode: "type" | "region";
+  onSelect?: (item: ValueBreakdownItem) => void;
 }) {
   const segments = breakdownDonutSegments(items, mode);
   if (!segments.length) return null;
   const background = `conic-gradient(${segments.map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`).join(", ")})`;
   return (
     <div className="breakdown-donut-wrap">
-      <div className="breakdown-donut" style={{ background }} aria-hidden="true">
+      <button
+        type="button"
+        className="breakdown-donut"
+        style={{ background }}
+        onClick={() => onSelect?.(segments[0])}
+        aria-label={`${segments[0].label} drill-down`}
+      >
         <div className="breakdown-donut-hole">
           <strong>{segments.length}</strong>
           <span>{mode === "type" ? "types" : "regions"}</span>
         </div>
-      </div>
+      </button>
     </div>
   );
 }
@@ -3125,10 +3158,10 @@ function ownershipStats(items: Wine[], session: Session | null) {
 }
 
 function topWineValueGroups(items: Wine[], field: "type" | "region") {
-  return uniqueSorted(items.map((wine) => wine[field] || (field === "type" ? "Other" : "Unknown region")))
+  return uniqueSorted(items.map((wine) => wineGroupValue(wine, field)))
     .map((label) => ({
       label,
-      value: sumWineValue(items.filter((wine) => (wine[field] || (field === "type" ? "Other" : "Unknown region")) === label)),
+      value: sumWineValue(items.filter((wine) => wineGroupValue(wine, field) === label)),
     }))
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
@@ -3136,11 +3169,11 @@ function topWineValueGroups(items: Wine[], field: "type" | "region") {
 }
 
 function topWineBottleGroups(items: Wine[], field: "type" | "region") {
-  return uniqueSorted(items.map((wine) => wine[field] || (field === "type" ? "Other" : "Unknown region")))
+  return uniqueSorted(items.map((wine) => wineGroupValue(wine, field)))
     .map((label) => ({
       label,
       value: items
-        .filter((wine) => (wine[field] || (field === "type" ? "Other" : "Unknown region")) === label)
+        .filter((wine) => wineGroupValue(wine, field) === label)
         .reduce((total, wine) => total + wine.quantity, 0),
     }))
     .filter((item) => item.value > 0)
@@ -3149,10 +3182,10 @@ function topWineBottleGroups(items: Wine[], field: "type" | "region") {
 }
 
 function topWineCountGroups(items: Wine[], field: "type" | "region") {
-  return uniqueSorted(items.map((wine) => wine[field] || (field === "type" ? "Other" : "Unknown region")))
+  return uniqueSorted(items.map((wine) => wineGroupValue(wine, field)))
     .map((label) => ({
       label,
-      value: items.filter((wine) => (wine[field] || (field === "type" ? "Other" : "Unknown region")) === label).length,
+      value: items.filter((wine) => wineGroupValue(wine, field) === label).length,
     }))
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
@@ -5023,6 +5056,7 @@ export function App() {
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [activeView, setActiveView] = useState<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
+  const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
@@ -7519,6 +7553,15 @@ export function App() {
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
   const bottlesByRegion = topWineBottleGroups(cellarWines, "region");
   const winesByRegion = topWineCountGroups(cellarWines, "region");
+  const breakdownWines = breakdownDrilldown
+    ? cellarWines.filter((wine) => wineGroupValue(wine, breakdownDrilldown.dimension) === breakdownDrilldown.label)
+    : [];
+  const breakdownTotalValue = sumWineValue(breakdownWines);
+  const breakdownBottleCount = breakdownWines.reduce((sum, wine) => sum + wine.quantity, 0);
+  const breakdownTopWines = [...breakdownWines]
+    .sort((first, second) => (wineUnitValue(second) * second.quantity) - (wineUnitValue(first) * first.quantity))
+    .slice(0, 5);
+  const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
   const valueByProducer = topProducerGroups(cellarWines);
   const maturity = maturityBuckets(cellarWines, currentYear, locale);
   const drinkNowWines = cellarWines
@@ -7872,6 +7915,32 @@ export function App() {
     setGrapeOptionQuery("");
     setSortMode("name");
     setQuickWineFilter((current) => current === filter ? "" : filter);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+  }
+
+  function openBreakdownDrilldown(title: TranslationKey, dimension: "type" | "region", metric: BreakdownMetric, label: string) {
+    setBreakdownDrilldown({ title, dimension, metric, label });
+  }
+
+  function openBreakdownInCellar() {
+    if (!breakdownDrilldown) return;
+    setActiveView("cellar");
+    setSearchQuery("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setTagFilter([]);
+    setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
+    setQuickWineFilter("");
+    setSortMode(breakdownDrilldown.metric === "value" ? "value" : "name");
+    setTypeFilter(breakdownDrilldown.dimension === "type" ? breakdownDrilldown.label : "");
+    if (breakdownDrilldown.dimension === "region") {
+      setSearchQuery(breakdownDrilldown.label === "Unknown region" ? "" : breakdownDrilldown.label);
+    }
     setWineFormOpen(false);
     setWishlistFormOpen(false);
   }
@@ -9969,13 +10038,13 @@ export function App() {
                     <div className="breakdown-layout">
                       <div className="breakdown-list">
                         {valueByType.map((item) => (
-                          <p key={item.label}>
+                          <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("valueByType", "type", "value", item.label)}>
                             <i className={`wine-dot tone-${wineTone(item.label)}`} />
                             {item.label}: {formatMoney(item.value, "CHF", locale)}
-                          </p>
+                          </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={valueByType} mode="type" />
+                      <BreakdownDonut items={valueByType} mode="type" onSelect={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)} />
                     </div>
                   </div>
                 ) : null}
@@ -9985,13 +10054,13 @@ export function App() {
                     <div className="breakdown-layout">
                       <div className="breakdown-list">
                         {valueByRegion.map((item, index) => (
-                          <p key={item.label}>
+                          <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("topRegions", "region", "value", item.label)}>
                             <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
                             {item.label}: {formatMoney(item.value, "CHF", locale)}
-                          </p>
+                          </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={valueByRegion} mode="region" />
+                      <BreakdownDonut items={valueByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("topRegions", "region", "value", item.label)} />
                     </div>
                   </div>
                 ) : null}
@@ -10001,13 +10070,13 @@ export function App() {
                     <div className="breakdown-layout">
                       <div className="breakdown-list">
                         {bottlesByType.map((item) => (
-                          <p key={item.label}>
+                          <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)}>
                             <i className={`wine-dot tone-${wineTone(item.label)}`} />
                             {item.label}: {formatBottleCount(item.value, locale)}
-                          </p>
+                          </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={bottlesByType} mode="type" />
+                      <BreakdownDonut items={bottlesByType} mode="type" onSelect={(item) => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)} />
                     </div>
                   </div>
                 ) : null}
@@ -10017,13 +10086,13 @@ export function App() {
                     <div className="breakdown-layout">
                       <div className="breakdown-list">
                         {bottlesByRegion.map((item, index) => (
-                          <p key={item.label}>
+                          <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("bottlesByRegion", "region", "bottles", item.label)}>
                             <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
                             {item.label}: {formatBottleCount(item.value, locale)}
-                          </p>
+                          </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={bottlesByRegion} mode="region" />
+                      <BreakdownDonut items={bottlesByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("bottlesByRegion", "region", "bottles", item.label)} />
                     </div>
                   </div>
                 ) : null}
@@ -10033,13 +10102,13 @@ export function App() {
                     <div className="breakdown-layout">
                       <div className="breakdown-list">
                         {winesByRegion.map((item, index) => (
-                          <p key={item.label}>
+                          <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)}>
                             <i className="breakdown-marker" style={{ backgroundColor: breakdownColor(item.label, index, "region") } as CSSProperties} />
                             {item.label}: {formatBottleCount(item.value, locale)}
-                          </p>
+                          </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={winesByRegion} mode="region" />
+                      <BreakdownDonut items={winesByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)} />
                     </div>
                   </div>
                 ) : null}
@@ -10049,6 +10118,52 @@ export function App() {
                   <p>{t("aiReadinessHelp")}</p>
                 </div>
               </section>
+              {breakdownDrilldown ? (
+                <section className="chart-drilldown-panel">
+                  <div className="chart-drilldown-head">
+                    <div>
+                      <span>{t("chartDrilldown")}</span>
+                      <h3>{t(breakdownDrilldown.title)} - {breakdownDrilldown.label}</h3>
+                    </div>
+                    <button type="button" className="secondary compact" onClick={() => setBreakdownDrilldown(null)}>
+                      {t("cancel")}
+                    </button>
+                  </div>
+                  <div className="chart-drilldown-kpis">
+                    <div><span>{t("totalValue")}</span><strong>{formatMoney(breakdownTotalValue, "CHF", locale)}</strong></div>
+                    <div><span>{t("bottles")}</span><strong>{formatBottleCount(breakdownBottleCount, locale)}</strong></div>
+                    <div><span>{t("distinctWines")}</span><strong>{formatBottleCount(breakdownWines.length, locale)}</strong></div>
+                    <div><span>{t("averageBottleValue")}</span><strong>{formatMoney(breakdownBottleCount ? breakdownTotalValue / breakdownBottleCount : 0, "CHF", locale)}</strong></div>
+                  </div>
+                  <div className="chart-drilldown-grid">
+                    <div>
+                      <strong>{t("topWines")}</strong>
+                      <div className="action-list">
+                        {breakdownTopWines.length ? breakdownTopWines.map((wine) => (
+                          <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                            <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                            <strong>{formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</strong>
+                          </button>
+                        )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
+                      </div>
+                    </div>
+                    <div>
+                      <strong>{t("topProducers")}</strong>
+                      <div className="bar-list">
+                        {breakdownTopProducers.length ? breakdownTopProducers.map((item) => (
+                          <div className="bar-row" key={item.label}>
+                            <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
+                            <div className="bar-track"><span style={{ width: `${Math.max((item.value / Math.max(breakdownTotalValue, 1)) * 100, 5)}%` }} /></div>
+                          </div>
+                        )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
+                      </div>
+                    </div>
+                  </div>
+                  <button type="button" onClick={openBreakdownInCellar}>
+                    {t("openFilteredCellar")}
+                  </button>
+                </section>
+              ) : null}
             </details>
             ) : activeView === "history" ? (
             <>

@@ -4704,6 +4704,27 @@ button.stat-card:hover {
   gap: 0.45rem;
 }
 
+.breakdown-list-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #52635c;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.breakdown-list-item:hover,
+.breakdown-list-item:focus-visible {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  outline: none;
+}
+
 .breakdown-donut-wrap {
   display: flex;
   justify-content: flex-end;
@@ -4716,7 +4737,20 @@ button.stat-card:hover {
   border-radius: 50%;
   display: grid;
   place-items: center;
+  padding: 0;
+  border: 0;
   box-shadow: inset 0 0 0 1px var(--border);
+  cursor: pointer;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+
+.breakdown-donut:hover,
+.breakdown-donut:focus-visible {
+  transform: translateY(-2px) scale(1.02);
+  outline: none;
+  box-shadow:
+    inset 0 0 0 1px var(--border),
+    0 12px 24px color-mix(in srgb, var(--primary) 14%, transparent);
 }
 
 .breakdown-donut-hole {
@@ -4761,6 +4795,59 @@ button.stat-card:hover {
 
 .compact-list {
   align-content: start;
+}
+
+.chart-drilldown-panel {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 12%, transparent), transparent 28%),
+    color-mix(in srgb, var(--surface) 92%, var(--primary) 4%);
+}
+
+.chart-drilldown-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: start;
+}
+
+.chart-drilldown-head h3 {
+  margin: 0.15rem 0 0;
+}
+
+.chart-drilldown-head span,
+.chart-drilldown-kpis span {
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chart-drilldown-kpis,
+.chart-drilldown-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.chart-drilldown-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chart-drilldown-kpis div,
+.chart-drilldown-grid > div {
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
 }
 
 .compact-list p strong {
@@ -7837,6 +7924,16 @@ summary:focus-visible {
   .stat-card:hover,
   button:hover {
     transform: none;
+  }
+
+  .chart-drilldown-kpis,
+  .chart-drilldown-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chart-drilldown-head {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 
