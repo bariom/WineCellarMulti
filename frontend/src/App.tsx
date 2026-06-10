@@ -843,6 +843,8 @@ const translations = {
     addWishlist: "Add to wishlist",
     recognizeWine: "Recognize from photo",
     recognizingWine: "Recognizing...",
+    choosePhotoFile: "Choose file",
+    takeLabelPhoto: "Take label photo",
     recognitionSuggestions: "Recognition suggestions",
     recognitionNoMatch: "No catalog match yet. Apply a suggestion and the catalog can be enriched.",
     useSuggestion: "Use suggestion",
@@ -1276,6 +1278,8 @@ const translations = {
     addWishlist: "Aggiungi a wishlist",
     recognizeWine: "Riconosci da foto",
     recognizingWine: "Riconoscimento...",
+    choosePhotoFile: "Scegli file",
+    takeLabelPhoto: "Scatta foto etichetta",
     recognitionSuggestions: "Suggerimenti riconoscimento",
     recognitionNoMatch: "Nessuna corrispondenza nel catalogo. Applica un suggerimento e il catalogo potrà essere arricchito.",
     useSuggestion: "Usa suggerimento",
@@ -5195,6 +5199,12 @@ export function App() {
     } finally {
       setWineRecognitionLoading(false);
     }
+  }
+
+  function handleWineRecognitionInput(event: ChangeEvent<HTMLInputElement>, target: "wine" | "wishlist") {
+    const file = event.target.files?.[0];
+    if (file) void recognizeWineImage(file, target);
+    event.currentTarget.value = "";
   }
 
   function applySessionPreferences(nextSession: Session) {
@@ -9285,14 +9295,20 @@ export function App() {
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 {!editingId ? (
                   <div className="recognition-box">
-                    <label>
-                      <span>{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
-                      <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void recognizeWineImage(file, "wine");
-                        event.currentTarget.value = "";
-                      }} />
-                    </label>
+                    <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
+                    <div className="recognition-actions">
+                      <label className="recognition-upload-button secondary compact">
+                        <span>{t("choosePhotoFile")}</span>
+                        <input type="file" accept="image/*" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
+                      </label>
+                      <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M7 7l1.4-2h7.2L17 7h2.5A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7H7Z" />
+                          <circle cx="12" cy="13" r="4" />
+                        </svg>
+                        <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
+                      </label>
+                    </div>
                     {wineRecognitionResult && wineRecognitionTarget === "wine" ? (
                       <div className="recognition-results">
                         <strong>{t("recognitionSuggestions")}</strong>
@@ -9579,14 +9595,20 @@ export function App() {
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
                 {!editingWishlistId ? (
                   <div className="recognition-box">
-                    <label>
-                      <span>{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
-                      <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => {
-                        const file = event.target.files?.[0];
-                        if (file) void recognizeWineImage(file, "wishlist");
-                        event.currentTarget.value = "";
-                      }} />
-                    </label>
+                    <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
+                    <div className="recognition-actions">
+                      <label className="recognition-upload-button secondary compact">
+                        <span>{t("choosePhotoFile")}</span>
+                        <input type="file" accept="image/*" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
+                      </label>
+                      <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
+                        <svg viewBox="0 0 24 24" aria-hidden="true">
+                          <path d="M7 7l1.4-2h7.2L17 7h2.5A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7H7Z" />
+                          <circle cx="12" cy="13" r="4" />
+                        </svg>
+                        <input type="file" accept="image/*" capture="environment" disabled={!canWriteWine || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
+                      </label>
+                    </div>
                     {wineRecognitionResult && wineRecognitionTarget === "wishlist" ? (
                       <div className="recognition-results">
                         <strong>{t("recognitionSuggestions")}</strong>

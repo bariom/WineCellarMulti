@@ -2536,8 +2536,61 @@ summary:focus-visible {
   background: color-mix(in srgb, var(--panel) 82%, var(--primary) 8%);
 }
 
-.recognition-box input[type="file"] {
-  width: 100%;
+.recognition-box-title {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.recognition-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.recognition-upload-button,
+.recognition-camera-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  cursor: pointer;
+}
+
+.recognition-upload-button input,
+.recognition-camera-button input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.recognition-camera-button {
+  width: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--primary);
+  color: var(--primary-contrast);
+  box-shadow: var(--shadow-soft);
+}
+
+.recognition-camera-button svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.recognition-camera-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.03);
 }
 
 .recognition-results {
