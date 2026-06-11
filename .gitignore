@@ -21,3 +21,9 @@ backend/.venv/
 backend/.pytest_cache/
 backend/.mypy_cache/
 frontend/.vite/
+deploy/*.zip
+deploy/*certificate*
+deploy/*intermediate*
+deploy/*PrivateKey*
+deploy/*CSR*
+deploy/*fullchain*

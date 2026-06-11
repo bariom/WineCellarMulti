@@ -5,7 +5,7 @@ Vinaris includes a web app manifest and service worker, so Android/Chrome can in
 ## Recommended nginx layout
 
 Do not reuse `bariomwines.duckdns.org` if it must keep serving the old WineCellar app at `/`.
-Use the dedicated hostname for Vinaris, for example `vinaris.duckdns.org`, then point nginx to:
+Use the dedicated hostname for Vinaris, `vinaris.app`, and keep `vinaris.duckdns.org` only as a temporary transition hostname if needed. Point nginx to:
 
 - frontend preview: `127.0.0.1:4174`
 - backend API: `127.0.0.1:8000`
@@ -14,13 +14,12 @@ The frontend fetches `/api/...`, so nginx must proxy `/api/` to the backend befo
 
 ```nginx
 server {
-    listen 443 ssl;
-    server_name vinaris.duckdns.org;
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name vinaris.app www.vinaris.app;
 
-    ssl_certificate /etc/letsencrypt/live/vinaris.duckdns.org/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vinaris.duckdns.org/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    ssl_certificate /etc/ssl/vinaris/fullchain.pem;
+    ssl_certificate_key /etc/ssl/vinaris/vinaris.app-PrivateKey.pem;
 
     location ~ /\.(?!well-known/acme-challenge/) {
         deny all;
@@ -79,14 +78,38 @@ server {
 
 server {
     listen 80;
-    server_name vinaris.duckdns.org;
-
-    location ^~ /.well-known/acme-challenge/ {
-        root /var/www/html;
-    }
+    listen [::]:80;
+    server_name vinaris.app www.vinaris.app;
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 https://vinaris.app$request_uri;
+    }
+}
+```
+
+Optional transition block for the legacy hostname:
+
+```nginx
+server {
+    listen 80;
+    listen [::]:80;
+    server_name vinaris.duckdns.org;
+
+    location / {
+        return 301 https://vinaris.app$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name vinaris.duckdns.org;
+
+    ssl_certificate /etc/letsencrypt/live/vinaris.duckdns.org/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/vinaris.duckdns.org/privkey.pem;
+
+    location / {
+        return 301 https://vinaris.app$request_uri;
     }
 }
 ```
@@ -113,7 +136,7 @@ uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 ## Android install check
 
-Open `https://vinaris.duckdns.org` in Chrome on Android.
+Open `https://vinaris.app` in Chrome on Android.
 The browser should show `Install app` or `Add to Home screen`.
 
 Requirements:

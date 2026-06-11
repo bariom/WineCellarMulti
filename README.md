@@ -111,7 +111,7 @@ Production environment values:
 APP_ENV=production
 APP_DEBUG=false
 SESSION_COOKIE_SECURE=true
-CORS_ORIGINS=https://vinaris.duckdns.org,https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
+CORS_ORIGINS=https://vinaris.app,https://www.vinaris.app,https://vinaris.duckdns.org,https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
 ```
 
 Open `http://<server-ip>:5173`.
@@ -192,9 +192,9 @@ STRIPE_AI_CREDIT_LABEL=Vinaris AI Pack
 AI_PACK_MARKUP_PERCENT=15
 STRIPE_MONTHLY_ENTITLEMENT_DAYS=31
 STRIPE_ANNUAL_ENTITLEMENT_DAYS=365
-STRIPE_SUCCESS_URL=https://vinaris.duckdns.org/?stripe_checkout=success
-STRIPE_CANCEL_URL=https://vinaris.duckdns.org/?stripe_checkout=cancelled
-STRIPE_PORTAL_RETURN_URL=https://vinaris.duckdns.org/?billing_portal=return
+STRIPE_SUCCESS_URL=https://vinaris.app/?stripe_checkout=success
+STRIPE_CANCEL_URL=https://vinaris.app/?stripe_checkout=cancelled
+STRIPE_PORTAL_RETURN_URL=https://vinaris.app/?billing_portal=return
 ```
 
 Create the two Stripe prices as recurring prices: one monthly and one annual. `STRIPE_PRICE_ID` is still accepted as a legacy fallback for annual access only. If you do not use an annual Stripe Price ID, configure a one-time annual amount instead:
@@ -208,7 +208,7 @@ STRIPE_PAYMENT_LABEL=Vinaris annual access
 Create a Stripe webhook endpoint pointing to:
 
 ```text
-https://vinaris.duckdns.org/api/v1/billing/stripe/webhook
+https://vinaris.app/api/v1/billing/stripe/webhook
 ```
 
 Enable these events:

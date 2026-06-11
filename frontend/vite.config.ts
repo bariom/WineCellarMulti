@@ -10,6 +10,11 @@ export default defineConfig({
     }
   },
   preview: {
-    allowedHosts: ["vinaris.duckdns.org", "winecellarmulti.duckdns.org"]
+    allowedHosts: [
+      "vinaris.app",
+      "www.vinaris.app",
+      "vinaris.duckdns.org",
+      "winecellarmulti.duckdns.org"
+    ]
   }
 });
