@@ -3235,6 +3235,54 @@ textarea {
   background: #f5f7f4;
 }
 
+.trial-redeem-list {
+  display: grid;
+  gap: 12px;
+}
+
+.trial-redeem-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border-strong));
+  border-radius: 14px;
+  background:
+    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 14%, transparent), transparent 34%),
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, var(--primary) 8%) 0%, var(--surface) 100%);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent), var(--shadow-soft);
+}
+
+.trial-redeem-card > div:first-child {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.trial-redeem-card strong {
+  font-size: 1rem;
+}
+
+.trial-redeem-card span {
+  color: var(--text-muted);
+}
+
+.trial-redeem-token {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 46%, var(--border-strong));
+  background: color-mix(in srgb, var(--surface-subtle) 76%, var(--surface-raised));
+  color: var(--text);
+  font-size: 1.05rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+}
+
 .member-row div,
 .invite-row div,
 .passkey-row div,
@@ -7571,20 +7619,23 @@ textarea {
   .inline-row-form,
   .usage-row,
   .member-row,
-  .invite-row {
+  .invite-row,
+  .trial-redeem-card {
     grid-template-columns: 1fr;
   }
 
   .member-row,
   .invite-row,
   .usage-row,
-  .tag-admin-row {
+  .tag-admin-row,
+  .trial-redeem-card {
     display: grid;
     align-items: stretch;
   }
 
   .member-actions,
-  .form-actions {
+  .form-actions,
+  .trial-redeem-card .inline-actions {
     display: grid;
     grid-template-columns: 1fr;
   }

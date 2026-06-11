@@ -7281,7 +7281,36 @@ export function App() {
     billingAiBalance > 0 ||
     aiSettingsDraft.provider_mode === "credits";
   const canShowOfflineBackupPanel = !isOnline || showOfflineBackupPanel;
+  const availableRedeemCodes = billingStatus?.available_redeem_codes || [];
+  const trialRedeemCodes = availableRedeemCodes.filter((code) => code.kind === "trial");
+  const standardRedeemCodes = availableRedeemCodes.filter((code) => code.kind !== "trial");
   const showInlineAuthError = Boolean(visibleError) && !authenticated && (isMobileViewport || authModalOpen);
+  const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
+    <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
+      <div>
+        <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
+        <span>{code.label} - {code.duration_days}d</span>
+        {highlighted ? (
+          <code className="trial-redeem-token">{code.code || code.code_prefix}</code>
+        ) : (
+          <div className="token-box">
+            <span>{t("redeemCode")}</span>
+            <code>{code.code || code.code_prefix}</code>
+          </div>
+        )}
+      </div>
+      <div className="inline-actions">
+        {code.code ? (
+          <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
+            Copy
+          </button>
+        ) : null}
+        <button type="button" className="compact" disabled={saving || !code.code} onClick={() => code.code && redeemCodeValue(code.code)}>
+          {t("redeem")}
+        </button>
+      </div>
+    </div>
+  );
   const publicAuthPanel = (
     <section className="auth-panel" id="auth-panel">
       {showInlineAuthError ? (
@@ -9057,24 +9086,14 @@ export function App() {
               </button>
             </div>
             <p className="empty-state">{t("paymentHelp")}</p>
-            {billingStatus?.available_redeem_codes.length ? (
+            {trialRedeemCodes.length ? (
+              <div className="trial-redeem-list">
+                {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
+              </div>
+            ) : null}
+            {standardRedeemCodes.length ? (
               <div className="member-list">
-                {billingStatus.available_redeem_codes.map((code) => (
-                  <div className="member-row" key={code.id}>
-                    <div>
-                      <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
-                      <span>{code.code || code.code_prefix} - {code.duration_days}d</span>
-                    </div>
-                    {code.code ? (
-                      <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
-                        Copy
-                      </button>
-                    ) : null}
-                    <button type="button" className="compact" disabled={saving || !code.code} onClick={() => code.code && redeemCodeValue(code.code)}>
-                      {t("redeem")}
-                    </button>
-                  </div>
-                ))}
+                {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
               </div>
             ) : null}
             <form className="inline-form" onSubmit={redeemCode}>
@@ -11112,24 +11131,14 @@ export function App() {
                     </button>
                   ) : null}
                 </form>
-                {billingStatus?.available_redeem_codes.length ? (
+                {trialRedeemCodes.length ? (
+                  <div className="trial-redeem-list">
+                    {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
+                  </div>
+                ) : null}
+                {standardRedeemCodes.length ? (
                   <div className="member-list">
-                    {billingStatus.available_redeem_codes.map((code) => (
-                      <div className="member-row" key={code.id}>
-                        <div>
-                          <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
-                          <span>{code.code || code.code_prefix} - {code.duration_days}d</span>
-                        </div>
-                        {code.code ? (
-                          <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
-                            Copy
-                          </button>
-                        ) : null}
-                        <button type="button" className="compact" disabled={saving || !code.code} onClick={() => code.code && redeemCodeValue(code.code)}>
-                          {t("redeem")}
-                        </button>
-                      </div>
-                    ))}
+                    {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
                   </div>
                 ) : null}
                 {billingStatus?.has_active_entitlement ? (
