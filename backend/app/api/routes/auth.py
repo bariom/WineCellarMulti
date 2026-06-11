@@ -1,4 +1,5 @@
 import json
+import logging
 import math
 import secrets
 import string
@@ -49,6 +50,7 @@ from app.services.notifications import create_user_notification
 
 
 router = APIRouter(prefix="/auth")
+logger = logging.getLogger(__name__)
 
 PASSKEY_CHALLENGE_TTL_MINUTES = 5
 TRIAL_ACCESS_DAYS = 3
@@ -304,6 +306,19 @@ def notify_user_approved(user: User) -> None:
     )
 
 
+def notify_user_pending_approval(user: User) -> None:
+    send_email(
+        recipients=[user.email],
+        subject=f"[{settings.app_name}] Registration received",
+        body=(
+            "Your Vinaris registration request has been received and is awaiting approval.\n\n"
+            f"Name: {user.display_name}\n"
+            f"Email: {user.email}\n\n"
+            "You will receive another email once an administrator approves or rejects the request."
+        ),
+    )
+
+
 def notify_user_rejected(user: User) -> None:
     send_email(
         recipients=[user.email],
@@ -359,8 +374,21 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     first_user = db.scalar(select(User)) is None
     is_approved = user_is_preapproved(db, email)
     requires_email_verification = is_approved and not first_user and not settings.registration_requires_approval
-    if requires_email_verification and not settings.smtp_enabled:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email verification requires SMTP configuration")
+    logger.info(
+        "Registering user",
+        extra={
+            "email": email,
+            "first_user": first_user,
+            "registration_requires_approval": settings.registration_requires_approval,
+            "is_approved": is_approved,
+            "requires_email_verification": requires_email_verification,
+            "email_provider": settings.email_provider,
+            "email_enabled": settings.email_enabled,
+            "smtp_enabled": settings.smtp_enabled,
+        },
+    )
+    if requires_email_verification and not settings.email_enabled:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email verification requires email delivery configuration")
     email_verification_token = new_email_verification_token() if requires_email_verification else ""
     user = User(
         email=email,
@@ -390,6 +418,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     db.refresh(household)
     db.refresh(membership)
     if not user.is_approved:
+        notify_user_pending_approval(user)
         notify_admins_of_pending_registration(db, user, household)
         return SessionResponse(authenticated=False, pending_approval=True)
     if user_requires_email_verification(user):

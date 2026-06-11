@@ -46,6 +46,9 @@ class Settings(BaseSettings):
     stripe_success_url: str = "http://localhost:5173/?stripe_checkout=success"
     stripe_cancel_url: str = "http://localhost:5173/?stripe_checkout=cancelled"
     stripe_portal_return_url: str = "http://localhost:5173/?billing_portal=return"
+    email_provider: str = "smtp"
+    email_from_email: str = ""
+    email_from_name: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""
@@ -54,6 +57,8 @@ class Settings(BaseSettings):
     smtp_use_ssl: bool = False
     smtp_from_email: str = ""
     smtp_from_name: str = "Vinaris"
+    resend_api_url: str = "https://api.resend.com/emails"
+    resend_api_key: str = ""
 
     @property
     def cors_origin_list(self) -> list[str]:
@@ -61,7 +66,26 @@ class Settings(BaseSettings):
 
     @property
     def smtp_enabled(self) -> bool:
-        return bool(self.smtp_host and self.smtp_from_email)
+        return bool(self.smtp_host and self.effective_from_email)
+
+    @property
+    def effective_from_email(self) -> str:
+        return (self.email_from_email or self.smtp_from_email).strip()
+
+    @property
+    def effective_from_name(self) -> str:
+        return (self.email_from_name or self.smtp_from_name or self.app_name).strip()
+
+    @property
+    def resend_enabled(self) -> bool:
+        return bool(self.resend_api_key and self.effective_from_email)
+
+    @property
+    def email_enabled(self) -> bool:
+        provider = self.email_provider.strip().lower()
+        if provider == "resend":
+            return self.resend_enabled
+        return self.smtp_enabled
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
 

@@ -196,6 +196,34 @@ def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
     assert pending_users.json() == []
 
 
+def test_register_auto_approves_with_resend_configuration(monkeypatch):
+    from app.api.routes import auth as auth_routes
+
+    deliveries: list[dict[str, object]] = []
+
+    def fake_send_email(*, recipients: list[str], subject: str, body: str) -> bool:
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr(auth_routes, "send_email", fake_send_email)
+    monkeypatch.setattr(settings, "registration_requires_approval", False)
+    monkeypatch.setattr(settings, "email_provider", "resend")
+    monkeypatch.setattr(settings, "resend_api_key", "re_test_key")
+    monkeypatch.setattr(settings, "email_from_email", "noreply@example.com")
+    monkeypatch.setattr(settings, "smtp_host", "")
+
+    admin_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+
+    user_client = TestClient(app)
+    registered = register(user_client, email="resend@example.com", password="strong-password-2")
+    assert registered.status_code == 201
+    assert registered.json()["pending_email_verification"] is True
+
+    verification_email = next(message for message in deliveries if message["recipients"] == ["resend@example.com"])
+    assert "email_verify_token=" in str(verification_email["body"])
+
+
 def test_pending_registration_sends_admin_email(monkeypatch):
     from app.api.routes import auth as auth_routes
 
@@ -217,10 +245,12 @@ def test_pending_registration_sends_admin_email(monkeypatch):
     assert pending.status_code == 201
     assert pending.json()["pending_approval"] is True
 
-    assert len(deliveries) == 1
-    assert deliveries[0]["recipients"] == ["owner@example.com"]
-    assert "pending@example.com" in str(deliveries[0]["body"])
-    assert "Main Cellar" in str(deliveries[0]["body"])
+    admin_email = next(message for message in deliveries if message["recipients"] == ["owner@example.com"])
+    user_email = next(message for message in deliveries if message["recipients"] == ["pending@example.com"])
+
+    assert "pending@example.com" in str(admin_email["body"])
+    assert "Main Cellar" in str(admin_email["body"])
+    assert "awaiting approval" in str(user_email["body"]).lower()
 
 
 def test_pending_user_approval_and_rejection_send_user_email(monkeypatch):
@@ -251,8 +281,16 @@ def test_pending_user_approval_and_rejection_send_user_email(monkeypatch):
     rejected = admin_client.delete(f"/api/v1/auth/pending-users/{reject_target['id']}")
     assert rejected.status_code == 204
 
-    approval_email = next(message for message in deliveries if message["recipients"] == ["approve@example.com"])
-    rejection_email = next(message for message in deliveries if message["recipients"] == ["reject@example.com"])
+    approval_email = next(
+        message
+        for message in deliveries
+        if message["recipients"] == ["approve@example.com"] and "approved" in str(message["subject"]).lower()
+    )
+    rejection_email = next(
+        message
+        for message in deliveries
+        if message["recipients"] == ["reject@example.com"] and "not approved" in str(message["subject"]).lower()
+    )
     assert "approved" in str(approval_email["subject"]).lower()
     assert "not approved" in str(rejection_email["subject"]).lower()
 

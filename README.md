@@ -229,20 +229,32 @@ The webhook creates redeem codes, renewal notifications, and subscription status
 
 ## Email Notifications
 
-To enable email notifications for new pending users, approval/rejection outcomes, household invites, and Stripe redeem codes, configure SMTP in `backend/.env`:
+To enable email notifications for new pending users, approval/rejection outcomes, household invites, and Stripe redeem codes, configure either SMTP or Resend in `backend/.env`.
+
+SMTP:
 
 ```env
+EMAIL_PROVIDER=smtp
+EMAIL_FROM_EMAIL=noreply@your-domain.tld
+EMAIL_FROM_NAME=Vinaris
 SMTP_HOST=smtp.your-provider.tld
 SMTP_PORT=587
 SMTP_USERNAME=your-smtp-user
 SMTP_PASSWORD=your-smtp-password
 SMTP_USE_TLS=true
 SMTP_USE_SSL=false
-SMTP_FROM_EMAIL=noreply@your-domain.tld
-SMTP_FROM_NAME=Vinaris
 ```
 
-Emails are sent best-effort. If SMTP is not configured or a delivery fails, the application flow still completes and the email is skipped. Admin alerts go to all approved, unblocked application admins.
+Resend:
+
+```env
+EMAIL_PROVIDER=resend
+EMAIL_FROM_EMAIL=noreply@your-verified-domain.tld
+EMAIL_FROM_NAME=Vinaris
+RESEND_API_KEY=re_xxxxxxxxx
+```
+
+Emails are sent best-effort. If email delivery is not configured or a delivery fails, the application flow still completes and the email is skipped. Email verification requires a working email provider. Admin alerts go to all approved, unblocked application admins.
 
 Find the Linux machine IP with:
 
