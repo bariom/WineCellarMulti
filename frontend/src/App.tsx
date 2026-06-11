@@ -1289,6 +1289,8 @@ const translations = {
     generatedCode: "Generated code",
     paidRedeemCode: "Paid redeem code",
     trialRedeemCode: "3-day trial redeem code",
+    useTrialRedeemCodeNow: "Use this code now",
+    trialRedeemCodeHelp: "Copy or redeem the 3-day access code below before choosing a paid plan.",
     working: "Working",
     youngWine: "Young",
     estimatedCost: "Estimated cost",
@@ -1753,6 +1755,8 @@ const translations = {
     generatedCode: "Codice generato",
     paidRedeemCode: "Codice redeem acquistato",
     trialRedeemCode: "Codice trial 3 giorni",
+    useTrialRedeemCodeNow: "Usa subito questo codice",
+    trialRedeemCodeHelp: "Copia o riscatta prima il codice di accesso da 3 giorni qui sotto, poi valuta un piano a pagamento.",
     working: "Elaborazione",
     youngWine: "Giovane",
     estimatedCost: "Costo stimato",
@@ -7288,8 +7292,9 @@ export function App() {
   const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
     <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
       <div>
+        {highlighted ? <span className="trial-redeem-kicker">{t("useTrialRedeemCodeNow")}</span> : null}
         <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
-        <span>{code.label} - {code.duration_days}d</span>
+        <span>{highlighted ? t("trialRedeemCodeHelp") : `${code.label} - ${code.duration_days}d`}</span>
         {highlighted ? (
           <code className="trial-redeem-token">{code.code || code.code_prefix}</code>
         ) : (
@@ -9069,6 +9074,11 @@ export function App() {
               <strong>{t("redeemRequired")}</strong>
               <span>{session?.user_email}</span>
             </div>
+            {trialRedeemCodes.length ? (
+              <div className="trial-redeem-list">
+                {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
+              </div>
+            ) : null}
             <div className="invite-notice promo-notice">
               <strong>{t("finalBetaPromo")}</strong>
               <span>{t("promoMonthlyPrice")}</span>
@@ -9086,11 +9096,6 @@ export function App() {
               </button>
             </div>
             <p className="empty-state">{t("paymentHelp")}</p>
-            {trialRedeemCodes.length ? (
-              <div className="trial-redeem-list">
-                {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
-              </div>
-            ) : null}
             {standardRedeemCodes.length ? (
               <div className="member-list">
                 {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
@@ -11108,6 +11113,11 @@ export function App() {
                   </div>
                   {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
                 </div>
+                {trialRedeemCodes.length ? (
+                  <div className="trial-redeem-list">
+                    {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
+                  </div>
+                ) : null}
                 <form className="inline-form" onSubmit={redeemCode}>
                   <label>
                     <span>{t("redeemCode")}</span>
@@ -11131,11 +11141,6 @@ export function App() {
                     </button>
                   ) : null}
                 </form>
-                {trialRedeemCodes.length ? (
-                  <div className="trial-redeem-list">
-                    {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
-                  </div>
-                ) : null}
                 {standardRedeemCodes.length ? (
                   <div className="member-list">
                     {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
