@@ -7281,8 +7281,20 @@ export function App() {
     billingAiBalance > 0 ||
     aiSettingsDraft.provider_mode === "credits";
   const canShowOfflineBackupPanel = !isOnline || showOfflineBackupPanel;
+  const showInlineAuthError = Boolean(visibleError) && !authenticated && (isMobileViewport || authModalOpen);
   const publicAuthPanel = (
     <section className="auth-panel" id="auth-panel">
+      {showInlineAuthError ? (
+        <div ref={errorBannerRef} className="error-banner app-error-banner auth-error-banner" role="alert" aria-live="assertive">
+          <div className="app-error-copy">
+            <strong>{locale === "it" ? "Attenzione" : "Attention"}</strong>
+            <span>{visibleError}</span>
+          </div>
+          <button type="button" className="secondary compact app-error-close" onClick={() => setError("")}>
+            {t("close")}
+          </button>
+        </div>
+      ) : null}
       {acceptToken ? (
         <div className="invite-notice">
           <strong>{t("inviteLinkDetected")}</strong>
@@ -8647,7 +8659,7 @@ export function App() {
         )}
       </header>
 
-      {visibleError ? (
+      {visibleError && !showInlineAuthError ? (
         <div ref={errorBannerRef} className="error-banner app-error-banner" role="alert" aria-live="assertive">
           <div className="app-error-copy">
             <strong>{locale === "it" ? "Attenzione" : "Attention"}</strong>

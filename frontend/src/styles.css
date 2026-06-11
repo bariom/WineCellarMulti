@@ -814,6 +814,10 @@ summary:focus-visible {
   scroll-margin-top: 18px;
 }
 
+.auth-error-banner {
+  margin: 0 0 4px;
+}
+
 .app-error-copy {
   display: grid;
   gap: 4px;
