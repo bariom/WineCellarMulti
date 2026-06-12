@@ -5635,8 +5635,8 @@ export function App() {
 
   function openAuthPanel(mode: "login" | "register") {
     setAuthMode(mode);
+    setAuthModalOpen(true);
     if (!isMobileViewport) {
-      setAuthModalOpen(true);
       return;
     }
     window.requestAnimationFrame(() => {
@@ -7289,6 +7289,9 @@ export function App() {
   const trialRedeemCodes = availableRedeemCodes.filter((code) => code.kind === "trial");
   const standardRedeemCodes = availableRedeemCodes.filter((code) => code.kind !== "trial");
   const showInlineAuthError = Boolean(visibleError) && !authenticated && (isMobileViewport || authModalOpen);
+  const showMobileAuthPanel =
+    isMobileViewport &&
+    (authModalOpen || Boolean(acceptToken) || Boolean(emailVerificationToken) || emailVerificationConfirmed || canShowOfflineBackupPanel);
   const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
     <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
       <div>
@@ -9079,7 +9082,7 @@ export function App() {
               </section>
             </section>
 
-        {isMobileViewport ? publicAuthPanel : null}
+        {showMobileAuthPanel ? publicAuthPanel : null}
         {!isMobileViewport && authModalOpen ? (
           <div className="auth-modal-overlay" onClick={() => setAuthModalOpen(false)}>
             <div className="auth-modal-card" onClick={(event) => event.stopPropagation()}>
