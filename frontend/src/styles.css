@@ -2694,9 +2694,9 @@ textarea {
 }
 
 .wishlist-row {
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-columns: minmax(0, 1fr) 132px;
   grid-template-rows: auto 1fr;
-  gap: 12px 18px;
+  gap: 12px 14px;
 }
 
 .wishlist-row .wine-row-main {
@@ -2715,7 +2715,12 @@ textarea {
   grid-column: 2;
   grid-row: 2;
   justify-self: end;
-  align-self: end;
+  align-self: start;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  width: 132px;
+  min-width: 0;
 }
 
 .wishlist-action-button {
@@ -2723,7 +2728,9 @@ textarea {
   align-items: center;
   gap: 8px;
   min-height: 38px;
-  padding: 8px 12px;
+  padding: 8px 10px;
+  justify-content: flex-start;
+  white-space: nowrap;
 }
 
 .action-icon {
@@ -7683,6 +7690,11 @@ textarea {
     grid-column: 1;
     grid-row: auto;
     justify-self: stretch;
+  }
+
+  .wishlist-row > .wishlist-row-actions {
+    display: flex;
+    width: 100%;
   }
 
   .wishlist-row-actions .wishlist-action-button {
