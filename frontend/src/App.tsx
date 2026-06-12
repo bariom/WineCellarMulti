@@ -8716,6 +8716,34 @@ export function App() {
 
       {!authenticated ? (
         <>
+          <section className="mobile-public-landing" aria-labelledby="mobile-public-title">
+            <div className="mobile-public-brand">
+              <img src="/icons/logo.png" alt="Vinaris" />
+              <span>Vinaris</span>
+            </div>
+            <p className="eyebrow">{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</p>
+            <h2 id="mobile-public-title">
+              {locale === "it" ? "La tua cantina, finalmente sotto controllo." : "Your cellar, finally under control."}
+            </h2>
+            <p>
+              {locale === "it"
+                ? "Valore, finestre di beva, wishlist e memoria degustativa in una sola app pensata per collezionisti."
+                : "Value, drinking windows, wishlist, and tasting memory in one app built for collectors."}
+            </p>
+            <div className="mobile-public-signals" aria-label={locale === "it" ? "Funzioni principali" : "Key features"}>
+              <span>{locale === "it" ? "Valore" : "Value"}</span>
+              <span>{locale === "it" ? "Beva" : "Drinking"}</span>
+              <span>Wishlist</span>
+            </div>
+            <div className="mobile-public-actions">
+              <button type="button" onClick={() => openAuthPanel("register")}>
+                {landing.secondaryCta}
+              </button>
+              <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
+                {landing.primaryCta}
+              </button>
+            </div>
+          </section>
           <section className="public-landing">
             <div className="public-hero">
               <div className="public-hero-copy">
