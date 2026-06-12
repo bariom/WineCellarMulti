@@ -10973,7 +10973,7 @@ export function App() {
               const readyToBuy = isWishlistReadyToBuy(item.status);
               return (
               <div className="list-item-block" key={item.id}>
-                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"}${readyToBuy ? " wishlist-buy-row" : ""} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
+                <article className={`${selectedWishlistId === item.id ? "wine-row selected" : "wine-row"} wishlist-row${readyToBuy ? " wishlist-buy-row" : ""} tone-${wineTone(item.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWishlistItem(item); }}>
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(item.type)}`} />
@@ -11016,8 +11016,10 @@ export function App() {
                     ) : null}
                   </div>
                   <div className="wishlist-price-block">
-                    <span>{t("targetPrice")}</span>
-                    <strong className="wishlist-price">{targetPriceValue}</strong>
+                    <div className="wishlist-target-price">
+                      <span>{t("targetPrice")}</span>
+                      <strong className="wishlist-price">{targetPriceValue}</strong>
+                    </div>
                     {aiMarketPriceValue ? (
                       <div className="wishlist-market-estimate">
                         <small>{t("marketEstimate")}</small>

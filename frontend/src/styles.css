@@ -2693,6 +2693,31 @@ textarea {
   align-self: center;
 }
 
+.wishlist-row {
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  grid-template-rows: auto 1fr;
+  gap: 12px 18px;
+}
+
+.wishlist-row .wine-row-main {
+  grid-column: 1;
+  grid-row: 1 / span 2;
+}
+
+.wishlist-row > .wishlist-price-block {
+  grid-column: 2;
+  grid-row: 1;
+  justify-self: end;
+  align-self: start;
+}
+
+.wishlist-row > .wishlist-row-actions {
+  grid-column: 2;
+  grid-row: 2;
+  justify-self: end;
+  align-self: end;
+}
+
 .wishlist-action-button {
   display: inline-flex;
   align-items: center;
@@ -3452,25 +3477,27 @@ textarea {
 }
 
 .wishlist-price-block {
-  display: grid;
-  gap: 8px;
-  justify-items: end;
-  min-width: 154px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 16px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
-    color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
+  display: flex;
+  justify-content: flex-end;
+  gap: 14px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 4px 0;
 }
 
 .wishlist-price-block span {
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+}
+
+.wishlist-target-price {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: right;
 }
 
 .priority-high {
@@ -3546,15 +3573,16 @@ textarea {
 }
 
 .wishlist-price-block .wishlist-price {
+  font-size: 1rem;
   text-shadow: 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
 }
 
 .wishlist-market-estimate {
   display: grid;
-  gap: 3px;
-  width: 100%;
-  padding-top: 8px;
-  border-top: 1px solid color-mix(in srgb, var(--collector-edge) 54%, transparent);
+  gap: 2px;
+  min-width: 0;
+  padding-left: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--collector-edge) 54%, transparent);
   text-align: right;
 }
 
@@ -3568,7 +3596,7 @@ textarea {
 
 .wishlist-market-estimate strong {
   color: color-mix(in srgb, var(--primary) 84%, var(--text));
-  font-size: 0.96rem;
+  font-size: 1rem;
   line-height: 1.15;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
@@ -7649,6 +7677,14 @@ textarea {
     gap: 6px;
   }
 
+  .wishlist-row .wine-row-main,
+  .wishlist-row > .wishlist-price-block,
+  .wishlist-row > .wishlist-row-actions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-self: stretch;
+  }
+
   .wishlist-row-actions .wishlist-action-button {
     min-width: 40px;
     min-height: 40px;
@@ -7667,6 +7703,7 @@ textarea {
   }
 
   .wishlist-price-block {
+    display: grid;
     width: 100%;
     justify-items: start;
     gap: 5px;
@@ -7676,6 +7713,12 @@ textarea {
   }
 
   .wishlist-market-estimate {
+    padding-left: 0;
+    border-left: 0;
+    text-align: left;
+  }
+
+  .wishlist-target-price {
     text-align: left;
   }
 
