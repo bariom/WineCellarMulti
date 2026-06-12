@@ -907,6 +907,7 @@ const translations = {
     generateWishlistPortfolioStrategy: "Generate buying strategy",
     refreshWishlistPortfolioStrategy: "Refresh buying strategy",
     noWishlistPortfolioStrategy: "No wishlist-wide buying strategy generated yet.",
+    generatedAt: "Generated",
     wishlistStrategyOverview: "Overview",
     wishlistStrategyBuyNow: "Buy now",
     wishlistStrategyWaitWatch: "Wait / watch",
@@ -1373,6 +1374,7 @@ const translations = {
     generateWishlistPortfolioStrategy: "Genera strategia d'acquisto",
     refreshWishlistPortfolioStrategy: "Aggiorna strategia d'acquisto",
     noWishlistPortfolioStrategy: "Nessuna strategia d'acquisto complessiva generata finora.",
+    generatedAt: "Generata",
     wishlistStrategyOverview: "Quadro generale",
     wishlistStrategyBuyNow: "Da comprare ora",
     wishlistStrategyWaitWatch: "Attendere / monitorare",
@@ -4794,6 +4796,14 @@ function WishlistDetail({
 }) {
   const aiMarketPrice = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
+  const latestStrategyAudit = auditEntries
+    .filter((entry) => entry.feature === "wishlist_strategy")
+    .sort((first, second) => second.created_at.localeCompare(first.created_at))[0];
+  const latestPurposeAudit = auditEntries
+    .filter((entry) => entry.feature === "wishlist_purpose")
+    .sort((first, second) => second.created_at.localeCompare(first.created_at))[0];
+  const strategyTitle = latestStrategyAudit ? `${t("aiStrategy")} - ${t("generatedAt")} ${formatDisplayDate(latestStrategyAudit.created_at)}` : t("aiStrategy");
+  const purposeTitle = latestPurposeAudit ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(latestPurposeAudit.created_at)}` : t("aiPurpose");
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
@@ -4821,8 +4831,8 @@ function WishlistDetail({
       {generating ? <LoadingState label={t("generating")} compact /> : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
         <div className="notes-grid wishlist-ai-summary">
-          {item.ai_strategy ? <DetailNote title={t("aiStrategy")}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
-          {item.ai_purpose_advice ? <DetailNote title={t("aiPurpose")}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
+          {item.ai_strategy ? <DetailNote title={strategyTitle}>{readableLegacyAiText(item.ai_strategy, "strategy")}</DetailNote> : null}
+          {item.ai_purpose_advice ? <DetailNote title={purposeTitle}>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</DetailNote> : null}
         </div>
       ) : null}
       <div className="detail-grid">
