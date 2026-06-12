@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, require_admin_context
 from app.api.routes.wines import normalize_owner_rows
 from app.core.security import hash_invite_token, new_invite_token
+from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, HouseholdInvite, Membership, User, UserTag, Wine, WineShareOffer, WineValueHistory, WishlistItem, WishlistList
 
@@ -423,7 +424,7 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "current_value": as_optional_decimal(raw.get("current_value")),
         "status": as_str(raw.get("status")) or "Ordered",
         "format": as_str(raw.get("format")),
-        "type": as_str(raw.get("type")),
+        "type": normalize_wine_type(as_str(raw.get("type"))),
         "region": as_str(raw.get("region")),
         "appellation": as_str(raw.get("appellation")),
         "merchant": as_str(raw.get("merchant")),
@@ -458,7 +459,7 @@ def legacy_wishlist_data(raw: dict[str, Any], context: CurrentContext, wishlist_
         "producer": as_str(raw.get("producer")),
         "vintage": as_str(raw.get("vintage")),
         "format": as_str(raw.get("format")),
-        "type": as_str(raw.get("type")),
+        "type": normalize_wine_type(as_str(raw.get("type"))),
         "region": as_str(raw.get("region")),
         "appellation": as_str(raw.get("appellation")),
         "target_price": as_decimal(raw.get("target_price")),

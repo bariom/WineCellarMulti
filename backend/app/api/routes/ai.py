@@ -15,6 +15,7 @@ from app.api.routes.wines import get_household_wine, record_wine_value_history, 
 from app.api.routes.wishlist import get_household_wishlist_item, get_household_wishlist_list, get_or_create_default_wishlist_list
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
+from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, UserAiSettings, Wine, WishlistItem
 from app.schemas.ai import (
@@ -983,7 +984,7 @@ def enrich_wine_label(
         name=str(result.get("name") or payload.label).strip(),
         producer=str(result.get("producer") or "").strip(),
         vintage=str(result.get("vintage") or "").strip(),
-        type=str(result.get("type") or "").strip(),
+        type=normalize_wine_type(str(result.get("type") or "").strip()),
         region=str(result.get("region") or "").strip(),
         appellation=str(result.get("appellation") or "").strip(),
         country=str(result.get("country") or "").strip(),

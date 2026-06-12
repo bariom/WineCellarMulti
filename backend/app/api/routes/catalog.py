@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
 from app.core.config import settings
+from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
 from app.schemas.catalog import CatalogRecognitionResponse, CatalogRecognitionSuggestion, CatalogWineCreate, CatalogWineResponse
@@ -81,7 +82,7 @@ def catalog_response(entry: WineCatalogEntry) -> CatalogWineResponse:
         producer=entry.producer,
         region=entry.region,
         appellation=entry.appellation,
-        type=entry.type,
+        type=normalize_wine_type(entry.type),
         format=entry.format,
         country=entry.country,
         grapes_text=entry.grapes_text,
@@ -106,7 +107,7 @@ def ensure_catalog_seeded(db: Session) -> None:
         producer = str(item.get("producer") or "").strip()
         region = str(item.get("region") or "").strip()
         appellation = str(item.get("appellation") or "").strip()
-        wine_type = str(item.get("type") or "").strip()
+        wine_type = normalize_wine_type(str(item.get("type") or "").strip())
         bottle_format = str(item.get("format") or "").strip()
         entry = WineCatalogEntry(
             name=name,
@@ -198,6 +199,8 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
             changed = False
             for field in ("producer", "region", "appellation", "type", "format"):
                 next_value = str(data.get(field) or "").strip()
+                if field == "type":
+                    next_value = normalize_wine_type(next_value)
                 if next_value and not getattr(existing, field):
                     setattr(existing, field, next_value)
                     changed = True
@@ -211,11 +214,11 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         producer=producer,
         region=str(data.get("region") or "").strip(),
         appellation=str(data.get("appellation") or "").strip(),
-        type=str(data.get("type") or "").strip(),
+        type=normalize_wine_type(str(data.get("type") or "").strip()),
         format=str(data.get("format") or "").strip(),
         source=source,
         is_active=False,
-        search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), str(data.get("type") or "")),
+        search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), normalize_wine_type(str(data.get("type") or ""))),
         created_at=datetime.now(timezone.utc),
         updated_at=datetime.now(timezone.utc),
     )
@@ -259,7 +262,7 @@ def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionS
                         producer=clean_recognition_text(value.get("producer") or value.get("winery")),
                         region=clean_recognition_text(value.get("region")),
                         appellation=clean_recognition_text(value.get("appellation") or value.get("denomination") or value.get("appellation_name")),
-                        type=clean_recognition_text(value.get("type")),
+                        type=normalize_wine_type(clean_recognition_text(value.get("type"))),
                     ),
                 )
             for child in value.values():
@@ -365,6 +368,8 @@ def create_wine_catalog_entry(
         changed = False
         for field in ("producer", "region", "appellation", "type", "format", "country", "grapes_text"):
             next_value = str(getattr(payload, field) or "").strip()
+            if field == "type":
+                next_value = normalize_wine_type(next_value)
             if next_value and not getattr(existing, field):
                 setattr(existing, field, next_value)
                 changed = True

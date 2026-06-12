@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session, defer
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.api.routes.tags import get_or_create_user_tag
+from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
 from app.schemas.wine import (
@@ -386,7 +387,7 @@ def list_tasting_archive(
         ),
     )
     query = q.strip().lower()
-    normalized_type = type.strip().lower()
+    normalized_type = normalize_wine_type(type).lower()
     normalized_status = status_filter.strip().lower()
 
     visible_items: list[TastingArchiveItemResponse] = []
@@ -397,7 +398,7 @@ def list_tasting_archive(
     for wine in wines:
         if not user_can_see_wine(context, wine):
             continue
-        if normalized_type and wine.type.strip().lower() != normalized_type:
+        if normalized_type and normalize_wine_type(wine.type).lower() != normalized_type:
             continue
         if normalized_status and wine.status.strip().lower() != normalized_status:
             continue
@@ -562,6 +563,7 @@ def create_wine(
     data = payload.model_dump()
     tag_names = data.pop("tags", [])
     data["owners"] = normalize_owner_rows(data.get("owners", []))
+    data["type"] = normalize_wine_type(data.get("type"))
     wine = Wine(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -601,6 +603,8 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     data = payload.model_dump(exclude_unset=True)
     tag_names = data.pop("tags", None)
+    if "type" in data:
+        data["type"] = normalize_wine_type(data.get("type"))
     old_value = wine.current_value
     old_currency = wine.currency
     for field, value in data.items():

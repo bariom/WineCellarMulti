@@ -1876,6 +1876,24 @@ const canonicalWishlistPriorities = ["High", "Medium", "Low"] as const;
 const canonicalWishlistPurposes = ["Drink", "Cellar", "Invest", "Gift", "Compare"] as const;
 const canonicalWishlistStatuses = ["Evaluate", "Monitor", "Buy", "GoodPrice", "Skipped"] as const;
 
+function normalizeWineType(value: string | null | undefined) {
+  const trimmed = (value || "").trim();
+  if (!trimmed) return "";
+  const normalized = trimmed
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+  if (["red", "rosso"].includes(normalized) || normalized.includes("vino rosso")) return "Red";
+  if (["white", "bianco"].includes(normalized) || normalized.includes("vino bianco")) return "White";
+  if (["rose", "rosato"].includes(normalized)) return "Rose";
+  if (["sparkling", "spumante", "champagne"].includes(normalized)) return "Sparkling";
+  if (["sweet", "dolce"].includes(normalized)) return "Sweet";
+  if (["fortified", "fortificato"].includes(normalized)) return "Fortified";
+  if (["other", "altro"].includes(normalized)) return "Other";
+  const canonical = canonicalWineTypes.find((type) => type.toLowerCase() === normalized);
+  return canonical || trimmed;
+}
+
 function selectOptionsWithCurrent(currentValue: string, canonicalOptions: readonly string[]) {
   const trimmedCurrentValue = currentValue.trim();
   return trimmedCurrentValue && !canonicalOptions.includes(trimmedCurrentValue)
@@ -1891,9 +1909,9 @@ function wineFormatOptions(currentFormat: string) {
 }
 
 function wineTypeSelectOptions(currentType: string) {
-  const trimmedCurrentType = currentType.trim();
-  return trimmedCurrentType && !canonicalWineTypes.includes(trimmedCurrentType as (typeof canonicalWineTypes)[number])
-    ? [trimmedCurrentType, ...canonicalWineTypes]
+  const normalizedCurrentType = normalizeWineType(currentType);
+  return normalizedCurrentType && !canonicalWineTypes.includes(normalizedCurrentType as (typeof canonicalWineTypes)[number])
+    ? [normalizedCurrentType, ...canonicalWineTypes]
     : [...canonicalWineTypes];
 }
 
@@ -1911,7 +1929,8 @@ function wishlistStatusSelectOptions(currentStatus: string) {
 
 function displayValue(value: string | null | undefined, locale: Locale, group: string) {
   if (!value) return "";
-  return localizedDisplayValues[locale]?.[group]?.[value] || value;
+  const displaySource = group === "type" ? normalizeWineType(value) : value;
+  return localizedDisplayValues[locale]?.[group]?.[displaySource] || displaySource;
 }
 
 const emptyDraft: WineDraft = {
@@ -2551,7 +2570,7 @@ function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     current_value: raw.current_value === null || raw.current_value === undefined ? null : rawString(raw.current_value),
     status: rawString(raw.status, "Delivered"),
     format: rawString(raw.format),
-    type: rawString(raw.type),
+    type: normalizeWineType(rawString(raw.type)),
     region: rawString(raw.region),
     appellation: rawString(raw.appellation),
     merchant: rawString(raw.merchant),
@@ -2605,7 +2624,7 @@ function offlineWishlistItem(raw: Record<string, unknown>, index: number): Wishl
     producer: rawString(raw.producer),
     vintage: rawString(raw.vintage),
     format: rawString(raw.format),
-    type: rawString(raw.type),
+    type: normalizeWineType(rawString(raw.type)),
     region: rawString(raw.region),
     appellation: rawString(raw.appellation),
     target_price: rawString(raw.target_price, "0"),
@@ -2697,7 +2716,7 @@ function wineToDraft(wine: Wine): WineDraft {
     current_value: wine.current_value ? String(wine.current_value) : "",
     status: wine.status,
     format: wine.format || "",
-    type: wine.type || "",
+    type: normalizeWineType(wine.type),
     region: wine.region || "",
     appellation: wine.appellation || "",
     merchant: wine.merchant || "",
@@ -2728,7 +2747,7 @@ function draftPayload(draft: WineDraft) {
     current_value: draft.current_value ? Number(draft.current_value) : null,
     status: draft.status,
     format: draft.format.trim(),
-    type: draft.type.trim(),
+    type: normalizeWineType(draft.type),
     region: draft.region.trim(),
     appellation: draft.appellation.trim(),
     merchant: draft.merchant.trim(),
@@ -2761,7 +2780,7 @@ function wishlistToDraft(item: WishlistItem): WishlistDraft {
     producer: item.producer,
     vintage: item.vintage,
     format: item.format,
-    type: item.type,
+    type: normalizeWineType(item.type),
     region: item.region,
     appellation: item.appellation,
     target_price: String(item.target_price),
@@ -2782,7 +2801,7 @@ function wishlistPayload(draft: WishlistDraft) {
     producer: draft.producer.trim(),
     vintage: draft.vintage.trim(),
     format: draft.format.trim(),
-    type: draft.type.trim(),
+    type: normalizeWineType(draft.type),
     region: draft.region.trim(),
     appellation: draft.appellation.trim(),
     target_price: Number(draft.target_price || 0),
@@ -5183,7 +5202,7 @@ export function App() {
       region: template.region || baseDraft.region,
       appellation: template.appellation || baseDraft.appellation,
       format: template.format || baseDraft.format,
-      type: template.type || baseDraft.type,
+      type: normalizeWineType(template.type || baseDraft.type),
       currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
       current_value: "current_value" in template && template.current_value ? String(template.current_value) : baseDraft.current_value,
       owner_share_pct: "owner_share_pct" in template ? String(template.owner_share_pct || baseDraft.owner_share_pct) : baseDraft.owner_share_pct,
@@ -5207,7 +5226,7 @@ export function App() {
       region: template.region || baseDraft.region,
       appellation: template.appellation || baseDraft.appellation,
       format: template.format || baseDraft.format,
-      type: template.type || baseDraft.type,
+      type: normalizeWineType(template.type || baseDraft.type),
       currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
     });
   }
@@ -5221,7 +5240,7 @@ export function App() {
         region: item.region || current.region,
         appellation: item.appellation || current.appellation,
         format: item.format || current.format,
-        type: item.type || current.type,
+        type: normalizeWineType(item.type || current.type),
       }));
       return;
     }
@@ -5232,7 +5251,7 @@ export function App() {
       region: item.region || current.region,
       appellation: item.appellation || current.appellation,
       format: item.format || current.format,
-      type: item.type || current.type,
+      type: normalizeWineType(item.type || current.type),
       grapes: current.grapes.length || !item.grapes_text ? current.grapes : grapesFromText(item.grapes_text),
     }));
   }
@@ -5270,7 +5289,7 @@ export function App() {
         producer: enrichment.producer || catalogItem.producer,
         region: enrichment.region || catalogItem.region,
         appellation: enrichment.appellation || catalogItem.appellation,
-        type: enrichment.type || catalogItem.type,
+        type: normalizeWineType(enrichment.type || catalogItem.type),
         country: enrichment.country || catalogItem.country,
         grapes_text: enrichment.grapes_text || catalogItem.grapes_text,
       };
@@ -5312,7 +5331,7 @@ export function App() {
       producer: suggestion.producer,
       region: suggestion.region,
       appellation: suggestion.appellation,
-      type: suggestion.type,
+      type: normalizeWineType(suggestion.type),
       format: "Bottle (750ml)",
     };
     await applyRecognizedCatalogItem(catalogItem, suggestion.label, target);
@@ -5332,7 +5351,7 @@ export function App() {
         producer: enrichment.producer,
         region: enrichment.region,
         appellation: enrichment.appellation,
-        type: enrichment.type,
+        type: normalizeWineType(enrichment.type),
         country: enrichment.country,
         grapes_text: enrichment.grapes_text,
         format: draft.format || "Bottle (750ml)",
@@ -7497,8 +7516,8 @@ export function App() {
       setWishlistPortfolioStrategyOpen(true);
     }
   }, [selectedWishlistListId, visibleWishlistPortfolioStrategy]);
-  const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => wine.type));
-  const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => item.type));
+  const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => normalizeWineType(wine.type)));
+  const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => normalizeWineType(item.type)));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
   const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
   const tagOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.tags));
@@ -7541,7 +7560,7 @@ export function App() {
   const maxHistogramCount = Math.max(...priceHistogram, 1);
   const filteredWines = activeWineCollection
     .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
-    .filter((wine) => !typeFilter || wine.type === typeFilter)
+    .filter((wine) => !typeFilter || normalizeWineType(wine.type) === typeFilter)
     .filter((wine) => !statusFilter || wine.status === statusFilter)
     .filter((wine) => {
       const bottlePrice = Number(wine.price || 0);
@@ -7578,7 +7597,7 @@ export function App() {
     });
   const tastingFilterWineIds = new Set(
     activeWineCollection
-      .filter((wine) => !typeFilter || wine.type === typeFilter)
+      .filter((wine) => !typeFilter || normalizeWineType(wine.type) === typeFilter)
       .filter((wine) => !statusFilter || wine.status === statusFilter)
       .filter((wine) => {
         const bottlePrice = Number(wine.price || 0);
@@ -7662,7 +7681,7 @@ export function App() {
     .filter((group) => group.items.length > 0);
   const filteredWishlist = wishlist
     .filter((item) => !normalizedQuery || wishlistSearchText(item).includes(normalizedQuery))
-    .filter((item) => !typeFilter || item.type === typeFilter)
+    .filter((item) => !typeFilter || normalizeWineType(item.type) === typeFilter)
     .filter((item) => !statusFilter || item.status === statusFilter)
     .sort((first, second) => {
       if (sortMode === "priority") {

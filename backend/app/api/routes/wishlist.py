@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
+from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import Wine, WishlistItem, WishlistList
 from app.schemas.wishlist import (
@@ -237,10 +238,12 @@ def create_wishlist_item(
     context: CurrentContext = Depends(require_write_context),
 ) -> WishlistItem:
     get_household_wishlist_list(db, context, payload.wishlist_list_id)
+    data = payload.model_dump()
+    data["type"] = normalize_wine_type(data.get("type"))
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
-        **payload.model_dump(),
+        **data,
     )
     db.add(item)
     db.commit()
@@ -259,6 +262,8 @@ def update_wishlist_item(
     updates = payload.model_dump(exclude_unset=True)
     if "wishlist_list_id" in updates:
         get_household_wishlist_list(db, context, updates["wishlist_list_id"])
+    if "type" in updates:
+        updates["type"] = normalize_wine_type(updates.get("type"))
     for field, value in updates.items():
         setattr(item, field, value)
     db.commit()
@@ -297,7 +302,7 @@ def convert_wishlist_item(
         current_value=item.target_price,
         status="Ordered",
         format=item.format,
-        type=item.type,
+        type=normalize_wine_type(item.type),
         region=item.region,
         appellation=item.appellation,
         merchant=item.merchant,
