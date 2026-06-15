@@ -703,6 +703,8 @@ summary:focus-visible {
   display: grid;
   gap: 10px;
   width: min(360px, calc(100vw - 32px));
+  max-height: min(720px, calc(100vh - 120px));
+  overflow: auto;
   padding: 12px;
   border: 1px solid var(--border);
   border-radius: 12px;
@@ -778,6 +780,57 @@ summary:focus-visible {
 .notification-item span {
   color: var(--text-muted);
   font-size: 0.82rem;
+}
+
+.operational-actions-section {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 10px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-muted) 92%, var(--surface-raised));
+}
+
+.operational-actions-head {
+  display: grid;
+  gap: 2px;
+  padding: 0 2px 2px;
+}
+
+.operational-actions-head strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.operational-actions-head span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.operational-action-item {
+  position: relative;
+  min-height: 62px;
+  padding-right: 56px;
+  background: color-mix(in srgb, var(--surface) 68%, var(--surface-muted));
+}
+
+.operational-action-item b {
+  position: absolute;
+  top: 50%;
+  right: 12px;
+  display: inline-grid;
+  min-width: 34px;
+  min-height: 34px;
+  place-items: center;
+  border-radius: 999px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  font-size: 0.88rem;
+  transform: translateY(-50%);
 }
 
 .language-switch {

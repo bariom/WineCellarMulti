@@ -751,6 +751,14 @@ type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
 type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
 type HistorySection = "tastings" | "wines";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
+type OperationalActionItem = {
+  id: string;
+  kind: string;
+  title: string;
+  detail: string;
+  count: number;
+  onOpen: () => void;
+};
 type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
 type ThemePreference =
   | "system"
@@ -1049,6 +1057,9 @@ const translations = {
     help: "Help",
     home: "Home",
     dashboard: "Dashboard",
+    operationalActions: "Operational actions",
+    operationalActionsHelp: "Open items that need a decision or data cleanup.",
+    openWishlistActions: "Open wishlist actions",
     priorityActions: "Priority actions",
     openWine: "Open wine",
     noActionItems: "No urgent action items",
@@ -1518,6 +1529,9 @@ const translations = {
     help: "Guida",
     home: "Home",
     dashboard: "Dashboard",
+    operationalActions: "Azioni operative",
+    operationalActionsHelp: "Interventi che richiedono una decisione o un dato da completare.",
+    openWishlistActions: "Apri azioni wishlist",
     priorityActions: "Azioni prioritarie",
     openWine: "Apri vino",
     noActionItems: "Nessuna azione urgente",
@@ -7996,8 +8010,112 @@ export function App() {
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
     (tab) => (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
+  const operationalActionItems: OperationalActionItem[] = [
+    cellarStats.pastWindow ? {
+      id: "past-window",
+      kind: "smart_past_window",
+      title: t("pastWindow"),
+      detail: atRiskWines[0] ? `${atRiskWines[0].name}${atRiskWines[0].drink_to ? ` - ${atRiskWines[0].drink_to}` : ""}` : t("openFilteredCellar"),
+      count: cellarStats.pastWindow,
+      onOpen: () => openOperationalCellarFilter("past_window"),
+    } : null,
+    cellarStats.drinkNow ? {
+      id: "drink-now",
+      kind: "smart_drink_now",
+      title: t("drinkNow"),
+      detail: drinkNowWines[0] ? drinkNowWines[0].name : t("openFilteredCellar"),
+      count: cellarStats.drinkNow,
+      onOpen: () => openOperationalCellarFilter("drink_now"),
+    } : null,
+    cellarStats.futureDeliveries ? {
+      id: "future-deliveries",
+      kind: "smart_future_deliveries",
+      title: t("futureDeliveries"),
+      detail: upcomingDeliveries[0] ? `${upcomingDeliveries[0].wine.name} - ${upcomingDeliveries[0].days}d` : t("deliveryTimeline"),
+      count: cellarStats.futureDeliveries,
+      onOpen: () => openOperationalCellarFilter("future_deliveries"),
+    } : null,
+    allValueRefreshWines.length ? {
+      id: "value-refresh",
+      kind: "smart_to_collect",
+      title: t("valueToRefresh"),
+      detail: valueRefreshWines[0] ? valueRefreshWines[0].name : t("openFilteredCellar"),
+      count: allValueRefreshWines.length,
+      onOpen: () => {
+        setActiveView("home");
+        setDashboardFocus("value");
+        setNotificationsOpen(false);
+      },
+    } : null,
+    cellarStats.missingValue ? {
+      id: "missing-value",
+      kind: "smart_entitlement_expiring",
+      title: t("missingValue"),
+      detail: missingValueWines[0] ? missingValueWines[0].name : t("openFilteredCellar"),
+      count: cellarStats.missingValue,
+      onOpen: () => openOperationalCellarFilter("missing_data"),
+    } : null,
+    cellarStats.missingDrinkWindow ? {
+      id: "missing-drink-window",
+      kind: "smart_past_window",
+      title: t("missingDrinkWindow"),
+      detail: missingDrinkWindowWines[0] ? missingDrinkWindowWines[0].name : t("openFilteredCellar"),
+      count: cellarStats.missingDrinkWindow,
+      onOpen: () => {
+        setActiveView("home");
+        setDashboardFocus("data");
+        setNotificationsOpen(false);
+      },
+    } : null,
+    cellarStats.missingGrapes ? {
+      id: "missing-grapes",
+      kind: "ai_audit",
+      title: t("missingGrapes"),
+      detail: missingGrapesWines[0] ? missingGrapesWines[0].name : t("openFilteredCellar"),
+      count: cellarStats.missingGrapes,
+      onOpen: () => {
+        setActiveView("home");
+        setDashboardFocus("data");
+        setNotificationsOpen(false);
+      },
+    } : null,
+    cellarStats.missingScores ? {
+      id: "missing-scores",
+      kind: "ai_audit",
+      title: t("missingScores"),
+      detail: missingScoresWines[0] ? missingScoresWines[0].name : t("openFilteredCellar"),
+      count: cellarStats.missingScores,
+      onOpen: () => {
+        setActiveView("home");
+        setDashboardFocus("data");
+        setNotificationsOpen(false);
+      },
+    } : null,
+    wishlistStats.readyToBuy ? {
+      id: "wishlist-ready",
+      kind: "smart_to_collect",
+      title: t("readyToBuy"),
+      detail: t("openWishlistActions"),
+      count: wishlistStats.readyToBuy,
+      onOpen: () => {
+        setActiveView("wishlist");
+        setNotificationsOpen(false);
+      },
+    } : null,
+    wishlistStats.highPriority ? {
+      id: "wishlist-priority",
+      kind: "smart_to_collect",
+      title: t("highPriority"),
+      detail: t("openWishlistActions"),
+      count: wishlistStats.highPriority,
+      onOpen: () => {
+        setActiveView("wishlist");
+        setNotificationsOpen(false);
+      },
+    } : null,
+  ].filter((item): item is OperationalActionItem => Boolean(item)).slice(0, 6);
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
-  const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
+  const notificationCount = operationalActionItems.length + userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -8236,6 +8354,25 @@ export function App() {
     setQuickWineFilter((current) => current === filter ? "" : filter);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
+  }
+
+  function openOperationalCellarFilter(filter: QuickWineFilter) {
+    setActiveView("cellar");
+    setSearchQuery("");
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setTagFilter([]);
+    setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
+    setSortMode("name");
+    setQuickWineFilter(filter);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+    setNotificationsOpen(false);
   }
 
   function openBreakdownDrilldown(title: TranslationKey, dimension: "type" | "region", metric: BreakdownMetric, label: string) {
@@ -8688,6 +8825,24 @@ export function App() {
                         </button>
                       </div>
                     </div>
+                    {operationalActionItems.length ? (
+                      <section className="operational-actions-section" aria-label={t("operationalActions")}>
+                        <div className="operational-actions-head">
+                          <strong>{t("operationalActions")}</strong>
+                          <span>{t("operationalActionsHelp")}</span>
+                        </div>
+                        {operationalActionItems.map((item) => (
+                          <button type="button" className="notification-item operational-action-item" key={item.id} onClick={item.onOpen}>
+                            <strong className="notification-title">
+                              <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
+                              {item.title}
+                            </strong>
+                            <span>{item.detail}</span>
+                            <b>{formatBottleCount(item.count, locale)}</b>
+                          </button>
+                        ))}
+                      </section>
+                    ) : null}
                     {authenticated && !session?.is_app_admin ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("smart_entitlement_expiring")}</i>{t("entitlementValidity")}</strong>
