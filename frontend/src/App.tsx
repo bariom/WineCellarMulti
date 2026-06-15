@@ -570,6 +570,13 @@ type UserNotification = {
   read_at: string | null;
 };
 
+type OperationalActionSnooze = {
+  signature: string;
+  until: number;
+};
+
+type OperationalActionSnoozes = Record<string, OperationalActionSnooze>;
+
 type BillingStatus = {
   has_active_entitlement: boolean;
   valid_until: string | null;
@@ -757,6 +764,7 @@ type OperationalActionItem = {
   title: string;
   detail: string;
   count: number;
+  signature: string;
   onOpen: () => void;
 };
 type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
@@ -789,6 +797,30 @@ type TastingArchiveEntry = {
 };
 
 const TASTING_ARCHIVE_PAGE_SIZE = 50;
+const OPERATIONAL_ACTION_SNOOZE_DAYS = 14;
+const OPERATIONAL_ACTION_SNOOZE_STORAGE_KEY = "vinaris.operationalActionSnoozes.v1";
+
+function readOperationalActionSnoozes(): OperationalActionSnoozes {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = window.localStorage.getItem(OPERATIONAL_ACTION_SNOOZE_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as OperationalActionSnoozes;
+    if (!parsed || typeof parsed !== "object") return {};
+    return parsed;
+  } catch {
+    return {};
+  }
+}
+
+function writeOperationalActionSnoozes(snoozes: OperationalActionSnoozes) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(OPERATIONAL_ACTION_SNOOZE_STORAGE_KEY, JSON.stringify(snoozes));
+  } catch {
+    // Snoozing is a convenience layer; blocked storage must not break the app.
+  }
+}
 
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
@@ -1059,6 +1091,7 @@ const translations = {
     dashboard: "Dashboard",
     operationalActions: "Operational actions",
     operationalActionsHelp: "Open items that need a decision or data cleanup.",
+    snoozeAction: "Hide 14 days",
     openWishlistActions: "Open wishlist actions",
     priorityActions: "Priority actions",
     openWine: "Open wine",
@@ -1531,6 +1564,7 @@ const translations = {
     dashboard: "Dashboard",
     operationalActions: "Azioni operative",
     operationalActionsHelp: "Interventi che richiedono una decisione o un dato da completare.",
+    snoozeAction: "Nascondi 14 giorni",
     openWishlistActions: "Apri azioni wishlist",
     priorityActions: "Azioni prioritarie",
     openWine: "Apri vino",
@@ -5096,6 +5130,7 @@ export function App() {
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
@@ -8010,13 +8045,15 @@ export function App() {
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
     (tab) => (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
-  const operationalActionItems: OperationalActionItem[] = [
+  const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
+  const operationalActionCandidates: OperationalActionItem[] = [
     cellarStats.pastWindow ? {
       id: "past-window",
       kind: "smart_past_window",
       title: t("pastWindow"),
       detail: atRiskWines[0] ? `${atRiskWines[0].name}${atRiskWines[0].drink_to ? ` - ${atRiskWines[0].drink_to}` : ""}` : t("openFilteredCellar"),
       count: cellarStats.pastWindow,
+      signature: `${cellarStats.pastWindow}:${atRiskWines[0]?.id || atRiskWines[0]?.name || ""}:${atRiskWines[0]?.drink_to || ""}`,
       onOpen: () => openOperationalCellarFilter("past_window"),
     } : null,
     cellarStats.drinkNow ? {
@@ -8025,6 +8062,7 @@ export function App() {
       title: t("drinkNow"),
       detail: drinkNowWines[0] ? drinkNowWines[0].name : t("openFilteredCellar"),
       count: cellarStats.drinkNow,
+      signature: `${cellarStats.drinkNow}:${drinkNowWines[0]?.id || drinkNowWines[0]?.name || ""}:${drinkNowWines[0]?.drink_from || ""}:${drinkNowWines[0]?.drink_to || ""}`,
       onOpen: () => openOperationalCellarFilter("drink_now"),
     } : null,
     cellarStats.futureDeliveries ? {
@@ -8033,6 +8071,7 @@ export function App() {
       title: t("futureDeliveries"),
       detail: upcomingDeliveries[0] ? `${upcomingDeliveries[0].wine.name} - ${upcomingDeliveries[0].days}d` : t("deliveryTimeline"),
       count: cellarStats.futureDeliveries,
+      signature: `${cellarStats.futureDeliveries}:${upcomingDeliveries[0]?.wine.id || upcomingDeliveries[0]?.wine.name || ""}:${upcomingDeliveries[0]?.wine.expected_delivery || ""}`,
       onOpen: () => openOperationalCellarFilter("future_deliveries"),
     } : null,
     allValueRefreshWines.length ? {
@@ -8041,6 +8080,7 @@ export function App() {
       title: t("valueToRefresh"),
       detail: valueRefreshWines[0] ? valueRefreshWines[0].name : t("openFilteredCellar"),
       count: allValueRefreshWines.length,
+      signature: `${allValueRefreshWines.length}:${valueRefreshWines[0]?.id || valueRefreshWines[0]?.name || ""}:${valueRefreshWines[0]?.ai_value_estimated_at || ""}`,
       onOpen: () => {
         setActiveView("home");
         setDashboardFocus("value");
@@ -8053,6 +8093,7 @@ export function App() {
       title: t("missingValue"),
       detail: missingValueWines[0] ? missingValueWines[0].name : t("openFilteredCellar"),
       count: cellarStats.missingValue,
+      signature: `${cellarStats.missingValue}:${missingValueWines[0]?.id || missingValueWines[0]?.name || ""}`,
       onOpen: () => openOperationalCellarFilter("missing_data"),
     } : null,
     cellarStats.missingDrinkWindow ? {
@@ -8061,6 +8102,7 @@ export function App() {
       title: t("missingDrinkWindow"),
       detail: missingDrinkWindowWines[0] ? missingDrinkWindowWines[0].name : t("openFilteredCellar"),
       count: cellarStats.missingDrinkWindow,
+      signature: `${cellarStats.missingDrinkWindow}:${missingDrinkWindowWines[0]?.id || missingDrinkWindowWines[0]?.name || ""}:${missingDrinkWindowWines[0]?.vintage || ""}`,
       onOpen: () => {
         setActiveView("home");
         setDashboardFocus("data");
@@ -8073,6 +8115,7 @@ export function App() {
       title: t("missingGrapes"),
       detail: missingGrapesWines[0] ? missingGrapesWines[0].name : t("openFilteredCellar"),
       count: cellarStats.missingGrapes,
+      signature: `${cellarStats.missingGrapes}:${missingGrapesWines[0]?.id || missingGrapesWines[0]?.name || ""}`,
       onOpen: () => {
         setActiveView("home");
         setDashboardFocus("data");
@@ -8085,6 +8128,7 @@ export function App() {
       title: t("missingScores"),
       detail: missingScoresWines[0] ? missingScoresWines[0].name : t("openFilteredCellar"),
       count: cellarStats.missingScores,
+      signature: `${cellarStats.missingScores}:${missingScoresWines[0]?.id || missingScoresWines[0]?.name || ""}`,
       onOpen: () => {
         setActiveView("home");
         setDashboardFocus("data");
@@ -8097,6 +8141,7 @@ export function App() {
       title: t("readyToBuy"),
       detail: t("openWishlistActions"),
       count: wishlistStats.readyToBuy,
+      signature: `${wishlistStats.readyToBuy}:${selectedWishlistListId}`,
       onOpen: () => {
         setActiveView("wishlist");
         setNotificationsOpen(false);
@@ -8108,12 +8153,19 @@ export function App() {
       title: t("highPriority"),
       detail: t("openWishlistActions"),
       count: wishlistStats.highPriority,
+      signature: `${wishlistStats.highPriority}:${selectedWishlistListId}`,
       onOpen: () => {
         setActiveView("wishlist");
         setNotificationsOpen(false);
       },
     } : null,
-  ].filter((item): item is OperationalActionItem => Boolean(item)).slice(0, 6);
+  ].filter((item): item is OperationalActionItem => Boolean(item));
+  const operationalActionItems = operationalActionCandidates
+    .filter((item) => {
+      const snooze = operationalActionSnoozes[`${operationalActionScope}:${item.id}`];
+      return !snooze || snooze.signature !== item.signature || snooze.until <= now.getTime();
+    })
+    .slice(0, 6);
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
   const notificationCount = operationalActionItems.length + userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
@@ -8373,6 +8425,19 @@ export function App() {
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     setNotificationsOpen(false);
+  }
+
+  function snoozeOperationalAction(item: OperationalActionItem) {
+    const snoozeUntil = Date.now() + OPERATIONAL_ACTION_SNOOZE_DAYS * 86400000;
+    const actionKey = `${operationalActionScope}:${item.id}`;
+    setOperationalActionSnoozes((current) => {
+      const next = Object.fromEntries(
+        Object.entries(current).filter(([, snooze]) => snooze.until > Date.now()),
+      ) as OperationalActionSnoozes;
+      next[actionKey] = { signature: item.signature, until: snoozeUntil };
+      writeOperationalActionSnoozes(next);
+      return next;
+    });
   }
 
   function openBreakdownDrilldown(title: TranslationKey, dimension: "type" | "region", metric: BreakdownMetric, label: string) {
@@ -8832,14 +8897,19 @@ export function App() {
                           <span>{t("operationalActionsHelp")}</span>
                         </div>
                         {operationalActionItems.map((item) => (
-                          <button type="button" className="notification-item operational-action-item" key={item.id} onClick={item.onOpen}>
-                            <strong className="notification-title">
-                              <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
-                              {item.title}
-                            </strong>
-                            <span>{item.detail}</span>
-                            <b>{formatBottleCount(item.count, locale)}</b>
-                          </button>
+                          <div className="notification-item operational-action-item" key={item.id}>
+                            <button type="button" className="operational-action-open" onClick={item.onOpen}>
+                              <strong className="notification-title">
+                                <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
+                                {item.title}
+                              </strong>
+                              <span>{item.detail}</span>
+                              <b>{formatBottleCount(item.count, locale)}</b>
+                            </button>
+                            <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
+                              {t("snoozeAction")}
+                            </button>
+                          </div>
                         ))}
                       </section>
                     ) : null}

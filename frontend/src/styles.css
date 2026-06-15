@@ -812,16 +812,34 @@ summary:focus-visible {
 }
 
 .operational-action-item {
-  position: relative;
-  min-height: 62px;
-  padding-right: 56px;
+  display: grid;
+  gap: 8px;
   background: color-mix(in srgb, var(--surface) 68%, var(--surface-muted));
 }
 
-.operational-action-item b {
+.operational-action-open {
+  position: relative;
+  display: grid;
+  gap: 6px;
+  width: 100%;
+  min-height: 54px;
+  padding: 0 46px 0 0;
+  border: 0;
+  color: var(--text);
+  text-align: left;
+  background: transparent;
+  box-shadow: none;
+}
+
+.operational-action-open:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.operational-action-open b {
   position: absolute;
   top: 50%;
-  right: 12px;
+  right: 0;
   display: inline-grid;
   min-width: 34px;
   min-height: 34px;
@@ -831,6 +849,13 @@ summary:focus-visible {
   background: color-mix(in srgb, var(--primary) 14%, transparent);
   font-size: 0.88rem;
   transform: translateY(-50%);
+}
+
+.operational-action-snooze {
+  justify-self: start;
+  min-height: 30px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
 }
 
 .language-switch {
