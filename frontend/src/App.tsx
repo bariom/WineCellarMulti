@@ -862,6 +862,7 @@ const translations = {
     searchWineDataWithAiHelp: "No exact catalog match. Use AI to fill producer, region, appellation, type, and vintage from the name you entered.",
     pendingCatalogEntries: "Catalog entries pending approval",
     approveCatalogEntry: "Approve catalog entry",
+    rejectCatalogEntry: "Reject catalog entry",
     noPendingCatalogEntries: "No catalog entries pending approval",
     catalogAdminSearch: "Search catalog entries",
     catalogAdminSearchHelp: "Search active and pending catalog entries by name, producer, region, or alias.",
@@ -1329,6 +1330,7 @@ const translations = {
     searchWineDataWithAiHelp: "Nessuna corrispondenza esatta nel catalogo. Usa l'AI per compilare produttore, regione, denominazione, tipo e annata dal nome inserito.",
     pendingCatalogEntries: "Vini in catalogo da approvare",
     approveCatalogEntry: "Approva entry catalogo",
+    rejectCatalogEntry: "Rifiuta entry catalogo",
     noPendingCatalogEntries: "Nessuna entry catalogo da approvare",
     catalogAdminSearch: "Cerca entry catalogo",
     catalogAdminSearchHelp: "Cerca entry attive e pending per nome, produttore, regione o alias.",
@@ -11679,6 +11681,9 @@ export function App() {
                           <div className="member-actions">
                             <button type="button" className="compact" disabled={saving} onClick={() => approveCatalogEntry(entry)}>
                               {t("approveCatalogEntry")}
+                            </button>
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteCatalogEntry(entry)}>
+                              {t("rejectCatalogEntry")}
                             </button>
                           </div>
                         </div>
