@@ -8923,8 +8923,8 @@ export function App() {
                   <p className="eyebrow">{locale === "it" ? "Anteprima applicazione" : "Application preview"}</p>
                   <h3>
                     {locale === "it"
-                      ? "Cinque viste chiave per capire subito come lavora Vinaris."
-                      : "Five key views that show how Vinaris works in practice."}
+                      ? "Sei viste chiave per capire subito come lavora Vinaris."
+                      : "Six key views that show how Vinaris works in practice."}
                   </h3>
                 </div>
                 <div className="public-showcase-grid">
@@ -8983,6 +8983,84 @@ export function App() {
                       {locale === "it"
                         ? "Priorità, rischi, consegne e qualità dei dati in una schermata leggibile."
                         : "Priorities, risks, deliveries, and data quality in one readable screen."}
+                    </span>
+                  </div>
+                </article>
+
+                <article className="showcase-frame showcase-frame-wide">
+                  <div className="showcase-window showcase-stats-window">
+                    <div className="showcase-stats-head">
+                      <strong>{locale === "it" ? "Statistiche cantina" : "Cellar stats"}</strong>
+                      <span>{locale === "it" ? "Qualita dati, valore e finestre di beva" : "Data quality, value, and drinking windows"}</span>
+                    </div>
+                    <div className="showcase-stats-board">
+                      <div className="showcase-stat-tile showcase-stat-tile-highlight">
+                        <span>{locale === "it" ? "Le mie bottiglie" : "My bottles"}</span>
+                        <strong>112</strong>
+                        <small>CHF 4'830</small>
+                      </div>
+                      <div className="showcase-stat-tile">
+                        <span>{locale === "it" ? "Condivise" : "Shared"}</span>
+                        <strong>4</strong>
+                        <small>CHF 312</small>
+                      </div>
+                      <div className="showcase-stat-tile">
+                        <span>{locale === "it" ? "Valore totale" : "Total value"}</span>
+                        <strong>116</strong>
+                        <small>CHF 5'142</small>
+                      </div>
+                      <div className="showcase-stat-tile">
+                        <span>{locale === "it" ? "Da bere ora" : "Drink now"}</span>
+                        <strong>38</strong>
+                      </div>
+                      <div className="showcase-stat-tile">
+                        <span>{locale === "it" ? "Da bere in 2 anni" : "Drink in 2 years"}</span>
+                        <strong>1</strong>
+                      </div>
+                      <div className="showcase-stat-tile">
+                        <span>{locale === "it" ? "Oltre finestra" : "Past window"}</span>
+                        <strong>2</strong>
+                      </div>
+                      <div className="showcase-stat-tile">
+                        <span>{locale === "it" ? "Consegne future" : "Future deliveries"}</span>
+                        <strong>5</strong>
+                        <small>Le C des Carmes Haut-Brion · 12d</small>
+                      </div>
+                      <div className="showcase-stat-tile showcase-stat-quality">
+                        <span>{locale === "it" ? "Qualita dati" : "Data quality"}</span>
+                        <small>{locale === "it" ? "Valore mancante" : "Missing value"}: <strong>4</strong></small>
+                        <small>{locale === "it" ? "Finestra mancante" : "Missing drink window"}: <strong>7</strong></small>
+                        <small>{locale === "it" ? "Uvaggi mancanti" : "Missing grapes"}: <strong>4</strong></small>
+                        <small>{locale === "it" ? "Punteggi mancanti" : "Missing scores"}: <strong>22</strong></small>
+                      </div>
+                      <div className="showcase-breakdown-card">
+                        <div>
+                          <span>{locale === "it" ? "Valore per tipo" : "Value by type"}</span>
+                          <p><i className="tone-red" /> Red: CHF 2'986</p>
+                          <p><i className="tone-sparkling" /> Sparkling: CHF 1'437</p>
+                          <p><i className="tone-white" /> White: CHF 685</p>
+                          <p><i className="tone-rose" /> Rose: CHF 34</p>
+                        </div>
+                        <div className="showcase-donut showcase-donut-type"><strong>4</strong><small>{locale === "it" ? "tipi" : "types"}</small></div>
+                      </div>
+                      <div className="showcase-breakdown-card">
+                        <div>
+                          <span>{locale === "it" ? "Top regioni" : "Top regions"}</span>
+                          <p><i className="tone-region-a" /> Champagne: CHF 1'105</p>
+                          <p><i className="tone-region-b" /> Bordeaux: CHF 1'017</p>
+                          <p><i className="tone-region-c" /> Toscana: CHF 975</p>
+                          <p><i className="tone-region-d" /> Ticino: CHF 786</p>
+                        </div>
+                        <div className="showcase-donut showcase-donut-region"><strong>5</strong><small>{locale === "it" ? "regioni" : "regions"}</small></div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="showcase-caption">
+                    <strong>{locale === "it" ? "Statistiche operative della cantina" : "Operational cellar statistics"}</strong>
+                    <span>
+                      {locale === "it"
+                        ? "Una vista compatta per leggere valore, bottiglie condivise, finestre di beva, consegne e dati mancanti."
+                        : "A compact view for value, shared bottles, drinking windows, deliveries, and missing data."}
                     </span>
                   </div>
                 </article>
