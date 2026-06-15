@@ -8920,12 +8920,34 @@ export function App() {
 
             <section className="public-showcase-card">
                 <div className="public-section-heading">
-                  <p className="eyebrow">{locale === "it" ? "Anteprima applicazione" : "Application preview"}</p>
+                  <p className="eyebrow">{locale === "it" ? "Dentro l'applicazione" : "Inside the application"}</p>
                   <h3>
                     {locale === "it"
-                      ? "Sei viste chiave per capire subito come lavora Vinaris."
-                      : "Six key views that show how Vinaris works in practice."}
+                      ? "Un percorso semplice: decidere, controllare, ricordare."
+                      : "A simple workflow: decide, inspect, remember."}
                   </h3>
+                  <span>
+                    {locale === "it"
+                      ? "Le anteprime sotto mostrano il modo in cui Vinaris organizza il lavoro quotidiano del collezionista, senza trasformare la landing in un manuale."
+                      : "The previews below show how Vinaris organizes the collector's daily work without turning the landing page into a manual."}
+                  </span>
+                </div>
+                <div className="public-showcase-path" aria-label={locale === "it" ? "Percorso applicazione" : "Application workflow"}>
+                  <article>
+                    <span>01</span>
+                    <strong>{locale === "it" ? "Decidi cosa fare" : "Decide what to do"}</strong>
+                    <p>{locale === "it" ? "Dashboard, finestre di beva e priorita operative in apertura." : "Dashboard, drinking windows, and operational priorities at a glance."}</p>
+                  </article>
+                  <article>
+                    <span>02</span>
+                    <strong>{locale === "it" ? "Controlla la cantina" : "Inspect the cellar"}</strong>
+                    <p>{locale === "it" ? "Statistiche, qualita dati, valore e consegne future in una lettura unica." : "Stats, data quality, value, and future deliveries in one reading."}</p>
+                  </article>
+                  <article>
+                    <span>03</span>
+                    <strong>{locale === "it" ? "Conserva memoria" : "Preserve memory"}</strong>
+                    <p>{locale === "it" ? "Schede vino, wishlist e storico degustativo restano collegati alle decisioni." : "Wine records, wishlist, and tasting history stay connected to decisions."}</p>
+                  </article>
                 </div>
                 <div className="public-showcase-grid">
                 <article className="showcase-frame showcase-frame-wide">
