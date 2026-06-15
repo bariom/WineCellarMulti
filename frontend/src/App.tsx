@@ -2017,7 +2017,7 @@ const landingContent: Record<
     storyEyebrow: "Private Cellar Intelligence",
     storyTitle: "Finally, a place to manage a wine collection seriously.",
     storyBody:
-      "Vinaris was designed around the real collector workflow: what is ready, what is appreciating, what needs monitoring, what is still arriving, and what deserves a place in the long memory of the cellar. It is meant to feel closer to a private bank dashboard than to a social wine app.",
+      "Vinaris was designed around the real collector workflow: what is ready, what is appreciating, what needs monitoring, what is still arriving, and what deserves a place in the long memory of the cellar.",
      founderQuote:
         "I built Vinaris because I wanted a cellar app that thinks like a collector: structured, calm, and genuinely useful when decisions matter.",
       founderSupport:
@@ -2101,7 +2101,7 @@ const landingContent: Record<
     storyEyebrow: "Private Cellar Intelligence",
     storyTitle: "Finalmente un posto dove gestire seriamente la propria collezione di vino.",
     storyBody:
-      "Vinaris nasce da un flusso reale da collezionista: che cosa è pronto, che cosa si sta rivalutando, che cosa va monitorato, che cosa deve ancora arrivare e che cosa merita di restare nella memoria lunga della cantina. Deve sembrare più una banca privata dei grandi vini che una piattaforma sociale.",
+      "Vinaris nasce da un flusso reale da collezionista: che cosa è pronto, che cosa si sta rivalutando, che cosa va monitorato, che cosa deve ancora arrivare e che cosa merita di restare nella memoria lunga della cantina.",
      founderQuote:
         "Ho creato Vinaris perché volevo un'app di cantina che ragionasse da collezionista: strutturata, sobria e davvero utile quando bisogna decidere.",
       founderSupport:
