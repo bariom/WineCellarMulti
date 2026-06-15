@@ -3272,10 +3272,14 @@ function topWineCountGroups(items: Wine[], field: "type" | "region") {
 
 function topProducerGroups(items: Wine[]) {
   return uniqueSorted(items.map((wine) => wine.producer || "Unknown producer"))
-    .map((label) => ({
-      label,
-      value: sumWineValue(items.filter((wine) => (wine.producer || "Unknown producer") === label)),
-    }))
+    .map((label) => {
+      const producerWines = items.filter((wine) => (wine.producer || "Unknown producer") === label);
+      return {
+        label,
+        value: sumWineValue(producerWines),
+        bottles: producerWines.reduce((total, wine) => total + wine.quantity, 0),
+      };
+    })
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
     .slice(0, 5);
@@ -8285,7 +8289,13 @@ export function App() {
             <div className="action-list">
               {breakdownTopWines.length ? breakdownTopWines.map((wine) => (
                 <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                  <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                  <span>
+                    <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                    <span className="chart-drilldown-row-text">
+                      <span>{wine.name}</span>
+                      <small>{formatBottleCount(wine.quantity, locale)} {t("bottles").toLowerCase()}</small>
+                    </span>
+                  </span>
                   <strong>{formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</strong>
                 </button>
               )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
@@ -8296,7 +8306,13 @@ export function App() {
             <div className="bar-list">
               {breakdownTopProducers.length ? breakdownTopProducers.map((item) => (
                 <div className="bar-row" key={item.label}>
-                  <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
+                  <div>
+                    <span className="chart-drilldown-row-text">
+                      <span>{item.label}</span>
+                      <small>{formatBottleCount(item.bottles, locale)} {t("bottles").toLowerCase()}</small>
+                    </span>
+                    <strong>{formatMoney(item.value, "CHF", locale)}</strong>
+                  </div>
                   <div className="bar-track"><span style={{ width: `${Math.max((item.value / Math.max(breakdownTotalValue, 1)) * 100, 5)}%` }} /></div>
                 </div>
               )) : <p className="empty-state">{t("noDrilldownWines")}</p>}
