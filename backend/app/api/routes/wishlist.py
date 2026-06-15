@@ -1,3 +1,4 @@
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -7,7 +8,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import Wine, WishlistItem, WishlistList
+from app.models import AiAuditLog, Wine, WishlistItem, WishlistList
 from app.schemas.wishlist import (
     WishlistCreate,
     WishlistListCreate,
@@ -21,6 +22,7 @@ from app.schemas.wishlist import (
 router = APIRouter(prefix="/wishlist")
 
 DEFAULT_WISHLIST_LIST_NAME = "Wishlist"
+WISHLIST_AI_DATE_FEATURES = {"wishlist_strategy", "wishlist_target_price", "wishlist_purpose"}
 
 
 def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) -> WishlistList:
@@ -40,6 +42,60 @@ def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) ->
     db.add(wishlist_list)
     db.flush()
     return wishlist_list
+
+
+def wishlist_ai_generated_dates(db: Session, context: CurrentContext, items: list[WishlistItem]) -> dict[UUID, dict[str, datetime]]:
+    item_ids = [item.id for item in items]
+    if not item_ids:
+        return {}
+    rows = db.execute(
+        select(AiAuditLog.entity_id, AiAuditLog.feature, func.max(AiAuditLog.created_at))
+        .where(
+            AiAuditLog.household_id == context.household.id,
+            AiAuditLog.entity_type == "wishlist",
+            AiAuditLog.entity_id.in_(item_ids),
+            AiAuditLog.feature.in_(WISHLIST_AI_DATE_FEATURES),
+        )
+        .group_by(AiAuditLog.entity_id, AiAuditLog.feature),
+    )
+    dates: dict[UUID, dict[str, datetime]] = {}
+    for entity_id, feature, generated_at in rows:
+        key = "ai_purpose_generated_at" if feature == "wishlist_purpose" else "ai_strategy_generated_at"
+        item_dates = dates.setdefault(entity_id, {})
+        if key not in item_dates or generated_at > item_dates[key]:
+            item_dates[key] = generated_at
+    return dates
+
+
+def wishlist_response(item: WishlistItem, ai_dates: dict[str, datetime] | None = None) -> dict:
+    return {
+        "id": item.id,
+        "household_id": item.household_id,
+        "wishlist_list_id": item.wishlist_list_id,
+        "name": item.name,
+        "producer": item.producer,
+        "vintage": item.vintage,
+        "format": item.format,
+        "type": item.type,
+        "region": item.region,
+        "appellation": item.appellation,
+        "target_price": item.target_price,
+        "ai_market_price": item.ai_market_price,
+        "ai_market_price_currency": item.ai_market_price_currency,
+        "currency": item.currency,
+        "merchant": item.merchant,
+        "priority": item.priority,
+        "purpose": item.purpose,
+        "status": item.status,
+        "status_source": item.status_source,
+        "is_shared": item.is_shared,
+        "notes": item.notes,
+        "ai_context_note": item.ai_context_note,
+        "ai_strategy": item.ai_strategy,
+        "ai_purpose_advice": item.ai_purpose_advice,
+        "ai_strategy_generated_at": (ai_dates or {}).get("ai_strategy_generated_at"),
+        "ai_purpose_generated_at": (ai_dates or {}).get("ai_purpose_generated_at"),
+    }
 
 
 def get_household_wishlist_list(db: Session, context: CurrentContext, list_id: UUID) -> WishlistList:
@@ -211,7 +267,7 @@ def list_wishlist(
     wishlist_list_id: UUID | None = Query(default=None),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
-) -> list[WishlistItem]:
+) -> list[dict]:
     existing_count = db.scalar(select(func.count(WishlistList.id)).where(WishlistList.household_id == context.household.id)) or 0
     default_list = get_or_create_default_wishlist_list(db, context)
     if existing_count == 0:
@@ -219,7 +275,7 @@ def list_wishlist(
         db.refresh(default_list)
     active_list_id = wishlist_list_id or default_list.id
     get_household_wishlist_list(db, context, active_list_id)
-    return list(
+    items = list(
         db.scalars(
             select(WishlistItem)
             .where(
@@ -229,6 +285,8 @@ def list_wishlist(
             .order_by(WishlistItem.priority.asc(), WishlistItem.name.asc()),
         ),
     )
+    ai_dates = wishlist_ai_generated_dates(db, context, items)
+    return [wishlist_response(item, ai_dates.get(item.id)) for item in items]
 
 
 @router.post("", response_model=WishlistResponse, status_code=status.HTTP_201_CREATED)
@@ -236,7 +294,7 @@ def create_wishlist_item(
     payload: WishlistCreate,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> WishlistItem:
+) -> dict:
     get_household_wishlist_list(db, context, payload.wishlist_list_id)
     data = payload.model_dump()
     data["type"] = normalize_wine_type(data.get("type"))
@@ -248,7 +306,7 @@ def create_wishlist_item(
     db.add(item)
     db.commit()
     db.refresh(item)
-    return item
+    return wishlist_response(item)
 
 
 @router.patch("/{item_id}", response_model=WishlistResponse)
@@ -257,7 +315,7 @@ def update_wishlist_item(
     payload: WishlistUpdate,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> WishlistItem:
+) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     updates = payload.model_dump(exclude_unset=True)
     if "wishlist_list_id" in updates:
@@ -268,7 +326,8 @@ def update_wishlist_item(
         setattr(item, field, value)
     db.commit()
     db.refresh(item)
-    return item
+    ai_dates = wishlist_ai_generated_dates(db, context, [item])
+    return wishlist_response(item, ai_dates.get(item.id))
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

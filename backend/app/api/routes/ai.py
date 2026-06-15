@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
 from app.api.routes.wines import get_household_wine, record_wine_value_history, user_can_see_wine, user_tag_names_by_wine, wine_response, wine_value_history_by_wine
-from app.api.routes.wishlist import get_household_wishlist_item, get_household_wishlist_list, get_or_create_default_wishlist_list
+from app.api.routes.wishlist import get_household_wishlist_item, get_household_wishlist_list, get_or_create_default_wishlist_list, wishlist_ai_generated_dates, wishlist_response
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.wine_types import normalize_wine_type
@@ -1312,7 +1312,7 @@ def generate_wishlist_strategy(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> WishlistItem:
+) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -1356,7 +1356,8 @@ def generate_wishlist_strategy(
     )
     db.commit()
     db.refresh(item)
-    return item
+    ai_dates = wishlist_ai_generated_dates(db, context, [item])
+    return wishlist_response(item, ai_dates.get(item.id))
 
 
 @router.post("/wishlist/{item_id}/purpose", response_model=WishlistResponse)
@@ -1365,7 +1366,7 @@ def generate_wishlist_purpose(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> WishlistItem:
+) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -1407,7 +1408,8 @@ def generate_wishlist_purpose(
     )
     db.commit()
     db.refresh(item)
-    return item
+    ai_dates = wishlist_ai_generated_dates(db, context, [item])
+    return wishlist_response(item, ai_dates.get(item.id))
 
 
 @router.post("/wishlist/{item_id}/target-price", response_model=WishlistResponse)
@@ -1416,7 +1418,7 @@ def generate_wishlist_target_price(
     payload: AiGenerationRequest = AiGenerationRequest(),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> WishlistItem:
+) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
@@ -1518,7 +1520,8 @@ def generate_wishlist_target_price(
     )
     db.commit()
     db.refresh(item)
-    return item
+    ai_dates = wishlist_ai_generated_dates(db, context, [item])
+    return wishlist_response(item, ai_dates.get(item.id))
 
 
 @router.post("/wishlist/portfolio-strategy", response_model=WishlistPortfolioStrategyResponse)

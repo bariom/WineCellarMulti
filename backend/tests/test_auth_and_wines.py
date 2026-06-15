@@ -1864,6 +1864,12 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     assert target_price.json()["target_price"] == "40.00"
     assert target_price.json()["ai_market_price"] == "35.00"
     assert target_price.json()["status"] == "Ready"
+    assert target_price.json()["ai_strategy_generated_at"]
+    assert target_price.json()["ai_purpose_generated_at"]
+    wishlist = client.get("/api/v1/wishlist")
+    assert wishlist.status_code == 200
+    assert wishlist.json()[0]["ai_strategy_generated_at"] == target_price.json()["ai_strategy_generated_at"]
+    assert wishlist.json()[0]["ai_purpose_generated_at"] == target_price.json()["ai_purpose_generated_at"]
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
     wishlist_target_entry = next(entry for entry in audit.json() if entry["feature"] == "wishlist_target_price")

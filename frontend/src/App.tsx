@@ -474,7 +474,9 @@ type WishlistItem = {
   notes: string;
   ai_context_note: string;
   ai_strategy: string;
+  ai_strategy_generated_at: string | null;
   ai_purpose_advice: string;
+  ai_purpose_generated_at: string | null;
 };
 
 type WishlistList = {
@@ -2642,7 +2644,9 @@ function offlineWishlistItem(raw: Record<string, unknown>, index: number): Wishl
     notes: rawString(raw.notes),
     ai_context_note: rawString(raw.ai_context_note),
     ai_strategy: rawString(raw.ai_strategy),
+    ai_strategy_generated_at: rawNullableString(raw.ai_strategy_generated_at),
     ai_purpose_advice: rawString(raw.ai_purpose_advice),
+    ai_purpose_generated_at: rawNullableString(raw.ai_purpose_generated_at),
   };
 }
 
@@ -4804,8 +4808,10 @@ function WishlistDetail({
   const latestPurposeAudit = auditEntries
     .filter((entry) => entry.feature === "wishlist_purpose")
     .sort((first, second) => second.created_at.localeCompare(first.created_at))[0];
-  const strategyTitle = latestStrategyAudit ? `${t("aiStrategy")} - ${t("generatedAt")} ${formatDisplayDate(latestStrategyAudit.created_at)}` : t("aiStrategy");
-  const purposeTitle = latestPurposeAudit ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(latestPurposeAudit.created_at)}` : t("aiPurpose");
+  const strategyGeneratedAt = item.ai_strategy_generated_at || latestStrategyAudit?.created_at || "";
+  const purposeGeneratedAt = item.ai_purpose_generated_at || latestPurposeAudit?.created_at || "";
+  const strategyTitle = strategyGeneratedAt ? `${t("aiStrategy")} - ${t("generatedAt")} ${formatDisplayDate(strategyGeneratedAt)}` : t("aiStrategy");
+  const purposeTitle = purposeGeneratedAt ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(purposeGeneratedAt)}` : t("aiPurpose");
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
@@ -11026,13 +11032,13 @@ export function App() {
                       <div className="wishlist-mobile-ai-preview">
                         {item.ai_strategy ? (
                           <div className="wishlist-mobile-ai-preview-note">
-                            <strong>{t("aiStrategy")}</strong>
+                            <strong>{item.ai_strategy_generated_at ? `${t("aiStrategy")} - ${t("generatedAt")} ${formatDisplayDate(item.ai_strategy_generated_at)}` : t("aiStrategy")}</strong>
                             <p>{readableLegacyAiText(item.ai_strategy, "strategy")}</p>
                           </div>
                         ) : null}
                         {item.ai_purpose_advice ? (
                           <div className="wishlist-mobile-ai-preview-note">
-                            <strong>{t("aiPurpose")}</strong>
+                            <strong>{item.ai_purpose_generated_at ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(item.ai_purpose_generated_at)}` : t("aiPurpose")}</strong>
                             <p>{readableLegacyAiText(item.ai_purpose_advice, "purpose")}</p>
                           </div>
                         ) : null}
