@@ -747,7 +747,7 @@ type ImportSelection = ExportSelection;
 type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
-type SettingsTab = "profile" | "ai" | "sharing" | "users" | "data";
+type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
 type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
 type HistorySection = "tastings" | "wines";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
@@ -1222,6 +1222,7 @@ const translations = {
     settingsData: "Data",
     settingsProfile: "Profile",
     settingsSharing: "Cellars",
+    settingsTags: "Tags",
     settingsUsers: "Users",
     status: "Status",
     subject: "Subject",
@@ -1690,6 +1691,7 @@ const translations = {
     settingsData: "Dati",
     settingsProfile: "Profilo",
     settingsSharing: "Cantine",
+    settingsTags: "Tag",
     settingsUsers: "Utenti",
     status: "Stato",
     subject: "Oggetto",
@@ -7982,11 +7984,14 @@ export function App() {
   const settingsTabLabels: Record<SettingsTab, string> = {
     profile: t("settingsProfile"),
     ai: t("settingsAi"),
+    tags: t("settingsTags"),
     sharing: t("settingsSharing"),
     users: t("settingsUsers"),
     data: t("settingsData"),
   };
-  const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter((tab) => tab !== "users" || canAppAdmin);
+  const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
+    (tab) => (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+  );
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
   const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
@@ -11380,7 +11385,7 @@ export function App() {
                 </section>
               ) : null}
 
-              {settingsTab === "data" && canWriteWine ? (
+              {settingsTab === "tags" && canWriteWine ? (
                 <section className="settings-card settings-card-wide">
                   <details className="collapsible-panel">
                     <summary>{t("manageTags")}</summary>
