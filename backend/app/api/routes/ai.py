@@ -1605,6 +1605,7 @@ def generate_wishlist_portfolio_strategy(
         wishlist_list_id=wishlist_list.id,
         wishlist_list_name=wishlist_list.name,
         item_count=len(items),
+        generated_at=datetime.now(timezone.utc),
         estimated_cost_usd=charged_cost,
     )
     record_ai_audit(

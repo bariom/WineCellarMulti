@@ -155,4 +155,5 @@ class WishlistPortfolioStrategyResponse(BaseModel):
     wishlist_list_id: UUID | None = None
     wishlist_list_name: str = ""
     item_count: int = 0
+    generated_at: datetime | None = None
     estimated_cost_usd: Decimal

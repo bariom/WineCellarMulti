@@ -714,6 +714,7 @@ type WishlistPortfolioStrategy = {
   wishlist_list_id: string;
   wishlist_list_name: string;
   item_count: number;
+  generated_at: string | null;
   estimated_cost_usd: string;
 };
 
@@ -3808,6 +3809,7 @@ function auditWishlistPortfolioStrategy(entry: AiAuditLog): WishlistPortfolioStr
     wishlist_list_id: rawString(strategyEntry.wishlist_list_id),
     wishlist_list_name: rawString(strategyEntry.wishlist_list_name),
     item_count: rawNumber(strategyEntry.item_count),
+    generated_at: rawNullableString(entry.created_at),
     estimated_cost_usd: rawString(entry.estimated_cost_usd),
   };
 }
@@ -4907,6 +4909,7 @@ function WishlistPortfolioStrategyPanel({
   onToggle: (open: boolean) => void;
   t: (key: TranslationKey) => string;
 }) {
+  const generatedAtLabel = strategy?.generated_at ? `${t("generatedAt")} ${formatDisplayDate(strategy.generated_at)}` : "";
   return (
     <details className="wine-detail wishlist-portfolio-panel wishlist-strategy-details" open={open} onToggle={(event) => onToggle((event.currentTarget as HTMLDetailsElement).open)}>
       <summary className="wishlist-strategy-summary">
@@ -4921,6 +4924,7 @@ function WishlistPortfolioStrategyPanel({
                   <strong>{strategy.item_count}</strong>
                   <span>{t("records")}</span>
                   <strong>{formatAiBudget(strategy.estimated_cost_usd)}</strong>
+                  {generatedAtLabel ? <span>{generatedAtLabel}</span> : null}
                 </div>
                 <p>{clipUiText(strategy.buy_now || strategy.overview, 168)}</p>
               </div>
@@ -4948,6 +4952,7 @@ function WishlistPortfolioStrategyPanel({
           <div className="compare-ai-cost">
             <strong>{t("aiRequestCost")}</strong>
             <span>{formatAiBudget(strategy.estimated_cost_usd)}</span>
+            {generatedAtLabel ? <span>{generatedAtLabel}</span> : null}
           </div>
         </>
       ) : (
