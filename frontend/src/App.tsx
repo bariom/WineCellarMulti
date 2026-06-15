@@ -8928,8 +8928,8 @@ export function App() {
                   </h3>
                   <span>
                     {locale === "it"
-                      ? "Le anteprime sotto mostrano il modo in cui Vinaris organizza il lavoro quotidiano del collezionista, senza trasformare la landing in un manuale."
-                      : "The previews below show how Vinaris organizes the collector's daily work without turning the landing page into a manual."}
+                      ? "Vinaris mette in ordine il lavoro quotidiano del collezionista: priorita, valore, maturita, wishlist e memoria degustativa."
+                      : "Vinaris keeps the collector's daily work organized: priorities, value, maturity, wishlist, and tasting memory."}
                   </span>
                 </div>
                 <div className="public-showcase-path" aria-label={locale === "it" ? "Percorso applicazione" : "Application workflow"}>
