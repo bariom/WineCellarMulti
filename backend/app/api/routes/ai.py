@@ -968,6 +968,7 @@ def enrich_wine_label(
             f"Input source: {payload.source}\n\n"
             "Guidelines:\n"
             "- name should be the cuvee/wine name without vintage or producer when possible.\n"
+            "- Preserve apostrophes inside names. Do not truncate Italian or French names at apostrophes, e.g. keep \"Torre dell'anima\" complete.\n"
             "- producer should be winery/domain/brand.\n"
             "- If the input contains patterns like 'X di Y', 'X by Y', or 'X de Y', treat Y as a candidate producer and verify it.\n"
             "- vintage should be a four-digit year, NV, MV, or empty.\n"

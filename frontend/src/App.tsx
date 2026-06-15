@@ -5274,6 +5274,18 @@ export function App() {
     return Boolean(item.producer?.trim() || item.type?.trim() || item.region?.trim() || item.appellation?.trim() || item.country?.trim() || item.grapes_text?.trim());
   }
 
+  function safeEnrichedWineName(inputLabel: string, enrichedName: string) {
+    const label = inputLabel.trim();
+    const enriched = enrichedName.trim();
+    if (!enriched) return label;
+    const labelWithoutTrailingVintage = label.replace(/\s+(?:19|20)\d{2}\s*$/i, "").replace(/\s+(?:NV|MV)\s*$/i, "").trim();
+    const comparisonLabel = labelWithoutTrailingVintage || label;
+    if (comparisonLabel.includes("'") && !enriched.includes("'") && comparisonLabel.toLowerCase().startsWith(enriched.toLowerCase())) {
+      return comparisonLabel;
+    }
+    return enriched;
+  }
+
   function clearWineRecognitionState() {
     setWineRecognitionResult(null);
     setWineEnrichmentLoading(false);
@@ -5295,7 +5307,7 @@ export function App() {
       }
       return {
         ...catalogItem,
-        name: enrichment.name || catalogItem.name,
+        name: safeEnrichedWineName(label, enrichment.name || catalogItem.name),
         producer: enrichment.producer || catalogItem.producer,
         region: enrichment.region || catalogItem.region,
         appellation: enrichment.appellation || catalogItem.appellation,
@@ -5357,7 +5369,7 @@ export function App() {
         body: JSON.stringify({ label, locale, source: "manual" }),
       });
       const catalogItem: CatalogWine = {
-        name: enrichment.name || label,
+        name: safeEnrichedWineName(label, enrichment.name),
         producer: enrichment.producer,
         region: enrichment.region,
         appellation: enrichment.appellation,
