@@ -1340,9 +1340,10 @@ const translations = {
     exportSensitiveNote: "Passwords, API keys, billing secrets, sessions and passkeys are never exported.",
     generatedCode: "Generated code",
     paidRedeemCode: "Paid redeem code",
-    trialRedeemCode: "3-day trial redeem code",
+    trialRedeemCode: "Trial redeem code",
+    trialRedeemCodeDuration: "Trial duration",
     useTrialRedeemCodeNow: "Use this code now",
-    trialRedeemCodeHelp: "Copy or redeem the 3-day access code below before choosing a paid plan.",
+    trialRedeemCodeHelp: "Copy or redeem the trial access code below before choosing a paid plan.",
     working: "Working",
     youngWine: "Young",
     estimatedCost: "Estimated cost",
@@ -1815,9 +1816,10 @@ const translations = {
     exportSensitiveNote: "Password, chiavi API, segreti billing, sessioni e passkey non vengono mai esportati.",
     generatedCode: "Codice generato",
     paidRedeemCode: "Codice redeem acquistato",
-    trialRedeemCode: "Codice trial 3 giorni",
+    trialRedeemCode: "Codice trial",
+    trialRedeemCodeDuration: "Durata trial",
     useTrialRedeemCodeNow: "Usa subito questo codice",
-    trialRedeemCodeHelp: "Copia o riscatta prima il codice di accesso da 3 giorni qui sotto, poi valuta un piano a pagamento.",
+    trialRedeemCodeHelp: "Copia o riscatta prima il codice di accesso trial qui sotto, poi valuta un piano a pagamento.",
     working: "Elaborazione",
     youngWine: "Giovane",
     estimatedCost: "Costo stimato",
@@ -7432,7 +7434,7 @@ export function App() {
       <div>
         {highlighted ? <span className="trial-redeem-kicker">{t("useTrialRedeemCodeNow")}</span> : null}
         <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
-        <span>{highlighted ? t("trialRedeemCodeHelp") : `${code.label} - ${code.duration_days}d`}</span>
+        <span>{highlighted ? `${t("trialRedeemCodeHelp")} ${t("trialRedeemCodeDuration")}: ${code.duration_days}d.` : `${code.label} - ${code.duration_days}d`}</span>
         {highlighted ? (
           <code className="trial-redeem-token">{code.code || code.code_prefix}</code>
         ) : (

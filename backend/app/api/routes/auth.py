@@ -53,7 +53,6 @@ router = APIRouter(prefix="/auth")
 logger = logging.getLogger(__name__)
 
 PASSKEY_CHALLENGE_TTL_MINUTES = 5
-TRIAL_ACCESS_DAYS = 3
 TRIAL_REDEEM_KIND = "trial"
 CODE_ALPHABET = string.ascii_uppercase + string.digits
 
@@ -105,16 +104,17 @@ def ensure_trial_redeem_code(db: Session, user: User) -> RedeemCode | None:
 
     clear_code = generate_redeem_code()
     normalized = normalize_redeem_code(clear_code)
+    trial_days = max(settings.trial_entitlement_days, 1)
     trial_code = RedeemCode(
         code_hash=hash_redeem_code(normalized),
         code_prefix=clear_code[:8],
         encrypted_code=encrypt_secret(clear_code),
         kind=TRIAL_REDEEM_KIND,
         label="Vinaris trial access",
-        duration_days=TRIAL_ACCESS_DAYS,
+        duration_days=trial_days,
         max_redemptions=1,
         email=user.email.lower(),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=TRIAL_ACCESS_DAYS),
+        expires_at=datetime.now(timezone.utc) + timedelta(days=trial_days),
     )
     db.add(trial_code)
     create_user_notification(
@@ -122,7 +122,7 @@ def ensure_trial_redeem_code(db: Session, user: User) -> RedeemCode | None:
         user,
         kind="trial_redeem_code",
         title="Trial Vinaris disponibile",
-        message="E disponibile un codice trial da 3 giorni per iniziare a usare Vinaris.",
+        message=f"E disponibile un codice trial da {trial_days} giorni per iniziare a usare Vinaris.",
         action_url="/settings/profile",
         fingerprint=f"trial-redeem-code:{user.id}",
     )

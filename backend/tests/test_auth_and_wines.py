@@ -779,7 +779,7 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
     assert len(status_payload["available_redeem_codes"]) == 1
     trial_code = status_payload["available_redeem_codes"][0]
     assert trial_code["kind"] == "trial"
-    assert trial_code["duration_days"] == 3
+    assert trial_code["duration_days"] == 5
     assert trial_code["max_redemptions"] == 1
     assert trial_code["email"] == "trial@example.com"
     assert trial_code["expires_at"] is not None
@@ -801,10 +801,10 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
                 encrypted_code=encrypt_secret(clear_code),
                 kind="trial",
                 label="Second trial",
-                duration_days=3,
+                duration_days=5,
                 max_redemptions=1,
                 email=user.email,
-                expires_at=datetime.now(timezone.utc) + timedelta(days=3),
+                expires_at=datetime.now(timezone.utc) + timedelta(days=5),
             ),
         )
         db.commit()
