@@ -1091,7 +1091,6 @@ const translations = {
     dashboard: "Dashboard",
     operationalActions: "Operational actions",
     operationalActionsHelp: "Open items that need a decision or data cleanup.",
-    operationalActionsSummary: "Available from the dashboard, without counting as notifications.",
     showActions: "Show",
     hideActions: "Hide",
     snoozeAction: "Hide 14 days",
@@ -1582,7 +1581,6 @@ const translations = {
     dashboard: "Dashboard",
     operationalActions: "Azioni operative",
     operationalActionsHelp: "Interventi che richiedono una decisione o un dato da completare.",
-    operationalActionsSummary: "Disponibili dalla dashboard, senza pesare come notifiche.",
     showActions: "Mostra",
     hideActions: "Nascondi",
     snoozeAction: "Nascondi 14 giorni",
@@ -9035,7 +9033,6 @@ export function App() {
                         <div className="operational-actions-head">
                           <div>
                             <strong>{t("operationalActions")}</strong>
-                            <span>{t("operationalActionsSummary")}</span>
                           </div>
                           <button
                             type="button"
