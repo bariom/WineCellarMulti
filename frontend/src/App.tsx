@@ -1197,6 +1197,10 @@ const translations = {
     pairingPreferencesHelp: "Describe your preferences once and Vinaris will use them by default during pairing.",
     pairingPreferencesPlaceholder: "E.g. I prefer fresh, precise wines, low oak, little sweetness, and I usually avoid heavy tannins with spicy dishes.",
     pairingIgnorePreferences: "Ignore my tastes for this request",
+    pairingLocalHelp: "When restaurant mode is active, ask AI to favor bottles from the place where you are.",
+    pairingLocalOrigin: "Where are you?",
+    pairingLocalOriginHelp: "Enter a region, area, city, or country. Example: Tuscany, Piedmont, Burgundy, Switzerland.",
+    pairingPreferLocal: "Prefer local wines",
     savePairingPreferences: "Save tastes",
     pairingEmptyDish: "Enter a dish first.",
     pairingIncludeMarket: "Also show 2 bottles outside my cellar",
@@ -1681,6 +1685,10 @@ const translations = {
     pairingPreferencesHelp: "Descrivi una volta le tue preferenze e Vinaris le userà di default negli abbinamenti.",
     pairingPreferencesPlaceholder: "Es. Preferisco vini freschi e precisi, poco legno, poca dolcezza ed evito tannini aggressivi con piatti speziati.",
     pairingIgnorePreferences: "Ignora i miei gusti per questa richiesta",
+    pairingLocalHelp: "Quando la modalita ristorante e attiva, chiedi all'AI di privilegiare bottiglie del luogo in cui ti trovi.",
+    pairingLocalOrigin: "Dove ti trovi?",
+    pairingLocalOriginHelp: "Inserisci una regione, zona, citta o nazione. Esempio: Toscana, Piemonte, Borgogna, Svizzera.",
+    pairingPreferLocal: "Prediligi vini locali",
     savePairingPreferences: "Salva gusti",
     pairingEmptyDish: "Inserisci prima un piatto.",
     pairingIncludeMarket: "Mostra anche 2 proposte fuori cantina",
@@ -5192,6 +5200,8 @@ export function App() {
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
   const [pairingIgnorePreferences, setPairingIgnorePreferences] = useState(false);
+  const [pairingPreferLocal, setPairingPreferLocal] = useState(false);
+  const [pairingLocalOrigin, setPairingLocalOrigin] = useState("");
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
@@ -7370,6 +7380,8 @@ export function App() {
           include_market: pairingIncludeMarket,
           market_only: pairingMarketOnly,
           ignore_preferences: pairingIgnorePreferences,
+          prefer_local_wines: pairingMarketOnly && pairingPreferLocal,
+          local_origin: pairingMarketOnly ? pairingLocalOrigin.trim() : "",
           locale,
         }),
       });
@@ -8748,9 +8760,45 @@ export function App() {
                 <span>{t("pairingIncludeMarket")}</span>
               </label>
               <label className="pairing-option">
-                <input type="checkbox" checked={pairingMarketOnly} onChange={(event) => setPairingMarketOnly(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                <input
+                  type="checkbox"
+                  checked={pairingMarketOnly}
+                  onChange={(event) => {
+                    const nextChecked = event.target.checked;
+                    setPairingMarketOnly(nextChecked);
+                    if (!nextChecked) {
+                      setPairingPreferLocal(false);
+                      setPairingLocalOrigin("");
+                    }
+                  }}
+                  disabled={!canGenerateAi || generatingAi === "pairing"}
+                />
                 <span>{t("pairingMarketOnly")}</span>
               </label>
+              {pairingMarketOnly ? (
+                <>
+                  <label className="pairing-option">
+                    <input
+                      type="checkbox"
+                      checked={pairingPreferLocal}
+                      onChange={(event) => setPairingPreferLocal(event.target.checked)}
+                      disabled={!canGenerateAi || generatingAi === "pairing"}
+                    />
+                    <span>{t("pairingPreferLocal")}</span>
+                  </label>
+                  <label className="pairing-local-field">
+                    <span>{t("pairingLocalOrigin")}</span>
+                    <input
+                      value={pairingLocalOrigin}
+                      onChange={(event) => setPairingLocalOrigin(event.target.value)}
+                      placeholder={locale === "it" ? "Es. Toscana, Piemonte, Svizzera" : "E.g. Tuscany, Piedmont, Switzerland"}
+                      disabled={!canGenerateAi || generatingAi === "pairing" || !pairingPreferLocal}
+                    />
+                    <small>{t("pairingLocalOriginHelp")}</small>
+                  </label>
+                  <small className="pairing-local-help">{t("pairingLocalHelp")}</small>
+                </>
+              ) : null}
               <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
                 <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} />
               </button>

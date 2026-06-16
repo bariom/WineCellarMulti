@@ -781,6 +781,8 @@ def suggest_pairing(
     user_settings = get_or_create_user_ai_settings(db, context)
     pairing_preferences = "" if payload.ignore_preferences else (user_settings.pairing_preferences or "").strip()
     max_price_chf = Decimal(str(payload.max_price_chf)) if payload.max_price_chf is not None else None
+    local_origin = payload.local_origin.strip()
+    prefer_local_wines = payload.market_only and payload.prefer_local_wines and bool(local_origin)
     cellar_wines = [] if payload.market_only else list(
         db.scalars(
             select(Wine)
@@ -854,6 +856,7 @@ def suggest_pairing(
             "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
             "Non inventare che un vino e in cantina se non e nel contesto. "
             "Se ricevi gusti personali dell'utente, trattali come preferenze morbide e non come vincoli assoluti. "
+            "Se l'utente chiede di privilegiare vini locali mentre e al ristorante, usa quel contesto come preferenza forte per le proposte di mercato, senza forzare abbinamenti palesemente sbagliati. "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
@@ -863,9 +866,12 @@ def suggest_pairing(
             f"market_only: {str(payload.market_only).lower()}\n\n"
             f"gusti_personali: {pairing_preferences or 'none'}\n"
             f"ignore_preferences: {str(payload.ignore_preferences).lower()}\n\n"
+            f"preferire_vini_locali: {str(prefer_local_wines).lower()}\n"
+            f"origine_locale: {local_origin or 'none'}\n\n"
             "Vini disponibili in cantina, solo questi possono essere scelti come cellar_matches:\n"
             f"{wine_context_payload}\n\n"
             "Se e presente un budget massimo in CHF, privilegia chiaramente bottiglie entro quel tetto e non proporre cellar_matches sopra budget. "
+            "Se preferire_vini_locali e true, privilegia per il mercato bottiglie coerenti con origine_locale, restando sensato rispetto al piatto. "
             "Se include_market e true, le proposte di mercato devono stare entro il budget quando possibile. "
             "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60."
         ),

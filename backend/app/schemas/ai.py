@@ -104,6 +104,8 @@ class PairingRequest(BaseModel):
     include_market: bool = False
     market_only: bool = False
     ignore_preferences: bool = False
+    prefer_local_wines: bool = False
+    local_origin: str = Field(default="", max_length=160)
     locale: str = Field(default="it", pattern="^(it|en)$")
 
 

@@ -2095,6 +2095,41 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     assert usage.json()["all_time"]["requests"] == 1
 
 
+def test_pairing_restaurant_mode_can_prefer_local_market_wines(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+
+    def fake_create_response(*args, **kwargs):
+        assert args[0] == "gpt-5.5"
+        assert "market_only: true" in args[2]
+        assert "preferire_vini_locali: true" in args[2]
+        assert "origine_locale: Toscana" in args[2]
+        text = (
+            '{"summary":"Per una bistecca in Toscana conviene restare su rossi locali.",'
+            '"cellar_matches":[],'
+            '"market_recommendations":{"low":[{"name":"Chianti Classico","producer":"Prod","price_hint":"entro 30 CHF","reason":"Rosso locale adatto alla carne."}],"medium":[],"high":[]}}'
+        )
+        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    pairing = client.post(
+        "/api/v1/ai/pairing",
+        json={
+            "dish": "Bistecca",
+            "market_only": True,
+            "prefer_local_wines": True,
+            "local_origin": "Toscana",
+        },
+    )
+    assert pairing.status_code == 200
+    assert pairing.json()["cellar_matches"] == []
+    assert pairing.json()["market_recommendations"]["low"][0]["name"] == "Chianti Classico"
+
+
 def test_ai_usage_summarizes_current_user_costs():
     client = TestClient(app)
     assert register(client).status_code == 201

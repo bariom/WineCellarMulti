@@ -4703,6 +4703,19 @@ textarea {
   min-height: auto;
 }
 
+.pairing-local-field {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 90%, transparent);
+}
+
+.pairing-local-field small,
+.pairing-local-help {
+  margin: 0;
+  color: var(--text-muted);
+}
+
 .pairing-summary,
 .pairing-model-used {
   margin: 0;
