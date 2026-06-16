@@ -8634,6 +8634,7 @@ export function App() {
   function renderPairingSection() {
     const activePairingBudget = Number(pairingMaxPrice || 0);
     const hasPairingBudget = Number.isFinite(activePairingBudget) && activePairingBudget > 0;
+    const pairingPreviewLimit = 3;
     const cellarBottleValues = wines
       .map((wine) => Number(wine.current_value || wine.price || 0))
       .filter((value) => Number.isFinite(value) && value > 0);
@@ -8648,17 +8649,42 @@ export function App() {
       })
       .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0) || [];
     const cheapestCellarMatch = cellarMatchBudgetValues.length ? Math.min(...cellarMatchBudgetValues) : null;
-    const pairingResultCount = (pairingResult?.cellar_matches.length || 0) + Object.values(pairingResult?.market_recommendations || {}).reduce((total, items) => total + items.length, 0);
-    const pairingPreviewItems = [
-      ...(pairingResult?.cellar_matches.map((match) => ({ key: `cellar-${match.wine_id}`, name: match.wine_name, producer: match.producer })) || []),
-      ...(["low", "medium", "high"] as const).flatMap((tier) =>
-        (pairingResult?.market_recommendations[tier] || []).map((item, index) => ({
-          key: `${tier}-${item.name}-${index}`,
-          name: item.name,
-          producer: item.producer,
-        })),
+    const pairingPreviewCandidates = [
+      ...(pairingResult?.cellar_matches.map((match, index) => {
+        const wine = wines.find((item) => item.id === match.wine_id);
+        const referenceValue = Number(wine?.current_value || wine?.price || 0);
+        const hasReferenceValue = Number.isFinite(referenceValue) && referenceValue > 0;
+        return {
+          key: `cellar-${match.wine_id}`,
+          name: match.wine_name,
+          producer: match.producer,
+          sourceRank: 0,
+          originalRank: index,
+          withinBudget: hasPairingBudget && hasReferenceValue ? referenceValue <= activePairingBudget : !hasPairingBudget,
+        };
+      }) || []),
+      ...(["low", "medium", "high"] as const).flatMap((tier, tierIndex) =>
+        (pairingResult?.market_recommendations[tier] || []).map((item, index) => {
+          const hintAmount = parsePriceHintAmount(item.price_hint);
+          return {
+            key: `${tier}-${item.name}-${index}`,
+            name: item.name,
+            producer: item.producer,
+            sourceRank: tierIndex + 1,
+            originalRank: index,
+            withinBudget: hasPairingBudget && hintAmount !== null ? hintAmount <= activePairingBudget : !hasPairingBudget,
+          };
+        }),
       ),
-    ].slice(0, 4);
+    ];
+    const pairingPreviewItems = pairingPreviewCandidates
+      .sort((first, second) => {
+        if (first.withinBudget !== second.withinBudget) return first.withinBudget ? -1 : 1;
+        if (first.sourceRank !== second.sourceRank) return first.sourceRank - second.sourceRank;
+        return first.originalRank - second.originalRank;
+      })
+      .slice(0, pairingPreviewLimit);
+    const pairingResultCount = pairingPreviewItems.length;
     return (
       <section className="pairing-card">
         <div className="card-heading">
