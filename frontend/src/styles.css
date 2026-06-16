@@ -7292,7 +7292,7 @@ textarea {
 
   .wine-side-panel > .wine-form {
     position: fixed;
-    z-index: 30;
+    z-index: 130;
     inset: 74px 14px 14px;
     max-height: calc(100dvh - 88px);
     overflow-y: auto;
