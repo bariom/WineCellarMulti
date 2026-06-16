@@ -8812,17 +8812,21 @@ export function App() {
                     />
                     <span>{t("pairingPreferLocal")}</span>
                   </label>
-                  <label className="pairing-local-field">
-                    <span>{t("pairingLocalOrigin")}</span>
-                    <input
-                      value={pairingLocalOrigin}
-                      onChange={(event) => setPairingLocalOrigin(event.target.value)}
-                      placeholder={locale === "it" ? "Es. Toscana, Piemonte, Svizzera" : "E.g. Tuscany, Piedmont, Switzerland"}
-                      disabled={!canGenerateAi || generatingAi === "pairing" || !pairingPreferLocal}
-                    />
-                    <small>{t("pairingLocalOriginHelp")}</small>
-                  </label>
-                  <small className="pairing-local-help">{t("pairingLocalHelp")}</small>
+                  {pairingPreferLocal ? (
+                    <>
+                      <label className="pairing-local-field">
+                        <span>{t("pairingLocalOrigin")}</span>
+                        <input
+                          value={pairingLocalOrigin}
+                          onChange={(event) => setPairingLocalOrigin(event.target.value)}
+                          placeholder={locale === "it" ? "Es. Toscana, Piemonte, Svizzera" : "E.g. Tuscany, Piedmont, Switzerland"}
+                          disabled={!canGenerateAi || generatingAi === "pairing"}
+                        />
+                        <small>{t("pairingLocalOriginHelp")}</small>
+                      </label>
+                      <small className="pairing-local-help">{t("pairingLocalHelp")}</small>
+                    </>
+                  ) : null}
                 </>
               ) : null}
               <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
