@@ -990,6 +990,13 @@ summary:focus-visible {
   line-height: 1.5;
 }
 
+.email-verification-notice button {
+  justify-self: start;
+  margin-top: 4px;
+  min-height: 42px;
+  font-weight: 800;
+}
+
 .workspace {
   display: grid;
   gap: 24px;

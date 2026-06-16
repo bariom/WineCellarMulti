@@ -7476,7 +7476,7 @@ export function App() {
         </div>
       ) : null}
       {emailVerificationToken ? (
-        <div className="invite-notice">
+        <div className="invite-notice email-verification-notice">
           <strong>{t("emailVerificationReady")}</strong>
           <span>{t("emailVerificationReadyHelp")}</span>
           <button type="button" onClick={confirmEmailVerification} disabled={saving}>
@@ -8071,7 +8071,7 @@ export function App() {
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
-    (tab) => (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+    (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
   const operationalActionCandidates: OperationalActionItem[] = [
@@ -9539,7 +9539,7 @@ export function App() {
           </div>
         ) : null}
         </>
-      ) : needsRedeem ? (
+      ) : needsRedeem && activeView !== "settings" ? (
         <section className="auth-panel">
           <section className="wine-form">
             <h2>{t("redeemCode")}</h2>
@@ -9594,6 +9594,7 @@ export function App() {
         </section>
       ) : (
         <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>
+          {!needsRedeem ? (
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               {t("home")}
@@ -9614,6 +9615,7 @@ export function App() {
               {t("help")}
             </button>
           </div>
+          ) : null}
           {activeView === "home" ? (
             <section className="home-dashboard">
               <section className="hero-panel">
