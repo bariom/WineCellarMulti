@@ -8884,7 +8884,6 @@ export function App() {
             {!offlineMode ? <div className="notification-wrap">
               <button type="button" className="secondary compact notification-button" aria-label={t("notifications")} title={t("notifications")} onClick={() => setNotificationsOpen((open) => !open)}>
                 <span className="notification-button-icon" aria-hidden="true">{notificationBellIcon()}</span>
-                <span className="notification-button-label">{t("notifications")}</span>
                 {notificationCount ? <strong>{notificationCount}</strong> : null}
               </button>
               {notificationsOpen ? (

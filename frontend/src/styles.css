@@ -686,9 +686,13 @@ summary:focus-visible {
 }
 
 .notification-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
+  position: relative;
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  place-items: center;
+  padding: 0;
 }
 
 .notification-button-icon {
@@ -704,14 +708,18 @@ summary:focus-visible {
 }
 
 .notification-button strong {
+  position: absolute;
+  top: -7px;
+  right: -7px;
   display: inline-grid;
-  min-width: 22px;
-  height: 22px;
+  min-width: 20px;
+  height: 20px;
   place-items: center;
   border-radius: 999px;
   color: var(--primary-contrast);
   background: var(--danger);
-  font-size: 0.78rem;
+  font-size: 0.72rem;
+  line-height: 1;
 }
 
 .notification-panel {
@@ -7578,16 +7586,12 @@ textarea {
   }
 
   .session-pill .notification-wrap .notification-button {
-    min-height: 34px;
+    width: 34px;
+    height: 34px;
     min-width: 34px;
-    padding: 0 8px;
-    gap: 0;
+    padding: 0;
     font-size: 0.88rem;
-    justify-content: center;
-  }
-
-  .session-pill .notification-wrap .notification-button .notification-button-label {
-    display: none;
+    justify-items: center;
   }
 
   .session-pill .notification-wrap .notification-button .notification-button-icon {
@@ -7597,7 +7601,8 @@ textarea {
   }
 
   .session-pill .notification-wrap .notification-button strong {
-    grid-column: auto;
+    top: -6px;
+    right: -6px;
     min-width: 18px;
     height: 18px;
     font-size: 0.74rem;
