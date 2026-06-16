@@ -666,6 +666,25 @@ summary:focus-visible {
   z-index: 110;
 }
 
+.topbar-icon-button {
+  display: inline-grid;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  place-items: center;
+  padding: 0;
+}
+
+.topbar-icon-button svg {
+  width: 18px;
+  height: 18px;
+}
+
+.topbar-icon-button.active {
+  color: var(--primary-contrast);
+  background: var(--primary);
+}
+
 .notification-button {
   display: inline-flex;
   align-items: center;
@@ -7122,7 +7141,7 @@ textarea {
     grid-column: 1 / -1;
   }
 
-  .session-pill > button:last-child {
+  .session-pill .topbar-logout-button {
     justify-self: end;
     margin-left: 0;
   }
@@ -7492,7 +7511,7 @@ textarea {
 
   .session-pill {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: minmax(0, 1fr) auto auto auto;
     gap: 5px 8px;
     width: 100%;
     max-width: 100%;
@@ -7513,7 +7532,7 @@ textarea {
   }
 
   .session-pill > span {
-    grid-column: 3;
+    grid-column: 4;
     grid-row: 1;
     justify-self: end;
     align-self: center;
@@ -7542,6 +7561,12 @@ textarea {
   .session-pill > button {
     margin-left: 0;
     min-width: 0;
+  }
+
+  .session-pill .topbar-icon-button {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
   }
 
   .session-pill .notification-wrap {
@@ -7578,12 +7603,16 @@ textarea {
     font-size: 0.74rem;
   }
 
-  .session-pill > button:last-child {
+  .session-pill .topbar-settings-button {
     grid-column: 3;
     grid-row: 2;
     justify-self: end;
-    min-height: 34px;
-    padding-inline: 10px;
+  }
+
+  .session-pill .topbar-logout-button {
+    grid-column: 4;
+    grid-row: 2;
+    justify-self: end;
   }
 
   .detail-field .wine-status-badge {

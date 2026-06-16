@@ -3659,6 +3659,26 @@ function notificationBellIcon() {
   );
 }
 
+function settingsGearIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z" />
+      <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 0 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1A2 2 0 0 1 4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1A2 2 0 0 1 7 4.2l.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1A2 2 0 0 1 19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.1a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" />
+    </svg>
+  );
+}
+
+function logoutIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M10 17l5-5-5-5" />
+      <path d="M15 12H3" />
+      <path d="M21 19V5a2 2 0 0 0-2-2h-5" />
+      <path d="M14 21h5a2 2 0 0 0 2-2" />
+    </svg>
+  );
+}
+
 function SommelierAiIllustration() {
   return <img src="/images/sommelier_ai.png" alt="Sommelier AI" loading="lazy" />;
 }
@@ -8973,8 +8993,23 @@ export function App() {
                 </>
               ) : null}
             </div> : null}
-            <button type="button" className="secondary compact" onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}>
-              {t("logout")}
+            <button
+              type="button"
+              className={`secondary compact topbar-icon-button topbar-settings-button${activeView === "settings" ? " active" : ""}`}
+              aria-label={t("settings")}
+              title={t("settings")}
+              onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("settings"); }}
+            >
+              {settingsGearIcon()}
+            </button>
+            <button
+              type="button"
+              className="secondary compact topbar-icon-button topbar-logout-button"
+              aria-label={t("logout")}
+              title={t("logout")}
+              onClick={() => logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout"))}
+            >
+              {logoutIcon()}
             </button>
           </div>
         ) : (
@@ -9570,9 +9605,6 @@ export function App() {
             </button>
             <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
               {t("help")}
-            </button>
-            <button type="button" className={activeView === "settings" ? "" : "secondary"} onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("settings"); }}>
-              {t("settings")}
             </button>
           </div>
           {activeView === "home" ? (
