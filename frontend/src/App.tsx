@@ -1091,6 +1091,9 @@ const translations = {
     dashboard: "Dashboard",
     operationalActions: "Operational actions",
     operationalActionsHelp: "Open items that need a decision or data cleanup.",
+    operationalActionsSummary: "Available from the dashboard, without counting as notifications.",
+    showActions: "Show",
+    hideActions: "Hide",
     snoozeAction: "Hide 14 days",
     openWishlistActions: "Open wishlist actions",
     priorityActions: "Priority actions",
@@ -1579,6 +1582,9 @@ const translations = {
     dashboard: "Dashboard",
     operationalActions: "Azioni operative",
     operationalActionsHelp: "Interventi che richiedono una decisione o un dato da completare.",
+    operationalActionsSummary: "Disponibili dalla dashboard, senza pesare come notifiche.",
+    showActions: "Mostra",
+    hideActions: "Nascondi",
     snoozeAction: "Nascondi 14 giorni",
     openWishlistActions: "Apri azioni wishlist",
     priorityActions: "Azioni prioritarie",
@@ -5182,6 +5188,7 @@ export function App() {
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [operationalActionsExpanded, setOperationalActionsExpanded] = useState(false);
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
@@ -8225,8 +8232,9 @@ export function App() {
       return !snooze || snooze.signature !== item.signature || snooze.until <= now.getTime();
     })
     .slice(0, 6);
+  const operationalActionCount = operationalActionItems.length;
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
-  const notificationCount = operationalActionItems.length + userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
+  const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -9022,27 +9030,39 @@ export function App() {
                         </button>
                       </div>
                     </div>
-                    {operationalActionItems.length ? (
+                    {operationalActionCount ? (
                       <section className="operational-actions-section" aria-label={t("operationalActions")}>
                         <div className="operational-actions-head">
-                          <strong>{t("operationalActions")}</strong>
-                          <span>{t("operationalActionsHelp")}</span>
-                        </div>
-                        {operationalActionItems.map((item) => (
-                          <div className="notification-item operational-action-item" key={item.id}>
-                            <button type="button" className="operational-action-open" onClick={item.onOpen}>
-                              <strong className="notification-title">
-                                <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
-                                {item.title}
-                              </strong>
-                              <span>{item.detail}</span>
-                              <b>{formatBottleCount(item.count, locale)}</b>
-                            </button>
-                            <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
-                              {t("snoozeAction")}
-                            </button>
+                          <div>
+                            <strong>{t("operationalActions")}</strong>
+                            <span>{t("operationalActionsSummary")}</span>
                           </div>
-                        ))}
+                          <button
+                            type="button"
+                            className="secondary compact operational-actions-toggle"
+                            aria-expanded={operationalActionsExpanded}
+                            onClick={() => setOperationalActionsExpanded((expanded) => !expanded)}
+                          >
+                            {operationalActionsExpanded ? t("hideActions") : `${t("showActions")} ${operationalActionCount}`}
+                          </button>
+                        </div>
+                        {operationalActionsExpanded ? (
+                          operationalActionItems.map((item) => (
+                            <div className="notification-item operational-action-item" key={item.id}>
+                              <button type="button" className="operational-action-open" onClick={item.onOpen}>
+                                <strong className="notification-title">
+                                  <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
+                                  {item.title}
+                                </strong>
+                                <span>{item.detail}</span>
+                                <b>{formatBottleCount(item.count, locale)}</b>
+                              </button>
+                              <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
+                                {t("snoozeAction")}
+                              </button>
+                            </div>
+                          ))
+                        ) : null}
                       </section>
                     ) : null}
                     {authenticated && !session?.is_app_admin ? (
@@ -9100,7 +9120,7 @@ export function App() {
                         </div>
                       </div>
                     ))}
-                    {!notificationCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
+                    {!notificationCount && !operationalActionCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
                   </div>
                 </>
               ) : null}
