@@ -1308,6 +1308,8 @@ const translations = {
     noDrilldownWines: "No wines in this segment",
     totalValue: "Total value",
     type: "Type",
+    typesLabel: "Types",
+    regionsLabel: "Regions",
     updatedItems: "updated",
     value: "Value",
     valueFocus: "Value",
@@ -1781,6 +1783,8 @@ const translations = {
     noDrilldownWines: "Nessun vino in questo segmento",
     totalValue: "Valore totale",
     type: "Tipo",
+    typesLabel: "Tipi",
+    regionsLabel: "Regioni",
     updatedItems: "aggiornati",
     value: "Valore",
     valueFocus: "Valore",
@@ -3144,10 +3148,12 @@ function breakdownDonutSegments(items: ValueBreakdownItem[], mode: "type" | "reg
 function BreakdownDonut({
   items,
   mode,
+  locale,
   onSelect,
 }: {
   items: ValueBreakdownItem[];
   mode: "type" | "region";
+  locale: Locale;
   onSelect?: (item: ValueBreakdownItem) => void;
 }) {
   const segments = breakdownDonutSegments(items, mode);
@@ -3164,7 +3170,7 @@ function BreakdownDonut({
       >
         <div className="breakdown-donut-hole">
           <strong>{segments.length}</strong>
-          <span>{mode === "type" ? "types" : "regions"}</span>
+          <span>{translate(locale, mode === "type" ? "typesLabel" : "regionsLabel")}</span>
         </div>
       </button>
     </div>
@@ -8493,7 +8499,7 @@ export function App() {
         <div className="chart-drilldown-head">
           <div>
             <span>{t("chartDrilldown")}</span>
-            <h3>{t(breakdownDrilldown.title)} - {breakdownDrilldown.label}</h3>
+            <h3>{t(breakdownDrilldown.title)} - {displayValue(breakdownDrilldown.label, locale, breakdownDrilldown.dimension)}</h3>
           </div>
           <button type="button" className="secondary compact" onClick={() => setBreakdownDrilldown(null)}>
             {t("cancel")}
@@ -9333,12 +9339,12 @@ export function App() {
                       <div className="showcase-breakdown-card">
                         <div>
                           <span>{locale === "it" ? "Valore per tipo" : "Value by type"}</span>
-                          <p><i className="tone-red" /> Red: CHF 2'986</p>
-                          <p><i className="tone-sparkling" /> Sparkling: CHF 1'437</p>
-                          <p><i className="tone-white" /> White: CHF 685</p>
-                          <p><i className="tone-rose" /> Rose: CHF 34</p>
+                          <p><i className="tone-red" /> {displayValue("Red", locale, "type")}: CHF 2'986</p>
+                          <p><i className="tone-sparkling" /> {displayValue("Sparkling", locale, "type")}: CHF 1'437</p>
+                          <p><i className="tone-white" /> {displayValue("White", locale, "type")}: CHF 685</p>
+                          <p><i className="tone-rose" /> {displayValue("Rose", locale, "type")}: CHF 34</p>
                         </div>
-                        <div className="showcase-donut showcase-donut-type"><strong>4</strong><small>{locale === "it" ? "tipi" : "types"}</small></div>
+                        <div className="showcase-donut showcase-donut-type"><strong>4</strong><small>{t("typesLabel")}</small></div>
                       </div>
                       <div className="showcase-breakdown-card">
                         <div>
@@ -9348,7 +9354,7 @@ export function App() {
                           <p><i className="tone-region-c" /> Toscana: CHF 975</p>
                           <p><i className="tone-region-d" /> Ticino: CHF 786</p>
                         </div>
-                        <div className="showcase-donut showcase-donut-region"><strong>5</strong><small>{locale === "it" ? "regioni" : "regions"}</small></div>
+                        <div className="showcase-donut showcase-donut-region"><strong>5</strong><small>{t("regionsLabel")}</small></div>
                       </div>
                     </div>
                   </div>
@@ -10810,11 +10816,11 @@ export function App() {
                         {valueByType.map((item) => (
                           <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("valueByType", "type", "value", item.label)}>
                             <i className={`wine-dot tone-${wineTone(item.label)}`} />
-                            {item.label}: {formatMoney(item.value, "CHF", locale)}
+                            {displayValue(item.label, locale, "type")}: {formatMoney(item.value, "CHF", locale)}
                           </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={valueByType} mode="type" onSelect={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)} />
+                      <BreakdownDonut items={valueByType} mode="type" locale={locale} onSelect={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)} />
                     </div>
                   </div>
                   {renderBreakdownDrilldown("valueByType")}
@@ -10833,7 +10839,7 @@ export function App() {
                           </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={valueByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("topRegions", "region", "value", item.label)} />
+                      <BreakdownDonut items={valueByRegion} mode="region" locale={locale} onSelect={(item) => openBreakdownDrilldown("topRegions", "region", "value", item.label)} />
                     </div>
                   </div>
                   {renderBreakdownDrilldown("topRegions")}
@@ -10848,11 +10854,11 @@ export function App() {
                         {bottlesByType.map((item) => (
                           <button type="button" className="breakdown-list-item" key={item.label} onClick={() => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)}>
                             <i className={`wine-dot tone-${wineTone(item.label)}`} />
-                            {item.label}: {formatBottleCount(item.value, locale)}
+                            {displayValue(item.label, locale, "type")}: {formatBottleCount(item.value, locale)}
                           </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={bottlesByType} mode="type" onSelect={(item) => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)} />
+                      <BreakdownDonut items={bottlesByType} mode="type" locale={locale} onSelect={(item) => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)} />
                     </div>
                   </div>
                   {renderBreakdownDrilldown("bottlesByType")}
@@ -10871,7 +10877,7 @@ export function App() {
                           </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={bottlesByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("bottlesByRegion", "region", "bottles", item.label)} />
+                      <BreakdownDonut items={bottlesByRegion} mode="region" locale={locale} onSelect={(item) => openBreakdownDrilldown("bottlesByRegion", "region", "bottles", item.label)} />
                     </div>
                   </div>
                   {renderBreakdownDrilldown("bottlesByRegion")}
@@ -10890,7 +10896,7 @@ export function App() {
                           </button>
                         ))}
                       </div>
-                      <BreakdownDonut items={winesByRegion} mode="region" onSelect={(item) => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)} />
+                      <BreakdownDonut items={winesByRegion} mode="region" locale={locale} onSelect={(item) => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)} />
                     </div>
                   </div>
                   {renderBreakdownDrilldown("winesByRegion")}
