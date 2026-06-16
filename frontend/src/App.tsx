@@ -8468,6 +8468,14 @@ export function App() {
     });
   }
 
+  function toggleSettingsView() {
+    const nextView: ViewName = activeView === "settings" ? "home" : "settings";
+    setActiveView(nextView);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+    clearFilters(nextView);
+  }
+
   function openBreakdownDrilldown(title: TranslationKey, dimension: "type" | "region", metric: BreakdownMetric, label: string) {
     setBreakdownDrilldown({ title, dimension, metric, label });
   }
@@ -9005,7 +9013,7 @@ export function App() {
               className={`secondary compact topbar-icon-button topbar-settings-button${activeView === "settings" ? " active" : ""}`}
               aria-label={t("settings")}
               title={t("settings")}
-              onClick={() => { setActiveView("settings"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("settings"); }}
+              onClick={toggleSettingsView}
             >
               {settingsGearIcon()}
             </button>
