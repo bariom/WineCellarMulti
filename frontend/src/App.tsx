@@ -1219,8 +1219,8 @@ const translations = {
     pendingInvites: "Pending invites",
     pendingApproval: "Account pending approval",
     pendingApprovalHelp: "Your account was created, but it must be approved by an administrator before login.",
-    pendingEmailVerification: "Confirm your email",
-    pendingEmailVerificationHelp: "Your account was created. Open the confirmation link sent to your email address, then confirm it before signing in. Also check your spam folder if you do not see the email.",
+    pendingEmailVerification: "A confirmation email is on the way",
+    pendingEmailVerificationHelp: "You will receive an email shortly. Open the confirmation link to activate your account before signing in. It can take up to a minute to arrive; also check your spam folder if you do not see it.",
     emailVerificationReady: "Email confirmation ready",
     emailVerificationReadyHelp: "Confirm this email address now to activate your account. This prevents automatic email scanners from activating accounts.",
     confirmEmail: "Confirm email",
@@ -1695,8 +1695,8 @@ const translations = {
     pendingInvites: "Inviti pendenti",
     pendingApproval: "Account in attesa di approvazione",
     pendingApprovalHelp: "Il tuo account è stato creato, ma deve essere approvato da un amministratore prima dell'accesso.",
-    pendingEmailVerification: "Conferma la tua email",
-    pendingEmailVerificationHelp: "Il tuo account è stato creato. Apri il link inviato al tuo indirizzo email, poi confermalo prima di accedere. Se non trovi l'email, controlla anche la cartella spam.",
+    pendingEmailVerification: "A breve riceverai un'email",
+    pendingEmailVerificationHelp: "Il tuo account è stato creato. Apri il link di conferma che riceverai via email per attivarlo prima di accedere. L'email può impiegare fino a un minuto ad arrivare; se non la vedi, controlla anche la cartella spam.",
     emailVerificationReady: "Conferma email pronta",
     emailVerificationReadyHelp: "Conferma ora questo indirizzo email per attivare l'account. Questo evita che gli scanner automatici delle email attivino account al posto tuo.",
     confirmEmail: "Conferma email",
@@ -7502,7 +7502,7 @@ export function App() {
           </div>
         ) : null}
         {session?.pending_email_verification ? (
-          <div className="invite-notice">
+          <div className="invite-notice email-verification-notice">
             <strong>{t("pendingEmailVerification")}</strong>
             <span>{t("pendingEmailVerificationHelp")}</span>
           </div>
