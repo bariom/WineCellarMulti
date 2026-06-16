@@ -1212,6 +1212,14 @@ const translations = {
     pairingWhy: "Why",
     password: "Password",
     passkey: "Passkey",
+    passkeyHelpBody: "A passkey lets you sign in without typing your password. Instead, your device confirms that it is really you using Face ID, fingerprint, screen PIN, or the unlock method you already use every day.",
+    passkeyHelpLabel: "What is a passkey?",
+    passkeyHelpPrerequisiteAccount: "You must create the passkey on a device where you are already logged in to Vinaris.",
+    passkeyHelpPrerequisiteBrowser: "Use a recent browser that supports passkeys, such as current Safari, Chrome, Edge, or Firefox.",
+    passkeyHelpPrerequisiteDevice: "Your device must have a screen lock configured: Face ID, Touch ID, fingerprint, PIN, or another secure unlock method.",
+    passkeyHelpPrerequisiteSync: "To use it on more than one device, the passkey must be synced through your Apple, Google, or Microsoft account, or saved on a password manager that supports passkeys.",
+    passkeyHelpPrerequisitesTitle: "Prerequisites",
+    passkeyHelpTitle: "Passwordless login",
     passkeyLogin: "Login with passkey",
     passkeyName: "Passkey name",
     passkeys: "Passkeys",
@@ -1688,6 +1696,14 @@ const translations = {
     pairingWhy: "Perché",
     password: "Password",
     passkey: "Passkey",
+    passkeyHelpBody: "Una passkey ti permette di accedere senza digitare la password. Al suo posto, il tuo dispositivo conferma che sei davvero tu usando Face ID, impronta, PIN del telefono o lo sblocco schermo che usi gia ogni giorno.",
+    passkeyHelpLabel: "Cos'e una passkey?",
+    passkeyHelpPrerequisiteAccount: "Devi creare la passkey da un dispositivo su cui sei gia autenticato in Vinaris.",
+    passkeyHelpPrerequisiteBrowser: "Serve un browser recente che supporti le passkey, ad esempio Safari, Chrome, Edge o Firefox aggiornati.",
+    passkeyHelpPrerequisiteDevice: "Il dispositivo deve avere uno sblocco schermo configurato: Face ID, Touch ID, impronta, PIN o un altro metodo sicuro.",
+    passkeyHelpPrerequisiteSync: "Per usarla su piu dispositivi, la passkey deve essere sincronizzata tramite account Apple, Google o Microsoft, oppure salvata in un password manager compatibile.",
+    passkeyHelpPrerequisitesTitle: "Prerequisiti",
+    passkeyHelpTitle: "Accesso senza password",
     passkeyLogin: "Accedi con passkey",
     passkeyName: "Nome passkey",
     passkeys: "Passkey",
@@ -5202,6 +5218,7 @@ export function App() {
   const [deleteHouseholdConfirmDraft, setDeleteHouseholdConfirmDraft] = useState("");
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
+  const [passkeyHelpOpen, setPasskeyHelpOpen] = useState(false);
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
@@ -7425,9 +7442,11 @@ export function App() {
   const availableRedeemCodes = billingStatus?.available_redeem_codes || [];
   const trialRedeemCodes = availableRedeemCodes.filter((code) => code.kind === "trial");
   const standardRedeemCodes = availableRedeemCodes.filter((code) => code.kind !== "trial");
+  const shouldPrioritizeEmailVerification = !authenticated && Boolean(emailVerificationToken);
   const showInlineAuthError = Boolean(visibleError) && !authenticated && (isMobileViewport || authModalOpen);
   const showMobileAuthPanel =
     isMobileViewport &&
+    !shouldPrioritizeEmailVerification &&
     (authModalOpen || Boolean(acceptToken) || Boolean(emailVerificationToken) || emailVerificationConfirmed || canShowOfflineBackupPanel);
   const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
     <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
@@ -9067,7 +9086,9 @@ export function App() {
         </div>
       ) : null}
 
-      {!authenticated ? (
+      {!authenticated ? shouldPrioritizeEmailVerification ? (
+        publicAuthPanel
+      ) : (
         <>
           <section className="mobile-public-landing" aria-labelledby="mobile-public-title">
             <div className="mobile-public-brand">
@@ -11556,7 +11577,30 @@ export function App() {
                     <span>{t("passkeys")}</span>
                     <h3>{t("passkey")}</h3>
                   </div>
+                  <button
+                    type="button"
+                    className="help-icon-button"
+                    aria-expanded={passkeyHelpOpen}
+                    aria-controls="passkey-help-panel"
+                    aria-label={t("passkeyHelpLabel")}
+                    onClick={() => setPasskeyHelpOpen((current) => !current)}
+                  >
+                    ?
+                  </button>
                 </div>
+                {passkeyHelpOpen ? (
+                  <div className="settings-help-panel" id="passkey-help-panel">
+                    <strong>{t("passkeyHelpTitle")}</strong>
+                    <p>{t("passkeyHelpBody")}</p>
+                    <strong>{t("passkeyHelpPrerequisitesTitle")}</strong>
+                    <ul>
+                      <li>{t("passkeyHelpPrerequisiteAccount")}</li>
+                      <li>{t("passkeyHelpPrerequisiteBrowser")}</li>
+                      <li>{t("passkeyHelpPrerequisiteDevice")}</li>
+                      <li>{t("passkeyHelpPrerequisiteSync")}</li>
+                    </ul>
+                  </div>
+                ) : null}
                 <div className="inline-form">
                   <label>
                     <span>{t("passkeyName")}</span>
