@@ -8818,7 +8818,7 @@ export function App() {
                       value={pairingLocalOrigin}
                       onChange={(event) => setPairingLocalOrigin(event.target.value)}
                       placeholder={locale === "it" ? "Es. Toscana, Piemonte, Svizzera" : "E.g. Tuscany, Piedmont, Switzerland"}
-                      disabled={!canGenerateAi || generatingAi === "pairing"}
+                      disabled={!canGenerateAi || generatingAi === "pairing" || !pairingPreferLocal}
                     />
                     <small>{t("pairingLocalOriginHelp")}</small>
                   </label>
