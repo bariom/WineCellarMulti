@@ -926,6 +926,11 @@ const translations = {
     aiCreditAdminHelp: "Set the final AI budget for this user. Vinaris records only the adjustment needed to reach that balance.",
     aiBudgetUsage: "Usage",
     aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use an app-managed AI Pack purchased through Stripe. This budget is tracked internally against estimated OpenAI usage.",
+    aiSettingsHelpTitle: "How AI access works",
+    aiSettingsHelpKey: "Use your own OpenAI key if you already have one: paste it once, save, and Vinaris will use it for AI requests according to the models selected below.",
+    aiSettingsHelpSecurity: "This is safe because the key is stored server-side in encrypted form, is never exported, is not shown again after saving, and is sent only from the backend when an AI action is requested.",
+    aiSettingsHelpCredits: "If you do not want to use a personal key, buy a Vinaris AI Pack. Vinaris handles the OpenAI connection and deducts estimated usage from your internal AI budget.",
+    aiSettingsHelpFeatures: "AI enables tasting notes, drinking windows, value and market checks, grape composition, wishlist strategy and target price advice, food pairing, wine comparison, and catalog data enrichment.",
     buyAiCredits: "Buy AI Pack",
     noAiProvider: "No AI source available",
     appAiReady: "App AI ready",
@@ -1420,6 +1425,11 @@ const translations = {
     aiCreditAdminHelp: "Imposta il saldo AI finale per questo utente. Vinaris registra solo l'aggiustamento necessario per arrivare a quel valore.",
     aiBudgetUsage: "Consumo",
     aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare un AI Pack gestito dall'app e acquistato tramite Stripe. Questo budget viene scalato internamente in base al consumo AI stimato.",
+    aiSettingsHelpTitle: "Come funziona l'accesso AI",
+    aiSettingsHelpKey: "Usa la tua chiave OpenAI se ne hai gia una: la incolli una sola volta, salvi, e Vinaris la usa per le richieste AI in base ai modelli scelti sotto.",
+    aiSettingsHelpSecurity: "E' sicuro perche la chiave resta sul server in forma criptata, non viene esportata, non viene piu mostrata dopo il salvataggio e viene inviata solo dal backend quando richiedi un'azione AI.",
+    aiSettingsHelpCredits: "Se non vuoi usare una chiave personale, acquista un Vinaris AI Pack. Vinaris gestisce la connessione OpenAI e scala il consumo stimato dal tuo budget AI interno.",
+    aiSettingsHelpFeatures: "L'AI attiva note degustative, finestre di beva, controlli valore e mercato, uvaggi, strategia wishlist e prezzo target, abbinamenti, confronto vini e arricchimento dati catalogo.",
     buyAiCredits: "Acquista AI Pack",
     noAiProvider: "Nessuna sorgente AI disponibile",
     appAiReady: "AI app pronta",
@@ -11878,6 +11888,15 @@ export function App() {
                       <option value="credits">{t("aiProviderCredits")}</option>
                     </select>
                   </label>
+                  <div className="settings-help-panel ai-settings-help">
+                    <strong>{t("aiSettingsHelpTitle")}</strong>
+                    <p>{t("aiSettingsHelpKey")}</p>
+                    <ul>
+                      <li>{t("aiSettingsHelpSecurity")}</li>
+                      <li>{t("aiSettingsHelpCredits")}</li>
+                      <li>{t("aiSettingsHelpFeatures")}</li>
+                    </ul>
+                  </div>
                   <label>
                     <span>OpenAI API key</span>
                     <input
