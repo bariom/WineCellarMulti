@@ -194,7 +194,11 @@ def test_app_admin_can_set_user_ai_credit_balance():
         assert "Welcome gift" in credit_entries[1].note
 
         notifications = list(db.query(UserNotification).filter(UserNotification.user_id == user.id).all())
-        assert any(notification.kind == "ai_credits" for notification in notifications)
+        ai_credit_notification = next(
+            notification for notification in notifications
+            if notification.kind == "ai_credits" and "Welcome gift" in notification.message
+        )
+        assert "Welcome gift" in ai_credit_notification.message
 
 
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):

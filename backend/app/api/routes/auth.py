@@ -727,12 +727,16 @@ def update_user_admin(
         )
         if credit_entry is not None:
             balance_now = ai_credit_balance(db, user)
+            admin_note = payload.ai_credit_note.strip() if payload.ai_credit_note and payload.ai_credit_note.strip() else ""
             create_user_notification(
                 db,
                 user,
                 kind="ai_credits",
                 title="Credito AI aggiornato",
-                message=f"Il tuo saldo AI ora è {balance_now} USD.",
+                message=(
+                    f"Il tuo saldo AI ora è {balance_now} USD."
+                    + (f" Messaggio admin: {admin_note}" if admin_note else "")
+                ),
                 fingerprint=f"ai-credit-admin-adjustment:{credit_entry.id}",
             )
     db.commit()

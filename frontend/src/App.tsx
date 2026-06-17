@@ -7588,10 +7588,6 @@ export function App() {
         </label>
         {authMode === "register" ? (
           <>
-            <div className="invite-notice promo-notice">
-              <strong>{t("finalBetaPromo")}</strong>
-              <span>{t("registerPromoHelp")}</span>
-            </div>
             <label>
               <span>{t("name")}</span>
               <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
