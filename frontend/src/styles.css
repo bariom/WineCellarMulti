@@ -1118,6 +1118,14 @@ summary:focus-visible {
   border-bottom: 1px solid var(--border);
 }
 
+.heading-actions {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .settings-card-heading span {
   color: var(--text-muted);
   font-size: 0.76rem;

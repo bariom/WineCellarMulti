@@ -5261,6 +5261,7 @@ export function App() {
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [passkeyHelpOpen, setPasskeyHelpOpen] = useState(false);
+  const [aiSettingsHelpOpen, setAiSettingsHelpOpen] = useState(false);
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
@@ -11876,9 +11877,21 @@ export function App() {
                       <span>{t("aiSettings")}</span>
                       <h3>OpenAI</h3>
                     </div>
-                    <strong className={(aiSettings?.has_openai_api_key || aiSettings?.can_use_app_credits) ? "status-pill configured" : "status-pill"}>
-                      {aiStatusLabel}
-                    </strong>
+                    <div className="heading-actions">
+                      <strong className={(aiSettings?.has_openai_api_key || aiSettings?.can_use_app_credits) ? "status-pill configured" : "status-pill"}>
+                        {aiStatusLabel}
+                      </strong>
+                      <button
+                        type="button"
+                        className="help-icon-button"
+                        aria-expanded={aiSettingsHelpOpen}
+                        aria-controls="ai-settings-help-panel"
+                        aria-label={t("aiSettingsHelpTitle")}
+                        onClick={() => setAiSettingsHelpOpen((current) => !current)}
+                      >
+                        ?
+                      </button>
+                    </div>
                   </div>
                   <label>
                     <span>{t("aiProvider")}</span>
@@ -11888,15 +11901,17 @@ export function App() {
                       <option value="credits">{t("aiProviderCredits")}</option>
                     </select>
                   </label>
-                  <div className="settings-help-panel ai-settings-help">
-                    <strong>{t("aiSettingsHelpTitle")}</strong>
-                    <p>{t("aiSettingsHelpKey")}</p>
-                    <ul>
-                      <li>{t("aiSettingsHelpSecurity")}</li>
-                      <li>{t("aiSettingsHelpCredits")}</li>
-                      <li>{t("aiSettingsHelpFeatures")}</li>
-                    </ul>
-                  </div>
+                  {aiSettingsHelpOpen ? (
+                    <div className="settings-help-panel ai-settings-help" id="ai-settings-help-panel">
+                      <strong>{t("aiSettingsHelpTitle")}</strong>
+                      <p>{t("aiSettingsHelpKey")}</p>
+                      <ul>
+                        <li>{t("aiSettingsHelpSecurity")}</li>
+                        <li>{t("aiSettingsHelpCredits")}</li>
+                        <li>{t("aiSettingsHelpFeatures")}</li>
+                      </ul>
+                    </div>
+                  ) : null}
                   <label>
                     <span>OpenAI API key</span>
                     <input
