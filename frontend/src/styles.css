@@ -348,29 +348,32 @@
 
 :root[data-theme="tuscany"] {
   color-scheme: light;
-  --page: #f7eee0;
-  --surface: #fff9ee;
-  --surface-raised: #fffdf7;
-  --surface-muted: #f1e2ce;
-  --surface-subtle: #e6cfad;
-  --text: #251910;
-  --text-muted: #745b42;
-  --text-soft: #866343;
-  --border: #dec6a4;
-  --border-strong: #c39967;
-  --primary: #7b3f25;
-  --primary-contrast: #fff9ee;
-  --secondary: #eadcc7;
-  --accent: #b86132;
+  --page: #f8efe4;
+  --surface: #fffaf3;
+  --surface-raised: #fffdf8;
+  --surface-muted: #f4e4d7;
+  --surface-subtle: #ecd0bc;
+  --text: #2a1712;
+  --text-muted: #78584a;
+  --text-soft: #8d6251;
+  --border: #e1c1b1;
+  --border-strong: #cb8c72;
+  --primary: #9f2f2b;
+  --primary-contrast: #fffaf3;
+  --secondary: #f0ddd2;
+  --accent: #cb5a34;
   --drink-young: #c8923b;
-  --drink-ideal: #7e6d32;
-  --drink-past: #9a3f3f;
-  --bar-muted: #eadcc7;
-  --focus: rgba(123, 63, 37, 0.32);
+  --drink-ideal: #8a6b2d;
+  --drink-past: #bf3650;
+  --bar-muted: #efddd0;
+  --danger: #c63d46;
+  --danger-text: #93252c;
+  --danger-surface: #fff0f1;
+  --focus: rgba(159, 47, 43, 0.32);
   --hero-bg:
-    radial-gradient(circle at 12% 10%, rgba(184, 97, 50, 0.24), transparent 34%),
-    radial-gradient(circle at 82% 20%, rgba(126, 109, 50, 0.18), transparent 28%),
-    linear-gradient(135deg, #fff9ee 0%, #e6cfad 100%);
+    radial-gradient(circle at 12% 10%, rgba(198, 61, 70, 0.22), transparent 34%),
+    radial-gradient(circle at 82% 20%, rgba(203, 90, 52, 0.16), transparent 28%),
+    linear-gradient(135deg, #fffaf3 0%, #ecd0bc 100%);
 }
 
 :root[data-theme="piedmont"] {
