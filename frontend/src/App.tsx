@@ -6061,6 +6061,14 @@ export function App() {
   }, []);
 
   useEffect(() => {
+    if (!session?.authenticated) return;
+    const timer = window.setInterval(() => {
+      loadNotifications(true).catch(() => undefined);
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, [session?.authenticated]);
+
+  useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
     const applyTheme = () => {
       const resolvedTheme = themePreference === "system" ? (darkQuery.matches ? "dark" : "light") : themePreference;
