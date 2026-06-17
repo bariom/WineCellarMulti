@@ -11838,7 +11838,7 @@ export function App() {
               ) : null}
 
               {settingsTab === "ai" && canWriteWine ? (
-                <form className="settings-card settings-card-wide" onSubmit={submitAiSettings}>
+                <form className="settings-card settings-card-wide settings-ai-card" onSubmit={submitAiSettings}>
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("aiSettings")}</span>
@@ -11943,7 +11943,7 @@ export function App() {
               ) : null}
 
               {settingsTab === "ai" && canWriteWine ? (
-                <section className="settings-card">
+                <section className="settings-card settings-ai-card">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("aiUsage")}</span>
@@ -12110,8 +12110,8 @@ export function App() {
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide">
-                  <details className="collapsible-panel" open>
+                <section className="settings-card settings-card-wide settings-admin-card">
+                  <details className="collapsible-panel settings-admin-panel" open>
                     <summary>{t("redeemCodes")}</summary>
                     <div className="settings-card-heading">
                       <div>
@@ -12122,7 +12122,7 @@ export function App() {
                         {t("loadingData")}
                       </button>
                     </div>
-                    <form className="inline-form" onSubmit={createRedeemCode}>
+                    <form className="inline-form redeem-admin-form" onSubmit={createRedeemCode}>
                       <label>
                         <span>{t("message")}</span>
                         <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
@@ -12159,9 +12159,9 @@ export function App() {
                       </div>
                     ) : null}
                     {redeemCodes.length ? (
-                      <div className="member-list">
+                      <div className="member-list settings-admin-list">
                         {redeemCodes.map((code) => (
-                          <div className="member-row" key={code.id}>
+                          <div className="member-row settings-admin-row redeem-admin-row" key={code.id}>
                             <div>
                               <strong>{code.label || code.code_prefix}</strong>
                               <span>{code.code || code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
@@ -12193,8 +12193,8 @@ export function App() {
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide">
-                  <details className="collapsible-panel" open>
+                <section className="settings-card settings-card-wide settings-admin-card">
+                  <details className="collapsible-panel settings-admin-panel" open>
                     <summary>{t("settingsUsers")}</summary>
                     <div className="settings-card-heading">
                       <div>
@@ -12209,9 +12209,9 @@ export function App() {
                       </div>
                     </div>
                     {appUsers.length ? (
-                      <div className="member-list">
+                      <div className="member-list settings-admin-list">
                         {appUsers.map((user) => (
-                          <div className="member-row" key={user.id}>
+                          <div className="member-row settings-admin-row user-admin-row" key={user.id}>
                             <div>
                               <strong>{user.display_name}</strong>
                               <span>{user.email} - {user.is_approved ? "approved" : "pending"}{user.is_blocked ? ` - ${t("blocked")}` : ""}</span>
@@ -12281,7 +12281,7 @@ export function App() {
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide">
+                <section className="settings-card settings-card-wide settings-admin-card">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("labelRecognitionAccess")}</span>
