@@ -370,10 +370,10 @@
   --drink-ideal: #8a6b2d;
   --drink-past: #bf3650;
   --bar-muted: #efddd0;
-  --chart-bar-start: #9f2f2b;
-  --chart-bar-end: #cb5a34;
-  --maturity-bar-start: #a53b2f;
-  --maturity-bar-end: #d48b3f;
+  --chart-bar-start: #e1c45a;
+  --chart-bar-end: #9f2f2b;
+  --maturity-bar-start: #ecd06d;
+  --maturity-bar-end: #8e2d45;
   --danger: #c63d46;
   --danger-text: #93252c;
   --danger-surface: #fff0f1;
@@ -7046,28 +7046,6 @@ textarea {
 
 .maturity-track span {
   background: linear-gradient(90deg, var(--maturity-bar-start), var(--maturity-bar-end));
-}
-
-:root[data-theme="tuscany"] .dashboard-card .bar-row:nth-child(2n) .bar-track span {
-  background: linear-gradient(90deg, #b63a33, #d7743f);
-}
-
-:root[data-theme="tuscany"] .dashboard-card .bar-row:nth-child(3n) .bar-track span {
-  background: linear-gradient(90deg, #8e2d45, #c85d34);
-}
-
-:root[data-theme="tuscany"] .dashboard-card .maturity-item:nth-child(1) .maturity-track span,
-:root[data-theme="tuscany"] .dashboard-card .maturity-item:nth-child(2) .maturity-track span {
-  background: linear-gradient(90deg, #c46e38, #d9a34a);
-}
-
-:root[data-theme="tuscany"] .dashboard-card .maturity-item:nth-child(3) .maturity-track span {
-  background: linear-gradient(90deg, #9f2f2b, #cb5a34);
-}
-
-:root[data-theme="tuscany"] .dashboard-card .maturity-item:nth-child(4) .maturity-track span,
-:root[data-theme="tuscany"] .dashboard-card .maturity-item:nth-child(5) .maturity-track span {
-  background: linear-gradient(90deg, #8e2d45, #bf3650);
 }
 
 .wine-side-panel::-webkit-scrollbar-thumb {
