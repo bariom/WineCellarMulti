@@ -12062,141 +12062,147 @@ export function App() {
 
               {settingsTab === "users" && canAppAdmin ? (
                 <section className="settings-card settings-card-wide">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("billing")}</span>
-                      <h3>{t("redeemCodes")}</h3>
-                    </div>
-                    <button type="button" className="secondary compact" disabled={saving} onClick={() => loadBilling(true, true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load billing"))}>
-                      {t("loadingData")}
-                    </button>
-                  </div>
-                  <form className="inline-form" onSubmit={createRedeemCode}>
-                    <label>
-                      <span>{t("message")}</span>
-                      <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
-                    </label>
-                    <label>
-                      <span>{t("durationDays")}</span>
-                      <input type="number" min="1" max="3650" value={redeemCodeDraft.duration_days} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, duration_days: event.target.value })} />
-                    </label>
-                    <label>
-                      <span>{t("records")}</span>
-                      <input type="number" min="1" max="10000" value={redeemCodeDraft.max_redemptions} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, max_redemptions: event.target.value })} />
-                    </label>
-                    <label>
-                      <span>{t("email")}</span>
-                      <input type="email" value={redeemCodeDraft.email} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, email: event.target.value })} placeholder="opzionale" />
-                    </label>
-                    <label>
-                      <span>{t("expires")}</span>
-                      <input type="datetime-local" value={redeemCodeDraft.expires_at} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, expires_at: event.target.value })} />
-                    </label>
-                    <button type="submit" disabled={saving || !Number(redeemCodeDraft.duration_days)}>
-                      {t("createRedeemCode")}
-                    </button>
-                  </form>
-                  {generatedRedeemCode ? (
-                    <div className="invite-row">
+                  <details className="collapsible-panel" open>
+                    <summary>{t("redeemCodes")}</summary>
+                    <div className="settings-card-heading">
                       <div>
-                        <strong>{t("generatedCode")}</strong>
-                        <span>{generatedRedeemCode}</span>
+                        <span>{t("billing")}</span>
+                        <h3>{t("redeemCodes")}</h3>
                       </div>
-                      <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(generatedRedeemCode)}>
-                        Copy
+                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadBilling(true, true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load billing"))}>
+                        {t("loadingData")}
                       </button>
                     </div>
-                  ) : null}
-                  {redeemCodes.length ? (
-                    <div className="member-list">
-                      {redeemCodes.map((code) => (
-                        <div className="member-row" key={code.id}>
-                          <div>
-                            <strong>{code.label || code.code_prefix}</strong>
-                            <span>{code.code || code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
-                            {code.email ? <span>{code.email}</span> : null}
-                            {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
-                          </div>
-                          {code.code ? (
-                            <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
-                              Copy
-                            </button>
-                          ) : null}
-                          <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
-                            {t("delete")}
-                          </button>
-                          {code.redeemed_count > 0 ? (
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code, true)}>
-                              Force delete
-                            </button>
-                          ) : null}
-                          <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
+                    <form className="inline-form" onSubmit={createRedeemCode}>
+                      <label>
+                        <span>{t("message")}</span>
+                        <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
+                      </label>
+                      <label>
+                        <span>{t("durationDays")}</span>
+                        <input type="number" min="1" max="3650" value={redeemCodeDraft.duration_days} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, duration_days: event.target.value })} />
+                      </label>
+                      <label>
+                        <span>{t("records")}</span>
+                        <input type="number" min="1" max="10000" value={redeemCodeDraft.max_redemptions} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, max_redemptions: event.target.value })} />
+                      </label>
+                      <label>
+                        <span>{t("email")}</span>
+                        <input type="email" value={redeemCodeDraft.email} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, email: event.target.value })} placeholder="opzionale" />
+                      </label>
+                      <label>
+                        <span>{t("expires")}</span>
+                        <input type="datetime-local" value={redeemCodeDraft.expires_at} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, expires_at: event.target.value })} />
+                      </label>
+                      <button type="submit" disabled={saving || !Number(redeemCodeDraft.duration_days)}>
+                        {t("createRedeemCode")}
+                      </button>
+                    </form>
+                    {generatedRedeemCode ? (
+                      <div className="invite-row">
+                        <div>
+                          <strong>{t("generatedCode")}</strong>
+                          <span>{generatedRedeemCode}</span>
                         </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="empty-state">{t("noActionItems")}</p>
-                  )}
+                        <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(generatedRedeemCode)}>
+                          Copy
+                        </button>
+                      </div>
+                    ) : null}
+                    {redeemCodes.length ? (
+                      <div className="member-list">
+                        {redeemCodes.map((code) => (
+                          <div className="member-row" key={code.id}>
+                            <div>
+                              <strong>{code.label || code.code_prefix}</strong>
+                              <span>{code.code || code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
+                              {code.email ? <span>{code.email}</span> : null}
+                              {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
+                            </div>
+                            {code.code ? (
+                              <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
+                                Copy
+                              </button>
+                            ) : null}
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
+                              {t("delete")}
+                            </button>
+                            {code.redeemed_count > 0 ? (
+                              <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code, true)}>
+                                Force delete
+                              </button>
+                            ) : null}
+                            <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">{t("noActionItems")}</p>
+                    )}
+                  </details>
                 </section>
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
                 <section className="settings-card settings-card-wide">
-                  <div className="settings-card-heading">
-                    <div>
-                      <span>{t("pendingApproval")}</span>
-                      <h3>{t("settingsUsers")}</h3>
+                  <details className="collapsible-panel" open>
+                    <summary>{t("settingsUsers")}</summary>
+                    <div className="settings-card-heading">
+                      <div>
+                        <span>{t("pendingApproval")}</span>
+                        <h3>{t("settingsUsers")}</h3>
+                      </div>
+                      <div className="member-actions">
+                        <strong>{pendingUsers.length}</strong>
+                        <button type="button" className="secondary compact" disabled={saving} onClick={() => loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"))}>
+                          {t("loadingData")}
+                        </button>
+                      </div>
                     </div>
-                    <div className="member-actions">
-                      <strong>{pendingUsers.length}</strong>
-                      <button type="button" className="secondary compact" disabled={saving} onClick={() => loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"))}>
-                        {t("loadingData")}
-                      </button>
-                    </div>
-                  </div>
-                  {appUsers.length ? (
-                    <div className="member-list">
-                      {appUsers.map((user) => (
-                        <div className="member-row" key={user.id}>
-                          <div>
-                            <strong>{user.display_name}</strong>
-                            <span>{user.email} - {user.is_approved ? "approved" : "pending"}{user.is_blocked ? ` - ${t("blocked")}` : ""}</span>
-                            {user.entitlement_days_remaining !== null ? (
-                              <span>{user.entitlement_days_remaining} {t("daysRemaining")} - {formatDisplayDate(user.entitlement_valid_until || "")}</span>
-                            ) : null}
-                          </div>
-                          <div className="member-actions">
-                            {!user.is_approved ? (
-                              <>
-                                <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
-                                  {t("accept")}
-                                </button>
-                                <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
-                                  {t("decline")}
-                                </button>
-                              </>
-                            ) : null}
-                            <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
-                              {user.is_app_admin ? "App admin" : "Make app admin"}
-                            </button>
-                            <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
-                              {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
-                            </button>
-                            {user.is_approved ? (
-                              <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>
-                                {user.is_blocked ? t("unblockAccess") : t("blockAccess")}
+                    {appUsers.length ? (
+                      <div className="member-list">
+                        {appUsers.map((user) => (
+                          <div className="member-row" key={user.id}>
+                            <div>
+                              <strong>{user.display_name}</strong>
+                              <span>{user.email} - {user.is_approved ? "approved" : "pending"}{user.is_blocked ? ` - ${t("blocked")}` : ""}</span>
+                              {user.entitlement_days_remaining !== null ? (
+                                <span>{user.entitlement_days_remaining} {t("daysRemaining")} - {formatDisplayDate(user.entitlement_valid_until || "")}</span>
+                              ) : null}
+                            </div>
+                            <div className="member-actions">
+                              {!user.is_approved ? (
+                                <>
+                                  <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
+                                    {t("accept")}
+                                  </button>
+                                  <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
+                                    {t("decline")}
+                                  </button>
+                                </>
+                              ) : null}
+                              <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
+                                {user.is_app_admin ? "App admin" : "Make app admin"}
                               </button>
-                            ) : null}
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteAppUser(user)}>
-                              {t("delete")}
-                            </button>
+                              <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
+                                {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
+                              </button>
+                              {user.is_approved ? (
+                                <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>
+                                  {user.is_blocked ? t("unblockAccess") : t("blockAccess")}
+                                </button>
+                              ) : null}
+                              <button type="button" className="danger compact" disabled={saving} onClick={() => deleteAppUser(user)}>
+                                {t("delete")}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="empty-state">{t("noActionItems")}</p>
-                  )}
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">{t("noActionItems")}</p>
+                    )}
+                  </details>
                 </section>
               ) : null}
 
