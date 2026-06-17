@@ -914,6 +914,7 @@ const translations = {
     noCatalogAdminResults: "No catalog entries found",
     useSuggestion: "Use suggestion",
     aiNotes: "AI notes",
+    models: "Models",
     aiProvider: "AI source",
     aiProviderAuto: "Automatic",
     aiProviderUserKey: "My OpenAI key",
@@ -931,6 +932,14 @@ const translations = {
     aiSettingsHelpSecurity: "This is safe because the key is stored server-side in encrypted form, is never exported, is not shown again after saving, and is sent only from the backend when an AI action is requested.",
     aiSettingsHelpCredits: "If you do not want to use a personal key, buy a Vinaris AI Pack. Vinaris handles the OpenAI connection and deducts estimated usage from your internal AI budget.",
     aiSettingsHelpFeatures: "AI enables tasting notes, drinking windows, value and market checks, grape composition, wishlist strategy and target price advice, food pairing, wine comparison, and catalog data enrichment.",
+    aiModelsHelpLabel: "AI model cost help",
+    aiModelsHelpTitle: "Model cost guide",
+    aiModelsHelpIntro: "Estimated costs are calculated from input, cached input, and output tokens. Prices below are USD per 1M tokens and match the internal AI budget estimator.",
+    aiModelsHelpNano: "gpt-5.4-nano: lowest cost, best for compact extraction such as grape composition. $0.20 input / $0.02 cached / $1.25 output.",
+    aiModelsHelpMini: "gpt-5.4-mini: balanced low-cost default for notes and value checks. $0.75 input / $0.075 cached / $4.50 output.",
+    aiModelsHelpStandard: "gpt-5.4: stronger reasoning for drinking windows, wishlist strategy, and pairings. $2.50 input / $0.25 cached / $15.00 output.",
+    aiModelsHelpPremium: "gpt-5.5: highest quality and highest cost. Use only where deeper judgment is worth roughly 2x gpt-5.4 and 25x nano input cost. $5.00 input / $0.50 cached / $30.00 output.",
+    aiModelsHelpTools: "Live market price actions may also add external web-search tool cost, so they can cost more than text-only generations.",
     buyAiCredits: "Buy AI Pack",
     noAiProvider: "No AI source available",
     appAiReady: "App AI ready",
@@ -1413,6 +1422,7 @@ const translations = {
     noCatalogAdminResults: "Nessuna entry catalogo trovata",
     useSuggestion: "Usa suggerimento",
     aiNotes: "Note AI",
+    models: "Modelli",
     aiProvider: "Sorgente AI",
     aiProviderAuto: "Automatica",
     aiProviderUserKey: "Mia chiave OpenAI",
@@ -1430,6 +1440,14 @@ const translations = {
     aiSettingsHelpSecurity: "E' sicuro perche la chiave resta sul server in forma criptata, non viene esportata, non viene piu mostrata dopo il salvataggio e viene inviata solo dal backend quando richiedi un'azione AI.",
     aiSettingsHelpCredits: "Se non vuoi usare una chiave personale, acquista un Vinaris AI Pack. Vinaris gestisce la connessione OpenAI e scala il consumo stimato dal tuo budget AI interno.",
     aiSettingsHelpFeatures: "L'AI attiva note degustative, finestre di beva, controlli valore e mercato, uvaggi, strategia wishlist e prezzo target, abbinamenti, confronto vini e arricchimento dati catalogo.",
+    aiModelsHelpLabel: "Help costi modelli AI",
+    aiModelsHelpTitle: "Guida costo modelli",
+    aiModelsHelpIntro: "I costi stimati sono calcolati da token input, input in cache e output. I prezzi sotto sono USD per 1M token e corrispondono allo stimatore interno del budget AI.",
+    aiModelsHelpNano: "gpt-5.4-nano: costo minimo, ideale per estrazioni compatte come gli uvaggi. $0.20 input / $0.02 cache / $1.25 output.",
+    aiModelsHelpMini: "gpt-5.4-mini: default economico e bilanciato per note e controlli valore. $0.75 input / $0.075 cache / $4.50 output.",
+    aiModelsHelpStandard: "gpt-5.4: ragionamento piu forte per finestre di beva, strategia wishlist e abbinamenti. $2.50 input / $0.25 cache / $15.00 output.",
+    aiModelsHelpPremium: "gpt-5.5: qualita massima e costo massimo. Usalo solo dove il giudizio extra vale circa 2x gpt-5.4 e 25x il costo input di nano. $5.00 input / $0.50 cache / $30.00 output.",
+    aiModelsHelpTools: "Le azioni con prezzo di mercato live possono aggiungere anche il costo dello strumento web-search, quindi possono costare piu delle generazioni solo testo.",
     buyAiCredits: "Acquista AI Pack",
     noAiProvider: "Nessuna sorgente AI disponibile",
     appAiReady: "AI app pronta",
@@ -5262,6 +5280,7 @@ export function App() {
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [passkeyHelpOpen, setPasskeyHelpOpen] = useState(false);
   const [aiSettingsHelpOpen, setAiSettingsHelpOpen] = useState(false);
+  const [aiModelsHelpOpen, setAiModelsHelpOpen] = useState(false);
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
   const [importFileName, setImportFileName] = useState("");
   const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
@@ -11956,6 +11975,35 @@ export function App() {
                         ) : null}
                       </div>
                     ) : null}
+                  <div className="settings-section-heading">
+                    <div>
+                      <span>{t("aiSettings")}</span>
+                      <strong>{t("models")}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="help-icon-button"
+                      aria-expanded={aiModelsHelpOpen}
+                      aria-controls="ai-models-help-panel"
+                      aria-label={t("aiModelsHelpLabel")}
+                      onClick={() => setAiModelsHelpOpen((current) => !current)}
+                    >
+                      ?
+                    </button>
+                  </div>
+                  {aiModelsHelpOpen ? (
+                    <div className="settings-help-panel ai-settings-help" id="ai-models-help-panel">
+                      <strong>{t("aiModelsHelpTitle")}</strong>
+                      <p>{t("aiModelsHelpIntro")}</p>
+                      <ul>
+                        <li>{t("aiModelsHelpNano")}</li>
+                        <li>{t("aiModelsHelpMini")}</li>
+                        <li>{t("aiModelsHelpStandard")}</li>
+                        <li>{t("aiModelsHelpPremium")}</li>
+                        <li>{t("aiModelsHelpTools")}</li>
+                      </ul>
+                    </div>
+                  ) : null}
                   <div className="settings-model-grid">
                     <label>
                       <span>{t("aiNotes")}</span>
