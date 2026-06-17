@@ -384,6 +384,12 @@
     linear-gradient(135deg, #fffaf4 0%, #e7c7b1 100%);
 }
 
+:root[data-theme="tuscany"] .hero-kpi {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 82%, var(--accent) 18%) 0%, transparent 100%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 54%, var(--surface-subtle) 46%) 0%, color-mix(in srgb, var(--surface-muted) 78%, var(--surface)) 100%);
+}
+
 :root[data-theme="piedmont"] {
   color-scheme: dark;
   --page: #11100c;
