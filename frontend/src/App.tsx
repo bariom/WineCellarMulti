@@ -5897,24 +5897,26 @@ export function App() {
     }
   }
 
-  async function loadAiSettings(role = session?.membership_role) {
+  async function loadAiSettings(role = session?.membership_role, syncDraft = true) {
     if (role === "owner" || role === "admin" || role === "member") {
       const nextSettings = await api<AiSettings>("/api/v1/ai/settings");
       setAiSettings(nextSettings);
-      setAiSettingsDraft({
-        openai_api_key: "",
-        provider_mode: nextSettings.provider_mode,
-        ai_notes_model: nextSettings.ai_notes_model,
-        drink_window_model: nextSettings.drink_window_model,
-        value_model: nextSettings.value_model,
-        grape_model: nextSettings.grape_model,
-        wishlist_model: nextSettings.wishlist_model,
-        pairing_model: nextSettings.pairing_model,
-        pairing_preferences: nextSettings.pairing_preferences || "",
-      });
+      if (syncDraft) {
+        setAiSettingsDraft({
+          openai_api_key: "",
+          provider_mode: nextSettings.provider_mode,
+          ai_notes_model: nextSettings.ai_notes_model,
+          drink_window_model: nextSettings.drink_window_model,
+          value_model: nextSettings.value_model,
+          grape_model: nextSettings.grape_model,
+          wishlist_model: nextSettings.wishlist_model,
+          pairing_model: nextSettings.pairing_model,
+          pairing_preferences: nextSettings.pairing_preferences || "",
+        });
+      }
     } else {
       setAiSettings(null);
-      setAiSettingsDraft(emptyAiSettingsDraft);
+      if (syncDraft) setAiSettingsDraft(emptyAiSettingsDraft);
     }
   }
 
@@ -6063,10 +6065,14 @@ export function App() {
   useEffect(() => {
     if (!session?.authenticated) return;
     const timer = window.setInterval(() => {
-      loadNotifications(true).catch(() => undefined);
+      Promise.all([
+        loadNotifications(true),
+        loadBilling(true, session.is_app_admin),
+        loadAiSettings(session.membership_role, false),
+      ]).catch(() => undefined);
     }, 30000);
     return () => window.clearInterval(timer);
-  }, [session?.authenticated]);
+  }, [session?.authenticated, session?.is_app_admin, session?.membership_role]);
 
   useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
