@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel, EmailStr, Field
 
 
@@ -47,6 +49,8 @@ class UserAdminUpdate(BaseModel):
     is_app_admin: bool | None = None
     is_blocked: bool | None = None
     can_use_label_recognition: bool | None = None
+    ai_credit_balance_target_usd: Decimal | None = None
+    ai_credit_note: str | None = Field(default=None, max_length=400)
 
 
 class UserAdminResponse(BaseModel):
@@ -57,6 +61,7 @@ class UserAdminResponse(BaseModel):
     is_app_admin: bool
     is_blocked: bool
     can_use_label_recognition: bool
+    ai_credit_balance_usd: Decimal = Decimal("0")
     approved_at: str | None = None
     entitlement_valid_until: str | None = None
     entitlement_days_remaining: int | None = None

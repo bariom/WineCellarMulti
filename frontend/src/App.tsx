@@ -539,6 +539,7 @@ type AppUser = PendingUser & {
   is_app_admin: boolean;
   is_blocked: boolean;
   can_use_label_recognition: boolean;
+  ai_credit_balance_usd: string;
   approved_at: string | null;
   entitlement_valid_until: string | null;
   entitlement_days_remaining: number | null;
@@ -919,6 +920,10 @@ const translations = {
     aiProviderCredits: "Vinaris AI Pack",
     aiCredits: "AI Pack",
     aiCreditBalance: "AI budget",
+    targetAiCreditBalance: "Target AI budget (USD)",
+    aiCreditAdminNote: "Note or gift reason",
+    saveAiCreditBalance: "Update AI budget",
+    aiCreditAdminHelp: "Set the final AI budget for this user. Vinaris records only the adjustment needed to reach that balance.",
     aiBudgetUsage: "Usage",
     aiCreditsHelp: "If no personal OpenAI key is configured, Vinaris can use an app-managed AI Pack purchased through Stripe. This budget is tracked internally against estimated OpenAI usage.",
     buyAiCredits: "Buy AI Pack",
@@ -1409,6 +1414,10 @@ const translations = {
     aiProviderCredits: "Vinaris AI Pack",
     aiCredits: "AI Pack",
     aiCreditBalance: "Budget AI",
+    targetAiCreditBalance: "Saldo AI finale (USD)",
+    aiCreditAdminNote: "Nota o motivo del regalo",
+    saveAiCreditBalance: "Aggiorna budget AI",
+    aiCreditAdminHelp: "Imposta il saldo AI finale per questo utente. Vinaris registra solo l'aggiustamento necessario per arrivare a quel valore.",
     aiBudgetUsage: "Consumo",
     aiCreditsHelp: "Se non configuri una tua chiave OpenAI, Vinaris può usare un AI Pack gestito dall'app e acquistato tramite Stripe. Questo budget viene scalato internamente in base al consumo AI stimato.",
     buyAiCredits: "Acquista AI Pack",
@@ -5233,6 +5242,8 @@ export function App() {
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
   const [newHouseholdNameDraft, setNewHouseholdNameDraft] = useState("");
   const [deleteHouseholdConfirmDraft, setDeleteHouseholdConfirmDraft] = useState("");
+  const [userAiBalanceDrafts, setUserAiBalanceDrafts] = useState<Record<string, string>>({});
+  const [userAiNoteDrafts, setUserAiNoteDrafts] = useState<Record<string, string>>({});
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [passkeyHelpOpen, setPasskeyHelpOpen] = useState(false);
@@ -5771,6 +5782,7 @@ export function App() {
             is_app_admin: false,
             is_blocked: false,
             can_use_label_recognition: false,
+            ai_credit_balance_usd: "0.000000",
             approved_at: null,
             entitlement_valid_until: null,
             entitlement_days_remaining: null,
@@ -5778,11 +5790,15 @@ export function App() {
       ].sort((first, second) => Number(first.is_approved) - Number(second.is_approved) || first.email.localeCompare(second.email));
       setAppUsers(mergedUsers);
       setPendingUsers(mergedUsers.filter((user) => !user.is_approved));
+      setUserAiBalanceDrafts(Object.fromEntries(mergedUsers.map((user) => [user.id, String(Number(user.ai_credit_balance_usd || 0).toFixed(2))])));
+      setUserAiNoteDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [user.id, current[user.id] || ""])));
     } else {
       setAppUsers([]);
       setPendingUsers([]);
       setPendingCatalogEntries([]);
       setCatalogAdminResults([]);
+      setUserAiBalanceDrafts({});
+      setUserAiNoteDrafts({});
     }
   }
 
@@ -6543,6 +6559,27 @@ export function App() {
       await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function updateUserAiCreditBalance(user: AppUser) {
+    const targetValue = (userAiBalanceDrafts[user.id] || "").trim();
+    if (!targetValue) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          ai_credit_balance_target_usd: targetValue,
+          ai_credit_note: (userAiNoteDrafts[user.id] || "").trim(),
+        }),
+      });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update AI budget");
     } finally {
       setSaving(false);
     }
@@ -12171,6 +12208,31 @@ export function App() {
                               {user.entitlement_days_remaining !== null ? (
                                 <span>{user.entitlement_days_remaining} {t("daysRemaining")} - {formatDisplayDate(user.entitlement_valid_until || "")}</span>
                               ) : null}
+                              <span>{t("aiCreditBalance")}: {formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
+                              <div className="credit-adjust-row">
+                                <label>
+                                  <span>{t("targetAiCreditBalance")}</span>
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="0.01"
+                                    value={userAiBalanceDrafts[user.id] || ""}
+                                    onChange={(event) => setUserAiBalanceDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
+                                  />
+                                </label>
+                                <label>
+                                  <span>{t("aiCreditAdminNote")}</span>
+                                  <input
+                                    value={userAiNoteDrafts[user.id] || ""}
+                                    onChange={(event) => setUserAiNoteDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
+                                    placeholder={t("aiCreditAdminNote")}
+                                  />
+                                </label>
+                                <button type="button" className="secondary compact" disabled={saving || !(userAiBalanceDrafts[user.id] || "").trim()} onClick={() => updateUserAiCreditBalance(user)}>
+                                  {t("saveAiCreditBalance")}
+                                </button>
+                              </div>
+                              <small>{t("aiCreditAdminHelp")}</small>
                             </div>
                             <div className="member-actions">
                               {!user.is_approved ? (

@@ -118,6 +118,7 @@ def test_register_login_session_and_logout():
     promoted = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_app_admin": True})
     assert promoted.status_code == 200
     assert promoted.json()["is_app_admin"] is True
+    assert promoted.json()["ai_credit_balance_usd"] == "0.500000"
     blocked = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_blocked": True})
     assert blocked.status_code == 200
     assert blocked.json()["is_blocked"] is True
@@ -127,7 +128,6 @@ def test_register_login_session_and_logout():
     assert deleted_user.status_code == 204
     users_after_delete = client.get("/api/v1/auth/users")
     assert all(user["email"] != "pending@example.com" for user in users_after_delete.json())
-
     logged_out = client.post("/api/v1/auth/logout")
     assert logged_out.status_code == 204
     assert client.get("/api/v1/session").json()["authenticated"] is False
@@ -141,6 +141,60 @@ def test_register_login_session_and_logout():
     assert login.json()["authenticated"] is True
     assert login.json()["locale"] == "en"
     assert login.json()["theme_preference"] == "private-cellar"
+
+
+def test_register_grants_signup_ai_credit():
+    client = TestClient(app)
+    registered = register(client)
+    assert registered.status_code == 201
+
+    billing = client.get("/api/v1/billing/status")
+    assert billing.status_code == 200
+    assert billing.json()["ai_credit_balance_usd"] == "0.500000"
+
+    users = client.get("/api/v1/auth/users")
+    assert users.status_code == 200
+    assert users.json()[0]["ai_credit_balance_usd"] == "0.500000"
+
+    with TestingSessionLocal() as db:
+        credit_entries = db.query(UserAiCreditTransaction).all()
+        assert len(credit_entries) == 1
+        assert credit_entries[0].source == "signup_bonus"
+        assert credit_entries[0].amount_usd == Decimal("0.500000")
+        notifications = db.query(UserNotification).all()
+        assert len(notifications) == 1
+        assert notifications[0].kind == "ai_credits"
+        assert "0.500000 USD" in notifications[0].message
+
+
+def test_app_admin_can_set_user_ai_credit_balance():
+    admin_client = TestClient(app)
+    user_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    assert register(user_client, email="gifted@example.com", password="strong-password-2").status_code == 201
+
+    app_user = next(user for user in admin_client.get("/api/v1/auth/users").json() if user["email"] == "gifted@example.com")
+    assert app_user["ai_credit_balance_usd"] == "0.500000"
+
+    updated = admin_client.patch(
+        f"/api/v1/auth/users/{app_user['id']}",
+        json={"ai_credit_balance_target_usd": "1.75", "ai_credit_note": "Welcome gift"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["ai_credit_balance_usd"] == "1.750000"
+
+    with TestingSessionLocal() as db:
+        user = db.get(User, uuid.UUID(app_user["id"]))
+        assert user is not None
+        credit_entries = list(db.query(UserAiCreditTransaction).filter(UserAiCreditTransaction.user_id == user.id).order_by(UserAiCreditTransaction.created_at.asc()))
+        assert len(credit_entries) == 2
+        assert credit_entries[0].source == "signup_bonus"
+        assert credit_entries[1].source == "admin_adjustment"
+        assert credit_entries[1].amount_usd == Decimal("1.250000")
+        assert "Welcome gift" in credit_entries[1].note
+
+        notifications = list(db.query(UserNotification).filter(UserNotification.user_id == user.id).all())
+        assert any(notification.kind == "ai_credits" for notification in notifications)
 
 
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
@@ -985,6 +1039,7 @@ def test_stripe_ai_pack_checkout_webhook_adds_balance_without_redeem_code(monkey
     monkeypatch.setattr(billing_routes, "send_email", fake_send_email)
     monkeypatch.setattr(settings, "stripe_webhook_secret", webhook_secret)
     monkeypatch.setattr(settings, "stripe_ai_credit_amount_usd", "5.00")
+    monkeypatch.setattr(settings, "signup_ai_credit_usd", "0")
 
     client = TestClient(app)
     registered = register(client, email="aipack@example.com", password="strong-password-5")

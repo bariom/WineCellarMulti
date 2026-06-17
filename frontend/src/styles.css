@@ -3777,6 +3777,23 @@ textarea {
   font-size: 0.78rem;
 }
 
+.credit-adjust-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 150px) minmax(180px, 1fr) auto;
+  gap: 8px;
+  align-items: end;
+  margin-top: 4px;
+}
+
+.credit-adjust-row label {
+  display: grid;
+  gap: 4px;
+}
+
+.credit-adjust-row input {
+  min-width: 0;
+}
+
 .export-options-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -8300,6 +8317,7 @@ textarea {
   .score-edit-row,
   .grape-edit-row,
   .inline-row-form,
+  .credit-adjust-row,
   .usage-row,
   .member-row,
   .invite-row,

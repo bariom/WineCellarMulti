@@ -4,6 +4,7 @@ import math
 import secrets
 import string
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -45,6 +46,7 @@ from app.schemas.auth import (
     UserPreferencesUpdate,
 )
 from app.schemas.session import SessionResponse
+from app.services.ai_credits import ai_credit_balance, configured_signup_ai_credit, create_ai_credit_transaction, set_ai_credit_balance
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
 
@@ -242,6 +244,7 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         is_app_admin=user.is_app_admin,
         is_blocked=user.is_blocked,
         can_use_label_recognition=user.can_use_label_recognition,
+        ai_credit_balance_usd=ai_credit_balance(db, user),
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,
         entitlement_days_remaining=max(days_remaining, 0) if days_remaining is not None else None,
@@ -404,6 +407,23 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     household = Household(name=payload.household_name.strip())
     db.add_all([user, household])
     db.flush()
+    signup_ai_credit = configured_signup_ai_credit()
+    if signup_ai_credit > Decimal("0"):
+        signup_credit_entry = create_ai_credit_transaction(
+            db,
+            user,
+            amount_usd=signup_ai_credit,
+            source="signup_bonus",
+            note=f"Signup AI credit ({signup_ai_credit} USD)",
+        )
+        create_user_notification(
+            db,
+            user,
+            kind="ai_credits",
+            title="Credito AI disponibile",
+            message=f"Hai ricevuto {signup_ai_credit} USD di credito AI di benvenuto.",
+            fingerprint=f"ai-credit-signup-bonus:{signup_credit_entry.id}",
+        )
     membership = Membership(user_id=user.id, household_id=household.id, role="owner")
     db.add(membership)
     ensure_trial_redeem_code(db, user)
@@ -667,7 +687,12 @@ def update_user_admin(
     user = db.get(User, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
-    if payload.is_app_admin is None and payload.is_blocked is None and payload.can_use_label_recognition is None:
+    if (
+        payload.is_app_admin is None
+        and payload.is_blocked is None
+        and payload.can_use_label_recognition is None
+        and payload.ai_credit_balance_target_usd is None
+    ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No user changes provided")
     if payload.is_app_admin is not None:
         if user.id == context.user.id and not payload.is_app_admin:
@@ -687,6 +712,29 @@ def update_user_admin(
             db.query(UserSession).filter(UserSession.user_id == user.id).delete()
     if payload.can_use_label_recognition is not None:
         user.can_use_label_recognition = payload.can_use_label_recognition
+    if payload.ai_credit_balance_target_usd is not None:
+        if payload.ai_credit_balance_target_usd < Decimal("0"):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI credit balance cannot be negative")
+        credit_entry = set_ai_credit_balance(
+            db,
+            user,
+            target_balance_usd=payload.ai_credit_balance_target_usd,
+            source="admin_adjustment",
+            note=(
+                f"Admin AI credit adjustment by {context.user.email}"
+                + (f": {payload.ai_credit_note.strip()}" if payload.ai_credit_note and payload.ai_credit_note.strip() else "")
+            ),
+        )
+        if credit_entry is not None:
+            balance_now = ai_credit_balance(db, user)
+            create_user_notification(
+                db,
+                user,
+                kind="ai_credits",
+                title="Credito AI aggiornato",
+                message=f"Il tuo saldo AI ora è {balance_now} USD.",
+                fingerprint=f"ai-credit-admin-adjustment:{credit_entry.id}",
+            )
     db.commit()
     db.refresh(user)
     return user_admin_response(user, db)
