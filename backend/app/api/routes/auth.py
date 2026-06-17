@@ -416,6 +416,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
             source="signup_bonus",
             note=f"Signup AI credit ({signup_ai_credit} USD)",
         )
+        db.flush()
         create_user_notification(
             db,
             user,
@@ -726,6 +727,7 @@ def update_user_admin(
             ),
         )
         if credit_entry is not None:
+            db.flush()
             balance_now = ai_credit_balance(db, user)
             admin_note = payload.ai_credit_note.strip() if payload.ai_credit_note and payload.ai_credit_note.strip() else ""
             create_user_notification(

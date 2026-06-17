@@ -175,6 +175,7 @@ def test_app_admin_can_set_user_ai_credit_balance():
 
     app_user = next(user for user in admin_client.get("/api/v1/auth/users").json() if user["email"] == "gifted@example.com")
     assert app_user["ai_credit_balance_usd"] == "0.500000"
+    assert admin_client.post(f"/api/v1/auth/pending-users/{app_user['id']}/approve").status_code == 200
 
     updated = admin_client.patch(
         f"/api/v1/auth/users/{app_user['id']}",
@@ -182,16 +183,32 @@ def test_app_admin_can_set_user_ai_credit_balance():
     )
     assert updated.status_code == 200
     assert updated.json()["ai_credit_balance_usd"] == "1.750000"
+    assert user_client.post("/api/v1/auth/login", json={"email": "gifted@example.com", "password": "strong-password-2"}).status_code == 200
+    user_notifications = user_client.get("/api/v1/notifications")
+    assert user_notifications.status_code == 200
+    assert any("Welcome gift" in notification["message"] for notification in user_notifications.json())
+
+    second_update = admin_client.patch(
+        f"/api/v1/auth/users/{app_user['id']}",
+        json={"ai_credit_balance_target_usd": "2.00", "ai_credit_note": "Second gift"},
+    )
+    assert second_update.status_code == 200
+    second_notifications = user_client.get("/api/v1/notifications")
+    assert second_notifications.status_code == 200
+    assert any("Second gift" in notification["message"] for notification in second_notifications.json())
 
     with TestingSessionLocal() as db:
         user = db.get(User, uuid.UUID(app_user["id"]))
         assert user is not None
         credit_entries = list(db.query(UserAiCreditTransaction).filter(UserAiCreditTransaction.user_id == user.id).order_by(UserAiCreditTransaction.created_at.asc()))
-        assert len(credit_entries) == 2
+        assert len(credit_entries) == 3
         assert credit_entries[0].source == "signup_bonus"
         assert credit_entries[1].source == "admin_adjustment"
         assert credit_entries[1].amount_usd == Decimal("1.250000")
         assert "Welcome gift" in credit_entries[1].note
+        assert credit_entries[2].source == "admin_adjustment"
+        assert credit_entries[2].amount_usd == Decimal("0.250000")
+        assert "Second gift" in credit_entries[2].note
 
         notifications = list(db.query(UserNotification).filter(UserNotification.user_id == user.id).all())
         ai_credit_notification = next(
@@ -199,6 +216,7 @@ def test_app_admin_can_set_user_ai_credit_balance():
             if notification.kind == "ai_credits" and "Welcome gift" in notification.message
         )
         assert "Welcome gift" in ai_credit_notification.message
+        assert any(notification.kind == "ai_credits" and "Second gift" in notification.message for notification in notifications)
 
 
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
