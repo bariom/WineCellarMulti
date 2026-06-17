@@ -10961,7 +10961,7 @@ export function App() {
           {isCollectionView ? (
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
-            <details className="stats-panel-wrapper" open>
+            <details className="stats-panel-wrapper">
               <summary>
                 {t("cellarStats")}
                 {quickWineFilter ? <span>{quickWineFilterLabels[quickWineFilter]}</span> : null}
