@@ -1896,6 +1896,7 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
   it: {
     format: {
       "Bottle (750ml)": "Bottiglia (750ml)",
+      "Bottle (1L)": "Bottiglia (1L)",
       "Half bottle (375ml)": "Mezza bottiglia (375ml)",
       "Magnum (1.5L)": "Magnum (1.5L)",
       "Double Magnum (3L)": "Doppio Magnum (3L)",
@@ -1951,6 +1952,7 @@ const localizedDisplayValues: Record<Locale, Record<string, Record<string, strin
 const canonicalWineFormats = [
   "Half bottle (375ml)",
   "Bottle (750ml)",
+  "Bottle (1L)",
   "Magnum (1.5L)",
   "Jeroboam (3L)",
   "Rehoboam (4.5L)",
