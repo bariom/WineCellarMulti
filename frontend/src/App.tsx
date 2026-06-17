@@ -3917,8 +3917,12 @@ function auditMarketNote(entry: AiAuditLog) {
   return noteEntry ? rawString(noteEntry.text) : "";
 }
 
+function auditWishlistPortfolioStrategySource(entry: AiAuditLog) {
+  return (entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "wishlist_portfolio_strategy") || null;
+}
+
 function auditWishlistPortfolioStrategy(entry: AiAuditLog): WishlistPortfolioStrategy | null {
-  const strategyEntry = (entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "wishlist_portfolio_strategy");
+  const strategyEntry = auditWishlistPortfolioStrategySource(entry);
   if (!strategyEntry) return null;
   return {
     model: entry.model,
@@ -7700,11 +7704,29 @@ export function App() {
     : null;
   const latestWishlistPortfolioAudit =
     aiAudit.find(
-      (entry) =>
-        entry.entity_type === "household" &&
-        entry.entity_id === session?.active_household_id &&
-        entry.feature === "wishlist_portfolio_strategy" &&
-        rawString((entry.sources || []).find((source) => source && typeof source === "object" && source.kind === "wishlist_portfolio_strategy")?.wishlist_list_id) === selectedWishlistListId,
+      (entry) => {
+        const strategySource = auditWishlistPortfolioStrategySource(entry);
+        return (
+          entry.entity_type === "household" &&
+          entry.entity_id === session?.active_household_id &&
+          entry.feature === "wishlist_portfolio_strategy" &&
+          Boolean(selectedWishlistListId) &&
+          rawString(strategySource?.wishlist_list_id) === selectedWishlistListId
+        );
+      },
+    ) ||
+    aiAudit.find(
+      (entry) => {
+        const strategySource = auditWishlistPortfolioStrategySource(entry);
+        return (
+          entry.entity_type === "household" &&
+          entry.entity_id === session?.active_household_id &&
+          entry.feature === "wishlist_portfolio_strategy" &&
+          Boolean(selectedWishlistListId) &&
+          Boolean(strategySource) &&
+          !rawString(strategySource?.wishlist_list_id)
+        );
+      },
     ) || null;
   const visibleWishlistPortfolioStrategy =
     wishlistPortfolioStrategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);

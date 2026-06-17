@@ -4043,6 +4043,7 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 .wishlist-target-price {
@@ -4143,6 +4144,7 @@ textarea {
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.06em;
+  white-space: nowrap;
   text-transform: uppercase;
 }
 
@@ -6076,9 +6078,9 @@ button.stat-card:hover {
 
 @media (min-width: 821px) {
   .wishlist-row {
-    grid-template-columns: minmax(0, 1fr) minmax(190px, 238px) 136px;
+    grid-template-columns: minmax(0, 1fr) minmax(236px, 286px) 136px;
     grid-template-rows: auto;
-    align-items: stretch;
+    align-items: start;
     column-gap: 18px;
     row-gap: 0;
   }
@@ -6092,14 +6094,14 @@ button.stat-card:hover {
   .wishlist-row > .wishlist-price-block {
     grid-column: 2;
     grid-row: 1;
-    align-self: stretch;
+    align-self: start;
     justify-self: stretch;
     display: grid;
-    gap: 0;
+    gap: 8px;
     min-width: 0;
-    padding: 12px 14px;
+    padding: 10px 12px;
     border: 1px solid color-mix(in srgb, var(--border) 74%, var(--collector-edge));
-    border-radius: 16px;
+    border-radius: 12px;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 46%),
       color-mix(in srgb, var(--surface-muted) 80%, var(--surface));
@@ -6109,15 +6111,15 @@ button.stat-card:hover {
   .wishlist-target-price,
   .wishlist-market-estimate {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-columns: minmax(max-content, 1fr) auto;
     align-items: baseline;
-    gap: 10px;
+    gap: 12px;
     text-align: left;
   }
 
   .wishlist-market-estimate {
-    margin-top: 10px;
-    padding-top: 10px;
+    margin-top: 0;
+    padding-top: 8px;
     padding-left: 0;
     border-top: 1px solid color-mix(in srgb, var(--collector-edge) 50%, transparent);
     border-left: 0;
@@ -6126,6 +6128,12 @@ button.stat-card:hover {
   .wishlist-price-block span,
   .wishlist-market-estimate small {
     line-height: 1.1;
+  }
+
+  .wishlist-price-block .wishlist-price,
+  .wishlist-market-estimate strong {
+    justify-self: end;
+    white-space: nowrap;
   }
 
   .wishlist-row > .wishlist-row-actions {
@@ -8969,6 +8977,11 @@ button:hover {
 .wishlist-price,
 .wishlist-market-estimate strong {
   color: color-mix(in srgb, var(--accent) 78%, var(--text));
+}
+
+.wishlist-row > .wishlist-price-block .wishlist-market-estimate {
+  background: transparent;
+  box-shadow: none;
 }
 
 .empty-state {
