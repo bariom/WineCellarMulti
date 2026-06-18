@@ -9826,7 +9826,15 @@ export function App() {
           />
         </section>
       ) : (
-        <section className={`workspace ${activeView === "settings" ? "settings-workspace" : activeView === "home" || activeView === "pairing" || activeView === "help" ? "home-workspace" : "content-workspace"}`}>
+        <section
+          className={`workspace ${
+            activeView === "settings"
+              ? "settings-workspace"
+              : activeView === "home" || activeView === "pairing" || activeView === "help"
+                ? "home-workspace"
+                : "content-workspace"
+          } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""}`}
+        >
           {!needsRedeem ? (
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
