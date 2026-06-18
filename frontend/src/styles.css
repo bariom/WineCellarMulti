@@ -9386,9 +9386,13 @@ textarea:hover {
 .dashboard-card,
 .stat-card,
 .settings-card,
-.wine-detail,
-.list-item-block {
+.wine-detail {
   animation: micro-soft-enter 180ms ease-out both;
+}
+
+.list-item-block:has(.mobile-inline-detail) {
+  animation: none;
+  transform: none;
 }
 
 @keyframes micro-soft-enter {
