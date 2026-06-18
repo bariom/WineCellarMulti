@@ -3200,6 +3200,16 @@ textarea {
   height: 16px;
 }
 
+.row-actions button,
+.inline-form button,
+.error-banner button,
+.button-busy-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
 .action-label {
   line-height: 1;
 }
@@ -9128,6 +9138,94 @@ summary:focus-visible {
   border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
 }
 
+button,
+input,
+select,
+textarea,
+summary,
+.wine-row,
+.dashboard-card,
+.stat-card,
+.settings-card,
+.notification-item,
+.pairing-match,
+.row-chip,
+.wine-status-badge,
+.export-option,
+.action-icon {
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    box-shadow 180ms ease,
+    color 160ms ease,
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+button:not(:disabled):active {
+  transform: translateY(0) scale(0.985);
+}
+
+button:not(:disabled):hover .action-icon {
+  transform: translateY(-1px);
+}
+
+button:not(:disabled):active .action-icon {
+  transform: scale(0.94);
+}
+
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+}
+
+.row-chip:hover,
+.wine-status-badge:hover,
+.export-option:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+
+.wine-row.selected,
+.stat-card.active,
+.view-tabs button:not(.secondary),
+.settings-tabs button:not(.secondary),
+.history-section-tabs button:not(.secondary) {
+  animation: micro-selected-settle 180ms ease-out both;
+}
+
+.notification-item,
+.dashboard-card,
+.stat-card,
+.settings-card,
+.wine-detail,
+.list-item-block {
+  animation: micro-soft-enter 180ms ease-out both;
+}
+
+@keyframes micro-soft-enter {
+  from {
+    opacity: 0.001;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes micro-selected-settle {
+  0% {
+    transform: scale(0.992);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
 @media (max-width: 820px) {
   .workspace,
   .stats-panel-wrapper,
@@ -9476,6 +9574,17 @@ summary:focus-visible {
     margin-top: 0;
     justify-content: flex-start;
     flex-wrap: wrap;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

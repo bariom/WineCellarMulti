@@ -3589,6 +3589,38 @@ function wishlistActionSvgIcon(kind: "edit" | "convert" | "delete") {
   );
 }
 
+function appActionSvgIcon(kind: "compare" | "edit" | "import" | "export" | "delete") {
+  if (kind === "edit") return wishlistActionSvgIcon("edit");
+  if (kind === "delete") return wishlistActionSvgIcon("delete");
+  if (kind === "compare") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M8 5h8" />
+        <path d="M8 19h8" />
+        <path d="M6 8l-3 5h6l-3-5Z" />
+        <path d="M18 8l-3 5h6l-3-5Z" />
+        <path d="M12 5v14" />
+      </svg>
+    );
+  }
+  if (kind === "import") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M12 3v12" />
+        <path d="m7 10 5 5 5-5" />
+        <path d="M5 21h14" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M12 21V9" />
+      <path d="m7 14 5-5 5 5" />
+      <path d="M5 3h14" />
+    </svg>
+  );
+}
+
 function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
   const labels =
     locale === "it"
@@ -3786,14 +3818,16 @@ function ButtonBusyContent({
   busy,
   idleLabel,
   busyLabel,
+  icon,
 }: {
   busy: boolean;
   idleLabel: string;
   busyLabel: string;
+  icon?: ReactNode;
 }) {
   return (
     <span className={`button-busy-label${busy ? " is-busy" : ""}`}>
-      {busy ? <LoadingSpinner size="sm" /> : null}
+      {busy ? <LoadingSpinner size="sm" /> : icon ? <span className="action-icon" aria-hidden="true">{icon}</span> : null}
       <span>{busy ? busyLabel : idleLabel}</span>
     </span>
   );
@@ -11595,10 +11629,12 @@ export function App() {
                   <strong className="row-value">{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
                   <div className="row-actions">
                     <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
-                      {t("compare")}
+                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
+                      <span className="action-label">{t("compare")}</span>
                     </button>
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
-                      {t("edit")}
+                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("edit")}</span>
+                      <span className="action-label">{t("edit")}</span>
                     </button>
                   </div>
                 </article>
@@ -12587,7 +12623,7 @@ export function App() {
                   ) : null}
                   <div className="inline-form">
                     <button type="button" disabled={saving || !importPayload} onClick={runLegacyImport}>
-                      <ButtonBusyContent busy={saving && Boolean(importPayload)} idleLabel={t("importRun")} busyLabel={t("loadingData")} />
+                      <ButtonBusyContent busy={saving && Boolean(importPayload)} idleLabel={t("importRun")} busyLabel={t("loadingData")} icon={appActionSvgIcon("import")} />
                     </button>
                   </div>
                   {importResult ? (
@@ -12623,14 +12659,16 @@ export function App() {
                   </div>
                   <div className="inline-form">
                     <button type="button" className="secondary" disabled={saving || !hasSelectedExportBlock} onClick={exportJson}>
-                      {t("exportJson")}
+                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("export")}</span>
+                      <span className="action-label">{t("exportJson")}</span>
                     </button>
                   </div>
                   <div className="error-banner">
                     <strong>{t("emptyCellar")}</strong>
                     <span>{t("emptyCellarWarning")}</span>
                     <button type="button" className="danger compact" disabled={saving} onClick={emptyCellar}>
-                      {t("emptyCellar")}
+                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("delete")}</span>
+                      <span className="action-label">{t("emptyCellar")}</span>
                     </button>
                   </div>
                 </section>
