@@ -1269,7 +1269,7 @@ summary:focus-visible {
 .auth-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: 300;
   display: grid;
   place-items: center;
   padding: 28px;
@@ -1309,7 +1309,7 @@ summary:focus-visible {
 .market-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 45;
+  z-index: 320;
   display: grid;
   place-items: center;
   padding: 28px;
@@ -1576,7 +1576,7 @@ summary:focus-visible {
 .compare-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 46;
+  z-index: 340;
   display: grid;
   place-items: center;
   padding: 28px;
@@ -7893,14 +7893,14 @@ textarea {
   .mobile-inline-detail {
     position: fixed;
     inset: 0;
-    z-index: 140;
+    z-index: 330;
     display: grid;
-    align-items: end;
+    align-items: stretch;
     margin: 0;
-    padding: 72px 12px 12px;
-    background: color-mix(in srgb, #08110d 56%, transparent);
-    backdrop-filter: blur(12px);
-    animation: micro-soft-enter 160ms ease-out both;
+    padding: 0;
+    background: var(--surface);
+    backdrop-filter: none;
+    animation: none;
   }
 
   .mobile-detail-sheet {
@@ -7908,29 +7908,31 @@ textarea {
     flex-direction: column;
     gap: 0;
     width: 100%;
-    max-height: calc(100dvh - 84px);
+    height: 100dvh;
+    max-height: 100dvh;
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--border) 74%, var(--collector-edge));
-    border-radius: 16px;
+    border: 0;
+    border-radius: 0;
     background: var(--surface);
-    box-shadow:
-      0 24px 64px rgba(8, 17, 13, 0.34),
-      inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
+    box-shadow: none;
   }
 
   .mobile-detail-sheet-head {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: 10;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
     min-width: 0;
-    padding: 12px 14px;
+    min-height: 64px;
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
     border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 94%, transparent), color-mix(in srgb, var(--surface) 98%, transparent));
+    box-shadow: 0 10px 24px color-mix(in srgb, var(--collector-depth) 30%, transparent);
+    backdrop-filter: blur(18px);
   }
 
   .mobile-detail-sheet-head > div {
@@ -7956,6 +7958,29 @@ textarea {
     font-size: 0.8rem;
   }
 
+  .mobile-detail-close-button {
+    display: inline-grid;
+    place-items: center;
+    width: 42px;
+    height: 42px;
+    flex: 0 0 42px;
+    padding: 0;
+    border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+    border-radius: 999px;
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
+    font-size: 1.65rem;
+    line-height: 1;
+    box-shadow: 0 8px 20px color-mix(in srgb, var(--collector-depth) 35%, transparent);
+  }
+
+  .mobile-detail-close-button:hover,
+  .mobile-detail-close-button:focus-visible {
+    transform: none;
+    border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+    background: color-mix(in srgb, var(--primary) 9%, var(--surface));
+  }
+
   .mobile-detail-sheet > .wine-detail {
     flex: 1 1 auto;
     min-height: 0;
@@ -7965,11 +7990,13 @@ textarea {
     border-top: 0;
     border-radius: 0;
     box-shadow: none;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 18px);
   }
 
   .mobile-detail-sheet > .share-panel {
     display: block;
-    max-height: 34dvh;
+    flex: 0 0 auto;
+    max-height: 30dvh;
     overflow-y: auto;
     margin: 0;
     border-inline: 0;

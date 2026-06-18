@@ -11669,8 +11669,8 @@ export function App() {
                           <strong>{wine.name}</strong>
                           <span>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</span>
                         </div>
-                        <button type="button" className="secondary compact" onClick={() => setSelectedWineId(null)}>
-                          {t("close")}
+                        <button type="button" className="mobile-detail-close-button" aria-label={t("close")} title={t("close")} onClick={() => setSelectedWineId(null)}>
+                          ×
                         </button>
                       </div>
                       <WineDetail
@@ -11783,8 +11783,8 @@ export function App() {
                           <strong>{item.name}</strong>
                           <span>{[item.producer, item.vintage].filter(Boolean).join(" - ")}</span>
                         </div>
-                        <button type="button" className="secondary compact" onClick={() => setSelectedWishlistId(null)}>
-                          {t("close")}
+                        <button type="button" className="mobile-detail-close-button" aria-label={t("close")} title={t("close")} onClick={() => setSelectedWishlistId(null)}>
+                          ×
                         </button>
                       </div>
                       <WishlistDetail
