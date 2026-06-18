@@ -6553,6 +6553,7 @@ button.stat-card:hover {
 }
 
 .wishlist-strategy-summary .detail-title {
+  grid-template-columns: minmax(0, 1fr);
   margin: 0;
   padding-bottom: 0;
   border-bottom: 0;
@@ -6560,6 +6561,7 @@ button.stat-card:hover {
 
 .wishlist-strategy-summary .detail-title > div {
   position: relative;
+  width: 100%;
   padding-right: 26px;
 }
 
@@ -6579,6 +6581,7 @@ button.stat-card:hover {
 .wishlist-strategy-preview {
   display: grid;
   gap: 6px;
+  width: 100%;
   margin-top: 10px;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
@@ -6619,6 +6622,7 @@ button.stat-card:hover {
 
 .wishlist-strategy-cta {
   align-self: start;
+  justify-self: start;
 }
 
 .wishlist-portfolio-panel .notes-grid {
@@ -10067,6 +10071,11 @@ textarea:hover {
 
   .detail-title {
     grid-template-columns: 1fr;
+  }
+
+  .wishlist-strategy-cta {
+    width: 100%;
+    justify-self: stretch;
   }
 
   .value-history-meta {
