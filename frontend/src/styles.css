@@ -2149,6 +2149,11 @@ summary:focus-visible {
   color: var(--landing-champagne);
 }
 
+.public-pricing-card .public-ai-credit-note {
+  background:
+    linear-gradient(180deg, rgba(216, 174, 95, 0.12), rgba(255, 250, 241, 0.06));
+}
+
 .public-bottle-card {
   display: grid;
   gap: 18px;
@@ -7609,6 +7614,16 @@ textarea {
     color: #fffaf1;
     background: rgba(255, 255, 255, 0.08);
     border-color: color-mix(in srgb, #d8ae5f 44%, transparent);
+  }
+
+  .mobile-public-landing .mobile-ai-credit-note {
+    max-width: 100%;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, #d8ae5f 38%, transparent);
+    border-radius: 14px;
+    background: rgba(255, 250, 241, 0.08);
+    font-size: 0.9rem;
+    line-height: 1.35;
   }
 
   .public-landing {

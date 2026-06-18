@@ -2125,6 +2125,7 @@ const landingContent: Record<
       monthlyLabel: string;
       annualLabel: string;
       savingsNote: string;
+      aiTrialNote: string;
       features: Array<{ title: string; body: string; highlight?: boolean; ai?: boolean }>;
   }
 > = {
@@ -2167,6 +2168,7 @@ const landingContent: Record<
     monthlyLabel: "CHF 6 / month",
     annualLabel: "CHF 60 / year",
     savingsNote: "Annual plan saves CHF 12 compared with monthly billing.",
+    aiTrialNote: "A small AI credit is included so you can test advanced functions such as market checks, pairings, and wishlist strategy.",
     features: [
       {
         title: "Build a serious cellar record",
@@ -2251,6 +2253,7 @@ const landingContent: Record<
     monthlyLabel: "CHF 6 / mese",
     annualLabel: "CHF 60 / anno",
     savingsNote: "Il piano annuale ti fa risparmiare CHF 12 rispetto al mensile.",
+    aiTrialNote: "Include un piccolo credito AI per provare le funzioni avanzate: controlli mercato, abbinamenti e strategia wishlist.",
     features: [
       {
         title: "Costruire un archivio di cantina serio",
@@ -9313,6 +9316,7 @@ export function App() {
                 {landing.primaryCta}
               </button>
             </div>
+            <p className="mobile-ai-credit-note">{landing.aiTrialNote}</p>
           </section>
           <section className="public-landing">
             <div className="public-hero">
@@ -9376,6 +9380,10 @@ export function App() {
                   </div>
                 </div>
                 <p className="public-pricing-note">{landing.savingsNote}</p>
+                <div className="invite-notice promo-notice public-ai-credit-note">
+                  <strong>AI</strong>
+                  <span>{landing.aiTrialNote}</span>
+                </div>
                 <div className="invite-notice promo-notice">
                   <strong>{t("finalBetaPromo")}</strong>
                   <span>{t("promoNote")}</span>
