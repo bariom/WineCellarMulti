@@ -3912,15 +3912,18 @@ function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: TranslationKey) =
   const endDate = entries[entries.length - 1].dateMs;
   const dateSpan = Math.max(endDate - startDate, 1);
   const valueSpan = Math.max(maxValue - minValue, 1);
-  const points = entries
-    .map((entry) => {
-      const x = entries.length === 1 ? 50 : 8 + ((entry.dateMs - startDate) / dateSpan) * 84;
-      const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
-      return `${x.toFixed(2)},${y.toFixed(2)}`;
-    })
-    .join(" ");
+  const chartPoints = entries.map((entry) => {
+    const x = entries.length === 1 ? 50 : 8 + ((entry.dateMs - startDate) / dateSpan) * 84;
+    const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
+    return { entry, x, y };
+  });
+  const points = chartPoints.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
+  const areaPoints = `8,82 ${points} 92,82`;
   const first = entries[0];
   const last = entries[entries.length - 1];
+  const deltaValue = last.numericValue - first.numericValue;
+  const deltaPercent = first.numericValue > 0 ? (deltaValue / first.numericValue) * 100 : 0;
+  const deltaPositive = deltaValue >= 0;
   const sourceLabels: Record<string, string> = {
     ai: "AI",
     imported: "Import",
@@ -3931,23 +3934,43 @@ function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: TranslationKey) =
   return (
     <div className="value-history-card">
       <div className="section-heading">
-        <h3>{t("valueEvolution")}</h3>
-        <span>{entries.length} {t("records")}</span>
+        <div>
+          <h3>{t("valueEvolution")}</h3>
+          <span>{entries.length} {t("records")}</span>
+        </div>
+        <strong className={deltaPositive ? "value-history-delta positive" : "value-history-delta negative"}>
+          {deltaPositive ? "+" : ""}{deltaValue.toFixed(0)} ({deltaPositive ? "+" : ""}{deltaPercent.toFixed(1)}%)
+        </strong>
       </div>
       <svg className="value-history-chart" viewBox="0 0 100 90" role="img" aria-label={t("valueEvolution")}>
-        <line x1="8" y1="82" x2="92" y2="82" />
-        <line x1="8" y1="18" x2="8" y2="82" />
-        <polyline points={points} />
-        {entries.map((entry) => {
-          const x = entries.length === 1 ? 50 : 8 + ((entry.dateMs - startDate) / dateSpan) * 84;
-          const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
-          return <circle key={entry.id} cx={x} cy={y} r="2.4" />;
-        })}
+        <defs>
+          <linearGradient id={`valueLine-${wine.id}`} x1="8" y1="18" x2="92" y2="82" gradientUnits="userSpaceOnUse">
+            <stop stopColor="var(--primary)" />
+            <stop offset="1" stopColor="var(--accent)" />
+          </linearGradient>
+          <linearGradient id={`valueArea-${wine.id}`} x1="0" y1="18" x2="0" y2="82" gradientUnits="userSpaceOnUse">
+            <stop stopColor="var(--primary)" stopOpacity="0.24" />
+            <stop offset="1" stopColor="var(--accent)" stopOpacity="0.03" />
+          </linearGradient>
+        </defs>
+        <line className="chart-grid-line" x1="8" y1="18" x2="92" y2="18" />
+        <line className="chart-grid-line" x1="8" y1="50" x2="92" y2="50" />
+        <line className="chart-axis-line" x1="8" y1="82" x2="92" y2="82" />
+        <line className="chart-axis-line" x1="8" y1="18" x2="8" y2="82" />
+        <polygon className="value-history-area" points={areaPoints} fill={`url(#valueArea-${wine.id})`} />
+        <polyline className="value-history-line" points={points} stroke={`url(#valueLine-${wine.id})`} />
+        {chartPoints.map(({ entry, x, y }, index) => (
+          <g key={entry.id} className={index === chartPoints.length - 1 ? "value-history-point latest" : "value-history-point"}>
+            <circle className="point-halo" cx={x} cy={y} r="4.6" />
+            <circle className="point-core" cx={x} cy={y} r="2.2" />
+          </g>
+        ))}
       </svg>
       <div className="value-history-meta">
         <span>{formatDisplayDate(first.recorded_at)}: {first.currency} {first.numericValue.toFixed(0)}</span>
         <strong>{last.currency} {last.numericValue.toFixed(0)}</strong>
         <span>{formatDisplayDate(last.recorded_at)} - {sourceLabels[last.source] || last.source}</span>
+        <small>{first.currency} {minValue.toFixed(0)} - {first.currency} {maxValue.toFixed(0)}</small>
       </div>
     </div>
   );
@@ -11639,25 +11662,36 @@ export function App() {
                   </div>
                 </article>
                 {selectedWineId === wine.id && !wineFormOpen ? (
-                  <div className="mobile-inline-detail">
-                    <WineDetail
-                      wine={wine}
-                      session={session}
-                      auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
-                      canGenerate={canGenerateAi}
-                      canWrite={canWriteWine}
-                      saving={saving}
-                      generating={generatingAi}
-                      onGenerate={(feature) => generateWineAi(wine, feature)}
-                      onConsume={(payload) => consumeWineBottle(wine, payload)}
-                      onUpdateTastingEntry={updateWineTastingEntry}
-                      onDeleteTastingEntry={deleteWineTastingEntry}
-                      marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
-                      onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
-                      t={t}
-                      locale={locale}
-                    />
-                    {renderSharePanel(wine)}
+                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={wine.name} onClick={() => setSelectedWineId(null)}>
+                    <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
+                      <div className="mobile-detail-sheet-head">
+                        <div>
+                          <strong>{wine.name}</strong>
+                          <span>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</span>
+                        </div>
+                        <button type="button" className="secondary compact" onClick={() => setSelectedWineId(null)}>
+                          {t("close")}
+                        </button>
+                      </div>
+                      <WineDetail
+                        wine={wine}
+                        session={session}
+                        auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
+                        canGenerate={canGenerateAi}
+                        canWrite={canWriteWine}
+                        saving={saving}
+                        generating={generatingAi}
+                        onGenerate={(feature) => generateWineAi(wine, feature)}
+                        onConsume={(payload) => consumeWineBottle(wine, payload)}
+                        onUpdateTastingEntry={updateWineTastingEntry}
+                        onDeleteTastingEntry={deleteWineTastingEntry}
+                        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
+                        onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
+                        t={t}
+                        locale={locale}
+                      />
+                      {renderSharePanel(wine)}
+                    </div>
                   </div>
                 ) : null}
               </div>
@@ -11742,18 +11776,29 @@ export function App() {
                   </div>
                 </article>
                 {selectedWishlistId === item.id && !wishlistFormOpen ? (
-                  <div className="mobile-inline-detail">
-                    <WishlistDetail
-                      item={item}
-                      auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
-                      canGenerate={canGenerateAi}
-                      generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
-                      onGenerate={(feature) => generateWishlistAi(item, feature)}
-                      marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id && entry.feature === "wishlist_target_price") || null}
-                      onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item, entry })}
-                      t={t}
-                      locale={locale}
-                    />
+                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={item.name} onClick={() => setSelectedWishlistId(null)}>
+                    <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
+                      <div className="mobile-detail-sheet-head">
+                        <div>
+                          <strong>{item.name}</strong>
+                          <span>{[item.producer, item.vintage].filter(Boolean).join(" - ")}</span>
+                        </div>
+                        <button type="button" className="secondary compact" onClick={() => setSelectedWishlistId(null)}>
+                          {t("close")}
+                        </button>
+                      </div>
+                      <WishlistDetail
+                        item={item}
+                        auditEntries={aiAudit.filter((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id)}
+                        canGenerate={canGenerateAi}
+                        generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
+                        onGenerate={(feature) => generateWishlistAi(item, feature)}
+                        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id && entry.feature === "wishlist_target_price") || null}
+                        onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item, entry })}
+                        t={t}
+                        locale={locale}
+                      />
+                    </div>
                   </div>
                 ) : null}
               </div>
