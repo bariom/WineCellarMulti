@@ -1,4 +1,7 @@
-import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, UIEvent, useEffect, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useRef, useState } from "react";
+
+const PairingView = lazy(() => import("./views/PairingView"));
+const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 
 type Session = {
   authenticated: boolean;
@@ -3063,13 +3066,6 @@ function formatMoney(
   }).format(amount)}`;
 }
 
-function parsePriceHintAmount(value: string) {
-  const match = value.match(/(\d+(?:[.,]\d+)?)/);
-  if (!match) return null;
-  const amount = Number(match[1].replace(",", "."));
-  return Number.isFinite(amount) ? amount : null;
-}
-
 function parseHelpBullet(value: string) {
   const marker = "[AI] ";
   if (value.startsWith(marker)) {
@@ -3805,10 +3801,6 @@ function logoutIcon() {
       <path d="M14 21h5a2 2 0 0 0 2-2" />
     </svg>
   );
-}
-
-function SommelierAiIllustration() {
-  return <img src="/images/sommelier_ai.png" alt="Sommelier AI" loading="lazy" />;
 }
 
 function LoadingState({ label, compact = false }: { label: string; compact?: boolean }) {
@@ -4656,109 +4648,6 @@ function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     tasting_history: [],
     value_history: [],
   };
-}
-
-function TastingArchiveSection({
-  entries,
-  saving,
-  t,
-  locale,
-  onOpenWine,
-  onUpdateEntry,
-  onDeleteEntry,
-}: {
-  entries: TastingArchiveEntry[];
-  saving: boolean;
-  t: (key: TranslationKey) => string;
-  locale: Locale;
-  onOpenWine: (wine: Wine) => void;
-  onUpdateEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
-  onDeleteEntry: (wine: Wine, entryId: string) => Promise<void>;
-}) {
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editDraft, setEditDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
-
-  useEffect(() => {
-    if (!editingId) return;
-    const matchingEntry = entries.find((entry) => entry.id === editingId);
-    if (!matchingEntry) {
-      setEditingId(null);
-      setEditDraft(emptyConsumeWineDraft());
-    }
-  }, [entries, editingId]);
-
-  return (
-    <div className="tasting-archive-list">
-      {entries.map((entry) => (
-        <article className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
-          <div className="tasting-archive-head">
-            <div className="tasting-archive-title">
-              <strong>{entry.wine.name}</strong>
-              <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
-            </div>
-            <div className="tasting-archive-summary">
-              <span>{formatDisplayDate(entry.consumed_at)}</span>
-              {entry.rating ? <strong>{entry.rating}/6</strong> : null}
-              <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
-            </div>
-          </div>
-          <p className="tasting-archive-meta">
-            {[displayValue(entry.wine.format, locale, "format"), displayValue(entry.wine.type, locale, "type"), entry.wine.appellation].filter(Boolean).join(" - ")}
-          </p>
-          {editingId === entry.id ? (
-            <TastingEntryEditor
-              draft={editDraft}
-              setDraft={setEditDraft}
-              saving={saving}
-              t={t}
-              onSave={async () => {
-                await onUpdateEntry(entry.wine, entry.id, editDraft);
-                setEditingId(null);
-                setEditDraft(emptyConsumeWineDraft());
-              }}
-              onCancel={() => {
-                setEditingId(null);
-                setEditDraft(emptyConsumeWineDraft());
-              }}
-              onDelete={async () => {
-                if (!window.confirm(t("delete"))) return;
-                await onDeleteEntry(entry.wine, entry.id);
-                setEditingId(null);
-                setEditDraft(emptyConsumeWineDraft());
-              }}
-            />
-          ) : (
-            <>
-              {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
-              {entry.occasion || entry.pairing || entry.companions ? (
-                <div className="chip-list">
-                  {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
-                  {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
-                  {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
-                </div>
-              ) : null}
-              <div className="tasting-archive-actions">
-                <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
-                  {t("openWine")}
-                </button>
-                <button
-                  type="button"
-                  className="secondary compact"
-                  disabled={saving}
-                  onClick={() => {
-                    setEditingId(entry.id);
-                    setEditDraft(consumeDraftFromTastingEntry(entry));
-                  }}
-                >
-                  {t("edit")}
-                </button>
-              </div>
-            </>
-          )}
-        </article>
-      ))}
-    </div>
-  );
 }
 
 function WineDetail({
@@ -8881,316 +8770,14 @@ export function App() {
     openWineInView(wine, "history", "tastings");
   }
 
-  function renderPairingSection() {
-    const activePairingBudget = Number(pairingMaxPrice || 0);
-    const hasPairingBudget = Number.isFinite(activePairingBudget) && activePairingBudget > 0;
-    const pairingPreviewLimit = 3;
-    const cellarBottleValues = wines
-      .map((wine) => Number(wine.current_value || wine.price || 0))
-      .filter((value) => Number.isFinite(value) && value > 0);
-    const pairingBudgetSliderMax = Math.max(250, Math.ceil(Math.max(...cellarBottleValues, 250) / 50) * 50);
-    const pairingBudgetSliderValue = hasPairingBudget ? Math.min(activePairingBudget, pairingBudgetSliderMax) : 0;
-    const pairingBudgetPresets = [40, 80, 150].filter((value) => value < pairingBudgetSliderMax);
-    const cellarMatchBudgetValues = pairingResult?.cellar_matches
-      .map((match) => {
-        const wine = wines.find((item) => item.id === match.wine_id);
-        if (!wine) return null;
-        return Number(wine.current_value || wine.price || 0);
-      })
-      .filter((value): value is number => value !== null && Number.isFinite(value) && value > 0) || [];
-    const cheapestCellarMatch = cellarMatchBudgetValues.length ? Math.min(...cellarMatchBudgetValues) : null;
-    const pairingPreviewCandidates = [
-      ...(pairingResult?.cellar_matches.map((match, index) => {
-        const wine = wines.find((item) => item.id === match.wine_id);
-        const referenceValue = Number(wine?.current_value || wine?.price || 0);
-        const hasReferenceValue = Number.isFinite(referenceValue) && referenceValue > 0;
-        return {
-          key: `cellar-${match.wine_id}`,
-          name: match.wine_name,
-          producer: match.producer,
-          sourceRank: 0,
-          originalRank: index,
-          withinBudget: hasPairingBudget && hasReferenceValue ? referenceValue <= activePairingBudget : !hasPairingBudget,
-        };
-      }) || []),
-      ...(["low", "medium", "high"] as const).flatMap((tier, tierIndex) =>
-        (pairingResult?.market_recommendations[tier] || []).map((item, index) => {
-          const hintAmount = parsePriceHintAmount(item.price_hint);
-          return {
-            key: `${tier}-${item.name}-${index}`,
-            name: item.name,
-            producer: item.producer,
-            sourceRank: tierIndex + 1,
-            originalRank: index,
-            withinBudget: hasPairingBudget && hintAmount !== null ? hintAmount <= activePairingBudget : !hasPairingBudget,
-          };
-        }),
-      ),
-    ];
-    const pairingPreviewItems = pairingPreviewCandidates
-      .sort((first, second) => {
-        if (first.withinBudget !== second.withinBudget) return first.withinBudget ? -1 : 1;
-        if (first.sourceRank !== second.sourceRank) return first.sourceRank - second.sourceRank;
-        return first.originalRank - second.originalRank;
-      })
-      .slice(0, pairingPreviewLimit);
-    const pairingResultCount = pairingPreviewItems.length;
-    return (
-      <section className="pairing-card">
-        <div className="card-heading">
-          <div>
-            <span>{t("pairing")}</span>
-            <h2>{t("pairingSubmit")}</h2>
-          </div>
-          {pairingResult?.estimated_cost_usd ? (
-            <small className="pairing-request-cost">
-              {t("aiRequestCost")}: {formatAiBudget(pairingResult.estimated_cost_usd)}
-            </small>
-          ) : null}
-        </div>
-        <div className="pairing-layout">
-          <div className="pairing-main">
-            <form className="pairing-form" onSubmit={generatePairing}>
-              <label>
-                <span>{t("pairingDish")}</span>
-                <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
-              </label>
-              <div className="pairing-budget-control">
-                <div className="pairing-budget-head">
-                  <span>{t("pairingMaxPrice")}</span>
-                  <strong>{hasPairingBudget ? `CHF ${activePairingBudget.toFixed(0)}` : t("pairingNoBudget")}</strong>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max={pairingBudgetSliderMax}
-                  step="5"
-                  value={pairingBudgetSliderValue}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    setPairingMaxPrice(value > 0 ? String(value) : "");
-                  }}
-                  disabled={!canGenerateAi || generatingAi === "pairing"}
-                  aria-label={t("pairingMaxPrice")}
-                />
-                <div className="pairing-budget-fields">
-                  <label>
-                    <span>CHF</span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="1"
-                      inputMode="numeric"
-                      value={pairingMaxPrice}
-                      onChange={(event) => setPairingMaxPrice(event.target.value)}
-                      placeholder="60"
-                      disabled={!canGenerateAi || generatingAi === "pairing"}
-                    />
-                  </label>
-                  <div className="pairing-budget-presets">
-                    <button type="button" className={!hasPairingBudget ? "selected" : ""} disabled={!canGenerateAi || generatingAi === "pairing"} onClick={() => setPairingMaxPrice("")}>
-                      {t("pairingNoBudget")}
-                    </button>
-                    {pairingBudgetPresets.map((preset) => (
-                      <button
-                        type="button"
-                        className={activePairingBudget === preset ? "selected" : ""}
-                        disabled={!canGenerateAi || generatingAi === "pairing"}
-                        key={preset}
-                        onClick={() => setPairingMaxPrice(String(preset))}
-                      >
-                        CHF {preset}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <small>{t("pairingMaxPriceHelp")}</small>
-              </div>
-              <label className="pairing-preferences-field">
-                <span>{t("pairingPreferences")}</span>
-                <textarea
-                  value={aiSettingsDraft.pairing_preferences}
-                  onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
-                  placeholder={t("pairingPreferencesPlaceholder")}
-                  rows={4}
-                  disabled={!canWriteWine || saving}
-                />
-                <small>{t("pairingPreferencesHelp")}</small>
-              </label>
-              <div className="pairing-preferences-actions">
-                <button
-                  type="button"
-                  className="secondary compact"
-                  disabled={!canWriteWine || saving || (aiSettings?.pairing_preferences || "") === aiSettingsDraft.pairing_preferences}
-                  onClick={() => savePairingPreferences()}
-                >
-                  {t("savePairingPreferences")}
-                </button>
-              </div>
-              <label className="pairing-option">
-                <input type="checkbox" checked={pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
-                <span>{t("pairingIgnorePreferences")}</span>
-              </label>
-              <label className="pairing-option">
-                <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
-                <span>{t("pairingIncludeMarket")}</span>
-              </label>
-              <label className="pairing-option">
-                <input
-                  type="checkbox"
-                  checked={pairingMarketOnly}
-                  onChange={(event) => {
-                    const nextChecked = event.target.checked;
-                    setPairingMarketOnly(nextChecked);
-                    if (!nextChecked) {
-                      setPairingPreferLocal(false);
-                      setPairingLocalOrigin("");
-                    }
-                  }}
-                  disabled={!canGenerateAi || generatingAi === "pairing"}
-                />
-                <span>{t("pairingMarketOnly")}</span>
-              </label>
-              {pairingMarketOnly ? (
-                <>
-                  <label className="pairing-option">
-                    <input
-                      type="checkbox"
-                      checked={pairingPreferLocal}
-                      onChange={(event) => setPairingPreferLocal(event.target.checked)}
-                      disabled={!canGenerateAi || generatingAi === "pairing"}
-                    />
-                    <span>{t("pairingPreferLocal")}</span>
-                  </label>
-                  {pairingPreferLocal ? (
-                    <>
-                      <label className="pairing-local-field">
-                        <span>{t("pairingLocalOrigin")}</span>
-                        <input
-                          value={pairingLocalOrigin}
-                          onChange={(event) => setPairingLocalOrigin(event.target.value)}
-                          placeholder={locale === "it" ? "Es. Toscana, Piemonte, Svizzera" : "E.g. Tuscany, Piedmont, Switzerland"}
-                          disabled={!canGenerateAi || generatingAi === "pairing"}
-                        />
-                        <small>{t("pairingLocalOriginHelp")}</small>
-                      </label>
-                      <small className="pairing-local-help">{t("pairingLocalHelp")}</small>
-                    </>
-                  ) : null}
-                </>
-              ) : null}
-              <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
-                <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} />
-              </button>
-              {generatingAi === "pairing" ? <LoadingState label={t("generating")} compact /> : null}
-              {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
-            </form>
-            {pairingResult ? (
-              <div className="pairing-result">
-                {pairingResult.summary ? <p className="pairing-summary">{pairingResult.summary}</p> : null}
-                {pairingResult.cellar_matches.length ? (
-                  <section>
-                    <h3>{t("pairingCellarMatches")}</h3>
-                    <div className="pairing-match-list">
-                      {pairingResult.cellar_matches.map((match) => (
-                        <button type="button" className="pairing-match" key={match.wine_id} onClick={() => {
-                          const wine = wines.find((item) => item.id === match.wine_id);
-                          if (wine) openWineFromDashboard(wine);
-                        }}>
-                          <strong>{match.wine_name}</strong>
-                          <span>{match.producer}</span>
-                          {(() => {
-                            const wine = wines.find((item) => item.id === match.wine_id);
-                            const referenceValue = Number(wine?.current_value || wine?.price || 0);
-                            const withinBudget = hasPairingBudget && Number.isFinite(referenceValue) && referenceValue > 0 && referenceValue <= activePairingBudget;
-                            const bestValue = hasPairingBudget && withinBudget && cheapestCellarMatch !== null && Math.abs(referenceValue - cheapestCellarMatch) < 0.0001;
-                            if (!hasPairingBudget) return null;
-                            return (
-                              <div className="pairing-badge-row">
-                                <span className={`pairing-budget-badge ${withinBudget ? "within" : "over"}`}>{withinBudget ? t("pairingWithinBudget") : t("pairingAboveBudget")}</span>
-                                {bestValue ? <span className="pairing-budget-badge value">{t("pairingBestValue")}</span> : null}
-                              </div>
-                            );
-                          })()}
-                          <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
-                          {match.serving_note ? <span>{match.serving_note}</span> : null}
-                        </button>
-                      ))}
-                    </div>
-                  </section>
-                ) : <p className="pairing-summary">{t("pairingNoCellarMatch")}</p>}
-                {Object.values(pairingResult.market_recommendations).some((items) => items.length > 0) ? (
-                  <section>
-                    <h3>{t("pairingMarketFallback")}</h3>
-                    <div className="pairing-market-grid">
-                      {(["low", "medium", "high"] as const).map((tier) => pairingResult.market_recommendations[tier]?.length ? (
-                        <div className="pairing-market-tier" key={tier}>
-                          <h4>{tier}</h4>
-                          {pairingResult.market_recommendations[tier].map((item) => (
-                            <article key={`${tier}-${item.name}-${item.producer}`}>
-                              <strong>{item.name}</strong>
-                              {item.producer ? <span>{item.producer}</span> : null}
-                              {(() => {
-                                if (!hasPairingBudget) return null;
-                                const hintAmount = parsePriceHintAmount(item.price_hint);
-                                const withinBudget = hintAmount !== null && hintAmount <= activePairingBudget;
-                                return (
-                                  <div className="pairing-badge-row">
-                                    <span className={`pairing-budget-badge ${withinBudget ? "within" : "over"}`}>{withinBudget ? t("pairingWithinBudget") : t("pairingAboveBudget")}</span>
-                                    {tier === "low" && withinBudget ? <span className="pairing-budget-badge value">{t("pairingBestValue")}</span> : null}
-                                  </div>
-                                );
-                              })()}
-                              {item.price_hint ? <span>{item.price_hint}</span> : null}
-                              <p>{item.reason}</p>
-                            </article>
-                          ))}
-                        </div>
-                      ) : null)}
-                    </div>
-                  </section>
-                ) : null}
-                {pairingResult.model ? <p className="pairing-model-used">{t("pairingModelUsed")}: {pairingResult.model}</p> : null}
-              </div>
-            ) : null}
-          </div>
-          <aside className="pairing-sidekick" aria-hidden={isMobileViewport}>
-            <div className="pairing-sidekick-card">
-              <div className="pairing-sidekick-heading">
-                <span>{locale === "it" ? "Sommelier AI" : "AI Sommelier"}</span>
-                <strong>{locale === "it" ? "Il tuo sommelier AI integrato" : "Your integrated AI sommelier"}</strong>
-              </div>
-              <div className="pairing-sidekick-illustration">
-                <SommelierAiIllustration />
-              </div>
-            </div>
-            <div className="pairing-sidekick-card">
-              <div className="pairing-sidekick-heading">
-                <span>{locale === "it" ? "Proposte consigliate" : "Suggested matches"}</span>
-                <strong>{pairingResultCount ? `${pairingResultCount}` : (locale === "it" ? "In attesa di una richiesta" : "Waiting for a request")}</strong>
-              </div>
-              {pairingPreviewItems.length ? (
-                <div className="pairing-sidekick-list">
-                  {pairingPreviewItems.map((item) => (
-                    <article key={item.key} className="pairing-sidekick-item">
-                      <strong>{item.name}</strong>
-                      {item.producer ? <span>{item.producer}</span> : null}
-                    </article>
-                  ))}
-                </div>
-              ) : (
-                <p className="pairing-sidekick-empty">
-                  {locale === "it"
-                    ? "Inserisci un piatto e un eventuale budget per ricevere suggerimenti contestualizzati dalla tua cantina."
-                    : "Enter a dish and an optional budget to receive contextual suggestions from your cellar."}
-                </p>
-              )}
-            </div>
-          </aside>
-        </div>
-      </section>
-    );
-  }
+  const activePairingBudget = Number(pairingMaxPrice || 0);
+  const hasPairingBudget = Number.isFinite(activePairingBudget) && activePairingBudget > 0;
+  const cellarBottleValues = wines
+    .map((wine) => Number(wine.current_value || wine.price || 0))
+    .filter((value) => Number.isFinite(value) && value > 0);
+  const pairingBudgetSliderMax = Math.max(250, Math.ceil(Math.max(...cellarBottleValues, 250) / 50) * 50);
+  const pairingBudgetSliderValue = hasPairingBudget ? Math.min(activePairingBudget, pairingBudgetSliderMax) : 0;
+  const pairingBudgetPresets = [40, 80, 150].filter((value) => value < pairingBudgetSliderMax);
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
@@ -10549,7 +10136,45 @@ export function App() {
 
           {activeView === "pairing" ? (
             <section className="pairing-view">
-              {renderPairingSection()}
+              <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                <PairingView
+                  activePairingBudget={activePairingBudget}
+                  aiSettingsDraft={aiSettingsDraft}
+                  canGenerateAi={canGenerateAi}
+                  canWriteWine={canWriteWine}
+                  formatAiBudget={formatAiBudget}
+                  generatingAi={generatingAi}
+                  hasPairingBudget={hasPairingBudget}
+                  isMobileViewport={isMobileViewport}
+                  locale={locale}
+                  onGeneratePairing={generatePairing}
+                  onOpenWine={openWineFromDashboard}
+                  onSavePairingPreferences={savePairingPreferences}
+                  pairingBudgetPresets={pairingBudgetPresets}
+                  pairingBudgetSliderMax={pairingBudgetSliderMax}
+                  pairingBudgetSliderValue={pairingBudgetSliderValue}
+                  pairingDish={pairingDish}
+                  pairingIgnorePreferences={pairingIgnorePreferences}
+                  pairingIncludeMarket={pairingIncludeMarket}
+                  pairingLocalOrigin={pairingLocalOrigin}
+                  pairingMarketOnly={pairingMarketOnly}
+                  pairingMaxPrice={pairingMaxPrice}
+                  pairingPreferLocal={pairingPreferLocal}
+                  pairingResult={pairingResult}
+                  saving={saving}
+                  savedPairingPreferences={aiSettings?.pairing_preferences || ""}
+                  setAiSettingsDraft={setAiSettingsDraft}
+                  setPairingDish={setPairingDish}
+                  setPairingIgnorePreferences={setPairingIgnorePreferences}
+                  setPairingIncludeMarket={setPairingIncludeMarket}
+                  setPairingLocalOrigin={setPairingLocalOrigin}
+                  setPairingMarketOnly={setPairingMarketOnly}
+                  setPairingMaxPrice={setPairingMaxPrice}
+                  setPairingPreferLocal={setPairingPreferLocal}
+                  t={t}
+                  wines={wines}
+                />
+              </Suspense>
             </section>
           ) : null}
 
@@ -11667,15 +11292,20 @@ export function App() {
                     </div>
                   </div>
                 ) : null}
-                <TastingArchiveSection
-                  entries={visibleTastingEntries}
-                  saving={saving}
-                  t={t}
-                  locale={locale}
-                  onOpenWine={openWineFromTastingArchive}
-                  onUpdateEntry={updateWineTastingEntry}
-                  onDeleteEntry={deleteWineTastingEntry}
-                />
+                <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                  <TastingArchiveSection
+                    canWrite={canWriteWine}
+                    displayValue={displayValue}
+                    entries={visibleTastingEntries}
+                    saving={saving}
+                    t={t}
+                    locale={locale}
+                    onOpenWine={openWineFromTastingArchive}
+                    onUpdateEntry={updateWineTastingEntry}
+                    onDeleteEntry={deleteWineTastingEntry}
+                    wineTone={wineTone}
+                  />
+                </Suspense>
               </>
             ) : null}
             {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && groupedFilteredWines.length ? (
