@@ -6140,29 +6140,42 @@ button.stat-card:hover {
 .row-chip {
   display: inline-flex;
   align-items: center;
+  gap: 6px;
   max-width: 100%;
   min-height: 30px;
-  padding: 4px 9px;
+  padding: 5px 10px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-  background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--border) 66%, var(--collector-edge));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 13%, transparent), transparent 48%),
+    color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
   color: var(--text);
   font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.2;
   white-space: normal;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
 }
 
 .row-rating-chip {
   padding-inline: 12px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, var(--surface)) 0%, var(--surface-muted) 100%);
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 12%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) 100%);
 }
 
 .row-tag-chip {
-  background: color-mix(in srgb, var(--surface-subtle) 68%, var(--surface));
+  color: var(--text-soft);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 84%, transparent), color-mix(in srgb, var(--surface-subtle) 72%, var(--surface)));
 }
 
 .row-score-chip {
   color: color-mix(in srgb, var(--accent) 84%, var(--text));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 11%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) 100%);
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 11%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) 100%);
 }
 
 .row-value {
@@ -6909,14 +6922,20 @@ button.stat-card:hover {
 .detail-section > .empty-state,
 .audit-list + .empty-state,
 .notification-panel .empty-state {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   position: relative;
-  padding: 14px 16px;
+  padding: 16px 18px;
   border: 1px dashed color-mix(in srgb, var(--border) 72%, var(--collector-edge));
   border-radius: 16px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 12%, transparent), transparent 44%),
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 48%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 58%, transparent), transparent 72%),
     color-mix(in srgb, var(--surface-muted) 70%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 68%, transparent),
+    0 10px 24px color-mix(in srgb, var(--collector-depth) 28%, transparent);
 }
 
 .wine-list > .empty-state::before,
@@ -6935,17 +6954,33 @@ button.stat-card:hover {
   line-height: 1.5;
 }
 
+.wine-list > .empty-state::before,
+.compare-ai-toolbar > .empty-state::before,
+.detail-section > .empty-state::before,
+.audit-list + .empty-state::before,
+.notification-panel .empty-state::before {
+  content: "";
+  flex: 0 0 auto;
+  width: 9px;
+  height: 9px;
+  margin-top: 0.48em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 86%, var(--text));
+  box-shadow:
+    0 0 0 4px color-mix(in srgb, var(--accent) 14%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 80%, transparent);
+}
+
 .loading-state {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   margin: 8px 0 0;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border: 1px solid color-mix(in srgb, var(--border) 62%, var(--collector-edge));
   border-radius: 16px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 62%, transparent), transparent 28%),
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 22%, transparent), transparent 46%),
     color-mix(in srgb, var(--surface-muted) 76%, var(--surface));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 78%, transparent),
@@ -9596,15 +9631,42 @@ button:hover {
 .wishlist-signal-strip .priority-chip,
 .wishlist-signal-strip .status-chip,
 .wishlist-signal-strip .target-chip,
+.row-chip,
 .row-meta span,
 .chip-list span,
 .pairing-budget-badge,
 .tasting-entry-meta span,
+.tasting-enjoyment-badge,
 .wine-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  border-radius: 999px;
   border-color: color-mix(in srgb, var(--border) 64%, var(--accent));
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 88%, transparent), color-mix(in srgb, var(--surface-muted) 92%, transparent));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 58%, transparent);
+}
+
+.wishlist-signal-strip .priority-chip,
+.wishlist-signal-strip .status-chip,
+.wishlist-signal-strip .target-chip,
+.row-chip,
+.row-meta span,
+.chip-list span,
+.pairing-budget-badge,
+.tasting-entry-meta span {
+  padding-block: 5px;
+  line-height: 1.18;
+}
+
+.row-score-chip,
+.tasting-enjoyment-badge.positive,
+.pairing-budget-badge.within,
+.status-chip-buy {
+  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  color: color-mix(in srgb, var(--accent) 82%, var(--text));
 }
 
 .wishlist-price-block,
@@ -9662,8 +9724,12 @@ button:hover {
 .empty-state {
   border: 1px dashed color-mix(in srgb, var(--accent) 34%, var(--border));
   background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 46%),
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 72%, transparent), color-mix(in srgb, var(--surface-muted) 82%, transparent));
   color: var(--text-muted);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 58%, transparent),
+    0 10px 22px color-mix(in srgb, var(--collector-depth) 24%, transparent);
 }
 
 .notification-panel {
