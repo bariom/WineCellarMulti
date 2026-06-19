@@ -120,9 +120,8 @@ function TastingEnjoymentBadge({ value, t }: { value: TastingEnjoyment; t: (key:
   if (!value) return null;
   const positive = value === "positive";
   return (
-    <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`}>
+    <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`} aria-label={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")} title={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}>
       <span aria-hidden="true">{positive ? "👍" : "👎"}</span>
-      {t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}
     </span>
   );
 }

@@ -1063,8 +1063,8 @@ const translations = {
     tastingOccasion: "Occasion",
     tastingPairing: "Pairing",
     tastingCompanions: "With",
-    tastingRating: "Tasting rating",
-    tastingEnjoyment: "Drinking experience",
+    tastingRating: "Wine score",
+    tastingEnjoyment: "Rate your tasting experience",
     tastingEnjoymentPositive: "Went well",
     tastingEnjoymentNegative: "Did not work",
     saveTasting: "Save tasting",
@@ -1574,8 +1574,8 @@ const translations = {
     tastingOccasion: "Occasione",
     tastingPairing: "Abbinamento",
     tastingCompanions: "Con chi",
-    tastingRating: "Voto degustazione",
-    tastingEnjoyment: "Esperienza bevuta",
+    tastingRating: "Punteggio vino",
+    tastingEnjoyment: "Valuta la tua degustazione",
     tastingEnjoymentPositive: "Bevuta riuscita",
     tastingEnjoymentNegative: "Non riuscita",
     saveTasting: "Salva degustazione",
@@ -3916,9 +3916,8 @@ function TastingEnjoymentBadge({ value, t }: { value: TastingEnjoyment; t: (key:
   if (!value) return null;
   const positive = value === "positive";
   return (
-    <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`}>
+    <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`} aria-label={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")} title={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}>
       <span aria-hidden="true">{positive ? "👍" : "👎"}</span>
-      {t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}
     </span>
   );
 }

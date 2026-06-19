@@ -4322,15 +4322,14 @@ textarea {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  min-height: 28px;
-  padding: 5px 9px;
+  width: 42px;
+  height: 36px;
+  padding: 0;
   border: 1px solid color-mix(in srgb, var(--border) 68%, var(--collector-edge));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
   color: var(--text-muted);
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: 1.3rem;
   line-height: 1;
 }
 
