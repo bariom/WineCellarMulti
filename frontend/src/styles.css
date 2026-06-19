@@ -6439,6 +6439,65 @@ button.stat-card:hover {
   gap: 12px;
 }
 
+.detail-hero {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, var(--collector-edge));
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 46%),
+    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 94%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 82%, var(--surface)) 100%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 74%, transparent),
+    0 18px 34px color-mix(in srgb, var(--collector-depth) 68%, transparent);
+}
+
+.detail-hero .detail-title {
+  padding: 0 0 12px;
+  background: transparent;
+}
+
+.detail-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.detail-hero-metric {
+  display: grid;
+  align-content: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 88%, transparent), color-mix(in srgb, var(--surface-muted) 70%, transparent));
+}
+
+.detail-hero-metric > span {
+  color: var(--text-soft);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.detail-hero-metric > strong {
+  min-width: 0;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.detail-hero-window {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 80%, transparent);
+}
+
 .detail-overview-block,
 .detail-market-block,
 .detail-technical-block {
@@ -10299,6 +10358,41 @@ textarea:hover {
   font-size: 1rem;
 }
 
+.detail-hero {
+  margin-top: 0;
+}
+
+.wine-detail > .detail-hero {
+  margin-inline: 0;
+}
+
+.detail-hero .detail-title {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  padding: 0 0 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  background: transparent;
+}
+
+.detail-hero .detail-title > strong {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-strong);
+  font-size: clamp(1.45rem, 2.5vw, 1.9rem);
+}
+
+.detail-hero .wine-status-badge {
+  max-width: 100%;
+}
+
+.detail-hero-window.drink-window {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 12px;
+}
+
 .ai-actions {
   padding: 10px;
   border-radius: 8px;
@@ -10384,6 +10478,10 @@ textarea:hover {
   }
 
   .detail-title {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-hero-metrics {
     grid-template-columns: 1fr;
   }
 

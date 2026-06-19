@@ -4695,6 +4695,7 @@ function WineDetail({
   const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
+  const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
 
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
@@ -4708,25 +4709,67 @@ function WineDetail({
 
   return (
     <section className={`wine-detail tone-${wineTone(wine.type)}`}>
-      <div className="detail-title">
-        <div>
-          <p className="eyebrow">{t("wineDetail")}</p>
-          <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
-          {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
-          <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
+      <div className="detail-hero">
+        <div className="detail-title">
+          <div>
+            <p className="eyebrow">{t("wineDetail")}</p>
+            <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
+            {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
+            <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
+          </div>
+          <strong>{detailValue}</strong>
         </div>
-        <strong>{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
+
+        <div className="detail-hero-metrics">
+          <div className="detail-hero-metric">
+            <span>{t("status")}</span>
+            <strong><WineStatusBadge status={wine.status} locale={locale} /></strong>
+          </div>
+          <div className="detail-hero-metric">
+            <span>{t("quantity")}</span>
+            <strong>{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</strong>
+          </div>
+        </div>
+
+        {(wine.drink_from || wine.drink_to) ? (
+          <div className="drink-window detail-hero-window">
+            <div className="section-heading">
+              <h3>{t("drinkingWindow")}</h3>
+              <span>{drinkStart}-{drinkEnd}</span>
+            </div>
+            <div className="window-track">
+              <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
+              {currentYearInWindow ? (
+                <span
+                  className="window-current-year"
+                  style={{ left: `${currentYearLeft}%` }}
+                  aria-label={`${t("currentYear")}: ${currentYear}`}
+                >
+                  <span>{currentYear}</span>
+                </span>
+              ) : null}
+            </div>
+            <div className="window-legend">
+              <span className="legend-young">{t("youngWine")}</span>
+              <span className="legend-ideal">{t("idealWindow")}</span>
+              <span className="legend-past">{t("pastWindow")}</span>
+            </div>
+            <div className="window-labels">
+              <span>{drinkStart}</span>
+              <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
+              <span>{drinkEnd}</span>
+            </div>
+            {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
+          </div>
+        ) : null}
       </div>
 
       <div className="detail-overview-block">
         <div className="detail-grid detail-facts-grid">
-          <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
-          <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)} emptyLabel={t("notSpecified")} />
           <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
           <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
           <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
           <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
-          <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
           <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
@@ -4743,40 +4786,8 @@ function WineDetail({
         ) : null}
       </div>
 
-      {(wine.drink_from || wine.drink_to || wine.scores.length || wine.grapes.length || wine.tags.length || ownershipRows(wine).length) ? (
+      {(wine.scores.length || wine.grapes.length || wine.tags.length || ownershipRows(wine).length) ? (
         <div className="detail-technical-block">
-          {(wine.drink_from || wine.drink_to) ? (
-            <div className="drink-window">
-              <div className="section-heading">
-                <h3>{t("drinkingWindow")}</h3>
-                <span>{drinkStart}-{drinkEnd}</span>
-              </div>
-              <div className="window-track">
-                <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
-                {currentYearInWindow ? (
-                  <span
-                    className="window-current-year"
-                    style={{ left: `${currentYearLeft}%` }}
-                    aria-label={`${t("currentYear")}: ${currentYear}`}
-                  >
-                    <span>{currentYear}</span>
-                  </span>
-                ) : null}
-              </div>
-              <div className="window-legend">
-                <span className="legend-young">{t("youngWine")}</span>
-                <span className="legend-ideal">{t("idealWindow")}</span>
-                <span className="legend-past">{t("pastWindow")}</span>
-              </div>
-              <div className="window-labels">
-                <span>{drinkStart}</span>
-                <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
-                <span>{drinkEnd}</span>
-              </div>
-              {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
-            </div>
-          ) : null}
-
           {wine.scores.length ? (
             <div className="detail-section">
               <h3>{t("scores")}</h3>
