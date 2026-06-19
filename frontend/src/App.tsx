@@ -10769,8 +10769,13 @@ export function App() {
                 />
             ) : (
               <div className="wine-detail empty-detail">
-                <h2>{t("noItemSelected")}</h2>
-                <p>{t("selectItemHelp")}</p>
+                <div className="empty-detail-image" aria-hidden="true">
+                  <img src="/images/premium-cellar-empty.jpg" alt="" loading="lazy" />
+                </div>
+                <div className="empty-detail-copy">
+                  <h2>{t("noItemSelected")}</h2>
+                  <p>{t("selectItemHelp")}</p>
+                </div>
               </div>
             )}
           </aside>
