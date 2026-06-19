@@ -4718,7 +4718,114 @@ function WineDetail({
         <strong>{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
       </div>
 
-      <div className="ai-actions">
+      <div className="detail-overview-block">
+        <div className="detail-grid detail-facts-grid">
+          <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
+        </div>
+      </div>
+
+      <div className="detail-market-block">
+        <ValueHistoryChart wine={wine} t={t} />
+        {marketAuditEntry && hasMarketEvidence ? (
+          <div className="market-view-bar">
+            <button type="button" className="secondary compact" onClick={() => onOpenMarketView(marketAuditEntry)}>
+              {t("viewMarketSources")}
+            </button>
+          </div>
+        ) : null}
+      </div>
+
+      {(wine.drink_from || wine.drink_to || wine.scores.length || wine.grapes.length || wine.tags.length || ownershipRows(wine).length) ? (
+        <div className="detail-technical-block">
+          {(wine.drink_from || wine.drink_to) ? (
+            <div className="drink-window">
+              <div className="section-heading">
+                <h3>{t("drinkingWindow")}</h3>
+                <span>{drinkStart}-{drinkEnd}</span>
+              </div>
+              <div className="window-track">
+                <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
+                {currentYearInWindow ? (
+                  <span
+                    className="window-current-year"
+                    style={{ left: `${currentYearLeft}%` }}
+                    aria-label={`${t("currentYear")}: ${currentYear}`}
+                  >
+                    <span>{currentYear}</span>
+                  </span>
+                ) : null}
+              </div>
+              <div className="window-legend">
+                <span className="legend-young">{t("youngWine")}</span>
+                <span className="legend-ideal">{t("idealWindow")}</span>
+                <span className="legend-past">{t("pastWindow")}</span>
+              </div>
+              <div className="window-labels">
+                <span>{drinkStart}</span>
+                <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
+                <span>{drinkEnd}</span>
+              </div>
+              {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
+            </div>
+          ) : null}
+
+          {wine.scores.length ? (
+            <div className="detail-section">
+              <h3>{t("scores")}</h3>
+              <ul>
+                {wine.scores.map((score, index) => (
+                  <li key={`${score.critic}-${index}`}>
+                    <strong>{score.critic} {score.score}</strong>
+                    {score.note ? <span>{score.note}</span> : null}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {wine.grapes.length ? (
+            <div className="detail-section">
+              <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
+              <div className="chip-list">
+                {wine.grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
+              </div>
+            </div>
+          ) : null}
+
+          {wine.tags.length ? (
+            <div className="detail-section">
+              <h3>{t("tags")}</h3>
+              <div className="chip-list">
+                {wine.tags.map((tag) => <span key={tag}>{tag}</span>)}
+              </div>
+            </div>
+          ) : null}
+
+          {ownershipRows(wine).length ? (
+            <div className="detail-section">
+              <h3>{t("multiOwnership")}</h3>
+              <div className="ownership-list">
+                {ownershipRows(wine).map((owner, index) => (
+                  <div className="ownership-row" key={`${owner.email || owner.name}-${index}`}>
+                    <span>{owner.name}{owner.email ? ` - ${owner.email}` : ""}</span>
+                    <strong>{Number(owner.share_pct).toFixed(0)}%</strong>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      <div className="ai-actions detail-ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
           <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} />
         </button>
@@ -4736,27 +4843,6 @@ function WineDetail({
         </button>
       </div>
       {generating ? <LoadingState label={t("generating")} compact /> : null}
-
-      <div className="detail-grid">
-        <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("status")} value={<WineStatusBadge status={wine.status} locale={locale} />} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("quantity")} value={wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("currentValue")} value={wine.current_value ? formatMoney(wine.current_value, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
-      </div>
-
-      <ValueHistoryChart wine={wine} t={t} />
-      {marketAuditEntry && hasMarketEvidence ? (
-        <div className="market-view-bar">
-          <button type="button" className="secondary compact" onClick={() => onOpenMarketView(marketAuditEntry)}>
-            {t("viewMarketSources")}
-          </button>
-        </div>
-      ) : null}
 
       {canWrite && wine.quantity > 0 ? (
         <details className="detail-section consume-panel">
@@ -4839,84 +4925,6 @@ function WineDetail({
             </div>
           </form>
         </details>
-      ) : null}
-
-      {(wine.drink_from || wine.drink_to) ? (
-        <div className="drink-window">
-          <div className="section-heading">
-            <h3>{t("drinkingWindow")}</h3>
-            <span>{drinkStart}-{drinkEnd}</span>
-          </div>
-          <div className="window-track">
-            <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
-            {currentYearInWindow ? (
-              <span
-                className="window-current-year"
-                style={{ left: `${currentYearLeft}%` }}
-                aria-label={`${t("currentYear")}: ${currentYear}`}
-              >
-                <span>{currentYear}</span>
-              </span>
-            ) : null}
-          </div>
-          <div className="window-legend">
-            <span className="legend-young">{t("youngWine")}</span>
-            <span className="legend-ideal">{t("idealWindow")}</span>
-            <span className="legend-past">{t("pastWindow")}</span>
-          </div>
-          <div className="window-labels">
-            <span>{drinkStart}</span>
-            <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
-            <span>{drinkEnd}</span>
-          </div>
-          {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
-        </div>
-      ) : null}
-
-      {wine.scores.length ? (
-        <div className="detail-section">
-          <h3>{t("scores")}</h3>
-          <ul>
-            {wine.scores.map((score, index) => (
-              <li key={`${score.critic}-${index}`}>
-                <strong>{score.critic} {score.score}</strong>
-                {score.note ? <span>{score.note}</span> : null}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {wine.grapes.length ? (
-        <div className="detail-section">
-          <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
-          <div className="chip-list">
-            {wine.grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
-          </div>
-        </div>
-      ) : null}
-
-      {wine.tags.length ? (
-        <div className="detail-section">
-          <h3>{t("tags")}</h3>
-          <div className="chip-list">
-            {wine.tags.map((tag) => <span key={tag}>{tag}</span>)}
-          </div>
-        </div>
-      ) : null}
-
-      {ownershipRows(wine).length ? (
-        <div className="detail-section">
-          <h3>{t("multiOwnership")}</h3>
-          <div className="ownership-list">
-            {ownershipRows(wine).map((owner, index) => (
-              <div className="ownership-row" key={`${owner.email || owner.name}-${index}`}>
-                <span>{owner.name}{owner.email ? ` - ${owner.email}` : ""}</span>
-                <strong>{Number(owner.share_pct).toFixed(0)}%</strong>
-              </div>
-            ))}
-          </div>
-        </div>
       ) : null}
 
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (

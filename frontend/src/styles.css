@@ -6439,6 +6439,49 @@ button.stat-card:hover {
   gap: 12px;
 }
 
+.detail-overview-block,
+.detail-market-block,
+.detail-technical-block {
+  display: grid;
+  gap: 12px;
+}
+
+.detail-overview-block {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 66%, var(--collector-edge));
+  border-radius: 16px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 14%, transparent), transparent 46%),
+    color-mix(in srgb, var(--surface-raised) 88%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 68%, transparent);
+}
+
+.detail-facts-grid {
+  gap: 10px;
+}
+
+.detail-market-block {
+  padding-top: 2px;
+}
+
+.detail-technical-block {
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-muted) 42%, transparent);
+}
+
+.detail-technical-block > .detail-section,
+.detail-technical-block > .drink-window {
+  margin: 0;
+}
+
+.detail-ai-actions {
+  gap: 7px;
+  padding: 10px;
+  border-radius: 12px;
+}
+
 .detail-field {
   display: grid;
   gap: 6px;
@@ -9411,6 +9454,20 @@ button:hover {
 .pairing-market-tier h4 {
   color: color-mix(in srgb, var(--accent) 58%, var(--text-muted));
   font-weight: 900;
+}
+
+.detail-overview-block,
+.detail-technical-block {
+  border-color: color-mix(in srgb, var(--border) 68%, var(--accent));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 86%, transparent), color-mix(in srgb, var(--surface-muted) 90%, transparent));
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--collector-depth) 42%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 62%, transparent);
+}
+
+.detail-ai-actions {
+  border-radius: 12px;
 }
 
 .wishlist-signal-strip .priority-chip,
