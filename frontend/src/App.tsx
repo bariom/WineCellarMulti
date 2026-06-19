@@ -57,6 +57,7 @@ type Wine = {
     consumed_at: string;
     note: string;
     rating: number;
+    enjoyment: TastingEnjoyment;
     occasion: string;
     pairing: string;
     companions: string;
@@ -69,6 +70,7 @@ type ConsumeWineDraft = {
   consumed_at: string;
   note: string;
   tasting_rating: string;
+  tasting_enjoyment: TastingEnjoyment;
   tasting_occasion: string;
   tasting_pairing: string;
   tasting_companions: string;
@@ -436,6 +438,7 @@ type TastingArchiveApiItem = {
   consumed_at: string;
   note: string;
   rating: number;
+  enjoyment: TastingEnjoyment;
   occasion: string;
   pairing: string;
   companions: string;
@@ -754,6 +757,7 @@ type ImportSelection = ExportSelection;
 
 type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
+type TastingEnjoyment = "" | "positive" | "negative";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
 type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
@@ -791,6 +795,7 @@ type TastingArchiveEntry = {
   consumed_at: string;
   note: string;
   rating: number;
+  enjoyment: TastingEnjoyment;
   occasion: string;
   pairing: string;
   companions: string;
@@ -847,6 +852,7 @@ const emptyConsumeWineDraft = (): ConsumeWineDraft => ({
   consumed_at: new Date().toISOString().slice(0, 10),
   note: "",
   tasting_rating: "0",
+  tasting_enjoyment: "",
   tasting_occasion: "",
   tasting_pairing: "",
   tasting_companions: "",
@@ -857,6 +863,7 @@ function consumeDraftFromTastingEntry(entry: Wine["tasting_history"][number]): C
     consumed_at: entry.consumed_at || new Date().toISOString().slice(0, 10),
     note: entry.note || "",
     tasting_rating: String(entry.rating || 0),
+    tasting_enjoyment: entry.enjoyment || "",
     tasting_occasion: entry.occasion || "",
     tasting_pairing: entry.pairing || "",
     tasting_companions: entry.companions || "",
@@ -1054,6 +1061,9 @@ const translations = {
     tastingPairing: "Pairing",
     tastingCompanions: "With",
     tastingRating: "Tasting rating",
+    tastingEnjoyment: "Drinking experience",
+    tastingEnjoymentPositive: "Went well",
+    tastingEnjoymentNegative: "Did not work",
     saveTasting: "Save tasting",
     noTastingHistory: "No tasting notes recorded yet.",
     historyTastings: "Consumed bottles",
@@ -1562,6 +1572,9 @@ const translations = {
     tastingPairing: "Abbinamento",
     tastingCompanions: "Con chi",
     tastingRating: "Voto degustazione",
+    tastingEnjoyment: "Esperienza bevuta",
+    tastingEnjoymentPositive: "Bevuta riuscita",
+    tastingEnjoymentNegative: "Non riuscita",
     saveTasting: "Salva degustazione",
     noTastingHistory: "Nessuna degustazione registrata.",
     historyTastings: "Bottiglie bevute",
@@ -2684,6 +2697,10 @@ function rawNumber(value: unknown, fallback = 0) {
   return Number.isFinite(numberValue) ? numberValue : fallback;
 }
 
+function tastingEnjoymentValue(value: unknown): TastingEnjoyment {
+  return value === "positive" || value === "negative" ? value : "";
+}
+
 function rawNullableString(value: unknown) {
   const text = rawString(value).trim();
   return text || null;
@@ -2733,6 +2750,7 @@ function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       consumed_at: rawString(entry.consumed_at),
       note: rawString(entry.note),
       rating: rawNumber(entry.rating),
+      enjoyment: tastingEnjoymentValue(entry.enjoyment),
       occasion: rawString(entry.occasion),
       pairing: rawString(entry.pairing),
       companions: rawString(entry.companions),
@@ -3867,6 +3885,52 @@ function RatingInput({
   );
 }
 
+function TastingEnjoymentInput({
+  value,
+  disabled,
+  t,
+  onChange,
+}: {
+  value: TastingEnjoyment;
+  disabled: boolean;
+  t: (key: TranslationKey) => string;
+  onChange: (value: TastingEnjoyment) => void;
+}) {
+  const options: Array<{ value: Exclude<TastingEnjoyment, "">; label: TranslationKey; icon: string }> = [
+    { value: "positive", label: "tastingEnjoymentPositive", icon: "👍" },
+    { value: "negative", label: "tastingEnjoymentNegative", icon: "👎" },
+  ];
+  return (
+    <div className="tasting-enjoyment-input" role="radiogroup" aria-label={t("tastingEnjoyment")}>
+      {options.map((option) => (
+        <button
+          type="button"
+          key={option.value}
+          className={value === option.value ? `selected ${option.value}` : option.value}
+          disabled={disabled}
+          aria-checked={value === option.value}
+          role="radio"
+          onClick={() => onChange(value === option.value ? "" : option.value)}
+        >
+          <span aria-hidden="true">{option.icon}</span>
+          {t(option.label)}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function TastingEnjoymentBadge({ value, t }: { value: TastingEnjoyment; t: (key: TranslationKey) => string }) {
+  if (!value) return null;
+  const positive = value === "positive";
+  return (
+    <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`}>
+      <span aria-hidden="true">{positive ? "👍" : "👎"}</span>
+      {t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}
+    </span>
+  );
+}
+
 function DrinkWindowMini({ wine }: { wine: Wine }) {
   if (!wine.drink_from || !wine.drink_to) return null;
   const drinkStart = wine.drink_from;
@@ -4343,6 +4407,15 @@ function TastingEntryEditor({
             ))}
           </select>
         </label>
+        <label className="tasting-enjoyment-field">
+          <span>{t("tastingEnjoyment")}</span>
+          <TastingEnjoymentInput
+            value={draft.tasting_enjoyment}
+            disabled={saving}
+            t={t}
+            onChange={(value) => setDraft((current) => ({ ...current, tasting_enjoyment: value }))}
+          />
+        </label>
         <label>
           <span>{t("tastingOccasion")}</span>
           <input
@@ -4464,6 +4537,7 @@ function TastingHistorySection({
                 <div>
                   <strong>{formatDisplayDate(entry.consumed_at)}</strong>
                   {entry.rating ? <span>{t("tastingRating")}: {entry.rating}/6</span> : null}
+                  <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
                 </div>
                 {canWrite ? (
                   <div className="tasting-history-actions">
@@ -4535,6 +4609,7 @@ function TastingHistorySection({
 function tastingArchiveSearchText(entry: TastingArchiveEntry) {
   return [
     entry.note,
+    entry.enjoyment,
     entry.occasion,
     entry.pairing,
     entry.companions,
@@ -4624,6 +4699,7 @@ function TastingArchiveSection({
             <div className="tasting-archive-summary">
               <span>{formatDisplayDate(entry.consumed_at)}</span>
               {entry.rating ? <strong>{entry.rating}/6</strong> : null}
+              <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
             </div>
           </div>
           <p className="tasting-archive-meta">
@@ -4824,6 +4900,15 @@ function WineDetail({
                     </option>
                   ))}
                 </select>
+              </label>
+              <label className="tasting-enjoyment-field">
+                <span>{t("tastingEnjoyment")}</span>
+                <TastingEnjoymentInput
+                  value={consumeDraft.tasting_enjoyment}
+                  disabled={saving}
+                  t={t}
+                  onChange={(value) => setConsumeDraft({ ...consumeDraft, tasting_enjoyment: value })}
+                />
               </label>
               <label>
                 <span>{t("tastingOccasion")}</span>
@@ -7367,6 +7452,7 @@ export function App() {
           consumed_at: payload.consumed_at || undefined,
           note: payload.note.trim(),
           tasting_rating: Number(payload.tasting_rating || 0),
+          tasting_enjoyment: payload.tasting_enjoyment,
           tasting_occasion: payload.tasting_occasion.trim(),
           tasting_pairing: payload.tasting_pairing.trim(),
           tasting_companions: payload.tasting_companions.trim(),
@@ -7400,6 +7486,7 @@ export function App() {
           consumed_at: payload.consumed_at,
           note: payload.note.trim(),
           tasting_rating: Number(payload.tasting_rating || 0),
+          tasting_enjoyment: payload.tasting_enjoyment,
           tasting_occasion: payload.tasting_occasion.trim(),
           tasting_pairing: payload.tasting_pairing.trim(),
           tasting_companions: payload.tasting_companions.trim(),
@@ -7944,6 +8031,7 @@ export function App() {
         consumed_at: entry.consumed_at,
         note: entry.note,
         rating: entry.rating,
+        enjoyment: entry.enjoyment,
         occasion: entry.occasion,
         pairing: entry.pairing,
         companions: entry.companions,
@@ -7964,6 +8052,7 @@ export function App() {
       consumed_at: item.consumed_at,
       note: item.note,
       rating: item.rating,
+      enjoyment: tastingEnjoymentValue(item.enjoyment),
       occasion: item.occasion,
       pairing: item.pairing,
       companions: item.companions,
@@ -8205,6 +8294,7 @@ export function App() {
           consumed_at: item.consumed_at,
           note: item.note,
           rating: item.rating,
+          enjoyment: tastingEnjoymentValue(item.enjoyment),
           occasion: item.occasion,
           pairing: item.pairing,
           companions: item.companions,

@@ -199,6 +199,9 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
     for raw_entry in raw_entries or []:
         consumed_at = str(raw_entry.get("consumed_at") or "").strip()
         created_at = str(raw_entry.get("created_at") or "").strip()
+        enjoyment = str(raw_entry.get("enjoyment") or "").strip()
+        if enjoyment not in {"positive", "negative"}:
+            enjoyment = ""
         if not consumed_at or not created_at:
             continue
         entries.append(
@@ -207,6 +210,7 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
                 "consumed_at": consumed_at,
                 "note": str(raw_entry.get("note") or "").strip(),
                 "rating": max(0, min(int(raw_entry.get("rating") or 0), 6)),
+                "enjoyment": enjoyment,
                 "occasion": str(raw_entry.get("occasion") or "").strip(),
                 "pairing": str(raw_entry.get("pairing") or "").strip(),
                 "companions": str(raw_entry.get("companions") or "").strip(),
@@ -249,6 +253,7 @@ def tasting_archive_entry(entry: dict, wine: Wine) -> TastingArchiveItemResponse
         consumed_at=entry["consumed_at"],
         note=str(entry.get("note") or ""),
         rating=int(entry.get("rating") or 0),
+        enjoyment=str(entry.get("enjoyment") or ""),
         occasion=str(entry.get("occasion") or ""),
         pairing=str(entry.get("pairing") or ""),
         companions=str(entry.get("companions") or ""),
@@ -640,6 +645,7 @@ def consume_wine_bottle(
         "consumed_at": (payload.consumed_at or datetime.now(timezone.utc).date()).isoformat(),
         "note": payload.note.strip(),
         "rating": payload.tasting_rating,
+        "enjoyment": payload.tasting_enjoyment,
         "occasion": payload.tasting_occasion.strip(),
         "pairing": payload.tasting_pairing.strip(),
         "companions": payload.tasting_companions.strip(),
@@ -679,6 +685,7 @@ def update_wine_tasting_entry(
         "consumed_at": payload.consumed_at.isoformat(),
         "note": payload.note.strip(),
         "rating": payload.tasting_rating,
+        "enjoyment": payload.tasting_enjoyment,
         "occasion": payload.tasting_occasion.strip(),
         "pairing": payload.tasting_pairing.strip(),
         "companions": payload.tasting_companions.strip(),

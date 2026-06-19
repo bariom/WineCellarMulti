@@ -1238,6 +1238,7 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
             "consumed_at": "2026-06-02",
             "note": "Opened for dinner",
             "tasting_rating": 5,
+            "tasting_enjoyment": "positive",
             "tasting_occasion": "Dinner",
             "tasting_pairing": "Risotto",
             "tasting_companions": "Friends",
@@ -1250,6 +1251,7 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
     assert len(consumed_once.json()["tasting_history"]) == 1
     assert consumed_once.json()["tasting_history"][0]["note"] == "Opened for dinner"
     assert consumed_once.json()["tasting_history"][0]["rating"] == 5
+    assert consumed_once.json()["tasting_history"][0]["enjoyment"] == "positive"
 
     consumed_twice = client.post(f"/api/v1/wines/{wine_id}/consume", json={"note": "Last bottle"})
     assert consumed_twice.status_code == 200

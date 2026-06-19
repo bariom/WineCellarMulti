@@ -4281,6 +4281,69 @@ textarea {
   min-width: 44px;
 }
 
+.tasting-enjoyment-field {
+  align-content: start;
+}
+
+.tasting-enjoyment-input {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tasting-enjoyment-input button {
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  font-weight: 800;
+}
+
+.tasting-enjoyment-input button span {
+  margin-right: 6px;
+}
+
+.tasting-enjoyment-input button.selected.positive {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
+  background: color-mix(in srgb, var(--primary) 14%, var(--surface));
+  color: color-mix(in srgb, var(--primary) 76%, var(--text));
+}
+
+.tasting-enjoyment-input button.selected.negative {
+  border-color: color-mix(in srgb, var(--danger) 48%, var(--border));
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: color-mix(in srgb, var(--danger-text) 82%, var(--text));
+}
+
+.tasting-enjoyment-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, var(--collector-edge));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.tasting-enjoyment-badge.positive {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+  color: color-mix(in srgb, var(--primary) 78%, var(--text));
+}
+
+.tasting-enjoyment-badge.negative {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  color: color-mix(in srgb, var(--danger-text) 82%, var(--text));
+}
+
 .token-box {
   display: grid;
   gap: 6px;

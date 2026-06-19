@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -76,6 +77,7 @@ class WineTastingEntryResponse(BaseModel):
     consumed_at: date
     note: str
     rating: int = Field(default=0, ge=0, le=6)
+    enjoyment: Literal["", "positive", "negative"] = ""
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
@@ -95,6 +97,7 @@ class TastingArchiveItemResponse(BaseModel):
     consumed_at: date
     note: str = ""
     rating: int = Field(default=0, ge=0, le=6)
+    enjoyment: Literal["", "positive", "negative"] = ""
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
@@ -116,6 +119,7 @@ class WineConsume(BaseModel):
     consumed_at: date | None = None
     note: str = ""
     tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_enjoyment: Literal["", "positive", "negative"] = ""
     tasting_occasion: str = ""
     tasting_pairing: str = ""
     tasting_companions: str = ""
@@ -125,6 +129,7 @@ class WineTastingEntryUpdate(BaseModel):
     consumed_at: date
     note: str = ""
     tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_enjoyment: Literal["", "positive", "negative"] = ""
     tasting_occasion: str = ""
     tasting_pairing: str = ""
     tasting_companions: str = ""
