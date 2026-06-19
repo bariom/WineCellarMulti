@@ -6453,12 +6453,12 @@ button.stat-card:hover {
   justify-content: center;
   min-height: 32px;
   padding: 7px 10px;
-  border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border));
+  border: 1px solid color-mix(in srgb, #e85d9a 72%, var(--border));
   border-radius: 8px;
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), transparent 48%),
-    color-mix(in srgb, var(--surface) 84%, var(--surface-muted));
-  color: var(--accent-strong);
+    linear-gradient(180deg, color-mix(in srgb, #ff9cc3 28%, transparent), transparent 48%),
+    color-mix(in srgb, #fff1f7 88%, var(--surface-muted));
+  color: #b03068;
   font-size: 0.78rem;
   font-weight: 900;
   letter-spacing: 0.08em;
