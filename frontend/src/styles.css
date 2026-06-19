@@ -6433,6 +6433,27 @@ button.stat-card:hover {
   box-shadow: none;
 }
 
+.detail-ai-actions::before {
+  content: "AI";
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 72%, var(--border));
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent) 16%, transparent), transparent 48%),
+    color-mix(in srgb, var(--surface) 84%, var(--surface-muted));
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 76%, transparent);
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
