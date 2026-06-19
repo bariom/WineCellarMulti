@@ -4617,7 +4617,7 @@ function TastingArchiveSection({
       {entries.map((entry) => (
         <article className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
           <div className="tasting-archive-head">
-            <div>
+            <div className="tasting-archive-title">
               <strong>{entry.wine.name}</strong>
               <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
             </div>
@@ -4653,13 +4653,6 @@ function TastingArchiveSection({
             />
           ) : (
             <>
-              <TastingEntryMeta
-                note={entry.note}
-                occasion={entry.occasion}
-                pairing={entry.pairing}
-                companions={entry.companions}
-                t={t}
-              />
               {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
               {entry.occasion || entry.pairing || entry.companions ? (
                 <div className="chip-list">

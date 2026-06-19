@@ -7134,27 +7134,53 @@ button.stat-card:hover {
 
 .tasting-archive-entry {
   display: grid;
-  gap: 10px;
-  padding: 14px;
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  background: linear-gradient(180deg, var(--surface) 0%, var(--surface-muted) 100%);
-  box-shadow: var(--shadow-soft);
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface-raised) 88%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 68%, transparent),
+    0 12px 26px color-mix(in srgb, var(--collector-depth) 46%, transparent);
 }
 
 .tasting-archive-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  gap: 16px;
   align-items: start;
 }
 
-.tasting-archive-head strong,
-.tasting-archive-summary strong {
-  color: var(--text);
+.tasting-archive-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
-.tasting-archive-head span,
+.tasting-archive-title strong {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.tasting-archive-summary strong {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 42px;
+  min-height: 30px;
+  padding: 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 62%, var(--accent));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+  color: var(--text);
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.tasting-archive-title span,
 .tasting-archive-meta,
 .tasting-archive-summary span {
   color: var(--text-muted);
@@ -7162,9 +7188,10 @@ button.stat-card:hover {
 
 .tasting-archive-summary {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   text-align: right;
   justify-items: end;
+  white-space: nowrap;
 }
 
 .tasting-archive-meta,
@@ -7172,8 +7199,34 @@ button.stat-card:hover {
   margin: 0;
 }
 
+.tasting-archive-meta {
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
 .tasting-archive-note {
+  padding: 2px 0 0;
   color: var(--text);
+  line-height: 1.5;
+}
+
+.tasting-archive-entry .chip-list {
+  gap: 6px;
+}
+
+.tasting-archive-entry .chip-list span {
+  border-radius: 8px;
+  padding: 7px 10px;
+  color: color-mix(in srgb, var(--text) 78%, var(--text-muted));
+  background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+  font-size: 0.82rem;
+  font-weight: 500;
 }
 
 .tasting-archive-actions {
@@ -7181,6 +7234,8 @@ button.stat-card:hover {
   flex-wrap: wrap;
   gap: 8px;
   justify-content: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 68%, transparent);
 }
 
 .tasting-entry-editor {
@@ -9274,6 +9329,16 @@ button:hover {
   box-shadow:
     0 12px 26px color-mix(in srgb, var(--collector-depth) 48%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 60%, transparent);
+}
+
+.tasting-archive-entry {
+  border-color: color-mix(in srgb, var(--border) 72%, var(--accent));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface-raised) 88%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 68%, transparent),
+    0 12px 26px color-mix(in srgb, var(--collector-depth) 46%, transparent);
 }
 
 .detail-field span,
