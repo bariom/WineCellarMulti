@@ -34,6 +34,16 @@
   --collector-sheen: rgba(255, 255, 255, 0.56);
   --collector-depth: rgba(18, 24, 21, 0.05);
   --focus: rgba(36, 81, 66, 0.32);
+  --ai-panel-border: color-mix(in srgb, var(--border) 68%, var(--accent));
+  --ai-panel-bg:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 38%),
+    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 84%, transparent), transparent 30%),
+    color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
+  --ai-panel-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 80%, transparent),
+    0 16px 34px color-mix(in srgb, var(--collector-depth) 100%, transparent);
+  --ai-panel-inset-bg:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 88%, transparent), color-mix(in srgb, var(--surface-muted) 92%, transparent));
   --hero-bg:
     radial-gradient(circle at top left, rgba(194, 172, 102, 0.24), transparent 36%),
     linear-gradient(135deg, #fff 0%, #edf4ee 100%);
@@ -1514,11 +1524,10 @@ summary:focus-visible {
   align-items: center;
   gap: 14px;
   padding: 14px 16px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border: 1px solid var(--ai-panel-border);
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
-    color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+  background: var(--ai-panel-inset-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
 }
 
 .compare-ai-toolbar .empty-state {
@@ -1533,15 +1542,10 @@ summary:focus-visible {
   display: grid;
   gap: 14px;
   padding: 18px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border: 1px solid var(--ai-panel-border);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 42%),
-    radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 90%, transparent), transparent 30%),
-    color-mix(in srgb, var(--surface-raised) 88%, var(--surface));
-  box-shadow:
-    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 80%, transparent),
-    0 14px 28px color-mix(in srgb, var(--collector-depth) 100%, transparent);
+  background: var(--ai-panel-bg);
+  box-shadow: var(--ai-panel-shadow);
 }
 
 .compare-ai-grid {
@@ -4642,10 +4646,10 @@ textarea {
   display: grid;
   gap: 16px;
   padding: 18px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
-  background: var(--surface);
-  box-shadow: var(--shadow-soft);
+  border: 1px solid var(--ai-panel-border);
+  border-radius: 22px;
+  background: var(--ai-panel-bg);
+  box-shadow: var(--ai-panel-shadow);
 }
 
 .pairing-view {
@@ -4676,12 +4680,12 @@ textarea {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  border: 1px solid var(--ai-panel-border);
   border-radius: 16px;
-  background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--accent) 10%, transparent), transparent 34%),
-    linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 94%, transparent), color-mix(in srgb, var(--surface-muted) 98%, transparent));
-  box-shadow: var(--shadow-soft);
+  background: var(--ai-panel-inset-bg);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent),
+    0 12px 26px color-mix(in srgb, var(--collector-depth) 80%, transparent);
 }
 
 .pairing-sidekick-heading {
@@ -4837,11 +4841,10 @@ textarea {
   display: grid;
   gap: 12px;
   padding: 14px;
-  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent));
+  border: 1px solid var(--ai-panel-border);
   border-radius: 14px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 86%, transparent), color-mix(in srgb, var(--surface-muted) 92%, transparent));
-  box-shadow: inset 0 1px 0 color-mix(in srgb, #fff 9%, transparent);
+  background: var(--ai-panel-inset-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent);
 }
 
 .pairing-budget-head {
@@ -4965,9 +4968,9 @@ textarea {
   width: 100%;
   padding: 12px;
   color: var(--text);
-  border: 1px solid var(--border);
+  border: 1px solid var(--ai-panel-border);
   border-radius: 12px;
-  background: var(--surface-muted);
+  background: var(--ai-panel-inset-bg);
   text-align: left;
 }
 
@@ -5018,9 +5021,9 @@ textarea {
 
 .pairing-market-tier {
   padding: 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--ai-panel-border);
   border-radius: 12px;
-  background: var(--surface-muted);
+  background: var(--ai-panel-inset-bg);
 }
 
 .pairing-market-tier article {
@@ -6584,11 +6587,10 @@ button.stat-card:hover {
   width: 100%;
   margin-top: 10px;
   padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border: 1px solid var(--ai-panel-border);
   border-radius: 14px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 12%, transparent), transparent 44%),
-    color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+  background: var(--ai-panel-inset-bg);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
 }
 
 .wishlist-strategy-preview-meta {
@@ -6844,6 +6846,15 @@ button.stat-card:hover {
 
 .wishlist-ai-summary {
   margin-top: 4px;
+}
+
+.wishlist-portfolio-panel .detail-note,
+.wishlist-mobile-ai-preview-note {
+  border-color: var(--ai-panel-border);
+  background: var(--ai-panel-inset-bg);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent),
+    0 10px 24px color-mix(in srgb, var(--collector-depth) 72%, transparent);
 }
 
 .detail-note {
@@ -9012,17 +9023,42 @@ textarea {
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent);
 }
 
+.view-tabs,
+.settings-tabs,
+.history-section-tabs,
+.focus-switcher {
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 68%, var(--collector-edge));
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 84%, transparent), color-mix(in srgb, var(--surface-muted) 94%, transparent));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 70%, transparent),
+    0 10px 24px color-mix(in srgb, var(--collector-depth) 42%, transparent);
+}
+
 .view-tabs button,
 .settings-tabs button,
-.history-section-tabs button {
+.history-section-tabs button,
+.focus-switcher button {
   border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 800;
   transition: transform 160ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
 }
 
 .view-tabs button:not(.secondary),
 .settings-tabs button:not(.secondary),
-.history-section-tabs button:not(.secondary) {
+.history-section-tabs button:not(.secondary),
+.focus-switcher button:not(.secondary) {
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, transparent), color-mix(in srgb, var(--surface) 98%, transparent));
+  color: var(--text);
   box-shadow:
     0 10px 22px color-mix(in srgb, var(--accent) 14%, transparent),
     inset 0 1px 0 color-mix(in srgb, #fff 16%, transparent);
@@ -9031,6 +9067,7 @@ textarea {
 .view-tabs button:hover,
 .settings-tabs button:hover,
 .history-section-tabs button:hover,
+.focus-switcher button:hover,
 button:hover {
   transform: translateY(-1px);
 }
@@ -9280,6 +9317,30 @@ button:hover {
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 62%, transparent);
 }
 
+.compare-ai-panel,
+.pairing-card,
+.wishlist-strategy-details {
+  border-color: var(--ai-panel-border);
+  background: var(--ai-panel-bg);
+  box-shadow: var(--ai-panel-shadow);
+}
+
+.compare-ai-toolbar,
+.pairing-sidekick-card,
+.pairing-budget-control,
+.pairing-match,
+.pairing-market-tier,
+.wishlist-strategy-preview,
+.wishlist-ai-summary,
+.wishlist-portfolio-panel .detail-note,
+.wishlist-mobile-ai-preview-note {
+  border-color: var(--ai-panel-border);
+  background: var(--ai-panel-inset-bg);
+  box-shadow:
+    0 12px 28px color-mix(in srgb, var(--collector-depth) 48%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 68%, transparent);
+}
+
 .pairing-budget-head strong,
 .wishlist-price,
 .wishlist-market-estimate strong {
@@ -9382,7 +9443,8 @@ textarea:hover {
 .stat-card.active,
 .view-tabs button:not(.secondary),
 .settings-tabs button:not(.secondary),
-.history-section-tabs button:not(.secondary) {
+.history-section-tabs button:not(.secondary),
+.focus-switcher button:not(.secondary) {
   animation: micro-selected-settle 180ms ease-out both;
 }
 
@@ -9582,31 +9644,43 @@ textarea:hover {
   align-items: center;
   column-gap: 14px;
   row-gap: 0;
-  padding: 12px 12px 12px 16px;
-  border-width: 0 0 1px;
-  border-color: color-mix(in srgb, var(--border) 76%, transparent);
-  border-radius: 0;
-  background: var(--surface);
-  box-shadow: none;
+  padding: 14px 14px 14px 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 46%),
+    color-mix(in srgb, var(--surface-raised) 88%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent),
+    0 10px 24px color-mix(in srgb, var(--collector-depth) 44%, transparent);
 }
 
 .operational-workspace .wine-row:not(.wishlist-row)::before {
-  inset: 10px auto 10px 0;
+  inset: 10px auto 10px 7px;
   width: 3px;
-  box-shadow: none;
+  box-shadow: 0 0 16px color-mix(in srgb, var(--wine-tone, #d8ded7) 22%, transparent);
 }
 
 .operational-workspace .wine-row:not(.wishlist-row):hover {
-  border-color: color-mix(in srgb, var(--primary) 22%, var(--border));
-  background: color-mix(in srgb, var(--primary) 4%, var(--surface));
-  box-shadow: none;
-  transform: none;
+  border-color: color-mix(in srgb, var(--primary) 26%, var(--collector-edge));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 20%, transparent), transparent 46%),
+    color-mix(in srgb, var(--primary) 4%, var(--surface-raised));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 76%, transparent),
+    0 14px 30px color-mix(in srgb, var(--collector-depth) 58%, transparent);
+  transform: translateY(-1px);
 }
 
 .operational-workspace .wine-row:not(.wishlist-row).selected {
-  border-color: color-mix(in srgb, var(--primary) 38%, var(--border));
-  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
-  box-shadow: inset 3px 0 0 var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--collector-edge));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 8%, transparent), transparent 48%),
+    color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
+  box-shadow:
+    inset 3px 0 0 var(--primary),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent),
+    0 14px 32px color-mix(in srgb, var(--collector-depth) 62%, transparent);
 }
 
 .operational-workspace .wine-row:not(.wishlist-row) .wine-row-main {
@@ -9620,7 +9694,7 @@ textarea:hover {
   align-items: center;
   gap: 8px;
   margin: 0;
-  font-size: 0.98rem;
+  font-size: 1.02rem;
   letter-spacing: 0;
 }
 
@@ -9652,7 +9726,8 @@ textarea:hover {
 
 .operational-workspace .wine-row:not(.wishlist-row) .row-primary {
   gap: 8px;
-  font-size: 0.88rem;
+  color: color-mix(in srgb, var(--text) 84%, var(--text-muted));
+  font-size: 0.9rem;
   line-height: 1.25;
 }
 
@@ -9671,6 +9746,8 @@ textarea:hover {
   min-height: 24px;
   padding: 3px 7px;
   border-radius: 6px;
+  border-color: color-mix(in srgb, var(--border) 70%, var(--collector-edge));
+  background: color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
   font-size: 0.7rem;
 }
 
@@ -9685,9 +9762,13 @@ textarea:hover {
   grid-row: 1;
   align-self: center;
   justify-self: end;
-  font-size: 1rem;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 66%, var(--accent));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+  font-size: 1.02rem;
   letter-spacing: 0;
-  text-shadow: none;
+  text-shadow: var(--luxury-ink-shadow);
   white-space: nowrap;
 }
 
@@ -9706,7 +9787,7 @@ textarea:hover {
 
 .operational-workspace .wine-row:not(.wishlist-row) > .row-actions button {
   min-height: 32px;
-  padding: 7px 10px;
+  padding: 7px 9px;
   border-radius: 7px;
   font-size: 0.76rem;
 }
@@ -9748,9 +9829,12 @@ textarea:hover {
   .operational-workspace .wine-row:not(.wishlist-row) {
     grid-template-columns: 1fr;
     gap: 8px;
-    padding: 12px;
-    border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
-    border-radius: 8px;
+    padding: 13px;
+    border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 14%, transparent), transparent 48%),
+      color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) > .mini-drink-window,
@@ -9763,6 +9847,9 @@ textarea:hover {
 
   .operational-workspace .wine-row:not(.wishlist-row) .row-value {
     justify-self: start;
+    padding-inline: 0;
+    border: 0;
+    background: transparent;
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) > .row-actions {
