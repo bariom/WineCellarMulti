@@ -339,6 +339,10 @@ def user_admin_stats(db: Session, users: list[User]) -> list[UserAdminStatsRespo
     ]
 
 
+def user_admin_stat(db: Session, user: User) -> UserAdminStatsResponse:
+    return user_admin_stats(db, [user])[0]
+
+
 def active_app_admins(db: Session) -> list[User]:
     return list(
         db.scalars(
@@ -773,6 +777,18 @@ def list_user_stats(
 ) -> list[UserAdminStatsResponse]:
     users = list(db.scalars(select(User).order_by(User.email.asc())))
     return user_admin_stats(db, users)
+
+
+@router.get("/users/{user_id}/stats", response_model=UserAdminStatsResponse)
+def get_user_stats(
+    user_id: UUID,
+    _: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> UserAdminStatsResponse:
+    user = db.get(User, user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return user_admin_stat(db, user)
 
 
 @router.patch("/users/{user_id}", response_model=UserAdminResponse)

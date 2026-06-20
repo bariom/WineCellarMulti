@@ -3948,6 +3948,36 @@ textarea {
     max-width: 420px;
   }
 
+  .user-admin-detail {
+    margin-top: 8px;
+  }
+
+  .user-admin-detail summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+
+  .user-admin-actions-detail summary {
+    cursor: pointer;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    text-align: right;
+  }
+
+  .user-admin-actions-menu {
+    display: grid;
+    gap: 8px;
+    margin-top: 8px;
+    justify-items: end;
+  }
+
   .redeem-admin-row {
     grid-template-columns: minmax(0, 1fr) repeat(3, auto);
     align-items: center;

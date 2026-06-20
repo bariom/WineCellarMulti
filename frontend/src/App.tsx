@@ -5284,6 +5284,7 @@ export function App() {
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
   const [appUserStats, setAppUserStats] = useState<UserAdminStats[]>([]);
   const [appUserStatsLoaded, setAppUserStatsLoaded] = useState(false);
+  const [selectedAppUserStats, setSelectedAppUserStats] = useState<UserAdminStats | null>(null);
   const [pendingCatalogEntries, setPendingCatalogEntries] = useState<CatalogWine[]>([]);
   const [catalogAdminQuery, setCatalogAdminQuery] = useState("");
   const [catalogAdminResults, setCatalogAdminResults] = useState<CatalogWine[]>([]);
@@ -5894,6 +5895,7 @@ export function App() {
       setAppUsers([]);
       setAppUserStats([]);
       setAppUserStatsLoaded(false);
+      setSelectedAppUserStats(null);
       setPendingUsers([]);
       setPendingCatalogEntries([]);
       setCatalogAdminResults([]);
@@ -5909,6 +5911,15 @@ export function App() {
     } else {
       setAppUserStats([]);
       setAppUserStatsLoaded(false);
+      setSelectedAppUserStats(null);
+    }
+  }
+
+  async function loadSingleAppUserStats(user: AppUser, isAppAdmin = session?.is_app_admin) {
+    if (isAppAdmin) {
+      setSelectedAppUserStats(await api<UserAdminStats>(`/api/v1/auth/users/${user.id}/stats`));
+    } else {
+      setSelectedAppUserStats(null);
     }
   }
 
@@ -6066,6 +6077,7 @@ export function App() {
           setAppUsers([]);
           setAppUserStats([]);
           setAppUserStatsLoaded(false);
+          setSelectedAppUserStats(null);
           setPendingCatalogEntries([]);
           setCatalogAdminResults([]);
           setAiAudit([]);
@@ -6094,6 +6106,7 @@ export function App() {
         setAppUsers([]);
         setAppUserStats([]);
         setAppUserStatsLoaded(false);
+        setSelectedAppUserStats(null);
         setPendingCatalogEntries([]);
         setCatalogAdminResults([]);
         setAiAudit([]);
@@ -6423,6 +6436,7 @@ export function App() {
     setAppUsers([]);
     setAppUserStats([]);
     setAppUserStatsLoaded(false);
+    setSelectedAppUserStats(null);
     setPendingCatalogEntries([]);
     setCatalogAdminResults([]);
     setCatalogAdminQuery("");
@@ -12188,61 +12202,78 @@ export function App() {
                           <div className="member-row settings-admin-row user-admin-row" key={user.id}>
                             <div>
                               <strong>{user.display_name}</strong>
-                              <span>{user.email} - {user.is_approved ? "approved" : "pending"}{user.is_blocked ? ` - ${t("blocked")}` : ""}</span>
-                              {user.entitlement_days_remaining !== null ? (
-                                <span>{user.entitlement_days_remaining} {t("daysRemaining")} - {formatDisplayDate(user.entitlement_valid_until || "")}</span>
-                              ) : null}
-                              <span>{t("aiCreditBalance")}: {formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
-                              <div className="credit-adjust-row">
-                                <label>
-                                  <span>{t("targetAiCreditBalance")}</span>
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    step="0.01"
-                                    value={userAiBalanceDrafts[user.id] || ""}
-                                    onChange={(event) => setUserAiBalanceDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
-                                  />
-                                </label>
-                                <label>
-                                  <span>{t("aiCreditAdminNote")}</span>
-                                  <input
-                                    value={userAiNoteDrafts[user.id] || ""}
-                                    onChange={(event) => setUserAiNoteDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
-                                    placeholder={t("aiCreditAdminNote")}
-                                  />
-                                </label>
-                                <button type="button" className="secondary compact" disabled={saving || !(userAiBalanceDrafts[user.id] || "").trim()} onClick={() => updateUserAiCreditBalance(user)}>
-                                  {t("saveAiCreditBalance")}
-                                </button>
+                              <span>{user.email}</span>
+                              <div className="row-meta">
+                                <span>{user.is_approved ? "approved" : "pending"}</span>
+                                {user.is_blocked ? <span>{t("blocked")}</span> : null}
+                                {user.is_app_admin ? <span>App admin</span> : null}
+                                {user.can_use_label_recognition ? <span>{t("labelRecognitionEnabled")}</span> : null}
+                                <span>{t("aiCreditBalance")}: {formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
+                                {user.entitlement_days_remaining !== null ? <span>{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
                               </div>
-                              <small>{t("aiCreditAdminHelp")}</small>
+                              <details className="user-admin-detail">
+                                <summary>AI credit</summary>
+                                <div className="credit-adjust-row">
+                                  <label>
+                                    <span>{t("targetAiCreditBalance")}</span>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="0.01"
+                                      value={userAiBalanceDrafts[user.id] || ""}
+                                      onChange={(event) => setUserAiBalanceDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
+                                    />
+                                  </label>
+                                  <label>
+                                    <span>{t("aiCreditAdminNote")}</span>
+                                    <input
+                                      value={userAiNoteDrafts[user.id] || ""}
+                                      onChange={(event) => setUserAiNoteDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
+                                      placeholder={t("aiCreditAdminNote")}
+                                    />
+                                  </label>
+                                  <button type="button" className="secondary compact" disabled={saving || !(userAiBalanceDrafts[user.id] || "").trim()} onClick={() => updateUserAiCreditBalance(user)}>
+                                    {t("saveAiCreditBalance")}
+                                  </button>
+                                </div>
+                                <small>{t("aiCreditAdminHelp")}</small>
+                              </details>
                             </div>
                             <div className="member-actions">
+                              <button type="button" className="secondary compact" disabled={saving} onClick={() => loadSingleAppUserStats(user).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load user stats"))}>
+                                User stats
+                              </button>
                               {!user.is_approved ? (
                                 <>
                                   <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
                                     {t("accept")}
                                   </button>
-                                  <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
-                                    {t("decline")}
-                                  </button>
                                 </>
                               ) : null}
-                              <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
-                                {user.is_app_admin ? "App admin" : "Make app admin"}
-                              </button>
-                              <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
-                                {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
-                              </button>
-                              {user.is_approved ? (
-                                <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>
-                                  {user.is_blocked ? t("unblockAccess") : t("blockAccess")}
-                                </button>
-                              ) : null}
-                              <button type="button" className="danger compact" disabled={saving} onClick={() => deleteAppUser(user)}>
-                                {t("delete")}
-                              </button>
+                              <details className="user-admin-actions-detail">
+                                <summary>More</summary>
+                                <div className="user-admin-actions-menu">
+                                  {!user.is_approved ? (
+                                    <button type="button" className="danger compact" disabled={saving} onClick={() => rejectUser(user)}>
+                                      {t("decline")}
+                                    </button>
+                                  ) : null}
+                                  <button type="button" className={user.is_app_admin ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleAppAdmin(user)}>
+                                    {user.is_app_admin ? "App admin" : "Make app admin"}
+                                  </button>
+                                  <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
+                                    {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
+                                  </button>
+                                  {user.is_approved ? (
+                                    <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>
+                                      {user.is_blocked ? t("unblockAccess") : t("blockAccess")}
+                                    </button>
+                                  ) : null}
+                                  <button type="button" className="danger compact" disabled={saving} onClick={() => deleteAppUser(user)}>
+                                    {t("delete")}
+                                  </button>
+                                </div>
+                              </details>
                             </div>
                           </div>
                         ))}
@@ -12262,10 +12293,10 @@ export function App() {
                       <div>
                         <span>Admin JSON</span>
                         <h3>User stats JSON</h3>
-                        <small>Calls <code>/api/v1/auth/users/stats</code> and shows the raw payload returned by the backend.</small>
+                        <small>Load one user from the list above, or fetch the full payload from <code>/api/v1/auth/users/stats</code>.</small>
                       </div>
                       <div className="member-actions">
-                        <strong>{appUserStats.length}</strong>
+                        <strong>{selectedAppUserStats ? 1 : appUserStats.length}</strong>
                         <button
                           type="button"
                           className="secondary compact"
@@ -12277,14 +12308,19 @@ export function App() {
                         <button
                           type="button"
                           className="secondary compact"
-                          disabled={!appUserStatsLoaded}
-                          onClick={() => navigator.clipboard?.writeText(JSON.stringify(appUserStats, null, 2))}
+                          disabled={!selectedAppUserStats && !appUserStatsLoaded}
+                          onClick={() => navigator.clipboard?.writeText(JSON.stringify(selectedAppUserStats || appUserStats, null, 2))}
                         >
                           Copy JSON
                         </button>
+                        {selectedAppUserStats ? (
+                          <button type="button" className="secondary compact" onClick={() => setSelectedAppUserStats(null)}>
+                            Clear user
+                          </button>
+                        ) : null}
                       </div>
                     </div>
-                    {appUserStatsLoaded ? (
+                    {selectedAppUserStats || appUserStatsLoaded ? (
                       <pre
                         style={{
                           margin: 0,
@@ -12298,10 +12334,10 @@ export function App() {
                           lineHeight: 1.5,
                         }}
                       >
-                        {JSON.stringify(appUserStats, null, 2)}
+                        {JSON.stringify(selectedAppUserStats || appUserStats, null, 2)}
                       </pre>
                     ) : (
-                      <p className="empty-state">Load the endpoint response to inspect the raw user adoption stats JSON.</p>
+                      <p className="empty-state">Use "User stats" on a specific user or load the full endpoint response only when needed.</p>
                     )}
                   </details>
                 </section>

@@ -297,6 +297,28 @@ def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
     assert forbidden.status_code == 403
 
 
+def test_app_admin_can_fetch_single_user_stats():
+    admin_client = TestClient(app)
+    member_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    assert register(member_client, email="detail@example.com", password="strong-password-2").status_code == 201
+
+    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "detail@example.com")
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    assert member_client.post("/api/v1/auth/login", json={"email": "detail@example.com", "password": "strong-password-2"}).status_code == 200
+
+    user_stats = admin_client.get(f"/api/v1/auth/users/{pending_user['id']}/stats")
+    assert user_stats.status_code == 200
+    assert user_stats.json()["email"] == "detail@example.com"
+    assert user_stats.json()["households_total"] == 1
+
+    missing = admin_client.get(f"/api/v1/auth/users/{uuid.uuid4()}/stats")
+    assert missing.status_code == 404
+
+    forbidden = member_client.get(f"/api/v1/auth/users/{pending_user['id']}/stats")
+    assert forbidden.status_code == 403
+
+
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
     from app.api.routes import auth as auth_routes
 
