@@ -219,6 +219,84 @@ def test_app_admin_can_set_user_ai_credit_balance():
         assert any(notification.kind == "ai_credits" and "Second gift" in notification.message for notification in notifications)
 
 
+def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
+    admin_client = TestClient(app)
+    member_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    assert register(member_client, email="member@example.com", password="strong-password-2").status_code == 201
+
+    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "member@example.com")
+    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    assert member_client.post("/api/v1/auth/login", json={"email": "member@example.com", "password": "strong-password-2"}).status_code == 200
+
+    session = member_client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        member = db.get(User, uuid.UUID(session["user_id"]))
+        household = db.get(Household, uuid.UUID(session["active_household_id"]))
+        assert member is not None
+        assert household is not None
+        db.add_all(
+            [
+                Wine(
+                    household_id=household.id,
+                    created_by_user_id=member.id,
+                    name="Barolo",
+                    quantity=3,
+                    price=Decimal("50.00"),
+                ),
+                Wine(
+                    household_id=household.id,
+                    created_by_user_id=member.id,
+                    name="Brunello",
+                    quantity=2,
+                    price=Decimal("65.00"),
+                ),
+                AiAuditLog(
+                    household_id=household.id,
+                    user_id=member.id,
+                    entity_type="wine",
+                    entity_id=uuid.uuid4(),
+                    feature="ai_notes",
+                    model="gpt-5.4-mini",
+                    outcome="success",
+                    summary="Generated notes",
+                    total_tokens=120,
+                    estimated_cost_usd=Decimal("0.001000"),
+                    created_at=datetime.now(timezone.utc),
+                ),
+                AiAuditLog(
+                    household_id=household.id,
+                    user_id=member.id,
+                    entity_type="wine",
+                    entity_id=uuid.uuid4(),
+                    feature="ai_value",
+                    model="gpt-5.4-mini",
+                    outcome="success",
+                    summary="Estimated value",
+                    total_tokens=140,
+                    estimated_cost_usd=Decimal("0.001400"),
+                    created_at=datetime.now(timezone.utc),
+                ),
+            ],
+        )
+        db.commit()
+
+    stats = admin_client.get("/api/v1/auth/users/stats")
+    assert stats.status_code == 200
+    member_stats = next(user for user in stats.json() if user["email"] == "member@example.com")
+    assert member_stats["households_total"] == 1
+    assert member_stats["cellar_wines_total"] == 2
+    assert member_stats["cellar_bottles_total"] == 5
+    assert member_stats["wines_created_total"] == 2
+    assert member_stats["ai_requests_total"] == 2
+    assert member_stats["last_sign_in_at"] is not None
+    assert member_stats["last_ai_request_at"] is not None
+    assert member_stats["last_activity_at"] is not None
+
+    forbidden = member_client.get("/api/v1/auth/users/stats")
+    assert forbidden.status_code == 403
+
+
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
     from app.api.routes import auth as auth_routes
 

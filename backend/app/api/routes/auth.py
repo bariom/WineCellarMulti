@@ -9,7 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -31,7 +31,7 @@ from app.core.config import settings
 from app.core.crypto import encrypt_secret
 from app.core.security import hash_email_verification_token, hash_password, hash_redeem_code, hash_session_token, new_email_verification_token, new_session_token, verify_password
 from app.db.session import get_db
-from app.models import Household, Membership, PasskeyChallenge, RedeemCode, User, UserEntitlement, UserPasskey, UserSession
+from app.models import AiAuditLog, Household, Membership, PasskeyChallenge, RedeemCode, User, UserEntitlement, UserPasskey, UserSession, Wine
 from app.schemas.auth import (
     EmailVerificationRequest,
     LoginRequest,
@@ -42,6 +42,7 @@ from app.schemas.auth import (
     PendingUserResponse,
     RegisterRequest,
     UserAdminResponse,
+    UserAdminStatsResponse,
     UserAdminUpdate,
     UserPreferencesUpdate,
 )
@@ -249,6 +250,93 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,
         entitlement_days_remaining=max(days_remaining, 0) if days_remaining is not None else None,
     )
+
+
+def datetime_to_iso(value: datetime | None) -> str | None:
+    if value is None:
+        return None
+    return utc_datetime(value).isoformat()
+
+
+def most_recent_iso(*values: datetime | None) -> str | None:
+    candidates = [utc_datetime(value) for value in values if value is not None]
+    if not candidates:
+        return None
+    return max(candidates).isoformat()
+
+
+def user_admin_stats(db: Session, users: list[User]) -> list[UserAdminStatsResponse]:
+    user_households = select(
+        Membership.user_id.label("user_id"),
+        Membership.household_id.label("household_id"),
+    ).subquery()
+
+    household_counts = {
+        user_id: int(total)
+        for user_id, total in db.execute(
+            select(Membership.user_id, func.count(Membership.household_id))
+            .group_by(Membership.user_id),
+        ).all()
+    }
+    cellar_stats = {
+        user_id: (int(wines_total), int(bottles_total))
+        for user_id, wines_total, bottles_total in db.execute(
+            select(
+                user_households.c.user_id,
+                func.count(Wine.id),
+                func.coalesce(func.sum(Wine.quantity), 0),
+            )
+            .select_from(user_households.outerjoin(Wine, Wine.household_id == user_households.c.household_id))
+            .group_by(user_households.c.user_id),
+        ).all()
+    }
+    created_wine_counts = {
+        user_id: int(total)
+        for user_id, total in db.execute(
+            select(Wine.created_by_user_id, func.count(Wine.id))
+            .where(Wine.created_by_user_id.is_not(None))
+            .group_by(Wine.created_by_user_id),
+        ).all()
+    }
+    ai_stats = {
+        user_id: (int(total), last_request_at)
+        for user_id, total, last_request_at in db.execute(
+            select(
+                AiAuditLog.user_id,
+                func.count(AiAuditLog.id),
+                func.max(AiAuditLog.created_at),
+            )
+            .where(AiAuditLog.user_id.is_not(None))
+            .group_by(AiAuditLog.user_id),
+        ).all()
+    }
+    last_sign_ins = {
+        user_id: last_sign_in_at
+        for user_id, last_sign_in_at in db.execute(
+            select(UserSession.user_id, func.max(UserSession.created_at))
+            .group_by(UserSession.user_id),
+        ).all()
+    }
+
+    return [
+        UserAdminStatsResponse(
+            id=str(user.id),
+            email=user.email,
+            display_name=user.display_name,
+            is_approved=user.is_approved,
+            is_app_admin=user.is_app_admin,
+            is_blocked=user.is_blocked,
+            households_total=household_counts.get(user.id, 0),
+            cellar_wines_total=cellar_stats.get(user.id, (0, 0))[0],
+            cellar_bottles_total=cellar_stats.get(user.id, (0, 0))[1],
+            wines_created_total=created_wine_counts.get(user.id, 0),
+            ai_requests_total=ai_stats.get(user.id, (0, None))[0],
+            last_sign_in_at=datetime_to_iso(last_sign_ins.get(user.id)),
+            last_ai_request_at=datetime_to_iso(ai_stats.get(user.id, (0, None))[1]),
+            last_activity_at=most_recent_iso(last_sign_ins.get(user.id), ai_stats.get(user.id, (0, None))[1]),
+        )
+        for user in users
+    ]
 
 
 def active_app_admins(db: Session) -> list[User]:
@@ -676,6 +764,15 @@ def list_users(
 ) -> list[UserAdminResponse]:
     users = db.scalars(select(User).order_by(User.email.asc()))
     return [user_admin_response(user, db) for user in users]
+
+
+@router.get("/users/stats", response_model=list[UserAdminStatsResponse])
+def list_user_stats(
+    _: CurrentContext = Depends(require_app_admin_context),
+    db: Session = Depends(get_db),
+) -> list[UserAdminStatsResponse]:
+    users = list(db.scalars(select(User).order_by(User.email.asc())))
+    return user_admin_stats(db, users)
 
 
 @router.patch("/users/{user_id}", response_model=UserAdminResponse)

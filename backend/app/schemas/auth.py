@@ -67,6 +67,23 @@ class UserAdminResponse(BaseModel):
     entitlement_days_remaining: int | None = None
 
 
+class UserAdminStatsResponse(BaseModel):
+    id: str
+    email: str
+    display_name: str
+    is_approved: bool
+    is_app_admin: bool
+    is_blocked: bool
+    households_total: int = 0
+    cellar_wines_total: int = 0
+    cellar_bottles_total: int = 0
+    wines_created_total: int = 0
+    ai_requests_total: int = 0
+    last_sign_in_at: str | None = None
+    last_ai_request_at: str | None = None
+    last_activity_at: str | None = None
+
+
 class UserPreferencesUpdate(BaseModel):
     locale: str | None = Field(default=None, pattern="^(en|it)$")
     theme_preference: str | None = Field(
