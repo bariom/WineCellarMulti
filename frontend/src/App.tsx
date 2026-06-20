@@ -4353,6 +4353,59 @@ function MarketValueModal({
   );
 }
 
+function UserStatsModal({
+  stats,
+  loading,
+  title,
+  onClose,
+}: {
+  stats: UserAdminStats | null;
+  loading: boolean;
+  title: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="market-modal-overlay" onClick={onClose}>
+      <div className="market-modal-card user-stats-modal-card" onClick={(event) => event.stopPropagation()}>
+        <div className="market-modal-head">
+          <div>
+            <h2>User stats</h2>
+            <strong>{title || "User"}</strong>
+            <span>{stats?.email || "Loading..."}</span>
+          </div>
+          <div className="member-actions">
+            {stats ? (
+              <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(JSON.stringify(stats, null, 2))}>
+                Copy JSON
+              </button>
+            ) : null}
+            <button type="button" className="secondary compact" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+        {loading ? <LoadingState label="Loading user stats" compact /> : null}
+        {stats ? (
+          <>
+            <div className="row-meta">
+              <span>{stats.is_approved ? "approved" : "pending"}</span>
+              {stats.is_blocked ? <span>blocked</span> : null}
+              {stats.is_app_admin ? <span>App admin</span> : null}
+              <span>Households: {stats.households_total}</span>
+              <span>Wines: {stats.cellar_wines_total}</span>
+              <span>Bottles: {stats.cellar_bottles_total}</span>
+              <span>AI: {stats.ai_requests_total}</span>
+            </div>
+            <pre className="user-stats-json-block">
+              {JSON.stringify(stats, null, 2)}
+            </pre>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 function DetailNote({ title, children }: { title: string; children: string }) {
   return (
     <article className="detail-note">
@@ -5282,9 +5335,10 @@ export function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
-  const [appUserStats, setAppUserStats] = useState<UserAdminStats[]>([]);
-  const [appUserStatsLoaded, setAppUserStatsLoaded] = useState(false);
   const [selectedAppUserStats, setSelectedAppUserStats] = useState<UserAdminStats | null>(null);
+  const [userStatsModalOpen, setUserStatsModalOpen] = useState(false);
+  const [userStatsLoading, setUserStatsLoading] = useState(false);
+  const [userStatsModalTitle, setUserStatsModalTitle] = useState("");
   const [pendingCatalogEntries, setPendingCatalogEntries] = useState<CatalogWine[]>([]);
   const [catalogAdminQuery, setCatalogAdminQuery] = useState("");
   const [catalogAdminResults, setCatalogAdminResults] = useState<CatalogWine[]>([]);
@@ -5893,9 +5947,10 @@ export function App() {
       setUserAiNoteDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [user.id, current[user.id] || ""])));
     } else {
       setAppUsers([]);
-      setAppUserStats([]);
-      setAppUserStatsLoaded(false);
       setSelectedAppUserStats(null);
+      setUserStatsModalOpen(false);
+      setUserStatsLoading(false);
+      setUserStatsModalTitle("");
       setPendingUsers([]);
       setPendingCatalogEntries([]);
       setCatalogAdminResults([]);
@@ -5904,22 +5959,22 @@ export function App() {
     }
   }
 
-  async function loadAppUserStats(isAppAdmin = session?.is_app_admin) {
-    if (isAppAdmin) {
-      setAppUserStats(await api<UserAdminStats[]>("/api/v1/auth/users/stats"));
-      setAppUserStatsLoaded(true);
-    } else {
-      setAppUserStats([]);
-      setAppUserStatsLoaded(false);
-      setSelectedAppUserStats(null);
-    }
-  }
-
   async function loadSingleAppUserStats(user: AppUser, isAppAdmin = session?.is_app_admin) {
     if (isAppAdmin) {
-      setSelectedAppUserStats(await api<UserAdminStats>(`/api/v1/auth/users/${user.id}/stats`));
+      setUserStatsModalTitle(user.display_name || user.email);
+      setSelectedAppUserStats(null);
+      setUserStatsModalOpen(true);
+      setUserStatsLoading(true);
+      try {
+        setSelectedAppUserStats(await api<UserAdminStats>(`/api/v1/auth/users/${user.id}/stats`));
+      } finally {
+        setUserStatsLoading(false);
+      }
     } else {
       setSelectedAppUserStats(null);
+      setUserStatsModalOpen(false);
+      setUserStatsLoading(false);
+      setUserStatsModalTitle("");
     }
   }
 
@@ -6075,9 +6130,10 @@ export function App() {
           setInvites([]);
           setPendingUsers([]);
           setAppUsers([]);
-          setAppUserStats([]);
-          setAppUserStatsLoaded(false);
           setSelectedAppUserStats(null);
+          setUserStatsModalOpen(false);
+          setUserStatsLoading(false);
+          setUserStatsModalTitle("");
           setPendingCatalogEntries([]);
           setCatalogAdminResults([]);
           setAiAudit([]);
@@ -6104,9 +6160,10 @@ export function App() {
         setInvites([]);
         setPendingUsers([]);
         setAppUsers([]);
-        setAppUserStats([]);
-        setAppUserStatsLoaded(false);
         setSelectedAppUserStats(null);
+        setUserStatsModalOpen(false);
+        setUserStatsLoading(false);
+        setUserStatsModalTitle("");
         setPendingCatalogEntries([]);
         setCatalogAdminResults([]);
         setAiAudit([]);
@@ -6434,9 +6491,10 @@ export function App() {
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
-    setAppUserStats([]);
-    setAppUserStatsLoaded(false);
     setSelectedAppUserStats(null);
+    setUserStatsModalOpen(false);
+    setUserStatsLoading(false);
+    setUserStatsModalTitle("");
     setPendingCatalogEntries([]);
     setCatalogAdminResults([]);
     setCatalogAdminQuery("");
@@ -12287,64 +12345,6 @@ export function App() {
 
               {settingsTab === "users" && canAppAdmin ? (
                 <section className="settings-card settings-card-wide settings-admin-card">
-                  <details className="collapsible-panel settings-admin-panel" open>
-                    <summary>User stats API</summary>
-                    <div className="settings-card-heading">
-                      <div>
-                        <span>Admin JSON</span>
-                        <h3>User stats JSON</h3>
-                        <small>Load one user from the list above, or fetch the full payload from <code>/api/v1/auth/users/stats</code>.</small>
-                      </div>
-                      <div className="member-actions">
-                        <strong>{selectedAppUserStats ? 1 : appUserStats.length}</strong>
-                        <button
-                          type="button"
-                          className="secondary compact"
-                          disabled={saving}
-                          onClick={() => loadAppUserStats(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load user stats"))}
-                        >
-                          Load JSON
-                        </button>
-                        <button
-                          type="button"
-                          className="secondary compact"
-                          disabled={!selectedAppUserStats && !appUserStatsLoaded}
-                          onClick={() => navigator.clipboard?.writeText(JSON.stringify(selectedAppUserStats || appUserStats, null, 2))}
-                        >
-                          Copy JSON
-                        </button>
-                        {selectedAppUserStats ? (
-                          <button type="button" className="secondary compact" onClick={() => setSelectedAppUserStats(null)}>
-                            Clear user
-                          </button>
-                        ) : null}
-                      </div>
-                    </div>
-                    {selectedAppUserStats || appUserStatsLoaded ? (
-                      <pre
-                        style={{
-                          margin: 0,
-                          overflowX: "auto",
-                          whiteSpace: "pre-wrap",
-                          wordBreak: "break-word",
-                          padding: "1rem",
-                          borderRadius: "16px",
-                          background: "rgba(22, 30, 26, 0.08)",
-                          fontSize: "0.82rem",
-                          lineHeight: 1.5,
-                        }}
-                      >
-                        {JSON.stringify(selectedAppUserStats || appUserStats, null, 2)}
-                      </pre>
-                    ) : (
-                      <p className="empty-state">Use "User stats" on a specific user or load the full endpoint response only when needed.</p>
-                    )}
-                  </details>
-                </section>
-              ) : null}
-
-              {settingsTab === "users" && canAppAdmin ? (
-                <section className="settings-card settings-card-wide settings-admin-card">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("labelRecognitionAccess")}</span>
@@ -12751,6 +12751,19 @@ export function App() {
         </button>
       ) : null}
       {marketViewContext ? <MarketValueModal context={marketViewContext} t={t} locale={locale} onClose={() => setMarketViewContext(null)} /> : null}
+      {userStatsModalOpen ? (
+        <UserStatsModal
+          stats={selectedAppUserStats}
+          loading={userStatsLoading}
+          title={userStatsModalTitle}
+          onClose={() => {
+            setUserStatsModalOpen(false);
+            setUserStatsLoading(false);
+            setSelectedAppUserStats(null);
+            setUserStatsModalTitle("");
+          }}
+        />
+      ) : null}
       {compareModalOpen && comparedWines.length ? (
         <CompareWinesModal
           wines={comparedWines}

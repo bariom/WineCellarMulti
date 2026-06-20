@@ -1400,6 +1400,22 @@ summary:focus-visible {
   color: var(--danger);
 }
 
+.user-stats-modal-card {
+  width: min(100%, 860px);
+}
+
+.user-stats-json-block {
+  margin: 0;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(22, 30, 26, 0.08);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
 .market-sources-section {
   display: grid;
   gap: 12px;
