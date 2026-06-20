@@ -551,6 +551,23 @@ type AppUser = PendingUser & {
   entitlement_days_remaining: number | null;
 };
 
+type UserAdminStats = {
+  id: string;
+  email: string;
+  display_name: string;
+  is_approved: boolean;
+  is_app_admin: boolean;
+  is_blocked: boolean;
+  households_total: number;
+  cellar_wines_total: number;
+  cellar_bottles_total: number;
+  wines_created_total: number;
+  ai_requests_total: number;
+  last_sign_in_at: string | null;
+  last_ai_request_at: string | null;
+  last_activity_at: string | null;
+};
+
 type RedeemCode = {
   id: string;
   code: string | null;
@@ -5265,6 +5282,8 @@ export function App() {
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingUsers, setPendingUsers] = useState<PendingUser[]>([]);
   const [appUsers, setAppUsers] = useState<AppUser[]>([]);
+  const [appUserStats, setAppUserStats] = useState<UserAdminStats[]>([]);
+  const [appUserStatsLoaded, setAppUserStatsLoaded] = useState(false);
   const [pendingCatalogEntries, setPendingCatalogEntries] = useState<CatalogWine[]>([]);
   const [catalogAdminQuery, setCatalogAdminQuery] = useState("");
   const [catalogAdminResults, setCatalogAdminResults] = useState<CatalogWine[]>([]);
@@ -5873,11 +5892,23 @@ export function App() {
       setUserAiNoteDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [user.id, current[user.id] || ""])));
     } else {
       setAppUsers([]);
+      setAppUserStats([]);
+      setAppUserStatsLoaded(false);
       setPendingUsers([]);
       setPendingCatalogEntries([]);
       setCatalogAdminResults([]);
       setUserAiBalanceDrafts({});
       setUserAiNoteDrafts({});
+    }
+  }
+
+  async function loadAppUserStats(isAppAdmin = session?.is_app_admin) {
+    if (isAppAdmin) {
+      setAppUserStats(await api<UserAdminStats[]>("/api/v1/auth/users/stats"));
+      setAppUserStatsLoaded(true);
+    } else {
+      setAppUserStats([]);
+      setAppUserStatsLoaded(false);
     }
   }
 
@@ -6033,6 +6064,8 @@ export function App() {
           setInvites([]);
           setPendingUsers([]);
           setAppUsers([]);
+          setAppUserStats([]);
+          setAppUserStatsLoaded(false);
           setPendingCatalogEntries([]);
           setCatalogAdminResults([]);
           setAiAudit([]);
@@ -6059,6 +6092,8 @@ export function App() {
         setInvites([]);
         setPendingUsers([]);
         setAppUsers([]);
+        setAppUserStats([]);
+        setAppUserStatsLoaded(false);
         setPendingCatalogEntries([]);
         setCatalogAdminResults([]);
         setAiAudit([]);
@@ -6386,6 +6421,8 @@ export function App() {
     setMembers([]);
     setPendingUsers([]);
     setAppUsers([]);
+    setAppUserStats([]);
+    setAppUserStatsLoaded(false);
     setPendingCatalogEntries([]);
     setCatalogAdminResults([]);
     setCatalogAdminQuery("");
@@ -12212,6 +12249,59 @@ export function App() {
                       </div>
                     ) : (
                       <p className="empty-state">{t("noActionItems")}</p>
+                    )}
+                  </details>
+                </section>
+              ) : null}
+
+              {settingsTab === "users" && canAppAdmin ? (
+                <section className="settings-card settings-card-wide settings-admin-card">
+                  <details className="collapsible-panel settings-admin-panel" open>
+                    <summary>User stats API</summary>
+                    <div className="settings-card-heading">
+                      <div>
+                        <span>Admin JSON</span>
+                        <h3>User stats JSON</h3>
+                        <small>Calls <code>/api/v1/auth/users/stats</code> and shows the raw payload returned by the backend.</small>
+                      </div>
+                      <div className="member-actions">
+                        <strong>{appUserStats.length}</strong>
+                        <button
+                          type="button"
+                          className="secondary compact"
+                          disabled={saving}
+                          onClick={() => loadAppUserStats(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load user stats"))}
+                        >
+                          Load JSON
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary compact"
+                          disabled={!appUserStatsLoaded}
+                          onClick={() => navigator.clipboard?.writeText(JSON.stringify(appUserStats, null, 2))}
+                        >
+                          Copy JSON
+                        </button>
+                      </div>
+                    </div>
+                    {appUserStatsLoaded ? (
+                      <pre
+                        style={{
+                          margin: 0,
+                          overflowX: "auto",
+                          whiteSpace: "pre-wrap",
+                          wordBreak: "break-word",
+                          padding: "1rem",
+                          borderRadius: "16px",
+                          background: "rgba(22, 30, 26, 0.08)",
+                          fontSize: "0.82rem",
+                          lineHeight: 1.5,
+                        }}
+                      >
+                        {JSON.stringify(appUserStats, null, 2)}
+                      </pre>
+                    ) : (
+                      <p className="empty-state">Load the endpoint response to inspect the raw user adoption stats JSON.</p>
                     )}
                   </details>
                 </section>
