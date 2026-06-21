@@ -1291,9 +1291,12 @@ const translations = {
     emailVerificationExpired: "Email confirmation link expired. Register again or contact support.",
     emailVerificationInvalid: "Email confirmation link is invalid.",
     pendingUsers: "Users pending approval",
+    pendingApprovals: "Pending approvals",
     redeem: "Redeem",
     redeemCode: "Redeem code",
     redeemCodes: "Redeem codes",
+    redeemCodeCreatePanel: "Create new code",
+    redeemCodeListPanel: "Existing codes",
     redeemed: "Redeemed",
     notifications: "Notifications",
     reviewUsers: "Review users",
@@ -1331,6 +1334,7 @@ const translations = {
     settingsSharing: "Cellars",
     settingsTags: "Tags",
     settingsUsers: "Users",
+    approvedUsers: "Approved users",
     status: "Status",
     subject: "Subject",
     tag: "Tag",
@@ -1802,9 +1806,12 @@ const translations = {
     emailVerificationExpired: "Il link di conferma email è scaduto. Registrati di nuovo o contatta il supporto.",
     emailVerificationInvalid: "Il link di conferma email non è valido.",
     pendingUsers: "Utenti in attesa di approvazione",
+    pendingApprovals: "Approvazioni in attesa",
     redeem: "Riscatta",
     redeemCode: "Codice redeem",
     redeemCodes: "Codici redeem",
+    redeemCodeCreatePanel: "Crea nuovo codice",
+    redeemCodeListPanel: "Codici esistenti",
     redeemed: "Riscattati",
     notifications: "Notifiche",
     reviewUsers: "Rivedi utenti",
@@ -1842,6 +1849,7 @@ const translations = {
     settingsSharing: "Cantine",
     settingsTags: "Tag",
     settingsUsers: "Utenti",
+    approvedUsers: "Utenti approvati",
     status: "Stato",
     subject: "Oggetto",
     tag: "Tag",
@@ -8493,6 +8501,13 @@ export function App() {
   const operationalActionCount = operationalActionItems.length;
   const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
   const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
+  const activeRedeemCodesCount = redeemCodes.filter((code) => code.is_active).length;
+  const approvedUsersCount = appUsers.filter((user) => user.is_approved).length;
+  const adminUsersSorted = [...appUsers].sort((first, second) => {
+    if (first.is_approved !== second.is_approved) return Number(first.is_approved) - Number(second.is_approved);
+    if (first.is_blocked !== second.is_blocked) return Number(first.is_blocked) - Number(second.is_blocked);
+    return (first.display_name || first.email).localeCompare(second.display_name || second.email);
+  });
   const quickWineFilterLabels: Record<QuickWineFilter, string> = {
     "": t("totalValue"),
     mine: t("myBottles"),
@@ -12157,8 +12172,14 @@ export function App() {
 
               {settingsTab === "users" && canAppAdmin ? (
                 <section className="settings-card settings-card-wide settings-admin-card">
-                  <details className="collapsible-panel settings-admin-panel" open>
-                    <summary>{t("redeemCodes")}</summary>
+                  <details className="collapsible-panel settings-admin-panel">
+                    <summary className="settings-admin-summary">
+                      <span>{t("redeemCodes")}</span>
+                      <span className="settings-admin-summary-meta">
+                        <span className="status-pill configured">{activeRedeemCodesCount} active</span>
+                        <span className="status-pill">{redeemCodes.length} total</span>
+                      </span>
+                    </summary>
                     <div className="settings-card-heading">
                       <div>
                         <span>{t("billing")}</span>
@@ -12168,67 +12189,86 @@ export function App() {
                         {t("loadingData")}
                       </button>
                     </div>
-                    <form className="inline-form redeem-admin-form" onSubmit={createRedeemCode}>
-                      <label>
-                        <span>{t("message")}</span>
-                        <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
-                      </label>
-                      <label>
-                        <span>{t("durationDays")}</span>
-                        <input type="number" min="1" max="3650" value={redeemCodeDraft.duration_days} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, duration_days: event.target.value })} />
-                      </label>
-                      <label>
-                        <span>{t("records")}</span>
-                        <input type="number" min="1" max="10000" value={redeemCodeDraft.max_redemptions} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, max_redemptions: event.target.value })} />
-                      </label>
-                      <label>
-                        <span>{t("email")}</span>
-                        <input type="email" value={redeemCodeDraft.email} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, email: event.target.value })} placeholder="opzionale" />
-                      </label>
-                      <label>
-                        <span>{t("expires")}</span>
-                        <input type="datetime-local" value={redeemCodeDraft.expires_at} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, expires_at: event.target.value })} />
-                      </label>
-                      <button type="submit" disabled={saving || !Number(redeemCodeDraft.duration_days)}>
-                        {t("createRedeemCode")}
-                      </button>
-                    </form>
-                    {generatedRedeemCode ? (
-                      <div className="invite-row">
-                        <div>
-                          <strong>{t("generatedCode")}</strong>
-                          <span>{generatedRedeemCode}</span>
-                        </div>
-                        <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(generatedRedeemCode)}>
-                          Copy
+                    <details className="settings-admin-subpanel" open={Boolean(generatedRedeemCode)}>
+                      <summary>{t("redeemCodeCreatePanel")}</summary>
+                      <form className="inline-form redeem-admin-form" onSubmit={createRedeemCode}>
+                        <label>
+                          <span>{t("message")}</span>
+                          <input value={redeemCodeDraft.label} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, label: event.target.value })} placeholder="Promo 30 giorni" />
+                        </label>
+                        <label>
+                          <span>{t("durationDays")}</span>
+                          <input type="number" min="1" max="3650" value={redeemCodeDraft.duration_days} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, duration_days: event.target.value })} />
+                        </label>
+                        <label>
+                          <span>{t("records")}</span>
+                          <input type="number" min="1" max="10000" value={redeemCodeDraft.max_redemptions} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, max_redemptions: event.target.value })} />
+                        </label>
+                        <label>
+                          <span>{t("email")}</span>
+                          <input type="email" value={redeemCodeDraft.email} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, email: event.target.value })} placeholder="opzionale" />
+                        </label>
+                        <label>
+                          <span>{t("expires")}</span>
+                          <input type="datetime-local" value={redeemCodeDraft.expires_at} onChange={(event) => setRedeemCodeDraft({ ...redeemCodeDraft, expires_at: event.target.value })} />
+                        </label>
+                        <button type="submit" disabled={saving || !Number(redeemCodeDraft.duration_days)}>
+                          {t("createRedeemCode")}
                         </button>
-                      </div>
-                    ) : null}
+                      </form>
+                      {generatedRedeemCode ? (
+                        <div className="invite-row">
+                          <div>
+                            <strong>{t("generatedCode")}</strong>
+                            <span>{generatedRedeemCode}</span>
+                          </div>
+                          <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(generatedRedeemCode)}>
+                            Copy
+                          </button>
+                        </div>
+                      ) : null}
+                    </details>
+                    <div className="settings-admin-subheading">
+                      <strong>{t("redeemCodeListPanel")}</strong>
+                      <span>{redeemCodes.length ? `${activeRedeemCodesCount}/${redeemCodes.length} active` : t("noActionItems")}</span>
+                    </div>
                     {redeemCodes.length ? (
                       <div className="member-list settings-admin-list">
                         {redeemCodes.map((code) => (
-                          <div className="member-row settings-admin-row redeem-admin-row" key={code.id}>
-                            <div>
-                              <strong>{code.label || code.code_prefix}</strong>
-                              <span>{code.code || code.code_prefix} - {code.duration_days}d - {t("redeemed")}: {code.redeemed_count}/{code.max_redemptions}</span>
-                              {code.email ? <span>{code.email}</span> : null}
-                              {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
+                          <details className="settings-admin-row settings-admin-detail-row redeem-admin-card" key={code.id}>
+                            <summary className="settings-admin-row-summary">
+                              <div>
+                                <strong>{code.label || code.code_prefix}</strong>
+                                <span>{code.code || code.code_prefix}</span>
+                              </div>
+                              <div className="settings-admin-summary-meta">
+                                <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
+                                <span className="status-pill">{code.duration_days}d</span>
+                                <span className="status-pill">{code.redeemed_count}/{code.max_redemptions} {t("redeemed")}</span>
+                              </div>
+                            </summary>
+                            <div className="settings-admin-row-body">
+                              <div className="settings-admin-row-info">
+                                {code.email ? <span>{code.email}</span> : null}
+                                {code.expires_at ? <span>{t("expires")}: {formatDisplayDate(code.expires_at)}</span> : null}
+                              </div>
+                              <div className="member-actions settings-admin-actions">
+                                {code.code ? (
+                                  <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
+                                    Copy
+                                  </button>
+                                ) : null}
+                                <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
+                                  {t("delete")}
+                                </button>
+                                {code.redeemed_count > 0 ? (
+                                  <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code, true)}>
+                                    Force delete
+                                  </button>
+                                ) : null}
+                              </div>
                             </div>
-                            {code.code ? (
-                              <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(code.code || "")}>
-                                Copy
-                              </button>
-                            ) : null}
-                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code)}>
-                              {t("delete")}
-                            </button>
-                            {code.redeemed_count > 0 ? (
-                              <button type="button" className="danger compact" disabled={saving} onClick={() => deleteRedeemCode(code, true)}>
-                                Force delete
-                              </button>
-                            ) : null}
-                            <span className={code.is_active ? "status-pill configured" : "status-pill"}>{code.is_active ? "active" : "inactive"}</span>
-                          </div>
+                          </details>
                         ))}
                       </div>
                     ) : (
@@ -12240,8 +12280,14 @@ export function App() {
 
               {settingsTab === "users" && canAppAdmin ? (
                 <section className="settings-card settings-card-wide settings-admin-card">
-                  <details className="collapsible-panel settings-admin-panel" open>
-                    <summary>{t("settingsUsers")}</summary>
+                  <details className="collapsible-panel settings-admin-panel" open={pendingUsers.length > 0}>
+                    <summary className="settings-admin-summary">
+                      <span>{t("settingsUsers")}</span>
+                      <span className="settings-admin-summary-meta">
+                        <span className="status-pill">{pendingUsers.length} {t("pendingApprovals")}</span>
+                        <span className="status-pill configured">{approvedUsersCount} {t("approvedUsers")}</span>
+                      </span>
+                    </summary>
                     <div className="settings-card-heading">
                       <div>
                         <span>{t("pendingApproval")}</span>
@@ -12254,20 +12300,39 @@ export function App() {
                         </button>
                       </div>
                     </div>
-                    {appUsers.length ? (
+                    {adminUsersSorted.length ? (
                       <div className="member-list settings-admin-list">
-                        {appUsers.map((user) => (
-                          <div className="member-row settings-admin-row user-admin-row" key={user.id}>
-                            <div>
-                              <strong>{user.display_name}</strong>
-                              <span>{user.email}</span>
-                              <div className="row-meta">
-                                <span>{user.is_approved ? "approved" : "pending"}</span>
-                                {user.is_blocked ? <span>{t("blocked")}</span> : null}
-                                {user.is_app_admin ? <span>App admin</span> : null}
-                                {user.can_use_label_recognition ? <span>{t("labelRecognitionEnabled")}</span> : null}
+                        {adminUsersSorted.map((user) => (
+                          <details className="settings-admin-row settings-admin-detail-row user-admin-card" key={user.id} open={!user.is_approved}>
+                            <summary className="settings-admin-row-summary">
+                              <div>
+                                <strong>{user.display_name}</strong>
+                                <span>{user.email}</span>
+                              </div>
+                              <div className="settings-admin-summary-meta">
+                                <span className={user.is_approved ? "status-pill configured" : "status-pill"}>{user.is_approved ? "approved" : "pending"}</span>
+                                {user.is_blocked ? <span className="status-pill">{t("blocked")}</span> : null}
+                                {user.is_app_admin ? <span className="status-pill">App admin</span> : null}
+                                {user.can_use_label_recognition ? <span className="status-pill">{t("labelRecognitionEnabled")}</span> : null}
+                                <span className="status-pill">{formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
+                                {user.entitlement_days_remaining !== null ? <span className="status-pill">{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
+                              </div>
+                            </summary>
+                            <div className="settings-admin-row-body">
+                              <div className="settings-admin-row-info">
+                                {!user.is_approved ? <span>{t("pendingApproval")}</span> : null}
                                 <span>{t("aiCreditBalance")}: {formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
                                 {user.entitlement_days_remaining !== null ? <span>{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
+                              </div>
+                              <div className="member-actions settings-admin-actions">
+                                <button type="button" className="secondary compact" disabled={saving} onClick={() => loadSingleAppUserStats(user).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load user stats"))}>
+                                  User stats
+                                </button>
+                                {!user.is_approved ? (
+                                  <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
+                                    {t("accept")}
+                                  </button>
+                                ) : null}
                               </div>
                               <details className="user-admin-detail">
                                 <summary>AI credit</summary>
@@ -12296,18 +12361,6 @@ export function App() {
                                 </div>
                                 <small>{t("aiCreditAdminHelp")}</small>
                               </details>
-                            </div>
-                            <div className="member-actions">
-                              <button type="button" className="secondary compact" disabled={saving} onClick={() => loadSingleAppUserStats(user).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load user stats"))}>
-                                User stats
-                              </button>
-                              {!user.is_approved ? (
-                                <>
-                                  <button type="button" className="compact" disabled={saving} onClick={() => approveUser(user)}>
-                                    {t("accept")}
-                                  </button>
-                                </>
-                              ) : null}
                               <details className="user-admin-actions-detail">
                                 <summary>More</summary>
                                 <div className="user-admin-actions-menu">
@@ -12333,7 +12386,7 @@ export function App() {
                                 </div>
                               </details>
                             </div>
-                          </div>
+                          </details>
                         ))}
                       </div>
                     ) : (

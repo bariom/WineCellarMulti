@@ -1864,6 +1864,8 @@ summary:focus-visible {
 
 .support-panel summary,
 .collapsible-panel summary,
+.settings-admin-subpanel summary,
+.settings-admin-detail-row summary,
 .stats-panel-wrapper summary,
 .filter-panel summary,
 .consume-panel summary,
@@ -1875,6 +1877,8 @@ summary:focus-visible {
 
 .support-panel summary::-webkit-details-marker,
 .collapsible-panel summary::-webkit-details-marker,
+.settings-admin-subpanel summary::-webkit-details-marker,
+.settings-admin-detail-row summary::-webkit-details-marker,
 .stats-panel-wrapper summary::-webkit-details-marker,
 .filter-panel summary::-webkit-details-marker,
 .consume-panel summary::-webkit-details-marker,
@@ -1884,6 +1888,8 @@ summary:focus-visible {
 
 .support-panel summary::after,
 .collapsible-panel summary::after,
+.settings-admin-subpanel summary::after,
+.settings-admin-detail-row summary::after,
 .stats-panel-wrapper summary::after,
 .filter-panel summary::after,
 .consume-panel summary::after,
@@ -1900,6 +1906,8 @@ summary:focus-visible {
 
 .support-panel[open] summary::after,
 .collapsible-panel[open] summary::after,
+.settings-admin-subpanel[open] summary::after,
+.settings-admin-detail-row[open] summary::after,
 .stats-panel-wrapper[open] summary::after,
 .filter-panel[open] summary::after,
 .consume-panel[open] summary::after,
@@ -3865,6 +3873,86 @@ textarea {
   min-width: 0;
 }
 
+.settings-admin-summary,
+.settings-admin-row-summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.settings-admin-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.settings-admin-summary-meta .status-pill {
+  white-space: nowrap;
+}
+
+.settings-admin-subpanel {
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface) 70%, var(--surface-raised));
+}
+
+.settings-admin-subpanel > summary {
+  color: var(--text);
+  font-size: 0.84rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.settings-admin-subpanel[open] > summary,
+.settings-admin-detail-row[open] > summary {
+  margin-bottom: 10px;
+}
+
+.settings-admin-subheading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--text-muted);
+}
+
+.settings-admin-subheading strong {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.settings-admin-detail-row {
+  padding: 12px 14px;
+}
+
+.settings-admin-row-summary > div:first-child,
+.settings-admin-row-body,
+.settings-admin-row-info {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.settings-admin-row-summary > div:first-child > strong {
+  font-size: 0.98rem;
+}
+
+.settings-admin-row-body {
+  gap: 12px;
+}
+
+.settings-admin-row-info {
+  color: var(--text-muted);
+}
+
+.settings-admin-actions {
+  justify-content: flex-start;
+}
+
 @media (min-width: 821px) {
   .settings-admin-card,
   .settings-ai-card {
@@ -3904,6 +3992,10 @@ textarea {
     border-bottom: 0;
   }
 
+  .settings-admin-summary {
+    align-items: center;
+  }
+
   .redeem-admin-form {
     grid-template-columns: minmax(180px, 1.2fr) repeat(3, minmax(104px, 0.58fr)) minmax(172px, 0.8fr) auto;
     align-items: end;
@@ -3919,15 +4011,12 @@ textarea {
   }
 
   .settings-admin-list {
-    gap: 12px;
+    gap: 10px;
   }
 
   .settings-admin-row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-    gap: 16px;
-    padding: 14px;
+    display: block;
+    padding: 12px 14px;
     border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
     border-radius: 14px;
     background:
@@ -3949,23 +4038,19 @@ textarea {
       color-mix(in srgb, var(--surface-raised) 86%, var(--surface-muted));
   }
 
-  .settings-admin-row > div:first-child {
-    gap: 6px;
-    min-width: 0;
+  :root[data-theme="tuscany"] .settings-admin-subpanel {
+    background:
+      linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 24%, transparent), transparent 44%),
+      color-mix(in srgb, var(--surface-raised) 90%, var(--surface-muted));
   }
 
-  .settings-admin-row > div:first-child > strong {
-    font-size: 1rem;
-  }
-
-  .settings-admin-row .member-actions {
-    justify-content: flex-end;
-    align-content: start;
-    max-width: 420px;
+  .settings-admin-row-summary {
+    align-items: center;
+    padding-right: 30px;
   }
 
   .user-admin-detail {
-    margin-top: 8px;
+    margin-top: 2px;
   }
 
   .user-admin-detail summary {
@@ -3984,19 +4069,14 @@ textarea {
     font-weight: 800;
     letter-spacing: 0.04em;
     text-transform: uppercase;
-    text-align: right;
   }
 
   .user-admin-actions-menu {
-    display: grid;
+    display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     margin-top: 8px;
-    justify-items: end;
-  }
-
-  .redeem-admin-row {
-    grid-template-columns: minmax(0, 1fr) repeat(3, auto);
-    align-items: center;
+    justify-content: flex-start;
   }
 
   .credit-adjust-row {
@@ -9310,6 +9390,17 @@ textarea {
   .trial-redeem-card .inline-actions {
     display: grid;
     grid-template-columns: 1fr;
+  }
+
+  .settings-admin-summary,
+  .settings-admin-row-summary,
+  .settings-admin-subheading {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-admin-summary-meta {
+    justify-content: flex-start;
   }
 
   .history-section-tabs {
