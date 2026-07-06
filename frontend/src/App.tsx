@@ -1062,6 +1062,30 @@ const translations = {
     compareOccasion: "Best occasion",
     compareCellarValue: "Cellar and value",
     compareVerdict: "Verdict",
+    aiMagicTitle: "AI in motion",
+    aiMagicHint: "Vinaris is combining your cellar data, structure, and context into something useful.",
+    aiMagicLabelValue: "Market valuation",
+    aiMagicLabelDrinkWindow: "Drinking window",
+    aiMagicLabelGrapes: "Blend profile",
+    aiMagicLabelScores: "Tasting synthesis",
+    aiMagicLabelBatch: "Cellar enrichment",
+    aiMagicLabelWishlistStrategy: "Wishlist strategy",
+    aiMagicLabelWishlistPurpose: "Collector intent",
+    aiMagicLabelWishlistTargetPrice: "Target price",
+    aiMagicLabelPortfolio: "Portfolio review",
+    aiMagicLabelPairing: "Pairing analysis",
+    aiMagicLabelCompare: "Comparative reading",
+    aiMagicValue: "Estimating market value and reading market signals.",
+    aiMagicDrinkWindow: "Sketching the best drinking window for this bottle.",
+    aiMagicGrapes: "Reconstructing the blend and grape profile.",
+    aiMagicScores: "Composing tasting notes and critical-style signals.",
+    aiMagicBatch: "Working through the selected wines one by one.",
+    aiMagicWishlistStrategy: "Turning your wishlist into a collector strategy.",
+    aiMagicWishlistPurpose: "Clarifying why this bottle deserves a place in the wishlist.",
+    aiMagicWishlistTargetPrice: "Scanning for a sensible market target.",
+    aiMagicPortfolio: "Reviewing the whole wishlist like an acquisition portfolio.",
+    aiMagicPairing: "Balancing dish, budget, and cellar personality.",
+    aiMagicCompare: "Comparing both bottles side by side to find the clearest fit.",
     create: "Create",
     createAccount: "Create account",
     confirmPassword: "Confirm password",
@@ -1577,6 +1601,30 @@ const translations = {
     compareOccasion: "Occasione ideale",
     compareCellarValue: "Cantina e valore",
     compareVerdict: "Verdetto",
+    aiMagicTitle: "L'AI è all'opera",
+    aiMagicHint: "Vinaris sta intrecciando dati della cantina, struttura e contesto per restituirti qualcosa di utile.",
+    aiMagicLabelValue: "Valutazione mercato",
+    aiMagicLabelDrinkWindow: "Finestra di beva",
+    aiMagicLabelGrapes: "Profilo del blend",
+    aiMagicLabelScores: "Sintesi degustativa",
+    aiMagicLabelBatch: "Arricchimento cantina",
+    aiMagicLabelWishlistStrategy: "Strategia wishlist",
+    aiMagicLabelWishlistPurpose: "Intento collezionistico",
+    aiMagicLabelWishlistTargetPrice: "Prezzo obiettivo",
+    aiMagicLabelPortfolio: "Revisione portafoglio",
+    aiMagicLabelPairing: "Analisi pairing",
+    aiMagicLabelCompare: "Lettura comparativa",
+    aiMagicValue: "Sto stimando il valore di mercato e leggendo i segnali del mercato.",
+    aiMagicDrinkWindow: "Sto disegnando la finestra ideale di degustazione per questa bottiglia.",
+    aiMagicGrapes: "Sto ricostruendo taglio e profilo delle uve.",
+    aiMagicScores: "Sto componendo note di degustazione e segnali in stile critico.",
+    aiMagicBatch: "Sto lavorando sui vini selezionati uno per uno.",
+    aiMagicWishlistStrategy: "Sto trasformando la wishlist in una strategia da collezionista.",
+    aiMagicWishlistPurpose: "Sto chiarendo perché questa bottiglia merita un posto in wishlist.",
+    aiMagicWishlistTargetPrice: "Sto cercando un prezzo mercato sensato.",
+    aiMagicPortfolio: "Sto rileggendo l'intera wishlist come un portafoglio acquisti.",
+    aiMagicPairing: "Sto bilanciando piatto, budget e personalità della cantina.",
+    aiMagicCompare: "Sto confrontando le due bottiglie fianco a fianco per trovare la lettura più chiara.",
     create: "Crea",
     createAccount: "Crea account",
     confirmPassword: "Conferma password",
@@ -3849,6 +3897,95 @@ function GlobalLoadingOverlay({ label }: { label: string }) {
   );
 }
 
+function aiOverlayMessage(mode: string, t: (key: TranslationKey) => string) {
+  if (mode.startsWith("batch-")) return t("aiMagicBatch");
+  switch (mode) {
+    case "value":
+      return t("aiMagicValue");
+    case "drink-window":
+      return t("aiMagicDrinkWindow");
+    case "grapes":
+      return t("aiMagicGrapes");
+    case "scores":
+      return t("aiMagicScores");
+    case "wishlist-strategy":
+      return t("aiMagicWishlistStrategy");
+    case "wishlist-purpose":
+      return t("aiMagicWishlistPurpose");
+    case "wishlist-target-price":
+      return t("aiMagicWishlistTargetPrice");
+    case "wishlist-portfolio-strategy":
+      return t("aiMagicPortfolio");
+    case "pairing":
+      return t("aiMagicPairing");
+    case "compare":
+      return t("aiMagicCompare");
+    default:
+      return t("aiMagicHint");
+  }
+}
+
+function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string) {
+  if (mode.startsWith("batch-")) return t("aiMagicLabelBatch");
+  switch (mode) {
+    case "value":
+      return t("aiMagicLabelValue");
+    case "drink-window":
+      return t("aiMagicLabelDrinkWindow");
+    case "grapes":
+      return t("aiMagicLabelGrapes");
+    case "scores":
+      return t("aiMagicLabelScores");
+    case "wishlist-strategy":
+      return t("aiMagicLabelWishlistStrategy");
+    case "wishlist-purpose":
+      return t("aiMagicLabelWishlistPurpose");
+    case "wishlist-target-price":
+      return t("aiMagicLabelWishlistTargetPrice");
+    case "wishlist-portfolio-strategy":
+      return t("aiMagicLabelPortfolio");
+    case "pairing":
+      return t("aiMagicLabelPairing");
+    case "compare":
+      return t("aiMagicLabelCompare");
+    default:
+      return "Vinaris AI";
+  }
+}
+
+function AiGenerationOverlay({ mode, t }: { mode: string; t: (key: TranslationKey) => string }) {
+  return (
+    <div className={`ai-generation-overlay${mode ? " is-visible" : " is-leaving"}`} role="status" aria-live="polite" aria-busy="true">
+      <div className="ai-generation-aura ai-generation-aura-left" aria-hidden="true" />
+      <div className="ai-generation-aura ai-generation-aura-right" aria-hidden="true" />
+      <div className="ai-generation-stars" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="ai-generation-card">
+        <div className="ai-generation-rings" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <span className="ai-generation-label">{aiOverlayLabel(mode, t)}</span>
+        <div className="ai-generation-core" aria-hidden="true">
+          <i />
+          <i />
+          <i />
+        </div>
+        <strong>{t("aiMagicTitle")}</strong>
+        <p>{aiOverlayMessage(mode, t)}</p>
+        <span>{t("aiMagicHint")}</span>
+      </div>
+    </div>
+  );
+}
+
 function ButtonBusyContent({
   busy,
   idleLabel,
@@ -5471,6 +5608,9 @@ export function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
   const visibleError = formatUserErrorMessage(error, locale);
+  const aiOverlayMode = generatingAi || (compareAiLoading ? "compare" : "");
+  const [aiOverlayRenderMode, setAiOverlayRenderMode] = useState("");
+  const [aiOverlayVisible, setAiOverlayVisible] = useState(false);
   const landing = landingContent[locale];
   const helpGuide = helpGuideContentV2[locale];
   const exportBlocks = [
@@ -5486,6 +5626,20 @@ export function App() {
   const wineTemplateSuggestions = [...wines, ...wineCatalog]
     .filter((wine, index, items) => wine.name.trim() && items.findIndex((item) => item.name.trim().toLowerCase() === wine.name.trim().toLowerCase()) === index)
     .sort((first, second) => first.name.localeCompare(second.name));
+
+  useEffect(() => {
+    if (aiOverlayMode) {
+      setAiOverlayRenderMode(aiOverlayMode);
+      setAiOverlayVisible(true);
+      return;
+    }
+    if (!aiOverlayRenderMode) return;
+    setAiOverlayVisible(false);
+    const timeoutId = window.setTimeout(() => {
+      setAiOverlayRenderMode("");
+    }, 360);
+    return () => window.clearTimeout(timeoutId);
+  }, [aiOverlayMode, aiOverlayRenderMode]);
 
   function matchingWineTemplate(name: string): Wine | CatalogWine | null {
     const normalized = name.trim().toLowerCase();
@@ -12792,6 +12946,7 @@ export function App() {
         </section>
       )}
       {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
+      {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} /> : null}
       {showBackToTop ? (
         <button
           type="button"
