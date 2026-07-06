@@ -777,6 +777,11 @@ type ImportSelection = ExportSelection;
 
 type SortMode = "name" | "vintage" | "value" | "drink_window" | "priority";
 type Locale = "en" | "it";
+type AiOverlayProgress = {
+  itemName?: string;
+  current?: number;
+  total?: number;
+} | null;
 type TastingEnjoyment = "" | "positive" | "negative";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
@@ -3953,7 +3958,31 @@ function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string) {
   }
 }
 
-function AiGenerationOverlay({ mode, t }: { mode: string; t: (key: TranslationKey) => string }) {
+function wineProgressName(wine: Pick<Wine, "name" | "vintage">) {
+  return [wine.name, wine.vintage].map((part) => part.trim()).filter(Boolean).join(" ");
+}
+
+function aiOverlayProgressText(progress: AiOverlayProgress, locale: Locale) {
+  if (!progress?.itemName) return "";
+  if (progress.current && progress.total) {
+    const count = locale === "it" ? `Vino ${progress.current} di ${progress.total}` : `Wine ${progress.current} of ${progress.total}`;
+    return `${count} · ${progress.itemName}`;
+  }
+  return locale === "it" ? `Vino · ${progress.itemName}` : `Wine · ${progress.itemName}`;
+}
+
+function AiGenerationOverlay({
+  mode,
+  t,
+  locale,
+  progress,
+}: {
+  mode: string;
+  t: (key: TranslationKey) => string;
+  locale: Locale;
+  progress: AiOverlayProgress;
+}) {
+  const progressText = aiOverlayProgressText(progress, locale);
   return (
     <div className={`ai-generation-overlay${mode ? " is-visible" : " is-leaving"}`} role="status" aria-live="polite" aria-busy="true">
       <div className="ai-generation-lab" aria-hidden="true">
@@ -3997,6 +4026,7 @@ function AiGenerationOverlay({ mode, t }: { mode: string; t: (key: TranslationKe
         <span className="ai-generation-label">{aiOverlayLabel(mode, t)}</span>
         <strong>{t("aiMagicTitle")}</strong>
         <p>{aiOverlayMessage(mode, t)}</p>
+        {progressText ? <span className="ai-generation-progress">{progressText}</span> : null}
         <span className="ai-generation-hint">{t("aiMagicHint")}</span>
       </div>
     </div>
@@ -5618,6 +5648,7 @@ export function App() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generatingAi, setGeneratingAi] = useState("");
+  const [aiOverlayProgress, setAiOverlayProgress] = useState<AiOverlayProgress>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const errorBannerRef = useRef<HTMLDivElement | null>(null);
@@ -7594,6 +7625,7 @@ export function App() {
   async function generateWineAi(wine: Wine, feature: WineAiFeature, options?: { openMarketModal?: boolean }) {
     const openMarketModal = options?.openMarketModal ?? true;
     setGeneratingAi(feature);
+    setAiOverlayProgress({ itemName: wineProgressName(wine) });
     setError("");
     try {
       const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
@@ -7613,6 +7645,7 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
       setGeneratingAi("");
+      setAiOverlayProgress(null);
     }
   }
 
@@ -7731,7 +7764,8 @@ export function App() {
     setGeneratingAi(`batch-${feature}`);
     setError("");
       try {
-        for (const wine of items) {
+        for (const [index, wine] of items.entries()) {
+          setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: items.length });
           const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
           method: "POST",
           body: JSON.stringify({ locale }),
@@ -7744,6 +7778,7 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
       setGeneratingAi("");
+      setAiOverlayProgress(null);
     }
   }
 
@@ -12963,7 +12998,7 @@ export function App() {
         </section>
       )}
       {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
-      {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} /> : null}
+      {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} locale={locale} progress={aiOverlayProgress} /> : null}
       {showBackToTop ? (
         <button
           type="button"
