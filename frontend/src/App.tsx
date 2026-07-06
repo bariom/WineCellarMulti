@@ -3956,9 +3956,18 @@ function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string) {
 function AiGenerationOverlay({ mode, t }: { mode: string; t: (key: TranslationKey) => string }) {
   return (
     <div className={`ai-generation-overlay${mode ? " is-visible" : " is-leaving"}`} role="status" aria-live="polite" aria-busy="true">
-      <div className="ai-generation-aura ai-generation-aura-left" aria-hidden="true" />
-      <div className="ai-generation-aura ai-generation-aura-right" aria-hidden="true" />
-      <div className="ai-generation-stars" aria-hidden="true">
+      <div className="ai-generation-lab" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </div>
+      <div className="ai-generation-particles" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
+        <span />
         <span />
         <span />
         <span />
@@ -3966,21 +3975,29 @@ function AiGenerationOverlay({ mode, t }: { mode: string; t: (key: TranslationKe
         <span />
         <span />
       </div>
-      <div className="ai-generation-card">
-        <div className="ai-generation-rings" aria-hidden="true">
+      <div className="ai-generation-stage" aria-hidden="true">
+        <svg className="ai-generation-waveform" viewBox="0 0 1000 360" preserveAspectRatio="xMidYMid meet" focusable="false">
+          <path className="ai-wave ai-wave-cyan" d="M12 184 C 118 176, 168 82, 282 114 S 452 278, 548 222 S 704 78, 818 120 S 932 198, 988 178" />
+          <path className="ai-wave ai-wave-magenta" d="M8 202 C 110 238, 174 116, 282 144 S 456 238, 554 174 S 724 112, 828 168 S 930 236, 992 192" />
+          <path className="ai-wave ai-wave-gold" d="M18 166 C 112 124, 178 226, 292 194 S 462 102, 558 144 S 716 260, 828 216 S 924 142, 982 168" />
+          <path className="ai-wave ai-wave-green" d="M22 214 C 126 144, 194 264, 304 212 S 448 86, 566 128 S 718 286, 846 218 S 928 156, 978 198" />
+        </svg>
+        <div className="ai-generation-orbit">
           <span />
           <span />
           <span />
         </div>
+        <div className="ai-generation-core">
+          <span />
+          <span />
+          <span />
+        </div>
+      </div>
+      <div className="ai-generation-copy">
         <span className="ai-generation-label">{aiOverlayLabel(mode, t)}</span>
-        <div className="ai-generation-core" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </div>
         <strong>{t("aiMagicTitle")}</strong>
         <p>{aiOverlayMessage(mode, t)}</p>
-        <span>{t("aiMagicHint")}</span>
+        <span className="ai-generation-hint">{t("aiMagicHint")}</span>
       </div>
     </div>
   );
