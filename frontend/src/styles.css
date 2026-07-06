@@ -1319,7 +1319,7 @@ summary:focus-visible {
 .market-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 320;
+  z-index: 360;
   display: grid;
   place-items: center;
   padding: 28px;
@@ -7166,7 +7166,7 @@ button.stat-card:hover {
 .ai-generation-overlay {
   position: fixed;
   inset: 0;
-  z-index: 85;
+  z-index: 350;
   display: grid;
   grid-template-rows: 1fr auto;
   place-items: center;
