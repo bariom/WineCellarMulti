@@ -4804,6 +4804,7 @@ textarea {
   grid-column: span 2;
   padding: 0;
   overflow: hidden;
+  gap: 0;
   border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 16%, transparent), transparent 36%),
@@ -4836,17 +4837,12 @@ textarea {
   overflow-x: auto;
   overflow-y: hidden;
   scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  scrollbar-color: color-mix(in srgb, var(--accent) 42%, var(--border)) transparent;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
 }
 
 .key-position-strip::-webkit-scrollbar {
-  height: 8px;
-}
-
-.key-position-strip::-webkit-scrollbar-thumb {
-  border-radius: 99px;
-  background: color-mix(in srgb, var(--accent) 42%, var(--border));
+  display: none;
 }
 
 .key-position-button {
@@ -4957,6 +4953,46 @@ textarea {
 .key-position-metrics strong {
   color: var(--text);
   font-size: 1.05rem;
+}
+
+.key-position-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 0 22px 14px;
+}
+
+.key-position-dots button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.key-position-dots button::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 36%, transparent);
+  transition: transform 120ms ease, background 120ms ease;
+}
+
+.key-position-dots button.active::before {
+  background: var(--primary);
+  transform: scale(1.18);
+}
+
+.key-position-dots button:hover,
+.key-position-dots button:focus-visible {
+  transform: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .pairing-card {

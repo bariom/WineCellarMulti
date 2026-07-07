@@ -5562,6 +5562,8 @@ export function App() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [operationalActionsExpanded, setOperationalActionsExpanded] = useState(false);
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
+  const [activeKeyPositionIndex, setActiveKeyPositionIndex] = useState(0);
+  const keyPositionStripRef = useRef<HTMLDivElement | null>(null);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
@@ -8611,6 +8613,28 @@ export function App() {
       };
     });
   })();
+  const keyPositionIds = keyPositionCandidates.map(({ wine }) => wine.id).join("|");
+
+  useEffect(() => {
+    setActiveKeyPositionIndex(0);
+    keyPositionStripRef.current?.scrollTo({ left: 0 });
+  }, [keyPositionIds]);
+
+  function updateActiveKeyPosition(event: UIEvent<HTMLDivElement>) {
+    const container = event.currentTarget;
+    const width = container.clientWidth;
+    if (!width) return;
+    const nextIndex = Math.round(container.scrollLeft / width);
+    setActiveKeyPositionIndex(Math.max(0, Math.min(nextIndex, keyPositionCandidates.length - 1)));
+  }
+
+  function goToKeyPosition(index: number) {
+    const container = keyPositionStripRef.current;
+    if (!container) return;
+    container.scrollTo({ left: container.clientWidth * index, behavior: "smooth" });
+    setActiveKeyPositionIndex(index);
+  }
+
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
   const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
@@ -10051,7 +10075,7 @@ export function App() {
                         <span>{t("keyPositions")}</span>
                         <strong>{keyPositionCandidates.length}</strong>
                       </div>
-                      <div className="key-position-strip" aria-label={t("keyPositions")}>
+                      <div className="key-position-strip" aria-label={t("keyPositions")} onScroll={updateActiveKeyPosition} ref={keyPositionStripRef}>
                         {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             <div className="key-position-head">
@@ -10071,6 +10095,20 @@ export function App() {
                           </button>
                         ))}
                       </div>
+                      {keyPositionCandidates.length > 1 ? (
+                        <div className="key-position-dots" aria-label={t("keyPositions")}>
+                          {keyPositionCandidates.map(({ wine }, index) => (
+                            <button
+                              type="button"
+                              className={index === activeKeyPositionIndex ? "active" : ""}
+                              key={wine.id}
+                              aria-label={`${t("keyPosition")} ${index + 1}`}
+                              aria-current={index === activeKeyPositionIndex ? "true" : undefined}
+                              onClick={() => goToKeyPosition(index)}
+                            />
+                          ))}
+                        </div>
+                      ) : null}
                     </>
                   ) : (
                     <div className="empty-state">{t("noActionItems")}</div>
