@@ -5496,6 +5496,7 @@ function ContactSupportPanel({
 function DashboardCarousel({ label, children }: { label: string; children: ReactNode }) {
   const cards = Children.toArray(children);
   const [activeIndex, setActiveIndex] = useState(0);
+  const carouselRef = useRef<HTMLElement | null>(null);
 
   function updateActiveIndex(event: UIEvent<HTMLElement>) {
     const container = event.currentTarget;
@@ -5514,15 +5515,30 @@ function DashboardCarousel({ label, children }: { label: string; children: React
     setActiveIndex(nearestIndex);
   }
 
+  function goToCard(index: number) {
+    const container = carouselRef.current;
+    const item = container?.children[index] as HTMLElement | undefined;
+    if (!container || !item) return;
+    container.scrollTo({ left: item.offsetLeft, behavior: "smooth" });
+    setActiveIndex(index);
+  }
+
   return (
     <div className="dashboard-carousel-shell">
-      <section className="dashboard-grid" aria-label={label} onScroll={updateActiveIndex}>
+      <section className="dashboard-grid" aria-label={label} onScroll={updateActiveIndex} ref={carouselRef}>
         {children}
       </section>
       {cards.length > 1 ? (
-        <div className="dashboard-dots" aria-hidden="true">
+        <div className="dashboard-dots" aria-label={label}>
           {cards.map((_, index) => (
-            <span className={index === activeIndex ? "active" : ""} key={index} />
+            <button
+              type="button"
+              className={index === activeIndex ? "active" : ""}
+              key={index}
+              aria-label={`${label} ${index + 1}`}
+              aria-current={index === activeIndex ? "true" : undefined}
+              onClick={() => goToCard(index)}
+            />
           ))}
         </div>
       ) : null}

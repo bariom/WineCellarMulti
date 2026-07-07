@@ -4768,7 +4768,20 @@ textarea {
   gap: 7px;
 }
 
-.dashboard-dots span {
+.dashboard-dots button {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.dashboard-dots button::before {
+  content: "";
   width: 7px;
   height: 7px;
   border-radius: 999px;
@@ -4776,9 +4789,15 @@ textarea {
   transition: transform 120ms ease, background 120ms ease;
 }
 
-.dashboard-dots span.active {
+.dashboard-dots button.active::before {
   background: var(--primary);
   transform: scale(1.18);
+}
+
+.dashboard-dots button:hover,
+.dashboard-dots button:focus-visible {
+  transform: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
 .dashboard-card {
