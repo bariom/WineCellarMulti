@@ -5530,6 +5530,19 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.score-quality-row {
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+}
+
+.score-quality-row .row-open-action {
+  width: 100%;
+}
+
+.score-quality-row .row-action-buttons {
+  justify-content: start;
+}
+
 .row-action-buttons {
   display: flex;
   flex-wrap: wrap;

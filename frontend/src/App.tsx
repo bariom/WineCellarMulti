@@ -10639,7 +10639,7 @@ export function App() {
                     </button>
                     <div className="action-list scrollable-action-list">
                       {missingScoresWines.length ? missingScoresWines.map((wine) => (
-                        <div className="action-row data-quality-row" key={wine.id}>
+                        <div className="action-row data-quality-row score-quality-row" key={wine.id}>
                           <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
                             <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
                           </button>
