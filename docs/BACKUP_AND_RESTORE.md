@@ -95,31 +95,139 @@ Read backup logs:
 sudo journalctl -u winecellarmulti-backup.service --since "24 hours ago" --no-pager
 ```
 
-## Restore
+## Restore step by step
 
-Stop the application services first so users do not write during restore:
+Use this procedure during a maintenance window. The restore script recreates the PostgreSQL database, so every write made after the selected backup timestamp will be lost.
+
+### 1. Open the project directory
 
 ```bash
-sudo systemctl stop winecellarmulti-backend winecellarmulti-frontend
+cd /home/administrator/progetti/WineCellarMulti
 ```
 
-Restore a local backup:
+### 2. Choose the backup to restore
+
+List local backups:
+
+```bash
+ls -lh backups/postgres/
+```
+
+List remote pCloud backups:
+
+```bash
+rclone lsf pcloud:VinarisBackups/postgres
+```
+
+Backup filenames use UTC timestamps:
+
+```text
+winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
+```
+
+Example: `winecellarmulti_20260707T011500Z.dump.gz` was created on July 7, 2026 at 01:15 UTC.
+
+### 3. Download the backup if it is only on pCloud
+
+Create the local backup directory if needed:
+
+```bash
+mkdir -p backups/postgres
+```
+
+Download the selected backup:
+
+```bash
+rclone copyto \
+  pcloud:VinarisBackups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz \
+  backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
+```
+
+Confirm it exists locally:
+
+```bash
+ls -lh backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
+```
+
+### 4. Make the restore script executable
+
+```bash
+chmod +x scripts/restore-db.sh
+```
+
+### 5. Stop the application
+
+Stop the frontend and backend so users cannot write while the database is being restored:
+
+```bash
+sudo systemctl stop winecellarmulti-frontend
+sudo systemctl stop winecellarmulti-backend
+```
+
+Keep PostgreSQL running. The restore script uses the Docker Compose `postgres` service.
+
+### 6. Run the restore
 
 ```bash
 ./scripts/restore-db.sh backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
 ```
 
-If the backup is only on pCloud, download it first:
+The script first verifies the backup catalog. Then it asks for an explicit confirmation:
 
-```bash
-rclone copyto pcloud:VinarisBackups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
-./scripts/restore-db.sh backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
+```text
+Type RESTORE winecellarmulti to continue:
 ```
 
-Restart the app:
+Type exactly:
+
+```text
+RESTORE winecellarmulti
+```
+
+The script will:
+
+- terminate active database connections
+- drop and recreate the `winecellarmulti` database
+- restore the compressed PostgreSQL dump
+
+### 7. Restart the application
 
 ```bash
-sudo systemctl start winecellarmulti-backend winecellarmulti-frontend
+sudo systemctl start winecellarmulti-backend
+sudo systemctl start winecellarmulti-frontend
+```
+
+### 8. Check service health
+
+```bash
+sudo systemctl status winecellarmulti-backend --no-pager
+sudo systemctl status winecellarmulti-frontend --no-pager
+```
+
+Check recent logs if something is not active:
+
+```bash
+sudo journalctl -u winecellarmulti-backend --since "15 minutes ago" --no-pager
+sudo journalctl -u winecellarmulti-frontend --since "15 minutes ago" --no-pager
+```
+
+### 9. Verify the restored application
+
+Open the app and confirm:
+
+- login works
+- the cellar list loads
+- recent wines are present
+- wishlist data is present
+- tasting history is present
+- user/household access looks correct
+
+### 10. Run a fresh backup after restore
+
+After confirming the restored app is healthy, create a new backup from the restored state:
+
+```bash
+./scripts/backup-db.sh
 ```
 
 ## Periodic restore test
