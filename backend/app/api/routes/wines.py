@@ -145,6 +145,7 @@ def wine_response(
         tags=tag_names or [],
         grapes=wine.grapes or [],
         scores=wine.scores or [],
+        scores_not_applicable=wine.scores_not_applicable,
         tasting_history=[],
         value_history=[],
     )
@@ -338,6 +339,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         tags=[],
         grapes=source.grapes,
         scores=source.scores,
+        scores_not_applicable=source.scores_not_applicable,
         tasting_history=normalize_tasting_history([dict(entry) for entry in (source.tasting_history or [])]),
     )
 
@@ -569,6 +571,8 @@ def create_wine(
     tag_names = data.pop("tags", [])
     data["owners"] = normalize_owner_rows(data.get("owners", []))
     data["type"] = normalize_wine_type(data.get("type"))
+    if data.get("scores"):
+        data["scores_not_applicable"] = False
     wine = Wine(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -610,6 +614,8 @@ def update_wine(
     tag_names = data.pop("tags", None)
     if "type" in data:
         data["type"] = normalize_wine_type(data.get("type"))
+    if data.get("scores"):
+        data["scores_not_applicable"] = False
     old_value = wine.current_value
     old_currency = wine.currency
     for field, value in data.items():

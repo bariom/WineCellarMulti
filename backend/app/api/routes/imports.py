@@ -445,6 +445,7 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "tags": [as_str(tag) for tag in as_list(raw.get("tags")) if as_str(tag)],
         "grapes": as_list(raw.get("grapes")),
         "scores": as_list(raw.get("scores")),
+        "scores_not_applicable": raw.get("scores_not_applicable") in (True, "1", 1, "true", "True"),
         "tasting_history": as_list(raw.get("tasting_history")),
     }
 

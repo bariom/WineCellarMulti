@@ -1296,6 +1296,8 @@ def generate_scores(
         for item in scores
         if isinstance(item, dict) and (item.get("critic") or item.get("score"))
     ][:8]
+    if wine.scores:
+        wine.scores_not_applicable = False
     record_ai_audit(
         db,
         context,

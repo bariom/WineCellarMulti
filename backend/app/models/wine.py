@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Date, DateTime, ForeignKey, JSON, Numeric, String, Text, Uuid
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, JSON, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -46,6 +46,7 @@ class Wine(Base):
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     grapes: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
+    scores_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
     tasting_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
 

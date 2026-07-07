@@ -55,6 +55,7 @@ type Wine = {
   tags: string[];
   grapes: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
   scores: Array<{ critic: string; score: string; note: string }>;
+  scores_not_applicable: boolean;
   tasting_history: Array<{
     id: string;
     consumed_at: string;
@@ -1237,6 +1238,7 @@ const translations = {
     missingDrinkWindow: "Missing drink window",
     missingGrapes: "Missing grapes",
     missingScores: "Missing scores",
+    noScoresNeeded: "No scores needed",
     missingValue: "Missing value",
     myBottles: "My bottles",
     name: "Name",
@@ -1781,6 +1783,7 @@ const translations = {
     missingDrinkWindow: "Finestra mancante",
     missingGrapes: "Uve mancanti",
     missingScores: "Punteggi mancanti",
+    noScoresNeeded: "Mantieni senza punteggi",
     missingValue: "Valore mancante",
     myBottles: "Mie bottiglie",
     name: "Nome",
@@ -2840,6 +2843,7 @@ function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       percentage_to: grape.percentage_to === undefined ? undefined : rawNumber(grape.percentage_to),
     })),
     scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
+    scores_not_applicable: Boolean(raw.scores_not_applicable),
     tasting_history: rawArray(raw.tasting_history).map((entry, entryIndex) => ({
       id: rawString(entry.id, `offline-tasting-${index}-${entryIndex}`),
       consumed_at: rawString(entry.consumed_at),
@@ -4926,6 +4930,7 @@ function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     tags: [],
     grapes: [],
     scores: [],
+    scores_not_applicable: false,
     tasting_history: [],
     value_history: [],
   };
@@ -7687,6 +7692,23 @@ export function App() {
     }
   }
 
+  async function markScoresNotApplicable(wine: Wine) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ scores_not_applicable: true }),
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update wine");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function generateCompareAi() {
     if (compareWineIds.length !== 2) {
       setError(t("aiCompareOnlyTwo"));
@@ -8248,7 +8270,7 @@ export function App() {
       if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
       if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
       if (quickWineFilter === "to_collect") return isToCollectWine(wine);
-      if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0;
+      if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0;
       return true;
     })
     .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
@@ -8286,7 +8308,7 @@ export function App() {
         if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
         if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
         if (quickWineFilter === "to_collect") return isToCollectWine(wine);
-        if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0;
+        if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0;
         return true;
       })
       .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
@@ -8469,7 +8491,7 @@ export function App() {
     missingValue: cellarWines.filter((wine) => !wine.current_value).length,
     missingDrinkWindow: cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to)).length,
     missingGrapes: cellarWines.filter((wine) => wine.grapes.length === 0).length,
-    missingScores: cellarWines.filter((wine) => wine.scores.length === 0).length,
+    missingScores: cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable).length,
     aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
   const wishlistStats = {
@@ -8551,10 +8573,10 @@ export function App() {
     total: deliveryTimelineItems.length,
   };
   const incompleteWines = cellarWines
-    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0)
+    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0)
     .sort((first, second) => {
-      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0) + Number(first.grapes.length === 0);
-      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0) + Number(second.grapes.length === 0);
+      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0 && !first.scores_not_applicable) + Number(first.grapes.length === 0);
+      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0 && !second.scores_not_applicable) + Number(second.grapes.length === 0);
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
@@ -8655,7 +8677,7 @@ export function App() {
   const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
   const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0);
-  const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0);
+  const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable);
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
@@ -10236,7 +10258,7 @@ export function App() {
                     {incompleteWines.length ? incompleteWines.map((wine) => (
                       <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                         <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                        <strong>{!wine.current_value ? t("value") : !wine.drink_from || !wine.drink_to ? t("drinkWindow") : t("scores")}</strong>
+                        <strong>{!wine.current_value ? t("value") : !wine.drink_from || !wine.drink_to ? t("drinkWindow") : wine.scores.length === 0 && !wine.scores_not_applicable ? t("scores") : t("grapes")}</strong>
                       </button>
                     )) : <p className="empty-state">{t("noActionItems")}</p>}
                   </div>
@@ -10621,9 +10643,14 @@ export function App() {
                           <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
                             <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
                           </button>
-                          <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "scores")}>
-                            {generatingAi === "scores" && selectedWineId === wine.id ? t("generating") : t("scores")}
-                          </button>
+                          <div className="row-action-buttons">
+                            <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "scores")}>
+                              {generatingAi === "scores" && selectedWineId === wine.id ? t("generating") : t("scores")}
+                            </button>
+                            <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={() => markScoresNotApplicable(wine)}>
+                              {t("noScoresNeeded")}
+                            </button>
+                          </div>
                         </div>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>

@@ -5530,6 +5530,14 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.row-action-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: 8px;
+  min-width: 0;
+}
+
 .row-open-action {
   min-height: auto;
   padding: 0;
