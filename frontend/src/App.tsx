@@ -1187,6 +1187,8 @@ const translations = {
     valueByProducer: "Value by producer",
     investedMore: "Where you invested more",
     keyPosition: "Key position",
+    keyPositions: "Key positions",
+    ownedValue: "Owned value",
     action: "Action",
     hold: "Hold",
     monitor: "Monitor",
@@ -1729,6 +1731,8 @@ const translations = {
     valueByProducer: "Valore per produttore",
     investedMore: "Dove hai investito di più",
     keyPosition: "Posizione chiave",
+    keyPositions: "Posizioni chiave",
+    ownedValue: "Valore quota",
     action: "Azione",
     hold: "Tenere",
     monitor: "Monitorare",
@@ -8569,18 +8573,44 @@ export function App() {
   const topValueWines = [...cellarWines]
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
-  const keyPositionWine = (
-    [...cellarWines].sort((first, second) => (wineUnitValue(second) * second.quantity) - (wineUnitValue(first) * first.quantity))[0]
-  ) || null;
-  const keyPositionAction = keyPositionWine
-    ? !keyPositionWine.drink_from || !keyPositionWine.drink_to
-      ? t("completeData")
-      : keyPositionWine.drink_to < currentYear
-        ? t("monitor")
-        : keyPositionWine.drink_from <= currentYear && keyPositionWine.drink_to >= currentYear
-          ? t("drinkNow")
-          : t("hold")
-    : "";
+  const keyPositionCandidates = (() => {
+    const positionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity;
+    const ownedValue = (wine: Wine) => positionValue(wine) * (currentUserSharePct(wine, session) / 100);
+    const ownWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) >= 99.999);
+    const sharedWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) > 0 && currentUserSharePct(wine, session) < 99.999);
+    const orderedByOwnedValue = [...cellarWines].sort((first, second) => ownedValue(second) - ownedValue(first));
+    const orderedByPositionValue = [...cellarWines].sort((first, second) => positionValue(second) - positionValue(first));
+    const orderedOwn = [...ownWines].sort((first, second) => ownedValue(second) - ownedValue(first));
+    const orderedShared = [...sharedWines].sort((first, second) => ownedValue(second) - ownedValue(first));
+    const selected: Wine[] = [];
+    const add = (wine: Wine | undefined) => {
+      if (wine && !selected.some((item) => item.id === wine.id)) selected.push(wine);
+    };
+
+    add(orderedByOwnedValue[0]);
+    add(orderedByPositionValue[0]);
+    add(orderedOwn[0]);
+    add(orderedShared[0]);
+    orderedByOwnedValue.forEach(add);
+
+    return selected.slice(0, 4).map((wine) => {
+      const sharePct = currentUserSharePct(wine, session);
+      const totalValue = positionValue(wine);
+      return {
+        wine,
+        sharePct,
+        ownedValue: totalValue * (sharePct / 100),
+        totalValue,
+        action: !wine.drink_from || !wine.drink_to
+          ? t("completeData")
+          : wine.drink_to < currentYear
+            ? t("monitor")
+            : wine.drink_from <= currentYear && wine.drink_to >= currentYear
+              ? t("drinkNow")
+              : t("hold"),
+      };
+    });
+  })();
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
   const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
@@ -10015,22 +10045,33 @@ export function App() {
               {dashboardFocus === "collector" ? (
               <DashboardCarousel label={t("priorityActions")}>
                 <article className="dashboard-card key-position-card">
-                  {keyPositionWine ? (
-                    <button type="button" className="key-position-button" onClick={() => openWineFromDashboard(keyPositionWine)}>
-                      <div className="key-position-head">
-                        <div>
-                          <span>{t("keyPosition")}</span>
-                          <h2><i className={`wine-dot tone-${wineTone(keyPositionWine.type)}`} />{keyPositionWine.name}</h2>
-                          <p>{[keyPositionWine.producer, keyPositionWine.vintage].filter(Boolean).join(" - ")}</p>
-                        </div>
-                        {keyPositionWine.vintage ? <div className="key-position-vintage"><span>{keyPositionWine.vintage}</span></div> : null}
+                  {keyPositionCandidates.length ? (
+                    <>
+                      <div className="key-position-card-heading">
+                        <span>{t("keyPositions")}</span>
+                        <strong>{keyPositionCandidates.length}</strong>
                       </div>
-                      <div className="key-position-metrics">
-                        <div><span>{t("value")}</span><strong>{formatMoney(wineUnitValue(keyPositionWine) * keyPositionWine.quantity, keyPositionWine.currency, locale)}</strong></div>
-                        <div><span>{t("drinkWindow")}</span><strong>{keyPositionWine.drink_from && keyPositionWine.drink_to ? `${keyPositionWine.drink_from}-${keyPositionWine.drink_to}` : t("notSpecified")}</strong></div>
-                        <div><span>{t("action")}</span><strong>{keyPositionAction}</strong></div>
+                      <div className="key-position-strip" aria-label={t("keyPositions")}>
+                        {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action }) => (
+                          <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                            <div className="key-position-head">
+                              <div>
+                                <span>{sharePct >= 99.999 ? t("myBottles") : t("sharedBottles")}</span>
+                                <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
+                                <p>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</p>
+                              </div>
+                              {wine.vintage ? <div className="key-position-vintage"><span>{wine.vintage}</span></div> : null}
+                            </div>
+                            <div className="key-position-metrics">
+                              <div><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
+                              <div><span>{t("totalValue")}</span><strong>{formatMoney(totalValue, wine.currency, locale)}</strong></div>
+                              <div><span>{t("ownership")}</span><strong>{Math.round(sharePct)}%</strong></div>
+                              <div><span>{t("action")}</span><strong>{action}</strong></div>
+                            </div>
+                          </button>
+                        ))}
                       </div>
-                    </button>
+                    </>
                   ) : (
                     <div className="empty-state">{t("noActionItems")}</div>
                   )}

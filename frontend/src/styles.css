@@ -4810,6 +4810,45 @@ textarea {
     linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 94%, var(--accent)) 0%, var(--surface) 100%);
 }
 
+.key-position-card-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.key-position-card-heading strong {
+  color: var(--text);
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.key-position-strip {
+  display: grid;
+  grid-auto-columns: 100%;
+  grid-auto-flow: column;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--accent) 42%, var(--border)) transparent;
+}
+
+.key-position-strip::-webkit-scrollbar {
+  height: 8px;
+}
+
+.key-position-strip::-webkit-scrollbar-thumb {
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--accent) 42%, var(--border));
+}
+
 .key-position-button {
   display: grid;
   gap: 18px;
@@ -4822,6 +4861,7 @@ textarea {
   border: 0;
   border-radius: inherit;
   box-shadow: none;
+  scroll-snap-align: start;
 }
 
 .key-position-button:hover,
