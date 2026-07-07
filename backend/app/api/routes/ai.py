@@ -1246,6 +1246,8 @@ def generate_scores(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    if wine.scores_not_applicable:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI score lookup disabled for this wine")
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
         "name": "wine_scores",

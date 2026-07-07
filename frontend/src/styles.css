@@ -3702,6 +3702,34 @@ textarea {
   gap: 6px;
 }
 
+.detail-preference-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.detail-toggle-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 800;
+}
+
+.detail-toggle-row input {
+  width: auto;
+}
+
+.detail-preference-bar small {
+  color: var(--text-muted);
+}
+
 .ownership-edit-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 92px auto;

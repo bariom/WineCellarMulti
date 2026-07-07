@@ -1239,6 +1239,8 @@ const translations = {
     missingGrapes: "Missing grapes",
     missingScores: "Missing scores",
     noScoresNeeded: "No scores needed",
+    excludeFromAiScores: "Exclude from AI score lookup",
+    excludedFromAiScores: "AI score lookup excluded",
     missingValue: "Missing value",
     myBottles: "My bottles",
     name: "Name",
@@ -1784,6 +1786,8 @@ const translations = {
     missingGrapes: "Uve mancanti",
     missingScores: "Punteggi mancanti",
     noScoresNeeded: "Mantieni senza punteggi",
+    excludeFromAiScores: "Escludi dalla ricerca punteggi AI",
+    excludedFromAiScores: "Ricerca punteggi AI esclusa",
     missingValue: "Valore mancante",
     myBottles: "Mie bottiglie",
     name: "Nome",
@@ -4945,6 +4949,7 @@ function WineDetail({
   saving,
   generating,
   onGenerate,
+  onToggleScoresAiExclusion,
   onConsume,
   onUpdateTastingEntry,
   onDeleteTastingEntry,
@@ -4961,6 +4966,7 @@ function WineDetail({
   saving: boolean;
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
+  onToggleScoresAiExclusion: (excluded: boolean) => void;
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
   onUpdateTastingEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
   onDeleteTastingEntry: (wine: Wine, entryId: string) => Promise<void>;
@@ -5016,9 +5022,22 @@ function WineDetail({
             <span>{t("quantity")}</span>
             <strong>{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</strong>
           </div>
-        </div>
+      </div>
 
-        {(wine.drink_from || wine.drink_to) ? (
+      <div className="detail-preference-bar">
+        <label className="detail-toggle-row">
+          <input
+            type="checkbox"
+            checked={wine.scores_not_applicable}
+            disabled={!canWrite || saving}
+            onChange={(event) => onToggleScoresAiExclusion(event.target.checked)}
+          />
+          <span>{t("excludeFromAiScores")}</span>
+        </label>
+        {wine.scores_not_applicable ? <small>{t("excludedFromAiScores")}</small> : null}
+      </div>
+
+      {(wine.drink_from || wine.drink_to) ? (
           <div className="drink-window detail-hero-window">
             <div className="section-heading">
               <h3>{t("drinkingWindow")}</h3>
@@ -5136,7 +5155,7 @@ function WineDetail({
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
           <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} />
         </button>
-        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("scores")}>
+        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.scores_not_applicable} onClick={() => onGenerate("scores")}>
           <ButtonBusyContent busy={generating === "scores"} idleLabel={t("scores")} busyLabel={t("generating")} />
         </button>
       </div>
@@ -7666,6 +7685,10 @@ export function App() {
   }
 
   async function generateWineAi(wine: Wine, feature: WineAiFeature, options?: { openMarketModal?: boolean }) {
+    if (feature === "scores" && wine.scores_not_applicable) {
+      setError(t("excludedFromAiScores"));
+      return;
+    }
     const openMarketModal = options?.openMarketModal ?? true;
     setGeneratingAi(feature);
     setAiOverlayProgress({ itemName: wineProgressName(wine) });
@@ -7692,13 +7715,13 @@ export function App() {
     }
   }
 
-  async function markScoresNotApplicable(wine: Wine) {
+  async function setWineScoresAiExclusion(wine: Wine, excluded: boolean) {
     setSaving(true);
     setError("");
     try {
       const updated = await api<Wine>(`/api/v1/wines/${wine.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ scores_not_applicable: true }),
+        body: JSON.stringify({ scores_not_applicable: excluded }),
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
@@ -7821,11 +7844,13 @@ export function App() {
 
   async function generateMissingWineAi(feature: WineAiFeature, items: Wine[]) {
     if (!items.length) return;
+    const generationItems = feature === "scores" ? items.filter((wine) => !wine.scores_not_applicable) : items;
+    if (!generationItems.length) return;
     setGeneratingAi(`batch-${feature}`);
     setError("");
       try {
-        for (const [index, wine] of items.entries()) {
-          setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: items.length });
+        for (const [index, wine] of generationItems.entries()) {
+          setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: generationItems.length });
           const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
           method: "POST",
           body: JSON.stringify({ locale }),
@@ -10648,7 +10673,7 @@ export function App() {
                             <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "scores")}>
                               {generatingAi === "scores" && selectedWineId === wine.id ? t("generating") : t("scores")}
                             </button>
-                            <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={() => markScoresNotApplicable(wine)}>
+                            <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={() => setWineScoresAiExclusion(wine, true)}>
                               {t("noScoresNeeded")}
                             </button>
                           </div>
@@ -11255,6 +11280,7 @@ export function App() {
                   saving={saving}
                   generating={generatingAi}
                   onGenerate={(feature) => generateWineAi(selectedVisibleWine, feature)}
+                  onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(selectedVisibleWine, excluded)}
                   onConsume={(payload) => consumeWineBottle(selectedVisibleWine, payload)}
                   onUpdateTastingEntry={updateWineTastingEntry}
                   onDeleteTastingEntry={deleteWineTastingEntry}
@@ -11932,6 +11958,7 @@ export function App() {
                         saving={saving}
                         generating={generatingAi}
                         onGenerate={(feature) => generateWineAi(wine, feature)}
+                        onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
                         onConsume={(payload) => consumeWineBottle(wine, payload)}
                         onUpdateTastingEntry={updateWineTastingEntry}
                         onDeleteTastingEntry={deleteWineTastingEntry}

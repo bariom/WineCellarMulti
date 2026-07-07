@@ -2169,6 +2169,24 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
     assert any(source.get("kind") == "market_note" and "merchant svizzeri" in source.get("text", "") for source in value_entry["sources"])
 
 
+def test_ai_scores_respects_wine_exclusion_flag():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "No Score Wine", "producer": "Producer", "vintage": "2022", "quantity": 1, "price": 20},
+    )
+    assert created.status_code == 201
+
+    updated = client.patch(f"/api/v1/wines/{created.json()['id']}", json={"scores_not_applicable": True})
+    assert updated.status_code == 200
+    assert updated.json()["scores_not_applicable"] is True
+
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores")
+    assert generated.status_code == 400
+    assert "disabled" in generated.json()["detail"].lower()
+
+
 def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
     from app.api.routes import ai as ai_routes
 
