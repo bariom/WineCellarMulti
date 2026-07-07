@@ -787,7 +787,7 @@ type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
 type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
 type HistorySection = "tastings" | "wines";
-type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "missing_data";
+type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data";
 type OperationalActionItem = {
   id: string;
   kind: string;
@@ -1180,6 +1180,7 @@ const translations = {
     noActionItems: "No urgent action items",
     atRiskWines: "At risk",
     upcomingDeliveries: "Upcoming deliveries",
+    winesToCollect: "Wines to collect",
     incompleteData: "Incomplete data",
     maturityMap: "Maturity map",
     peakNow: "At peak now",
@@ -1721,6 +1722,7 @@ const translations = {
     noActionItems: "Nessuna azione urgente",
     atRiskWines: "A rischio",
     upcomingDeliveries: "Consegne in arrivo",
+    winesToCollect: "Vini da ritirare",
     incompleteData: "Dati incompleti",
     maturityMap: "Mappa maturita",
     peakNow: "Al picco ora",
@@ -3349,10 +3351,11 @@ function BreakdownDonut({
   );
 }
 
-function collectorFocusSvgIcon(kind: "drink_now" | "past_window" | "future_deliveries" | "missing_data" | "maturity" | "regions" | "producer") {
+function collectorFocusSvgIcon(kind: "drink_now" | "past_window" | "future_deliveries" | "to_collect" | "missing_data" | "maturity" | "regions" | "producer") {
   if (kind === "drink_now") return dashboardStatSvgIcon("drink_now");
   if (kind === "past_window") return dashboardStatSvgIcon("past_window");
   if (kind === "future_deliveries") return dashboardStatSvgIcon("future_deliveries");
+  if (kind === "to_collect") return dashboardStatSvgIcon("to_collect");
   if (kind === "missing_data") return dashboardStatSvgIcon("missing_data");
   if (kind === "maturity") {
     return (
@@ -3412,6 +3415,11 @@ function isFutureDeliveryWine(wine: Wine, now: Date) {
   const deliveredStatuses = ["delivered", "consegnato", "bevuto", "consumed", "cancelled", "canceled", "annullato"];
   if (deliveredStatuses.some((value) => status.includes(value))) return false;
   return true;
+}
+
+function isToCollectWine(wine: Wine) {
+  const status = wine.status.trim().toLowerCase();
+  return ["collect", "pickup", "ritir"].some((value) => status.includes(value));
 }
 
 function sumWineValue(items: Wine[]) {
@@ -8217,6 +8225,7 @@ export function App() {
       if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
       if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
       if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
+      if (quickWineFilter === "to_collect") return isToCollectWine(wine);
       if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0;
       return true;
     })
@@ -8254,6 +8263,7 @@ export function App() {
         if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
         if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
         if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
+        if (quickWineFilter === "to_collect") return isToCollectWine(wine);
         if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || wine.scores.length === 0 || wine.grapes.length === 0;
         return true;
       })
@@ -8429,6 +8439,7 @@ export function App() {
     drinkSoon: cellarWines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
     futureDeliveries: cellarWines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
+    toCollect: cellarWines.filter(isToCollectWine).length,
     nextDelivery: cellarWines
       .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
       .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
@@ -8486,6 +8497,15 @@ export function App() {
     .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
     .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
     .sort((first, second) => first.days - second.days)
+    .slice(0, 5);
+  const winesToCollect = cellarWines
+    .filter(isToCollectWine)
+    .sort((first, second) => (
+      first.merchant.localeCompare(second.merchant) ||
+      first.producer.localeCompare(second.producer) ||
+      first.name.localeCompare(second.name) ||
+      first.vintage.localeCompare(second.vintage)
+    ))
     .slice(0, 5);
   const deliveryTimelineItems = cellarWines
     .map((wine) => {
@@ -8620,6 +8640,15 @@ export function App() {
       signature: `${cellarStats.futureDeliveries}:${upcomingDeliveries[0]?.wine.id || upcomingDeliveries[0]?.wine.name || ""}:${upcomingDeliveries[0]?.wine.expected_delivery || ""}`,
       onOpen: () => openOperationalCellarFilter("future_deliveries"),
     } : null,
+    cellarStats.toCollect ? {
+      id: "to-collect",
+      kind: "smart_to_collect",
+      title: t("winesToCollect"),
+      detail: winesToCollect[0] ? `${winesToCollect[0].name}${winesToCollect[0].merchant ? ` - ${winesToCollect[0].merchant}` : ""}` : t("openFilteredCellar"),
+      count: cellarStats.toCollect,
+      signature: `${cellarStats.toCollect}:${winesToCollect[0]?.id || winesToCollect[0]?.name || ""}:${winesToCollect[0]?.merchant || ""}`,
+      onOpen: () => openOperationalCellarFilter("to_collect"),
+    } : null,
     allValueRefreshWines.length ? {
       id: "value-refresh",
       kind: "smart_to_collect",
@@ -8730,6 +8759,7 @@ export function App() {
     drink_soon: t("drinkIn2Years"),
     past_window: t("pastWindow"),
     future_deliveries: t("futureDeliveries"),
+    to_collect: t("winesToCollect"),
     missing_data: t("dataQuality"),
   };
 
@@ -10061,6 +10091,24 @@ export function App() {
                 </article>
 
                 <article className="dashboard-card">
+                  <button type="button" className="card-heading card-heading-button" onClick={() => openOperationalCellarFilter("to_collect")}>
+                    <div>
+                      <span>{t("upcomingDeliveries")}</span>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("to_collect")}</i>{t("winesToCollect")}</h2>
+                    </div>
+                    <strong>{cellarStats.toCollect}</strong>
+                  </button>
+                  <div className="action-list">
+                    {winesToCollect.length ? winesToCollect.map((wine) => (
+                      <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                        <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                        <strong>{wine.merchant || formatDisplayDate(wine.expected_delivery) || wine.status}</strong>
+                      </button>
+                    )) : <p className="empty-state">{t("noActionItems")}</p>}
+                  </div>
+                </article>
+
+                <article className="dashboard-card">
                   <button type="button" className="card-heading card-heading-button" onClick={() => { setActiveView("history"); setHistorySection("tastings"); clearFilters("history"); }}>
                     <div>
                       <span>{t("tastingEntries")}</span>
@@ -11170,6 +11218,11 @@ export function App() {
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("future_deliveries")}</i>{t("futureDeliveries")}</span>
                   <strong>{cellarStats.futureDeliveries}</strong>
                   {cellarStats.nextDelivery ? <p>{cellarStats.nextDelivery.wine.name}: {cellarStats.nextDelivery.days} days</p> : null}
+                </button>
+                <button type="button" className={`stat-card ${quickWineFilter === "to_collect" ? "active" : ""}`} onClick={() => applyQuickWineFilter("to_collect")}>
+                  <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("to_collect")}</i>{t("winesToCollect")}</span>
+                  <strong>{cellarStats.toCollect}</strong>
+                  {winesToCollect[0] ? <p>{winesToCollect[0].name}{winesToCollect[0].merchant ? `: ${winesToCollect[0].merchant}` : ""}</p> : null}
                 </button>
                 <button type="button" className={`stat-card compact-list ${quickWineFilter === "missing_data" ? "active" : ""}`} onClick={() => applyQuickWineFilter("missing_data")}>
                   <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataQuality")}</span>
