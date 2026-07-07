@@ -10637,11 +10637,12 @@ export function App() {
                     <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi) || allMissingScoresWines.length === 0} onClick={() => generateMissingWineAi("scores", allMissingScoresWines)}>
                       {generatingAi === "batch-scores" ? t("generating") : t("generateAll")}
                     </button>
-                    <div className="action-list scrollable-action-list">
+                    <div className="action-list scrollable-action-list score-quality-list">
                       {missingScoresWines.length ? missingScoresWines.map((wine) => (
                         <div className="action-row data-quality-row score-quality-row" key={wine.id}>
                           <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
-                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                            <span>{wine.name}</span>
                           </button>
                           <div className="row-action-buttons">
                             <button type="button" className="secondary compact" disabled={!canGenerateAi || Boolean(generatingAi)} onClick={() => generateWineAi(wine, "scores")}>

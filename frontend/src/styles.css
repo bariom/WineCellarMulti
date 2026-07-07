@@ -5530,17 +5530,65 @@ textarea {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
-.score-quality-row {
-  grid-template-columns: minmax(0, 1fr);
-  align-items: start;
+.score-quality-list {
+  gap: 0;
+  padding-right: 8px;
 }
 
-.score-quality-row .row-open-action {
+.action-row.score-quality-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+  min-height: auto;
+  padding: 11px 0 12px;
+}
+
+.action-row.score-quality-row .row-open-action {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  width: 100%;
+  min-height: 0;
+  overflow: visible;
+  color: var(--text);
+  font-weight: 700;
+  line-height: 1.25;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.action-row.score-quality-row .row-open-action .wine-dot {
+  margin-top: 0.28em;
+}
+
+.action-row.score-quality-row .row-open-action span {
+  min-width: 0;
+  overflow: visible;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.action-row.score-quality-row .row-action-buttons {
+  display: grid;
+  grid-template-columns: minmax(74px, auto) minmax(0, 1fr);
+  justify-content: stretch;
+  gap: 8px;
   width: 100%;
 }
 
-.score-quality-row .row-action-buttons {
-  justify-content: start;
+.action-row.score-quality-row .row-action-buttons button {
+  width: 100%;
+  min-width: 0;
+  white-space: normal;
+  line-height: 1.15;
+}
+
+@media (max-width: 420px) {
+  .action-row.score-quality-row .row-action-buttons {
+    grid-template-columns: 1fr;
+  }
 }
 
 .row-action-buttons {
