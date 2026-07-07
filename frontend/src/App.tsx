@@ -812,7 +812,9 @@ type ThemePreference =
   | "burgundy"
   | "tuscany"
   | "piedmont"
-  | "ticino";
+  | "ticino"
+  | "atelier"
+  | "midnight-ledger";
 
 type TastingArchiveEntry = {
   id: string;
@@ -1387,6 +1389,8 @@ const translations = {
     themeTuscany: "Tuscany",
     themePiedmont: "Piedmont",
     themeTicino: "Ticino",
+    themeAtelier: "Collector atelier",
+    themeMidnightLedger: "Midnight ledger",
     unblockAccess: "Unblock access",
     thisMonth: "This month",
     timeline: "Timeline",
@@ -1926,6 +1930,8 @@ const translations = {
     themeTuscany: "Toscana",
     themePiedmont: "Piemonte",
     themeTicino: "Ticino",
+    themeAtelier: "Atelier del collezionista",
+    themeMidnightLedger: "Registro notturno",
     unblockAccess: "Sblocca accesso",
     thisMonth: "Questo mese",
     timeline: "Timeline",
@@ -2016,6 +2022,8 @@ const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
   { value: "tuscany", label: "themeTuscany" },
   { value: "piedmont", label: "themePiedmont" },
   { value: "ticino", label: "themeTicino" },
+  { value: "atelier", label: "themeAtelier" },
+  { value: "midnight-ledger", label: "themeMidnightLedger" },
 ];
 
 function translate(locale: Locale, key: TranslationKey) {

@@ -466,6 +466,89 @@
     linear-gradient(135deg, #1d2522 0%, #101312 100%);
 }
 
+:root[data-theme="atelier"] {
+  color-scheme: light;
+  --page: #f3f5f0;
+  --surface: #fffefa;
+  --surface-raised: #ffffff;
+  --surface-muted: #eef1e9;
+  --surface-subtle: #e2e8dc;
+  --text: #171b18;
+  --text-muted: #536158;
+  --text-soft: #68776d;
+  --border: #d4dbd0;
+  --border-strong: #b9c4b4;
+  --primary: #4b1324;
+  --primary-contrast: #fffefa;
+  --secondary: #e6ebe1;
+  --danger: #a32f45;
+  --danger-text: #7f1f31;
+  --danger-surface: #fff0f3;
+  --success-surface: #edf5ed;
+  --accent: #a9782a;
+  --drink-young: #c29234;
+  --drink-ideal: #3e8462;
+  --drink-past: #b64d60;
+  --bar-muted: #e4e9df;
+  --chart-bar-start: #4b1324;
+  --chart-bar-end: #a9782a;
+  --maturity-bar-start: #3e8462;
+  --maturity-bar-end: #a9782a;
+  --shadow-soft: 0 12px 30px rgba(32, 39, 33, 0.06);
+  --shadow-premium: 0 22px 48px rgba(32, 39, 33, 0.10);
+  --collector-edge: rgba(75, 19, 36, 0.18);
+  --collector-glow: rgba(169, 120, 42, 0.13);
+  --collector-sheen: rgba(255, 255, 255, 0.72);
+  --collector-depth: rgba(27, 32, 28, 0.06);
+  --focus: rgba(75, 19, 36, 0.32);
+  --hero-bg:
+    radial-gradient(circle at 12% 10%, rgba(75, 19, 36, 0.13), transparent 32%),
+    radial-gradient(circle at 82% 18%, rgba(169, 120, 42, 0.16), transparent 28%),
+    linear-gradient(135deg, #fffefa 0%, #eef1e9 58%, #e2e8dc 100%);
+}
+
+:root[data-theme="midnight-ledger"] {
+  color-scheme: dark;
+  --page: #0a0d0c;
+  --surface: #111715;
+  --surface-raised: #16201d;
+  --surface-muted: #1b2824;
+  --surface-subtle: #253630;
+  --text: #f0f6f1;
+  --text-muted: #aab8ae;
+  --text-soft: #91a499;
+  --border: #2c3d36;
+  --border-strong: #41584e;
+  --primary: #8fd2b4;
+  --primary-contrast: #07100c;
+  --secondary: #22332d;
+  --danger: #e06172;
+  --danger-text: #ffe0e6;
+  --danger-surface: #351821;
+  --success-surface: #14261f;
+  --accent: #d2a95b;
+  --drink-young: #d2a95b;
+  --drink-ideal: #8fd2b4;
+  --drink-past: #d55c70;
+  --bar-muted: #24332e;
+  --chart-bar-start: #8fd2b4;
+  --chart-bar-end: #d2a95b;
+  --maturity-bar-start: #8fd2b4;
+  --maturity-bar-end: #d2a95b;
+  --shadow-soft: 0 18px 42px rgba(0, 0, 0, 0.44);
+  --shadow-premium: 0 26px 58px rgba(0, 0, 0, 0.52);
+  --collector-edge: rgba(143, 210, 180, 0.28);
+  --collector-glow: rgba(210, 169, 91, 0.13);
+  --collector-sheen: rgba(255, 255, 255, 0.08);
+  --collector-depth: rgba(0, 0, 0, 0.26);
+  --focus: rgba(143, 210, 180, 0.44);
+  --hero-bg:
+    radial-gradient(circle at 12% 12%, rgba(143, 210, 180, 0.16), transparent 32%),
+    radial-gradient(circle at 84% 18%, rgba(210, 169, 91, 0.15), transparent 28%),
+    radial-gradient(circle at 50% 84%, rgba(75, 19, 36, 0.18), transparent 30%),
+    linear-gradient(135deg, #16201d 0%, #0f1513 54%, #0a0d0c 100%);
+}
+
 :root[data-theme="private-cellar"] .topbar {
   border-bottom-color: color-mix(in srgb, var(--accent) 24%, var(--border));
 }
@@ -3562,7 +3645,9 @@ textarea {
 :root[data-theme="burgundy"] .tag-choice-list label,
 :root[data-theme="burgundy"] .grapes-list label,
 :root[data-theme="ticino"] .tag-choice-list label,
-:root[data-theme="ticino"] .grapes-list label {
+:root[data-theme="ticino"] .grapes-list label,
+:root[data-theme="midnight-ledger"] .tag-choice-list label,
+:root[data-theme="midnight-ledger"] .grapes-list label {
   background: var(--surface-raised);
   border-color: var(--border-strong);
   color: var(--text);
@@ -3577,7 +3662,9 @@ textarea {
 :root[data-theme="burgundy"] .tag-choice-list label span,
 :root[data-theme="burgundy"] .grapes-list label span,
 :root[data-theme="ticino"] .tag-choice-list label span,
-:root[data-theme="ticino"] .grapes-list label span {
+:root[data-theme="ticino"] .grapes-list label span,
+:root[data-theme="midnight-ledger"] .tag-choice-list label span,
+:root[data-theme="midnight-ledger"] .grapes-list label span {
   color: var(--text);
 }
 
@@ -3590,7 +3677,9 @@ textarea {
 :root[data-theme="burgundy"] .tag-choice-list label.selected-filter-chip,
 :root[data-theme="burgundy"] .grapes-list label.selected-filter-chip,
 :root[data-theme="ticino"] .tag-choice-list label.selected-filter-chip,
-:root[data-theme="ticino"] .grapes-list label.selected-filter-chip {
+:root[data-theme="ticino"] .grapes-list label.selected-filter-chip,
+:root[data-theme="midnight-ledger"] .tag-choice-list label.selected-filter-chip,
+:root[data-theme="midnight-ledger"] .grapes-list label.selected-filter-chip {
   background: color-mix(in srgb, var(--primary) 22%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--primary) 52%, var(--border-strong));
 }
@@ -5949,7 +6038,8 @@ button.stat-card:hover {
 :root[data-theme="red-wine"] .stat-card,
 :root[data-theme="bordeaux"] .stat-card,
 :root[data-theme="burgundy"] .stat-card,
-:root[data-theme="ticino"] .stat-card {
+:root[data-theme="ticino"] .stat-card,
+:root[data-theme="midnight-ledger"] .stat-card {
   background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
 }
@@ -5959,16 +6049,19 @@ button.stat-card:hover {
 :root[data-theme="bordeaux"] .stat-card span,
 :root[data-theme="burgundy"] .stat-card span,
 :root[data-theme="ticino"] .stat-card span,
+:root[data-theme="midnight-ledger"] .stat-card span,
 :root[data-theme="dark"] .stat-card p,
 :root[data-theme="red-wine"] .stat-card p,
 :root[data-theme="bordeaux"] .stat-card p,
 :root[data-theme="burgundy"] .stat-card p,
 :root[data-theme="ticino"] .stat-card p,
+:root[data-theme="midnight-ledger"] .stat-card p,
 :root[data-theme="dark"] .compact-list p,
 :root[data-theme="red-wine"] .compact-list p,
 :root[data-theme="bordeaux"] .compact-list p,
 :root[data-theme="burgundy"] .compact-list p,
-:root[data-theme="ticino"] .compact-list p {
+:root[data-theme="ticino"] .compact-list p,
+:root[data-theme="midnight-ledger"] .compact-list p {
   color: var(--text-muted);
 }
 

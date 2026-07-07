@@ -88,5 +88,5 @@ class UserPreferencesUpdate(BaseModel):
     locale: str | None = Field(default=None, pattern="^(en|it)$")
     theme_preference: str | None = Field(
         default=None,
-        pattern="^(system|light|dark|private-cellar|sepia|white-wine|red-wine|rose-wine|champagne|bordeaux|burgundy|tuscany|piedmont|ticino)$",
+        pattern="^(system|light|dark|private-cellar|sepia|white-wine|red-wine|rose-wine|champagne|bordeaux|burgundy|tuscany|piedmont|ticino|atelier|midnight-ledger)$",
     )
