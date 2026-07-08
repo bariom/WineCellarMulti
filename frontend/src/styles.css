@@ -2099,7 +2099,7 @@ summary:focus-visible {
 .public-hero-copy {
   display: grid;
   align-content: center;
-  gap: 22px;
+  gap: 20px;
   min-height: 100%;
   border: 0;
   border-radius: 0;
@@ -2120,17 +2120,17 @@ summary:focus-visible {
 
 .public-hero-copy h2 {
   color: #fffaf1;
-  font-size: clamp(2.9rem, 5.3vw, 5.9rem);
-  line-height: 0.88;
-  max-width: 11ch;
-  letter-spacing: -0.055em;
+  font-size: clamp(2.75rem, 4.8vw, 5rem);
+  line-height: 0.98;
+  max-width: 14ch;
+  letter-spacing: 0;
   text-wrap: balance;
 }
 
 .public-hero-copy strong {
-  max-width: 700px;
+  max-width: 760px;
   color: var(--landing-champagne);
-  font-size: clamp(1.1rem, 1.7vw, 1.5rem);
+  font-size: clamp(1.12rem, 1.55vw, 1.42rem);
   line-height: 1.35;
 }
 
@@ -2223,8 +2223,9 @@ summary:focus-visible {
 
 .public-proof-tile strong {
   color: #fffaf1;
-  font-size: 1.42rem;
-  letter-spacing: -0.03em;
+  font-size: clamp(1.05rem, 1.45vw, 1.28rem);
+  letter-spacing: 0;
+  line-height: 1.18;
 }
 
 .public-pricing-card {

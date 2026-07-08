@@ -2245,10 +2245,10 @@ const landingContent: Record<
   }
 > = {
   en: {
-    headline: "Manage your wine collection like a professional.",
-    subheadline: "Know what you own, what it is worth, and what deserves attention next.",
+    headline: "A private app to manage your wine cellar.",
+    subheadline: "Track bottles, value, drinking windows, deliveries, wishlist, and tasting memory in one place.",
     description:
-      "Vinaris is a private cellar intelligence platform for collectors who want discipline, memory, and sharper decisions around bottles that matter.",
+      "Vinaris helps collectors understand what is in the cellar, what is ready to drink, what is still arriving, and which bottles deserve attention before value or maturity changes.",
     primaryCta: "Login",
     secondaryCta: "Create account",
     storyEyebrow: "Private Cellar Intelligence",
@@ -2330,10 +2330,10 @@ const landingContent: Record<
     ],
   },
   it: {
-    headline: "Gestisci la tua collezione come un professionista.",
-    subheadline: "Sapere cosa possiedi, quanto vale e che cosa merita attenzione cambia il modo di collezionare.",
+    headline: "L'app privata per gestire la tua cantina vini.",
+    subheadline: "Bottiglie, valore, finestre di beva, consegne, wishlist e memoria degustativa in un solo posto.",
     description:
-      "Vinaris è una piattaforma di private cellar intelligence per collezionisti che vogliono disciplina, memoria e decisioni più lucide sulle bottiglie che contano.",
+      "Vinaris aiuta i collezionisti a capire cosa hanno in cantina, cosa è pronto da bere, cosa deve ancora arrivare e quali bottiglie meritano attenzione prima che cambino valore o maturità.",
     primaryCta: "Accedi",
     secondaryCta: "Crea account",
     storyEyebrow: "Private Cellar Intelligence",
@@ -9526,12 +9526,12 @@ export function App() {
             </div>
             <p className="eyebrow">{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</p>
             <h2 id="mobile-public-title">
-              {locale === "it" ? "La tua cantina, finalmente sotto controllo." : "Your cellar, finally under control."}
+              {locale === "it" ? "L'app privata per gestire la tua cantina vini." : "A private app to manage your wine cellar."}
             </h2>
             <p>
               {locale === "it"
-                ? "Valore, finestre di beva, wishlist e memoria degustativa in una sola app pensata per collezionisti."
-                : "Value, drinking windows, wishlist, and tasting memory in one app built for collectors."}
+                ? "Tieni insieme bottiglie, valore, finestre di beva, consegne, wishlist e degustazioni."
+                : "Keep bottles, value, drinking windows, deliveries, wishlist, and tastings together."}
             </p>
             <div className="mobile-public-signals" aria-label={locale === "it" ? "Funzioni principali" : "Key features"}>
               <span>{locale === "it" ? "Valore" : "Value"}</span>
@@ -9556,31 +9556,32 @@ export function App() {
                 <strong>{landing.subheadline}</strong>
                 <p>{landing.description}</p>
                 <div className="public-collector-strip" aria-label={locale === "it" ? "Indicatori collezionista" : "Collector signals"}>
+                  <span>{locale === "it" ? "Inventario" : "Inventory"}</span>
                   <span>{locale === "it" ? "Valore" : "Value"}</span>
-                  <span>{locale === "it" ? "Maturità" : "Maturity"}</span>
-                  <span>{locale === "it" ? "Mercato" : "Market"}</span>
-                  <span>{locale === "it" ? "Memoria" : "Memory"}</span>
+                  <span>{locale === "it" ? "Beva" : "Drink windows"}</span>
+                  <span>{locale === "it" ? "Consegne" : "Deliveries"}</span>
+                  <span>Wishlist</span>
                 </div>
                 <div className="public-proof-grid">
                   <article className="public-proof-tile">
-                    <span>{locale === "it" ? "Valore cantina" : "Cellar value"}</span>
-                    <strong>CHF 4'769</strong>
+                    <span>{locale === "it" ? "Inventario privato" : "Private inventory"}</span>
+                    <strong>{locale === "it" ? "Bottiglie e quote" : "Bottles and shares"}</strong>
                   </article>
                   <article className="public-proof-tile">
-                    <span>{locale === "it" ? "Finestra ideale" : "Ideal window"}</span>
-                    <strong>{locale === "it" ? "12 vini" : "12 wines"}</strong>
+                    <span>{locale === "it" ? "Decisioni di beva" : "Drinking decisions"}</span>
+                    <strong>{locale === "it" ? "Apri o tieni" : "Open or hold"}</strong>
                   </article>
                   <article className="public-proof-tile">
-                    <span>{locale === "it" ? "Da monitorare" : "Watch closely"}</span>
-                    <strong>{locale === "it" ? "3 vini" : "3 wines"}</strong>
+                    <span>{locale === "it" ? "Memoria cantina" : "Cellar memory"}</span>
+                    <strong>{locale === "it" ? "Note e storico" : "Notes and history"}</strong>
                   </article>
                 </div>
                 <div className="public-hero-actions">
-                  <button type="button" onClick={() => openAuthPanel("login")}>
-                    {landing.primaryCta}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => openAuthPanel("register")}>
+                  <button type="button" onClick={() => openAuthPanel("register")}>
                     {landing.secondaryCta}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
+                    {landing.primaryCta}
                   </button>
                 </div>
               </div>
