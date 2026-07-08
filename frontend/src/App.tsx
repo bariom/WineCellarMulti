@@ -2241,6 +2241,7 @@ const landingContent: Record<
       annualLabel: string;
       savingsNote: string;
       aiTrialNote: string;
+      demoCta: string;
       features: Array<{ title: string; body: string; highlight?: boolean; ai?: boolean }>;
   }
 > = {
@@ -2284,6 +2285,7 @@ const landingContent: Record<
     annualLabel: "CHF 60 / year",
     savingsNote: "Annual plan saves CHF 12 compared with monthly billing.",
     aiTrialNote: "A small AI credit is included so you can test advanced functions such as market checks, pairings, and wishlist strategy.",
+    demoCta: "Watch demo",
     features: [
       {
         title: "Build a serious cellar record",
@@ -2369,6 +2371,7 @@ const landingContent: Record<
     annualLabel: "CHF 60 / anno",
     savingsNote: "Il piano annuale ti fa risparmiare CHF 12 rispetto al mensile.",
     aiTrialNote: "Include un piccolo credito AI per provare le funzioni avanzate: controlli mercato, abbinamenti e strategia wishlist.",
+    demoCta: "Guarda demo",
     features: [
       {
         title: "Costruire un archivio di cantina serio",
@@ -9545,6 +9548,9 @@ export function App() {
               <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
                 {landing.primaryCta}
               </button>
+              <a className="secondary" href={`/videos/vinaris-demo-app-${locale}.mp4`} target="_blank" rel="noreferrer">
+                {landing.demoCta}
+              </a>
             </div>
             <p className="mobile-ai-credit-note">{landing.aiTrialNote}</p>
           </section>
@@ -9583,6 +9589,9 @@ export function App() {
                   <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
                     {landing.primaryCta}
                   </button>
+                  <a className="secondary public-demo-link" href={`/videos/vinaris-demo-app-${locale}.mp4`} target="_blank" rel="noreferrer">
+                    {landing.demoCta}
+                  </a>
                 </div>
               </div>
               <aside className="public-pricing-card">
