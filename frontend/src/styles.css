@@ -2187,10 +2187,17 @@ summary:focus-visible {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  min-height: 40px;
+  border: 0;
+  border-radius: 6px;
+  padding: 10px 14px;
   border-color: var(--landing-champagne);
   color: var(--landing-burgundy-ink);
   background: linear-gradient(180deg, #f1d58f 0%, var(--landing-champagne) 100%);
+  font: inherit;
+  line-height: normal;
   box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
   text-decoration: none;
 }
 
@@ -2202,18 +2209,16 @@ summary:focus-visible {
 }
 
 .public-hero-actions .public-demo-link {
-  border-color: color-mix(in srgb, var(--landing-champagne) 72%, white 12%);
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 72%, white 12%);
   color: var(--landing-burgundy-ink);
-  background:
-    linear-gradient(180deg, #fff3c5 0%, var(--landing-champagne) 100%);
-  font-weight: 850;
+  background: linear-gradient(180deg, #f1d58f 0%, var(--landing-champagne) 100%);
+  font-weight: 800;
 }
 
 .public-hero-actions .public-demo-link-mobile {
   color: #fffaf1;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy) 78%, #4b1020) 0%, var(--landing-burgundy-ink) 100%);
-  border-color: color-mix(in srgb, var(--landing-champagne) 64%, transparent);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid color-mix(in srgb, var(--landing-champagne) 44%, transparent);
 }
 
 .public-proof-grid {
@@ -9054,13 +9059,17 @@ textarea {
     justify-content: center;
     min-height: 48px;
     border: 1px solid #d8ae5f;
-    border-radius: 12px;
+    border-radius: 6px;
+    padding: 10px 14px;
     color: #2a1018;
     background: linear-gradient(180deg, #f1d58f 0%, #d8ae5f 100%);
+    font: inherit;
     font-weight: 800;
+    line-height: normal;
     text-align: center;
     text-decoration: none;
     box-shadow: 0 14px 28px rgba(0, 0, 0, 0.18);
+    cursor: pointer;
   }
 
   .mobile-public-actions button.secondary,
@@ -9077,14 +9086,14 @@ textarea {
   .mobile-public-actions .demo-link {
     border-color: color-mix(in srgb, #d8ae5f 72%, white 12%);
     color: #2a1018;
-    background: linear-gradient(180deg, #fff3c5 0%, #d8ae5f 100%);
-    font-weight: 850;
+    background: linear-gradient(180deg, #f1d58f 0%, #d8ae5f 100%);
+    font-weight: 800;
   }
 
   .mobile-public-actions .demo-link-mobile {
     color: #fffaf1;
-    background: linear-gradient(180deg, #7a1733 0%, #2a1018 100%);
-    border-color: color-mix(in srgb, #d8ae5f 64%, transparent);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: color-mix(in srgb, #d8ae5f 44%, transparent);
   }
 
   .mobile-public-landing .mobile-ai-credit-note {
