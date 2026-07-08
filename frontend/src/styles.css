@@ -2201,6 +2201,21 @@ summary:focus-visible {
   border-color: color-mix(in srgb, var(--landing-champagne) 44%, transparent);
 }
 
+.public-hero-actions .public-demo-link {
+  border-color: color-mix(in srgb, var(--landing-champagne) 72%, white 12%);
+  color: var(--landing-burgundy-ink);
+  background:
+    linear-gradient(180deg, #fff3c5 0%, var(--landing-champagne) 100%);
+  font-weight: 850;
+}
+
+.public-hero-actions .public-demo-link-mobile {
+  color: #fffaf1;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--landing-burgundy) 78%, #4b1020) 0%, var(--landing-burgundy-ink) 100%);
+  border-color: color-mix(in srgb, var(--landing-champagne) 64%, transparent);
+}
+
 .public-proof-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -9057,6 +9072,19 @@ textarea {
 
   .mobile-public-actions a {
     grid-column: 1 / -1;
+  }
+
+  .mobile-public-actions .demo-link {
+    border-color: color-mix(in srgb, #d8ae5f 72%, white 12%);
+    color: #2a1018;
+    background: linear-gradient(180deg, #fff3c5 0%, #d8ae5f 100%);
+    font-weight: 850;
+  }
+
+  .mobile-public-actions .demo-link-mobile {
+    color: #fffaf1;
+    background: linear-gradient(180deg, #7a1733 0%, #2a1018 100%);
+    border-color: color-mix(in srgb, #d8ae5f 64%, transparent);
   }
 
   .mobile-public-landing .mobile-ai-credit-note {
