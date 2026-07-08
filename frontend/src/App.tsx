@@ -9615,10 +9615,6 @@ export function App() {
                   <strong>AI</strong>
                   <span>{landing.aiTrialNote}</span>
                 </div>
-                <div className="invite-notice promo-notice">
-                  <strong>{t("finalBetaPromo")}</strong>
-                  <span>{t("promoNote")}</span>
-                </div>
               </aside>
             </div>
 
