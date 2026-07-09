@@ -11665,6 +11665,336 @@ textarea:hover {
   line-height: 1.3;
 }
 
+.operational-workspace .cellar-stats-dashboard {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+.cellar-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(142px, 1fr));
+  gap: 10px;
+}
+
+.cellar-kpi-card,
+.stacked-distribution-card,
+.collection-state-card {
+  border: 1px solid color-mix(in srgb, var(--border) 86%, transparent);
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 20%, transparent), transparent 54%),
+    color-mix(in srgb, var(--surface-raised) 96%, var(--surface-muted));
+  box-shadow: none;
+  transition: border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease, background 0.18s ease;
+}
+
+.cellar-kpi-card:hover,
+.cellar-kpi-card:focus-visible,
+.stacked-distribution-card:hover,
+.collection-state-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.cellar-kpi-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 15px 16px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cellar-kpi-card.active {
+  border-color: color-mix(in srgb, var(--primary) 50%, var(--border));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 9%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-raised) 94%, var(--surface-muted));
+}
+
+.cellar-kpi-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--primary);
+}
+
+.cellar-kpi-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.cellar-kpi-copy {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.cellar-kpi-copy span,
+.stacked-card-heading span,
+.collection-state-heading span {
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1.1;
+  text-transform: uppercase;
+}
+
+.cellar-kpi-copy strong {
+  color: var(--financial-text);
+  font-size: clamp(1.35rem, 1.45vw, 1.8rem);
+  font-weight: 900;
+  line-height: 0.98;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+
+.cellar-kpi-card--value .cellar-kpi-copy strong {
+  font-size: clamp(1.18rem, 1.2vw, 1.5rem);
+}
+
+.cellar-kpi-copy small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellar-stats-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(286px, 340px);
+  gap: 12px;
+  align-items: start;
+}
+
+.cellar-distribution-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.stacked-distribution-card,
+.collection-state-card {
+  display: grid;
+  gap: 14px;
+  padding: 17px;
+}
+
+.stacked-card-heading,
+.collection-state-heading {
+  display: grid;
+  gap: 4px;
+}
+
+.stacked-card-heading strong,
+.collection-state-heading strong {
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1.15;
+}
+
+.stacked-progress-bar {
+  display: flex;
+  width: 100%;
+  height: 18px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.stacked-progress-segment {
+  min-width: 3px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, var(--surface) 58%, transparent);
+  border-radius: 0;
+  cursor: pointer;
+  transition: filter 0.16s ease, transform 0.16s ease;
+}
+
+.stacked-progress-segment:hover,
+.stacked-progress-segment:focus-visible {
+  filter: saturate(1.2) brightness(1.04);
+  outline: none;
+}
+
+.stacked-legend {
+  display: grid;
+  gap: 7px;
+}
+
+.stacked-legend button {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 8px;
+  min-height: 30px;
+  padding: 5px 6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+
+.stacked-legend button:hover,
+.stacked-legend button:focus-visible {
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  outline: none;
+}
+
+.stacked-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+}
+
+.stacked-legend span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.86rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stacked-legend strong {
+  color: var(--financial-text);
+  font-size: 0.84rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.stacked-legend small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.collection-state-card {
+  position: sticky;
+  top: 12px;
+}
+
+.collection-gauge {
+  width: 136px;
+  aspect-ratio: 1;
+  margin: 2px auto 0;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at center, var(--surface-raised) 0 58%, transparent 59%),
+    conic-gradient(var(--primary) var(--collection-completion), color-mix(in srgb, var(--border) 55%, transparent) 0);
+}
+
+.collection-gauge div {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  width: 92px;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 94%, var(--surface-raised));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 68%, transparent);
+}
+
+.collection-gauge strong {
+  color: var(--financial-text);
+  font-size: 1.45rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.collection-gauge span {
+  max-width: 72px;
+  color: var(--text-soft);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  line-height: 1.15;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.collection-health-list,
+.collection-action-list {
+  display: grid;
+  gap: 8px;
+}
+
+.collection-health-list > *,
+.collection-action-list button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--surface-muted));
+  color: var(--text);
+}
+
+.collection-health-list button,
+.collection-action-list button {
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.collection-health-list button:hover,
+.collection-health-list button:focus-visible,
+.collection-health-list button.active,
+.collection-action-list button:hover,
+.collection-action-list button:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  outline: none;
+}
+
+.collection-health-list span,
+.collection-action-list span {
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.collection-health-list strong,
+.collection-action-list strong {
+  color: var(--financial-text);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.collection-state-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .operational-workspace .wine-tone-groups {
   gap: 10px;
 }
@@ -11867,6 +12197,18 @@ textarea:hover {
     grid-template-columns: minmax(0, 1fr) minmax(330px, 410px);
   }
 
+  .cellar-kpi-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .cellar-stats-body {
+    grid-template-columns: 1fr;
+  }
+
+  .collection-state-card {
+    position: static;
+  }
+
   .operational-workspace .wine-row:not(.wishlist-row) {
     grid-template-columns: minmax(0, 1fr) minmax(150px, 180px) auto;
   }
@@ -11889,6 +12231,33 @@ textarea:hover {
 
   .operational-workspace .stats-panel {
     grid-template-columns: 1fr 1fr;
+  }
+
+  .operational-workspace .cellar-stats-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .cellar-kpi-grid,
+  .cellar-distribution-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cellar-kpi-card {
+    grid-template-columns: 34px minmax(0, 1fr);
+    padding: 13px 14px;
+  }
+
+  .cellar-kpi-icon {
+    width: 34px;
+    height: 34px;
+  }
+
+  .stacked-legend button {
+    grid-template-columns: 10px minmax(0, 1fr) auto;
+  }
+
+  .stacked-legend small {
+    grid-column: 2 / -1;
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) {
