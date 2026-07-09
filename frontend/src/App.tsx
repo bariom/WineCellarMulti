@@ -11971,7 +11971,6 @@ export function App() {
                             );
                           })}
                         </div>
-                        {renderBreakdownDrilldown("valueByType")}
                       </article>
                     ) : null}
 
@@ -12009,7 +12008,6 @@ export function App() {
                             );
                           })}
                         </div>
-                        {renderBreakdownDrilldown("topRegions")}
                       </article>
                     ) : null}
 
@@ -12047,7 +12045,6 @@ export function App() {
                             );
                           })}
                         </div>
-                        {renderBreakdownDrilldown("bottlesByType")}
                       </article>
                     ) : null}
 
@@ -12085,9 +12082,12 @@ export function App() {
                             );
                           })}
                         </div>
-                        {renderBreakdownDrilldown("winesByRegion")}
                       </article>
                     ) : null}
+                    {renderBreakdownDrilldown("valueByType")}
+                    {renderBreakdownDrilldown("topRegions")}
+                    {renderBreakdownDrilldown("bottlesByType")}
+                    {renderBreakdownDrilldown("winesByRegion")}
                   </div>
 
                   <aside className="collection-state-card">

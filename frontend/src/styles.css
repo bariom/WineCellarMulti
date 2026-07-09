@@ -12007,6 +12007,62 @@ textarea:hover {
   line-height: 1.45;
 }
 
+.cellar-distribution-grid > .chart-drilldown-panel {
+  grid-column: 1 / -1;
+  margin-top: 0;
+  padding: 18px;
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 56%),
+    color-mix(in srgb, var(--surface-raised) 95%, var(--surface-muted));
+  box-shadow: none;
+}
+
+.cellar-distribution-grid .chart-drilldown-head {
+  align-items: center;
+}
+
+.cellar-distribution-grid .chart-drilldown-head h3 {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
+.cellar-distribution-grid .chart-drilldown-kpis {
+  grid-template-columns: repeat(4, minmax(120px, 1fr));
+}
+
+.cellar-distribution-grid .chart-drilldown-kpis div,
+.cellar-distribution-grid .chart-drilldown-grid > div {
+  min-width: 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 90%, var(--surface-muted));
+}
+
+.cellar-distribution-grid .chart-drilldown-kpis strong {
+  color: var(--financial-text);
+  font-size: 1.18rem;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.cellar-distribution-grid .chart-drilldown-grid {
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+}
+
+.cellar-distribution-grid .chart-drilldown-row-text {
+  min-width: 0;
+}
+
+.cellar-distribution-grid .chart-drilldown-row-text span,
+.cellar-distribution-grid .chart-drilldown-row-text small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .operational-workspace .wine-tone-groups {
   gap: 10px;
 }
@@ -12221,6 +12277,10 @@ textarea:hover {
     position: static;
   }
 
+  .cellar-distribution-grid .chart-drilldown-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .operational-workspace .wine-row:not(.wishlist-row) {
     grid-template-columns: minmax(0, 1fr) minmax(150px, 180px) auto;
   }
@@ -12270,6 +12330,20 @@ textarea:hover {
 
   .stacked-legend small {
     grid-column: 2 / -1;
+  }
+
+  .cellar-distribution-grid .chart-drilldown-panel {
+    padding: 14px;
+  }
+
+  .cellar-distribution-grid .chart-drilldown-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cellar-distribution-grid .chart-drilldown-kpis,
+  .cellar-distribution-grid .chart-drilldown-grid {
+    grid-template-columns: 1fr;
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) {
