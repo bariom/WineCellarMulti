@@ -8997,9 +8997,17 @@ export function App() {
     keyPositionStripRef.current?.scrollTo({ left: 0 });
   }, [keyPositionIds]);
 
+  function keyPositionSlideWidth(container: HTMLDivElement) {
+    const firstSlide = container.firstElementChild;
+    if (firstSlide instanceof HTMLElement) {
+      return firstSlide.getBoundingClientRect().width || container.clientWidth;
+    }
+    return container.clientWidth;
+  }
+
   function updateActiveKeyPosition(event: UIEvent<HTMLDivElement>) {
     const container = event.currentTarget;
-    const width = container.clientWidth;
+    const width = keyPositionSlideWidth(container);
     if (!width) return;
     const nextIndex = Math.round(container.scrollLeft / width);
     setActiveKeyPositionIndex(Math.max(0, Math.min(nextIndex, keyPositionCandidates.length - 1)));
@@ -9008,8 +9016,9 @@ export function App() {
   function goToKeyPosition(index: number) {
     const container = keyPositionStripRef.current;
     if (!container) return;
-    container.scrollTo({ left: container.clientWidth * index, behavior: "smooth" });
-    setActiveKeyPositionIndex(index);
+    const nextIndex = Math.max(0, Math.min(index, keyPositionCandidates.length - 1));
+    container.scrollTo({ left: keyPositionSlideWidth(container) * nextIndex, behavior: "smooth" });
+    setActiveKeyPositionIndex(nextIndex);
   }
 
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
