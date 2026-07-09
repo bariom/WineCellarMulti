@@ -750,6 +750,15 @@ type WishlistPortfolioStrategy = {
   estimated_cost_usd: string;
 };
 
+type RegionalGapProfile = "investment" | "readiness" | "daily" | "balanced";
+type RegionalGapAiSuggestion = {
+  model: string;
+  profile: RegionalGapProfile;
+  rationale: string;
+  targets: Array<{ region: string; target_pct: string | number }>;
+  estimated_cost_usd: string;
+};
+
 type AuthDraft = {
   email: string;
   display_name: string;
@@ -792,6 +801,7 @@ type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "pa
 type MaturityPhase = "early" | "drinkable" | "peak" | "past" | "unknown";
 type MaturityFilter = { year: number; tone: WineTone } | null;
 type RegionalGapTarget = { region: string; targetPct: number };
+type RegionalGapTargetDraft = { region: string; targetPct: string };
 type OperationalActionItem = {
   id: string;
   kind: string;
@@ -1194,13 +1204,23 @@ const translations = {
     peakNow: "At peak now",
     peakYear: "Peak",
     regionalGapAnalysis: "Regional gap analysis",
-    regionalGapHelp: "Current bottle balance compared with your target portfolio.",
+    regionalGapHelp: "Current value allocation compared with your target portfolio.",
     targetPortfolio: "Target",
     currentPortfolio: "Current",
     gapSuggestions: "Gap suggestions",
-    addWishlistGap: "Add to wishlist",
     balancedPortfolio: "Portfolio is balanced",
-    missingBottles: "Missing bottles",
+    missingValueGap: "Missing value",
+    editTargets: "Edit targets",
+    saveTargets: "Save targets",
+    resetTargets: "Reset targets",
+    targetTotal: "Total",
+    suggestWithAi: "Suggest with AI",
+    applyAiTarget: "Apply AI target",
+    aiTargetProposal: "AI target proposal",
+    regionalProfileInvestment: "Investment",
+    regionalProfileReadiness: "Drinking readiness",
+    regionalProfileDaily: "Everyday wine",
+    regionalProfileBalanced: "Balanced",
     valueByProducer: "Value by producer",
     investedMore: "Where you invested more",
     keyPosition: "Key position",
@@ -1754,13 +1774,23 @@ const translations = {
     peakNow: "Al picco ora",
     peakYear: "Picco",
     regionalGapAnalysis: "Gap analysis regionale",
-    regionalGapHelp: "Bilanciamento attuale delle bottiglie rispetto al portafoglio target.",
+    regionalGapHelp: "Allocazione attuale del valore rispetto al portafoglio target.",
     targetPortfolio: "Target",
     currentPortfolio: "Attuale",
     gapSuggestions: "Suggerimenti gap",
-    addWishlistGap: "Aggiungi alla wishlist",
     balancedPortfolio: "Portafoglio bilanciato",
-    missingBottles: "Bottiglie mancanti",
+    missingValueGap: "Valore mancante",
+    editTargets: "Modifica target",
+    saveTargets: "Salva target",
+    resetTargets: "Ripristina target",
+    targetTotal: "Totale",
+    suggestWithAi: "Suggerisci con AI",
+    applyAiTarget: "Applica target AI",
+    aiTargetProposal: "Proposta AI",
+    regionalProfileInvestment: "Investimento",
+    regionalProfileReadiness: "Prontezza di beva",
+    regionalProfileDaily: "Vino quotidiano",
+    regionalProfileBalanced: "Bilanciato",
     valueByProducer: "Valore per produttore",
     investedMore: "Dove hai investito di più",
     keyPosition: "Posizione chiave",
@@ -3334,7 +3364,7 @@ function wineGroupValue(wine: Wine, field: "type" | "region") {
   return wine[field] || (field === "type" ? "Other" : "Unknown region");
 }
 
-const regionalGapTargets: RegionalGapTarget[] = [
+const defaultRegionalGapTargets: RegionalGapTarget[] = [
   { region: "Bordeaux", targetPct: 22 },
   { region: "Toscana", targetPct: 16 },
   { region: "Ticino", targetPct: 12 },
@@ -3368,6 +3398,22 @@ function radarPoint(index: number, total: number, value: number, radius = 42, ce
   const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
   const distance = radius * Math.max(Math.min(value, 100), 0) / 100;
   return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
+}
+
+function normalizeRegionalTargets(targets: RegionalGapTarget[]) {
+  const sanitized = targets.map((target) => ({ region: target.region, targetPct: Math.max(Number(target.targetPct || 0), 0) }));
+  const total = sanitized.reduce((sum, target) => sum + target.targetPct, 0);
+  if (!Number.isFinite(total) || total <= 0) return [...defaultRegionalGapTargets];
+  return sanitized.map((target, index) => {
+    const value = index === sanitized.length - 1
+      ? 100 - sanitized.slice(0, -1).reduce((sum, item) => sum + Math.round((item.targetPct / total) * 1000) / 10, 0)
+      : Math.round((target.targetPct / total) * 1000) / 10;
+    return { region: target.region, targetPct: Math.max(Math.round(value * 10) / 10, 0) };
+  });
+}
+
+function regionalGapStorageKey(householdId: string | null | undefined) {
+  return `vinaris:regional-gap-targets:${householdId || "local"}`;
 }
 
 function breakdownColor(label: string, index: number, mode: "type" | "region") {
@@ -5788,6 +5834,11 @@ export function App() {
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [maturityFilter, setMaturityFilter] = useState<MaturityFilter>(null);
+  const [regionalGapTargets, setRegionalGapTargets] = useState<RegionalGapTarget[]>(defaultRegionalGapTargets);
+  const [regionalGapTargetsOpen, setRegionalGapTargetsOpen] = useState(false);
+  const [regionalGapDraft, setRegionalGapDraft] = useState<RegionalGapTargetDraft[]>(() => defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+  const [regionalGapProfile, setRegionalGapProfile] = useState<RegionalGapProfile>("balanced");
+  const [regionalGapAiSuggestion, setRegionalGapAiSuggestion] = useState<RegionalGapAiSuggestion | null>(null);
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [grapeFilter, setGrapeFilter] = useState<string[]>([]);
@@ -8315,6 +8366,28 @@ export function App() {
       setWishlistPortfolioStrategyOpen(true);
     }
   }, [selectedWishlistListId, visibleWishlistPortfolioStrategy]);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(regionalGapStorageKey(session?.active_household_id));
+      if (!stored) {
+        setRegionalGapTargets(defaultRegionalGapTargets);
+        setRegionalGapDraft(defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+        return;
+      }
+      const parsed = JSON.parse(stored) as RegionalGapTarget[];
+      const nextTargets = normalizeRegionalTargets(
+        defaultRegionalGapTargets.map((target) => ({
+          region: target.region,
+          targetPct: Number(parsed.find((item) => item.region === target.region)?.targetPct ?? target.targetPct),
+        })),
+      );
+      setRegionalGapTargets(nextTargets);
+      setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    } catch {
+      setRegionalGapTargets(defaultRegionalGapTargets);
+      setRegionalGapDraft(defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    }
+  }, [session?.active_household_id]);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => normalizeWineType(wine.type)));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => normalizeWineType(item.type)));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
@@ -8658,24 +8731,21 @@ export function App() {
     .slice(0, 5);
   const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
   const valueByProducer = topProducerGroups(cellarWines);
-  const regionalGapTotalBottleCount = cellarWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
-  const regionalGapTotalBottles = Math.max(regionalGapTotalBottleCount, 1);
+  const regionalGapTotalValue = Math.max(sumWineValue(cellarWines), 1);
   const regionalGapRows = regionalGapTargets.map((target) => {
-    const bottles = cellarWines
-      .filter((wine) => regionalGapBucket(wine.region) === target.region)
-      .reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
-    const currentPct = (bottles / regionalGapTotalBottles) * 100;
-    const targetBottles = (regionalGapTotalBottles * target.targetPct) / 100;
+    const value = sumWineValue(cellarWines.filter((wine) => regionalGapBucket(wine.region) === target.region));
+    const currentPct = (value / regionalGapTotalValue) * 100;
+    const targetValue = (regionalGapTotalValue * target.targetPct) / 100;
     return {
       ...target,
-      bottles,
+      value,
       currentPct,
-      gapBottles: Math.max(Math.ceil(targetBottles - bottles), 0),
+      gapValue: Math.max(targetValue - value, 0),
       deltaPct: target.targetPct - currentPct,
     };
   });
   const regionalGapSuggestions = regionalGapRows
-    .filter((row) => regionalGapTotalBottleCount > 0 && row.gapBottles > 0 && row.region !== "Other")
+    .filter((row) => sumWineValue(cellarWines) > 0 && row.gapValue > 0 && row.region !== "Other")
     .sort((first, second) => second.deltaPct - first.deltaPct)
     .slice(0, 4);
   const regionalGapCurrentPoints = regionalGapRows.map((row, index) => radarPoint(index, regionalGapRows.length, row.currentPct)).join(" ");
@@ -8685,6 +8755,7 @@ export function App() {
     point: radarPoint(index, regionalGapRows.length, 105, 42, 50),
     linePoint: radarPoint(index, regionalGapRows.length, 100, 42, 50),
   }));
+  const regionalGapDraftTotal = regionalGapDraft.reduce((sum, target) => sum + Number(target.targetPct || 0), 0);
   const drinkNowWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
@@ -9287,36 +9358,53 @@ export function App() {
     setMaturityFilter(null);
   }
 
-  function openRegionalGapWishlist(row: { region: string; gapBottles: number; targetPct: number; currentPct: number }) {
-    setActiveView("wishlist");
-    setWineFormOpen(false);
-    setWishlistFormOpen(true);
-    setEditingWishlistId(null);
-    setSelectedWishlistId(null);
-    setSearchQuery(row.region);
-    setTypeFilter("");
-    setStatusFilter("");
-    setOwnershipFilter("");
-    setQuickWineFilter("");
-    setMaturityFilter(null);
-    setTagFilter([]);
-    setGrapeFilter([]);
-    setMinBottlePriceFilter("");
-    setMaxBottlePriceFilter("");
-    setTagOptionQuery("");
-    setGrapeOptionQuery("");
-    setSortMode("priority");
-    setWishlistDraft({
-      ...emptyWishlistDraft,
-      wishlist_list_id: selectedWishlistListId || wishlistLists[0]?.id || "",
-      name: `${row.region} portfolio gap`,
-      region: row.region,
-      priority: "High",
-      purpose: "Cellar",
-      status: "Evaluate",
-      notes: `${t("regionalGapAnalysis")}: ${t("missingBottles")} ${row.gapBottles}. ${t("currentPortfolio")} ${Math.round(row.currentPct)}%, ${t("targetPortfolio")} ${row.targetPct}%.`,
-      ai_context_note: `${t("gapSuggestions")}: ${row.region}. ${t("missingBottles")} ${row.gapBottles}.`,
+  function saveRegionalGapTargets(nextDraft: RegionalGapTargetDraft[] = regionalGapDraft) {
+    const nextTargets = normalizeRegionalTargets(nextDraft.map((target) => ({ region: target.region, targetPct: Number(target.targetPct || 0) })));
+    setRegionalGapTargets(nextTargets);
+    setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    window.localStorage.setItem(regionalGapStorageKey(session?.active_household_id), JSON.stringify(nextTargets));
+    setRegionalGapAiSuggestion(null);
+  }
+
+  function resetRegionalGapTargets() {
+    setRegionalGapTargets(defaultRegionalGapTargets);
+    setRegionalGapDraft(defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    window.localStorage.removeItem(regionalGapStorageKey(session?.active_household_id));
+    setRegionalGapAiSuggestion(null);
+  }
+
+  async function generateRegionalGapTargets() {
+    setGeneratingAi("regional-gap-targets");
+    setError("");
+    try {
+      const result = await api<RegionalGapAiSuggestion>("/api/v1/ai/regional-gap-targets", {
+        method: "POST",
+        body: JSON.stringify({
+          locale,
+          profile: regionalGapProfile,
+          current_allocation: regionalGapRows.map((row) => ({
+            region: row.region,
+            current_pct: Math.round(row.currentPct * 10) / 10,
+            value_chf: Math.round(row.value * 100) / 100,
+          })),
+        }),
+      });
+      setRegionalGapAiSuggestion(result);
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate regional target");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
+  function applyRegionalGapAiSuggestion() {
+    if (!regionalGapAiSuggestion) return;
+    const nextDraft = defaultRegionalGapTargets.map((target) => {
+      const suggestion = regionalGapAiSuggestion.targets.find((item) => item.region === target.region);
+      return { region: target.region, targetPct: String(Number(suggestion?.target_pct ?? target.targetPct)) };
     });
+    saveRegionalGapTargets(nextDraft);
   }
 
   function snoozeOperationalAction(item: OperationalActionItem) {
@@ -9545,8 +9633,72 @@ export function App() {
             <span>{t("regionalGapAnalysis")}</span>
             <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("topRegions")}</h2>
           </div>
+          <button type="button" className="secondary compact" onClick={() => setRegionalGapTargetsOpen((current) => !current)}>
+            {t("editTargets")}
+          </button>
         </div>
         <p className="regional-gap-help">{t("regionalGapHelp")}</p>
+        {regionalGapTargetsOpen ? (
+          <div className="regional-target-editor">
+            <div className="regional-target-grid">
+              {regionalGapDraft.map((target, index) => (
+                <label key={target.region}>
+                  <span>{target.region}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                    value={target.targetPct}
+                    onChange={(event) => setRegionalGapDraft((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, targetPct: event.target.value } : item))}
+                  />
+                </label>
+              ))}
+            </div>
+            <div className={`regional-target-total${Math.abs(regionalGapDraftTotal - 100) <= 0.1 ? " valid" : ""}`}>
+              <span>{t("targetTotal")}</span>
+              <strong>{Math.round(regionalGapDraftTotal * 10) / 10}%</strong>
+            </div>
+            <div className="regional-target-actions">
+              <button type="button" onClick={() => saveRegionalGapTargets()}>{t("saveTargets")}</button>
+              <button type="button" className="secondary" onClick={resetRegionalGapTargets}>{t("resetTargets")}</button>
+            </div>
+            <div className="regional-ai-targets">
+              <div className="regional-profile-buttons" role="tablist" aria-label={t("suggestWithAi")}>
+                {([
+                  ["investment", "regionalProfileInvestment"],
+                  ["readiness", "regionalProfileReadiness"],
+                  ["daily", "regionalProfileDaily"],
+                  ["balanced", "regionalProfileBalanced"],
+                ] as Array<[RegionalGapProfile, TranslationKey]>).map(([profile, labelKey]) => (
+                  <button
+                    type="button"
+                    key={profile}
+                    className={regionalGapProfile === profile ? "" : "secondary"}
+                    onClick={() => setRegionalGapProfile(profile)}
+                  >
+                    {t(labelKey)}
+                  </button>
+                ))}
+              </div>
+              <button type="button" className="secondary" disabled={!canGenerateAi || generatingAi === "regional-gap-targets"} onClick={generateRegionalGapTargets}>
+                <ButtonBusyContent busy={generatingAi === "regional-gap-targets"} idleLabel={t("suggestWithAi")} busyLabel={t("generating")} />
+              </button>
+              {regionalGapAiSuggestion ? (
+                <div className="regional-ai-proposal">
+                  <strong>{t("aiTargetProposal")}</strong>
+                  <p>{regionalGapAiSuggestion.rationale}</p>
+                  <div>
+                    {regionalGapAiSuggestion.targets.map((target) => (
+                      <span key={target.region}>{target.region} {Number(target.target_pct).toFixed(1)}%</span>
+                    ))}
+                  </div>
+                  <button type="button" onClick={applyRegionalGapAiSuggestion}>{t("applyAiTarget")}</button>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
         <div className="regional-gap-layout">
           <div className="regional-radar-wrap">
             <svg className="regional-radar" viewBox="0 0 100 100" role="img" aria-label={t("regionalGapAnalysis")}>
@@ -9584,10 +9736,7 @@ export function App() {
                   <span>{row.region}</span>
                   <small>{t("currentPortfolio")} {Math.round(row.currentPct)}% / {t("targetPortfolio")} {row.targetPct}%</small>
                 </div>
-                <strong>{row.gapBottles} {t("bottles").toLowerCase()}</strong>
-                <button type="button" className="secondary compact" disabled={!canWriteWine} onClick={() => openRegionalGapWishlist(row)}>
-                  {t("addWishlistGap")}
-                </button>
+                <strong><small>{t("missingValueGap")}</small>{formatMoney(row.gapValue, "CHF", locale)}</strong>
               </div>
             )) : <p className="empty-state">{t("balancedPortfolio")}</p>}
           </div>

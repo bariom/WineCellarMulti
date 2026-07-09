@@ -29,6 +29,9 @@ from app.schemas.ai import (
     PairingMarketWine,
     PairingRequest,
     PairingResponse,
+    RegionalGapTargetSuggestionRequest,
+    RegionalGapTargetSuggestionResponse,
+    RegionalGapTarget,
     WineCompareRequest,
     WineCompareResponse,
     WineLabelEnrichmentRequest,
@@ -1532,6 +1535,130 @@ def generate_wishlist_target_price(
     db.refresh(item)
     ai_dates = wishlist_ai_generated_dates(db, context, [item])
     return wishlist_response(item, ai_dates.get(item.id))
+
+
+@router.post("/regional-gap-targets", response_model=RegionalGapTargetSuggestionResponse)
+def suggest_regional_gap_targets(
+    payload: RegionalGapTargetSuggestionRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> RegionalGapTargetSuggestionResponse:
+    user_settings = get_or_create_user_ai_settings(db, context)
+    regions = [item.region for item in payload.current_allocation]
+    schema = {
+        "name": "regional_gap_targets",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "rationale": {"type": "string"},
+                "targets": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "region": {"type": "string", "enum": regions},
+                            "target_pct": {"type": "number", "minimum": 0, "maximum": 100},
+                        },
+                        "required": ["region", "target_pct"],
+                    },
+                },
+            },
+            "required": ["rationale", "targets"],
+        },
+    }
+    profile_labels = {
+        "investment": "investment value, liquidity, blue-chip depth, and long-term capital resilience",
+        "readiness": "drinking readiness, usable maturity windows, and avoiding too much capital locked in bottles that are not ready",
+        "daily": "everyday drinking usefulness, rotation, approachable pricing, and lower concentration risk",
+        "balanced": "balanced allocation across investment quality, readiness, everyday usability, and regional diversification",
+    }
+    allocation_context = [
+        {
+            "region": item.region,
+            "current_pct": float(item.current_pct),
+            "value_chf": float(item.value_chf),
+        }
+        for item in payload.current_allocation
+    ]
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.wishlist_model,
+        system_prompt=(
+            "You advise a private wine collector on regional portfolio allocation. Return JSON only. "
+            "Return one target for every input region and no other regions. "
+            "The target_pct values must sum to exactly 100. "
+            "Do not recommend individual wines. Explain the allocation logic briefly. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            f"Household cellar: {context.household.name}\n"
+            f"Target profile: {payload.profile} ({profile_labels[payload.profile]}).\n\n"
+            "Current regional allocation by value in CHF:\n"
+            f"{allocation_context}\n\n"
+            "Create target_pct values for the same regions only. "
+            "Favor practical collector balance over theoretical perfection. Keep rationale concise."
+        ),
+        json_schema=schema,
+    )
+    result = parse_json_response(response.text)
+    raw_targets = result.get("targets") if isinstance(result.get("targets"), list) else []
+    target_by_region: dict[str, Decimal] = {}
+    for item in raw_targets:
+        if not isinstance(item, dict):
+            continue
+        region = str(item.get("region") or "")
+        if region not in regions:
+            continue
+        try:
+            target_by_region[region] = Decimal(str(item.get("target_pct") or 0))
+        except (InvalidOperation, TypeError, ValueError):
+            target_by_region[region] = Decimal("0")
+    targets = [max(target_by_region.get(region, Decimal("0")), Decimal("0")) for region in regions]
+    total = sum(targets, Decimal("0"))
+    if total <= Decimal("0"):
+        even = (Decimal("100") / Decimal(len(regions))).quantize(Decimal("0.01"))
+        targets = [even for _ in regions]
+        total = sum(targets, Decimal("0"))
+    normalized: list[RegionalGapTarget] = []
+    running = Decimal("0")
+    for index, region in enumerate(regions):
+        if index == len(regions) - 1:
+            pct = max(Decimal("0"), Decimal("100") - running)
+        else:
+            pct = ((targets[index] / total) * Decimal("100")).quantize(Decimal("0.01"))
+            running += pct
+        normalized.append(RegionalGapTarget(region=region, target_pct=pct))
+    charged_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=user_settings.wishlist_model,
+        usage=response.usage,
+    )
+    suggestion = RegionalGapTargetSuggestionResponse(
+        model=user_settings.wishlist_model,
+        profile=payload.profile,
+        rationale=str(result.get("rationale") or "").strip()[:1200],
+        targets=normalized,
+        estimated_cost_usd=charged_cost,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="household",
+        entity_id=context.household.id,
+        feature="regional_gap_targets",
+        model=user_settings.wishlist_model,
+        summary=f"{payload.profile}: {suggestion.rationale}",
+        sources=[{"kind": "regional_gap_targets", "profile": payload.profile, "targets": [target.model_dump(mode="json") for target in normalized]}],
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return suggestion
 
 
 @router.post("/wishlist/portfolio-strategy", response_model=WishlistPortfolioStrategyResponse)

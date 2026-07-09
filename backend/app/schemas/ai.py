@@ -98,6 +98,30 @@ class WishlistPortfolioStrategyRequest(AiGenerationRequest):
     wishlist_list_id: UUID | None = None
 
 
+class RegionalGapCurrentAllocation(BaseModel):
+    region: str = Field(min_length=1, max_length=80)
+    current_pct: Decimal = Field(ge=0, le=100)
+    value_chf: Decimal = Field(ge=0)
+
+
+class RegionalGapTarget(BaseModel):
+    region: str = Field(min_length=1, max_length=80)
+    target_pct: Decimal = Field(ge=0, le=100)
+
+
+class RegionalGapTargetSuggestionRequest(AiGenerationRequest):
+    profile: str = Field(pattern="^(investment|readiness|daily|balanced)$")
+    current_allocation: list[RegionalGapCurrentAllocation] = Field(min_length=1, max_length=12)
+
+
+class RegionalGapTargetSuggestionResponse(BaseModel):
+    model: str
+    profile: str
+    rationale: str = ""
+    targets: list[RegionalGapTarget] = Field(default_factory=list)
+    estimated_cost_usd: Decimal = Decimal("0")
+
+
 class PairingRequest(BaseModel):
     dish: str = Field(min_length=2, max_length=240)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
