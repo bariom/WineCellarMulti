@@ -12035,6 +12035,7 @@ export function App() {
                         </div>
                       </article>
                     ) : null}
+                    {isMobileViewport ? renderBreakdownDrilldown("valueByType") : null}
 
                     {valueByRegion.length ? (
                       <article className="stacked-distribution-card">
@@ -12072,8 +12073,9 @@ export function App() {
                         </div>
                       </article>
                     ) : null}
-                    {renderBreakdownDrilldown("valueByType")}
-                    {renderBreakdownDrilldown("topRegions")}
+                    {isMobileViewport ? renderBreakdownDrilldown("topRegions") : null}
+                    {!isMobileViewport ? renderBreakdownDrilldown("valueByType") : null}
+                    {!isMobileViewport ? renderBreakdownDrilldown("topRegions") : null}
 
                     {bottlesByType.length ? (
                       <article className="stacked-distribution-card">
@@ -12111,6 +12113,7 @@ export function App() {
                         </div>
                       </article>
                     ) : null}
+                    {isMobileViewport ? renderBreakdownDrilldown("bottlesByType") : null}
 
                     {winesByRegion.length ? (
                       <article className="stacked-distribution-card">
@@ -12148,8 +12151,9 @@ export function App() {
                         </div>
                       </article>
                     ) : null}
-                    {renderBreakdownDrilldown("bottlesByType")}
-                    {renderBreakdownDrilldown("winesByRegion")}
+                    {isMobileViewport ? renderBreakdownDrilldown("winesByRegion") : null}
+                    {!isMobileViewport ? renderBreakdownDrilldown("bottlesByType") : null}
+                    {!isMobileViewport ? renderBreakdownDrilldown("winesByRegion") : null}
                   </div>
 
                   <aside className="collection-state-card">
