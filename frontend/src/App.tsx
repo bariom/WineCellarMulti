@@ -11938,6 +11938,7 @@ export function App() {
                 <div className="cellar-stats-body">
                   <div className="cellar-distribution-grid">
                     {valueByType.length ? (
+                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByValue")}</span>
@@ -11972,9 +11973,12 @@ export function App() {
                           })}
                         </div>
                       </article>
+                      {renderBreakdownDrilldown("valueByType")}
+                      </>
                     ) : null}
 
                     {valueByRegion.length ? (
+                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByValue")}</span>
@@ -12009,9 +12013,12 @@ export function App() {
                           })}
                         </div>
                       </article>
+                      {renderBreakdownDrilldown("topRegions")}
+                      </>
                     ) : null}
 
                     {bottlesByType.length ? (
+                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByStock")}</span>
@@ -12046,9 +12053,12 @@ export function App() {
                           })}
                         </div>
                       </article>
+                      {renderBreakdownDrilldown("bottlesByType")}
+                      </>
                     ) : null}
 
                     {winesByRegion.length ? (
+                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByStock")}</span>
@@ -12083,11 +12093,9 @@ export function App() {
                           })}
                         </div>
                       </article>
+                      {renderBreakdownDrilldown("winesByRegion")}
+                      </>
                     ) : null}
-                    {renderBreakdownDrilldown("valueByType")}
-                    {renderBreakdownDrilldown("topRegions")}
-                    {renderBreakdownDrilldown("bottlesByType")}
-                    {renderBreakdownDrilldown("winesByRegion")}
                   </div>
 
                   <aside className="collection-state-card">
