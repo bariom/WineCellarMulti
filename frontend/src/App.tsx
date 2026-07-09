@@ -1215,6 +1215,7 @@ const translations = {
     resetTargets: "Reset targets",
     targetTotal: "Total",
     suggestWithAi: "Suggest with AI",
+    aiTargetObjective: "Objective",
     applyAiTarget: "Apply AI target",
     aiTargetProposal: "AI target proposal",
     regionalProfileInvestment: "Investment",
@@ -1785,6 +1786,7 @@ const translations = {
     resetTargets: "Ripristina target",
     targetTotal: "Totale",
     suggestWithAi: "Suggerisci con AI",
+    aiTargetObjective: "Obiettivo",
     applyAiTarget: "Applica target AI",
     aiTargetProposal: "Proposta AI",
     regionalProfileInvestment: "Investimento",
@@ -9706,26 +9708,29 @@ export function App() {
               <button type="button" className="secondary" onClick={resetRegionalGapTargets}>{t("resetTargets")}</button>
             </div>
             <div className="regional-ai-targets">
-              <div className="regional-profile-buttons" role="tablist" aria-label={t("suggestWithAi")}>
-                {([
-                  ["investment", "regionalProfileInvestment"],
-                  ["readiness", "regionalProfileReadiness"],
-                  ["daily", "regionalProfileDaily"],
-                  ["balanced", "regionalProfileBalanced"],
-                ] as Array<[RegionalGapProfile, TranslationKey]>).map(([profile, labelKey]) => (
-                  <button
-                    type="button"
-                    key={profile}
-                    className={regionalGapProfile === profile ? "" : "secondary"}
-                    onClick={() => setRegionalGapProfile(profile)}
-                  >
-                    {t(labelKey)}
-                  </button>
-                ))}
-              </div>
-              <button type="button" className="secondary" disabled={!canGenerateAi || generatingAi === "regional-gap-targets"} onClick={generateRegionalGapTargets}>
+              <button type="button" className="regional-ai-submit" disabled={!canGenerateAi || generatingAi === "regional-gap-targets"} onClick={generateRegionalGapTargets}>
                 <ButtonBusyContent busy={generatingAi === "regional-gap-targets"} idleLabel={t("suggestWithAi")} busyLabel={t("generating")} />
               </button>
+              <div className="regional-profile-panel">
+                <span>{t("aiTargetObjective")}</span>
+                <div className="regional-profile-buttons" role="tablist" aria-label={t("aiTargetObjective")}>
+                  {([
+                    ["investment", "regionalProfileInvestment"],
+                    ["readiness", "regionalProfileReadiness"],
+                    ["daily", "regionalProfileDaily"],
+                    ["balanced", "regionalProfileBalanced"],
+                  ] as Array<[RegionalGapProfile, TranslationKey]>).map(([profile, labelKey]) => (
+                    <button
+                      type="button"
+                      key={profile}
+                      className={regionalGapProfile === profile ? "" : "secondary"}
+                      onClick={() => setRegionalGapProfile(profile)}
+                    >
+                      {t(labelKey)}
+                    </button>
+                  ))}
+                </div>
+              </div>
               {regionalGapAiSuggestion ? (
                 <div className="regional-ai-proposal">
                   <strong>{t("aiTargetProposal")}</strong>

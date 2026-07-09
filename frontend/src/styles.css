@@ -5917,12 +5917,51 @@ textarea {
 }
 
 .regional-target-total,
-.regional-target-actions,
-.regional-ai-targets {
+.regional-target-actions {
   display: flex;
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.regional-ai-targets {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+}
+
+.regional-ai-submit {
+  width: fit-content;
+  min-height: 40px;
+  padding: 10px 16px;
+  border-color: color-mix(in srgb, var(--primary) 58%, var(--accent));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 92%, var(--accent) 8%), color-mix(in srgb, var(--primary) 82%, #000 18%));
+  color: var(--primary-contrast);
+  box-shadow:
+    0 12px 26px color-mix(in srgb, var(--primary) 20%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 54%, transparent);
+}
+
+.regional-ai-submit:disabled {
+  opacity: 0.62;
+}
+
+.regional-profile-panel {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface) 72%, var(--surface-muted));
+}
+
+.regional-profile-panel > span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
 }
 
 .regional-target-total {
