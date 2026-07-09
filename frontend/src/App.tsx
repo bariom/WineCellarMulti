@@ -10694,7 +10694,6 @@ export function App() {
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
-                  <p>{session?.active_household_name || "Wine Cellar"}: {cellarWines.length} {t("wines").toLowerCase()}, {totalWishlistItemCount} {t("wishlist").toLowerCase()}.</p>
                 </div>
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
                   <div className="hero-kpi">
