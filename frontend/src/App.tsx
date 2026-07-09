@@ -789,6 +789,8 @@ type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
 type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
 type HistorySection = "tastings" | "wines";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data";
+type MaturityPhase = "early" | "drinkable" | "peak" | "past" | "unknown";
+type MaturityFilter = { year: number; tone: WineTone } | null;
 type OperationalActionItem = {
   id: string;
   kind: string;
@@ -1184,7 +1186,12 @@ const translations = {
     winesToCollect: "Wines to collect",
     incompleteData: "Incomplete data",
     maturityMap: "Maturity map",
+    maturityHeatmapHelp: "Click a year and type to show bottles at peak maturity in the cellar.",
+    maturityHeatmapEmpty: "No peak windows in this period",
+    maturityFilter: "Maturity filter",
+    clearMaturityFilter: "Clear maturity filter",
     peakNow: "At peak now",
+    peakYear: "Peak",
     valueByProducer: "Value by producer",
     investedMore: "Where you invested more",
     keyPosition: "Key position",
@@ -1731,7 +1738,12 @@ const translations = {
     winesToCollect: "Vini da ritirare",
     incompleteData: "Dati incompleti",
     maturityMap: "Mappa maturita",
+    maturityHeatmapHelp: "Clicca anno e tipologia per vedere in cantina le bottiglie al picco di maturita.",
+    maturityHeatmapEmpty: "Nessuna finestra di picco nel periodo",
+    maturityFilter: "Filtro maturita",
+    clearMaturityFilter: "Cancella filtro maturita",
     peakNow: "Al picco ora",
+    peakYear: "Picco",
     valueByProducer: "Valore per produttore",
     investedMore: "Dove hai investito di più",
     keyPosition: "Posizione chiave",
@@ -3763,6 +3775,23 @@ function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
   return buckets.map((bucket) => ({ ...bucket, pct: Math.max((bucket.value / max) * 100, bucket.value ? 8 : 0) }));
 }
 
+function maturityPhaseForYear(wine: Wine, year: number): MaturityPhase {
+  if (!wine.drink_from && !wine.drink_to) return "unknown";
+  const drinkStart = wine.drink_from || wine.drink_peak_from || null;
+  const drinkEnd = wine.drink_to || wine.drink_peak_to || null;
+  if (drinkEnd && year > drinkEnd) return "past";
+  if (drinkStart && year < drinkStart) return "early";
+  const peakStart = wine.drink_peak_from || drinkStart;
+  const peakEnd = wine.drink_peak_to || drinkEnd;
+  if (peakStart && peakEnd && year >= peakStart && year <= peakEnd) return "peak";
+  if (drinkStart && drinkEnd && year >= drinkStart && year <= drinkEnd) return "drinkable";
+  return "unknown";
+}
+
+function isWineAtMaturityPeak(wine: Wine, year: number) {
+  return maturityPhaseForYear(wine, year) === "peak";
+}
+
 function daysUntil(value: string) {
   const target = new Date(value).getTime();
   if (Number.isNaN(target)) return null;
@@ -5705,6 +5734,7 @@ export function App() {
   const [statusFilter, setStatusFilter] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
+  const [maturityFilter, setMaturityFilter] = useState<MaturityFilter>(null);
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [grapeFilter, setGrapeFilter] = useState<string[]>([]);
@@ -8245,6 +8275,18 @@ export function App() {
   const activeStatusOptions = isWineCollectionView ? wineStatusOptions : wishlistStatusOptions;
   const currentYear = new Date().getFullYear();
   const now = new Date();
+  const maturityHeatmapYears = Array.from({ length: 15 }, (_, index) => currentYear + index);
+  const maturityHeatmapRows = wineToneOrder.map((tone) => ({
+    tone,
+    label: wineToneLabel(tone, locale),
+    cells: maturityHeatmapYears.map((year) => {
+      const items = cellarWines.filter((wine) => wineTone(wine.type) === tone && isWineAtMaturityPeak(wine, year));
+      const bottles = items.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
+      const value = items.reduce((sum, wine) => sum + Number(wine.current_value || wine.price || 0) * Math.max(Number(wine.quantity || 0), 0), 0);
+      return { year, items, count: items.length, bottles, value };
+    }),
+  })).filter((row) => row.cells.some((cell) => cell.count > 0));
+  const maxMaturityHeatmapBottles = Math.max(...maturityHeatmapRows.flatMap((row) => row.cells.map((cell) => cell.bottles)), 1);
   const bottlePriceSamples = activeWineCollection
     .map((wine) => Number(wine.price || 0))
     .filter((price) => Number.isFinite(price) && price > 0);
@@ -8303,6 +8345,10 @@ export function App() {
       if (quickWineFilter === "to_collect") return isToCollectWine(wine);
       if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0;
       return true;
+    })
+    .filter((wine) => {
+      if (!maturityFilter || activeView !== "cellar") return true;
+      return wineTone(wine.type) === maturityFilter.tone && isWineAtMaturityPeak(wine, maturityFilter.year);
     })
     .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
     .filter((wine) => grapeFilter.length === 0 || grapeFilter.every((grape) => wine.grapes.some((item) => item.name === grape)))
@@ -8559,7 +8605,6 @@ export function App() {
     .slice(0, 5);
   const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
   const valueByProducer = topProducerGroups(cellarWines);
-  const maturity = maturityBuckets(cellarWines, currentYear, locale);
   const drinkNowWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
@@ -9066,6 +9111,7 @@ export function App() {
     setStatusFilter("");
     setOwnershipFilter("");
     setQuickWineFilter("");
+    setMaturityFilter(null);
     setTagFilter([]);
     setGrapeFilter([]);
     setMinBottlePriceFilter("");
@@ -9111,6 +9157,7 @@ export function App() {
     setGrapeOptionQuery("");
     setSortMode("name");
     setQuickWineFilter((current) => current === filter ? "" : filter);
+    setMaturityFilter(null);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
   }
@@ -9129,9 +9176,35 @@ export function App() {
     setGrapeOptionQuery("");
     setSortMode("name");
     setQuickWineFilter(filter);
+    setMaturityFilter(null);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     setNotificationsOpen(false);
+  }
+
+  function applyMaturityHeatmapFilter(year: number, tone: WineTone) {
+    setActiveView("cellar");
+    setSearchQuery("");
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setQuickWineFilter("");
+    setTagFilter([]);
+    setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
+    setSortMode("drink_window");
+    setMaturityFilter((current) => current?.year === year && current.tone === tone ? null : { year, tone });
+    setOpenWineToneGroups((current) => ({ ...current, [tone]: true }));
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+    setNotificationsOpen(false);
+  }
+
+  function clearMaturityHeatmapFilter() {
+    setMaturityFilter(null);
   }
 
   function snoozeOperationalAction(item: OperationalActionItem) {
@@ -9172,6 +9245,7 @@ export function App() {
     setTagOptionQuery("");
     setGrapeOptionQuery("");
     setQuickWineFilter("");
+    setMaturityFilter(null);
     setSortMode(breakdownDrilldown.metric === "value" ? "value" : "name");
     setTypeFilter(breakdownDrilldown.dimension === "type" ? breakdownDrilldown.label : "");
     if (breakdownDrilldown.dimension === "region") {
@@ -9263,6 +9337,7 @@ export function App() {
     setTagOptionQuery("");
     setGrapeOptionQuery("");
     setQuickWineFilter("");
+    setMaturityFilter(null);
     setSortMode("name");
     setOpenWineToneGroups((current) => ({ ...current, [wineTone(wine.type)]: true }));
     setSelectedWineId(wine.id);
@@ -9287,6 +9362,68 @@ export function App() {
   const pairingBudgetSliderMax = Math.max(250, Math.ceil(Math.max(...cellarBottleValues, 250) / 50) * 50);
   const pairingBudgetSliderValue = hasPairingBudget ? Math.min(activePairingBudget, pairingBudgetSliderMax) : 0;
   const pairingBudgetPresets = [40, 80, 150].filter((value) => value < pairingBudgetSliderMax);
+
+  function renderMaturityHeatmapCard() {
+    return (
+      <article className="dashboard-card wide-card maturity-heatmap-card">
+        <div className="card-heading">
+          <div>
+            <span>{t("maturityMap")}</span>
+            <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("maturity")}</i>{t("drinkingWindow")}</h2>
+          </div>
+          {maturityFilter ? (
+            <button type="button" className="secondary compact" onClick={clearMaturityHeatmapFilter}>
+              {t("clearMaturityFilter")}
+            </button>
+          ) : null}
+        </div>
+        <p className="maturity-heatmap-help">{t("maturityHeatmapHelp")}</p>
+        {maturityFilter ? (
+          <div className="maturity-filter-pill">
+            <span>{t("maturityFilter")}</span>
+            <strong>{wineToneLabel(maturityFilter.tone, locale)} {maturityFilter.year}</strong>
+          </div>
+        ) : null}
+        {maturityHeatmapRows.length ? (
+          <div className="maturity-heatmap" style={{ "--maturity-year-count": maturityHeatmapYears.length } as CSSProperties}>
+            <div className="maturity-heatmap-years" aria-hidden="true">
+              <span />
+              {maturityHeatmapYears.map((year) => <span key={year}>{year}</span>)}
+            </div>
+            {maturityHeatmapRows.map((row) => (
+              <div className="maturity-heatmap-row" key={row.tone}>
+                <span className={`maturity-heatmap-label tone-${row.tone}`}>
+                  <i className={`wine-dot tone-${row.tone}`} />
+                  {row.label}
+                </span>
+                {row.cells.map((cell) => {
+                  const intensity = Math.max(cell.bottles / maxMaturityHeatmapBottles, cell.count ? 0.16 : 0);
+                  const selected = maturityFilter?.year === cell.year && maturityFilter.tone === row.tone;
+                  const label = `${row.label} ${cell.year}: ${formatBottleCount(cell.bottles, locale)} ${t("bottles").toLowerCase()}, ${cell.count} ${t("wines").toLowerCase()}`;
+                  return (
+                    <button
+                      type="button"
+                      className={`maturity-heatmap-cell tone-${row.tone}${selected ? " selected" : ""}`}
+                      key={`${row.tone}-${cell.year}`}
+                      style={{ "--heatmap-weight": `${Math.round(intensity * 58)}%` } as CSSProperties}
+                      disabled={!cell.count}
+                      title={`${label} - ${formatMoney(cell.value, "CHF", locale)}`}
+                      aria-label={label}
+                      onClick={() => applyMaturityHeatmapFilter(cell.year, row.tone)}
+                    >
+                      <span>{cell.bottles ? formatBottleCount(cell.bottles, locale) : ""}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-state">{t("maturityHeatmapEmpty")}</p>
+        )}
+      </article>
+    );
+  }
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
@@ -10304,25 +10441,7 @@ export function App() {
                   </div>
                 </article>
 
-                <article className="dashboard-card wide-card">
-                  <div className="card-heading">
-                    <div>
-                      <span>{t("maturityMap")}</span>
-                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("maturity")}</i>{t("drinkingWindow")}</h2>
-                    </div>
-                  </div>
-                  <div className="maturity-grid">
-                    {maturity.map((bucket) => (
-                      <div className="maturity-item" key={bucket.key}>
-                        <div>
-                          <span>{bucket.label}</span>
-                          <strong>{bucket.value}</strong>
-                        </div>
-                        <div className="maturity-track"><span style={{ width: `${bucket.pct}%` }} /></div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
+                {renderMaturityHeatmapCard()}
 
                 <article className="dashboard-card">
                   <div className="card-heading">
@@ -10493,25 +10612,7 @@ export function App() {
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
-                  <article className="dashboard-card wide-card">
-                    <div className="card-heading">
-                      <div>
-                        <span>{t("maturityMap")}</span>
-                        <h2>{t("drinkingWindow")}</h2>
-                      </div>
-                    </div>
-                    <div className="maturity-grid">
-                      {maturity.map((bucket) => (
-                        <div className="maturity-item" key={bucket.key}>
-                          <div>
-                            <span>{bucket.label}</span>
-                            <strong>{bucket.value}</strong>
-                          </div>
-                          <div className="maturity-track"><span style={{ width: `${bucket.pct}%` }} /></div>
-                        </div>
-                      ))}
-                    </div>
-                  </article>
+                  {renderMaturityHeatmapCard()}
                 </DashboardCarousel>
               ) : null}
 
@@ -11349,6 +11450,7 @@ export function App() {
               <summary>
                 {t("cellarStats")}
                 {quickWineFilter ? <span>{quickWineFilterLabels[quickWineFilter]}</span> : null}
+                {maturityFilter ? <span>{t("maturityFilter")}: {wineToneLabel(maturityFilter.tone, locale)} {maturityFilter.year}</span> : null}
               </summary>
               <section className="stats-panel">
                 <button type="button" className={`stat-card ownership-stat ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
@@ -11822,6 +11924,15 @@ export function App() {
                 } {t("records")}
               </span>
             </div>
+            {activeView === "cellar" && maturityFilter ? (
+              <div className="active-maturity-filter">
+                <span>{t("maturityFilter")}</span>
+                <strong>{wineToneLabel(maturityFilter.tone, locale)} {maturityFilter.year}</strong>
+                <button type="button" className="secondary compact" onClick={clearMaturityHeatmapFilter}>
+                  {t("clearMaturityFilter")}
+                </button>
+              </div>
+            ) : null}
             {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && compareWineIds.length ? (
               <div className="compare-summary-bar">
                 <div>
@@ -11936,6 +12047,13 @@ export function App() {
                             {wine.scores.slice(0, 3).map((score) => <span className="row-chip row-score-chip" key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
                           </div>
                         ) : null}
+                      </div>
+                    ) : null}
+                    {maturityFilter && isWineAtMaturityPeak(wine, maturityFilter.year) ? (
+                      <div className="row-meta-stack">
+                        <div className="row-meta-group row-meta-group-secondary">
+                          <span className="row-chip row-maturity-chip">{t("peakYear")} {maturityFilter.year}</span>
+                        </div>
                       </div>
                     ) : null}
                   </div>
