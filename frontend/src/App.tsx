@@ -3364,14 +3364,16 @@ function wineGroupValue(wine: Wine, field: "type" | "region") {
   return wine[field] || (field === "type" ? "Other" : "Unknown region");
 }
 
-const defaultRegionalGapTargets: RegionalGapTarget[] = [
+const classicRegionalGapTargets: RegionalGapTarget[] = [
   { region: "Bordeaux", targetPct: 22 },
   { region: "Toscana", targetPct: 16 },
   { region: "Ticino", targetPct: 12 },
   { region: "Burgundy", targetPct: 14 },
   { region: "Champagne", targetPct: 12 },
   { region: "Piemonte", targetPct: 10 },
-  { region: "Other", targetPct: 14 },
+  { region: "Rhône", targetPct: 6 },
+  { region: "Napa Valley", targetPct: 4 },
+  { region: "Rioja", targetPct: 4 },
 ];
 
 function normalizedRegionName(value: string) {
@@ -3384,14 +3386,17 @@ function normalizedRegionName(value: string) {
 
 function regionalGapBucket(region: string) {
   const normalized = normalizedRegionName(region);
-  if (!normalized) return "Other";
+  if (!normalized) return "";
   if (normalized.includes("bordeaux")) return "Bordeaux";
   if (normalized.includes("toscana") || normalized.includes("tuscany")) return "Toscana";
   if (normalized.includes("ticino")) return "Ticino";
   if (normalized.includes("burgundy") || normalized.includes("bourgogne") || normalized.includes("borgogna")) return "Burgundy";
   if (normalized.includes("champagne")) return "Champagne";
   if (normalized.includes("piemonte") || normalized.includes("piedmont")) return "Piemonte";
-  return "Other";
+  if (normalized.includes("rhone") || normalized.includes("rhône")) return "Rhône";
+  if (normalized.includes("napa")) return "Napa Valley";
+  if (normalized.includes("rioja")) return "Rioja";
+  return region.trim();
 }
 
 function radarPoint(index: number, total: number, value: number, radius = 42, center = 50) {
@@ -3404,16 +3409,49 @@ function radarScaledPoint(index: number, total: number, value: number, maxValue:
   return radarPoint(index, total, maxValue > 0 ? (value / maxValue) * 100 : 0, radius, center);
 }
 
-function normalizeRegionalTargets(targets: RegionalGapTarget[]) {
+function regionalTargetLabel(region: string, locale: Locale) {
+  if (region === "Other") return displayValue("Other", locale, "type") || region;
+  return region;
+}
+
+function normalizeRegionalTargets(targets: RegionalGapTarget[], fallbackTargets: RegionalGapTarget[] = classicRegionalGapTargets) {
   const sanitized = targets.map((target) => ({ region: target.region, targetPct: Math.max(Number(target.targetPct || 0), 0) }));
   const total = sanitized.reduce((sum, target) => sum + target.targetPct, 0);
-  if (!Number.isFinite(total) || total <= 0) return [...defaultRegionalGapTargets];
+  if (!Number.isFinite(total) || total <= 0) return [...fallbackTargets];
   return sanitized.map((target, index) => {
     const value = index === sanitized.length - 1
       ? 100 - sanitized.slice(0, -1).reduce((sum, item) => sum + Math.round((item.targetPct / total) * 1000) / 10, 0)
       : Math.round((target.targetPct / total) * 1000) / 10;
     return { region: target.region, targetPct: Math.max(Math.round(value * 10) / 10, 0) };
   });
+}
+
+function regionalTargetsForCellar(items: Wine[], storedTargets: RegionalGapTarget[] = []) {
+  const byRegion = new Map<string, number>();
+  for (const wine of items) {
+    const region = regionalGapBucket(wine.region);
+    if (!region) continue;
+    byRegion.set(region, (byRegion.get(region) || 0) + wineUnitValue(wine) * Math.max(Number(wine.quantity || 0), 0));
+  }
+  const topCellarRegions = [...byRegion.entries()]
+    .sort((first, second) => second[1] - first[1])
+    .map(([region]) => region)
+    .slice(0, 6);
+  const regions = [
+    ...new Set([
+      ...classicRegionalGapTargets.map((target) => target.region),
+    ...topCellarRegions,
+    ...storedTargets.map((target) => target.region),
+    ]),
+  ].slice(0, 10);
+  const baseTargets = regions.map((region) => ({
+    region,
+    targetPct:
+      storedTargets.find((target) => target.region === region)?.targetPct ??
+      classicRegionalGapTargets.find((target) => target.region === region)?.targetPct ??
+      Math.max(6, Math.round(100 / Math.max(regions.length, 1))),
+  }));
+  return normalizeRegionalTargets(baseTargets, baseTargets);
 }
 
 function regionalGapStorageKey(householdId: string | null | undefined) {
@@ -5838,9 +5876,9 @@ export function App() {
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [maturityFilter, setMaturityFilter] = useState<MaturityFilter>(null);
-  const [regionalGapTargets, setRegionalGapTargets] = useState<RegionalGapTarget[]>(defaultRegionalGapTargets);
+  const [regionalGapTargets, setRegionalGapTargets] = useState<RegionalGapTarget[]>(classicRegionalGapTargets);
   const [regionalGapTargetsOpen, setRegionalGapTargetsOpen] = useState(false);
-  const [regionalGapDraft, setRegionalGapDraft] = useState<RegionalGapTargetDraft[]>(() => defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+  const [regionalGapDraft, setRegionalGapDraft] = useState<RegionalGapTargetDraft[]>(() => classicRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
   const [regionalGapProfile, setRegionalGapProfile] = useState<RegionalGapProfile>("balanced");
   const [regionalGapAiSuggestion, setRegionalGapAiSuggestion] = useState<RegionalGapAiSuggestion | null>(null);
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
@@ -8373,25 +8411,19 @@ export function App() {
   useEffect(() => {
     try {
       const stored = window.localStorage.getItem(regionalGapStorageKey(session?.active_household_id));
-      if (!stored) {
-        setRegionalGapTargets(defaultRegionalGapTargets);
-        setRegionalGapDraft(defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-        return;
-      }
-      const parsed = JSON.parse(stored) as RegionalGapTarget[];
-      const nextTargets = normalizeRegionalTargets(
-        defaultRegionalGapTargets.map((target) => ({
-          region: target.region,
-          targetPct: Number(parsed.find((item) => item.region === target.region)?.targetPct ?? target.targetPct),
-        })),
-      );
+      const parsed = stored ? JSON.parse(stored) as RegionalGapTarget[] : [];
+      const nextTargets = regionalTargetsForCellar(cellarWines, parsed);
       setRegionalGapTargets(nextTargets);
       setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+      if (!stored) {
+        return;
+      }
     } catch {
-      setRegionalGapTargets(defaultRegionalGapTargets);
-      setRegionalGapDraft(defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+      const nextTargets = regionalTargetsForCellar(cellarWines);
+      setRegionalGapTargets(nextTargets);
+      setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
     }
-  }, [session?.active_household_id]);
+  }, [session?.active_household_id, wines]);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => normalizeWineType(wine.type)));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => normalizeWineType(item.type)));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
@@ -9376,8 +9408,9 @@ export function App() {
   }
 
   function resetRegionalGapTargets() {
-    setRegionalGapTargets(defaultRegionalGapTargets);
-    setRegionalGapDraft(defaultRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    const nextTargets = regionalTargetsForCellar(cellarWines);
+    setRegionalGapTargets(nextTargets);
+    setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
     window.localStorage.removeItem(regionalGapStorageKey(session?.active_household_id));
     setRegionalGapAiSuggestion(null);
   }
@@ -9409,7 +9442,7 @@ export function App() {
 
   function applyRegionalGapAiSuggestion() {
     if (!regionalGapAiSuggestion) return;
-    const nextDraft = defaultRegionalGapTargets.map((target) => {
+    const nextDraft = regionalGapTargets.map((target) => {
       const suggestion = regionalGapAiSuggestion.targets.find((item) => item.region === target.region);
       return { region: target.region, targetPct: String(Number(suggestion?.target_pct ?? target.targetPct)) };
     });
@@ -9742,7 +9775,7 @@ export function App() {
                 const [x, y] = axis.point.split(",");
                 return (
                   <text className="regional-radar-label" key={axis.region} x={x} y={y}>
-                    {axis.region === "Other" ? displayValue("Other", locale, "type") || axis.region : axis.region}
+                    {regionalTargetLabel(axis.region, locale)}
                   </text>
                 );
               })}
