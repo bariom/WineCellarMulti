@@ -33,6 +33,7 @@
   --collector-glow: rgba(194, 172, 102, 0.12);
   --collector-sheen: rgba(255, 255, 255, 0.56);
   --collector-depth: rgba(18, 24, 21, 0.05);
+  --financial-text: #221b16;
   --focus: rgba(36, 81, 66, 0.32);
   --ai-panel-border: color-mix(in srgb, var(--border) 68%, var(--accent));
   --ai-panel-bg:
@@ -81,6 +82,7 @@
   --collector-glow: rgba(215, 189, 109, 0.14);
   --collector-sheen: rgba(255, 255, 255, 0.08);
   --collector-depth: rgba(0, 0, 0, 0.22);
+  --financial-text: #fff7ed;
   --focus: rgba(107, 194, 159, 0.42);
   --hero-bg:
     radial-gradient(circle at top left, rgba(215, 189, 109, 0.18), transparent 38%),
@@ -118,6 +120,7 @@
   --collector-glow: rgba(213, 176, 107, 0.12);
   --collector-sheen: rgba(255, 243, 220, 0.08);
   --collector-depth: rgba(0, 0, 0, 0.3);
+  --financial-text: #fff3dc;
   --focus: rgba(213, 176, 107, 0.42);
   --hero-bg:
     radial-gradient(circle at 10% 12%, rgba(213, 176, 107, 0.12), transparent 28%),
@@ -4741,7 +4744,7 @@ textarea {
     color-mix(in srgb, var(--surface) 90%, var(--surface-raised));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 92%, transparent),
-    var(--shadow-soft);
+    0 16px 34px color-mix(in srgb, var(--collector-depth) 90%, transparent);
 }
 
 .hero-kpi {
@@ -4808,7 +4811,7 @@ textarea {
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
+  gap: 14px;
 }
 
 .dashboard-carousel-shell {
@@ -4858,9 +4861,9 @@ textarea {
 .dashboard-card {
   display: grid;
   align-content: start;
-  gap: 14px;
+  gap: 16px;
   min-width: 0;
-  padding: 18px;
+  padding: 21px;
   position: relative;
   overflow: hidden;
 }
@@ -5510,9 +5513,10 @@ textarea {
 }
 
 .card-heading > strong {
-  color: #245142;
+  color: var(--financial-text);
   font-size: 1.6rem;
   line-height: 1;
+  font-variant-numeric: tabular-nums;
 }
 
 .action-list,
@@ -5828,11 +5832,14 @@ textarea {
   .dashboard-card {
     gap: 16px;
     min-height: 188px;
-    padding: 20px;
-    border-radius: 12px;
+    padding: 23px;
+    border-radius: 18px;
     background:
       linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 82%, transparent) 0%, transparent 46%),
       color-mix(in srgb, var(--surface) 86%, var(--surface-muted) 14%);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 92%, transparent),
+      0 16px 34px color-mix(in srgb, var(--collector-depth) 90%, transparent);
   }
 
   .dashboard-card::after {
@@ -5855,7 +5862,7 @@ textarea {
   }
 
   .key-position-card {
-    border-radius: 12px;
+    border-radius: 18px;
   }
 
   .key-position-button {
@@ -6018,11 +6025,11 @@ textarea {
 .stat-card {
   display: grid;
   align-content: start;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
-  padding: 16px;
+  padding: 18px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 16px;
+  border-radius: 18px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 24%, transparent), transparent 48%),
     radial-gradient(circle at top right, color-mix(in srgb, var(--collector-glow) 68%, transparent), transparent 28%),
@@ -6034,6 +6041,7 @@ textarea {
   text-align: left;
   position: relative;
   overflow: hidden;
+  transition: border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease, background 0.18s ease;
 }
 
 button.stat-card {
@@ -6068,7 +6076,7 @@ button.stat-card:hover {
 }
 
 .stat-card strong {
-  color: var(--text);
+  color: var(--financial-text);
   font-size: clamp(1.35rem, 1.6vw, 1.9rem);
   line-height: 1;
   letter-spacing: -0.03em;
@@ -6107,7 +6115,7 @@ button.stat-card:hover {
   width: 100%;
   padding: 0;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   background: transparent;
   color: #52635c;
   font: inherit;
@@ -6138,7 +6146,7 @@ button.stat-card:hover {
   border: 0;
   box-shadow: inset 0 0 0 1px var(--border);
   cursor: pointer;
-  transition: transform 0.16s ease, box-shadow 0.16s ease;
+  transition: transform 0.18s ease, box-shadow 0.2s ease;
 }
 
 .breakdown-donut:hover,
@@ -6201,7 +6209,7 @@ button.stat-card:hover {
   margin-top: -0.25rem;
   padding: 1rem;
   border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
-  border-radius: 18px;
+  border-radius: 20px;
   background:
     radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 12%, transparent), transparent 28%),
     color-mix(in srgb, var(--surface) 92%, var(--primary) 4%);
@@ -6244,13 +6252,14 @@ button.stat-card:hover {
   gap: 0.5rem;
   padding: 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface);
 }
 
 .compact-list p strong {
-  color: #17201c;
+  color: var(--financial-text);
   font-size: 1rem;
+  font-variant-numeric: tabular-nums;
 }
 
 :root[data-theme="dark"] .stat-card,
@@ -6340,9 +6349,9 @@ button.stat-card:hover {
   position: relative;
   grid-template-columns: minmax(0, 1.7fr) minmax(170px, 260px) auto;
   grid-template-rows: auto auto;
-  padding: 16px 16px 16px 20px;
+  padding: 18px 18px 18px 23px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
-  border-radius: 18px;
+  border-radius: 20px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 18%, transparent), transparent 40%),
     radial-gradient(circle at 88% 14%, color-mix(in srgb, var(--collector-glow) 78%, transparent), transparent 20%),
@@ -6352,7 +6361,11 @@ button.stat-card:hover {
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 88%, transparent),
     0 12px 28px color-mix(in srgb, var(--collector-depth) 100%, transparent);
-  transition: border-color 0.18s ease, box-shadow 0.22s ease, transform 0.18s ease, background-color 0.18s ease;
+  transition:
+    border-color 0.18s ease,
+    box-shadow 0.22s ease,
+    transform 0.18s ease,
+    background 0.18s ease;
   column-gap: 18px;
   row-gap: 10px;
 }
@@ -6368,11 +6381,16 @@ button.stat-card:hover {
 }
 
 .wine-row:hover {
-  border-color: color-mix(in srgb, var(--collector-edge) 72%, var(--border));
+  border-color: color-mix(in srgb, var(--wine-tone, var(--primary)) 34%, var(--border-strong));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 24%, transparent), transparent 42%),
+    radial-gradient(circle at 88% 14%, color-mix(in srgb, var(--wine-tone, var(--primary)) 10%, transparent), transparent 24%),
+    radial-gradient(circle at 12% 10%, color-mix(in srgb, var(--collector-glow) 42%, transparent), transparent 26%),
+    color-mix(in srgb, var(--surface-raised) 72%, var(--surface));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 92%, transparent),
-    var(--shadow-premium);
-  transform: translateY(-2px);
+    0 18px 38px color-mix(in srgb, var(--collector-depth) 100%, transparent);
+  transform: translateY(-2px) scale(1.002);
 }
 
 .wine-row.selected {
@@ -6621,7 +6639,7 @@ button.stat-card:hover {
   grid-row: 1;
   align-self: start;
   justify-self: end;
-  color: var(--text);
+  color: var(--financial-text);
   font-size: clamp(1.22rem, 1.8vw, 1.55rem);
   line-height: 1;
   letter-spacing: -0.03em;
@@ -8780,13 +8798,16 @@ button.stat-card:hover {
 .filter-panel,
 .team-panel,
 .settings-card,
-.stat-card,
-.wine-row,
 .wine-detail,
-.hero-kpi,
-.dashboard-card {
+.hero-kpi {
   border-color: var(--border);
   background: var(--surface);
+}
+
+.stat-card,
+.dashboard-card,
+.wine-row {
+  border-color: color-mix(in srgb, var(--border) 74%, var(--collector-edge));
 }
 
 input,
@@ -8804,7 +8825,9 @@ textarea {
 
 .hero-kpi,
 .dashboard-card {
-  box-shadow: var(--shadow-soft);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 92%, transparent),
+    0 16px 34px color-mix(in srgb, var(--collector-depth) 90%, transparent);
 }
 
 .filter-panel summary,
@@ -8869,12 +8892,14 @@ textarea {
 }
 
 .wine-row:hover {
-  border-color: var(--border-strong);
+  border-color: color-mix(in srgb, var(--wine-tone, var(--primary)) 34%, var(--border-strong));
 }
 
 .wine-row.selected {
   border-color: var(--primary);
-  box-shadow: 0 0 0 2px var(--focus);
+  box-shadow:
+    0 0 0 2px var(--focus),
+    0 18px 38px color-mix(in srgb, var(--collector-depth) 100%, transparent);
 }
 
 .wishlist-buy-row {
@@ -8887,10 +8912,13 @@ textarea {
 }
 
 .detail-title > strong,
-.card-heading > strong,
-.action-row:hover,
-.stat-card p strong {
+.action-row:hover {
   color: var(--primary);
+}
+
+.card-heading > strong,
+.stat-card p strong {
+  color: var(--financial-text);
 }
 
 .bar-track,
@@ -10355,6 +10383,7 @@ textarea {
 
 /* Premium collector layer */
 :root {
+  --financial-text: #221b16;
   --luxury-ink-shadow: 0 1px 0 rgba(255, 255, 255, 0.22);
   --luxury-hairline: color-mix(in srgb, var(--accent) 30%, var(--border));
   --luxury-hairline-strong: color-mix(in srgb, var(--accent) 46%, var(--border-strong));
@@ -10366,6 +10395,16 @@ textarea {
   --luxury-press-shadow:
     0 18px 42px color-mix(in srgb, var(--collector-depth) 72%, transparent),
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 88%, transparent);
+}
+
+:root[data-theme="dark"],
+:root[data-theme="private-cellar"],
+:root[data-theme="red-wine"],
+:root[data-theme="bordeaux"],
+:root[data-theme="burgundy"],
+:root[data-theme="ticino"],
+:root[data-theme="midnight-ledger"] {
+  --financial-text: #fff3dc;
 }
 
 :root[data-theme="tuscany"] {
@@ -10499,6 +10538,7 @@ button:hover {
   position: relative;
   overflow: hidden;
   border-color: var(--luxury-hairline);
+  border-radius: 20px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 24%, transparent), transparent 42%),
     linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 88%, var(--accent) 12%), var(--surface) 56%, var(--surface-muted));
@@ -10528,10 +10568,14 @@ button:hover {
 .dashboard-card strong,
 .stat-card strong,
 .row-value,
-.wishlist-price,
+.wishlist-price {
+  color: var(--financial-text);
+  font-variant-numeric: tabular-nums;
+  text-shadow: var(--luxury-ink-shadow);
+}
+
 .detail-title > strong {
   color: var(--text);
-  font-variant-numeric: tabular-nums;
   text-shadow: var(--luxury-ink-shadow);
 }
 
@@ -10984,11 +11028,13 @@ textarea:hover {
 
 .operational-workspace .stats-panel-wrapper,
 .operational-workspace .filter-panel {
-  padding: 10px 12px;
+  padding: 12px 14px;
   border-color: color-mix(in srgb, var(--border) 86%, transparent);
-  border-radius: 8px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--surface) 96%, var(--surface-muted));
-  box-shadow: none;
+  box-shadow:
+    0 10px 24px color-mix(in srgb, var(--collector-depth) 28%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 58%, transparent);
 }
 
 .operational-workspace .stats-panel-wrapper summary,
@@ -11006,13 +11052,15 @@ textarea:hover {
 }
 
 .operational-workspace .stat-card {
-  gap: 6px;
+  gap: 7px;
   min-height: 0;
-  padding: 11px 12px;
+  padding: 13px 14px;
   border-color: color-mix(in srgb, var(--border) 88%, transparent);
-  border-radius: 8px;
+  border-radius: 10px;
   background: var(--surface-raised);
-  box-shadow: none;
+  box-shadow:
+    0 8px 18px color-mix(in srgb, var(--collector-depth) 24%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 60%, transparent);
 }
 
 .operational-workspace .stat-card::before {
@@ -11023,8 +11071,10 @@ textarea:hover {
 .operational-workspace .stat-card.active {
   border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
   background: color-mix(in srgb, var(--primary) 7%, var(--surface-raised));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent);
-  transform: none;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--primary) 12%, transparent),
+    0 12px 26px color-mix(in srgb, var(--collector-depth) 34%, transparent);
+  transform: translateY(-1px);
 }
 
 .operational-workspace .stat-card span {
@@ -11087,9 +11137,9 @@ textarea:hover {
   align-items: center;
   column-gap: 14px;
   row-gap: 0;
-  padding: 14px 14px 14px 18px;
+  padding: 16px 16px 16px 21px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
-  border-radius: 10px;
+  border-radius: 12px;
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 16%, transparent), transparent 46%),
     color-mix(in srgb, var(--surface-raised) 88%, var(--surface));
@@ -11105,14 +11155,15 @@ textarea:hover {
 }
 
 .operational-workspace .wine-row:not(.wishlist-row):hover {
-  border-color: color-mix(in srgb, var(--primary) 26%, var(--collector-edge));
+  border-color: color-mix(in srgb, var(--wine-tone, var(--primary)) 38%, var(--collector-edge));
   background:
-    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 20%, transparent), transparent 46%),
+    linear-gradient(180deg, color-mix(in srgb, var(--collector-sheen) 22%, transparent), transparent 46%),
+    radial-gradient(circle at 86% 20%, color-mix(in srgb, var(--wine-tone, var(--primary)) 9%, transparent), transparent 26%),
     color-mix(in srgb, var(--primary) 4%, var(--surface-raised));
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 76%, transparent),
-    0 14px 30px color-mix(in srgb, var(--collector-depth) 58%, transparent);
-  transform: translateY(-1px);
+    0 16px 34px color-mix(in srgb, var(--collector-depth) 58%, transparent);
+  transform: translateY(-2px);
 }
 
 .operational-workspace .wine-row:not(.wishlist-row).selected {
@@ -11209,6 +11260,7 @@ textarea:hover {
   border: 1px solid color-mix(in srgb, var(--border) 66%, var(--accent));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+  color: var(--financial-text);
   font-size: 1.02rem;
   letter-spacing: 0;
   text-shadow: var(--luxury-ink-shadow);
