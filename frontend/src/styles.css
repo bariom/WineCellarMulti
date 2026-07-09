@@ -10366,6 +10366,7 @@ textarea {
   }
 
   .topbar {
+    grid-template-columns: 1fr;
     align-items: start;
     gap: 8px;
     overflow: visible;
@@ -10404,7 +10405,7 @@ textarea {
 
   .session-pill {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto auto auto;
+    grid-template-columns: repeat(3, 38px) minmax(0, 1fr);
     gap: 5px 8px;
     width: 100%;
     max-width: 100%;
@@ -10414,7 +10415,7 @@ textarea {
   }
 
   .session-pill strong {
-    grid-column: 1;
+    grid-column: 1 / 4;
     grid-row: 1;
     min-width: 0;
     overflow: hidden;
@@ -10442,7 +10443,7 @@ textarea {
   }
 
   .session-pill > select {
-    grid-column: 1;
+    grid-column: 1 / -1;
     grid-row: 2;
     min-width: 0;
     max-width: 100%;
@@ -10463,8 +10464,8 @@ textarea {
   }
 
   .session-pill .notification-wrap {
-    grid-column: 2;
-    grid-row: 2;
+    grid-column: 1;
+    grid-row: 3;
     width: auto;
     min-width: 0;
     justify-self: end;
@@ -10494,14 +10495,14 @@ textarea {
   }
 
   .session-pill .topbar-settings-button {
-    grid-column: 3;
-    grid-row: 2;
+    grid-column: 2;
+    grid-row: 3;
     justify-self: end;
   }
 
   .session-pill .topbar-logout-button {
-    grid-column: 4;
-    grid-row: 2;
+    grid-column: 3;
+    grid-row: 3;
     justify-self: end;
   }
 
@@ -10605,8 +10606,10 @@ textarea {
   }
 
   .view-tabs button {
+    flex: 0 0 auto;
     padding: 9px 12px;
     font-size: 0.95rem;
+    white-space: nowrap;
   }
 
   .side-panel-actions {
@@ -10663,19 +10666,21 @@ textarea {
   }
 
   .hero-kpis {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: 1fr;
     gap: 6px;
   }
 
   .hero-kpi {
+    grid-template-columns: minmax(0, 1fr) auto;
     min-height: auto;
-    gap: 2px;
-    padding: 8px;
+    gap: 4px 10px;
+    padding: 9px 10px;
     border-radius: 10px;
     box-shadow: none;
   }
 
   .hero-kpi span {
+    grid-column: 1 / -1;
     font-size: 0.62rem;
     line-height: 1.1;
     letter-spacing: 0.04em;
@@ -10687,9 +10692,14 @@ textarea {
   }
 
   .hero-kpi p {
+    justify-self: end;
+    max-width: 160px;
+    overflow: hidden;
     font-size: 0.75rem;
     font-weight: 700;
     line-height: 1.15;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .dashboard-grid {
