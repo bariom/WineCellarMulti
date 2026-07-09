@@ -791,6 +791,7 @@ type HistorySection = "tastings" | "wines";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data";
 type MaturityPhase = "early" | "drinkable" | "peak" | "past" | "unknown";
 type MaturityFilter = { year: number; tone: WineTone } | null;
+type RegionalGapTarget = { region: string; targetPct: number };
 type OperationalActionItem = {
   id: string;
   kind: string;
@@ -1192,6 +1193,14 @@ const translations = {
     clearMaturityFilter: "Clear maturity filter",
     peakNow: "At peak now",
     peakYear: "Peak",
+    regionalGapAnalysis: "Regional gap analysis",
+    regionalGapHelp: "Current bottle balance compared with your target portfolio.",
+    targetPortfolio: "Target",
+    currentPortfolio: "Current",
+    gapSuggestions: "Gap suggestions",
+    addWishlistGap: "Add to wishlist",
+    balancedPortfolio: "Portfolio is balanced",
+    missingBottles: "Missing bottles",
     valueByProducer: "Value by producer",
     investedMore: "Where you invested more",
     keyPosition: "Key position",
@@ -1744,6 +1753,14 @@ const translations = {
     clearMaturityFilter: "Cancella filtro maturita",
     peakNow: "Al picco ora",
     peakYear: "Picco",
+    regionalGapAnalysis: "Gap analysis regionale",
+    regionalGapHelp: "Bilanciamento attuale delle bottiglie rispetto al portafoglio target.",
+    targetPortfolio: "Target",
+    currentPortfolio: "Attuale",
+    gapSuggestions: "Suggerimenti gap",
+    addWishlistGap: "Aggiungi alla wishlist",
+    balancedPortfolio: "Portafoglio bilanciato",
+    missingBottles: "Bottiglie mancanti",
     valueByProducer: "Valore per produttore",
     investedMore: "Dove hai investito di più",
     keyPosition: "Posizione chiave",
@@ -3315,6 +3332,42 @@ type BreakdownDrilldown = {
 
 function wineGroupValue(wine: Wine, field: "type" | "region") {
   return wine[field] || (field === "type" ? "Other" : "Unknown region");
+}
+
+const regionalGapTargets: RegionalGapTarget[] = [
+  { region: "Bordeaux", targetPct: 22 },
+  { region: "Toscana", targetPct: 16 },
+  { region: "Ticino", targetPct: 12 },
+  { region: "Burgundy", targetPct: 14 },
+  { region: "Champagne", targetPct: 12 },
+  { region: "Piemonte", targetPct: 10 },
+  { region: "Other", targetPct: 14 },
+];
+
+function normalizedRegionName(value: string) {
+  return value
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+function regionalGapBucket(region: string) {
+  const normalized = normalizedRegionName(region);
+  if (!normalized) return "Other";
+  if (normalized.includes("bordeaux")) return "Bordeaux";
+  if (normalized.includes("toscana") || normalized.includes("tuscany")) return "Toscana";
+  if (normalized.includes("ticino")) return "Ticino";
+  if (normalized.includes("burgundy") || normalized.includes("bourgogne") || normalized.includes("borgogna")) return "Burgundy";
+  if (normalized.includes("champagne")) return "Champagne";
+  if (normalized.includes("piemonte") || normalized.includes("piedmont")) return "Piemonte";
+  return "Other";
+}
+
+function radarPoint(index: number, total: number, value: number, radius = 42, center = 50) {
+  const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
+  const distance = radius * Math.max(Math.min(value, 100), 0) / 100;
+  return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
 }
 
 function breakdownColor(label: string, index: number, mode: "type" | "region") {
@@ -8605,6 +8658,33 @@ export function App() {
     .slice(0, 5);
   const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
   const valueByProducer = topProducerGroups(cellarWines);
+  const regionalGapTotalBottleCount = cellarWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
+  const regionalGapTotalBottles = Math.max(regionalGapTotalBottleCount, 1);
+  const regionalGapRows = regionalGapTargets.map((target) => {
+    const bottles = cellarWines
+      .filter((wine) => regionalGapBucket(wine.region) === target.region)
+      .reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
+    const currentPct = (bottles / regionalGapTotalBottles) * 100;
+    const targetBottles = (regionalGapTotalBottles * target.targetPct) / 100;
+    return {
+      ...target,
+      bottles,
+      currentPct,
+      gapBottles: Math.max(Math.ceil(targetBottles - bottles), 0),
+      deltaPct: target.targetPct - currentPct,
+    };
+  });
+  const regionalGapSuggestions = regionalGapRows
+    .filter((row) => regionalGapTotalBottleCount > 0 && row.gapBottles > 0 && row.region !== "Other")
+    .sort((first, second) => second.deltaPct - first.deltaPct)
+    .slice(0, 4);
+  const regionalGapCurrentPoints = regionalGapRows.map((row, index) => radarPoint(index, regionalGapRows.length, row.currentPct)).join(" ");
+  const regionalGapTargetPoints = regionalGapRows.map((row, index) => radarPoint(index, regionalGapRows.length, row.targetPct)).join(" ");
+  const regionalGapAxisPoints = regionalGapRows.map((row, index) => ({
+    ...row,
+    point: radarPoint(index, regionalGapRows.length, 105, 42, 50),
+    linePoint: radarPoint(index, regionalGapRows.length, 100, 42, 50),
+  }));
   const drinkNowWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
@@ -9207,6 +9287,38 @@ export function App() {
     setMaturityFilter(null);
   }
 
+  function openRegionalGapWishlist(row: { region: string; gapBottles: number; targetPct: number; currentPct: number }) {
+    setActiveView("wishlist");
+    setWineFormOpen(false);
+    setWishlistFormOpen(true);
+    setEditingWishlistId(null);
+    setSelectedWishlistId(null);
+    setSearchQuery(row.region);
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setQuickWineFilter("");
+    setMaturityFilter(null);
+    setTagFilter([]);
+    setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
+    setSortMode("priority");
+    setWishlistDraft({
+      ...emptyWishlistDraft,
+      wishlist_list_id: selectedWishlistListId || wishlistLists[0]?.id || "",
+      name: `${row.region} portfolio gap`,
+      region: row.region,
+      priority: "High",
+      purpose: "Cellar",
+      status: "Evaluate",
+      notes: `${t("regionalGapAnalysis")}: ${t("missingBottles")} ${row.gapBottles}. ${t("currentPortfolio")} ${Math.round(row.currentPct)}%, ${t("targetPortfolio")} ${row.targetPct}%.`,
+      ai_context_note: `${t("gapSuggestions")}: ${row.region}. ${t("missingBottles")} ${row.gapBottles}.`,
+    });
+  }
+
   function snoozeOperationalAction(item: OperationalActionItem) {
     const snoozeUntil = Date.now() + OPERATIONAL_ACTION_SNOOZE_DAYS * 86400000;
     const actionKey = `${operationalActionScope}:${item.id}`;
@@ -9421,6 +9533,65 @@ export function App() {
         ) : (
           <p className="empty-state">{t("maturityHeatmapEmpty")}</p>
         )}
+      </article>
+    );
+  }
+
+  function renderRegionalGapCard() {
+    return (
+      <article className="dashboard-card wide-card regional-gap-card">
+        <div className="card-heading">
+          <div>
+            <span>{t("regionalGapAnalysis")}</span>
+            <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("topRegions")}</h2>
+          </div>
+        </div>
+        <p className="regional-gap-help">{t("regionalGapHelp")}</p>
+        <div className="regional-gap-layout">
+          <div className="regional-radar-wrap">
+            <svg className="regional-radar" viewBox="0 0 100 100" role="img" aria-label={t("regionalGapAnalysis")}>
+              {[25, 50, 75, 100].map((level) => (
+                <polygon
+                  className="regional-radar-ring"
+                  key={level}
+                  points={regionalGapRows.map((_, index) => radarPoint(index, regionalGapRows.length, level)).join(" ")}
+                />
+              ))}
+              {regionalGapAxisPoints.map((axis) => (
+                <line className="regional-radar-axis" key={axis.region} x1="50" y1="50" x2={axis.linePoint.split(",")[0]} y2={axis.linePoint.split(",")[1]} />
+              ))}
+              <polygon className="regional-radar-target" points={regionalGapTargetPoints} />
+              <polygon className="regional-radar-current" points={regionalGapCurrentPoints} />
+              {regionalGapAxisPoints.map((axis) => {
+                const [x, y] = axis.point.split(",");
+                return (
+                  <text className="regional-radar-label" key={axis.region} x={x} y={y}>
+                    {axis.region === "Other" ? displayValue("Other", locale, "type") || axis.region : axis.region}
+                  </text>
+                );
+              })}
+            </svg>
+            <div className="regional-radar-legend">
+              <span><i className="regional-legend-current" />{t("currentPortfolio")}</span>
+              <span><i className="regional-legend-target" />{t("targetPortfolio")}</span>
+            </div>
+          </div>
+          <div className="regional-gap-suggestions">
+            <strong>{t("gapSuggestions")}</strong>
+            {regionalGapSuggestions.length ? regionalGapSuggestions.map((row) => (
+              <div className="regional-gap-row" key={row.region}>
+                <div>
+                  <span>{row.region}</span>
+                  <small>{t("currentPortfolio")} {Math.round(row.currentPct)}% / {t("targetPortfolio")} {row.targetPct}%</small>
+                </div>
+                <strong>{row.gapBottles} {t("bottles").toLowerCase()}</strong>
+                <button type="button" className="secondary compact" disabled={!canWriteWine} onClick={() => openRegionalGapWishlist(row)}>
+                  {t("addWishlistGap")}
+                </button>
+              </div>
+            )) : <p className="empty-state">{t("balancedPortfolio")}</p>}
+          </div>
+        </div>
       </article>
     );
   }
@@ -10524,6 +10695,7 @@ export function App() {
                       ))}
                     </div>
                   </article>
+                  {renderRegionalGapCard()}
                   <article className="dashboard-card">
                     <div className="card-heading">
                       <div>
