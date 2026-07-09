@@ -5884,6 +5884,18 @@ textarea {
   line-height: 1.35;
 }
 
+.regional-target-feedback {
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 34%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  color: var(--primary);
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
 .regional-target-editor {
   display: grid;
   gap: 12px;
@@ -6151,9 +6163,39 @@ textarea {
   min-width: 0;
 }
 
-.regional-gap-suggestions > strong {
+.regional-gap-suggestions summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0;
   color: var(--text);
   font-size: 0.9rem;
+  font-weight: 900;
+  cursor: pointer;
+  list-style: none;
+}
+
+.regional-gap-suggestions summary::-webkit-details-marker {
+  display: none;
+}
+
+.regional-gap-suggestions summary::after {
+  content: "+";
+  display: inline-grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
+  border-radius: 999px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--surface-muted) 76%, var(--surface));
+  font-weight: 900;
+}
+
+.regional-gap-suggestions[open] summary::after {
+  content: "-";
 }
 
 .regional-gap-row {

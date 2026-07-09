@@ -1210,6 +1210,7 @@ const translations = {
     gapSuggestions: "Gap suggestions",
     balancedPortfolio: "Portfolio is balanced",
     missingValueGap: "Missing value",
+    regionalTargetsSaved: "Regional targets saved",
     editTargets: "Edit targets",
     saveTargets: "Save targets",
     resetTargets: "Reset targets",
@@ -1781,6 +1782,7 @@ const translations = {
     gapSuggestions: "Suggerimenti gap",
     balancedPortfolio: "Portafoglio bilanciato",
     missingValueGap: "Valore mancante",
+    regionalTargetsSaved: "Target regionali salvati",
     editTargets: "Modifica target",
     saveTargets: "Salva target",
     resetTargets: "Ripristina target",
@@ -5883,6 +5885,7 @@ export function App() {
   const [regionalGapDraft, setRegionalGapDraft] = useState<RegionalGapTargetDraft[]>(() => classicRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
   const [regionalGapProfile, setRegionalGapProfile] = useState<RegionalGapProfile>("balanced");
   const [regionalGapAiSuggestion, setRegionalGapAiSuggestion] = useState<RegionalGapAiSuggestion | null>(null);
+  const [regionalGapFeedback, setRegionalGapFeedback] = useState("");
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [grapeFilter, setGrapeFilter] = useState<string[]>([]);
@@ -9407,6 +9410,9 @@ export function App() {
     setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
     window.localStorage.setItem(regionalGapStorageKey(session?.active_household_id), JSON.stringify(nextTargets));
     setRegionalGapAiSuggestion(null);
+    setRegionalGapTargetsOpen(false);
+    setRegionalGapFeedback(t("regionalTargetsSaved"));
+    setNotice(t("regionalTargetsSaved"));
   }
 
   function resetRegionalGapTargets() {
@@ -9415,6 +9421,7 @@ export function App() {
     setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
     window.localStorage.removeItem(regionalGapStorageKey(session?.active_household_id));
     setRegionalGapAiSuggestion(null);
+    setRegionalGapFeedback("");
   }
 
   async function generateRegionalGapTargets() {
@@ -9677,11 +9684,12 @@ export function App() {
             <span>{t("regionalGapAnalysis")}</span>
             <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("topRegions")}</h2>
           </div>
-          <button type="button" className="secondary compact" onClick={() => setRegionalGapTargetsOpen((current) => !current)}>
+          <button type="button" className="secondary compact" onClick={() => { setRegionalGapFeedback(""); setRegionalGapTargetsOpen((current) => !current); }}>
             {t("editTargets")}
           </button>
         </div>
         <p className="regional-gap-help">{t("regionalGapHelp")}</p>
+        {regionalGapFeedback ? <div className="regional-target-feedback" role="status">{regionalGapFeedback}</div> : null}
         {regionalGapTargetsOpen ? (
           <div className="regional-target-editor">
             <div className="regional-target-grid">
@@ -9694,7 +9702,7 @@ export function App() {
                     max="100"
                     step="0.1"
                     value={target.targetPct}
-                    onChange={(event) => setRegionalGapDraft((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, targetPct: event.target.value } : item))}
+                    onChange={(event) => { setRegionalGapFeedback(""); setRegionalGapDraft((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, targetPct: event.target.value } : item)); }}
                   />
                 </label>
               ))}
@@ -9790,8 +9798,8 @@ export function App() {
               <span><i className="regional-legend-target" />{t("targetPortfolio")}</span>
             </div>
           </div>
-          <div className="regional-gap-suggestions">
-            <strong>{t("gapSuggestions")}</strong>
+          <details className="regional-gap-suggestions" open={!isMobileViewport}>
+            <summary>{t("gapSuggestions")}</summary>
             {regionalGapSuggestions.length ? regionalGapSuggestions.map((row) => (
               <div className="regional-gap-row" key={row.region}>
                 <div>
@@ -9801,7 +9809,7 @@ export function App() {
                 <strong><small>{t("missingValueGap")}</small>{formatMoney(row.gapValue, "CHF", locale)}</strong>
               </div>
             )) : <p className="empty-state">{t("balancedPortfolio")}</p>}
-          </div>
+          </details>
         </div>
       </article>
     );
