@@ -8802,6 +8802,12 @@ export function App() {
     linePoint: radarPoint(index, regionalGapRows.length, 100, 42, 50),
   }));
   const regionalGapDraftTotal = regionalGapDraft.reduce((sum, target) => sum + Number(target.targetPct || 0), 0);
+  const regionalGapProfileLabels: Record<RegionalGapProfile, TranslationKey> = {
+    investment: "regionalProfileInvestment",
+    readiness: "regionalProfileReadiness",
+    daily: "regionalProfileDaily",
+    balanced: "regionalProfileBalanced",
+  };
   const drinkNowWines = cellarWines
     .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
@@ -9795,7 +9801,7 @@ export function App() {
             </svg>
             <div className="regional-radar-legend">
               <span><i className="regional-legend-current" />{t("currentPortfolio")}</span>
-              <span><i className="regional-legend-target" />{t("targetPortfolio")}</span>
+              <span><i className="regional-legend-target" />{t("targetPortfolio")} {t(regionalGapProfileLabels[regionalGapProfile]).toLowerCase()}</span>
             </div>
           </div>
           <details className="regional-gap-suggestions" open={!isMobileViewport}>
