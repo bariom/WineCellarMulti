@@ -4903,7 +4903,9 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 19px 22px 0;
+  padding: 18px 30px 0;
+  position: relative;
+  z-index: 2;
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 800;
@@ -4980,11 +4982,11 @@ textarea {
 
 .key-position-button {
   display: grid;
-  align-content: end;
-  gap: 20px;
+  align-content: start;
+  gap: 18px;
   width: 100%;
   min-height: 100%;
-  padding: 30px 34px 26px;
+  padding: 22px 34px 26px;
   position: relative;
   color: inherit;
   text-align: left;
@@ -5019,7 +5021,7 @@ textarea {
 }
 
 .key-position-head h2 {
-  margin: 8px 0 6px;
+  margin: 7px 0 6px;
   color: var(--text);
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(2.15rem, 4.3vw, 4.35rem);
@@ -5038,7 +5040,7 @@ textarea {
 .key-position-yearmark {
   position: absolute;
   right: clamp(18px, 5vw, 52px);
-  top: 16px;
+  top: -8px;
   z-index: 0;
   color: color-mix(in srgb, var(--primary) 18%, transparent);
   font-family: Georgia, "Times New Roman", serif;
@@ -5126,7 +5128,7 @@ textarea {
 
 @media (max-width: 1120px) {
   .key-position-button {
-    padding: 28px 28px 24px;
+    padding: 22px 28px 24px;
   }
 
   .key-position-metrics {
@@ -5136,11 +5138,11 @@ textarea {
 
 @media (max-width: 640px) {
   .key-position-card-heading {
-    padding: 16px 18px 0;
+    padding: 16px 20px 0;
   }
 
   .key-position-button {
-    padding: 24px 20px 22px;
+    padding: 20px 20px 22px;
   }
 
   .key-position-head h2 {
