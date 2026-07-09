@@ -9720,11 +9720,12 @@ export function App() {
               ))}
               {[25, 50, 75, 100].map((level) => {
                 const value = (regionalGapRadarScaleMax * level) / 100;
-                const [, y] = radarScaledPoint(0, regionalGapRows.length, value, regionalGapRadarScaleMax).split(",");
+                const [x, y] = radarScaledPoint(1, regionalGapRows.length, value, regionalGapRadarScaleMax).split(",");
+                const labelX = Math.min(Number(x) + 5.5, 92);
                 return (
                   <g className="regional-radar-scale" key={`scale-${level}`}>
-                    <line x1="48.4" y1={y} x2="51.6" y2={y} />
-                    <text x="53" y={y}>{Math.round(value * 10) / 10}%</text>
+                    <line x1={x} y1={y} x2={labelX - 1.4} y2={y} />
+                    <text x={labelX} y={y}>{Math.round(value * 10) / 10}%</text>
                   </g>
                 );
               })}
