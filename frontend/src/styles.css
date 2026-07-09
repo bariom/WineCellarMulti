@@ -11673,8 +11673,8 @@ textarea:hover {
 
 .cellar-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(6, minmax(142px, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
 }
 
 .cellar-kpi-card,
@@ -11700,14 +11700,21 @@ textarea:hover {
 
 .cellar-kpi-card {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr);
+  grid-template-columns: 42px minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   min-width: 0;
-  padding: 15px 16px;
+  min-height: 112px;
+  padding: 18px;
   color: var(--text);
   text-align: left;
   cursor: pointer;
+}
+
+.cellar-kpi-card--value {
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 10%, transparent), transparent 62%),
+    color-mix(in srgb, var(--surface-raised) 96%, var(--surface-muted));
 }
 
 .cellar-kpi-card.active {
@@ -11718,8 +11725,8 @@ textarea:hover {
 }
 
 .cellar-kpi-icon {
-  width: 38px;
-  height: 38px;
+  width: 42px;
+  height: 42px;
   display: grid;
   place-items: center;
   border-radius: 12px;
@@ -11728,14 +11735,14 @@ textarea:hover {
 }
 
 .cellar-kpi-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 20px;
+  height: 20px;
 }
 
 .cellar-kpi-copy {
   display: grid;
   min-width: 0;
-  gap: 4px;
+  gap: 5px;
 }
 
 .cellar-kpi-copy span,
@@ -11749,18 +11756,23 @@ textarea:hover {
   text-transform: uppercase;
 }
 
+.cellar-kpi-copy > span {
+  max-width: 15ch;
+}
+
 .cellar-kpi-copy strong {
   color: var(--financial-text);
-  font-size: clamp(1.35rem, 1.45vw, 1.8rem);
+  font-size: clamp(1.55rem, 1.75vw, 2.05rem);
   font-weight: 900;
   line-height: 0.98;
   letter-spacing: 0;
   font-variant-numeric: tabular-nums;
-  overflow-wrap: anywhere;
+  overflow-wrap: normal;
+  white-space: nowrap;
 }
 
 .cellar-kpi-card--value .cellar-kpi-copy strong {
-  font-size: clamp(1.18rem, 1.2vw, 1.5rem);
+  font-size: clamp(1.55rem, 1.8vw, 2.1rem);
 }
 
 .cellar-kpi-copy small {

@@ -11885,6 +11885,14 @@ export function App() {
               </summary>
               <section className="stats-panel cellar-stats-dashboard">
                 <div className="cellar-kpi-grid">
+                  <button type="button" className={`cellar-kpi-card cellar-kpi-card--value ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
+                    <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>
+                    <span className="cellar-kpi-copy">
+                      <span>{t("totalValue")}</span>
+                      <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
+                      <small>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</small>
+                    </span>
+                  </button>
                   <button type="button" className={`cellar-kpi-card ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                     <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>
                     <span className="cellar-kpi-copy">
@@ -11899,14 +11907,6 @@ export function App() {
                       <span>{t("sharedBottles")}</span>
                       <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
                       <small>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</small>
-                    </span>
-                  </button>
-                  <button type="button" className={`cellar-kpi-card cellar-kpi-card--value ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
-                    <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>
-                    <span className="cellar-kpi-copy">
-                      <span>{t("totalValue")}</span>
-                      <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
-                      <small>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</small>
                     </span>
                   </button>
                   <button type="button" className={`cellar-kpi-card ${quickWineFilter === "drink_now" ? "active" : ""}`} onClick={() => applyQuickWineFilter("drink_now")}>
