@@ -3400,6 +3400,10 @@ function radarPoint(index: number, total: number, value: number, radius = 42, ce
   return `${center + Math.cos(angle) * distance},${center + Math.sin(angle) * distance}`;
 }
 
+function radarScaledPoint(index: number, total: number, value: number, maxValue: number, radius = 42, center = 50) {
+  return radarPoint(index, total, maxValue > 0 ? (value / maxValue) * 100 : 0, radius, center);
+}
+
 function normalizeRegionalTargets(targets: RegionalGapTarget[]) {
   const sanitized = targets.map((target) => ({ region: target.region, targetPct: Math.max(Number(target.targetPct || 0), 0) }));
   const total = sanitized.reduce((sum, target) => sum + target.targetPct, 0);
@@ -8748,8 +8752,13 @@ export function App() {
     .filter((row) => sumWineValue(cellarWines) > 0 && row.gapValue > 0 && row.region !== "Other")
     .sort((first, second) => second.deltaPct - first.deltaPct)
     .slice(0, 4);
-  const regionalGapCurrentPoints = regionalGapRows.map((row, index) => radarPoint(index, regionalGapRows.length, row.currentPct)).join(" ");
-  const regionalGapTargetPoints = regionalGapRows.map((row, index) => radarPoint(index, regionalGapRows.length, row.targetPct)).join(" ");
+  const regionalGapRadarMaxPct = Math.max(
+    ...regionalGapRows.flatMap((row) => [row.currentPct, row.targetPct]),
+    1,
+  );
+  const regionalGapRadarScaleMax = Math.max(10, Math.ceil(regionalGapRadarMaxPct / 5) * 5);
+  const regionalGapCurrentPoints = regionalGapRows.map((row, index) => radarScaledPoint(index, regionalGapRows.length, row.currentPct, regionalGapRadarScaleMax)).join(" ");
+  const regionalGapTargetPoints = regionalGapRows.map((row, index) => radarScaledPoint(index, regionalGapRows.length, row.targetPct, regionalGapRadarScaleMax)).join(" ");
   const regionalGapAxisPoints = regionalGapRows.map((row, index) => ({
     ...row,
     point: radarPoint(index, regionalGapRows.length, 105, 42, 50),
@@ -9706,7 +9715,7 @@ export function App() {
                 <polygon
                   className="regional-radar-ring"
                   key={level}
-                  points={regionalGapRows.map((_, index) => radarPoint(index, regionalGapRows.length, level)).join(" ")}
+                  points={regionalGapRows.map((_, index) => radarScaledPoint(index, regionalGapRows.length, (regionalGapRadarScaleMax * level) / 100, regionalGapRadarScaleMax)).join(" ")}
                 />
               ))}
               {regionalGapAxisPoints.map((axis) => (
@@ -9726,6 +9735,7 @@ export function App() {
             <div className="regional-radar-legend">
               <span><i className="regional-legend-current" />{t("currentPortfolio")}</span>
               <span><i className="regional-legend-target" />{t("targetPortfolio")}</span>
+              <span>{regionalGapRadarScaleMax}%</span>
             </div>
           </div>
           <div className="regional-gap-suggestions">
