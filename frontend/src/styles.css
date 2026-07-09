@@ -4882,10 +4882,20 @@ textarea {
   padding: 0;
   overflow: hidden;
   gap: 0;
-  border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
   background:
-    radial-gradient(circle at top right, color-mix(in srgb, var(--accent) 16%, transparent), transparent 36%),
-    linear-gradient(135deg, color-mix(in srgb, var(--surface-raised) 94%, var(--accent)) 0%, var(--surface) 100%);
+    radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--primary) 16%, transparent), transparent 34%),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.58), color-mix(in srgb, var(--surface) 82%, var(--surface-muted)));
+  backdrop-filter: blur(10px);
+  transition: border-color 0.2s ease, box-shadow 0.24s ease, transform 0.2s ease;
+}
+
+.key-position-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
+  box-shadow:
+    0 20px 46px color-mix(in srgb, var(--primary) 14%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--primary) 8%, transparent);
+  transform: translateY(-1px);
 }
 
 .key-position-card-heading {
@@ -4893,7 +4903,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 22px 0;
+  padding: 19px 22px 0;
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 800;
@@ -4902,9 +4912,55 @@ textarea {
 }
 
 .key-position-card-heading strong {
-  color: var(--text);
-  font-size: 1rem;
-  letter-spacing: 0;
+  display: none;
+}
+
+.key-position-nav {
+  position: absolute;
+  inset: 50% 16px auto 16px;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-50%);
+  transition: opacity 0.18s ease;
+}
+
+.key-position-card:hover .key-position-nav,
+.key-position-card:focus-within .key-position-nav {
+  opacity: 1;
+}
+
+.key-position-nav button {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, transparent);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--primary);
+  box-shadow: 0 10px 24px color-mix(in srgb, var(--primary) 12%, transparent);
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+.key-position-nav button:hover,
+.key-position-nav button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 30px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.key-position-nav button:disabled {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.key-position-nav svg {
+  width: 18px;
+  height: 18px;
 }
 
 .key-position-strip {
@@ -4924,10 +4980,12 @@ textarea {
 
 .key-position-button {
   display: grid;
-  gap: 18px;
+  align-content: end;
+  gap: 20px;
   width: 100%;
   min-height: 100%;
-  padding: 22px;
+  padding: 30px 34px 26px;
+  position: relative;
   color: inherit;
   text-align: left;
   background: transparent;
@@ -4940,18 +4998,19 @@ textarea {
 .key-position-button:hover,
 .key-position-button:focus-visible {
   transform: none;
-  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--accent) 48%, transparent);
+  box-shadow: none;
 }
 
 .key-position-head {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  align-items: start;
+  display: grid;
+  max-width: min(100%, 560px);
+  position: relative;
+  z-index: 1;
 }
 
 .key-position-head span,
-.key-position-metrics span {
+.key-position-metrics span,
+.key-position-maturity span {
   color: var(--text-muted);
   font-size: 0.78rem;
   font-weight: 800;
@@ -4960,116 +5019,157 @@ textarea {
 }
 
 .key-position-head h2 {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 6px 0 4px;
+  margin: 8px 0 6px;
   color: var(--text);
-  font-size: clamp(1.45rem, 2.4vw, 2.2rem);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2.15rem, 4.3vw, 4.35rem);
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 0.94;
 }
 
 .key-position-head p {
   margin: 0;
   color: var(--text-muted);
+  font-size: 0.94rem;
+  font-weight: 700;
 }
 
-.key-position-vintage {
-  position: relative;
-  min-width: 112px;
-  padding: 12px 22px 14px 18px;
-  border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--border));
-  border-radius: 6px 22px 22px 6px;
-  color: var(--accent);
-  font-family: "Georgia", "Times New Roman", serif;
-  font-size: clamp(2.2rem, 4vw, 3.7rem);
-  letter-spacing: 0.05em;
-  line-height: 1;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--surface) 86%, white) 0%, color-mix(in srgb, var(--surface-muted) 78%, var(--accent)) 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), 0 12px 24px rgba(0, 0, 0, 0.08);
-}
-
-.key-position-vintage::after {
-  content: "";
+.key-position-yearmark {
   position: absolute;
-  right: 9px;
-  top: 50%;
-  width: 7px;
-  height: 7px;
-  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
-  border-radius: 50%;
-  background: var(--surface);
-  transform: translateY(-50%);
-}
-
-.key-position-vintage span {
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: none;
+  right: clamp(18px, 5vw, 52px);
+  top: 16px;
+  z-index: 0;
+  color: color-mix(in srgb, var(--primary) 18%, transparent);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(4.2rem, 10vw, 8.5rem);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  pointer-events: none;
 }
 
 .key-position-metrics {
   display: grid;
-  gap: 0;
-  border-top: 1px solid color-mix(in srgb, var(--accent) 26%, var(--border));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  position: relative;
+  z-index: 1;
+  border-top: 0;
 }
 
 .key-position-metrics div {
-  display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--accent) 18%, var(--border));
-}
-
-.key-position-metrics div:last-child {
-  border-bottom: 0;
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.5);
 }
 
 .key-position-metrics strong {
-  color: var(--text);
-  font-size: 1.05rem;
+  min-width: 0;
+  color: var(--financial-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: clamp(0.9rem, 1.15vw, 1.05rem);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.key-position-dots {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 0 22px 14px;
-}
-
-.key-position-dots button {
+.key-position-maturity {
   display: grid;
-  place-items: center;
-  width: 18px;
-  height: 18px;
-  padding: 0;
-  border: 0;
+  gap: 9px;
+  position: relative;
+  z-index: 1;
+}
+
+.key-position-maturity > div:first-child {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.key-position-maturity strong {
+  color: var(--financial-text);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.78rem;
+}
+
+.key-position-maturity-track {
+  height: 8px;
+  position: relative;
+  overflow: hidden;
   border-radius: 999px;
-  background: transparent;
-  box-shadow: none;
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-muted));
 }
 
-.key-position-dots button::before {
-  content: "";
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text-muted) 36%, transparent);
-  transition: transform 120ms ease, background 120ms ease;
+.key-position-maturity-fill,
+.key-position-maturity-peak {
+  position: absolute;
+  inset-block: 0;
+  border-radius: inherit;
 }
 
-.key-position-dots button.active::before {
-  background: var(--primary);
-  transform: scale(1.18);
+.key-position-maturity-fill {
+  left: 0;
+  background: linear-gradient(90deg, var(--primary), color-mix(in srgb, var(--accent) 76%, var(--primary)));
 }
 
-.key-position-dots button:hover,
-.key-position-dots button:focus-visible {
-  transform: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 34%, transparent);
+.key-position-maturity-peak {
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+@media (max-width: 1120px) {
+  .key-position-button {
+    padding: 28px 28px 24px;
+  }
+
+  .key-position-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .key-position-card-heading {
+    padding: 16px 18px 0;
+  }
+
+  .key-position-button {
+    padding: 24px 20px 22px;
+  }
+
+  .key-position-head h2 {
+    font-size: clamp(1.85rem, 11vw, 3rem);
+  }
+
+  .key-position-yearmark {
+    right: 14px;
+    top: 22px;
+    font-size: clamp(3.4rem, 20vw, 5.4rem);
+  }
+
+  .key-position-metrics {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .key-position-metrics div {
+    padding: 11px;
+  }
+
+  .key-position-nav {
+    inset-inline: 10px;
+  }
+
+  .key-position-nav button {
+    width: 32px;
+    height: 32px;
+  }
 }
 
 .pairing-card {
@@ -12049,7 +12149,7 @@ textarea:hover {
 }
 
 .cellar-distribution-grid .chart-drilldown-grid {
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .cellar-distribution-grid .chart-drilldown-row-text {
@@ -12060,6 +12160,44 @@ textarea:hover {
 .cellar-distribution-grid .chart-drilldown-row-text small {
   overflow: hidden;
   text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cellar-distribution-grid .action-row {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  min-width: 0;
+}
+
+.cellar-distribution-grid .action-row > span {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.cellar-distribution-grid .action-row strong {
+  color: var(--financial-text);
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+
+.cellar-distribution-grid .bar-list,
+.cellar-distribution-grid .bar-row {
+  min-width: 0;
+}
+
+.cellar-distribution-grid .bar-row > div:first-child {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: end;
+  gap: 12px;
+  min-width: 0;
+}
+
+.cellar-distribution-grid .bar-row strong {
+  color: var(--financial-text);
+  font-size: 0.95rem;
+  line-height: 1.1;
+  text-align: right;
   white-space: nowrap;
 }
 

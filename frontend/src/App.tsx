@@ -8950,11 +8950,30 @@ export function App() {
     return selected.slice(0, 4).map((wine) => {
       const sharePct = currentUserSharePct(wine, session);
       const totalValue = positionValue(wine);
+      const drinkStart = wine.drink_from || wine.drink_peak_from || null;
+      const drinkEnd = wine.drink_to || wine.drink_peak_to || null;
+      const peakStart = wine.drink_peak_from || wine.drink_from || null;
+      const peakEnd = wine.drink_peak_to || wine.drink_to || null;
+      const maturitySpan = drinkStart && drinkEnd ? Math.max(drinkEnd - drinkStart, 1) : 0;
+      const maturityProgress = drinkStart && drinkEnd
+        ? Math.max(0, Math.min(100, ((currentYear - drinkStart) / maturitySpan) * 100))
+        : 0;
+      const maturityPeakLeft = drinkStart && drinkEnd && peakStart
+        ? Math.max(0, Math.min(100, ((peakStart - drinkStart) / maturitySpan) * 100))
+        : 0;
+      const maturityPeakWidth = drinkStart && drinkEnd && peakStart && peakEnd
+        ? Math.max(4, Math.min(100 - maturityPeakLeft, ((peakEnd - peakStart) / maturitySpan) * 100))
+        : 0;
+      const maturityLabel = drinkStart && drinkEnd ? `${drinkStart}-${drinkEnd}` : t("notSpecified");
       return {
         wine,
         sharePct,
         ownedValue: totalValue * (sharePct / 100),
         totalValue,
+        maturityProgress,
+        maturityPeakLeft,
+        maturityPeakWidth,
+        maturityLabel,
         action: !wine.drink_from || !wine.drink_to
           ? t("completeData")
           : wine.drink_to < currentYear
@@ -10717,19 +10736,45 @@ export function App() {
                   {keyPositionCandidates.length ? (
                     <>
                       <div className="key-position-card-heading">
-                        <span>{t("keyPositions")}</span>
-                        <strong>{keyPositionCandidates.length}</strong>
+                        <div>
+                          <span>{t("keyPositions")}</span>
+                          <strong>{keyPositionCandidates.length}</strong>
+                        </div>
                       </div>
+                      {keyPositionCandidates.length > 1 ? (
+                        <div className="key-position-nav" aria-label={t("keyPositions")}>
+                          <button
+                            type="button"
+                            aria-label={`${t("keyPosition")} ${Math.max(activeKeyPositionIndex, 1)}`}
+                            disabled={activeKeyPositionIndex <= 0}
+                            onClick={() => goToKeyPosition(activeKeyPositionIndex - 1)}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="m15 18-6-6 6-6" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            aria-label={`${t("keyPosition")} ${Math.min(activeKeyPositionIndex + 2, keyPositionCandidates.length)}`}
+                            disabled={activeKeyPositionIndex >= keyPositionCandidates.length - 1}
+                            onClick={() => goToKeyPosition(activeKeyPositionIndex + 1)}
+                          >
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="m9 18 6-6-6-6" />
+                            </svg>
+                          </button>
+                        </div>
+                      ) : null}
                       <div className="key-position-strip" aria-label={t("keyPositions")} onScroll={updateActiveKeyPosition} ref={keyPositionStripRef}>
-                        {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action }) => (
+                        {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                            {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <div className="key-position-head">
                               <div>
                                 <span>{sharePct >= 99.999 ? t("myBottles") : t("sharedBottles")}</span>
-                                <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
+                                <h2>{wine.name}</h2>
                                 <p>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</p>
                               </div>
-                              {wine.vintage ? <div className="key-position-vintage"><span>{wine.vintage}</span></div> : null}
                             </div>
                             <div className="key-position-metrics">
                               <div><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
@@ -10737,23 +10782,19 @@ export function App() {
                               <div><span>{t("ownership")}</span><strong>{Math.round(sharePct)}%</strong></div>
                               <div><span>{t("action")}</span><strong>{action}</strong></div>
                             </div>
+                            <div className="key-position-maturity">
+                              <div>
+                                <span>{t("maturityMap")}</span>
+                                <strong>{maturityLabel}</strong>
+                              </div>
+                              <div className="key-position-maturity-track">
+                                {maturityPeakWidth ? <span className="key-position-maturity-peak" style={{ left: `${maturityPeakLeft}%`, width: `${maturityPeakWidth}%` }} /> : null}
+                                <span className="key-position-maturity-fill" style={{ width: `${maturityProgress}%` }} />
+                              </div>
+                            </div>
                           </button>
                         ))}
                       </div>
-                      {keyPositionCandidates.length > 1 ? (
-                        <div className="key-position-dots" aria-label={t("keyPositions")}>
-                          {keyPositionCandidates.map(({ wine }, index) => (
-                            <button
-                              type="button"
-                              className={index === activeKeyPositionIndex ? "active" : ""}
-                              key={wine.id}
-                              aria-label={`${t("keyPosition")} ${index + 1}`}
-                              aria-current={index === activeKeyPositionIndex ? "true" : undefined}
-                              onClick={() => goToKeyPosition(index)}
-                            />
-                          ))}
-                        </div>
-                      ) : null}
                     </>
                   ) : (
                     <div className="empty-state">{t("noActionItems")}</div>
@@ -11938,7 +11979,6 @@ export function App() {
                 <div className="cellar-stats-body">
                   <div className="cellar-distribution-grid">
                     {valueByType.length ? (
-                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByValue")}</span>
@@ -11973,12 +12013,9 @@ export function App() {
                           })}
                         </div>
                       </article>
-                      {renderBreakdownDrilldown("valueByType")}
-                      </>
                     ) : null}
 
                     {valueByRegion.length ? (
-                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByValue")}</span>
@@ -12013,12 +12050,11 @@ export function App() {
                           })}
                         </div>
                       </article>
-                      {renderBreakdownDrilldown("topRegions")}
-                      </>
                     ) : null}
+                    {renderBreakdownDrilldown("valueByType")}
+                    {renderBreakdownDrilldown("topRegions")}
 
                     {bottlesByType.length ? (
-                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByStock")}</span>
@@ -12053,12 +12089,9 @@ export function App() {
                           })}
                         </div>
                       </article>
-                      {renderBreakdownDrilldown("bottlesByType")}
-                      </>
                     ) : null}
 
                     {winesByRegion.length ? (
-                      <>
                       <article className="stacked-distribution-card">
                         <div className="stacked-card-heading">
                           <span>{t("distributionByStock")}</span>
@@ -12093,9 +12126,9 @@ export function App() {
                           })}
                         </div>
                       </article>
-                      {renderBreakdownDrilldown("winesByRegion")}
-                      </>
                     ) : null}
+                    {renderBreakdownDrilldown("bottlesByType")}
+                    {renderBreakdownDrilldown("winesByRegion")}
                   </div>
 
                   <aside className="collection-state-card">
