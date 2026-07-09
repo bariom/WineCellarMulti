@@ -9718,6 +9718,16 @@ export function App() {
                   points={regionalGapRows.map((_, index) => radarScaledPoint(index, regionalGapRows.length, (regionalGapRadarScaleMax * level) / 100, regionalGapRadarScaleMax)).join(" ")}
                 />
               ))}
+              {[25, 50, 75, 100].map((level) => {
+                const value = (regionalGapRadarScaleMax * level) / 100;
+                const [, y] = radarScaledPoint(0, regionalGapRows.length, value, regionalGapRadarScaleMax).split(",");
+                return (
+                  <g className="regional-radar-scale" key={`scale-${level}`}>
+                    <line x1="48.4" y1={y} x2="51.6" y2={y} />
+                    <text x="53" y={y}>{Math.round(value * 10) / 10}%</text>
+                  </g>
+                );
+              })}
               {regionalGapAxisPoints.map((axis) => (
                 <line className="regional-radar-axis" key={axis.region} x1="50" y1="50" x2={axis.linePoint.split(",")[0]} y2={axis.linePoint.split(",")[1]} />
               ))}
@@ -9735,7 +9745,6 @@ export function App() {
             <div className="regional-radar-legend">
               <span><i className="regional-legend-current" />{t("currentPortfolio")}</span>
               <span><i className="regional-legend-target" />{t("targetPortfolio")}</span>
-              <span>{regionalGapRadarScaleMax}%</span>
             </div>
           </div>
           <div className="regional-gap-suggestions">

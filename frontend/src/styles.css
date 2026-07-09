@@ -6015,6 +6015,18 @@ textarea {
   stroke-width: 0.45;
 }
 
+.regional-radar-scale line {
+  stroke: color-mix(in srgb, var(--accent) 62%, var(--border));
+  stroke-width: 0.65;
+}
+
+.regional-radar-scale text {
+  fill: color-mix(in srgb, var(--accent) 72%, var(--text-muted));
+  font-size: 2.8px;
+  font-weight: 900;
+  dominant-baseline: central;
+}
+
 .regional-radar-target {
   fill: color-mix(in srgb, var(--accent) 12%, transparent);
   stroke: color-mix(in srgb, var(--accent) 82%, var(--primary));
