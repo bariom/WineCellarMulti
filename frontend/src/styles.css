@@ -5984,6 +5984,29 @@ textarea {
   font-variant-numeric: tabular-nums;
 }
 
+.regional-ai-cost {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+}
+
+.regional-ai-cost strong {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.regional-ai-cost span {
+  padding: 0;
+  color: var(--financial-text);
+  background: transparent;
+  font-weight: 900;
+}
+
 .regional-gap-layout {
   display: grid;
   grid-template-columns: minmax(220px, 0.82fr) minmax(0, 1fr);

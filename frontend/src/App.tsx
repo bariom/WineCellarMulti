@@ -9702,6 +9702,10 @@ export function App() {
                       <span key={target.region}>{target.region} {Number(target.target_pct).toFixed(1)}%</span>
                     ))}
                   </div>
+                  <div className="regional-ai-cost">
+                    <strong>{t("aiRequestCost")}</strong>
+                    <span>{formatAiBudget(regionalGapAiSuggestion.estimated_cost_usd)}</span>
+                  </div>
                   <button type="button" onClick={applyRegionalGapAiSuggestion}>{t("applyAiTarget")}</button>
                 </div>
               ) : null}
