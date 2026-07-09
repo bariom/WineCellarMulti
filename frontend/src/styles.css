@@ -5045,7 +5045,7 @@ textarea {
 }
 
 .key-position-head h2 {
-  margin: 7px 0 6px;
+  margin: 0 0 6px;
   color: var(--text);
   font-family: Georgia, "Times New Roman", serif;
   font-size: clamp(2.15rem, 4.3vw, 4.35rem);
@@ -11187,9 +11187,13 @@ textarea {
   min-height: 42px;
   padding: 6px 8px;
   gap: 7px;
+  flex: 0 1 auto;
+  max-width: min(100%, 720px);
 }
 
 .session-pill > strong {
+  flex: 0 1 150px;
+  min-width: 118px;
   max-width: 180px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -11197,12 +11201,16 @@ textarea {
 }
 
 .session-pill > span {
+  flex: 0 0 auto;
   min-height: 28px;
   padding: 4px 8px;
   line-height: 1;
 }
 
 .session-pill select {
+  flex: 1 1 190px;
+  min-width: 160px;
+  max-width: 250px;
   min-height: 30px;
   padding: 5px 26px 5px 9px;
 }
@@ -11266,6 +11274,22 @@ textarea {
   padding: 7px 13px;
   font-size: 0.82rem;
   line-height: 1;
+}
+
+@media (max-width: 980px) and (min-width: 521px) {
+  .session-pill > strong {
+    min-width: 132px;
+  }
+
+  .session-pill select {
+    flex-basis: 180px;
+    min-width: 150px;
+    max-width: 220px;
+  }
+
+  .session-pill > span {
+    display: none;
+  }
 }
 
 .view-tabs button:not(.secondary),

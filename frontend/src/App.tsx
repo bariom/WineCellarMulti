@@ -8987,6 +8987,10 @@ export function App() {
     });
   })();
   const keyPositionIds = keyPositionCandidates.map(({ wine }) => wine.id).join("|");
+  const activeKeyPosition = keyPositionCandidates[Math.min(activeKeyPositionIndex, Math.max(keyPositionCandidates.length - 1, 0))];
+  const activeKeyPositionScope = activeKeyPosition
+    ? activeKeyPosition.sharePct >= 99.999 ? t("myBottles") : t("sharedBottles")
+    : "";
 
   useEffect(() => {
     setActiveKeyPositionIndex(0);
@@ -10738,7 +10742,7 @@ export function App() {
                     <>
                       <div className="key-position-card-heading">
                         <div>
-                          <span>{t("keyPositions")}</span>
+                          <span>{activeKeyPositionScope ? `${t("keyPositions")} - ${activeKeyPositionScope}` : t("keyPositions")}</span>
                           <strong>{keyPositionCandidates.length}</strong>
                         </div>
                       </div>
@@ -10772,7 +10776,6 @@ export function App() {
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <div className="key-position-head">
                               <div>
-                                <span>{sharePct >= 99.999 ? t("myBottles") : t("sharedBottles")}</span>
                                 <h2>{wine.name}</h2>
                                 <p>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</p>
                               </div>
