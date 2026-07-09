@@ -9418,7 +9418,6 @@ export function App() {
     setRegionalGapAiSuggestion(null);
     setRegionalGapTargetsOpen(false);
     setRegionalGapFeedback(t("regionalTargetsSaved"));
-    setNotice(t("regionalTargetsSaved"));
   }
 
   function resetRegionalGapTargets() {
