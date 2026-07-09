@@ -8965,6 +8965,7 @@ export function App() {
         ? Math.max(4, Math.min(100 - maturityPeakLeft, ((peakEnd - peakStart) / maturitySpan) * 100))
         : 0;
       const maturityLabel = drinkStart && drinkEnd ? `${drinkStart}-${drinkEnd}` : t("notSpecified");
+      const hasMaturityWindow = Boolean(drinkStart && drinkEnd);
       return {
         wine,
         sharePct,
@@ -8974,6 +8975,7 @@ export function App() {
         maturityPeakLeft,
         maturityPeakWidth,
         maturityLabel,
+        hasMaturityWindow,
         action: !wine.drink_from || !wine.drink_to
           ? t("completeData")
           : wine.drink_to < currentYear
@@ -10765,7 +10767,7 @@ export function App() {
                         </div>
                       ) : null}
                       <div className="key-position-strip" aria-label={t("keyPositions")} onScroll={updateActiveKeyPosition} ref={keyPositionStripRef}>
-                        {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel }) => (
+                        {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <div className="key-position-head">
@@ -10789,6 +10791,14 @@ export function App() {
                               <div className="key-position-maturity-track">
                                 {maturityPeakWidth ? <span className="key-position-maturity-peak" style={{ left: `${maturityPeakLeft}%`, width: `${maturityPeakWidth}%` }} /> : null}
                                 <span className="key-position-maturity-fill" style={{ width: `${maturityProgress}%` }} />
+                                {hasMaturityWindow ? (
+                                  <span
+                                    className="key-position-maturity-current"
+                                    style={{ left: `${maturityProgress}%` }}
+                                    title={`${t("currentYear")}: ${currentYear}`}
+                                    aria-hidden="true"
+                                  />
+                                ) : null}
                               </div>
                             </div>
                           </button>
