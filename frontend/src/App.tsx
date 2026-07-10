@@ -982,7 +982,8 @@ const translations = {
     aiSettingsHelpFeatures: "AI enables tasting notes, drinking windows, value and market checks, grape composition, wishlist strategy and target price advice, food pairing, wine comparison, and catalog data enrichment.",
     aiModelsHelpLabel: "AI model cost help",
     aiModelsHelpTitle: "Model cost guide",
-    aiModelsHelpIntro: "Every AI request costs a small fraction of a dollar. These estimates are for a short request; very long text or web research can cost more.",
+    aiModelsHelpIntro: "Typical cost for a short request: just a few thousandths of a dollar.",
+    aiModelsHelpUsageNote: "Longer requests may cost a little more. Live market-price actions can also include a web search.",
     aiModelsHelpNano: "gpt-5.4-nano · under 1 cent: simple, fast tasks.",
     aiModelsHelpMini: "gpt-5.4-mini · under 1 cent: a good balance for text and light analysis.",
     aiModelsHelpStandard: "gpt-5.4 · about 1-2 cents: pairings, drinking windows, and normal decisions.",
@@ -1564,7 +1565,8 @@ const translations = {
     aiSettingsHelpFeatures: "L'AI attiva note degustative, finestre di beva, controlli valore e mercato, uvaggi, strategia wishlist e prezzo target, abbinamenti, confronto vini e arricchimento dati catalogo.",
     aiModelsHelpLabel: "Help costi modelli AI",
     aiModelsHelpTitle: "Guida costo modelli",
-    aiModelsHelpIntro: "Ogni richiesta AI costa pochi millesimi di dollaro (stima indicativa). Sono valori per una richiesta breve; testi lunghi o ricerche web possono costare molto di più.",
+    aiModelsHelpIntro: "Costo tipico per una richiesta breve: solo pochi millesimi di dollaro (stima indicativa).",
+    aiModelsHelpUsageNote: "Le richieste più lunghe possono costare qualcosa in più. Le azioni con prezzi di mercato live possono includere anche una ricerca web.",
     aiModelsHelpNano: "gpt-5.4-nano · circa 0,1-0,2 centesimi: attività semplici e veloci.",
     aiModelsHelpMini: "gpt-5.4-mini · circa 0,3-0,4 centesimi: buon equilibrio per testi e analisi leggere.",
     aiModelsHelpStandard: "gpt-5.4 · circa 1-2 centesimi: abbinamenti, finestre di beva e decisioni normali.",
@@ -13141,8 +13143,8 @@ export function App() {
                             <li>{t("aiModelsHelpPremium")}</li>
                           </>
                         )}
-                        <li>{t("aiModelsHelpTools")}</li>
                       </ul>
+                      <p className="ai-models-help-note">{t("aiModelsHelpUsageNote")}</p>
                     </div>
                   ) : null}
                   <div className="settings-model-grid">
