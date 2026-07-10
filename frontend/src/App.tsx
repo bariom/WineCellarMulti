@@ -286,7 +286,7 @@ const helpGuideContentV2: typeof helpGuideContent = {
           "[AI] Pairing lets you enter a dish and ask the AI sommelier for the best matches from your cellar or from the market.",
           "You can save personal pairing preferences and optionally ignore them for a single request when you want a neutral recommendation.",
           "Set a max pairing budget when you want a good match under a price ceiling, not necessarily the best bottle in the cellar.",
-          "Wine comparison helps you place two to four wines side by side before opening or buying.",
+          "Wine comparison helps you place two wines side by side before opening or buying.",
           "[AI] AI comparison works best on two wines and returns style, readiness, occasion, and cellar-value judgment.",
         ],
       },
@@ -1087,8 +1087,8 @@ const translations = {
     compareSelected: "Selected for comparison",
     openCompare: "Open comparison",
     clearCompare: "Clear comparison",
-    compareLimit: "You can compare up to 4 wines.",
-    compareNeedTwo: "Select at least 2 wines to compare them.",
+    compareLimit: "You can compare exactly 2 wines.",
+    compareNeedTwo: "Select exactly 2 wines to compare them.",
     aiCompare: "AI comparison",
     aiCompareOnlyTwo: "AI comparison is available for 2 wines.",
     aiRequestCost: "AI request cost",
@@ -1672,8 +1672,8 @@ const translations = {
     compareSelected: "Selezionati per confronto",
     openCompare: "Apri confronto",
     clearCompare: "Pulisci confronto",
-    compareLimit: "Puoi confrontare al massimo 4 vini.",
-    compareNeedTwo: "Seleziona almeno 2 vini per confrontarli.",
+    compareLimit: "Puoi confrontare esattamente 2 vini.",
+    compareNeedTwo: "Seleziona esattamente 2 vini per confrontarli.",
     aiCompare: "Confronto AI",
     aiCompareOnlyTwo: "Il confronto AI è disponibile per 2 vini.",
     aiRequestCost: "Costo richiesta AI",
@@ -2598,7 +2598,7 @@ const helpGuideContent: Record<
           "Pairing lets you enter a dish and ask the AI sommelier for the best matches from your cellar or from the market.",
           "You can save personal pairing preferences and optionally ignore them for a single request when you want a neutral recommendation.",
           "Set a max pairing budget when you want a good match under a price ceiling, not necessarily the best bottle in the cellar.",
-          "Wine comparison helps you place two to four wines side by side before opening or buying.",
+          "Wine comparison helps you place two wines side by side before opening or buying.",
           "AI comparison works best on two wines and returns style, readiness, occasion, and cellar-value judgment.",
         ],
       },
@@ -9338,7 +9338,7 @@ export function App() {
       if (current.includes(wine.id)) {
         return current.filter((wineId) => wineId !== wine.id);
       }
-      if (current.length >= 4) {
+      if (current.length >= 2) {
         setError(t("compareLimit"));
         return current;
       }
@@ -9354,7 +9354,7 @@ export function App() {
   }
 
   function openCompareModal() {
-    if (compareWineIds.length < 2) {
+    if (compareWineIds.length !== 2) {
       setError(t("compareNeedTwo"));
       return;
     }
@@ -11427,7 +11427,7 @@ export function App() {
                 {compareWineIds.length ? (
                   <>
                     <button type="button" className="secondary" onClick={openCompareModal}>
-                      {t("openCompare")} ({compareWineIds.length}/4)
+                      {t("openCompare")} ({compareWineIds.length}/2)
                     </button>
                     <button type="button" className="secondary" onClick={clearComparedWines}>
                       {t("clearCompare")}
@@ -12573,7 +12573,7 @@ export function App() {
               <div className="compare-summary-bar">
                 <div>
                   <strong>{t("compareSelection")}</strong>
-                  <span>{compareWineIds.length}/4 {t("compareSelected").toLowerCase()}</span>
+                  <span>{compareWineIds.length}/2 {t("compareSelected").toLowerCase()}</span>
                 </div>
                 <div className="compare-summary-actions">
                   <button type="button" className="secondary compact" onClick={openCompareModal}>
