@@ -51,6 +51,15 @@ router = APIRouter(prefix="/ai")
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
+MODEL_FIELDS = ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model", "pairing_model"]
+GPT56_DEFAULT_ROLE_BY_FIELD = {
+    "ai_notes_model": "economy",
+    "drink_window_model": "balanced",
+    "value_model": "economy",
+    "grape_model": "economy",
+    "wishlist_model": "balanced",
+    "pairing_model": "balanced",
+}
 MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
     "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
@@ -92,6 +101,36 @@ def available_model_options() -> list[str]:
     return list(GPT56_MODEL_OPTIONS if settings.openai_enable_gpt56 else LEGACY_MODEL_OPTIONS)
 
 
+def default_model_for_field(field: str) -> str:
+    """Return a valid default for a persisted per-feature model preference."""
+    if not settings.openai_enable_gpt56:
+        return str(getattr(settings, f"openai_{field}", "")).strip()
+
+    configured_model = str(
+        getattr(settings, f"openai_{GPT56_DEFAULT_ROLE_BY_FIELD[field]}_model", "")
+    ).strip()
+    if configured_model in GPT56_MODEL_OPTIONS:
+        return configured_model
+    return {
+        "economy": "gpt-5.6-luna",
+        "balanced": "gpt-5.6-terra",
+        "advanced": "gpt-5.6-sol",
+    }[GPT56_DEFAULT_ROLE_BY_FIELD[field]]
+
+
+def normalize_user_ai_models(user_settings: UserAiSettings) -> bool:
+    """Migrate old saved model preferences when the GPT-5.6-only flag is enabled."""
+    if not settings.openai_enable_gpt56:
+        return False
+    changed = False
+    allowed_models = set(available_model_options())
+    for field in MODEL_FIELDS:
+        if getattr(user_settings, field) not in allowed_models:
+            setattr(user_settings, field, default_model_for_field(field))
+            changed = True
+    return changed
+
+
 def validate_provider_mode(provider_mode: str) -> str:
     if provider_mode not in AI_PROVIDER_OPTIONS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported AI provider mode: {provider_mode}")
@@ -105,16 +144,17 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             user_id=context.user.id,
             openai_api_key="",
             provider_mode="auto",
-            ai_notes_model=settings.openai_ai_notes_model,
-            drink_window_model=settings.openai_drink_window_model,
-            value_model=settings.openai_value_model,
-            grape_model=settings.openai_grape_model,
-            wishlist_model=settings.openai_wishlist_model,
-            pairing_model=settings.openai_pairing_model,
+            ai_notes_model=default_model_for_field("ai_notes_model"),
+            drink_window_model=default_model_for_field("drink_window_model"),
+            value_model=default_model_for_field("value_model"),
+            grape_model=default_model_for_field("grape_model"),
+            wishlist_model=default_model_for_field("wishlist_model"),
+            pairing_model=default_model_for_field("pairing_model"),
             pairing_preferences="",
         )
         db.add(user_settings)
         db.flush()
+    normalize_user_ai_models(user_settings)
     return user_settings
 
 
@@ -401,7 +441,10 @@ def get_ai_settings(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> AiSettingsResponse:
-    return ai_settings_response(db, context, get_or_create_user_ai_settings(db, context))
+    user_settings = get_or_create_user_ai_settings(db, context)
+    db.commit()
+    db.refresh(user_settings)
+    return ai_settings_response(db, context, user_settings)
 
 
 @router.patch("/settings", response_model=AiSettingsResponse)
@@ -415,10 +458,16 @@ def update_ai_settings(
         user_settings.openai_api_key = encrypt_secret(payload.openai_api_key.strip())
     if payload.provider_mode is not None:
         user_settings.provider_mode = validate_provider_mode(payload.provider_mode)
-    for field in ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model", "pairing_model"]:
+    for field in MODEL_FIELDS:
         value = getattr(payload, field)
         if value is not None:
-            setattr(user_settings, field, validate_model(value))
+            # The UI may submit all fields together. Convert a stale preference
+            # saved before the GPT-5.6-only rollout instead of rejecting the
+            # whole update because one untouched field still contains GPT-5.4.
+            if settings.openai_enable_gpt56 and value in LEGACY_MODEL_OPTIONS:
+                setattr(user_settings, field, default_model_for_field(field))
+            else:
+                setattr(user_settings, field, validate_model(value))
     if payload.pairing_preferences is not None:
         user_settings.pairing_preferences = payload.pairing_preferences.strip()[:2000]
     user_settings.updated_at = datetime.now(timezone.utc)

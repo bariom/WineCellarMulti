@@ -3,13 +3,14 @@ from __future__ import annotations
 from io import BytesIO
 import json
 import logging
+from types import SimpleNamespace
 import urllib.error
 
 from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options
+from app.api.routes.ai import available_model_options, normalize_user_ai_models
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import create_response, response_body
 
@@ -81,6 +82,26 @@ def test_gpt56_flag_exposes_only_gpt56_models(monkeypatch: pytest.MonkeyPatch):
     assert available_model_options() == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
     with pytest.raises(HTTPException):
         select_ai_model("pairing", requested_model="gpt-5.5")
+
+
+def test_gpt56_flag_migrates_saved_feature_models(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+    saved_settings = SimpleNamespace(
+        ai_notes_model="gpt-5.4-mini",
+        drink_window_model="gpt-5.4",
+        value_model="gpt-5.4-mini",
+        grape_model="gpt-5.4-nano",
+        wishlist_model="gpt-5.4",
+        pairing_model="gpt-5.4",
+    )
+
+    assert normalize_user_ai_models(saved_settings) is True
+    assert saved_settings.ai_notes_model == "gpt-5.6-luna"
+    assert saved_settings.value_model == "gpt-5.6-luna"
+    assert saved_settings.grape_model == "gpt-5.6-luna"
+    assert saved_settings.drink_window_model == "gpt-5.6-terra"
+    assert saved_settings.wishlist_model == "gpt-5.6-terra"
+    assert saved_settings.pairing_model == "gpt-5.6-terra"
 
 
 def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.MonkeyPatch):
