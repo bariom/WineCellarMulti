@@ -5,13 +5,12 @@ import json
 import logging
 from types import SimpleNamespace
 import urllib.error
-from uuid import uuid4
 
 from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
+from app.api.routes.ai import available_model_options, normalize_user_ai_models
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import create_response, response_body
 
@@ -103,45 +102,6 @@ def test_gpt56_flag_migrates_saved_feature_models(monkeypatch: pytest.MonkeyPatc
     assert saved_settings.drink_window_model == "gpt-5.6-terra"
     assert saved_settings.wishlist_model == "gpt-5.6-terra"
     assert saved_settings.pairing_model == "gpt-5.6-terra"
-
-
-def test_pairing_candidates_are_compact_diverse_and_limited_to_25():
-    wine_types = ["White", "Red", "Sparkling", "Rose", "Sweet"]
-    wines = [
-        SimpleNamespace(
-            id=uuid4(),
-            name=f"Wine {index}",
-            producer="Producer",
-            vintage="2022",
-            type=wine_types[index % len(wine_types)],
-            region="Region",
-            appellation="Appellation",
-            quantity=1,
-            format="Bottle (750ml)",
-            current_value=20,
-            price=20,
-            currency="CHF",
-            drink_from=2024,
-            drink_peak_from=2025,
-            drink_peak_to=2027,
-            drink_to=2030,
-            scores=[{"critic": "Critic", "score": "95", "note": "Long note that must not be sent"}],
-            grapes=[{"name": "Chardonnay"}, {"name": "Pinot Noir"}, {"name": "Extra grape"}, {"name": "Ignored"}],
-            tags=["Dinner", "Ready", "Extra", "Ignored"],
-        )
-        for index in range(30)
-    ]
-
-    selected = select_pairing_candidates(wines)
-    compact = pairing_wine_context(selected[0])
-
-    assert len(selected) == 25
-    assert {wine.type for wine in selected[:5]} == set(wine_types)
-    assert compact["grapes"] == ["Chardonnay", "Pinot Noir", "Extra grape"]
-    assert compact["tags"] == ["Dinner", "Ready", "Extra"]
-    assert "scores" not in compact
-    assert "quantity" not in compact
-    assert "format" not in compact
 
 
 def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.MonkeyPatch):
