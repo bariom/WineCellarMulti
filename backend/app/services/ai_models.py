@@ -52,7 +52,12 @@ def model_by_role() -> dict[ModelRole, str]:
 
 
 def allowed_models() -> frozenset[str]:
-    return frozenset({model for model in model_by_role().values() if model} | COMPATIBILITY_MODELS)
+    configured = {model for model in model_by_role().values() if model}
+    if settings.openai_enable_gpt56:
+        # GPT-5.5 remains an internal rollback/fallback target, not a model
+        # exposed for user selection while the GPT-5.6 rollout is enabled.
+        return frozenset(configured - {model_by_role()["legacy"]})
+    return frozenset(configured | COMPATIBILITY_MODELS)
 
 
 def role_for_model(model: str) -> ModelRole:

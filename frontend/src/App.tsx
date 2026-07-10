@@ -987,6 +987,9 @@ const translations = {
     aiModelsHelpMini: "gpt-5.4-mini: about $0.003-0.004 for the same short request. Good default when you want better wording or light reasoning without a large cost jump.",
     aiModelsHelpStandard: "gpt-5.4: about $0.01-0.02 for the same short request. Better for drinking windows, wishlist strategy, pairings, and decisions that need more judgment.",
     aiModelsHelpPremium: "gpt-5.5: about $0.02-0.03 for the same short request. Use only when the extra quality matters more than keeping cost low.",
+    aiModelsHelpLuna: "gpt-5.6-luna: about $0.004 for the same short request. Cost-efficient reasoning for simple, structured, high-volume work.",
+    aiModelsHelpTerra: "gpt-5.6-terra: about $0.01 for the same short request. Balanced reasoning for standard Sommelier analysis and pairings.",
+    aiModelsHelpSol: "gpt-5.6-sol: about $0.02 for the same short request. Highest-quality reasoning for complex cellar and portfolio planning.",
     aiModelsHelpTools: "Live market price actions can cost more because they may include web search in addition to the model response.",
     buyAiCredits: "Buy AI Pack",
     noAiProvider: "No AI source available",
@@ -1566,6 +1569,9 @@ const translations = {
     aiModelsHelpMini: "gpt-5.4-mini: circa $0.003-0.004 per la stessa richiesta breve. Buon default se vuoi testo migliore o ragionamento leggero senza grande aumento di costo.",
     aiModelsHelpStandard: "gpt-5.4: circa $0.01-0.02 per la stessa richiesta breve. Meglio per finestre di beva, strategia wishlist, abbinamenti e decisioni che richiedono piu giudizio.",
     aiModelsHelpPremium: "gpt-5.5: circa $0.02-0.03 per la stessa richiesta breve. Usalo solo quando la qualita extra conta piu del contenimento costo.",
+    aiModelsHelpLuna: "gpt-5.6-luna: circa $0.004 per la stessa richiesta breve. Ragionamento economico per lavori semplici, strutturati e ad alto volume.",
+    aiModelsHelpTerra: "gpt-5.6-terra: circa $0.01 per la stessa richiesta breve. Ragionamento bilanciato per analisi Sommelier e abbinamenti standard.",
+    aiModelsHelpSol: "gpt-5.6-sol: circa $0.02 per la stessa richiesta breve. Ragionamento di qualita massima per pianificazione complessa di cantina e portafoglio.",
     aiModelsHelpTools: "Le azioni con prezzo di mercato live possono costare di piu perche possono includere ricerca web oltre alla risposta del modello.",
     buyAiCredits: "Acquista AI Pack",
     noAiProvider: "Nessuna sorgente AI disponibile",
@@ -13122,6 +13128,9 @@ export function App() {
                         <li>{t("aiModelsHelpMini")}</li>
                         <li>{t("aiModelsHelpStandard")}</li>
                         <li>{t("aiModelsHelpPremium")}</li>
+                        <li>{t("aiModelsHelpLuna")}</li>
+                        <li>{t("aiModelsHelpTerra")}</li>
+                        <li>{t("aiModelsHelpSol")}</li>
                         <li>{t("aiModelsHelpTools")}</li>
                       </ul>
                     </div>

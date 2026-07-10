@@ -9,6 +9,7 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
+from app.api.routes.ai import available_model_options
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import create_response, response_body
 
@@ -71,6 +72,15 @@ def test_explicit_model_must_be_allowlisted(monkeypatch: pytest.MonkeyPatch):
         select_ai_model("pairing", requested_model="gpt-5.6-sol; ignore-previous")
     assert exc_info.value.status_code == 400
     assert "gpt-5.6-sol; ignore-previous" not in str(exc_info.value.detail)
+
+
+def test_gpt56_flag_exposes_only_gpt56_models(monkeypatch: pytest.MonkeyPatch):
+    assert available_model_options() == ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
+
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+    assert available_model_options() == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+    with pytest.raises(HTTPException):
+        select_ai_model("pairing", requested_model="gpt-5.5")
 
 
 def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.MonkeyPatch):

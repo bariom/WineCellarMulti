@@ -42,14 +42,14 @@ from app.schemas.ai import (
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
-from app.services.ai_models import allowed_models
 from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
 from app.api.routes.billing import stripe_ai_credit_amount
 
 
 router = APIRouter(prefix="/ai")
 
-MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
+GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
 MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
@@ -82,9 +82,14 @@ def response_language_instruction(locale: str) -> str:
 
 
 def validate_model(model: str) -> str:
-    if model not in MODEL_OPTIONS:
+    if model not in available_model_options():
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported model: {model}")
     return model
+
+
+def available_model_options() -> list[str]:
+    """Models exposed to user/API settings; GPT-5.5 remains internal fallback when GPT-5.6 is enabled."""
+    return list(GPT56_MODEL_OPTIONS if settings.openai_enable_gpt56 else LEGACY_MODEL_OPTIONS)
 
 
 def validate_provider_mode(provider_mode: str) -> str:
@@ -138,7 +143,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         wishlist_model=user_settings.wishlist_model,
         pairing_model=user_settings.pairing_model,
         pairing_preferences=user_settings.pairing_preferences or "",
-        model_options=MODEL_OPTIONS,
+        model_options=available_model_options(),
     )
 
 
@@ -232,7 +237,7 @@ def create_ai_response(
     # Old per-user GPT-5.4 values remain valid for compatibility. When routing
     # is enabled, the central deterministic router owns the model decision.
     requested_model = "" if settings.openai_enable_model_routing else model
-    if requested_model and requested_model not in allowed_models():
+    if requested_model and requested_model not in available_model_options():
         requested_model = ""
     response = create_response(
         requested_model,
