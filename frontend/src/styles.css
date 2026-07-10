@@ -1355,6 +1355,22 @@ summary:focus-visible {
   overflow: hidden;
 }
 
+.view-tabs .beta-nav-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 5px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1;
+  vertical-align: text-bottom;
+}
+
 .auth-panel {
   display: grid;
   gap: 14px;
