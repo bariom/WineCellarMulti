@@ -812,6 +812,14 @@ def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_
     )
 
 
+DISALLOWED_BUYING_SOURCE_TERMS = ("smood",)
+
+
+def is_disallowed_buying_source(merchant: str, source_url: str) -> bool:
+    haystack = f"{merchant} {source_url}".lower()
+    return any(term in haystack for term in DISALLOWED_BUYING_SOURCE_TERMS)
+
+
 def clean_buying_recommendations(payload: dict, verified_urls: set[str]) -> list[BuyingRecommendation]:
     raw_items = payload.get("recommendations", [])
     if not isinstance(raw_items, list):
@@ -829,6 +837,7 @@ def clean_buying_recommendations(payload: dict, verified_urls: set[str]) -> list
             or not merchant
             or not source_url.startswith(("https://", "http://"))
             or source_url not in verified_urls
+            or is_disallowed_buying_source(merchant, source_url)
             or source_url in seen_urls
         ):
             continue
@@ -1141,6 +1150,7 @@ def suggest_buying_advice(
             "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
             "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
             "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
+            "Do not use Smood: it is no longer an active retailer or delivery channel and must never be recommended, even when stale Smood pages appear in search results. "
             "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
             f"{response_language_instruction(payload.locale)}"
         ),

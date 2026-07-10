@@ -11,7 +11,7 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
+from app.api.routes.ai import available_model_options, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import create_response, response_body
 
@@ -246,3 +246,9 @@ def test_sommelier_uses_gpt55_with_standard_configuration(monkeypatch: pytest.Mo
     monkeypatch.setattr("app.services.openai_client.urllib.request.urlopen", fake_urlopen)
     create_response("gpt-5.4", "sommelier", "dish", api_key="sk-test", task_type="pairing")
     assert sent_models == ["gpt-5.5"]
+
+
+def test_buying_advice_rejects_retired_smood_source():
+    assert is_disallowed_buying_source("Enoteca Vinarte Lugano / Smood", "https://example.com/product")
+    assert is_disallowed_buying_source("Enoteca", "https://smood.ch/product")
+    assert not is_disallowed_buying_source("Enoteca Vinarte", "https://vinarte.example/product")
