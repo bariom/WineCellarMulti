@@ -1,6 +1,6 @@
 """remove pairing candidate limit
 
-Revision ID: 0038_remove_pairing_candidate_limit
+Revision ID: 0038_remove_pairing_limit
 Revises: 0037_pairing_candidate_limit
 Create Date: 2026-07-10
 """
@@ -10,7 +10,7 @@ from __future__ import annotations
 from alembic import op
 
 
-revision = "0038_remove_pairing_candidate_limit"
+revision = "0038_remove_pairing_limit"
 down_revision = "0037_pairing_candidate_limit"
 branch_labels = None
 depends_on = None
