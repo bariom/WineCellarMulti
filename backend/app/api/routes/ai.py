@@ -152,6 +152,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             wishlist_model=default_model_for_field("wishlist_model"),
             pairing_model=default_model_for_field("pairing_model"),
             pairing_preferences="",
+            pairing_candidate_limit=PAIRING_MAX_CANDIDATES,
         )
         db.add(user_settings)
         db.flush()
@@ -184,6 +185,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         wishlist_model=user_settings.wishlist_model,
         pairing_model=user_settings.pairing_model,
         pairing_preferences=user_settings.pairing_preferences or "",
+        pairing_candidate_limit=user_settings.pairing_candidate_limit,
         model_options=available_model_options(),
     )
 
@@ -471,6 +473,8 @@ def update_ai_settings(
                 setattr(user_settings, field, validate_model(value))
     if payload.pairing_preferences is not None:
         user_settings.pairing_preferences = payload.pairing_preferences.strip()[:2000]
+    if payload.pairing_candidate_limit is not None:
+        user_settings.pairing_candidate_limit = payload.pairing_candidate_limit
     user_settings.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user_settings)
@@ -914,7 +918,7 @@ def suggest_pairing(
     cellar_wines = [wine for wine in cellar_wines if user_can_see_wine(context, wine)]
     if max_price_chf is not None:
         cellar_wines = [wine for wine in cellar_wines if pairing_budget_value_chf(wine) <= max_price_chf]
-    cellar_wines = select_pairing_candidates(cellar_wines)
+    cellar_wines = select_pairing_candidates(cellar_wines, limit=user_settings.pairing_candidate_limit)
     wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
     schema = {
         "name": "wine_pairing",

@@ -57,6 +57,7 @@ class AiSettingsResponse(BaseModel):
     wishlist_model: str
     pairing_model: str
     pairing_preferences: str = ""
+    pairing_candidate_limit: int = 25
     model_options: list[str]
 
 
@@ -70,6 +71,7 @@ class AiSettingsUpdate(BaseModel):
     wishlist_model: str | None = None
     pairing_model: str | None = None
     pairing_preferences: str | None = Field(default=None, max_length=2000)
+    pairing_candidate_limit: int | None = Field(default=None, ge=5, le=50)
 
 
 class AiGenerationRequest(BaseModel):
