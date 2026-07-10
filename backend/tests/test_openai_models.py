@@ -119,22 +119,29 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
     assert parameters_for_model("gpt-5.6-sol").reasoning_effort == "high"
 
 
-def test_gpt56_does_not_fallback_to_gpt55_when_model_is_unavailable(monkeypatch: pytest.MonkeyPatch):
+def test_fallback_to_gpt55_happens_once(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "openai_enable_gpt56", True)
     bodies: list[dict] = []
 
     def fake_urlopen(request, timeout):
         assert timeout == 60
         bodies.append(json.loads(request.data.decode("utf-8")))
-        raise http_error(404, {"code": "model_not_found", "message": "model unavailable"})
+        if len(bodies) == 1:
+            raise http_error(404, {"code": "model_not_found", "message": "model unavailable"})
+        return FakeResponse(
+            {
+                "output_text": "fallback answer",
+                "usage": {"input_tokens": 10, "output_tokens": 3, "total_tokens": 13},
+            },
+        )
 
     monkeypatch.setattr("app.services.openai_client.urllib.request.urlopen", fake_urlopen)
-    with pytest.raises(HTTPException) as exc_info:
-        create_response("gpt-5.6-terra", "secret system prompt", "private user data", api_key="sk-secret")
+    response = create_response("gpt-5.6-terra", "secret system prompt", "private user data", api_key="sk-secret")
 
-    assert [body["model"] for body in bodies] == ["gpt-5.6-terra"]
-    assert exc_info.value.status_code == 503
-    assert exc_info.value.detail == "Configured GPT-5.6 model is unavailable for this API key"
+    assert [body["model"] for body in bodies] == ["gpt-5.6-terra", "gpt-5.5"]
+    assert response.model == "gpt-5.5"
+    assert response.fallback_occurred is True
+    assert response.fallback_reason == "model_not_available"
 
 
 @pytest.mark.parametrize(

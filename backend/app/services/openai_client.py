@@ -316,16 +316,12 @@ def create_response(
         except OpenAITransportError as exc:
             fallback_model = safe_fallback_model()
             can_fallback = (
-                not settings.openai_enable_gpt56
-                and
                 exc.fallback_allowed
                 and request_count == 1
                 and effective_model != fallback_model
                 and effective_model != LEGACY_MODEL
             )
             can_retry_legacy = (
-                not settings.openai_enable_gpt56
-                and
                 exc.fallback_allowed
                 and request_count == 1
                 and effective_model == fallback_model
@@ -345,12 +341,6 @@ def create_response(
             if can_retry_legacy:
                 fallback_reason = exc.reason
                 continue
-            if settings.openai_enable_gpt56 and exc.reason in {"model_not_available", "model_access_denied", "model_configuration"}:
-                logger.warning("OpenAI GPT-5.6 model unavailable requested_model=%s reason=%s", selection.model, exc.reason)
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="Configured GPT-5.6 model is unavailable for this API key",
-                ) from exc
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OpenAI request failed") from exc
 
     text = extract_response_text(payload)
