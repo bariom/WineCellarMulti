@@ -158,6 +158,40 @@ class PairingResponse(BaseModel):
     estimated_cost_usd: Decimal = Decimal("0")
 
 
+class BuyingAdviceRequest(BaseModel):
+    purpose: str = Field(pattern="^(drink_now|cellar|pairing)$")
+    pairing_with: str = Field(default="", max_length=240)
+    preferences: str = Field(default="", max_length=600)
+    needed_by: str = Field(pattern="^(today|tomorrow|can_wait)$")
+    location: str = Field(min_length=2, max_length=160)
+    max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
+    locale: str = Field(default="it", pattern="^(it|en)$")
+
+
+class BuyingRecommendation(BaseModel):
+    name: str
+    producer: str = ""
+    vintage: str = ""
+    merchant: str
+    merchant_type: str = "online"
+    price: str = ""
+    currency: str = "CHF"
+    availability: str = ""
+    delivery_estimate: str = ""
+    source_url: str
+    reason: str = ""
+    local: bool = False
+    confidence: str = "medium"
+
+
+class BuyingAdviceResponse(BaseModel):
+    summary: str = ""
+    model: str
+    recommendations: list[BuyingRecommendation] = Field(default_factory=list)
+    warning: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")
+
+
 class WineCompareRequest(BaseModel):
     wine_ids: list[UUID] = Field(min_length=2, max_length=2)
     locale: str = Field(default="it", pattern="^(it|en)$")

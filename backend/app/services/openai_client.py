@@ -144,6 +144,7 @@ def response_body(
     *,
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
+    web_search_use_default_location: bool = True,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": model,
@@ -167,18 +168,18 @@ def response_body(
             },
         }
     if web_search:
-        body["tools"] = [
-            {
-                "type": "web_search",
-                "external_web_access": True,
-                "user_location": {
+        web_search_tool: dict[str, Any] = {
+            "type": "web_search",
+            "external_web_access": True,
+        }
+        if web_search_use_default_location:
+            web_search_tool["user_location"] = {
                     "type": "approximate",
                     "country": "CH",
                     "region": "Ticino",
                     "timezone": "Europe/Zurich",
-                },
-            },
-        ]
+            }
+        body["tools"] = [web_search_tool]
         body["tool_choice"] = "required"
         body["include"] = ["web_search_call.action.sources"]
     return body
@@ -284,6 +285,7 @@ def create_response(
     api_key: str | None = None,
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
+    web_search_use_default_location: bool = True,
     task_type: str = "sommelier",
     complexity: str | None = None,
 ) -> OpenAIResponse:
@@ -309,6 +311,7 @@ def create_response(
                     user_prompt,
                     json_schema=json_schema,
                     web_search=web_search,
+                    web_search_use_default_location=web_search_use_default_location,
                 ),
                 active_api_key,
             )

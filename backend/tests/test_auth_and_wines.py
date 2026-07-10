@@ -2335,6 +2335,60 @@ def test_pairing_restaurant_mode_can_prefer_local_market_wines(monkeypatch):
     assert pairing.json()["market_recommendations"]["low"][0]["name"] == "Chianti Classico"
 
 
+def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+
+    def fake_create_response(*args, **kwargs):
+        assert kwargs["web_search"] is True
+        assert kwargs["web_search_use_default_location"] is False
+        assert "available for pickup or delivery today" in args[2]
+        assert "Buyer location: Lugano, Svizzera" in args[2]
+        assert "CHF 75" in args[2]
+        return OpenAIResponse(
+            text=(
+                '{"summary":"Una proposta locale pronta da bere.","warning":"Confermare il ritiro.",'
+                '"recommendations":[{"name":"Merlot del Ticino","producer":"Produttore",'
+                '"vintage":"2021","merchant":"Enoteca Lugano","merchant_type":"local_shop",'
+                '"price":"42.00","currency":"CHF","availability":"Disponibile, ritiro da confermare",'
+                '"delivery_estimate":"Oggi con ritiro","source_url":"https://example.com/wine/merlot",'
+                '"reason":"Gia pronto e vicino.","local":true,"confidence":"medium"},'
+                '{"name":"Senza fonte","producer":"","vintage":"","merchant":"Negozio",'
+                '"merchant_type":"online","price":"30","currency":"CHF","availability":"",'
+                '"delivery_estimate":"","source_url":"","reason":"","local":false,"confidence":"low"}]}'
+            ),
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            web_sources=({"url": "https://example.com/wine/merlot", "title": "Merlot"},),
+            web_search_calls=1,
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post(
+        "/api/v1/ai/buying-advice",
+        json={
+            "purpose": "drink_now",
+            "needed_by": "today",
+            "location": "Lugano, Svizzera",
+            "max_price_chf": 75,
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["model"] == "gpt-5.5"
+    assert len(body["recommendations"]) == 1
+    assert body["recommendations"][0]["merchant"] == "Enoteca Lugano"
+    assert body["recommendations"][0]["local"] is True
+    assert body["recommendations"][0]["source_url"] == "https://example.com/wine/merlot"
+
+    audit = client.get("/api/v1/ai/audit").json()
+    entry = next(item for item in audit if item["feature"] == "buying_advice")
+    assert any(source.get("url") == "https://example.com/wine/merlot" for source in entry["sources"])
+
+
 def test_ai_usage_summarizes_current_user_costs():
     client = TestClient(app)
     assert register(client).status_code == 201

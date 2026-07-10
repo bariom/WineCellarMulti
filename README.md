@@ -174,7 +174,7 @@ OPENAI_WISHLIST_MODEL=gpt-5.4
 OPENAI_PAIRING_MODEL=gpt-5.4
 ```
 
-Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, and food pairing.
+Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, food pairing, and source-backed buying advice. Buying advice supports drink-now, cellaring, and food-pairing goals, plus today/tomorrow/flexible delivery deadlines and a buyer location. Urgent searches favor local pickup; flexible searches can include online retailers.
 
 Users can choose the AI source in the application settings:
 
@@ -294,5 +294,6 @@ hostname -I
 - `POST /api/v1/ai/wines/{wine_id}/grapes`
 - `POST /api/v1/ai/wishlist/{item_id}/strategy`
 - `POST /api/v1/ai/pairing`
+- `POST /api/v1/ai/buying-advice`
 
 The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.

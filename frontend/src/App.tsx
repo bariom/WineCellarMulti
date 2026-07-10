@@ -728,6 +728,28 @@ type PairingResult = {
   estimated_cost_usd: string;
 };
 
+type BuyingAdviceResult = {
+  summary: string;
+  warning: string;
+  model: string;
+  recommendations: Array<{
+    name: string;
+    producer: string;
+    vintage: string;
+    merchant: string;
+    merchant_type: "local_shop" | "online";
+    price: string;
+    currency: string;
+    availability: string;
+    delivery_estimate: string;
+    source_url: string;
+    reason: string;
+    local: boolean;
+    confidence: "high" | "medium" | "low";
+  }>;
+  estimated_cost_usd: string;
+};
+
 type WineCompareAiResult = {
   model: string;
   style_profile: string;
@@ -5840,6 +5862,13 @@ export function App() {
   const [pairingPreferLocal, setPairingPreferLocal] = useState(false);
   const [pairingLocalOrigin, setPairingLocalOrigin] = useState("");
   const [pairingResult, setPairingResult] = useState<PairingResult | null>(null);
+  const [buyingPurpose, setBuyingPurpose] = useState<"drink_now" | "cellar" | "pairing">("drink_now");
+  const [buyingPairingWith, setBuyingPairingWith] = useState("");
+  const [buyingPreferences, setBuyingPreferences] = useState("");
+  const [buyingNeededBy, setBuyingNeededBy] = useState<"today" | "tomorrow" | "can_wait">("today");
+  const [buyingLocation, setBuyingLocation] = useState("");
+  const [buyingMaxPrice, setBuyingMaxPrice] = useState("");
+  const [buyingAdviceResult, setBuyingAdviceResult] = useState<BuyingAdviceResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
@@ -8161,6 +8190,40 @@ export function App() {
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate pairing");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
+  async function generateBuyingAdvice(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!buyingLocation.trim()) {
+      setError(locale === "it" ? "Inserisci la località in cui vuoi ricevere o ritirare il vino." : "Enter the location where you want to receive or collect the wine.");
+      return;
+    }
+    if (buyingPurpose === "pairing" && !buyingPairingWith.trim()) {
+      setError(locale === "it" ? "Indica il piatto per l'abbinamento." : "Enter the food to pair.");
+      return;
+    }
+    setGeneratingAi("buying-advice");
+    setError("");
+    try {
+      const result = await api<BuyingAdviceResult>("/api/v1/ai/buying-advice", {
+        method: "POST",
+        body: JSON.stringify({
+          purpose: buyingPurpose,
+          pairing_with: buyingPairingWith.trim(),
+          preferences: buyingPreferences.trim(),
+          needed_by: buyingNeededBy,
+          location: buyingLocation.trim(),
+          max_price_chf: buyingMaxPrice.trim() ? Number(buyingMaxPrice.trim()) : null,
+          locale,
+        }),
+      });
+      setBuyingAdviceResult(result);
+      await Promise.all([loadAiAudit(), loadAiUsage()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate buying advice");
     } finally {
       setGeneratingAi("");
     }
@@ -11346,6 +11409,7 @@ export function App() {
                   isMobileViewport={isMobileViewport}
                   locale={locale}
                   onGeneratePairing={generatePairing}
+                  onGenerateBuyingAdvice={generateBuyingAdvice}
                   onOpenWine={openWineFromDashboard}
                   onSavePairingPreferences={savePairingPreferences}
                   pairingBudgetPresets={pairingBudgetPresets}
@@ -11359,6 +11423,13 @@ export function App() {
                   pairingMaxPrice={pairingMaxPrice}
                   pairingPreferLocal={pairingPreferLocal}
                   pairingResult={pairingResult}
+                  buyingPurpose={buyingPurpose}
+                  buyingPairingWith={buyingPairingWith}
+                  buyingPreferences={buyingPreferences}
+                  buyingNeededBy={buyingNeededBy}
+                  buyingLocation={buyingLocation}
+                  buyingMaxPrice={buyingMaxPrice}
+                  buyingAdviceResult={buyingAdviceResult}
                   saving={saving}
                   savedPairingPreferences={aiSettings?.pairing_preferences || ""}
                   setAiSettingsDraft={setAiSettingsDraft}
@@ -11369,6 +11440,12 @@ export function App() {
                   setPairingMarketOnly={setPairingMarketOnly}
                   setPairingMaxPrice={setPairingMaxPrice}
                   setPairingPreferLocal={setPairingPreferLocal}
+                  setBuyingPurpose={setBuyingPurpose}
+                  setBuyingPairingWith={setBuyingPairingWith}
+                  setBuyingPreferences={setBuyingPreferences}
+                  setBuyingNeededBy={setBuyingNeededBy}
+                  setBuyingLocation={setBuyingLocation}
+                  setBuyingMaxPrice={setBuyingMaxPrice}
                   t={t}
                   wines={wines}
                 />

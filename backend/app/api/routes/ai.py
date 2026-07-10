@@ -25,6 +25,9 @@ from app.schemas.ai import (
     AiSettingsUpdate,
     AiUsageBucket,
     AiUsageResponse,
+    BuyingAdviceRequest,
+    BuyingAdviceResponse,
+    BuyingRecommendation,
     PairingCellarMatch,
     PairingMarketWine,
     PairingRequest,
@@ -272,6 +275,7 @@ def create_ai_response(
     user_prompt: str,
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
+    web_search_use_default_location: bool = True,
     charge_immediately: bool = True,
     task_type: str = "sommelier",
     complexity: str | None = None,
@@ -289,6 +293,7 @@ def create_ai_response(
         api_key=api_key,
         json_schema=json_schema,
         web_search=web_search,
+        web_search_use_default_location=web_search_use_default_location,
         task_type=task_type,
         complexity=complexity,
     )
@@ -807,6 +812,49 @@ def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_
     )
 
 
+def clean_buying_recommendations(payload: dict, verified_urls: set[str]) -> list[BuyingRecommendation]:
+    raw_items = payload.get("recommendations", [])
+    if not isinstance(raw_items, list):
+        return []
+    recommendations: list[BuyingRecommendation] = []
+    seen_urls: set[str] = set()
+    for item in raw_items[:6]:
+        if not isinstance(item, dict):
+            continue
+        name = str(item.get("name") or "").strip()
+        merchant = str(item.get("merchant") or "").strip()
+        source_url = str(item.get("source_url") or "").strip()
+        if (
+            not name
+            or not merchant
+            or not source_url.startswith(("https://", "http://"))
+            or source_url not in verified_urls
+            or source_url in seen_urls
+        ):
+            continue
+        seen_urls.add(source_url)
+        merchant_type = str(item.get("merchant_type") or "online").strip().lower()
+        confidence = str(item.get("confidence") or "medium").strip().lower()
+        recommendations.append(
+            BuyingRecommendation(
+                name=name[:180],
+                producer=str(item.get("producer") or "").strip()[:160],
+                vintage=str(item.get("vintage") or "").strip()[:24],
+                merchant=merchant[:160],
+                merchant_type=merchant_type if merchant_type in {"local_shop", "online"} else "online",
+                price=str(item.get("price") or "").strip()[:40],
+                currency=str(item.get("currency") or "CHF").strip().upper()[:8] or "CHF",
+                availability=str(item.get("availability") or "").strip()[:240],
+                delivery_estimate=str(item.get("delivery_estimate") or "").strip()[:160],
+                source_url=source_url[:500],
+                reason=str(item.get("reason") or "").strip()[:800],
+                local=bool(item.get("local")),
+                confidence=confidence if confidence in {"high", "medium", "low"} else "medium",
+            ),
+        )
+    return recommendations
+
+
 @router.post("/compare-wines", response_model=WineCompareResponse)
 def compare_wines(
     payload: WineCompareRequest,
@@ -1021,6 +1069,145 @@ def suggest_pairing(
     )
     db.commit()
     return cleaned
+
+
+@router.post("/buying-advice", response_model=BuyingAdviceResponse)
+def suggest_buying_advice(
+    payload: BuyingAdviceRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> BuyingAdviceResponse:
+    if payload.purpose == "pairing" and not payload.pairing_with.strip():
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pairing food is required")
+    user_settings = get_or_create_user_ai_settings(db, context)
+    purpose_labels = {
+        "drink_now": "drink immediately",
+        "cellar": "hold in the cellar",
+        "pairing": "pair with the specified food",
+    }
+    deadline_labels = {
+        "today": "available for pickup or delivery today",
+        "tomorrow": "available for pickup or delivery no later than tomorrow",
+        "can_wait": "delivery can take several days",
+    }
+    schema = {
+        "name": "wine_buying_advice",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "summary": {"type": "string"},
+                "warning": {"type": "string"},
+                "recommendations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "name": {"type": "string"},
+                            "producer": {"type": "string"},
+                            "vintage": {"type": "string"},
+                            "merchant": {"type": "string"},
+                            "merchant_type": {"type": "string", "enum": ["local_shop", "online"]},
+                            "price": {"type": "string"},
+                            "currency": {"type": "string"},
+                            "availability": {"type": "string"},
+                            "delivery_estimate": {"type": "string"},
+                            "source_url": {"type": "string"},
+                            "reason": {"type": "string"},
+                            "local": {"type": "boolean"},
+                            "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
+                        },
+                        "required": [
+                            "name", "producer", "vintage", "merchant", "merchant_type", "price", "currency",
+                            "availability", "delivery_estimate", "source_url", "reason", "local", "confidence",
+                        ],
+                    },
+                },
+            },
+            "required": ["summary", "warning", "recommendations"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=user_settings.pairing_model,
+        task_type="pairing",
+        system_prompt=(
+            "You are a pragmatic wine purchasing advisor with live web search. Return JSON only. "
+            "Every recommendation must correspond to a concrete retailer product page found during this search. "
+            "Never invent stock, pickup availability, delivery dates, prices, merchants, or URLs. "
+            "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
+            "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
+            "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
+            "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            f"Purchase purpose: {purpose_labels[payload.purpose]}\n"
+            f"Pairing food: {payload.pairing_with.strip() or 'none'}\n"
+            f"Additional preferences: {payload.preferences.strip() or 'none'}\n"
+            f"Need: {deadline_labels[payload.needed_by]}\n"
+            f"Buyer location: {payload.location.strip()}\n"
+            f"Maximum price per bottle: {f'CHF {payload.max_price_chf}' if payload.max_price_chf is not None else 'none'}\n\n"
+            "Return up to 6 ranked options. For drink_now, favor wines already in a suitable drinking window. "
+            "For cellar, favor age-worthy wines and explain the expected holding rationale. For pairing, optimize for the named food. "
+            "For today/tomorrow, set local=true only for a physical shop plausibly reachable from the stated location and use merchant_type=local_shop. "
+            "Use the exact product-page URL, not a search page or merchant homepage. Put any uncertainty in availability and warning."
+        ),
+        json_schema=schema,
+        web_search=True,
+        web_search_use_default_location=False,
+        charge_immediately=False,
+    )
+    parsed = parse_json_response(response.text)
+    verified_urls = {str(source.get("url") or "").strip() for source in response.web_sources}
+    recommendations = clean_buying_recommendations(parsed, verified_urls)
+    extra_cost = web_search_tool_cost_usd(response.web_search_calls)
+    effective_model = effective_response_model(response, user_settings.pairing_model)
+    charged_cost = charge_ai_usage(
+        db,
+        context,
+        provider_source,
+        model=effective_model,
+        usage=response.usage,
+        extra_cost_usd=extra_cost,
+    )
+    sources = [
+        {
+            "kind": "market_source",
+            "merchant": item.merchant,
+            "url": item.source_url,
+            "price": item.price,
+            "currency": item.currency,
+            "note": item.availability,
+            "verified": True,
+        }
+        for item in recommendations
+    ] + web_search_source_entries(response.web_sources)
+    result = BuyingAdviceResponse(
+        summary=str(parsed.get("summary") or "").strip()[:1500],
+        warning=str(parsed.get("warning") or "").strip()[:1000],
+        model=effective_model,
+        recommendations=recommendations,
+        estimated_cost_usd=charged_cost,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="buying_advice",
+        entity_id=context.household.id,
+        feature="buying_advice",
+        model=effective_model,
+        summary=f"{payload.purpose} / {payload.needed_by} / {payload.location}: {result.summary}",
+        sources=sources,
+        usage=response.usage,
+        provider_source=provider_source,
+        extra_cost_usd=extra_cost,
+    )
+    db.commit()
+    return result
 
 
 @router.post("/wines/{wine_id}/notes", response_model=WineResponse)
