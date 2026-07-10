@@ -9913,6 +9913,9 @@ export function App() {
       </div>
     </div>
   );
+  const gpt56ModelsEnabled = aiSettings?.model_options?.length
+    ? aiSettings.model_options.every((model) => model.startsWith("gpt-5.6-"))
+    : false;
 
   return (
     <main className="app-shell">
@@ -13124,13 +13127,20 @@ export function App() {
                       <strong>{t("aiModelsHelpTitle")}</strong>
                       <p>{t("aiModelsHelpIntro")}</p>
                       <ul>
-                        <li>{t("aiModelsHelpNano")}</li>
-                        <li>{t("aiModelsHelpMini")}</li>
-                        <li>{t("aiModelsHelpStandard")}</li>
-                        <li>{t("aiModelsHelpPremium")}</li>
-                        <li>{t("aiModelsHelpLuna")}</li>
-                        <li>{t("aiModelsHelpTerra")}</li>
-                        <li>{t("aiModelsHelpSol")}</li>
+                        {gpt56ModelsEnabled ? (
+                          <>
+                            <li>{t("aiModelsHelpLuna")}</li>
+                            <li>{t("aiModelsHelpTerra")}</li>
+                            <li>{t("aiModelsHelpSol")}</li>
+                          </>
+                        ) : (
+                          <>
+                            <li>{t("aiModelsHelpNano")}</li>
+                            <li>{t("aiModelsHelpMini")}</li>
+                            <li>{t("aiModelsHelpStandard")}</li>
+                            <li>{t("aiModelsHelpPremium")}</li>
+                          </>
+                        )}
                         <li>{t("aiModelsHelpTools")}</li>
                       </ul>
                     </div>
