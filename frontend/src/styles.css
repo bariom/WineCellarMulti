@@ -5682,6 +5682,10 @@ textarea {
   background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 8%, var(--surface)), var(--surface));
 }
 
+.buying-advice-view .buying-advice-card {
+  margin-bottom: 0;
+}
+
 .buying-advice-heading {
   display: flex;
   align-items: start;

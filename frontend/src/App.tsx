@@ -1,6 +1,7 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useRef, useState } from "react";
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 
 type Session = {
@@ -819,7 +820,7 @@ type AiOverlayProgress = {
 type TastingEnjoyment = "" | "positive" | "negative";
 type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
-type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "help" | "settings";
+type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "buying" | "help" | "settings";
 type HistorySection = "tastings" | "wines";
 type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data";
 type MaturityPhase = "early" | "drinkable" | "peak" | "past" | "unknown";
@@ -10769,7 +10770,7 @@ export function App() {
           className={`workspace ${
             activeView === "settings"
               ? "settings-workspace"
-              : activeView === "home" || activeView === "pairing" || activeView === "help"
+              : activeView === "home" || activeView === "pairing" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""}`}
@@ -10790,6 +10791,9 @@ export function App() {
             </button>
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               {t("pairing")}
+            </button>
+            <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { setActiveView("buying"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("buying"); }}>
+              {locale === "it" ? "Acquisti AI" : "AI buying"}
             </button>
             <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
               {t("help")}
@@ -11409,7 +11413,6 @@ export function App() {
                   isMobileViewport={isMobileViewport}
                   locale={locale}
                   onGeneratePairing={generatePairing}
-                  onGenerateBuyingAdvice={generateBuyingAdvice}
                   onOpenWine={openWineFromDashboard}
                   onSavePairingPreferences={savePairingPreferences}
                   pairingBudgetPresets={pairingBudgetPresets}
@@ -11423,13 +11426,6 @@ export function App() {
                   pairingMaxPrice={pairingMaxPrice}
                   pairingPreferLocal={pairingPreferLocal}
                   pairingResult={pairingResult}
-                  buyingPurpose={buyingPurpose}
-                  buyingPairingWith={buyingPairingWith}
-                  buyingPreferences={buyingPreferences}
-                  buyingNeededBy={buyingNeededBy}
-                  buyingLocation={buyingLocation}
-                  buyingMaxPrice={buyingMaxPrice}
-                  buyingAdviceResult={buyingAdviceResult}
                   saving={saving}
                   savedPairingPreferences={aiSettings?.pairing_preferences || ""}
                   setAiSettingsDraft={setAiSettingsDraft}
@@ -11440,6 +11436,29 @@ export function App() {
                   setPairingMarketOnly={setPairingMarketOnly}
                   setPairingMaxPrice={setPairingMaxPrice}
                   setPairingPreferLocal={setPairingPreferLocal}
+                  t={t}
+                  wines={wines}
+                />
+              </Suspense>
+            </section>
+          ) : null}
+
+          {activeView === "buying" ? (
+            <section className="pairing-view buying-view">
+              <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                <BuyingAdviceView
+                  canGenerateAi={canGenerateAi}
+                  generatingAi={generatingAi}
+                  locale={locale}
+                  buyingPurpose={buyingPurpose}
+                  buyingPairingWith={buyingPairingWith}
+                  buyingPreferences={buyingPreferences}
+                  buyingNeededBy={buyingNeededBy}
+                  buyingLocation={buyingLocation}
+                  buyingMaxPrice={buyingMaxPrice}
+                  buyingAdviceResult={buyingAdviceResult}
+                  formatAiBudget={formatAiBudget}
+                  onGenerateBuyingAdvice={generateBuyingAdvice}
                   setBuyingPurpose={setBuyingPurpose}
                   setBuyingPairingWith={setBuyingPairingWith}
                   setBuyingPreferences={setBuyingPreferences}
@@ -11447,7 +11466,6 @@ export function App() {
                   setBuyingLocation={setBuyingLocation}
                   setBuyingMaxPrice={setBuyingMaxPrice}
                   t={t}
-                  wines={wines}
                 />
               </Suspense>
             </section>
