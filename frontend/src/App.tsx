@@ -1122,6 +1122,8 @@ const translations = {
     compareVerdict: "Verdict",
     aiMagicTitle: "AI in motion",
     aiMagicHint: "Vinaris is combining your cellar data, structure, and context into something useful.",
+    aiMagicBuying: "Sto cercando bottiglie acquistabili nella tua zona, verificando rivenditori, prezzi e disponibilità per la data richiesta.",
+    aiMagicBuyingHint: "Le offerte vengono mostrate solo quando la ricerca trova una pagina prodotto verificabile.",
     aiMagicLabelValue: "Market valuation",
     aiMagicLabelDrinkWindow: "Drinking window",
     aiMagicLabelGrapes: "Blend profile",
@@ -1132,6 +1134,7 @@ const translations = {
     aiMagicLabelWishlistTargetPrice: "Target price",
     aiMagicLabelPortfolio: "Portfolio review",
     aiMagicLabelPairing: "Pairing analysis",
+    aiMagicLabelBuying: "Buying search",
     aiMagicLabelCompare: "Comparative reading",
     aiMagicValue: "Estimating market value and reading market signals.",
     aiMagicDrinkWindow: "Sketching the best drinking window for this bottle.",
@@ -1707,6 +1710,8 @@ const translations = {
     compareVerdict: "Verdetto",
     aiMagicTitle: "L'AI è all'opera",
     aiMagicHint: "Vinaris sta intrecciando dati della cantina, struttura e contesto per restituirti qualcosa di utile.",
+    aiMagicBuying: "Cerco bottiglie acquistabili nella tua zona e verifico rivenditori, prezzi e disponibilità per la data richiesta.",
+    aiMagicBuyingHint: "Mostro solo offerte con una pagina prodotto verificabile trovata nella ricerca.",
     aiMagicLabelValue: "Valutazione mercato",
     aiMagicLabelDrinkWindow: "Finestra di beva",
     aiMagicLabelGrapes: "Profilo del blend",
@@ -1717,6 +1722,7 @@ const translations = {
     aiMagicLabelWishlistTargetPrice: "Prezzo obiettivo",
     aiMagicLabelPortfolio: "Revisione portafoglio",
     aiMagicLabelPairing: "Analisi pairing",
+    aiMagicLabelBuying: "Ricerca acquisti",
     aiMagicLabelCompare: "Lettura comparativa",
     aiMagicValue: "Sto stimando il valore di mercato e leggendo i segnali del mercato.",
     aiMagicDrinkWindow: "Sto disegnando la finestra ideale di degustazione per questa bottiglia.",
@@ -4189,6 +4195,8 @@ function aiOverlayMessage(mode: string, t: (key: TranslationKey) => string) {
       return t("aiMagicPortfolio");
     case "pairing":
       return t("aiMagicPairing");
+    case "buying-advice":
+      return t("aiMagicBuying");
     case "compare":
       return t("aiMagicCompare");
     default:
@@ -4217,11 +4225,17 @@ function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string) {
       return t("aiMagicLabelPortfolio");
     case "pairing":
       return t("aiMagicLabelPairing");
+    case "buying-advice":
+      return t("aiMagicLabelBuying");
     case "compare":
       return t("aiMagicLabelCompare");
     default:
       return "Vinaris AI";
   }
+}
+
+function aiOverlayHint(mode: string, t: (key: TranslationKey) => string) {
+  return mode === "buying-advice" ? t("aiMagicBuyingHint") : t("aiMagicHint");
 }
 
 function wineProgressName(wine: Pick<Wine, "name" | "vintage">) {
@@ -4293,7 +4307,7 @@ function AiGenerationOverlay({
         <strong>{t("aiMagicTitle")}</strong>
         <p>{aiOverlayMessage(mode, t)}</p>
         {progressText ? <span className="ai-generation-progress">{progressText}</span> : null}
-        <span className="ai-generation-hint">{t("aiMagicHint")}</span>
+        <span className="ai-generation-hint">{aiOverlayHint(mode, t)}</span>
       </div>
     </div>
   );
@@ -5868,6 +5882,7 @@ export function App() {
   const [buyingPreferences, setBuyingPreferences] = useState("");
   const [buyingNeededBy, setBuyingNeededBy] = useState<"today" | "tomorrow" | "can_wait">("today");
   const [buyingLocation, setBuyingLocation] = useState("");
+  const [buyingMinPrice, setBuyingMinPrice] = useState("");
   const [buyingMaxPrice, setBuyingMaxPrice] = useState("");
   const [buyingAdviceResult, setBuyingAdviceResult] = useState<BuyingAdviceResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
@@ -8217,6 +8232,7 @@ export function App() {
           preferences: buyingPreferences.trim(),
           needed_by: buyingNeededBy,
           location: buyingLocation.trim(),
+          min_price_chf: buyingMinPrice.trim() ? Number(buyingMinPrice.trim()) : null,
           max_price_chf: buyingMaxPrice.trim() ? Number(buyingMaxPrice.trim()) : null,
           locale,
         }),
@@ -11455,6 +11471,7 @@ export function App() {
                   buyingPreferences={buyingPreferences}
                   buyingNeededBy={buyingNeededBy}
                   buyingLocation={buyingLocation}
+                  buyingMinPrice={buyingMinPrice}
                   buyingMaxPrice={buyingMaxPrice}
                   buyingAdviceResult={buyingAdviceResult}
                   formatAiBudget={formatAiBudget}
@@ -11464,6 +11481,7 @@ export function App() {
                   setBuyingPreferences={setBuyingPreferences}
                   setBuyingNeededBy={setBuyingNeededBy}
                   setBuyingLocation={setBuyingLocation}
+                  setBuyingMinPrice={setBuyingMinPrice}
                   setBuyingMaxPrice={setBuyingMaxPrice}
                   t={t}
                 />

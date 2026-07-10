@@ -164,6 +164,7 @@ class BuyingAdviceRequest(BaseModel):
     preferences: str = Field(default="", max_length=600)
     needed_by: str = Field(pattern="^(today|tomorrow|can_wait)$")
     location: str = Field(min_length=2, max_length=160)
+    min_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     locale: str = Field(default="it", pattern="^(it|en)$")
 

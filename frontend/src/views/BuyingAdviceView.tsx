@@ -31,6 +31,7 @@ type BuyingAdviceViewProps = {
   buyingPreferences: string;
   buyingNeededBy: "today" | "tomorrow" | "can_wait";
   buyingLocation: string;
+  buyingMinPrice: string;
   buyingMaxPrice: string;
   buyingAdviceResult: BuyingAdviceResult | null;
   formatAiBudget: (value: string | number) => string;
@@ -40,6 +41,7 @@ type BuyingAdviceViewProps = {
   setBuyingPreferences: (value: string) => void;
   setBuyingNeededBy: (value: "today" | "tomorrow" | "can_wait") => void;
   setBuyingLocation: (value: string) => void;
+  setBuyingMinPrice: (value: string) => void;
   setBuyingMaxPrice: (value: string) => void;
   t: (key: any) => string;
 };
@@ -53,6 +55,7 @@ export default function BuyingAdviceView({
   buyingPreferences,
   buyingNeededBy,
   buyingLocation,
+  buyingMinPrice,
   buyingMaxPrice,
   buyingAdviceResult,
   formatAiBudget,
@@ -62,10 +65,15 @@ export default function BuyingAdviceView({
   setBuyingPreferences,
   setBuyingNeededBy,
   setBuyingLocation,
+  setBuyingMinPrice,
   setBuyingMaxPrice,
   t,
 }: BuyingAdviceViewProps) {
   const busy = generatingAi === "buying-advice";
+  const confidenceLabel = (value: BuyingAdviceResult["recommendations"][number]["confidence"]) => {
+    if (locale === "it") return { high: "Attendibilità alta", medium: "Attendibilità media", low: "Attendibilità bassa" }[value];
+    return { high: "High confidence", medium: "Medium confidence", low: "Low confidence" }[value];
+  };
 
   return (
     <section className="pairing-card buying-advice-view">
@@ -100,7 +108,11 @@ export default function BuyingAdviceView({
               <input value={buyingLocation} onChange={(event) => setBuyingLocation(event.target.value)} placeholder={locale === "it" ? "Es. Lugano, Svizzera" : "E.g. Lugano, Switzerland"} disabled={!canGenerateAi || busy} />
             </label>
             <label>
-              <span>{locale === "it" ? "Budget massimo per bottiglia (CHF)" : "Maximum price per bottle (CHF)"}</span>
+              <span>{locale === "it" ? "Prezzo minimo per bottiglia (CHF)" : "Minimum price per bottle (CHF)"}</span>
+              <input type="number" min="1" step="1" value={buyingMinPrice} onChange={(event) => setBuyingMinPrice(event.target.value)} placeholder="25" disabled={!canGenerateAi || busy} />
+            </label>
+            <label>
+              <span>{locale === "it" ? "Prezzo massimo per bottiglia (CHF)" : "Maximum price per bottle (CHF)"}</span>
               <input type="number" min="1" step="1" value={buyingMaxPrice} onChange={(event) => setBuyingMaxPrice(event.target.value)} placeholder="80" disabled={!canGenerateAi || busy} />
             </label>
           </div>
@@ -130,7 +142,7 @@ export default function BuyingAdviceView({
                 <article key={item.source_url} className="buying-recommendation">
                   <div className="buying-recommendation-badges">
                     <span>{item.local ? (locale === "it" ? "Locale" : "Local") : "Online"}</span>
-                    <span>{item.confidence}</span>
+                    <span>{confidenceLabel(item.confidence)}</span>
                   </div>
                   <h3>{item.name}{item.vintage ? ` ${item.vintage}` : ""}</h3>
                   {item.producer ? <p>{item.producer}</p> : null}

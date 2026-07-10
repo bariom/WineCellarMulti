@@ -11,7 +11,7 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
+from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import create_response, response_body
 
@@ -252,3 +252,30 @@ def test_buying_advice_rejects_retired_smood_source():
     assert is_disallowed_buying_source("Enoteca Vinarte Lugano / Smood", "https://example.com/product")
     assert is_disallowed_buying_source("Enoteca", "https://smood.ch/product")
     assert not is_disallowed_buying_source("Enoteca Vinarte", "https://vinarte.example/product")
+
+
+def test_buying_advice_cleans_unverified_vintage_and_limits_coop_results():
+    first_url = "https://coop.example/first"
+    second_url = "https://coop.example/second"
+    recommendations = clean_buying_recommendations(
+        {
+            "recommendations": [
+                {
+                    "name": "First", "producer": "Producer", "vintage": "Non confermata dalla pagina",
+                    "merchant": "Coop / Mondovino", "merchant_type": "local_shop", "price": "CHF 35",
+                    "currency": "CHF", "availability": "In stock", "delivery_estimate": "Today",
+                    "source_url": first_url, "reason": "Reason", "local": True, "confidence": "medium",
+                },
+                {
+                    "name": "Second", "producer": "Producer", "vintage": "2022",
+                    "merchant": "Coop / Mondovino", "merchant_type": "local_shop", "price": "CHF 45",
+                    "currency": "CHF", "availability": "In stock", "delivery_estimate": "Today",
+                    "source_url": second_url, "reason": "Reason", "local": True, "confidence": "medium",
+                },
+            ],
+        },
+        {first_url, second_url},
+    )
+    assert len(recommendations) == 1
+    assert recommendations[0].vintage == ""
+    assert clean_recommendation_vintage("2022") == "2022"

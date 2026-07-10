@@ -820,12 +820,37 @@ def is_disallowed_buying_source(merchant: str, source_url: str) -> bool:
     return any(term in haystack for term in DISALLOWED_BUYING_SOURCE_TERMS)
 
 
-def clean_buying_recommendations(payload: dict, verified_urls: set[str]) -> list[BuyingRecommendation]:
+def buying_price_amount(value: str) -> Decimal | None:
+    match = re.search(r"\d+(?:[.,]\d+)?", value.replace("'", ""))
+    if not match:
+        return None
+    try:
+        return Decimal(match.group(0).replace(",", "."))
+    except InvalidOperation:
+        return None
+
+
+def clean_recommendation_vintage(value: str) -> str:
+    vintage = value.strip()
+    lowered = vintage.lower()
+    if any(term in lowered for term in ("non conferm", "not confirm", "non indic", "not indic", "pagina", "unknown")):
+        return ""
+    return vintage[:24]
+
+
+def clean_buying_recommendations(
+    payload: dict,
+    verified_urls: set[str],
+    min_price_chf: Decimal | None = None,
+    max_price_chf: Decimal | None = None,
+) -> list[BuyingRecommendation]:
     raw_items = payload.get("recommendations", [])
     if not isinstance(raw_items, list):
         return []
     recommendations: list[BuyingRecommendation] = []
     seen_urls: set[str] = set()
+    merchant_counts: dict[str, int] = {}
+    coop_count = 0
     for item in raw_items[:6]:
         if not isinstance(item, dict):
             continue
@@ -844,14 +869,24 @@ def clean_buying_recommendations(payload: dict, verified_urls: set[str]) -> list
         seen_urls.add(source_url)
         merchant_type = str(item.get("merchant_type") or "online").strip().lower()
         confidence = str(item.get("confidence") or "medium").strip().lower()
+        price = str(item.get("price") or "").strip()
+        price_amount = buying_price_amount(price)
+        if (min_price_chf is not None and price_amount is not None and price_amount < min_price_chf) or (
+            max_price_chf is not None and price_amount is not None and price_amount > max_price_chf
+        ):
+            continue
+        merchant_key = merchant.lower()
+        is_coop = "coop" in merchant_key or "mondovino" in merchant_key
+        if merchant_counts.get(merchant_key, 0) >= 2 or (is_coop and coop_count >= 1):
+            continue
         recommendations.append(
             BuyingRecommendation(
                 name=name[:180],
                 producer=str(item.get("producer") or "").strip()[:160],
-                vintage=str(item.get("vintage") or "").strip()[:24],
+                vintage=clean_recommendation_vintage(str(item.get("vintage") or "")),
                 merchant=merchant[:160],
                 merchant_type=merchant_type if merchant_type in {"local_shop", "online"} else "online",
-                price=str(item.get("price") or "").strip()[:40],
+                price=price[:40],
                 currency=str(item.get("currency") or "CHF").strip().upper()[:8] or "CHF",
                 availability=str(item.get("availability") or "").strip()[:240],
                 delivery_estimate=str(item.get("delivery_estimate") or "").strip()[:160],
@@ -861,6 +896,9 @@ def clean_buying_recommendations(payload: dict, verified_urls: set[str]) -> list
                 confidence=confidence if confidence in {"high", "medium", "low"} else "medium",
             ),
         )
+        merchant_counts[merchant_key] = merchant_counts.get(merchant_key, 0) + 1
+        if is_coop:
+            coop_count += 1
     return recommendations
 
 
@@ -1088,6 +1126,8 @@ def suggest_buying_advice(
 ) -> BuyingAdviceResponse:
     if payload.purpose == "pairing" and not payload.pairing_with.strip():
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pairing food is required")
+    if payload.min_price_chf is not None and payload.max_price_chf is not None and payload.min_price_chf > payload.max_price_chf:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Minimum price cannot exceed maximum price")
     user_settings = get_or_create_user_ai_settings(db, context)
     purpose_labels = {
         "drink_now": "drink immediately",
@@ -1149,6 +1189,8 @@ def suggest_buying_advice(
             "Never invent stock, pickup availability, delivery dates, prices, merchants, or URLs. "
             "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
             "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
+            "Local refers to the retailer's location, not the wine's origin: offer stylistically relevant wines from varied regions unless the user asks for a specific origin. "
+            "Diversify merchants. Do not return a list dominated by one retailer; Coop/Mondovino is a fallback only and at most one Coop recommendation is allowed. Prefer independent wine shops when their stock can be verified. "
             "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
             "Do not use Smood: it is no longer an active retailer or delivery channel and must never be recommended, even when stale Smood pages appear in search results. "
             "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
@@ -1160,11 +1202,14 @@ def suggest_buying_advice(
             f"Additional preferences: {payload.preferences.strip() or 'none'}\n"
             f"Need: {deadline_labels[payload.needed_by]}\n"
             f"Buyer location: {payload.location.strip()}\n"
+            f"Minimum price per bottle: {f'CHF {payload.min_price_chf}' if payload.min_price_chf is not None else 'none'}\n"
             f"Maximum price per bottle: {f'CHF {payload.max_price_chf}' if payload.max_price_chf is not None else 'none'}\n\n"
             "Return up to 6 ranked options. For drink_now, favor wines already in a suitable drinking window. "
             "For cellar, favor age-worthy wines and explain the expected holding rationale. For pairing, optimize for the named food. "
             "For today/tomorrow, set local=true only for a physical shop plausibly reachable from the stated location and use merchant_type=local_shop. "
-            "Use the exact product-page URL, not a search page or merchant homepage. Put any uncertainty in availability and warning."
+            "Use the exact product-page URL, not a search page or merchant homepage. Return the exact listed price when available, not a vague range. "
+            "Set vintage to an empty string unless that exact vintage is clearly stated on the product page; never write a status such as 'not confirmed from page' in the vintage field. "
+            "Put any uncertainty in availability and warning."
         ),
         json_schema=schema,
         web_search=True,
@@ -1173,7 +1218,7 @@ def suggest_buying_advice(
     )
     parsed = parse_json_response(response.text)
     verified_urls = {str(source.get("url") or "").strip() for source in response.web_sources}
-    recommendations = clean_buying_recommendations(parsed, verified_urls)
+    recommendations = clean_buying_recommendations(parsed, verified_urls, payload.min_price_chf, payload.max_price_chf)
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     effective_model = effective_response_model(response, user_settings.pairing_model)
     charged_cost = charge_ai_usage(
