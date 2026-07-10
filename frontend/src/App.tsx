@@ -5804,6 +5804,7 @@ export function App() {
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
   const [activeKeyPositionIndex, setActiveKeyPositionIndex] = useState(0);
   const keyPositionStripRef = useRef<HTMLDivElement | null>(null);
+  const pendingKeyPositionIndexRef = useRef<number | null>(null);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
@@ -8993,6 +8994,7 @@ export function App() {
     : "";
 
   useEffect(() => {
+    pendingKeyPositionIndexRef.current = null;
     setActiveKeyPositionIndex(0);
     keyPositionStripRef.current?.scrollTo({ left: 0 });
   }, [keyPositionIds]);
@@ -9010,13 +9012,20 @@ export function App() {
     const width = keyPositionSlideWidth(container);
     if (!width) return;
     const nextIndex = Math.round(container.scrollLeft / width);
-    setActiveKeyPositionIndex(Math.max(0, Math.min(nextIndex, keyPositionCandidates.length - 1)));
+    const boundedNextIndex = Math.max(0, Math.min(nextIndex, keyPositionCandidates.length - 1));
+    const pendingIndex = pendingKeyPositionIndexRef.current;
+    if (pendingIndex !== null) {
+      if (boundedNextIndex === pendingIndex) pendingKeyPositionIndexRef.current = null;
+      return;
+    }
+    setActiveKeyPositionIndex(boundedNextIndex);
   }
 
   function goToKeyPosition(index: number) {
     const container = keyPositionStripRef.current;
     if (!container) return;
     const nextIndex = Math.max(0, Math.min(index, keyPositionCandidates.length - 1));
+    pendingKeyPositionIndexRef.current = nextIndex;
     container.scrollTo({ left: keyPositionSlideWidth(container) * nextIndex, behavior: "smooth" });
     setActiveKeyPositionIndex(nextIndex);
   }
@@ -10779,7 +10788,14 @@ export function App() {
                           </button>
                         </div>
                       ) : null}
-                      <div className="key-position-strip" aria-label={t("keyPositions")} onScroll={updateActiveKeyPosition} ref={keyPositionStripRef}>
+                      <div
+                        className="key-position-strip"
+                        aria-label={t("keyPositions")}
+                        onPointerDown={() => { pendingKeyPositionIndexRef.current = null; }}
+                        onScroll={updateActiveKeyPosition}
+                        onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
+                        ref={keyPositionStripRef}
+                      >
                         {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
