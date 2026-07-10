@@ -10809,7 +10809,7 @@ export function App() {
               {t("pairing")}
             </button>
             <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { setActiveView("buying"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("buying"); }}>
-              {locale === "it" ? "Acquisti AI" : "AI buying"}
+              {locale === "it" ? "Acquisti AI · Beta" : "AI buying · Beta"}
             </button>
             <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
               {t("help")}

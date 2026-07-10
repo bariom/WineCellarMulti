@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { CSSProperties, FormEvent } from "react";
 
 type BuyingAdviceResult = {
   summary: string;
@@ -70,6 +70,9 @@ export default function BuyingAdviceView({
   t,
 }: BuyingAdviceViewProps) {
   const busy = generatingAi === "buying-advice";
+  const priceRangeMax = 1000;
+  const minPrice = Math.max(0, Math.min(Number(buyingMinPrice) || 0, priceRangeMax));
+  const maxPrice = Math.max(minPrice, Math.min(Number(buyingMaxPrice) || priceRangeMax, priceRangeMax));
   const confidenceLabel = (value: BuyingAdviceResult["recommendations"][number]["confidence"]) => {
     if (locale === "it") return { high: "Attendibilità alta", medium: "Attendibilità media", low: "Attendibilità bassa" }[value];
     return { high: "High confidence", medium: "Medium confidence", low: "Low confidence" }[value];
@@ -107,14 +110,44 @@ export default function BuyingAdviceView({
               <span>{locale === "it" ? "Località" : "Location"}</span>
               <input value={buyingLocation} onChange={(event) => setBuyingLocation(event.target.value)} placeholder={locale === "it" ? "Es. Lugano, Svizzera" : "E.g. Lugano, Switzerland"} disabled={!canGenerateAi || busy} />
             </label>
-            <label>
-              <span>{locale === "it" ? "Prezzo minimo per bottiglia (CHF)" : "Minimum price per bottle (CHF)"}</span>
-              <input type="number" min="1" step="1" value={buyingMinPrice} onChange={(event) => setBuyingMinPrice(event.target.value)} placeholder="25" disabled={!canGenerateAi || busy} />
-            </label>
-            <label>
-              <span>{locale === "it" ? "Prezzo massimo per bottiglia (CHF)" : "Maximum price per bottle (CHF)"}</span>
-              <input type="number" min="1" step="1" value={buyingMaxPrice} onChange={(event) => setBuyingMaxPrice(event.target.value)} placeholder="80" disabled={!canGenerateAi || busy} />
-            </label>
+            <div className="buying-price-range">
+              <div className="buying-price-range-heading">
+                <span>{locale === "it" ? "Fascia di prezzo per bottiglia" : "Price range per bottle"}</span>
+                <button type="button" className="secondary compact" disabled={!canGenerateAi || busy || (!buyingMinPrice && !buyingMaxPrice)} onClick={() => { setBuyingMinPrice(""); setBuyingMaxPrice(""); }}>
+                  {locale === "it" ? "Nessun limite" : "No limit"}
+                </button>
+              </div>
+              <div className="buying-price-values" aria-live="polite">
+                <strong>{minPrice > 0 ? `CHF ${minPrice}` : (locale === "it" ? "Da qualsiasi prezzo" : "Any price")}</strong>
+                <span>{maxPrice < priceRangeMax ? `CHF ${maxPrice}` : (locale === "it" ? "Fino a qualsiasi prezzo" : "Any price")}</span>
+              </div>
+              <div className="dual-range" style={{ "--range-start": `${(minPrice / priceRangeMax) * 100}%`, "--range-end": `${(maxPrice / priceRangeMax) * 100}%` } as CSSProperties}>
+                <input
+                  type="range"
+                  min="0"
+                  max={priceRangeMax}
+                  step="5"
+                  value={minPrice}
+                  onChange={(event) => setBuyingMinPrice(Number(event.target.value) > 0 ? String(Math.min(Number(event.target.value), maxPrice)) : "")}
+                  disabled={!canGenerateAi || busy}
+                  aria-label={locale === "it" ? "Prezzo minimo per bottiglia" : "Minimum price per bottle"}
+                />
+                <input
+                  type="range"
+                  min="0"
+                  max={priceRangeMax}
+                  step="5"
+                  value={maxPrice}
+                  onChange={(event) => {
+                    const value = Number(event.target.value);
+                    setBuyingMaxPrice(value < priceRangeMax ? String(Math.max(value, minPrice)) : "");
+                  }}
+                  disabled={!canGenerateAi || busy}
+                  aria-label={locale === "it" ? "Prezzo massimo per bottiglia" : "Maximum price per bottle"}
+                />
+              </div>
+              <small>{locale === "it" ? "Trascina le maniglie per escludere le proposte troppo economiche o fuori budget." : "Drag the handles to exclude overly cheap or over-budget offers."}</small>
+            </div>
           </div>
           {buyingPurpose === "pairing" ? (
             <label>
