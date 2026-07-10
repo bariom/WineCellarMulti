@@ -42,19 +42,23 @@ from app.schemas.ai import (
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
+from app.services.ai_models import allowed_models
 from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
 from app.api.routes.billing import stripe_ai_credit_amount
 
 
 router = APIRouter(prefix="/ai")
 
-MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
+MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5", "gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
 MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
     "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
     "gpt-5.4": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
     "gpt-5.5": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
+    "gpt-5.6-luna": {"input": Decimal("1.00"), "cached_input": Decimal("0.10"), "output": Decimal("6.00")},
+    "gpt-5.6-terra": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
+    "gpt-5.6-sol": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
 }
 
 
@@ -156,6 +160,10 @@ def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
     return cost.quantize(Decimal("0.000001"))
 
 
+def effective_response_model(response: Any, configured_model: str) -> str:
+    return str(getattr(response, "model", "") or configured_model)
+
+
 def web_search_tool_cost_usd(call_count: int) -> Decimal:
     try:
         unit_cost = Decimal(str(settings.openai_web_search_tool_cost_usd or "0"))
@@ -217,15 +225,31 @@ def create_ai_response(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     charge_immediately: bool = True,
+    task_type: str = "sommelier",
+    complexity: str | None = None,
 ) -> tuple[Any, str]:
     provider_source, api_key = select_ai_provider(db, context, user_settings)
-    response = create_response(model, system_prompt, user_prompt, api_key=api_key, json_schema=json_schema, web_search=web_search)
+    # Old per-user GPT-5.4 values remain valid for compatibility. When routing
+    # is enabled, the central deterministic router owns the model decision.
+    requested_model = "" if settings.openai_enable_model_routing else model
+    if requested_model and requested_model not in allowed_models():
+        requested_model = ""
+    response = create_response(
+        requested_model,
+        system_prompt,
+        user_prompt,
+        api_key=api_key,
+        json_schema=json_schema,
+        web_search=web_search,
+        task_type=task_type,
+        complexity=complexity,
+    )
     if charge_immediately:
         charge_ai_usage(
             db,
             context,
             provider_source,
-            model=model,
+            model=response.model or model,
             usage=response.usage,
             extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
         )
@@ -722,6 +746,7 @@ def compare_wines(
         context,
         user_settings,
         model=user_settings.pairing_model,
+        task_type="wine_comparison",
         system_prompt=(
             "You compare two wines for a private collector. Return JSON only. "
             "Be concise, concrete, and decision-oriented. "
@@ -853,6 +878,7 @@ def suggest_pairing(
         context,
         user_settings,
         model=user_settings.pairing_model,
+        task_type="pairing",
         system_prompt=(
             "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
             "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
@@ -918,6 +944,7 @@ def generate_wine_notes(
         context,
         user_settings,
         model=user_settings.ai_notes_model,
+        task_type="ai_notes",
         system_prompt=f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
         user_prompt=f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
     )
@@ -964,6 +991,7 @@ def enrich_wine_label(
         context,
         user_settings,
         model=model,
+        task_type="label_enrichment",
         system_prompt=(
             "You enrich a cellar catalog entry from a wine name or label text. "
             "Use web search when needed, especially for local or niche wines. "
@@ -1046,6 +1074,7 @@ def generate_drink_window(
         context,
         user_settings,
         model=user_settings.drink_window_model,
+        task_type="drink_window",
         system_prompt=f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_context(wine)}",
         json_schema=schema,
@@ -1116,6 +1145,7 @@ def generate_wine_value(
         context,
         user_settings,
         model=user_settings.value_model,
+        task_type="wine_value",
         system_prompt=(
             "You estimate wine value cautiously. Return JSON only. "
             "Use live web search for current market prices. "
@@ -1149,7 +1179,7 @@ def generate_wine_value(
         db,
         context,
         provider_source,
-        model=user_settings.value_model,
+        model=effective_response_model(response, user_settings.value_model),
         usage=response.usage,
         extra_cost_usd=extra_cost,
     )
@@ -1166,7 +1196,7 @@ def generate_wine_value(
         entity_type="wine",
         entity_id=wine.id,
         feature="ai_value",
-        model=user_settings.value_model,
+        model=effective_response_model(response, user_settings.value_model),
         summary=f"{wine.currency} {wine.current_value}: {wine.ai_value_notes}",
         sources=audit_sources,
         usage=response.usage,
@@ -1216,6 +1246,7 @@ def generate_grapes(
         context,
         user_settings,
         model=user_settings.grape_model,
+        task_type="grape_inference",
         system_prompt=f"You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable. {response_language_instruction(payload.locale)}",
         user_prompt=f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
         json_schema=schema,
@@ -1280,6 +1311,7 @@ def generate_scores(
         context,
         user_settings,
         model=user_settings.ai_notes_model,
+        task_type="score_summary",
         system_prompt=f"You summarize known wine critic scores cautiously. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=(
             "Estimate likely published critic scores for this wine only when plausible. "
@@ -1347,6 +1379,7 @@ def generate_wishlist_strategy(
         context,
         user_settings,
         model=user_settings.wishlist_model,
+        task_type="wishlist_advice",
         system_prompt=f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
         json_schema=schema,
@@ -1400,6 +1433,7 @@ def generate_wishlist_purpose(
         context,
         user_settings,
         model=user_settings.wishlist_model,
+        task_type="wishlist_purpose",
         system_prompt=f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_context(item)}",
         json_schema=schema,
@@ -1470,6 +1504,7 @@ def generate_wishlist_target_price(
         context,
         user_settings,
         model=user_settings.value_model,
+        task_type="wishlist_value",
         system_prompt=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
             "Use live web search for current market prices. "
@@ -1505,7 +1540,7 @@ def generate_wishlist_target_price(
         db,
         context,
         provider_source,
-        model=user_settings.value_model,
+        model=effective_response_model(response, user_settings.value_model),
         usage=response.usage,
         extra_cost_usd=extra_cost,
     )
@@ -1521,7 +1556,7 @@ def generate_wishlist_target_price(
         entity_type="wishlist",
         entity_id=item.id,
         feature="wishlist_target_price",
-        model=user_settings.value_model,
+        model=effective_response_model(response, user_settings.value_model),
         summary=(
             f"Target {item.currency} {item.target_price} / "
             f"Market {item.ai_market_price_currency or item.currency} {item.ai_market_price}: {item.ai_strategy}"
@@ -1587,6 +1622,7 @@ def suggest_regional_gap_targets(
         context,
         user_settings,
         model=user_settings.wishlist_model,
+        task_type="regional_gap_targets",
         system_prompt=(
             "You advise a private wine collector on regional portfolio allocation. Return JSON only. "
             "Return one target for every input region and no other regions. "
@@ -1705,6 +1741,7 @@ def generate_wishlist_portfolio_strategy(
         context,
         user_settings,
         model=user_settings.wishlist_model,
+        task_type="portfolio_strategy",
         system_prompt=(
             "You are a disciplined private wine buying advisor working at the portfolio level. Return JSON only. "
             "You are advising a serious collector, not a casual shopper. "

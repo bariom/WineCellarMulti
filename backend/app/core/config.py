@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     openai_api_key: str = ""
     openai_responses_url: str = "https://api.openai.com/v1/responses"
+    # OPENAI_MODEL and the feature-specific variables remain as compatibility
+    # aliases for existing deployments. Model selection is centralized in
+    # app.services.ai_models and defaults to GPT-5.5 while GPT-5.6 is disabled.
     openai_model: str = "gpt-5.4-mini"
     openai_ai_notes_model: str = "gpt-5.4-mini"
     openai_drink_window_model: str = "gpt-5.4"
@@ -24,6 +27,23 @@ class Settings(BaseSettings):
     openai_grape_model: str = "gpt-5.4-nano"
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"
+    openai_default_model: str = "gpt-5.5"
+    openai_economy_model: str = "gpt-5.6-luna"
+    openai_balanced_model: str = "gpt-5.6-terra"
+    openai_advanced_model: str = "gpt-5.6-sol"
+    openai_fallback_model: str = "gpt-5.5"
+    openai_enable_gpt56: bool = False
+    openai_enable_model_routing: bool = False
+    openai_legacy_reasoning_effort: str = ""
+    openai_economy_reasoning_effort: str = "low"
+    openai_balanced_reasoning_effort: str = "medium"
+    openai_advanced_reasoning_effort: str = "high"
+    openai_legacy_max_output_tokens: int = 0
+    openai_economy_max_output_tokens: int = 0
+    openai_balanced_max_output_tokens: int = 0
+    openai_advanced_max_output_tokens: int = 0
+    openai_timeout_seconds: float = 60.0
+    openai_max_retries: int = 0
     openai_web_search_tool_cost_usd: str = "0"
     api4ai_wine_recognition_url: str = "https://api4ai.cloud/wine-rec/v1/results"
     api4ai_api_key: str = ""

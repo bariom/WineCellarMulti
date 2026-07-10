@@ -159,7 +159,11 @@ Two modes are now supported:
 
 To enable the app-managed AI Pack, configure `OPENAI_API_KEY` in `backend/.env`, then restart the backend. This key is never exposed to end users.
 
-Optional model overrides:
+GPT-5.5 is the production default. GPT-5.6 Luna, Terra and Sol are available
+behind server-side feature flags; see [docs/OPENAI_MODELS.md](docs/OPENAI_MODELS.md)
+for rollout, routing, fallback and rollback instructions.
+
+Legacy per-feature model overrides remain accepted for backward compatibility:
 
 ```bash
 OPENAI_AI_NOTES_MODEL=gpt-5.4-mini
