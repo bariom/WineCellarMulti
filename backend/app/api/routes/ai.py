@@ -827,11 +827,11 @@ def compare_wines(
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
-        model=user_settings.pairing_model,
+        model=effective_response_model(response, user_settings.pairing_model),
         usage=response.usage,
     )
     compare_response = WineCompareResponse(
-        model=user_settings.pairing_model,
+        model=effective_response_model(response, user_settings.pairing_model),
         style_profile=replace_compare_placeholders(str(result.get("style_profile") or "").strip(), first.name, second.name),
         readiness=replace_compare_placeholders(str(result.get("readiness") or "").strip(), first.name, second.name),
         occasion=replace_compare_placeholders(str(result.get("occasion") or "").strip(), first.name, second.name),
@@ -845,7 +845,7 @@ def compare_wines(
         entity_type="comparison",
         entity_id=context.household.id,
         feature="wine_compare",
-        model=user_settings.pairing_model,
+        model=effective_response_model(response, user_settings.pairing_model),
         summary=f"{first.name} vs {second.name}: {compare_response.verdict}",
         usage=response.usage,
         provider_source=provider_source,
@@ -961,11 +961,11 @@ def suggest_pairing(
         json_schema=schema,
     )
     cleaned = clean_pairing_response(parse_json_response(response.text), {str(wine.id) for wine in cellar_wines}, payload.include_market)
-    cleaned.model = user_settings.pairing_model
+    cleaned.model = effective_response_model(response, user_settings.pairing_model)
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
-        model=user_settings.pairing_model,
+        model=effective_response_model(response, user_settings.pairing_model),
         usage=response.usage,
     )
     cleaned.estimated_cost_usd = charged_cost
@@ -975,7 +975,7 @@ def suggest_pairing(
         entity_type="pairing",
         entity_id=context.household.id,
         feature="pairing",
-        model=user_settings.pairing_model,
+        model=effective_response_model(response, user_settings.pairing_model),
         summary=f"{payload.dish}: {cleaned.summary}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1004,7 +1004,7 @@ def generate_wine_notes(
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
-    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=user_settings.ai_notes_model, summary=notes, usage=response.usage, provider_source=provider_source)
+    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=effective_response_model(response, user_settings.ai_notes_model), summary=notes, usage=response.usage, provider_source=provider_source)
     db.commit()
     db.refresh(wine)
     return ai_wine_response(db, context, wine)
@@ -1090,7 +1090,7 @@ def enrich_wine_label(
         entity_type="catalog",
         entity_id=context.household.id,
         feature="wine_label_enrichment",
-        model=model,
+        model=effective_response_model(response, model),
         summary=f"{payload.label}: {cleaned.producer} {cleaned.name} {cleaned.vintage}".strip(),
         usage=response.usage,
         provider_source=provider_source,
@@ -1145,7 +1145,7 @@ def generate_drink_window(
         entity_type="wine",
         entity_id=wine.id,
         feature="drink_window",
-        model=user_settings.drink_window_model,
+        model=effective_response_model(response, user_settings.drink_window_model),
         summary=f"{wine.drink_from}-{wine.drink_to}: {wine.drink_window_notes}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1316,7 +1316,7 @@ def generate_grapes(
         entity_type="wine",
         entity_id=wine.id,
         feature="grapes",
-        model=user_settings.grape_model,
+        model=effective_response_model(response, user_settings.grape_model),
         summary=note or str(wine.grapes),
         usage=response.usage,
         provider_source=provider_source,
@@ -1395,7 +1395,7 @@ def generate_scores(
         entity_type="wine",
         entity_id=wine.id,
         feature="scores",
-        model=user_settings.ai_notes_model,
+        model=effective_response_model(response, user_settings.ai_notes_model),
         summary=f"{len(wine.scores)} scores generated",
         usage=response.usage,
         provider_source=provider_source,
@@ -1449,7 +1449,7 @@ def generate_wishlist_strategy(
         entity_type="wishlist",
         entity_id=item.id,
         feature="wishlist_strategy",
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         summary=f"{item.priority} / {item.status}: {item.ai_strategy}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1502,7 +1502,7 @@ def generate_wishlist_purpose(
         entity_type="wishlist",
         entity_id=item.id,
         feature="wishlist_purpose",
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         summary=f"{item.purpose} / {item.priority}: {item.ai_purpose_advice}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1725,11 +1725,11 @@ def suggest_regional_gap_targets(
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,
     )
     suggestion = RegionalGapTargetSuggestionResponse(
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         profile=payload.profile,
         rationale=str(result.get("rationale") or "").strip()[:1200],
         targets=normalized,
@@ -1741,7 +1741,7 @@ def suggest_regional_gap_targets(
         entity_type="household",
         entity_id=context.household.id,
         feature="regional_gap_targets",
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         summary=f"{payload.profile}: {suggestion.rationale}",
         sources=[{"kind": "regional_gap_targets", "profile": payload.profile, "targets": [target.model_dump(mode="json") for target in normalized]}],
         usage=response.usage,
@@ -1820,11 +1820,11 @@ def generate_wishlist_portfolio_strategy(
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,
     )
     strategy_response = WishlistPortfolioStrategyResponse(
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         overview=str(result.get("overview") or "").strip(),
         buy_now=str(result.get("buy_now") or "").strip(),
         wait_watch=str(result.get("wait_watch") or "").strip(),
@@ -1842,7 +1842,7 @@ def generate_wishlist_portfolio_strategy(
         entity_type="household",
         entity_id=context.household.id,
         feature="wishlist_portfolio_strategy",
-        model=user_settings.wishlist_model,
+        model=effective_response_model(response, user_settings.wishlist_model),
         summary=f"{strategy_response.overview} Next: {strategy_response.next_step}",
         sources=[
             {

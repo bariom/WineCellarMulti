@@ -2247,7 +2247,7 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"}).status_code == 200
     delivered = client.post(
         "/api/v1/wines",
         json={
@@ -2269,7 +2269,7 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     wine_id = delivered.json()["id"]
 
     def fake_create_response(*args, **kwargs):
-        assert args[0] == "gpt-5.5"
+        assert args[0] == "gpt-5.4"
         assert "Barolo" in args[2]
         assert "Future Wine" not in args[2]
         text = (
@@ -2277,7 +2277,7 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
             f'"cellar_matches":[{{"wine_id":"{wine_id}","wine_name":"Barolo","producer":"Produttore","reason":"Struttura e tannino.","serving_note":"Servire a 18 C."}}],'
             '"market_recommendations":{"low":[{"name":"Chianti","producer":"Prod","price_hint":"entro 30 CHF","reason":"Acidita."}],"medium":[],"high":[]}}'
         )
-        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150), model="gpt-5.5")
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
 
@@ -2290,6 +2290,9 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     usage = client.get("/api/v1/ai/usage")
     assert usage.status_code == 200
     assert usage.json()["all_time"]["requests"] == 1
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    assert audit.json()[0]["model"] == "gpt-5.5"
 
 
 def test_pairing_restaurant_mode_can_prefer_local_market_wines(monkeypatch):
