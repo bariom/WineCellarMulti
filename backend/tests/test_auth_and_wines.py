@@ -2247,7 +2247,12 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"}).status_code == 200
+    settings_response = client.patch(
+        "/api/v1/ai/settings",
+        json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4", "pairing_candidate_limit": 5},
+    )
+    assert settings_response.status_code == 200
+    assert settings_response.json()["pairing_candidate_limit"] == 5
     delivered = client.post(
         "/api/v1/wines",
         json={

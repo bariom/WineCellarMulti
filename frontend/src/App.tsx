@@ -703,6 +703,7 @@ type AiSettings = {
   wishlist_model: string;
   pairing_model: string;
   pairing_preferences: string;
+  pairing_candidate_limit: number;
   model_options: string[];
 };
 
@@ -716,6 +717,7 @@ type AiSettingsDraft = {
   wishlist_model: string;
   pairing_model: string;
   pairing_preferences: string;
+  pairing_candidate_limit: number;
 };
 
 type PairingResult = {
@@ -879,6 +881,7 @@ const emptyAiSettingsDraft: AiSettingsDraft = {
   wishlist_model: "gpt-5.4",
   pairing_model: "gpt-5.4",
   pairing_preferences: "",
+  pairing_candidate_limit: 25,
 };
 
 const emptyRedeemCodeDraft: RedeemCodeDraft = {
@@ -1334,6 +1337,8 @@ const translations = {
     pairingPreferences: "My pairing tastes",
     pairingPreferencesHelp: "Describe your preferences once and Vinaris will use them by default during pairing.",
     pairingPreferencesPlaceholder: "E.g. I prefer fresh, precise wines, low oak, little sweetness, and I usually avoid heavy tannins with spicy dishes.",
+    pairingCandidateLimit: "Pairing candidates",
+    pairingCandidateLimitHelp: "More candidates give the sommelier more choices, but they also increase the AI cost. 25 is a good balance.",
     pairingIgnorePreferences: "Ignore my tastes for this request",
     pairingLocalHelp: "When restaurant mode is active, ask AI to favor bottles from the place where you are.",
     pairingLocalOrigin: "Where are you?",
@@ -1917,6 +1922,8 @@ const translations = {
     pairingPreferences: "I miei gusti per gli abbinamenti",
     pairingPreferencesHelp: "Descrivi una volta le tue preferenze e Vinaris le userà di default negli abbinamenti.",
     pairingPreferencesPlaceholder: "Es. Preferisco vini freschi e precisi, poco legno, poca dolcezza ed evito tannini aggressivi con piatti speziati.",
+    pairingCandidateLimit: "Bottiglie candidate per abbinamento",
+    pairingCandidateLimitHelp: "Più candidate dai al sommelier, più scelta avrà; aumenterà però anche il costo dell'AI. 25 è un buon equilibrio.",
     pairingIgnorePreferences: "Ignora i miei gusti per questa richiesta",
     pairingLocalHelp: "Quando la modalita ristorante e attiva, chiedi all'AI di privilegiare bottiglie del luogo in cui ti trovi.",
     pairingLocalOrigin: "Dove ti trovi?",
@@ -6576,6 +6583,7 @@ export function App() {
           wishlist_model: nextSettings.wishlist_model,
           pairing_model: nextSettings.pairing_model,
           pairing_preferences: nextSettings.pairing_preferences || "",
+          pairing_candidate_limit: nextSettings.pairing_candidate_limit,
         });
       }
     } else {
@@ -7614,6 +7622,7 @@ export function App() {
         wishlist_model: nextSettings.wishlist_model,
         pairing_model: nextSettings.pairing_model,
         pairing_preferences: nextSettings.pairing_preferences || "",
+        pairing_candidate_limit: nextSettings.pairing_candidate_limit,
       });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save AI settings");
@@ -8194,7 +8203,8 @@ export function App() {
       aiSettingsDraft.grape_model !== aiSettings.grape_model ||
       aiSettingsDraft.wishlist_model !== aiSettings.wishlist_model ||
       aiSettingsDraft.pairing_model !== aiSettings.pairing_model ||
-      aiSettingsDraft.pairing_preferences !== aiSettings.pairing_preferences
+      aiSettingsDraft.pairing_preferences !== aiSettings.pairing_preferences ||
+      aiSettingsDraft.pairing_candidate_limit !== aiSettings.pairing_candidate_limit
     ),
   );
   const aiStatusLabel = !aiSettings
@@ -13082,6 +13092,18 @@ export function App() {
                       rows={4}
                     />
                     <small>{t("pairingPreferencesHelp")}</small>
+                  </label>
+                  <label>
+                    <span>{t("pairingCandidateLimit")}</span>
+                    <input
+                      type="number"
+                      min="5"
+                      max="50"
+                      step="1"
+                      value={aiSettingsDraft.pairing_candidate_limit}
+                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_candidate_limit: Math.min(50, Math.max(5, Number(event.target.value) || 5)) })}
+                    />
+                    <small>{t("pairingCandidateLimitHelp")}</small>
                   </label>
                     {showAiBudgetPanel ? (
                       <div className="token-box">

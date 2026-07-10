@@ -60,6 +60,7 @@ GPT56_DEFAULT_ROLE_BY_FIELD = {
     "wishlist_model": "balanced",
     "pairing_model": "balanced",
 }
+PAIRING_MAX_CANDIDATES = 25
 MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
     "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
@@ -151,6 +152,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             wishlist_model=default_model_for_field("wishlist_model"),
             pairing_model=default_model_for_field("pairing_model"),
             pairing_preferences="",
+            pairing_candidate_limit=PAIRING_MAX_CANDIDATES,
         )
         db.add(user_settings)
         db.flush()
@@ -183,6 +185,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         wishlist_model=user_settings.wishlist_model,
         pairing_model=user_settings.pairing_model,
         pairing_preferences=user_settings.pairing_preferences or "",
+        pairing_candidate_limit=user_settings.pairing_candidate_limit,
         model_options=available_model_options(),
     )
 
@@ -470,6 +473,8 @@ def update_ai_settings(
                 setattr(user_settings, field, validate_model(value))
     if payload.pairing_preferences is not None:
         user_settings.pairing_preferences = payload.pairing_preferences.strip()[:2000]
+    if payload.pairing_candidate_limit is not None:
+        user_settings.pairing_candidate_limit = payload.pairing_candidate_limit
     user_settings.updated_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user_settings)
@@ -691,6 +696,11 @@ def market_note_source(note: Any) -> dict | None:
 
 
 def pairing_wine_context(wine: Wine) -> dict:
+    grapes = [
+        str(grape.get("name") or "").strip()
+        for grape in wine.grapes
+        if isinstance(grape, dict) and str(grape.get("name") or "").strip()
+    ]
     return {
         "id": str(wine.id),
         "name": wine.name,
@@ -699,17 +709,45 @@ def pairing_wine_context(wine: Wine) -> dict:
         "type": wine.type,
         "region": wine.region,
         "appellation": wine.appellation,
-        "quantity": wine.quantity,
-        "format": wine.format,
-        "current_value": str(wine.current_value if wine.current_value is not None else wine.price),
+        "value": str(wine.current_value if wine.current_value is not None else wine.price),
         "currency": wine.currency,
-        "drink_peak_from": wine.drink_peak_from,
-        "drink_peak_to": wine.drink_peak_to,
-        "drink_to": wine.drink_to,
-        "scores": wine.scores,
-        "grapes": wine.grapes,
-        "tags": wine.tags,
+        "drink_window": f"{wine.drink_from or '?'}-{wine.drink_to or '?'}",
+        "peak_window": f"{wine.drink_peak_from or '?'}-{wine.drink_peak_to or '?'}",
+        "grapes": grapes[:3],
+        "tags": wine.tags[:3],
     }
+
+
+def pairing_candidate_sort_key(wine: Wine, current_year: int) -> tuple[int, int, str, str]:
+    if wine.drink_peak_from and wine.drink_peak_to and wine.drink_peak_from <= current_year <= wine.drink_peak_to:
+        readiness = 0
+    elif wine.drink_from and wine.drink_to and wine.drink_from <= current_year <= wine.drink_to:
+        readiness = 1
+    elif wine.drink_from and wine.drink_from <= current_year + 2:
+        readiness = 2
+    elif wine.drink_to and wine.drink_to < current_year:
+        readiness = 4
+    else:
+        readiness = 3
+    return (readiness, wine.drink_to or 9999, wine.type or "", wine.name or "")
+
+
+def select_pairing_candidates(wines: list[Wine], limit: int = PAIRING_MAX_CANDIDATES) -> list[Wine]:
+    if len(wines) <= limit:
+        return wines
+
+    current_year = datetime.now(timezone.utc).year
+    by_type: dict[str, list[Wine]] = {}
+    for wine in sorted(wines, key=lambda item: pairing_candidate_sort_key(item, current_year)):
+        by_type.setdefault((wine.type or "Other").strip() or "Other", []).append(wine)
+
+    selected: list[Wine] = []
+    while len(selected) < limit and any(by_type.values()):
+        for wine_type in sorted(by_type):
+            candidates = by_type[wine_type]
+            if candidates and len(selected) < limit:
+                selected.append(candidates.pop(0))
+    return selected
 
 
 def pairing_budget_value_chf(wine: Wine) -> Decimal:
@@ -878,6 +916,7 @@ def suggest_pairing(
     cellar_wines = [wine for wine in cellar_wines if user_can_see_wine(context, wine)]
     if max_price_chf is not None:
         cellar_wines = [wine for wine in cellar_wines if pairing_budget_value_chf(wine) <= max_price_chf]
+    cellar_wines = select_pairing_candidates(cellar_wines, limit=user_settings.pairing_candidate_limit)
     wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
     schema = {
         "name": "wine_pairing",

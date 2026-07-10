@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     openai_fallback_model: str = "gpt-5.5"
     openai_enable_gpt56: bool = False
     openai_enable_model_routing: bool = False
-    openai_legacy_reasoning_effort: str = ""
+    openai_legacy_reasoning_effort: str = "low"
     openai_economy_reasoning_effort: str = "low"
     openai_balanced_reasoning_effort: str = "medium"
     openai_advanced_reasoning_effort: str = "high"

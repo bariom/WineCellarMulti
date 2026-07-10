@@ -5,12 +5,13 @@ import json
 import logging
 from types import SimpleNamespace
 import urllib.error
+from uuid import uuid4
 
 from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, normalize_user_ai_models
+from app.api.routes.ai import available_model_options, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import create_response, response_body
 
@@ -106,7 +107,7 @@ def test_gpt56_flag_migrates_saved_feature_models(monkeypatch: pytest.MonkeyPatc
 
 def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.MonkeyPatch):
     legacy_body = response_body("gpt-5.5", "system", "user")
-    assert "reasoning" not in legacy_body
+    assert legacy_body["reasoning"] == {"effort": "low"}
     assert "max_output_tokens" not in legacy_body
     assert "temperature" not in legacy_body
 
@@ -117,6 +118,29 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
     assert "temperature" not in luna_body
     assert parameters_for_model("gpt-5.6-terra").reasoning_effort == "medium"
     assert parameters_for_model("gpt-5.6-sol").reasoning_effort == "high"
+
+
+def test_pairing_candidates_are_compact_diverse_and_limited_to_25():
+    wine_types = ["White", "Red", "Sparkling", "Rose", "Sweet"]
+    wines = [
+        SimpleNamespace(
+            id=uuid4(), name=f"Wine {index}", producer="Producer", vintage="2022", type=wine_types[index % len(wine_types)],
+            region="Region", appellation="Appellation", current_value=20, price=20, currency="CHF",
+            drink_from=2024, drink_peak_from=2025, drink_peak_to=2027, drink_to=2030,
+            grapes=[{"name": "Chardonnay"}, {"name": "Pinot Noir"}, {"name": "Extra grape"}, {"name": "Ignored"}],
+            tags=["Dinner", "Ready", "Extra", "Ignored"],
+        )
+        for index in range(30)
+    ]
+
+    selected = select_pairing_candidates(wines)
+    compact = pairing_wine_context(selected[0])
+
+    assert len(selected) == 25
+    assert {wine.type for wine in selected[:5]} == set(wine_types)
+    assert compact["grapes"] == ["Chardonnay", "Pinot Noir", "Extra grape"]
+    assert compact["tags"] == ["Dinner", "Ready", "Extra"]
+    assert "scores" not in compact
 
 
 def test_fallback_to_gpt55_happens_once(monkeypatch: pytest.MonkeyPatch):
