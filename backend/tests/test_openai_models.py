@@ -11,9 +11,9 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
+from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
 from app.services.ai_models import parameters_for_model, select_ai_model
-from app.services.openai_client import create_response, response_body
+from app.services.openai_client import TokenUsage, create_response, response_body
 
 
 class FakeResponse:
@@ -108,7 +108,7 @@ def test_gpt56_flag_migrates_saved_feature_models(monkeypatch: pytest.MonkeyPatc
 def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.MonkeyPatch):
     legacy_body = response_body("gpt-5.5", "system", "user")
     assert legacy_body["reasoning"] == {"effort": "low"}
-    assert "max_output_tokens" not in legacy_body
+    assert legacy_body["max_output_tokens"] == 32768
     assert "temperature" not in legacy_body
 
     monkeypatch.setattr(settings, "openai_economy_max_output_tokens", 2048)
@@ -118,6 +118,19 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
     assert "temperature" not in luna_body
     assert parameters_for_model("gpt-5.6-terra").reasoning_effort == "medium"
     assert parameters_for_model("gpt-5.6-sol").reasoning_effort == "high"
+
+
+def test_output_limit_cannot_be_disabled_or_raised_above_safety_ceiling(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "openai_legacy_max_output_tokens", 0)
+    assert response_body("gpt-5.5", "system", "user")["max_output_tokens"] == 32768
+
+    monkeypatch.setattr(settings, "openai_legacy_max_output_tokens", 128000)
+    assert response_body("gpt-5.5", "system", "user")["max_output_tokens"] == 32768
+
+
+def test_gpt55_snapshot_cost_uses_official_base_model_pricing():
+    usage = TokenUsage(input_tokens=9348, output_tokens=128000, total_tokens=137348)
+    assert estimate_cost_usd("gpt-5.5-2026-04-23", usage) == pytest.approx(3.886740)
 
 
 def test_pairing_candidates_are_compact_diverse_and_limited_to_25():

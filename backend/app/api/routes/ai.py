@@ -199,7 +199,14 @@ def clip_summary(value: str, limit: int = 900) -> str:
 
 
 def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
+    # The Responses API/dashboard may expose a dated snapshot even when the
+    # request used an alias (for example gpt-5.5-2026-04-23). Price snapshots
+    # with the same published base-model rate instead of silently returning 0.
     pricing = MODEL_PRICING_USD_PER_MILLION_TOKENS.get(model)
+    if pricing is None:
+        matching_models = [name for name in MODEL_PRICING_USD_PER_MILLION_TOKENS if model.startswith(f"{name}-")]
+        if matching_models:
+            pricing = MODEL_PRICING_USD_PER_MILLION_TOKENS[max(matching_models, key=len)]
     if pricing is None:
         return Decimal("0.000000")
     uncached_input_tokens = max(usage.input_tokens - usage.cached_input_tokens, 0)

@@ -10,6 +10,8 @@ from app.core.config import settings
 
 LEGACY_MODEL = "gpt-5.5"
 COMPATIBILITY_MODELS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"}
+DEFAULT_MAX_OUTPUT_TOKENS = 32768
+ABSOLUTE_MAX_OUTPUT_TOKENS = 32768
 ModelRole = Literal["legacy", "economy", "balanced", "advanced"]
 
 SIMPLE_TASKS = {
@@ -129,10 +131,17 @@ def parameters_for_model(model: str) -> ModelParameters:
     effort = effort_by_role[role].strip().lower() or None
     if effort not in {None, "none", "low", "medium", "high", "xhigh", "max"}:
         effort = None
-    max_tokens = max_tokens_by_role[role]
+    configured_max_tokens = max_tokens_by_role[role]
+    # Never send an unbounded request. A zero/missing deployment value used to
+    # omit max_output_tokens and allowed a malformed structured response to run
+    # all the way to the model's native 128k output limit.
+    max_tokens = min(
+        configured_max_tokens if configured_max_tokens > 0 else DEFAULT_MAX_OUTPUT_TOKENS,
+        ABSOLUTE_MAX_OUTPUT_TOKENS,
+    )
     return ModelParameters(
         reasoning_effort=effort,
-        max_output_tokens=max_tokens if max_tokens > 0 else None,
+        max_output_tokens=max_tokens,
         timeout_seconds=max(float(settings.openai_timeout_seconds), 1.0),
         # At most two HTTP requests are allowed. A GPT-5.6 fallback consumes
         # the second request; legacy-only calls may use it as one normal retry.

@@ -15,8 +15,10 @@ single controlled fallback live in `app/services/openai_client.py`.
 
 The role model IDs, reasoning effort, maximum output tokens, timeout and retry
 policy are configurable through the corresponding `OPENAI_*` variables shown in
-`.env.example`. A maximum-token value of `0` omits `max_output_tokens` from the
-request. Temperature is intentionally omitted: Vinaris did not previously send
+`.env.example`. A maximum-token value of `0` falls back to the safe default of
+32,768 output tokens; configured values are always capped at 32,768. This limit
+applies to output (including reasoning), not to the input + output total shown
+in the AI audit. Temperature is intentionally omitted: Vinaris did not previously send
 it, and it is not needed by these reasoning workloads.
 
 ## Safe rollout

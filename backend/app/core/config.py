@@ -38,10 +38,10 @@ class Settings(BaseSettings):
     openai_economy_reasoning_effort: str = "low"
     openai_balanced_reasoning_effort: str = "medium"
     openai_advanced_reasoning_effort: str = "high"
-    openai_legacy_max_output_tokens: int = 0
-    openai_economy_max_output_tokens: int = 0
-    openai_balanced_max_output_tokens: int = 0
-    openai_advanced_max_output_tokens: int = 0
+    openai_legacy_max_output_tokens: int = 32768
+    openai_economy_max_output_tokens: int = 12288
+    openai_balanced_max_output_tokens: int = 32768
+    openai_advanced_max_output_tokens: int = 32768
     openai_timeout_seconds: float = 60.0
     openai_max_retries: int = 0
     openai_web_search_tool_cost_usd: str = "0"
