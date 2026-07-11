@@ -70,7 +70,9 @@ export default function BuyingAdviceView({
   t,
 }: BuyingAdviceViewProps) {
   const busy = generatingAi === "buying-advice";
-  const priceRangeMax = 1000;
+  // Keep the handles useful for the normal CHF 20–50 buying range. The
+  // explicit "No limit" action still allows searches without a ceiling.
+  const priceRangeMax = 200;
   const minPrice = Math.max(0, Math.min(Number(buyingMinPrice) || 0, priceRangeMax));
   const maxPrice = Math.max(minPrice, Math.min(Number(buyingMaxPrice) || priceRangeMax, priceRangeMax));
   const confidenceLabel = (value: BuyingAdviceResult["recommendations"][number]["confidence"]) => {

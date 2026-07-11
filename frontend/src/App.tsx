@@ -5882,8 +5882,8 @@ export function App() {
   const [buyingPreferences, setBuyingPreferences] = useState("");
   const [buyingNeededBy, setBuyingNeededBy] = useState<"today" | "tomorrow" | "can_wait">("today");
   const [buyingLocation, setBuyingLocation] = useState("");
-  const [buyingMinPrice, setBuyingMinPrice] = useState("");
-  const [buyingMaxPrice, setBuyingMaxPrice] = useState("");
+  const [buyingMinPrice, setBuyingMinPrice] = useState("20");
+  const [buyingMaxPrice, setBuyingMaxPrice] = useState("50");
   const [buyingAdviceResult, setBuyingAdviceResult] = useState<BuyingAdviceResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
