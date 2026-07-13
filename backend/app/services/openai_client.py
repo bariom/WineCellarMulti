@@ -145,6 +145,10 @@ def response_body(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     web_search_use_default_location: bool = True,
+    web_search_context_size: str | None = None,
+    reasoning_effort: str | None = None,
+    max_output_tokens: int | None = None,
+    max_tool_calls: int | None = None,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {
         "model": model,
@@ -154,10 +158,12 @@ def response_body(
         ],
     }
     parameters = parameters_for_model(model)
-    if parameters.reasoning_effort is not None:
-        body["reasoning"] = {"effort": parameters.reasoning_effort}
-    if parameters.max_output_tokens is not None:
-        body["max_output_tokens"] = parameters.max_output_tokens
+    effective_reasoning_effort = reasoning_effort if reasoning_effort is not None else parameters.reasoning_effort
+    if effective_reasoning_effort is not None:
+        body["reasoning"] = {"effort": effective_reasoning_effort}
+    effective_max_output_tokens = max_output_tokens if max_output_tokens is not None else parameters.max_output_tokens
+    if effective_max_output_tokens is not None:
+        body["max_output_tokens"] = min(max(int(effective_max_output_tokens), 1), 32768)
     if json_schema is not None:
         body["text"] = {
             "format": {
@@ -172,6 +178,8 @@ def response_body(
             "type": "web_search",
             "external_web_access": True,
         }
+        if web_search_context_size in {"low", "medium", "high"}:
+            web_search_tool["search_context_size"] = web_search_context_size
         if web_search_use_default_location:
             web_search_tool["user_location"] = {
                     "type": "approximate",
@@ -182,6 +190,8 @@ def response_body(
         body["tools"] = [web_search_tool]
         body["tool_choice"] = "required"
         body["include"] = ["web_search_call.action.sources"]
+        if max_tool_calls is not None:
+            body["max_tool_calls"] = min(max(int(max_tool_calls), 1), 20)
     return body
 
 
@@ -286,6 +296,10 @@ def create_response(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     web_search_use_default_location: bool = True,
+    web_search_context_size: str | None = None,
+    reasoning_effort: str | None = None,
+    max_output_tokens: int | None = None,
+    max_tool_calls: int | None = None,
     task_type: str = "sommelier",
     complexity: str | None = None,
 ) -> OpenAIResponse:
@@ -312,6 +326,10 @@ def create_response(
                     json_schema=json_schema,
                     web_search=web_search,
                     web_search_use_default_location=web_search_use_default_location,
+                    web_search_context_size=web_search_context_size,
+                    reasoning_effort=reasoning_effort,
+                    max_output_tokens=max_output_tokens,
+                    max_tool_calls=max_tool_calls,
                 ),
                 active_api_key,
             )

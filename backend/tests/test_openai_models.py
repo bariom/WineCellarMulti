@@ -120,6 +120,24 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
     assert parameters_for_model("gpt-5.6-sol").reasoning_effort == "high"
 
 
+def test_response_body_allows_cost_controls_for_web_search():
+    body = response_body(
+        "gpt-5.6-terra",
+        "system",
+        "user",
+        web_search=True,
+        web_search_context_size="low",
+        reasoning_effort="low",
+        max_output_tokens=6000,
+        max_tool_calls=4,
+    )
+
+    assert body["reasoning"] == {"effort": "low"}
+    assert body["max_output_tokens"] == 6000
+    assert body["max_tool_calls"] == 4
+    assert body["tools"][0]["search_context_size"] == "low"
+
+
 def test_output_limit_cannot_be_disabled_or_raised_above_safety_ceiling(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "openai_legacy_max_output_tokens", 0)
     assert response_body("gpt-5.5", "system", "user")["max_output_tokens"] == 32768

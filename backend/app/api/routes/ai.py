@@ -283,6 +283,10 @@ def create_ai_response(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     web_search_use_default_location: bool = True,
+    web_search_context_size: str | None = None,
+    reasoning_effort: str | None = None,
+    max_output_tokens: int | None = None,
+    max_tool_calls: int | None = None,
     charge_immediately: bool = True,
     task_type: str = "sommelier",
     complexity: str | None = None,
@@ -301,6 +305,10 @@ def create_ai_response(
         json_schema=json_schema,
         web_search=web_search,
         web_search_use_default_location=web_search_use_default_location,
+        web_search_context_size=web_search_context_size,
+        reasoning_effort=reasoning_effort,
+        max_output_tokens=max_output_tokens,
+        max_tool_calls=max_tool_calls,
         task_type=task_type,
         complexity=complexity,
     )
@@ -1221,6 +1229,12 @@ def suggest_buying_advice(
         json_schema=schema,
         web_search=True,
         web_search_use_default_location=False,
+        # Product searches only need compact evidence such as price, vintage,
+        # stock and delivery. Avoid passing whole retailer pages to the model.
+        web_search_context_size="low",
+        reasoning_effort="low",
+        max_output_tokens=6000,
+        max_tool_calls=4,
         charge_immediately=False,
     )
     parsed = parse_json_response(response.text)
