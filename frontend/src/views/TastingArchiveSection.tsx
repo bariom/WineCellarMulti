@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { AppIcon, AppIconName } from "../components/AppIcon";
 
 type TastingEnjoyment = "" | "positive" | "negative";
 
@@ -92,9 +93,9 @@ function TastingEnjoymentInput({
   t: (key: any) => string;
   onChange: (value: TastingEnjoyment) => void;
 }) {
-  const options: Array<{ value: Exclude<TastingEnjoyment, "">; label: string; icon: string }> = [
-    { value: "positive", label: "tastingEnjoymentPositive", icon: "👍" },
-    { value: "negative", label: "tastingEnjoymentNegative", icon: "👎" },
+  const options: Array<{ value: Exclude<TastingEnjoyment, "">; label: string; icon: AppIconName }> = [
+    { value: "positive", label: "tastingEnjoymentPositive", icon: "sentiment-positive" },
+    { value: "negative", label: "tastingEnjoymentNegative", icon: "sentiment-negative" },
   ];
   return (
     <div className="tasting-enjoyment-input" role="radiogroup" aria-label={t("tastingEnjoyment")}>
@@ -108,7 +109,7 @@ function TastingEnjoymentInput({
           role="radio"
           onClick={() => onChange(value === option.value ? "" : option.value)}
         >
-          <span aria-hidden="true">{option.icon}</span>
+          <span aria-hidden="true"><AppIcon name={option.icon} /></span>
           {t(option.label)}
         </button>
       ))}
@@ -121,7 +122,7 @@ function TastingEnjoymentBadge({ value, t }: { value: TastingEnjoyment; t: (key:
   const positive = value === "positive";
   return (
     <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`} aria-label={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")} title={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}>
-      <span aria-hidden="true">{positive ? "👍" : "👎"}</span>
+      <span aria-hidden="true"><AppIcon name={positive ? "sentiment-positive" : "sentiment-negative"} /></span>
     </span>
   );
 }

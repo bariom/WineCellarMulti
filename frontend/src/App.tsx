@@ -1,4 +1,5 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useRef, useState } from "react";
+import { AppIcon, AppIconName } from "./components/AppIcon";
 
 const PairingView = lazy(() => import("./views/PairingView"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
@@ -4084,20 +4085,22 @@ function wineStatusTone(status: string) {
   return "neutral";
 }
 
-function wineStatusIcon(status: string) {
-  const tone = wineStatusTone(status);
-  if (tone === "pickup") return "\u25D1";
-  if (tone === "delivered") return "●";
-  if (tone === "shipped") return "◔";
-  if (tone === "ordered") return "○";
-  return "•";
+function wineStatusIconName(tone: string): AppIconName {
+  const icons: Record<string, AppIconName> = {
+    pickup: "status-pickup",
+    delivered: "status-delivered",
+    shipped: "status-shipped",
+    ordered: "status-ordered",
+    neutral: "bottle",
+  };
+  return icons[tone] || "bottle";
 }
 
 function WineStatusBadge({ status, locale, compact = false }: { status: string; locale: Locale; compact?: boolean }) {
   const tone = wineStatusTone(status);
   return (
     <span className={`wine-status-badge wine-status-${tone}${compact ? " compact" : ""}`}>
-      <i aria-hidden="true">{wineStatusIcon(status)}</i>
+      <i aria-hidden="true"><AppIcon name={wineStatusIconName(tone)} /></i>
       <strong>{displayValue(status, locale, "status") || status}</strong>
     </span>
   );
@@ -4377,9 +4380,9 @@ function TastingEnjoymentInput({
   t: (key: TranslationKey) => string;
   onChange: (value: TastingEnjoyment) => void;
 }) {
-  const options: Array<{ value: Exclude<TastingEnjoyment, "">; label: TranslationKey; icon: string }> = [
-    { value: "positive", label: "tastingEnjoymentPositive", icon: "👍" },
-    { value: "negative", label: "tastingEnjoymentNegative", icon: "👎" },
+  const options: Array<{ value: Exclude<TastingEnjoyment, "">; label: TranslationKey; icon: AppIconName }> = [
+    { value: "positive", label: "tastingEnjoymentPositive", icon: "sentiment-positive" },
+    { value: "negative", label: "tastingEnjoymentNegative", icon: "sentiment-negative" },
   ];
   return (
     <div className="tasting-enjoyment-input" role="radiogroup" aria-label={t("tastingEnjoyment")}>
@@ -4393,7 +4396,7 @@ function TastingEnjoymentInput({
           role="radio"
           onClick={() => onChange(value === option.value ? "" : option.value)}
         >
-          <span aria-hidden="true">{option.icon}</span>
+          <span aria-hidden="true"><AppIcon name={option.icon} /></span>
           {t(option.label)}
         </button>
       ))}
@@ -4406,7 +4409,7 @@ function TastingEnjoymentBadge({ value, t }: { value: TastingEnjoyment; t: (key:
   const positive = value === "positive";
   return (
     <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`} aria-label={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")} title={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}>
-      <span aria-hidden="true">{positive ? "👍" : "👎"}</span>
+      <span aria-hidden="true"><AppIcon name={positive ? "sentiment-positive" : "sentiment-negative"} /></span>
     </span>
   );
 }
@@ -10885,9 +10888,7 @@ export function App() {
                             disabled={activeKeyPositionIndex <= 0}
                             onClick={() => goToKeyPosition(activeKeyPositionIndex - 1)}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="m15 18-6-6 6-6" />
-                            </svg>
+                            <AppIcon name="chevron-left" />
                           </button>
                           <button
                             type="button"
@@ -10895,9 +10896,7 @@ export function App() {
                             disabled={activeKeyPositionIndex >= keyPositionCandidates.length - 1}
                             onClick={() => goToKeyPosition(activeKeyPositionIndex + 1)}
                           >
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="m9 18 6-6-6-6" />
-                            </svg>
+                            <AppIcon name="chevron-right" />
                           </button>
                         </div>
                       ) : null}
@@ -11588,10 +11587,7 @@ export function App() {
                         <input type="file" accept="image/*" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
                       </label>
                       <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M7 7l1.4-2h7.2L17 7h2.5A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7H7Z" />
-                          <circle cx="12" cy="13" r="4" />
-                        </svg>
+                        <AppIcon name="camera" />
                         <input type="file" accept="image/*" capture="environment" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wine")} />
                       </label>
                     </div>
@@ -11897,10 +11893,7 @@ export function App() {
                         <input type="file" accept="image/*" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
                       <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
-                        <svg viewBox="0 0 24 24" aria-hidden="true">
-                          <path d="M7 7l1.4-2h7.2L17 7h2.5A2.5 2.5 0 0 1 22 9.5v7A2.5 2.5 0 0 1 19.5 19h-15A2.5 2.5 0 0 1 2 16.5v-7A2.5 2.5 0 0 1 4.5 7H7Z" />
-                          <circle cx="12" cy="13" r="4" />
-                        </svg>
+                        <AppIcon name="camera" />
                         <input type="file" accept="image/*" capture="environment" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
                     </div>

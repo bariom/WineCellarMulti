@@ -4595,6 +4595,14 @@ textarea {
   margin-right: 6px;
 }
 
+.tasting-enjoyment-input svg,
+.tasting-enjoyment-badge svg,
+.wine-status-badge svg {
+  width: 1em;
+  height: 1em;
+  display: block;
+}
+
 .tasting-enjoyment-input button.selected.positive {
   border-color: color-mix(in srgb, var(--primary) 48%, var(--border));
   background: color-mix(in srgb, var(--primary) 14%, var(--surface));
@@ -8015,7 +8023,8 @@ button.stat-card:hover {
 
 .wine-status-badge i {
   font-style: normal;
-  font-size: 0.9rem;
+  width: 0.95rem;
+  height: 0.95rem;
   line-height: 1;
 }
 
@@ -8031,7 +8040,8 @@ button.stat-card:hover {
 }
 
 .wine-status-badge.compact i {
-  font-size: 0.78rem;
+  width: 0.78rem;
+  height: 0.78rem;
 }
 
 .wine-status-badge.compact strong {
