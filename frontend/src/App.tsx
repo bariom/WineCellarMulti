@@ -9104,6 +9104,7 @@ export function App() {
         isLargestPriceIncrease: largestPriceIncrease?.wine.id === wine.id,
         highlight: largestPriceIncrease?.wine.id === wine.id ? t("largestPriceIncrease") : t("keyPosition"),
         priceIncreasePct: priceIncreasePct(wine),
+        purchasePrice: Number(wine.price || 0),
         sharePct,
         ownedValue: totalValue * (sharePct / 100),
         totalValue,
@@ -10930,7 +10931,7 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, highlight, isLargestPriceIncrease, priceIncreasePct, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
+                        {keyPositionCandidates.map(({ wine, highlight, isLargestPriceIncrease, priceIncreasePct, purchasePrice, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <div className="key-position-head">
@@ -10944,7 +10945,7 @@ export function App() {
                               <div><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
                               <div><span>{t("totalValue")}</span><strong>{formatMoney(totalValue, wine.currency, locale)}</strong></div>
                               <div><span>{t("ownership")}</span><strong>{Math.round(sharePct)}%</strong></div>
-                              <div><span>{isLargestPriceIncrease ? t("priceIncrease") : t("action")}</span><strong>{isLargestPriceIncrease && priceIncreasePct !== null ? `+${formatPercentage(priceIncreasePct, locale, 1)}` : action}</strong></div>
+                              <div><span>{isLargestPriceIncrease ? `${t("priceIncrease")} · ${t("purchasePrice")}` : t("action")}</span><strong>{isLargestPriceIncrease && priceIncreasePct !== null ? `+${formatPercentage(priceIncreasePct, locale, 1)} · ${purchasePrice > 0 ? formatMoney(purchasePrice, wine.currency, locale) : t("notSpecified")}` : action}</strong></div>
                             </div>
                             <div className="key-position-maturity">
                               <div>
