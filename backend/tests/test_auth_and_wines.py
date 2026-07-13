@@ -2208,7 +2208,12 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
 
     def fake_create_response(*args, **kwargs):
         assert args[0] == "gpt-5.5"
-        assert "Existing Critic 94" in args[2]
+        assert "Name: Barolo" in args[2]
+        assert "Producer: Example Producer" in args[2]
+        assert "Vintage: 2019" in args[2]
+        assert "Existing Critic 94" not in args[2]
+        assert "Grapes:" not in args[2]
+        assert "AI notes:" not in args[2]
         assert kwargs["web_search"] is True
         assert kwargs["web_search_context_size"] == "medium"
         return OpenAIResponse(
@@ -2238,6 +2243,11 @@ def test_ai_grapes_cache_verified_web_result(monkeypatch):
     assert created.status_code == 201
 
     def fake_create_response(*args, **kwargs):
+        assert "Name: Chateau Citran" in args[2]
+        assert "Producer: Chateau Citran" in args[2]
+        assert "Vintage: 2018" in args[2]
+        assert "Grapes:" not in args[2]
+        assert "AI notes:" not in args[2]
         assert kwargs["web_search"] is True
         return OpenAIResponse(
             text='{"grapes":[{"name":"Merlot","percentage_from":50,"percentage_to":50},{"name":"Cabernet Sauvignon","percentage_from":39,"percentage_to":39},{"name":"Cabernet Franc","percentage_from":11,"percentage_to":11}],"notes":"Source-supported 2018 blend."}',

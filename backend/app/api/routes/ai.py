@@ -526,6 +526,17 @@ def wine_context(wine: Wine) -> str:
     )
 
 
+def wine_lookup_context(wine: Wine) -> str:
+    """Keep web lookups focused on wine identity, not cellar metadata."""
+    return "\n".join(
+        [
+            f"Name: {wine.name}",
+            f"Producer: {wine.producer}",
+            f"Vintage: {wine.vintage}",
+        ],
+    )
+
+
 def compare_wine_context(wine: Wine) -> str:
     return "\n".join(
         [
@@ -1305,7 +1316,7 @@ def generate_wine_notes(
         model=user_settings.ai_notes_model,
         task_type="ai_notes",
         system_prompt=f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
-        user_prompt=f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_context(wine)}",
+        user_prompt=f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_lookup_context(wine)}",
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
@@ -1616,7 +1627,7 @@ def generate_grapes(
         user_prompt=(
             "Search the web for the exact grape composition of this wine and vintage. "
             "Prefer the winery, technical sheet, importer, or a reputable merchant. Percentages must be source-supported.\n\n"
-            f"{wine_context(wine)}"
+            f"{wine_lookup_context(wine)}"
         ),
         json_schema=schema,
         web_search=True,
@@ -1689,11 +1700,6 @@ def generate_scores(
         },
     }
     existing_scores = [dict(score) for score in (wine.scores or []) if isinstance(score, dict)]
-    existing_score_labels = ", ".join(
-        f"{score.get('critic', '')} {score.get('score', '')}".strip()
-        for score in existing_scores
-        if score.get("critic") or score.get("score")
-    ) or "none"
     response, provider_source = create_ai_response(
         db,
         context,
@@ -1707,11 +1713,10 @@ def generate_scores(
         ),
         user_prompt=(
             "Search the web for additional published critic scores for this exact wine and vintage, including en-primeur scores when relevant. "
-            "Preserve the existing scores: return only genuinely new critic-and-score combinations, never replacements. "
+            "Return published critic-and-score combinations for this wine; the application preserves existing scores and removes duplicates. "
             "Prefer primary critic publications or reputable wine merchants quoting named critics. "
             "In each note, include the source name and state if the score is an en-primeur range. If evidence is weak, return an empty scores array.\n\n"
-            f"Existing scores (do not repeat): {existing_score_labels}\n\n"
-            f"{wine_context(wine)}"
+            f"{wine_lookup_context(wine)}"
         ),
         json_schema=schema,
         web_search=True,
