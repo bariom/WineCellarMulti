@@ -10808,10 +10808,6 @@ export function App() {
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               {t("pairing")}
             </button>
-            <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { setActiveView("buying"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("buying"); }}>
-              <span>{locale === "it" ? "Acquisti AI" : "AI buying"}</span>
-              <span className="beta-nav-icon" role="img" aria-label={locale === "it" ? "Funzione beta" : "Beta feature"} title={locale === "it" ? "Funzione beta" : "Beta feature"}>β</span>
-            </button>
             <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
               {t("help")}
             </button>
