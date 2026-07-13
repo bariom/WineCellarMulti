@@ -6042,6 +6042,7 @@ export function App() {
   const [wineFormOpen, setWineFormOpen] = useState(false);
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const filterPanelRef = useRef<HTMLDetailsElement>(null);
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
@@ -12557,11 +12558,18 @@ export function App() {
               ) : null}
             </details>
             )}
-            <details className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
+            <details ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
               <summary>{t("search")} / {t("sort")}</summary>
               <label>
                 <span>{t("search")}</span>
-                <input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder={t("searchPlaceholder")} />
+                <input
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") filterPanelRef.current?.removeAttribute("open");
+                  }}
+                  placeholder={t("searchPlaceholder")}
+                />
               </label>
               <div className="filter-row">
                 <label>
