@@ -1268,6 +1268,8 @@ const translations = {
     investedMore: "Where you invested more",
     keyPosition: "Key position",
     keyPositions: "Key positions",
+    largestPriceIncrease: "Largest price increase",
+    priceIncrease: "Price increase",
     ownedValue: "Owned value",
     action: "Action",
     hold: "Hold",
@@ -1856,6 +1858,8 @@ const translations = {
     investedMore: "Dove hai investito di più",
     keyPosition: "Posizione chiave",
     keyPositions: "Posizioni chiave",
+    largestPriceIncrease: "Maggiore incremento di prezzo",
+    priceIncrease: "Incremento di prezzo",
     ownedValue: "Valore quota",
     action: "Azione",
     hold: "Tenere",
@@ -9044,17 +9048,32 @@ export function App() {
   const keyPositionCandidates = (() => {
     const positionValue = (wine: Wine) => wineUnitValue(wine) * wine.quantity;
     const ownedValue = (wine: Wine) => positionValue(wine) * (currentUserSharePct(wine, session) / 100);
+    const priceIncreasePct = (wine: Wine) => {
+      const purchasePrice = Number(wine.price || 0);
+      const historicalValues = wine.value_history
+        .map((entry) => Number(entry.value || 0))
+        .filter((value) => Number.isFinite(value) && value > 0);
+      const baseline = purchasePrice > 0 ? purchasePrice : historicalValues[0] || 0;
+      const current = Number(wine.current_value || historicalValues[historicalValues.length - 1] || 0);
+      if (!baseline || !current || current <= baseline) return null;
+      return ((current - baseline) / baseline) * 100;
+    };
     const ownWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) >= 99.999);
     const sharedWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) > 0 && currentUserSharePct(wine, session) < 99.999);
     const orderedByOwnedValue = [...cellarWines].sort((first, second) => ownedValue(second) - ownedValue(first));
     const orderedByPositionValue = [...cellarWines].sort((first, second) => positionValue(second) - positionValue(first));
     const orderedOwn = [...ownWines].sort((first, second) => ownedValue(second) - ownedValue(first));
     const orderedShared = [...sharedWines].sort((first, second) => ownedValue(second) - ownedValue(first));
+    const largestPriceIncrease = cellarWines
+      .map((wine) => ({ wine, increasePct: priceIncreasePct(wine) }))
+      .filter((item): item is { wine: Wine; increasePct: number } => item.increasePct !== null)
+      .sort((first, second) => second.increasePct - first.increasePct)[0];
     const selected: Wine[] = [];
     const add = (wine: Wine | undefined) => {
       if (wine && !selected.some((item) => item.id === wine.id)) selected.push(wine);
     };
 
+    add(largestPriceIncrease?.wine);
     add(orderedByOwnedValue[0]);
     add(orderedByPositionValue[0]);
     add(orderedOwn[0]);
@@ -9082,6 +9101,9 @@ export function App() {
       const hasMaturityWindow = Boolean(drinkStart && drinkEnd);
       return {
         wine,
+        isLargestPriceIncrease: largestPriceIncrease?.wine.id === wine.id,
+        highlight: largestPriceIncrease?.wine.id === wine.id ? t("largestPriceIncrease") : t("keyPosition"),
+        priceIncreasePct: priceIncreasePct(wine),
         sharePct,
         ownedValue: totalValue * (sharePct / 100),
         totalValue,
@@ -10908,11 +10930,12 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
+                        {keyPositionCandidates.map(({ wine, highlight, isLargestPriceIncrease, priceIncreasePct, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <div className="key-position-head">
                               <div>
+                                <span>{highlight}</span>
                                 <h2>{wine.name}</h2>
                                 <p>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</p>
                               </div>
@@ -10921,7 +10944,7 @@ export function App() {
                               <div><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
                               <div><span>{t("totalValue")}</span><strong>{formatMoney(totalValue, wine.currency, locale)}</strong></div>
                               <div><span>{t("ownership")}</span><strong>{Math.round(sharePct)}%</strong></div>
-                              <div><span>{t("action")}</span><strong>{action}</strong></div>
+                              <div><span>{isLargestPriceIncrease ? t("priceIncrease") : t("action")}</span><strong>{isLargestPriceIncrease && priceIncreasePct !== null ? `+${formatPercentage(priceIncreasePct, locale, 1)}` : action}</strong></div>
                             </div>
                             <div className="key-position-maturity">
                               <div>
