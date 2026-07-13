@@ -11,7 +11,7 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates
+from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates, wine_market_context, wishlist_advice_context, wishlist_market_context
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import TokenUsage, create_response, response_body
 
@@ -172,6 +172,36 @@ def test_pairing_candidates_are_compact_diverse_and_limited_to_25():
     assert compact["grapes"] == ["Chardonnay", "Pinot Noir", "Extra grape"]
     assert compact["tags"] == ["Dinner", "Ready", "Extra"]
     assert "scores" not in compact
+
+
+def test_task_contexts_exclude_unrelated_cellar_and_generated_data():
+    wine = SimpleNamespace(
+        name="Test Wine", producer="Test Producer", vintage="2020", type="Red", format="Bottle (750ml)",
+        region="Ticino", appellation="Ticino DOC", current_value=42, currency="CHF", drink_from=2025,
+        drink_to=2030, quantity=9, price=12, scores=[{"critic": "Critic", "score": "95"}],
+        grapes=[{"name": "Merlot"}], tags=["Private"], notes="Private notes", ai_notes="Generated notes",
+        ai_value_notes="Generated value notes", rating="95", status="Delivered",
+    )
+    item = SimpleNamespace(
+        name="Wanted Wine", producer="Wanted Producer", vintage="2021", format="Bottle (750ml)", type="Red",
+        region="Ticino", appellation="Ticino DOC", target_price=50, currency="CHF", priority="High",
+        purpose="Cellar", status="Watch", merchant="Private merchant", notes="Private notes",
+        ai_context_note="Context", ai_strategy="Generated strategy", ai_purpose_advice="Generated purpose",
+    )
+
+    market = wine_market_context(wine)
+    comparison = compare_wine_context(wine)
+    advice = wishlist_advice_context(item)
+    wishlist_market = wishlist_market_context(item)
+
+    assert "Name: Test Wine" in market
+    assert "Scores:" not in market and "AI notes:" not in market and "Purchase price:" not in market
+    assert "Drink window: 2025-2030" in comparison
+    assert "Grapes:" not in comparison and "AI value notes:" not in comparison
+    assert "AI context note: Context" in advice
+    assert "AI strategy:" not in advice and "Merchant:" not in advice
+    assert "Target price: CHF 50" in wishlist_market
+    assert "Private notes" not in wishlist_market and "AI context note:" not in wishlist_market
 
 
 def test_fallback_to_gpt55_happens_once(monkeypatch: pytest.MonkeyPatch):

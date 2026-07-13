@@ -504,24 +504,16 @@ def update_ai_settings(
     return ai_settings_response(db, context, user_settings)
 
 
-def wine_context(wine: Wine) -> str:
+def wine_market_context(wine: Wine) -> str:
+    """Identity and attributes needed to find an exact market listing."""
     return "\n".join(
         [
             f"Name: {wine.name}",
             f"Producer: {wine.producer}",
             f"Vintage: {wine.vintage}",
-            f"Type: {wine.type}",
             f"Format: {wine.format}",
             f"Region: {wine.region}",
             f"Appellation: {wine.appellation}",
-            f"Status: {wine.status}",
-            f"Purchase price: {wine.currency} {wine.price}",
-            f"Current value: {wine.currency} {wine.current_value}" if wine.current_value is not None else "Current value: unknown",
-            f"Scores: {wine.scores}",
-            f"Grapes: {wine.grapes}",
-            f"Tags: {', '.join(wine.tags)}",
-            f"Notes: {wine.notes}",
-            f"AI notes: {wine.ai_notes}",
         ],
     )
 
@@ -547,18 +539,8 @@ def compare_wine_context(wine: Wine) -> str:
             f"Format: {wine.format}",
             f"Region: {wine.region}",
             f"Appellation: {wine.appellation}",
-            f"Status: {wine.status}",
-            f"Quantity: {wine.quantity}",
-            f"Purchase price: {wine.currency} {wine.price}",
             f"Current value: {wine.currency} {wine.current_value}" if wine.current_value is not None else "Current value: unknown",
             f"Drink window: {wine.drink_from}-{wine.drink_to}" if wine.drink_from or wine.drink_to else "Drink window: unknown",
-            f"Rating: {wine.rating or 'unknown'}",
-            f"Scores: {wine.scores}",
-            f"Grapes: {wine.grapes}",
-            f"Tags: {', '.join(wine.tags)}",
-            f"Notes: {wine.notes}",
-            f"AI notes: {wine.ai_notes}",
-            f"AI value notes: {wine.ai_value_notes}",
         ],
     )
 
@@ -580,25 +562,37 @@ def replace_compare_placeholders(text: str, first_name: str, second_name: str) -
     return result
 
 
-def wishlist_context(item: WishlistItem) -> str:
+def wishlist_advice_context(item: WishlistItem) -> str:
+    """Decision fields for strategy and purpose, excluding generated prose."""
     return "\n".join(
         [
             f"Name: {item.name}",
             f"Producer: {item.producer}",
             f"Vintage: {item.vintage}",
             f"Type: {item.type}",
-            f"Format: {item.format}",
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
             f"Target price: {item.currency} {item.target_price}",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
             f"Status: {item.status}",
-            f"Merchant: {item.merchant}",
             f"Notes: {item.notes}",
             f"AI context note: {item.ai_context_note}",
-            f"AI strategy: {item.ai_strategy}",
-            f"AI purpose advice: {item.ai_purpose_advice}",
+        ],
+    )
+
+
+def wishlist_market_context(item: WishlistItem) -> str:
+    """Identity and target price needed for an exact wishlist market lookup."""
+    return "\n".join(
+        [
+            f"Name: {item.name}",
+            f"Producer: {item.producer}",
+            f"Vintage: {item.vintage}",
+            f"Format: {item.format}",
+            f"Region: {item.region}",
+            f"Appellation: {item.appellation}",
+            f"Target price: {item.currency} {item.target_price}",
         ],
     )
 
@@ -645,12 +639,8 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
                     f"Priority: {item.priority or 'Unknown'} | Purpose: {item.purpose or 'Unknown'} | Status: {item.status or 'Unknown'}"
                 ),
                 f"   Region/Appellation: {item.region or 'n/d'} / {item.appellation or 'n/d'}",
-                f"   Merchant: {item.merchant or 'n/d'}",
                 f"   Market estimate: {item.ai_market_price_currency or item.currency} {item.ai_market_price}" if item.ai_market_price else "   Market estimate: unknown",
-                f"   Notes: {item.notes or 'none'}",
                 f"   AI context note: {item.ai_context_note or 'none'}",
-                f"   Existing AI strategy: {item.ai_strategy or 'none'}",
-                f"   Existing AI purpose advice: {item.ai_purpose_advice or 'none'}",
             ],
         )
     if len(sorted_items) > 40:
@@ -1446,7 +1436,7 @@ def generate_drink_window(
         model=user_settings.drink_window_model,
         task_type="drink_window",
         system_prompt=f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_context(wine)}",
+        user_prompt=f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_lookup_context(wine)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -1529,7 +1519,7 @@ def generate_wine_value(
             f"Estimate current unit value for this exact wine. Final current_value and currency must be {wine.currency}. "
             "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
             "Use market_note for a short availability or confidence comment.\n\n"
-            f"{wine_context(wine)}"
+            f"{wine_market_context(wine)}"
         ),
         json_schema=schema,
         web_search=True,
@@ -1797,7 +1787,7 @@ def generate_wishlist_strategy(
         model=user_settings.wishlist_model,
         task_type="wishlist_advice",
         system_prompt=f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context(item)}",
+        user_prompt=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_advice_context(item)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -1851,7 +1841,7 @@ def generate_wishlist_purpose(
         model=user_settings.wishlist_model,
         task_type="wishlist_purpose",
         system_prompt=f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_context(item)}",
+        user_prompt=f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_advice_context(item)}",
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -1936,7 +1926,7 @@ def generate_wishlist_target_price(
             "Use price_advice to compare the user target price with the estimated market price. "
             "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
             "Use market_note for a short availability or confidence comment.\n\n"
-            f"{wishlist_context(item)}"
+            f"{wishlist_market_context(item)}"
         ),
         json_schema=schema,
         web_search=True,
