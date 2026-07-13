@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     openai_drink_window_model: str = "gpt-5.4"
     openai_value_model: str = "gpt-5.4-mini"
     openai_grape_model: str = "gpt-5.4-nano"
+    openai_score_model: str = "gpt-5.4-mini"
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"
     openai_default_model: str = "gpt-5.5"

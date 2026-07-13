@@ -36,6 +36,9 @@ class WineCreate(BaseModel):
     owners: list[dict] = Field(default_factory=list)
     tags: list[str] = Field(default_factory=list)
     grapes: list[dict] = Field(default_factory=list)
+    grapes_source_url: str = ""
+    grapes_source_title: str = ""
+    grapes_verified_at: datetime | None = None
     scores: list[dict] = Field(default_factory=list)
     scores_not_applicable: bool = False
 
@@ -70,6 +73,9 @@ class WineUpdate(BaseModel):
     owners: list[dict] | None = None
     tags: list[str] | None = None
     grapes: list[dict] | None = None
+    grapes_source_url: str | None = None
+    grapes_source_title: str | None = None
+    grapes_verified_at: datetime | None = None
     scores: list[dict] | None = None
     scores_not_applicable: bool | None = None
 
@@ -182,6 +188,9 @@ class WineResponse(BaseModel):
     owners: list[dict]
     tags: list[str]
     grapes: list[dict]
+    grapes_source_url: str = ""
+    grapes_source_title: str = ""
+    grapes_verified_at: datetime | None = None
     scores: list[dict]
     scores_not_applicable: bool = False
     tasting_history: list[WineTastingEntryResponse] = Field(default_factory=list)

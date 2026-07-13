@@ -2192,7 +2192,7 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "score_model": "gpt-5.5"}).status_code == 200
     created = client.post(
         "/api/v1/wines",
         json={
@@ -2207,7 +2207,10 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
     assert created.status_code == 201
 
     def fake_create_response(*args, **kwargs):
+        assert args[0] == "gpt-5.5"
         assert "Existing Critic 94" in args[2]
+        assert kwargs["web_search"] is True
+        assert kwargs["web_search_context_size"] == "medium"
         return OpenAIResponse(
             text='{"scores":[{"critic":"Existing Critic","score":"94","note":"Duplicate"},{"critic":"New Critic","score":"96","note":"New score"}]}',
             usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
@@ -2220,6 +2223,38 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
         {"critic": "Existing Critic", "score": "94", "note": "Stored score"},
         {"critic": "New Critic", "score": "96", "note": "New score"},
     ]
+
+
+def test_ai_grapes_cache_verified_web_result(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Chateau Citran", "producer": "Chateau Citran", "vintage": "2018", "quantity": 1, "price": 25},
+    )
+    assert created.status_code == 201
+
+    def fake_create_response(*args, **kwargs):
+        assert kwargs["web_search"] is True
+        return OpenAIResponse(
+            text='{"grapes":[{"name":"Merlot","percentage_from":50,"percentage_to":50},{"name":"Cabernet Sauvignon","percentage_from":39,"percentage_to":39},{"name":"Cabernet Franc","percentage_from":11,"percentage_to":11}],"notes":"Source-supported 2018 blend."}',
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            web_sources=({"url": "https://example.com/citran-2018", "title": "Chateau Citran 2018"},),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/grapes")
+    assert generated.status_code == 200
+    assert generated.json()["grapes_source_url"] == "https://example.com/citran-2018"
+    assert generated.json()["grapes_verified_at"] is not None
+
+    monkeypatch.setattr(ai_routes, "create_response", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("cached grapes must not call AI")))
+    cached = client.post(f"/api/v1/ai/wines/{created.json()['id']}/grapes")
+    assert cached.status_code == 200
+    assert cached.json()["grapes"] == generated.json()["grapes"]
 
 
 def test_compare_wines_ai_returns_structured_comparison(monkeypatch):

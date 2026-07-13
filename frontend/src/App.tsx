@@ -56,6 +56,9 @@ type Wine = {
   owners: Array<{ name: string; email?: string; share_pct: number }>;
   tags: string[];
   grapes: Array<{ name: string; percentage_from?: number; percentage_to?: number }>;
+  grapes_source_url: string;
+  grapes_source_title: string;
+  grapes_verified_at: string | null;
   scores: Array<{ critic: string; score: string; note: string }>;
   scores_not_applicable: boolean;
   tasting_history: Array<{
@@ -702,6 +705,7 @@ type AiSettings = {
   drink_window_model: string;
   value_model: string;
   grape_model: string;
+  score_model: string;
   wishlist_model: string;
   pairing_model: string;
   pairing_preferences: string;
@@ -716,6 +720,7 @@ type AiSettingsDraft = {
   drink_window_model: string;
   value_model: string;
   grape_model: string;
+  score_model: string;
   wishlist_model: string;
   pairing_model: string;
   pairing_preferences: string;
@@ -902,6 +907,7 @@ const emptyAiSettingsDraft: AiSettingsDraft = {
   drink_window_model: "gpt-5.4",
   value_model: "gpt-5.4-mini",
   grape_model: "gpt-5.4-nano",
+  score_model: "gpt-5.4-mini",
   wishlist_model: "gpt-5.4",
   pairing_model: "gpt-5.4",
   pairing_preferences: "",
@@ -1218,6 +1224,7 @@ const translations = {
     futureDeliveries: "Future deliveries",
     generating: "Generating",
     grapes: "Grapes",
+    verifiedSource: "Verified source",
     generateAll: "Generate all",
     highPriority: "High priority",
     history: "History",
@@ -1809,6 +1816,7 @@ const translations = {
     futureDeliveries: "Consegne future",
     generating: "Genero",
     grapes: "Uve",
+    verifiedSource: "Fonte verificata",
     generateAll: "Genera tutti",
     highPriority: "Alta priorita",
     history: "Storico",
@@ -2980,6 +2988,9 @@ function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       percentage_from: grape.percentage_from === undefined ? undefined : rawNumber(grape.percentage_from),
       percentage_to: grape.percentage_to === undefined ? undefined : rawNumber(grape.percentage_to),
     })),
+    grapes_source_url: rawString(raw.grapes_source_url),
+    grapes_source_title: rawString(raw.grapes_source_title),
+    grapes_verified_at: rawNullableString(raw.grapes_verified_at),
     scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
     scores_not_applicable: Boolean(raw.scores_not_applicable),
     tasting_history: rawArray(raw.tasting_history).map((entry, entryIndex) => ({
@@ -5194,6 +5205,9 @@ function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     owners: [],
     tags: [],
     grapes: [],
+    grapes_source_url: "",
+    grapes_source_title: "",
+    grapes_verified_at: null,
     scores: [],
     scores_not_applicable: false,
     tasting_history: [],
@@ -5375,6 +5389,14 @@ function WineDetail({
               <div className="chip-list">
                 {wine.grapes.map((grape, index) => <span key={`${grape.name}-${index}`}>{formatGrape(grape)}</span>)}
               </div>
+              {wine.grapes_source_url ? (
+                <small>
+                  <a href={wine.grapes_source_url} target="_blank" rel="noreferrer">
+                    {t("verifiedSource")}{wine.grapes_source_title ? `: ${wine.grapes_source_title}` : ""}
+                  </a>
+                  {wine.grapes_verified_at ? ` · ${formatDisplayDate(wine.grapes_verified_at)}` : ""}
+                </small>
+              ) : null}
             </div>
           ) : null}
 
@@ -6639,6 +6661,7 @@ export function App() {
           drink_window_model: nextSettings.drink_window_model,
           value_model: nextSettings.value_model,
           grape_model: nextSettings.grape_model,
+          score_model: nextSettings.score_model,
           wishlist_model: nextSettings.wishlist_model,
           pairing_model: nextSettings.pairing_model,
           pairing_preferences: nextSettings.pairing_preferences || "",
@@ -7678,6 +7701,7 @@ export function App() {
         drink_window_model: nextSettings.drink_window_model,
         value_model: nextSettings.value_model,
         grape_model: nextSettings.grape_model,
+        score_model: nextSettings.score_model,
         wishlist_model: nextSettings.wishlist_model,
         pairing_model: nextSettings.pairing_model,
         pairing_preferences: nextSettings.pairing_preferences || "",
@@ -8302,6 +8326,7 @@ export function App() {
       aiSettingsDraft.drink_window_model !== aiSettings.drink_window_model ||
       aiSettingsDraft.value_model !== aiSettings.value_model ||
       aiSettingsDraft.grape_model !== aiSettings.grape_model ||
+      aiSettingsDraft.score_model !== aiSettings.score_model ||
       aiSettingsDraft.wishlist_model !== aiSettings.wishlist_model ||
       aiSettingsDraft.pairing_model !== aiSettings.pairing_model ||
       aiSettingsDraft.pairing_preferences !== aiSettings.pairing_preferences ||
@@ -13346,6 +13371,12 @@ export function App() {
                     <label>
                       <span>{t("grapes")}</span>
                       <select value={aiSettingsDraft.grape_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, grape_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
+                    <label>
+                      <span>{t("scores")}</span>
+                      <select value={aiSettingsDraft.score_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, score_model: event.target.value })}>
                         {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
                       </select>
                     </label>

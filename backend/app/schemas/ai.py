@@ -54,6 +54,7 @@ class AiSettingsResponse(BaseModel):
     drink_window_model: str
     value_model: str
     grape_model: str
+    score_model: str
     wishlist_model: str
     pairing_model: str
     pairing_preferences: str = ""
@@ -68,6 +69,7 @@ class AiSettingsUpdate(BaseModel):
     drink_window_model: str | None = None
     value_model: str | None = None
     grape_model: str | None = None
+    score_model: str | None = None
     wishlist_model: str | None = None
     pairing_model: str | None = None
     pairing_preferences: str | None = Field(default=None, max_length=2000)

@@ -19,6 +19,7 @@ class UserAiSettings(Base):
     drink_window_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
     value_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-mini")
     grape_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-nano")
+    score_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-mini")
     wishlist_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
     pairing_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
     pairing_preferences: Mapped[str] = mapped_column(Text, default="")

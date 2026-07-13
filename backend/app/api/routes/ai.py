@@ -54,12 +54,13 @@ router = APIRouter(prefix="/ai")
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
-MODEL_FIELDS = ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "wishlist_model", "pairing_model"]
+MODEL_FIELDS = ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "score_model", "wishlist_model", "pairing_model"]
 GPT56_DEFAULT_ROLE_BY_FIELD = {
     "ai_notes_model": "economy",
     "drink_window_model": "balanced",
     "value_model": "economy",
     "grape_model": "economy",
+    "score_model": "economy",
     "wishlist_model": "balanced",
     "pairing_model": "balanced",
 }
@@ -152,6 +153,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             drink_window_model=default_model_for_field("drink_window_model"),
             value_model=default_model_for_field("value_model"),
             grape_model=default_model_for_field("grape_model"),
+            score_model=default_model_for_field("score_model"),
             wishlist_model=default_model_for_field("wishlist_model"),
             pairing_model=default_model_for_field("pairing_model"),
             pairing_preferences="",
@@ -185,6 +187,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
         grape_model=user_settings.grape_model,
+        score_model=user_settings.score_model,
         wishlist_model=user_settings.wishlist_model,
         pairing_model=user_settings.pairing_model,
         pairing_preferences=user_settings.pairing_preferences or "",
@@ -292,9 +295,9 @@ def create_ai_response(
     complexity: str | None = None,
 ) -> tuple[Any, str]:
     provider_source, api_key = select_ai_provider(db, context, user_settings)
-    # Old per-user GPT-5.4 values remain valid for compatibility. When routing
-    # is enabled, the central deterministic router owns the model decision.
-    requested_model = "" if settings.openai_enable_model_routing else model
+    # A per-feature model selected in Settings is an explicit user preference.
+    # Routing remains the fallback only when a caller deliberately provides no model.
+    requested_model = model
     if requested_model and requested_model not in available_model_options():
         requested_model = ""
     response = create_response(
@@ -1572,6 +1575,8 @@ def generate_grapes(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    if wine.grapes and wine.grapes_source_url:
+        return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
     schema = {
         "name": "grape_composition",
@@ -1603,14 +1608,34 @@ def generate_grapes(
         user_settings,
         model=user_settings.grape_model,
         task_type="grape_inference",
-        system_prompt=f"You infer grape composition for wine. Return JSON only. Prefer known appellation rules when exact producer data is unavailable. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Estimate grape composition for this wine.\n\n{wine_context(wine)}",
+        system_prompt=(
+            "You verify exact wine grape composition using web sources. Return JSON only. "
+            "Never estimate from appellation rules or a typical blend. Return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            "Search the web for the exact grape composition of this wine and vintage. "
+            "Prefer the winery, technical sheet, importer, or a reputable merchant. Percentages must be source-supported.\n\n"
+            f"{wine_context(wine)}"
+        ),
         json_schema=schema,
+        web_search=True,
+        web_search_context_size="medium",
+        max_tool_calls=5,
     )
     result = parse_json_response(response.text)
-    wine.grapes = result.get("grapes", [])
+    grapes = result.get("grapes", [])
+    if not isinstance(grapes, list):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes")
+    verified_source = response.web_sources[0] if response.web_sources else {}
+    saved_verified_grapes = bool(grapes and verified_source.get("url"))
+    if saved_verified_grapes:
+        wine.grapes = grapes
+        wine.grapes_source_url = str(verified_source.get("url") or "")[:500]
+        wine.grapes_source_title = str(verified_source.get("title") or "")[:200]
+        wine.grapes_verified_at = datetime.now(timezone.utc)
     note = str(result.get("notes") or "").strip()
-    if note:
+    if note and saved_verified_grapes:
         wine.ai_notes = f"{wine.ai_notes}\n\nUve: {note}".strip()[:4000]
     record_ai_audit(
         db,
@@ -1619,7 +1644,8 @@ def generate_grapes(
         entity_id=wine.id,
         feature="grapes",
         model=effective_response_model(response, user_settings.grape_model),
-        summary=note or str(wine.grapes),
+        summary=note or ("Verified grape composition saved" if saved_verified_grapes else "No verified grape composition found"),
+        sources=web_search_source_entries(response.web_sources),
         usage=response.usage,
         provider_source=provider_source,
     )
@@ -1672,17 +1698,25 @@ def generate_scores(
         db,
         context,
         user_settings,
-        model=user_settings.ai_notes_model,
+        model=user_settings.score_model,
         task_type="score_summary",
-        system_prompt=f"You summarize known wine critic scores cautiously. Return JSON only. {response_language_instruction(payload.locale)}",
+        system_prompt=(
+            "You research published wine critic scores using web sources. Return JSON only. "
+            "Never invent a score: include a score only when a credible source supports the wine, vintage and critic. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
         user_prompt=(
-            "Find additional likely published critic scores for this wine only when plausible. "
+            "Search the web for additional published critic scores for this exact wine and vintage, including en-primeur scores when relevant. "
             "Preserve the existing scores: return only genuinely new critic-and-score combinations, never replacements. "
-            "Prefer well-known critics and include short uncertainty notes. If evidence is weak, return an empty scores array.\n\n"
+            "Prefer primary critic publications or reputable wine merchants quoting named critics. "
+            "In each note, include the source name and state if the score is an en-primeur range. If evidence is weak, return an empty scores array.\n\n"
             f"Existing scores (do not repeat): {existing_score_labels}\n\n"
             f"{wine_context(wine)}"
         ),
         json_schema=schema,
+        web_search=True,
+        web_search_context_size="medium",
+        max_tool_calls=6,
     )
     result = parse_json_response(response.text)
     scores = result.get("scores") or []
@@ -1717,8 +1751,9 @@ def generate_scores(
         entity_type="wine",
         entity_id=wine.id,
         feature="scores",
-        model=effective_response_model(response, user_settings.ai_notes_model),
+        model=effective_response_model(response, user_settings.score_model),
         summary=f"{len(additional_scores)} new scores found ({len(wine.scores)} total)",
+        sources=web_search_source_entries(response.web_sources),
         usage=response.usage,
         provider_source=provider_source,
     )
