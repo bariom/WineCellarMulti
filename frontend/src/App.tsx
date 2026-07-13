@@ -1442,6 +1442,7 @@ const translations = {
     saving: "Saving",
     scores: "Scores",
     scoreValue: "Score",
+    findMoreScores: "Find more scores",
     search: "Search",
     searchPlaceholder: "Name, producer, region, score...",
     sendSupportRequest: "Send request",
@@ -2032,6 +2033,7 @@ const translations = {
     saving: "Salvataggio",
     scores: "Punteggi",
     scoreValue: "Punteggio",
+    findMoreScores: "Cerca altri punteggi",
     search: "Cerca",
     searchPlaceholder: "Nome, produttore, regione, punteggio...",
     sendSupportRequest: "Invia richiesta",
@@ -5415,7 +5417,7 @@ function WineDetail({
           <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.scores_not_applicable} onClick={() => onGenerate("scores")}>
-          <ButtonBusyContent busy={generating === "scores"} idleLabel={t("scores")} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "scores"} idleLabel={wine.scores.length ? t("findMoreScores") : t("scores")} busyLabel={t("generating")} />
         </button>
       </div>
       {generating ? <LoadingState label={t("generating")} compact /> : null}

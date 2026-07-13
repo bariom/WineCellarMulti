@@ -2187,6 +2187,41 @@ def test_ai_scores_respects_wine_exclusion_flag():
     assert "disabled" in generated.json()["detail"].lower()
 
 
+def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Barolo",
+            "producer": "Example Producer",
+            "vintage": "2019",
+            "quantity": 1,
+            "price": 70,
+            "scores": [{"critic": "Existing Critic", "score": "94", "note": "Stored score"}],
+        },
+    )
+    assert created.status_code == 201
+
+    def fake_create_response(*args, **kwargs):
+        assert "Existing Critic 94" in args[2]
+        return OpenAIResponse(
+            text='{"scores":[{"critic":"Existing Critic","score":"94","note":"Duplicate"},{"critic":"New Critic","score":"96","note":"New score"}]}',
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores")
+    assert generated.status_code == 200
+    assert generated.json()["scores"] == [
+        {"critic": "Existing Critic", "score": "94", "note": "Stored score"},
+        {"critic": "New Critic", "score": "96", "note": "New score"},
+    ]
+
+
 def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
     from app.api.routes import ai as ai_routes
 

@@ -1662,6 +1662,12 @@ def generate_scores(
             "required": ["scores"],
         },
     }
+    existing_scores = [dict(score) for score in (wine.scores or []) if isinstance(score, dict)]
+    existing_score_labels = ", ".join(
+        f"{score.get('critic', '')} {score.get('score', '')}".strip()
+        for score in existing_scores
+        if score.get("critic") or score.get("score")
+    ) or "none"
     response, provider_source = create_ai_response(
         db,
         context,
@@ -1670,8 +1676,10 @@ def generate_scores(
         task_type="score_summary",
         system_prompt=f"You summarize known wine critic scores cautiously. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=(
-            "Estimate likely published critic scores for this wine only when plausible. "
+            "Find additional likely published critic scores for this wine only when plausible. "
+            "Preserve the existing scores: return only genuinely new critic-and-score combinations, never replacements. "
             "Prefer well-known critics and include short uncertainty notes. If evidence is weak, return an empty scores array.\n\n"
+            f"Existing scores (do not repeat): {existing_score_labels}\n\n"
             f"{wine_context(wine)}"
         ),
         json_schema=schema,
@@ -1680,7 +1688,7 @@ def generate_scores(
     scores = result.get("scores") or []
     if not isinstance(scores, list):
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid scores")
-    wine.scores = [
+    new_scores = [
         {
             "critic": str(item.get("critic") or "")[:120],
             "score": str(item.get("score") or "")[:40],
@@ -1689,6 +1697,18 @@ def generate_scores(
         for item in scores
         if isinstance(item, dict) and (item.get("critic") or item.get("score"))
     ][:8]
+    known_scores = {
+        (str(score.get("critic") or "").strip().casefold(), str(score.get("score") or "").strip().casefold())
+        for score in existing_scores
+    }
+    additional_scores = []
+    for score in new_scores:
+        key = (score["critic"].strip().casefold(), score["score"].strip().casefold())
+        if key in known_scores:
+            continue
+        known_scores.add(key)
+        additional_scores.append(score)
+    wine.scores = [*existing_scores, *additional_scores]
     if wine.scores:
         wine.scores_not_applicable = False
     record_ai_audit(
@@ -1698,7 +1718,7 @@ def generate_scores(
         entity_id=wine.id,
         feature="scores",
         model=effective_response_model(response, user_settings.ai_notes_model),
-        summary=f"{len(wine.scores)} scores generated",
+        summary=f"{len(additional_scores)} new scores found ({len(wine.scores)} total)",
         usage=response.usage,
         provider_source=provider_source,
     )
