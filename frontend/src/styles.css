@@ -3573,6 +3573,49 @@ textarea {
   gap: 10px;
 }
 
+.cellar-filter-panel {
+  gap: 8px;
+  padding: 10px;
+}
+
+.cellar-filter-panel .filter-row {
+  gap: 8px;
+}
+
+.cellar-filter-panel .price-filter-panel {
+  gap: 8px;
+  padding: 10px;
+  border-radius: 10px;
+}
+
+.cellar-filter-panel .price-filter-chart {
+  display: none;
+}
+
+.cellar-filter-panel .price-filter-slider {
+  height: 24px;
+}
+
+.cellar-filter-panel .price-filter-inputs {
+  gap: 8px;
+}
+
+.cellar-filter-panel .price-filter-input-shell {
+  gap: 7px;
+  padding-inline: 9px;
+}
+
+.cellar-filter-panel .tag-choice-list.roomy {
+  max-height: 84px;
+  overflow: auto;
+  padding: 1px;
+}
+
+.cellar-filter-panel .tag-choice-list label {
+  padding: 5px 8px;
+  font-size: 0.84rem;
+}
+
 .price-filter-panel {
   display: grid;
   gap: 12px;

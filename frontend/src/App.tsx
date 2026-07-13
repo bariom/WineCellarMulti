@@ -4059,6 +4059,61 @@ function wineSearchText(wine: Wine) {
   ].join(" ").toLowerCase();
 }
 
+type WineCollectionFilters = {
+  query: string;
+  type: string;
+  status: string;
+  minPrice: number | null;
+  maxPrice: number | null;
+  ownership: string;
+  quick: string;
+  tags: string[];
+  grapes: string[];
+  currentYear: number;
+  now: Date;
+  session: Session | null;
+};
+
+function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentYear: number, now: Date, session: Session | null) {
+  if (!quickFilter) return true;
+  const share = currentUserSharePct(wine, session);
+  if (quickFilter === "mine") return share > 0;
+  if (quickFilter === "shared") return share < 100;
+  if (quickFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
+  if (quickFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
+  if (quickFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
+  if (quickFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
+  if (quickFilter === "to_collect") return isToCollectWine(wine);
+  if (quickFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0;
+  return true;
+}
+
+function matchesWineCollectionFilters(wine: Wine, filters: WineCollectionFilters) {
+  if (filters.query && !wineSearchText(wine).includes(filters.query)) return false;
+  if (filters.type && normalizeWineType(wine.type) !== filters.type) return false;
+  if (filters.status && wine.status !== filters.status) return false;
+  const bottlePrice = Number(wine.price || 0);
+  if (filters.minPrice !== null && bottlePrice < filters.minPrice) return false;
+  if (filters.maxPrice !== null && bottlePrice > filters.maxPrice) return false;
+  if (filters.ownership) {
+    const share = currentUserSharePct(wine, filters.session);
+    if (filters.ownership === "mine" && share <= 0) return false;
+    if (filters.ownership === "shared" && share >= 100) return false;
+  }
+  if (!matchesQuickWineFilter(wine, filters.quick, filters.currentYear, filters.now, filters.session)) return false;
+  if (filters.tags.length && !filters.tags.every((tag) => wine.tags.includes(tag))) return false;
+  return !filters.grapes.length || filters.grapes.every((grape) => wine.grapes.some((item) => item.name === grape));
+}
+
+function compareWines(sortMode: SortMode) {
+  return (first: Wine, second: Wine) => {
+    if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
+    if (sortMode === "value") return Number(second.current_value || second.price || 0) - Number(first.current_value || first.price || 0);
+    if (sortMode === "drink_window") return (first.drink_from || 9999) - (second.drink_from || 9999);
+    return first.name.localeCompare(second.name);
+  };
+}
+
 function wishlistSearchText(item: WishlistItem) {
   return [
     item.name,
@@ -8648,80 +8703,30 @@ export function App() {
     return bottlePriceSamples.filter((price) => price >= start && price < end).length;
   });
   const maxHistogramCount = Math.max(...priceHistogram, 1);
+  const wineCollectionFilters: WineCollectionFilters = {
+    query: normalizedQuery,
+    type: typeFilter,
+    status: statusFilter,
+    minPrice: hasMinBottlePrice ? minBottlePrice : null,
+    maxPrice: hasMaxBottlePrice ? maxBottlePrice : null,
+    ownership: ownershipFilter,
+    quick: quickWineFilter,
+    tags: tagFilter,
+    grapes: grapeFilter,
+    currentYear,
+    now,
+    session,
+  };
   const filteredWines = activeWineCollection
-    .filter((wine) => !normalizedQuery || wineSearchText(wine).includes(normalizedQuery))
-    .filter((wine) => !typeFilter || normalizeWineType(wine.type) === typeFilter)
-    .filter((wine) => !statusFilter || wine.status === statusFilter)
-    .filter((wine) => {
-      const bottlePrice = Number(wine.price || 0);
-      if (hasMinBottlePrice && bottlePrice < minBottlePrice) return false;
-      if (hasMaxBottlePrice && bottlePrice > maxBottlePrice) return false;
-      return true;
-    })
-    .filter((wine) => {
-      if (!ownershipFilter) return true;
-      const share = currentUserSharePct(wine, session);
-      if (ownershipFilter === "mine") return share > 0;
-      if (ownershipFilter === "shared") return share < 100;
-      return true;
-    })
-    .filter((wine) => {
-      if (!quickWineFilter) return true;
-      const share = currentUserSharePct(wine, session);
-      if (quickWineFilter === "mine") return share > 0;
-      if (quickWineFilter === "shared") return share < 100;
-      if (quickWineFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
-      if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
-      if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
-      if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
-      if (quickWineFilter === "to_collect") return isToCollectWine(wine);
-      if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0;
-      return true;
-    })
+    .filter((wine) => matchesWineCollectionFilters(wine, wineCollectionFilters))
     .filter((wine) => {
       if (!maturityFilter || activeView !== "cellar") return true;
       return wineTone(wine.type) === maturityFilter.tone && isWineAtMaturityPeak(wine, maturityFilter.year);
     })
-    .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
-    .filter((wine) => grapeFilter.length === 0 || grapeFilter.every((grape) => wine.grapes.some((item) => item.name === grape)))
-    .sort((first, second) => {
-      if (sortMode === "vintage") return (Number(second.vintage) || 0) - (Number(first.vintage) || 0);
-      if (sortMode === "value") return Number(second.current_value || second.price || 0) - Number(first.current_value || first.price || 0);
-      if (sortMode === "drink_window") return (first.drink_from || 9999) - (second.drink_from || 9999);
-      return first.name.localeCompare(second.name);
-    });
+    .sort(compareWines(sortMode));
   const tastingFilterWineIds = new Set(
     activeWineCollection
-      .filter((wine) => !typeFilter || normalizeWineType(wine.type) === typeFilter)
-      .filter((wine) => !statusFilter || wine.status === statusFilter)
-      .filter((wine) => {
-        const bottlePrice = Number(wine.price || 0);
-        if (hasMinBottlePrice && bottlePrice < minBottlePrice) return false;
-        if (hasMaxBottlePrice && bottlePrice > maxBottlePrice) return false;
-        return true;
-      })
-      .filter((wine) => {
-        if (!ownershipFilter) return true;
-        const share = currentUserSharePct(wine, session);
-        if (ownershipFilter === "mine") return share > 0;
-        if (ownershipFilter === "shared") return share < 100;
-        return true;
-      })
-      .filter((wine) => {
-        if (!quickWineFilter) return true;
-        const share = currentUserSharePct(wine, session);
-        if (quickWineFilter === "mine") return share > 0;
-        if (quickWineFilter === "shared") return share < 100;
-        if (quickWineFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
-        if (quickWineFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
-        if (quickWineFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
-        if (quickWineFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
-        if (quickWineFilter === "to_collect") return isToCollectWine(wine);
-        if (quickWineFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0;
-        return true;
-      })
-      .filter((wine) => tagFilter.length === 0 || tagFilter.every((tag) => wine.tags.includes(tag)))
-      .filter((wine) => grapeFilter.length === 0 || grapeFilter.every((grape) => wine.grapes.some((item) => item.name === grape)))
+      .filter((wine) => matchesWineCollectionFilters(wine, { ...wineCollectionFilters, query: "" }))
       .map((wine) => wine.id),
   );
   const historyTastingEntries = wines.flatMap((wine) =>
@@ -12552,7 +12557,7 @@ export function App() {
               ) : null}
             </details>
             )}
-            <details className="filter-panel">
+            <details className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
               <summary>{t("search")} / {t("sort")}</summary>
               <label>
                 <span>{t("search")}</span>
