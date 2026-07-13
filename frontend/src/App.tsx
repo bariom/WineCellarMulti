@@ -6193,8 +6193,9 @@ export function App() {
     await applyRecognizedCatalogItem(catalogItem, suggestion.label, target);
   }
 
-  async function enrichManualWineDraft() {
-    const label = draft.name.trim();
+  async function enrichManualWineDraft(target: "wine" | "wishlist") {
+    const targetDraft = target === "wine" ? draft : wishlistDraft;
+    const label = targetDraft.name.trim();
     if (!label) return;
     setWineEnrichmentLoading(true);
     try {
@@ -6210,13 +6211,17 @@ export function App() {
         type: normalizeWineType(enrichment.type),
         country: enrichment.country,
         grapes_text: enrichment.grapes_text,
-        format: draft.format || "Bottle (750ml)",
+        format: targetDraft.format || "Bottle (750ml)",
       };
-      applyCatalogWineToDraft(catalogItem, "wine");
+      applyCatalogWineToDraft(catalogItem, target);
       if (enrichment.vintage) {
-        setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+        if (target === "wine") {
+          setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+        } else {
+          setWishlistDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
+        }
       }
-      if (enrichment.grapes_text) {
+      if (target === "wine" && enrichment.grapes_text) {
         const grapes = grapesFromText(enrichment.grapes_text);
         if (grapes.length) {
           setDraft((current) => ({ ...current, grapes: current.grapes.length ? current.grapes : grapes }));
@@ -8272,6 +8277,13 @@ export function App() {
     canGenerateAi &&
     draft.name.trim().length >= 2 &&
     !matchingWineTemplate(draft.name);
+  const showManualWishlistAiSearch =
+    activeView === "wishlist" &&
+    wishlistFormOpen &&
+    !editingWishlistId &&
+    canGenerateAi &&
+    wishlistDraft.name.trim().length >= 2 &&
+    !matchingWineTemplate(wishlistDraft.name);
   const hasAiDraftChanges = Boolean(
     aiSettings &&
     (
@@ -11611,7 +11623,7 @@ export function App() {
                 </label>
                 {showManualWineAiSearch ? (
                   <div className="manual-ai-search">
-                    <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft()}>
+                    <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wine")}>
                       {wineEnrichmentLoading ? t("generating") : t("searchWineDataWithAi")}
                     </button>
                     <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
@@ -11926,6 +11938,14 @@ export function App() {
                   <span>{t("name")}</span>
                   <input list="wine-catalog-suggestions" value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} />
                 </label>
+                {showManualWishlistAiSearch ? (
+                  <div className="manual-ai-search">
+                    <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wishlist")}>
+                      {wineEnrichmentLoading ? t("generating") : t("searchWineDataWithAi")}
+                    </button>
+                    <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
+                  </div>
+                ) : null}
                 <label>
                   <span>{t("producer")}</span>
                   <input value={wishlistDraft.producer} onChange={(event) => setWishlistDraft({ ...wishlistDraft, producer: event.target.value })} disabled={!canWriteWine} />
