@@ -5110,12 +5110,17 @@ textarea {
 
 .key-position-metrics div {
   display: grid;
+  grid-template-rows: minmax(3.6em, auto) auto;
   gap: 7px;
   min-width: 0;
   padding: 13px;
   border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--border));
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.5);
+}
+
+.key-position-metrics div > span {
+  line-height: 1.2;
 }
 
 .key-position-metrics strong {
@@ -5237,6 +5242,7 @@ textarea {
 
   .key-position-metrics div {
     padding: 11px;
+    grid-template-rows: auto auto;
   }
 
   .key-position-nav {
