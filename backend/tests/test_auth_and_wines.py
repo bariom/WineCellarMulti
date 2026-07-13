@@ -18,6 +18,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models import AiAuditLog, Household, Membership, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, UserNotification, Wine
 from app.core.config import settings
+from app.core.rate_limit import rate_limiter
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
 
@@ -38,6 +39,7 @@ def override_get_db():
 
 
 def setup_function():
+    rate_limiter.clear()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     app.dependency_overrides[get_db] = override_get_db
@@ -142,6 +144,69 @@ def test_register_login_session_and_logout():
     assert login.json()["authenticated"] is True
     assert login.json()["locale"] == "en"
     assert login.json()["theme_preference"] == "private-cellar"
+
+
+def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
+    monkeypatch.setattr(settings, "rate_limit_register_attempts", 2)
+    monkeypatch.setattr(settings, "rate_limit_register_window_seconds", 60)
+    client = TestClient(app)
+
+    first = client.post(
+        "/api/v1/auth/register",
+        headers={"X-Forwarded-For": "198.51.100.10"},
+        json={"email": "first@example.com", "display_name": "First", "password": "strong-password-1", "household_name": "First Cellar"},
+    )
+    second = client.post(
+        "/api/v1/auth/register",
+        headers={"X-Forwarded-For": "198.51.100.11"},
+        json={"email": "second@example.com", "display_name": "Second", "password": "strong-password-2", "household_name": "Second Cellar"},
+    )
+    limited = client.post(
+        "/api/v1/auth/register",
+        headers={"X-Forwarded-For": "198.51.100.12"},
+        json={"email": "third@example.com", "display_name": "Third", "password": "strong-password-3", "household_name": "Third Cellar"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert limited.status_code == 429
+    assert int(limited.headers["Retry-After"]) >= 1
+
+
+def test_login_rate_limit_blocks_repeated_account_attempts(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    rate_limiter.clear()
+    monkeypatch.setattr(settings, "rate_limit_login_ip_attempts", 10)
+    monkeypatch.setattr(settings, "rate_limit_login_account_attempts", 2)
+    monkeypatch.setattr(settings, "rate_limit_login_window_seconds", 60)
+
+    payload = {"email": "owner@example.com", "password": "incorrect-password"}
+    assert client.post("/api/v1/auth/login", json=payload).status_code == 401
+    assert client.post("/api/v1/auth/login", json=payload).status_code == 401
+    limited = client.post("/api/v1/auth/login", json=payload)
+
+    assert limited.status_code == 429
+    assert limited.json()["detail"] == "Too many requests. Try again later."
+    assert int(limited.headers["Retry-After"]) >= 1
+
+
+def test_email_verification_and_passkey_options_are_rate_limited(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    rate_limiter.clear()
+    monkeypatch.setattr(settings, "rate_limit_verify_email_attempts", 1)
+    monkeypatch.setattr(settings, "rate_limit_verify_email_window_seconds", 60)
+
+    payload = {"token": "invalid-verification-token"}
+    assert client.post("/api/v1/auth/verify-email", json=payload).status_code == 400
+    assert client.post("/api/v1/auth/verify-email", json=payload).status_code == 429
+
+    rate_limiter.clear()
+    monkeypatch.setattr(settings, "rate_limit_passkey_options_attempts", 1)
+    monkeypatch.setattr(settings, "rate_limit_passkey_window_seconds", 60)
+    assert client.post("/api/v1/auth/passkeys/register/options", json={"name": "Laptop"}).status_code == 200
+    assert client.post("/api/v1/auth/passkeys/register/options", json={"name": "Laptop"}).status_code == 429
 
 
 def test_register_grants_signup_ai_credit():
@@ -531,6 +596,25 @@ def test_contact_support_sends_email_with_optional_context(monkeypatch):
     assert "Authenticated user:" not in str(deliveries[0]["body"])
     assert "Authenticated user: Cellar Owner <owner@example.com>" in str(deliveries[1]["body"])
     assert "Active household: Main Cellar" in str(deliveries[1]["body"])
+
+
+def test_contact_support_is_rate_limited(monkeypatch):
+    from app.api.routes import support as support_routes
+
+    monkeypatch.setattr(support_routes, "send_email", lambda **_kwargs: True)
+    monkeypatch.setattr(settings, "rate_limit_support_attempts", 2)
+    monkeypatch.setattr(settings, "rate_limit_support_window_seconds", 60)
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    rate_limiter.clear()
+    payload = {"email": "guest@example.com", "subject": "Need help", "message": "I need assistance with my cellar."}
+
+    assert client.post("/api/v1/support/contact", json=payload).status_code == 202
+    assert client.post("/api/v1/support/contact", json=payload).status_code == 202
+    limited = client.post("/api/v1/support/contact", json=payload)
+
+    assert limited.status_code == 429
+    assert int(limited.headers["Retry-After"]) >= 1
 
 
 def test_notifications_generate_smart_reminders_without_duplicates():

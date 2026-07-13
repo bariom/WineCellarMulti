@@ -15,6 +15,19 @@ class Settings(BaseSettings):
     email_verification_ttl_hours: int = 48
     registration_requires_approval: bool = True
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
+    rate_limit_enabled: bool = True
+    rate_limit_login_ip_attempts: int = 20
+    rate_limit_login_account_attempts: int = 10
+    rate_limit_login_window_seconds: int = 300
+    rate_limit_register_attempts: int = 5
+    rate_limit_register_window_seconds: int = 3600
+    rate_limit_verify_email_attempts: int = 10
+    rate_limit_verify_email_window_seconds: int = 900
+    rate_limit_passkey_options_attempts: int = 20
+    rate_limit_passkey_verify_attempts: int = 10
+    rate_limit_passkey_window_seconds: int = 300
+    rate_limit_support_attempts: int = 5
+    rate_limit_support_window_seconds: int = 3600
     openai_api_key: str = ""
     openai_responses_url: str = "https://api.openai.com/v1/responses"
     # OPENAI_MODEL and the feature-specific variables remain as compatibility

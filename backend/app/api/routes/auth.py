@@ -28,6 +28,7 @@ from webauthn.helpers.structs import (
 
 from app.api.deps import CurrentContext, active_entitlement_valid_until, build_session_response, get_authenticated_context, get_current_context, require_app_admin_context
 from app.core.config import settings
+from app.core.rate_limit import enforce_rate_limit
 from app.core.crypto import encrypt_secret
 from app.core.security import hash_email_verification_token, hash_password, hash_redeem_code, hash_session_token, new_email_verification_token, new_session_token, verify_password
 from app.db.session import get_db
@@ -461,6 +462,12 @@ def verify_email_token(payload: EmailVerificationRequest, db: Session) -> User:
 
 @router.post("/register", response_model=SessionResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: RegisterRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
+    enforce_rate_limit(
+        request,
+        scope="auth:register:ip",
+        limit=settings.rate_limit_register_attempts,
+        window_seconds=settings.rate_limit_register_window_seconds,
+    )
     email = payload.email.lower()
     existing = db.scalar(select(User).where(User.email == email))
     if existing is not None:
@@ -551,13 +558,32 @@ def verify_email_link(token: str, request: Request) -> RedirectResponse:
 
 
 @router.post("/verify-email")
-def confirm_email(payload: EmailVerificationRequest, db: Session = Depends(get_db)) -> dict[str, str]:
+def confirm_email(payload: EmailVerificationRequest, request: Request, db: Session = Depends(get_db)) -> dict[str, str]:
+    enforce_rate_limit(
+        request,
+        scope="auth:verify-email:ip",
+        limit=settings.rate_limit_verify_email_attempts,
+        window_seconds=settings.rate_limit_verify_email_window_seconds,
+    )
     verify_email_token(payload, db)
     return {"status": "verified"}
 
 
 @router.post("/login", response_model=SessionResponse)
-def login(payload: LoginRequest, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
+def login(payload: LoginRequest, request: Request, response: Response, db: Session = Depends(get_db)) -> SessionResponse:
+    enforce_rate_limit(
+        request,
+        scope="auth:login:ip",
+        limit=settings.rate_limit_login_ip_attempts,
+        window_seconds=settings.rate_limit_login_window_seconds,
+    )
+    enforce_rate_limit(
+        request,
+        scope="auth:login:account",
+        limit=settings.rate_limit_login_account_attempts,
+        window_seconds=settings.rate_limit_login_window_seconds,
+        subject=payload.email,
+    )
     user = db.scalar(select(User).where(User.email == payload.email.lower()))
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
@@ -615,6 +641,13 @@ def passkey_registration_options(
     context: CurrentContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> dict:
+    enforce_rate_limit(
+        request,
+        scope="auth:passkey-register:options",
+        limit=settings.rate_limit_passkey_options_attempts,
+        window_seconds=settings.rate_limit_passkey_window_seconds,
+        subject=str(context.user.id),
+    )
     existing = list(db.scalars(select(UserPasskey).where(UserPasskey.user_id == context.user.id)))
     options = generate_registration_options(
         rp_id=request_rp_id(request),
@@ -639,6 +672,13 @@ def verify_passkey_registration(
     context: CurrentContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> PasskeyResponse:
+    enforce_rate_limit(
+        request,
+        scope="auth:passkey-register:verify",
+        limit=settings.rate_limit_passkey_verify_attempts,
+        window_seconds=settings.rate_limit_passkey_window_seconds,
+        subject=str(context.user.id),
+    )
     expected_challenge = consume_passkey_challenge(db, credential_client_challenge(payload.credential), "registration", context.user)
     verified = verify_registration_response(
         credential=payload.credential,
@@ -666,6 +706,12 @@ def verify_passkey_registration(
 
 @router.post("/passkeys/login/options")
 def passkey_login_options(request: Request, db: Session = Depends(get_db)) -> dict:
+    enforce_rate_limit(
+        request,
+        scope="auth:passkey-login:options",
+        limit=settings.rate_limit_passkey_options_attempts,
+        window_seconds=settings.rate_limit_passkey_window_seconds,
+    )
     options = generate_authentication_options(
         rp_id=request_rp_id(request),
         user_verification=UserVerificationRequirement.PREFERRED,
@@ -681,6 +727,12 @@ def verify_passkey_login(
     response: Response,
     db: Session = Depends(get_db),
 ) -> SessionResponse:
+    enforce_rate_limit(
+        request,
+        scope="auth:passkey-login:verify",
+        limit=settings.rate_limit_passkey_verify_attempts,
+        window_seconds=settings.rate_limit_passkey_window_seconds,
+    )
     credential_id = str(payload.credential.get("id") or payload.credential.get("rawId") or "")
     passkey = db.scalar(select(UserPasskey).where(UserPasskey.credential_id == credential_id))
     if passkey is None:
