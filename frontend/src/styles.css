@@ -1411,7 +1411,7 @@ summary:focus-visible {
 
 .view-tabs button:not(.secondary) .app-icon--navigation,
 .view-tabs button:not(.secondary) .app-icon--ai {
-  color: var(--primary-contrast);
+  color: var(--primary);
 }
 
 .app-icon-spark,
