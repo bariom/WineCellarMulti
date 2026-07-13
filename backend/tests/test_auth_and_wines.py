@@ -7,8 +7,9 @@ from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from urllib.parse import parse_qs
 
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -855,6 +856,7 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    starting_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
     response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "Dogaia di Brivio", "source": "manual"})
     assert response.status_code == 200
     assert response.json()["name"] == "Dogaia"
@@ -863,7 +865,7 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert Decimal(billing.json()["ai_credit_balance_usd"]) < Decimal("5.000000")
+    assert Decimal(billing.json()["ai_credit_balance_usd"]) < starting_balance
 
 
 def test_app_admin_can_create_and_user_can_redeem_code():
@@ -1940,7 +1942,81 @@ def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "4.996400"
+    assert billing.json()["ai_credit_balance_usd"] == "5.496400"
+    with TestingSessionLocal() as db:
+        entries = list(db.scalars(select(UserAiCreditTransaction).where(UserAiCreditTransaction.user_id == uuid.UUID(session["user_id"]))))
+        assert any(entry.source == "usage_reservation" and entry.amount_usd < 0 for entry in entries)
+        assert any(entry.source == "usage_refund" and entry.amount_usd > 0 for entry in entries)
+
+
+def test_ai_pack_rejects_request_before_provider_when_balance_cannot_cover_minimum(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    session = client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        current_user = db.get(User, uuid.UUID(session["user_id"]))
+        assert current_user is not None
+        current_user.is_app_admin = False
+        db.add(
+            UserEntitlement(
+                user_id=current_user.id,
+                source="test",
+                valid_from=datetime.now(timezone.utc),
+                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+            )
+        )
+        db.add(
+            UserAiCreditTransaction(
+                user_id=current_user.id,
+                amount_usd=Decimal("-0.499500"),
+                source="test_adjustment",
+                note="Leave less than the minimum safe request budget",
+            )
+        )
+        db.commit()
+
+    created = client.post("/api/v1/wines", json={"name": "Budget Guard Wine", "quantity": 1})
+    assert created.status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+
+    provider_called = False
+
+    def fake_create_response(*args, **kwargs):
+        nonlocal provider_called
+        provider_called = True
+        raise AssertionError("provider must not be called without a safe reservation")
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
+
+    assert generated.status_code == 402
+    assert provider_called is False
+    billing = client.get("/api/v1/billing/status")
+    assert billing.json()["ai_credit_balance_usd"] == "0.000500"
+
+
+def test_ai_pack_refunds_reservation_when_provider_fails(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post("/api/v1/wines", json={"name": "Refund Wine", "quantity": 1})
+    assert created.status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+    starting_balance = client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
+
+    def fake_create_response(*args, **kwargs):
+        raise HTTPException(status_code=502, detail="Provider unavailable")
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
+
+    assert generated.status_code == 502
+    assert client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"] == starting_balance
 
 
 def test_ai_pack_usage_keeps_base_cost_for_app_admin(monkeypatch):
@@ -1986,7 +2062,7 @@ def test_ai_pack_usage_keeps_base_cost_for_app_admin(monkeypatch):
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "4.997000"
+    assert billing.json()["ai_credit_balance_usd"] == "5.497000"
 
 
 def test_wishlist_ai_features_are_separate(monkeypatch):

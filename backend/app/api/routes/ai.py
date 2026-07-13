@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from decimal import Decimal, InvalidOperation
+from dataclasses import replace
+from decimal import Decimal, InvalidOperation, ROUND_FLOOR
+import math
 import re
 from typing import Any
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -17,7 +19,7 @@ from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import AiAuditLog, UserAiSettings, Wine, WishlistItem
+from app.models import AiAuditLog, User, UserAiCreditTransaction, UserAiSettings, Wine, WishlistItem
 from app.schemas.ai import (
     AiGenerationRequest,
     AiAuditLogResponse,
@@ -46,6 +48,7 @@ from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
 from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
+from app.services.ai_models import parameters_for_model
 from app.api.routes.billing import stripe_ai_credit_amount
 
 
@@ -201,7 +204,7 @@ def clip_summary(value: str, limit: int = 900) -> str:
     return text[:limit]
 
 
-def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
+def pricing_for_model(model: str) -> dict[str, Decimal]:
     # The Responses API/dashboard may expose a dated snapshot even when the
     # request used an alias (for example gpt-5.5-2026-04-23). Price snapshots
     # with the same published base-model rate instead of silently returning 0.
@@ -211,7 +214,23 @@ def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
         if matching_models:
             pricing = MODEL_PRICING_USD_PER_MILLION_TOKENS[max(matching_models, key=len)]
     if pricing is None:
-        return Decimal("0.000000")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AI pricing is not configured for model {model}",
+        )
+    return pricing
+
+
+def reservation_pricing_model(model: str) -> str:
+    candidates = [model]
+    if model.startswith("gpt-5.6"):
+        candidates.append(settings.openai_fallback_model)
+    priced_candidates = [(candidate, pricing_for_model(candidate)) for candidate in candidates]
+    return max(priced_candidates, key=lambda item: item[1]["input"] + item[1]["output"])[0]
+
+
+def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
+    pricing = pricing_for_model(model)
     uncached_input_tokens = max(usage.input_tokens - usage.cached_input_tokens, 0)
     cost = (
         Decimal(uncached_input_tokens) * pricing["input"]
@@ -233,6 +252,148 @@ def web_search_tool_cost_usd(call_count: int) -> Decimal:
     if unit_cost < Decimal("0"):
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenAI web search cost configuration is invalid")
     return quantize_usd(unit_cost * Decimal(max(call_count, 0)))
+
+
+def maximum_billable_cost_usd(
+    *,
+    user_is_app_admin: bool,
+    provider_source: str,
+    model: str,
+    input_tokens: int,
+    output_tokens: int,
+    web_search_calls: int,
+) -> Decimal:
+    usage = TokenUsage(
+        input_tokens=max(input_tokens, 0),
+        output_tokens=max(output_tokens, 0),
+        total_tokens=max(input_tokens, 0) + max(output_tokens, 0),
+    )
+    return billable_cost_usd(
+        user_is_app_admin=user_is_app_admin,
+        provider_source=provider_source,
+        model=model,
+        usage=usage,
+        extra_cost_usd=web_search_tool_cost_usd(web_search_calls),
+    )
+
+
+def reserve_ai_credits(
+    db: Session,
+    context: CurrentContext,
+    *,
+    model: str,
+    system_prompt: str,
+    user_prompt: str,
+    json_schema: dict[str, Any] | None,
+    max_output_tokens: int,
+    web_search: bool,
+    max_tool_calls: int,
+) -> tuple[UUID, Decimal, int]:
+    # Lock the user as the synchronization point for this append-only ledger.
+    # Every AI reservation is committed before contacting the provider, so two
+    # concurrent requests cannot authorize themselves against the same funds.
+    db.scalar(select(User).where(User.id == context.user.id).with_for_update())
+    balance = ai_credit_balance(db, context.user)
+    if balance <= ZERO_USD:
+        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted")
+
+    schema_size = len(str(json_schema or {}))
+    prompt_token_budget = max(math.ceil((len(system_prompt) + len(user_prompt) + schema_size) / 2), 2048)
+    if web_search:
+        # Search result context is provider-controlled. Keep a conservative
+        # allowance in addition to the separately billed tool calls.
+        prompt_token_budget += 32768
+
+    desired_cost = maximum_billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source="credits",
+        model=model,
+        input_tokens=prompt_token_budget,
+        output_tokens=max_output_tokens,
+        web_search_calls=max_tool_calls if web_search else 0,
+    )
+    effective_max_output_tokens = max_output_tokens
+    reserved_cost = desired_cost
+
+    if desired_cost > balance:
+        pricing = pricing_for_model(model)
+        markup_multiplier = Decimal("1") if context.user.is_app_admin else Decimal("1") + (ai_pack_markup_percent() / Decimal("100"))
+        fixed_cost = maximum_billable_cost_usd(
+            user_is_app_admin=context.user.is_app_admin,
+            provider_source="credits",
+            model=model,
+            input_tokens=prompt_token_budget,
+            output_tokens=0,
+            web_search_calls=max_tool_calls if web_search else 0,
+        )
+        available_for_output = balance - fixed_cost
+        if available_for_output <= ZERO_USD:
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient AI credits for this request")
+        affordable_output_tokens = int(
+            ((available_for_output * Decimal("1000000")) / (pricing["output"] * markup_multiplier)).to_integral_value(rounding=ROUND_FLOOR)
+        )
+        effective_max_output_tokens = min(max_output_tokens, affordable_output_tokens)
+        if effective_max_output_tokens < 512:
+            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient AI credits for this request")
+        reserved_cost = maximum_billable_cost_usd(
+            user_is_app_admin=context.user.is_app_admin,
+            provider_source="credits",
+            model=model,
+            input_tokens=prompt_token_budget,
+            output_tokens=effective_max_output_tokens,
+            web_search_calls=max_tool_calls if web_search else 0,
+        )
+
+    reservation_id = uuid4()
+    create_ai_credit_transaction(
+        db,
+        context.user,
+        amount_usd=-reserved_cost,
+        source="usage_reservation",
+        source_id=reservation_id,
+        note=f"Reserved {model} usage for {context.household.name}",
+    )
+    db.commit()
+    return reservation_id, reserved_cost, effective_max_output_tokens
+
+
+def reconcile_ai_credit_reservation(
+    db: Session,
+    context: CurrentContext,
+    *,
+    reservation_id: UUID,
+    reserved_cost: Decimal,
+    actual_cost: Decimal,
+    model: str,
+) -> None:
+    if actual_cost > reserved_cost:
+        # This should be unreachable because the reservation includes a large
+        # input allowance and the provider receives the affordable output cap.
+        # Refuse to create a negative balance instead of silently overbilling.
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI usage exceeded its reserved budget")
+    refund = quantize_usd(reserved_cost - actual_cost)
+    if refund > ZERO_USD:
+        create_ai_credit_transaction(
+            db,
+            context.user,
+            amount_usd=refund,
+            source="usage_refund",
+            source_id=reservation_id,
+            note=f"Unused {model} AI reservation",
+        )
+    db.commit()
+
+
+def cancel_ai_credit_reservation(db: Session, context: CurrentContext, *, reservation_id: UUID, reserved_cost: Decimal, model: str) -> None:
+    create_ai_credit_transaction(
+        db,
+        context.user,
+        amount_usd=reserved_cost,
+        source="usage_refund",
+        source_id=reservation_id,
+        note=f"Cancelled {model} AI reservation",
+    )
+    db.commit()
 
 
 def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage, extra_cost_usd: Decimal = Decimal("0")) -> Decimal:
@@ -290,7 +451,6 @@ def create_ai_response(
     reasoning_effort: str | None = None,
     max_output_tokens: int | None = None,
     max_tool_calls: int | None = None,
-    charge_immediately: bool = True,
     task_type: str = "sommelier",
     complexity: str | None = None,
 ) -> tuple[Any, str]:
@@ -300,58 +460,71 @@ def create_ai_response(
     requested_model = model
     if requested_model and requested_model not in available_model_options():
         requested_model = ""
-    response = create_response(
-        requested_model,
-        system_prompt,
-        user_prompt,
-        api_key=api_key,
-        json_schema=json_schema,
-        web_search=web_search,
-        web_search_use_default_location=web_search_use_default_location,
-        web_search_context_size=web_search_context_size,
-        reasoning_effort=reasoning_effort,
-        max_output_tokens=max_output_tokens,
-        max_tool_calls=max_tool_calls,
-        task_type=task_type,
-        complexity=complexity,
-    )
-    if charge_immediately:
-        charge_ai_usage(
+    effective_tool_limit = max_tool_calls if max_tool_calls is not None else (4 if web_search else 0)
+    configured_limit = max_output_tokens if max_output_tokens is not None else parameters_for_model(requested_model or model).max_output_tokens
+    effective_output_limit = min(max(int(configured_limit or 32768), 1), 32768)
+    reservation_id: UUID | None = None
+    reserved_cost = ZERO_USD
+    if provider_source == "credits":
+        reservation_model = reservation_pricing_model(requested_model or model)
+        reservation_id, reserved_cost, effective_output_limit = reserve_ai_credits(
             db,
             context,
-            provider_source,
+            model=reservation_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            json_schema=json_schema,
+            max_output_tokens=effective_output_limit,
+            web_search=web_search,
+            max_tool_calls=effective_tool_limit,
+        )
+    try:
+        response = create_response(
+            requested_model,
+            system_prompt,
+            user_prompt,
+            api_key=api_key,
+            json_schema=json_schema,
+            web_search=web_search,
+            web_search_use_default_location=web_search_use_default_location,
+            web_search_context_size=web_search_context_size,
+            reasoning_effort=reasoning_effort,
+            max_output_tokens=effective_output_limit,
+            max_tool_calls=effective_tool_limit or None,
+            task_type=task_type,
+            complexity=complexity,
+        )
+        actual_cost = billable_cost_usd(
+            user_is_app_admin=context.user.is_app_admin,
+            provider_source=provider_source,
             model=response.model or model,
             usage=response.usage,
             extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
         )
+        if reservation_id is not None:
+            reconcile_ai_credit_reservation(
+                db,
+                context,
+                reservation_id=reservation_id,
+                reserved_cost=reserved_cost,
+                actual_cost=actual_cost,
+                model=response.model or model,
+            )
+        response = replace(response, charged_cost_usd=actual_cost)
+    except Exception:
+        if reservation_id is not None:
+            # Reconcile only if the normal success path did not already commit
+            # the refund; a committed reservation has a positive refund row.
+            refund_exists = db.scalar(
+                select(UserAiCreditTransaction).where(
+                    UserAiCreditTransaction.source_id == reservation_id,
+                    UserAiCreditTransaction.source == "usage_refund",
+                )
+            )
+            if refund_exists is None:
+                cancel_ai_credit_reservation(db, context, reservation_id=reservation_id, reserved_cost=reserved_cost, model=requested_model or model)
+        raise
     return response, provider_source
-
-
-def charge_ai_usage(
-    db: Session,
-    context: CurrentContext,
-    provider_source: str,
-    *,
-    model: str,
-    usage: TokenUsage,
-    extra_cost_usd: Decimal = Decimal("0"),
-) -> Decimal:
-    cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
-        provider_source=provider_source,
-        model=model,
-        usage=usage,
-        extra_cost_usd=extra_cost_usd,
-    )
-    if provider_source == "credits":
-        create_ai_credit_transaction(
-            db,
-            context.user,
-            amount_usd=-cost,
-            source="usage",
-            note=f"{model} tokens for {context.household.name}",
-        )
-    return cost
 
 
 def record_ai_audit(
@@ -1239,21 +1412,13 @@ def suggest_buying_advice(
         reasoning_effort="low",
         max_output_tokens=6000,
         max_tool_calls=4,
-        charge_immediately=False,
     )
     parsed = parse_json_response(response.text)
     verified_urls = {str(source.get("url") or "").strip() for source in response.web_sources}
     recommendations = clean_buying_recommendations(parsed, verified_urls, payload.min_price_chf, payload.max_price_chf)
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     effective_model = effective_response_model(response, user_settings.pairing_model)
-    charged_cost = charge_ai_usage(
-        db,
-        context,
-        provider_source,
-        model=effective_model,
-        usage=response.usage,
-        extra_cost_usd=extra_cost,
-    )
+    charged_cost = response.charged_cost_usd
     sources = [
         {
             "kind": "market_source",
@@ -1523,7 +1688,6 @@ def generate_wine_value(
         ),
         json_schema=schema,
         web_search=True,
-        charge_immediately=False,
     )
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     result = parse_json_response(response.text)
@@ -1535,14 +1699,6 @@ def generate_wine_value(
     market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
     if not market_sources:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
-    charge_ai_usage(
-        db,
-        context,
-        provider_source,
-        model=effective_response_model(response, user_settings.value_model),
-        usage=response.usage,
-        extra_cost_usd=extra_cost,
-    )
     wine.current_value = max(value, Decimal("0"))
     wine.currency = result_currency
     wine.ai_value_notes = str(result["notes"])[:2000]
@@ -1930,7 +2086,6 @@ def generate_wishlist_target_price(
         ),
         json_schema=schema,
         web_search=True,
-        charge_immediately=False,
     )
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     result = parse_json_response(response.text)
@@ -1942,14 +2097,6 @@ def generate_wishlist_target_price(
     market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
     if not market_sources:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
-    charge_ai_usage(
-        db,
-        context,
-        provider_source,
-        model=effective_response_model(response, user_settings.value_model),
-        usage=response.usage,
-        extra_cost_usd=extra_cost,
-    )
     item.ai_market_price = max(market_price, Decimal("0"))
     item.ai_market_price_currency = result_currency
     item.status = str(result["recommended_status"] or item.status)[:32]

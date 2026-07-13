@@ -3,6 +3,7 @@ from __future__ import annotations
 from io import BytesIO
 import json
 import logging
+from decimal import Decimal
 from types import SimpleNamespace
 import urllib.error
 from uuid import uuid4
@@ -11,7 +12,7 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates, wine_market_context, wishlist_advice_context, wishlist_market_context
+from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates, web_search_tool_cost_usd, wine_market_context, wishlist_advice_context, wishlist_market_context
 from app.services.ai_models import parameters_for_model, select_ai_model
 from app.services.openai_client import TokenUsage, create_response, response_body
 
@@ -92,6 +93,7 @@ def test_gpt56_flag_migrates_saved_feature_models(monkeypatch: pytest.MonkeyPatc
         drink_window_model="gpt-5.4",
         value_model="gpt-5.4-mini",
         grape_model="gpt-5.4-nano",
+        score_model="gpt-5.4-mini",
         wishlist_model="gpt-5.4",
         pairing_model="gpt-5.4",
     )
@@ -148,7 +150,20 @@ def test_output_limit_cannot_be_disabled_or_raised_above_safety_ceiling(monkeypa
 
 def test_gpt55_snapshot_cost_uses_official_base_model_pricing():
     usage = TokenUsage(input_tokens=9348, output_tokens=128000, total_tokens=137348)
-    assert estimate_cost_usd("gpt-5.5-2026-04-23", usage) == pytest.approx(3.886740)
+    assert estimate_cost_usd("gpt-5.5-2026-04-23", usage) == Decimal("3.886740")
+
+
+def test_unknown_model_cost_fails_closed():
+    with pytest.raises(HTTPException) as exc_info:
+        estimate_cost_usd("gpt-future-unpriced", TokenUsage(input_tokens=1000, output_tokens=1000, total_tokens=2000))
+
+    assert exc_info.value.status_code == 503
+    assert "pricing is not configured" in exc_info.value.detail
+
+
+def test_web_search_has_non_zero_default_cost(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "openai_web_search_tool_cost_usd", "0.01")
+    assert web_search_tool_cost_usd(3) == Decimal("0.030000")
 
 
 def test_pairing_candidates_are_compact_diverse_and_limited_to_25():

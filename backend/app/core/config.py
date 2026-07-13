@@ -45,7 +45,7 @@ class Settings(BaseSettings):
     openai_advanced_max_output_tokens: int = 32768
     openai_timeout_seconds: float = 60.0
     openai_max_retries: int = 0
-    openai_web_search_tool_cost_usd: str = "0"
+    openai_web_search_tool_cost_usd: str = "0.01"
     api4ai_wine_recognition_url: str = "https://api4ai.cloud/wine-rec/v1/results"
     api4ai_api_key: str = ""
     stripe_secret_key: str = ""

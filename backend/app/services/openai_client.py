@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 import json
 import logging
 import time
@@ -43,6 +44,7 @@ class OpenAIResponse:
     fallback_occurred: bool = False
     fallback_reason: str = ""
     request_id: str = ""
+    charged_cost_usd: Decimal = Decimal("0.000000")
 
 
 @dataclass(frozen=True)
