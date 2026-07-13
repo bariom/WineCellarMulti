@@ -1,4 +1,5 @@
 import { FormEvent } from "react";
+import { FeatureIcon } from "../components/AppIcon";
 
 type WineLike = {
   id: string;
@@ -398,7 +399,7 @@ export default function PairingView({
         <aside className="pairing-sidekick" aria-hidden={isMobileViewport}>
           <div className="pairing-sidekick-card">
             <div className="pairing-sidekick-heading">
-              <span>{locale === "it" ? "Sommelier AI" : "AI Sommelier"}</span>
+              <span className="pairing-ai-label"><FeatureIcon name="glass-sparkle" variant="ai" tone="ai" />{locale === "it" ? "Sommelier AI" : "AI Sommelier"}</span>
               <strong>{locale === "it" ? "Il tuo sommelier AI integrato" : "Your integrated AI sommelier"}</strong>
             </div>
             <div className="pairing-sidekick-illustration">

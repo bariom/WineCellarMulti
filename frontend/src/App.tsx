@@ -10832,21 +10832,27 @@ export function App() {
           {!needsRedeem ? (
           <div className="view-tabs">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
+              <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
               {t("home")}
             </button>
             <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}>
+              <AppIcon name="cellar" variant="navigation" detailLevel="rich" />
               {t("cellar")} ({cellarWines.length})
             </button>
             <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { setActiveView("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
+              <AppIcon name="calendar" variant="navigation" />
               {t("history")}
             </button>
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
+              <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
+              <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
             </button>
             <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
+              <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
           </div>

@@ -19,6 +19,12 @@
   --danger-surface: #fff0f2;
   --success-surface: #eef5f0;
   --accent: #c2ac66;
+  --icon-primary: var(--primary);
+  --icon-secondary: color-mix(in srgb, var(--primary) 64%, var(--accent));
+  --icon-accent: var(--accent);
+  --icon-muted: var(--text-muted);
+  --icon-ai: #8f4b8f;
+  --icon-surface: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
   --drink-young: #d9b64b;
   --drink-ideal: #2f8f64;
   --drink-past: #c95866;
@@ -72,6 +78,12 @@
   --danger-surface: #321820;
   --success-surface: #172820;
   --accent: #d7bd6d;
+  --icon-primary: var(--primary);
+  --icon-secondary: color-mix(in srgb, var(--primary) 58%, var(--accent));
+  --icon-accent: var(--accent);
+  --icon-muted: var(--text-muted);
+  --icon-ai: #d79ad7;
+  --icon-surface: color-mix(in srgb, var(--accent) 13%, var(--surface-raised));
   --drink-young: #d7bd6d;
   --drink-ideal: #6bc29f;
   --drink-past: #d45a6e;
@@ -1354,6 +1366,64 @@ summary:focus-visible {
   border-radius: 12px;
   overflow: hidden;
 }
+
+.app-icon {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 1.15em;
+  height: 1.15em;
+  color: var(--icon-primary);
+  line-height: 1;
+}
+
+.app-icon > svg:first-child {
+  width: 100%;
+  height: 100%;
+}
+
+.app-icon--muted { color: var(--icon-muted); }
+.app-icon--accent, .app-icon--premium { color: var(--icon-accent); }
+.app-icon--success { color: var(--drink-ideal); }
+.app-icon--warning { color: var(--drink-young); }
+.app-icon--danger { color: var(--danger); }
+.app-icon--ai { color: var(--icon-ai); }
+
+.app-icon.has-background {
+  width: 2.7em;
+  height: 2.7em;
+  padding: 0.58em;
+  border: 1px solid color-mix(in srgb, currentColor 28%, var(--border));
+  border-radius: 35% 45% 38% 46%;
+  background:
+    radial-gradient(circle at 28% 20%, color-mix(in srgb, white 54%, transparent), transparent 30%),
+    var(--icon-surface);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 62%, transparent), 0 7px 16px color-mix(in srgb, currentColor 12%, transparent);
+}
+
+.app-icon--navigation {
+  width: 1.2em;
+  height: 1.2em;
+  margin-right: 6px;
+  color: var(--icon-secondary);
+}
+
+.view-tabs button:not(.secondary) .app-icon--navigation,
+.view-tabs button:not(.secondary) .app-icon--ai {
+  color: var(--primary-contrast);
+}
+
+.app-icon-spark,
+.app-icon-scan {
+  position: absolute;
+  right: -0.18em;
+  top: -0.12em;
+  color: var(--icon-accent);
+  filter: drop-shadow(0 1px 2px color-mix(in srgb, var(--accent) 36%, transparent));
+}
+
+.app-icon-scan { right: -0.14em; top: 0.18em; color: var(--icon-ai); }
 
 .view-tabs .beta-nav-icon {
   display: inline-flex;
@@ -5700,6 +5770,17 @@ textarea {
   font-size: 1.6rem;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+.pairing-sidekick-heading .pairing-ai-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--icon-ai);
+}
+
+.pairing-ai-label .app-icon {
+  font-size: 0.88rem;
 }
 
 .buying-advice-card {
