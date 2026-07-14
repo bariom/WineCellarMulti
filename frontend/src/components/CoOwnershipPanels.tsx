@@ -130,12 +130,17 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           <div className="ownership-editor">
             <strong>{locale === "it" ? "Partecipanti" : "Participants"} · {total.toLocaleString(locale, { maximumFractionDigits: 6 })}%</strong>
             {participants.map((participant, index) => (
-              <div className="ownership-edit-row" key={index}>
-                <input required value={participant.name} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} placeholder={locale === "it" ? "Nome" : "Name"} />
-                <input required type="email" value={participant.email} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item))} placeholder="Email" />
-                <input required type="number" min="0.000001" max="100" step="0.000001" value={participant.share_pct} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, share_pct: event.target.value } : item))} placeholder="%" />
-                <input type="number" min="0" step="0.01" value={participant.contribution} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, contribution: event.target.value } : item))} placeholder={locale === "it" ? "Contributo" : "Contribution"} />
-                <button type="button" className="danger compact" onClick={() => setParticipants(participants.filter((_, itemIndex) => itemIndex !== index))}>×</button>
+              <div className="coownership-participant-editor" key={index}>
+                <div className="coownership-participant-heading">
+                  <strong>{locale === "it" ? `Partecipante ${index + 1}` : `Participant ${index + 1}`}</strong>
+                  <button type="button" className="danger compact" disabled={participants.length <= 2} onClick={() => setParticipants(participants.filter((_, itemIndex) => itemIndex !== index))}>{locale === "it" ? "Rimuovi" : "Remove"}</button>
+                </div>
+                <div className="ownership-edit-row">
+                  <label><span>{locale === "it" ? "Nome" : "Name"}</span><input required value={participant.name} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item))} /></label>
+                  <label><span>Email</span><input required type="email" value={participant.email} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item))} /></label>
+                  <label><span>{locale === "it" ? "Quota (%)" : "Share (%)"}</span><input required type="number" min="0.000001" max="100" step="0.000001" value={participant.share_pct} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, share_pct: event.target.value } : item))} /></label>
+                  <label><span>{locale === "it" ? "Contributo" : "Contribution"}</span><input type="number" min="0" step="0.01" value={participant.contribution} onChange={(event) => setParticipants(participants.map((item, itemIndex) => itemIndex === index ? { ...item, contribution: event.target.value } : item))} /></label>
+                </div>
               </div>
             ))}
             <button type="button" className="secondary compact" onClick={() => setParticipants([...participants, { name: "", email: "", share_pct: "", contribution: "" }])}>+ {locale === "it" ? "Partecipante" : "Participant"}</button>

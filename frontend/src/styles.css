@@ -3891,8 +3891,43 @@ textarea {
 
 .ownership-edit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) 92px auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(100px, 0.65fr) minmax(120px, 0.8fr);
   gap: 8px;
+}
+
+.coownership-participant-editor {
+  display: grid;
+  gap: 9px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface) 88%, var(--surface-muted));
+}
+
+.coownership-participant-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.coownership-participant-heading > strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+.ownership-edit-row label {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.ownership-edit-row label > span {
+  color: var(--text-soft);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .score-edit-row {
@@ -14597,6 +14632,29 @@ tbody tr:hover {
   .coownership-workspace > .share-panel,
   .coownership-workspace > .coownership-panel {
     border-radius: 10px;
+  }
+
+  .coownership-panel > .wine-form {
+    padding: 14px;
+    border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent));
+    border-radius: 12px;
+    background: var(--surface);
+    box-shadow: none;
+  }
+
+  .ownership-edit-row {
+    grid-template-columns: 1fr;
+    gap: 9px;
+  }
+
+  .coownership-participant-editor {
+    padding: 11px;
+    border-radius: 10px;
+  }
+
+  .coownership-participant-heading .danger {
+    min-height: 30px;
+    padding: 5px 8px;
   }
 
 }
