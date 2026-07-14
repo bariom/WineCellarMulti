@@ -126,8 +126,9 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
         </div>
       ))}
       {canWrite && !blockingAgreement ? (
-        <form className="wine-form no-print" onSubmit={submit}>
-          <h3>{locale === "it" ? "Crea una nuova versione" : "Create a new version"}</h3>
+        <details className="coownership-create-version no-print">
+          <summary>{locale === "it" ? "Crea una nuova versione" : "Create a new version"}</summary>
+          <form className="wine-form" onSubmit={submit}>
           <p className="coownership-form-help">{locale === "it" ? "Definisci quote, custodia e regole condivise per questa posizione." : "Define the shares, custody, and shared rules for this position."}</p>
           <label><span>{locale === "it" ? "Tipo di comproprietà" : "Ownership type"}</span><select value={ownershipMode} onChange={(event) => setOwnershipMode(event.target.value as "undivided" | "allocated")}><option value="undivided">{locale === "it" ? "Quota indivisa sul lotto" : "Undivided lot share"}</option><option value="allocated">{locale === "it" ? "Bottiglie assegnate" : "Allocated bottles"}</option></select></label>
           <label><span>{locale === "it" ? "Luogo di custodia" : "Custody location"}</span><input value={custodyLocation} onChange={(event) => setCustodyLocation(event.target.value)} /></label>
@@ -152,7 +153,8 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           </div>
           <label className="detail-toggle-row"><input type="checkbox" checked={emailRegisteredUsers} onChange={(event) => setEmailRegisteredUsers(event.target.checked)} /><span>{locale === "it" ? "Invia email anche agli utenti Vinaris (riceveranno comunque una notifica)" : "Email Vinaris users too (they always receive an in-app notification)"}</span></label>
           <button type="submit" disabled={saving || participants.length < 2 || Math.abs(total - 100) > 0.000001}>{saving ? "…" : locale === "it" ? "Crea e invia accordo" : "Create and send agreement"}</button>
-        </form>
+          </form>
+        </details>
       ) : blockingAgreement ? <p className="empty-state">{blockingAgreement.status === "invalidated" || blockingAgreement.status === "declined" ? (locale === "it" ? "Questa proposta è stata rifiutata. L'iniziatore può cancellarla prima di crearne una nuova versione." : "This proposal was rejected. Its initiator can delete it before a new version is created.") : (locale === "it" ? "È già presente una proposta in attesa di risposta." : "A proposal is already awaiting responses.")}</p> : null}
     </details>
   );

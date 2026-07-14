@@ -863,6 +863,12 @@ export function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const errorBannerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timeout = window.setTimeout(() => setNotice(""), 5000);
+    return () => window.clearTimeout(timeout);
+  }, [notice]);
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
@@ -5408,10 +5414,10 @@ export function App() {
       ) : null}
 
       {notice ? (
-        <div className="invite-notice app-notice-banner" role="status" aria-live="polite">
+        <div className="invite-notice app-notice-toast" role="status" aria-live="polite">
           <span>{notice}</span>
-          <button type="button" className="secondary compact" onClick={() => setNotice("")}>
-            {t("close")}
+          <button type="button" className="secondary compact app-notice-close" aria-label={t("close")} title={t("close")} onClick={() => setNotice("")}>
+            ×
           </button>
         </div>
       ) : null}

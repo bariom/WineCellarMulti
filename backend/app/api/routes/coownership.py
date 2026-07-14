@@ -15,7 +15,7 @@ from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.rate_limit import enforce_rate_limit
 from app.core.security import hash_coownership_invite_token, new_coownership_invite_token
 from app.db.session import get_db
-from app.models import CoOwnershipAgreement, CoOwnershipParticipant, User, Wine
+from app.models import CoOwnershipAgreement, CoOwnershipParticipant, User, Wine, WineShareOffer
 from app.schemas.coownership import CoOwnershipAgreementCreate, CoOwnershipAgreementResponse, CoOwnershipParticipantResponse, CoOwnershipResponseRequest
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
@@ -146,8 +146,21 @@ def invitation_body(agreement: CoOwnershipAgreement, wine: Wine, participant: Co
 
 @router.get("/wines/{wine_id}", response_model=list[CoOwnershipAgreementResponse])
 def list_wine_agreements(wine_id: UUID, request: Request, db: Session = Depends(get_db), context: CurrentContext = Depends(get_current_context)) -> list[CoOwnershipAgreementResponse]:
-    get_household_wine(db, context, wine_id)
-    agreements = db.scalars(select(CoOwnershipAgreement).where(CoOwnershipAgreement.wine_id == wine_id).order_by(CoOwnershipAgreement.created_at.desc()))
+    wine = get_household_wine(db, context, wine_id)
+    source_wine_ids = list(
+        db.scalars(
+            select(WineShareOffer.wine_id).where(
+                WineShareOffer.recipient_wine_id == wine.id,
+                WineShareOffer.status.in_(("accepted", "revocation_pending")),
+            ),
+        ),
+    )
+    agreement_wine_ids = [wine.id, *source_wine_ids]
+    agreements = db.scalars(
+        select(CoOwnershipAgreement)
+        .where(CoOwnershipAgreement.wine_id.in_(agreement_wine_ids))
+        .order_by(CoOwnershipAgreement.created_at.desc()),
+    )
     return [agreement_response(db, agreement, request, expose_links=agreement.created_by_user_id == context.user.id) for agreement in agreements]
 
 

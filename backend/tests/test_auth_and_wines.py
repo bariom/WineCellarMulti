@@ -1756,6 +1756,19 @@ def test_invite_acceptance_and_viewer_permissions():
     assert personal_list.status_code == 200
     assert [wine["name"] for wine in personal_list.json()] == ["Shared Wine"]
     assert personal_list.json()[0]["quantity"] == 5
+    agreement_created_after_share = owner.post(
+        f"/api/v1/co-ownership-agreements/wines/{owner_wine_id}",
+        json={
+            "participants": [
+                {"name": "Cellar Owner", "email": "owner@example.com", "share_pct": 50},
+                {"name": "Viewer", "email": "viewer@example.com", "share_pct": 50},
+            ],
+        },
+    )
+    assert agreement_created_after_share.status_code == 201
+    recipient_agreements = member.get(f"/api/v1/co-ownership-agreements/wines/{accepted_offer.json()['id']}")
+    assert recipient_agreements.status_code == 200
+    assert [item["id"] for item in recipient_agreements.json()] == [agreement_created_after_share.json()["id"]]
     accepted_outgoing = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offers")
     assert accepted_outgoing.status_code == 200
     assert accepted_outgoing.json()[0]["status"] == "accepted"

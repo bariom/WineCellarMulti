@@ -3315,12 +3315,32 @@ summary:focus-visible {
   color: var(--text-muted);
 }
 
-.app-notice-banner {
-  margin: 12px 0;
+.app-notice-toast {
+  position: fixed;
+  z-index: 1400;
+  top: 92px;
+  right: 24px;
+  display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 10px;
+  width: min(380px, calc(100vw - 32px));
+  padding: 10px 12px;
   border-color: color-mix(in srgb, var(--success) 48%, var(--border));
   background: color-mix(in srgb, var(--success) 10%, var(--panel));
+  box-shadow: 0 14px 32px color-mix(in srgb, var(--collector-depth) 72%, transparent);
+}
+
+.app-notice-toast span {
+  flex: 1;
+}
+
+.app-notice-close {
+  width: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 999px;
+  font-size: 1rem;
 }
 
 .form-hint {
@@ -14565,6 +14585,31 @@ tbody tr:hover {
 .coownership-document,
 .coownership-response {
   margin-top: 1rem;
+}
+
+.coownership-create-version {
+  margin-top: 0.85rem;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent));
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.coownership-create-version > summary {
+  padding: 11px 13px;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.coownership-create-version[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+}
+
+.coownership-create-version > .wine-form {
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 12px 12px;
+  box-shadow: none;
 }
 
 .coownership-document {
