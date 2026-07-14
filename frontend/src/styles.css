@@ -13965,6 +13965,28 @@ tbody tr:hover {
   background: color-mix(in srgb, var(--surface-muted) 76%, transparent);
 }
 
+/* Compact dashboard rows use rhythm and a hairline, not button chrome. */
+.action-row {
+  min-height: 39px;
+  padding: 9px 4px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.action-row:last-child {
+  border-bottom-color: transparent;
+}
+
+.action-row:not(:disabled):hover {
+  border-bottom-color: color-mix(in srgb, var(--border-strong) 68%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--primary) 6%, transparent), transparent 72%);
+  box-shadow: none;
+  transform: none;
+}
+
 @media (max-width: 820px) {
   body {
     font-size: 14px;
