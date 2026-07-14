@@ -14395,6 +14395,10 @@ tbody tr:hover {
   padding-top: 0.2rem;
 }
 
+.share-offer-refresh {
+  justify-self: start;
+}
+
 .share-offer-pending-list > strong {
   color: var(--text-soft);
   font-size: 0.78rem;

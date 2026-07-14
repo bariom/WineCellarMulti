@@ -4516,9 +4516,24 @@ export function App() {
   function renderSharePanel(wine: Wine) {
     if (!canWriteWine || !hasSharedOwnership(wine)) return null;
     return (
-      <details className="wine-form share-panel collapsible-panel">
+      <details
+        className="wine-form share-panel collapsible-panel"
+        onToggle={(event) => {
+          if ((event.currentTarget as HTMLDetailsElement).open) {
+            Promise.all([loadShareOfferRecipients(wine.id), loadOutgoingShareOffers(wine.id)]).catch(() => undefined);
+          }
+        }}
+      >
         <summary>{t("shareWine")}</summary>
         <p className="empty-state">{t("shareWineHelp")}</p>
+        <button
+          type="button"
+          className="secondary compact share-offer-refresh"
+          disabled={saving}
+          onClick={() => Promise.all([loadShareOfferRecipients(wine.id), loadOutgoingShareOffers(wine.id)]).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to refresh share recipients"))}
+        >
+          {locale === "it" ? "Aggiorna elenco" : "Refresh list"}
+        </button>
         <label>
           <span>{t("email")}</span>
           <select
