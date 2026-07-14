@@ -12922,10 +12922,10 @@ textarea:hover {
   grid-column: 3;
   grid-row: 1;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   align-self: center;
   justify-self: stretch;
-  gap: 10px;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -13092,7 +13092,7 @@ textarea:hover {
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
-    grid-template-columns: repeat(2, max-content);
+    grid-template-columns: minmax(0, max-content);
     justify-content: start;
   }
 
