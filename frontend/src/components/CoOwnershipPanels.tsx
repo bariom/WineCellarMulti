@@ -92,7 +92,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
   }
 
   const total = participants.reduce((sum, item) => sum + Number(item.share_pct || 0), 0);
-  const blockingAgreement = agreements.find((agreement) => agreement.status === "pending" || agreement.status === "invalidated");
+  const blockingAgreement = agreements.find((agreement) => agreement.status === "pending" || agreement.status === "invalidated" || agreement.status === "declined");
 
   function printAgreement(agreementId: string) {
     setPrintAgreementId(agreementId);
@@ -110,14 +110,14 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           {agreementDocument(agreement, locale, printAgreementId === agreement.id)}
           <div className="inline-form no-print">
             <button type="button" className="secondary compact" onClick={() => printAgreement(agreement.id)}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
-            {agreement.can_cancel ? <button type="button" className="danger compact" disabled={saving} onClick={() => onCancel(agreement)}>{locale === "it" ? "Cancella proposta invalidata" : "Delete invalidated proposal"}</button> : null}
+            {agreement.can_cancel ? <button type="button" className="danger compact" disabled={saving} onClick={() => onCancel(agreement)}>{locale === "it" ? "Cancella proposta rifiutata" : "Delete rejected proposal"}</button> : null}
           </div>
           {agreement.participants.some((item) => item.invite_url) ? (
             <details className="no-print">
-              <summary>{locale === "it" ? "Link personali di invito" : "Personal invitation links"}</summary>
+              <summary>{locale === "it" ? "Link personali di invito" : "Personal invitation links"} · {locale === "it" ? "Stato" : "Status"}: {statusLabel(agreement.status, locale)}</summary>
               {agreement.participants.map((participant) => participant.invite_url ? (
                 <div className="member-row" key={participant.id}>
-                  <span>{participant.name} · {participant.delivery_status}</span>
+                  <span>{participant.name} · {statusLabel(participant.status, locale)} · {participant.delivery_status}</span>
                   <button type="button" className="secondary compact" onClick={() => navigator.clipboard?.writeText(participant.invite_url || "")}>{locale === "it" ? "Copia link" : "Copy link"}</button>
                 </div>
               ) : null)}
@@ -153,7 +153,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           <label className="detail-toggle-row"><input type="checkbox" checked={emailRegisteredUsers} onChange={(event) => setEmailRegisteredUsers(event.target.checked)} /><span>{locale === "it" ? "Invia email anche agli utenti Vinaris (riceveranno comunque una notifica)" : "Email Vinaris users too (they always receive an in-app notification)"}</span></label>
           <button type="submit" disabled={saving || participants.length < 2 || Math.abs(total - 100) > 0.000001}>{saving ? "…" : locale === "it" ? "Crea e invia accordo" : "Create and send agreement"}</button>
         </form>
-      ) : blockingAgreement ? <p className="empty-state">{blockingAgreement.status === "invalidated" ? (locale === "it" ? "Questa proposta è stata invalidata da un rifiuto. L'iniziatore deve cancellarla prima di crearne una nuova versione." : "This proposal was invalidated by a rejection. Its initiator must delete it before a new version can be created.") : (locale === "it" ? "È già presente una proposta in attesa di risposta." : "A proposal is already awaiting responses.")}</p> : null}
+      ) : blockingAgreement ? <p className="empty-state">{blockingAgreement.status === "invalidated" || blockingAgreement.status === "declined" ? (locale === "it" ? "Questa proposta è stata rifiutata. L'iniziatore può cancellarla prima di crearne una nuova versione." : "This proposal was rejected. Its initiator can delete it before a new version is created.") : (locale === "it" ? "È già presente una proposta in attesa di risposta." : "A proposal is already awaiting responses.")}</p> : null}
     </details>
   );
 }

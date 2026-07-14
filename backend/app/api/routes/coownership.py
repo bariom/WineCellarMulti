@@ -77,7 +77,7 @@ def agreement_response(db: Session, agreement: CoOwnershipAgreement, request: Re
         created_at=agreement.created_at,
         finalized_at=agreement.finalized_at,
         responding_participant_id=responding_participant_id,
-        can_cancel=expose_links and agreement.status == "invalidated",
+        can_cancel=expose_links and agreement.status in {"invalidated", "declined"},
         participants=participants,
     )
 
@@ -157,7 +157,7 @@ def create_agreement(wine_id: UUID, payload: CoOwnershipAgreementCreate, request
     blocking_agreement = db.scalar(
         select(CoOwnershipAgreement).where(
             CoOwnershipAgreement.wine_id == wine.id,
-            CoOwnershipAgreement.status.in_(("pending", "invalidated")),
+            CoOwnershipAgreement.status.in_(("pending", "invalidated", "declined")),
         ),
     )
     if blocking_agreement is not None:
@@ -310,10 +310,10 @@ def cancel_invalidated_agreement(
             CoOwnershipAgreement.id == agreement_id,
             CoOwnershipAgreement.wine_id == wine_id,
             CoOwnershipAgreement.created_by_user_id == context.user.id,
-            CoOwnershipAgreement.status == "invalidated",
+            CoOwnershipAgreement.status.in_(("invalidated", "declined")),
         ),
     )
     if agreement is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalidated agreement not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Rejected agreement not found")
     db.delete(agreement)
     db.commit()
