@@ -474,6 +474,14 @@ def list_share_offer_recipients(
     }
     if not owner_by_email:
         return []
+    original_sender_ids = set(
+        db.scalars(
+            select(WineShareOffer.created_by_user_id).where(
+                WineShareOffer.recipient_wine_id == wine.id,
+                WineShareOffer.status.in_(("accepted", "revocation_pending")),
+            ),
+        ),
+    )
     existing_recipient_ids = set(
         db.scalars(
             select(WineShareOffer.recipient_user_id).where(
@@ -485,7 +493,7 @@ def list_share_offer_recipients(
     users = db.scalars(select(User).where(User.email.in_(list(owner_by_email))))
     recipients: list[WineShareOfferRecipientResponse] = []
     for user in users:
-        if user.id == context.user.id or user.id in existing_recipient_ids:
+        if user.id == context.user.id or user.id in original_sender_ids or user.id in existing_recipient_ids:
             continue
         owner = owner_by_email[user.email.lower()]
         recipients.append(
@@ -531,6 +539,15 @@ def create_share_offer(
     recipient = db.scalar(select(User).where(User.email == recipient_email))
     if recipient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User must register before receiving a share offer")
+    original_sender = db.scalar(
+        select(WineShareOffer.id).where(
+            WineShareOffer.recipient_wine_id == wine.id,
+            WineShareOffer.created_by_user_id == recipient.id,
+            WineShareOffer.status.in_(("accepted", "revocation_pending")),
+        ),
+    )
+    if original_sender is not None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot send a received shared position back to its original sender")
 
     offer = db.scalar(
         select(WineShareOffer).where(

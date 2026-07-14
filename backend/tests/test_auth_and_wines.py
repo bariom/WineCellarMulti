@@ -1752,6 +1752,12 @@ def test_invite_acceptance_and_viewer_permissions():
     assert sorted(owner["email"] for owner in accepted_offer.json()["owners"]) == ["owner@example.com", "viewer@example.com"]
     viewer_owner = next(owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com")
     assert viewer_owner["share_pct"] == 50.0
+    assert member.get(f"/api/v1/wines/{accepted_offer.json()['id']}/share-offer-recipients").json() == []
+    returned_share = member.post(
+        f"/api/v1/wines/{accepted_offer.json()['id']}/share-offers",
+        json={"email": "owner@example.com", "share_pct": 50},
+    )
+    assert returned_share.status_code == 400
     personal_list = member.get("/api/v1/wines")
     assert personal_list.status_code == 200
     assert [wine["name"] for wine in personal_list.json()] == ["Shared Wine"]
