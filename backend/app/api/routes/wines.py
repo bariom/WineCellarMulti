@@ -1,6 +1,6 @@
 import uuid
 from datetime import date, datetime, timezone
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -291,15 +291,7 @@ def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct:
     wine.owners = owners
 
 
-def allocated_bottle_count(total_quantity: int, share_pct: Decimal) -> int:
-    if total_quantity <= 0 or share_pct <= 0:
-        return 0
-    allocated = (Decimal(total_quantity) * share_pct / Decimal("100")).quantize(Decimal("1"), rounding=ROUND_HALF_UP)
-    return max(1, int(allocated))
-
-
 def wine_copy_for_recipient(source: Wine, target_household: Household, recipient: User, share_pct: Decimal) -> Wine:
-    recipient_quantity = allocated_bottle_count(source.quantity, share_pct)
     recipient_email = recipient.email.strip().lower()
     recipient_owners = normalize_owner_rows([dict(owner) for owner in (source.owners or [])])
     if not any(str(owner.get("email", "")).strip().lower() == recipient_email for owner in recipient_owners):
@@ -316,7 +308,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         name=source.name,
         producer=source.producer,
         vintage=source.vintage,
-        quantity=recipient_quantity,
+        quantity=source.quantity,
         currency=source.currency,
         price=source.price,
         current_value=source.current_value,
@@ -328,7 +320,7 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         merchant=source.merchant,
         order_date=source.order_date,
         expected_delivery=source.expected_delivery,
-        owner_share_pct=Decimal("100") if recipient_quantity else Decimal("0"),
+        owner_share_pct=share_pct,
         notes=source.notes,
         ai_notes=source.ai_notes,
         drink_from=source.drink_from,
