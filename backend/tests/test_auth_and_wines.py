@@ -1730,7 +1730,10 @@ def test_invite_acceptance_and_viewer_permissions():
     cancelled_offer = owner.delete(f"/api/v1/wines/share-offers/{outgoing_offers.json()[0]['id']}")
     assert cancelled_offer.status_code == 200
     assert cancelled_offer.json()["status"] == "cancelled"
-    assert owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json() == [{"email": "viewer@example.com", "display_name": "Viewer", "share_pct": "50.0"}]
+    reopened_recipients = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json()
+    assert len(reopened_recipients) == 1
+    assert reopened_recipients[0]["email"] == "viewer@example.com"
+    assert reopened_recipients[0]["share_pct"] == "50.0"
     share_offer = owner.post(
         f"/api/v1/wines/{owner_wine_id}/share-offers",
         json={"email": "viewer@example.com", "share_pct": 50, "message": "You own this allocation too."},
@@ -1760,11 +1763,19 @@ def test_invite_acceptance_and_viewer_permissions():
     assert revocation.status_code == 200
     assert revocation.json()["status"] == "revocation_pending"
     revocation_notifications = member.get("/api/v1/notifications")
-    assert any(item["kind"] == "share_revocation" for item in revocation_notifications.json())
+    revocation_notification = next(item for item in revocation_notifications.json() if item["kind"] == "share_revocation")
+    assert revocation_notification["title"] == "Rimozione richiesta: Shared Wine"
+    assert "owner@example.com" in revocation_notification["message"]
+    assert "Shared Wine" in revocation_notification["message"]
+    assert "50.00% di 5 bottiglie" in revocation_notification["message"]
     approved_revocation = member.post(f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revocation/approve")
     assert approved_revocation.status_code == 200
     assert approved_revocation.json()["status"] == "revoked"
     assert member.get("/api/v1/wines").json() == []
+    reopened_after_revocation = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json()
+    assert len(reopened_after_revocation) == 1
+    assert reopened_after_revocation[0]["email"] == "viewer@example.com"
+    assert reopened_after_revocation[0]["share_pct"] == "50.0"
 
     member_households = member.get("/api/v1/household/memberships")
     assert member_households.status_code == 200

@@ -478,7 +478,7 @@ def list_share_offer_recipients(
         db.scalars(
             select(WineShareOffer.recipient_user_id).where(
                 WineShareOffer.wine_id == wine.id,
-                WineShareOffer.status != "cancelled",
+                WineShareOffer.status.in_(("pending", "accepted", "revocation_pending")),
             ),
         ),
     )
@@ -614,13 +614,23 @@ def request_share_offer_revocation(
     recipient = db.get(User, offer.recipient_user_id)
     if recipient is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share recipient not found")
+    wine = db.get(Wine, offer.wine_id)
+    wine_label = " ".join(part for part in ((wine.name if wine else "Wine"), (wine.vintage if wine else "")) if part).strip()
+    sender_label = context.user.display_name or context.user.email
+    share_label = f"{offer.share_pct}% of {wine.quantity if wine else 0} bottles"
+    if recipient.locale.lower().startswith("it"):
+        title = f"Rimozione richiesta: {wine_label}"
+        message = f"{sender_label} ({context.user.email}) chiede di rimuovere dalla tua cantina la posizione condivisa '{wine_label}' ({offer.share_pct}% di {wine.quantity if wine else 0} bottiglie). Approva per completare l'operazione."
+    else:
+        title = f"Removal requested: {wine_label}"
+        message = f"{sender_label} ({context.user.email}) requests removal of the shared position '{wine_label}' ({share_label}) from your cellar. Approve to complete the operation."
     offer.status = "revocation_pending"
     create_user_notification(
         db,
         recipient,
         kind="share_revocation",
-        title="Richiesta di rimozione comproprietà",
-        message="Il mittente chiede di rimuovere questa posizione condivisa dalla tua cantina. Approva per completare l'operazione.",
+        title=title,
+        message=message,
         action_url=f"/share-offer-revocation/{offer.id}",
         fingerprint=f"share-revocation:{offer.id}",
     )
