@@ -11602,19 +11602,6 @@ textarea {
   border-bottom: 1px solid var(--luxury-hairline);
 }
 
-.detail-title-actions {
-  display: inline-flex;
-  align-items: center;
-  justify-self: end;
-  gap: 8px;
-}
-
-.detail-title-actions > strong {
-  white-space: nowrap;
-  color: var(--text);
-  font-size: 1.2rem;
-}
-
 .detail-expand-button {
   display: inline-grid;
   width: 34px;
@@ -12303,6 +12290,10 @@ textarea:hover {
 .operational-workspace.content-workspace {
   grid-template-columns: minmax(0, 1fr) minmax(360px, 460px);
   column-gap: 18px;
+}
+
+.operational-workspace.content-workspace.wine-detail-expanded {
+  grid-template-columns: minmax(240px, 360px) minmax(0, 1fr);
 }
 
 .operational-workspace .view-tabs {
@@ -13315,6 +13306,12 @@ textarea:hover {
 .wine-side-panel {
   gap: 10px;
   padding: 0 4px 12px 0;
+}
+
+.wine-side-panel-topbar {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 34px;
 }
 
 .side-panel-actions {
@@ -14597,6 +14594,38 @@ tbody tr:hover {
 
 .coownership-document section {
   margin-top: 1.25rem;
+}
+
+.coownership-status {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.55rem;
+  padding: 3px 7px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.coownership-status.status-accepted {
+  border-color: color-mix(in srgb, var(--primary) 42%, var(--border));
+  background: color-mix(in srgb, var(--success-surface) 82%, var(--surface));
+  color: color-mix(in srgb, var(--primary) 84%, var(--text));
+}
+
+.coownership-status.status-declined,
+.coownership-status.status-invalidated {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger-surface) 82%, var(--surface));
+  color: var(--danger-text);
+}
+
+.coownership-status.status-pending {
+  background: color-mix(in srgb, var(--surface-muted) 80%, var(--surface));
+  color: var(--text-muted);
 }
 
 .coownership-terms {

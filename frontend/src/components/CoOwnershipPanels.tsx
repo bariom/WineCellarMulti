@@ -38,7 +38,7 @@ function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, prin
         <div className="ownership-list">
           {agreement.participants.map((participant) => (
             <div className="ownership-row" key={participant.id}>
-              <span>{participant.name} · {participant.email}<small>{statusLabel(participant.status, locale)}</small></span>
+              <span>{participant.name} · {participant.email}<small className={`coownership-status status-${participant.status}`}>{statusLabel(participant.status, locale)}</small></span>
               <strong>{Number(participant.share_pct).toLocaleString(locale, { maximumFractionDigits: 6 })}%{participant.contribution ? ` · ${String(wine.currency || "")} ${participant.contribution}` : ""}</strong>
             </div>
           ))}

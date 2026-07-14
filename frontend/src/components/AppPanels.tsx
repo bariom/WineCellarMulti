@@ -812,8 +812,6 @@ export function WineDetail({
   marketAuditEntry,
   onOpenMarketView,
   coOwnershipSection,
-  expanded = false,
-  onToggleExpanded,
   t,
   locale,
 }: {
@@ -832,8 +830,6 @@ export function WineDetail({
   marketAuditEntry: AiAuditLog | null;
   onOpenMarketView: (entry: AiAuditLog) => void;
   coOwnershipSection?: ReactNode;
-  expanded?: boolean;
-  onToggleExpanded?: () => void;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -872,20 +868,7 @@ export function WineDetail({
             {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
             <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
           </div>
-          <div className="detail-title-actions">
-            <strong>{detailValue}</strong>
-            {onToggleExpanded ? (
-              <button
-                type="button"
-                className="secondary compact detail-expand-button"
-                aria-label={expanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
-                title={expanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
-                onClick={onToggleExpanded}
-              >
-                <span aria-hidden="true">{expanded ? "⤡" : "⤢"}</span>
-              </button>
-            ) : null}
-          </div>
+          <strong>{detailValue}</strong>
         </div>
 
         <details className="wine-ai-tools">

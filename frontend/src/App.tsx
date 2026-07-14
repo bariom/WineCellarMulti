@@ -6714,6 +6714,19 @@ export function App() {
 
           {isCollectionView ? (
           <aside className="wine-side-panel">
+            {isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
+              <div className="wine-side-panel-topbar">
+                <button
+                  type="button"
+                  className="secondary compact detail-expand-button"
+                  aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
+                  title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
+                  onClick={() => setWineDetailExpanded((expanded) => !expanded)}
+                >
+                  <span aria-hidden="true">{wineDetailExpanded ? "⤡" : "⤢"}</span>
+                </button>
+              </div>
+            ) : null}
             {isWineCollectionView ? (
               <div className="side-panel-actions">
                 {activeView === "cellar" ? (
@@ -7242,8 +7255,6 @@ export function App() {
                   marketAuditEntry={selectedWineMarketAudit}
                   onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine: selectedVisibleWine, entry })}
                   coOwnershipSection={renderCoOwnershipSection(selectedVisibleWine)}
-                  expanded={wineDetailExpanded}
-                  onToggleExpanded={() => setWineDetailExpanded((expanded) => !expanded)}
                   t={t}
                   locale={locale}
                 />
