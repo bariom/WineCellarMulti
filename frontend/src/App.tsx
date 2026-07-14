@@ -27,6 +27,7 @@ type AiModelAdviceState = {
   featureLabel: string;
   currentModel: string;
   recommendedModel: string;
+  selectedModel: string;
   role: AiModelAdviceRole;
   resolve: (model: string | null) => void;
 };
@@ -2847,8 +2848,9 @@ export function App() {
   ): Promise<string | null> {
     if (!aiSettings?.model_advisor_enabled) return Promise.resolve(currentModel);
     const recommendedModel = advisedModel(role, aiSettings.model_options, currentModel);
+    if (recommendedModel.trim().toLowerCase() === currentModel.trim().toLowerCase()) return Promise.resolve(currentModel);
     return new Promise((resolve) => {
-      setAiModelAdvice({ featureLabel, currentModel, recommendedModel, role, resolve });
+      setAiModelAdvice({ featureLabel, currentModel, recommendedModel, selectedModel: currentModel, role, resolve });
     });
   }
 
@@ -9087,26 +9089,31 @@ export function App() {
             </div>
             <p className="ai-model-advisor-intro">{t("aiModelAdvisorIntro")} <strong>{aiModelAdvice.featureLabel}</strong></p>
             <div className="ai-model-advisor-comparison">
-              <div>
+              <button
+                type="button"
+                className={aiModelAdvice.selectedModel === aiModelAdvice.currentModel ? "selected" : ""}
+                aria-pressed={aiModelAdvice.selectedModel === aiModelAdvice.currentModel}
+                onClick={() => setAiModelAdvice((current) => current ? { ...current, selectedModel: current.currentModel } : current)}
+              >
                 <span>{t("aiModelCurrent")}</span>
                 <strong>{aiModelAdvice.currentModel}</strong>
-              </div>
-              <div className="recommended">
+              </button>
+              <button
+                type="button"
+                className={`recommended${aiModelAdvice.selectedModel === aiModelAdvice.recommendedModel ? " selected" : ""}`}
+                aria-pressed={aiModelAdvice.selectedModel === aiModelAdvice.recommendedModel}
+                onClick={() => setAiModelAdvice((current) => current ? { ...current, selectedModel: current.recommendedModel } : current)}
+              >
                 <span>{t("aiModelRecommended")}</span>
                 <strong>{aiModelAdvice.recommendedModel}</strong>
-              </div>
+              </button>
             </div>
             <p className="ai-model-advisor-reason">
               {t(aiModelAdvice.role === "economy" ? "aiModelAdvisorReasonEconomy" : aiModelAdvice.role === "balanced" ? "aiModelAdvisorReasonBalanced" : "aiModelAdvisorReasonAdvanced")}
             </p>
             <small className="ai-model-advisor-note">{t("aiModelAdvisorOneRequest")}</small>
             <div className="ai-model-advisor-actions">
-              {aiModelAdvice.recommendedModel !== aiModelAdvice.currentModel ? (
-                <button type="button" onClick={() => closeAiModelAdvice(aiModelAdvice.recommendedModel)}>{t("useRecommendedModel")}</button>
-              ) : null}
-              <button type="button" className={aiModelAdvice.recommendedModel !== aiModelAdvice.currentModel ? "secondary" : ""} onClick={() => closeAiModelAdvice(aiModelAdvice.currentModel)}>
-                {aiModelAdvice.recommendedModel === aiModelAdvice.currentModel ? t("continue") : t("keepCurrentModel")}
-              </button>
+              <button type="button" onClick={() => closeAiModelAdvice(aiModelAdvice.selectedModel)}>{t("continue")}</button>
             </div>
           </section>
         </div>

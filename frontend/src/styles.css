@@ -14131,19 +14131,28 @@ tbody tr:hover {
   gap: 10px;
 }
 
-.ai-model-advisor-comparison > div {
+.ai-model-advisor-comparison > button {
+  appearance: none;
   display: grid;
   gap: 6px;
   min-width: 0;
   padding: 14px;
   border: 1px solid var(--vinaris-hairline);
   border-radius: 12px;
+  color: var(--text);
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+  text-align: left;
+  cursor: pointer;
 }
 
-.ai-model-advisor-comparison > div.recommended {
+.ai-model-advisor-comparison > button.recommended {
   border-color: color-mix(in srgb, var(--vinaris-ai) 50%, var(--border));
   background: color-mix(in srgb, var(--vinaris-ai-surface) 88%, var(--vinaris-ai) 12%);
+}
+
+.ai-model-advisor-comparison > button.selected {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
 }
 
 .ai-model-advisor-comparison span {
