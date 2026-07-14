@@ -834,6 +834,7 @@ def import_vinaris_json_payload(
             "entity_id": mapped_entity_id,
             "feature": as_str(raw_log.get("feature")),
             "model": as_str(raw_log.get("model")),
+            "reasoning_effort": as_str(raw_log.get("reasoning_effort")),
             "outcome": as_str(raw_log.get("outcome")) or "success",
             "summary": as_str(raw_log.get("summary")),
             "sources": as_list(raw_log.get("sources")),

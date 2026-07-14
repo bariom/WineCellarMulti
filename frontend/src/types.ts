@@ -440,6 +440,7 @@ export type AiAuditLog = {
   entity_id: string;
   feature: string;
   model: string;
+  reasoning_effort: string;
   outcome: string;
   summary: string;
   input_tokens: number;
@@ -486,6 +487,7 @@ export type AiSettings = {
   score_model: string;
   wishlist_model: string;
   pairing_model: string;
+  model_advisor_enabled: boolean;
   pairing_preferences: string;
   pairing_candidate_limit: number;
   model_options: string[];
@@ -501,6 +503,7 @@ export type AiSettingsDraft = {
   score_model: string;
   wishlist_model: string;
   pairing_model: string;
+  model_advisor_enabled: boolean;
   pairing_preferences: string;
   pairing_candidate_limit: number;
 };
@@ -508,6 +511,7 @@ export type AiSettingsDraft = {
 export type PairingResult = {
   summary: string;
   model: string;
+  reasoning_effort: string;
   cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
   market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
   estimated_cost_usd: string;
@@ -517,6 +521,7 @@ export type BuyingAdviceResult = {
   summary: string;
   warning: string;
   model: string;
+  reasoning_effort: string;
   recommendations: Array<{
     name: string;
     producer: string;
@@ -537,6 +542,7 @@ export type BuyingAdviceResult = {
 
 export type WineCompareAiResult = {
   model: string;
+  reasoning_effort: string;
   style_profile: string;
   readiness: string;
   occasion: string;
@@ -547,6 +553,7 @@ export type WineCompareAiResult = {
 
 export type WishlistPortfolioStrategy = {
   model: string;
+  reasoning_effort: string;
   overview: string;
   buy_now: string;
   wait_watch: string;
@@ -563,6 +570,7 @@ export type RegionalGapProfile = "investment" | "readiness" | "daily" | "balance
 
 export type RegionalGapAiSuggestion = {
   model: string;
+  reasoning_effort: string;
   profile: RegionalGapProfile;
   rationale: string;
   targets: Array<{ region: string; target_pct: string | number }>;

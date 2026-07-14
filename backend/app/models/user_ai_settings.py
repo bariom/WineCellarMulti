@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -22,6 +22,7 @@ class UserAiSettings(Base):
     score_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4-mini")
     wishlist_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
     pairing_model: Mapped[str] = mapped_column(String(120), default="gpt-5.4")
+    model_advisor_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     pairing_preferences: Mapped[str] = mapped_column(Text, default="")
     pairing_candidate_limit: Mapped[int] = mapped_column(Integer, default=25)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)

@@ -13,7 +13,7 @@ import pytest
 
 from app.core.config import settings
 from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates, web_search_tool_cost_usd, wine_market_context, wishlist_advice_context, wishlist_market_context
-from app.services.ai_models import parameters_for_model, select_ai_model
+from app.services.ai_models import parameters_for_model, reasoning_effort_for_request, select_ai_model
 from app.services.openai_client import TokenUsage, create_response, response_body
 
 
@@ -120,6 +120,35 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
     assert "temperature" not in luna_body
     assert parameters_for_model("gpt-5.6-terra").reasoning_effort == "medium"
     assert parameters_for_model("gpt-5.6-sol").reasoning_effort == "high"
+
+
+def test_reasoning_effort_follows_task_instead_of_model_role():
+    assert reasoning_effort_for_request("gpt-5.6-luna", "drink_window") == "medium"
+    assert reasoning_effort_for_request("gpt-5.6-sol", "grape_inference") == "low"
+    assert reasoning_effort_for_request("gpt-5.6-sol", "pairing") == "medium"
+    assert reasoning_effort_for_request("gpt-5.6-terra", "portfolio_strategy") == "high"
+
+
+def test_reasoning_effort_priority_is_explicit_then_complexity_then_task():
+    assert reasoning_effort_for_request("gpt-5.6-sol", "portfolio_strategy", explicit_effort="low") == "low"
+    assert reasoning_effort_for_request("gpt-5.6-luna", "grape_inference", complexity="advanced") == "high"
+    assert reasoning_effort_for_request("gpt-5.6-terra", "unknown_task") == "medium"
+
+
+def test_create_response_sends_automatic_task_effort(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+    captured_body: dict = {}
+
+    def fake_urlopen(request, timeout):
+        captured_body.update(json.loads(request.data.decode("utf-8")))
+        return FakeResponse({"output_text": "ok", "usage": {}})
+
+    monkeypatch.setattr("app.services.openai_client.urllib.request.urlopen", fake_urlopen)
+    response = create_response("gpt-5.6-sol", "system", "user", api_key="sk-test", task_type="grape_inference")
+
+    assert captured_body["reasoning"] == {"effort": "low"}
+    assert response.reasoning_effort == "low"
+    assert response.task_type == "grape_inference"
 
 
 def test_response_body_allows_cost_controls_for_web_search():

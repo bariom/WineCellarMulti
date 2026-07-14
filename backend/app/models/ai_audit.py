@@ -21,6 +21,7 @@ class AiAuditLog(Base):
     entity_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), index=True)
     feature: Mapped[str] = mapped_column(String(64))
     model: Mapped[str] = mapped_column(String(120), default="")
+    reasoning_effort: Mapped[str] = mapped_column(String(16), default="")
     outcome: Mapped[str] = mapped_column(String(32), default="success")
     summary: Mapped[str] = mapped_column(Text, default="")
     sources: Mapped[list[dict]] = mapped_column(JSON, default=list)

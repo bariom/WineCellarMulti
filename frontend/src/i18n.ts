@@ -274,6 +274,19 @@ export const translations = {
     aiModelsHelpTerra: "gpt-5.6-terra · about $0.008-$0.012: drinking windows, standard pairings, and wishlist strategy.",
     aiModelsHelpSol: "gpt-5.6-sol · about $0.02: complex cellar and portfolio planning.",
     aiModelsHelpTools: "Live market price actions can cost more because they may include web search in addition to the model response.",
+    aiModelAdvisor: "Model advisor",
+    aiModelAdvisorHelp: "Before each AI request, suggest the best balance between cost and task complexity. Disabled by default.",
+    aiModelAdvisorTitle: "Choose the model for this request",
+    aiModelAdvisorIntro: "Vinaris evaluated the upcoming task:",
+    aiModelCurrent: "Current model",
+    aiModelRecommended: "Recommended",
+    aiModelAdvisorReasonEconomy: "A focused task with structured output: the economy model is normally sufficient and keeps cost low.",
+    aiModelAdvisorReasonBalanced: "This task benefits from stronger interpretation and reasoning without requiring the highest-cost model.",
+    aiModelAdvisorReasonAdvanced: "This is a multi-factor planning task: the advanced model offers the most reliable synthesis.",
+    aiModelAdvisorOneRequest: "Your saved preference will not change. This choice applies only to the current request.",
+    useRecommendedModel: "Use recommended",
+    keepCurrentModel: "Keep current",
+    continue: "Continue",
     buyAiCredits: "Buy AI Pack",
     noAiProvider: "No AI source available",
     appAiReady: "App AI ready",
@@ -807,6 +820,14 @@ export const translations = {
     decline: "Decline",
     skipped: "skipped",
     tokens: "tokens",
+    reasoningEffort: "Reasoning",
+    reasoningEffortNone: "none",
+    reasoningEffortLow: "low",
+    reasoningEffortMedium: "medium",
+    reasoningEffortHigh: "high",
+    reasoningEffortVeryHigh: "very high",
+    reasoningEffortMaximum: "maximum",
+    reasoningEffortUnknown: "not available",
     manageTags: "Manage tags",
     createTag: "Create tag",
     color: "Color",
@@ -870,6 +891,19 @@ export const translations = {
     aiModelsHelpTerra: "gpt-5.6-terra · circa 0,008-0,012 $: finestre di beva, abbinamenti standard e strategia wishlist.",
     aiModelsHelpSol: "gpt-5.6-sol · circa 0,02 $: pianificazione complessa della cantina e del portafoglio.",
     aiModelsHelpTools: "Le azioni con prezzo di mercato live possono costare di piu perche possono includere ricerca web oltre alla risposta del modello.",
+    aiModelAdvisor: "Consiglio modello",
+    aiModelAdvisorHelp: "Prima di ogni richiesta AI suggerisce il miglior equilibrio tra costo e complessita. Disattivato per impostazione predefinita.",
+    aiModelAdvisorTitle: "Scegli il modello per questa richiesta",
+    aiModelAdvisorIntro: "Vinaris ha valutato l'attivita che stai per eseguire:",
+    aiModelCurrent: "Modello attuale",
+    aiModelRecommended: "Consigliato",
+    aiModelAdvisorReasonEconomy: "Attivita mirata con risultato strutturato: il modello economico e normalmente sufficiente e mantiene basso il costo.",
+    aiModelAdvisorReasonBalanced: "Questa attivita beneficia di maggiore interpretazione e ragionamento senza richiedere il modello piu costoso.",
+    aiModelAdvisorReasonAdvanced: "E una pianificazione con piu fattori: il modello avanzato offre la sintesi piu affidabile.",
+    aiModelAdvisorOneRequest: "La preferenza salvata non verra modificata. La scelta vale solo per questa richiesta.",
+    useRecommendedModel: "Usa il consigliato",
+    keepCurrentModel: "Mantieni attuale",
+    continue: "Continua",
     buyAiCredits: "Acquista AI Pack",
     noAiProvider: "Nessuna sorgente AI disponibile",
     appAiReady: "AI app pronta",
@@ -1403,6 +1437,14 @@ export const translations = {
     decline: "Rifiuta",
     skipped: "saltati",
     tokens: "token",
+    reasoningEffort: "Ragionamento",
+    reasoningEffortNone: "nessuno",
+    reasoningEffortLow: "basso",
+    reasoningEffortMedium: "medio",
+    reasoningEffortHigh: "alto",
+    reasoningEffortVeryHigh: "molto alto",
+    reasoningEffortMaximum: "massimo",
+    reasoningEffortUnknown: "non disponibile",
     manageTags: "Gestisci tag",
     createTag: "Crea tag",
     color: "Colore",
@@ -1412,6 +1454,18 @@ export const translations = {
 } as const;
 
 export type TranslationKey = keyof typeof translations.en;
+
+export function reasoningEffortTranslationKey(value: string | null | undefined): TranslationKey {
+  switch ((value || "").toLowerCase()) {
+    case "none": return "reasoningEffortNone";
+    case "low": return "reasoningEffortLow";
+    case "medium": return "reasoningEffortMedium";
+    case "high": return "reasoningEffortHigh";
+    case "xhigh": return "reasoningEffortVeryHigh";
+    case "max": return "reasoningEffortMaximum";
+    default: return "reasoningEffortUnknown";
+  }
+}
 
 export const themeOptions: Array<{ value: ThemePreference; label: TranslationKey }> = [
   { value: "system", label: "themeSystem" },

@@ -1,6 +1,7 @@
 import { FormEvent } from "react";
 import { FeatureIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
+import { reasoningEffortTranslationKey } from "../i18n";
 
 type WineLike = {
   id: string;
@@ -13,6 +14,7 @@ type WineLike = {
 type PairingResult = {
   summary: string;
   model: string;
+  reasoning_effort: string;
   cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
   market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
   estimated_cost_usd: string;
@@ -188,6 +190,7 @@ export default function PairingView({
         {pairingResult?.estimated_cost_usd ? (
           <small className="pairing-request-cost">
             {t("aiRequestCost")}: {formatAiBudget(pairingResult.estimated_cost_usd)}
+            <br />{pairingResult.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(pairingResult.reasoning_effort))}
           </small>
         ) : null}
       </div>
@@ -393,7 +396,7 @@ export default function PairingView({
                   </div>
                 </section>
               ) : null}
-              {pairingResult.model ? <p className="pairing-model-used">{t("pairingModelUsed")}: {pairingResult.model}</p> : null}
+              {pairingResult.model ? <p className="pairing-model-used">{t("pairingModelUsed")}: {pairingResult.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(pairingResult.reasoning_effort))}</p> : null}
             </div>
           ) : null}
         </div>

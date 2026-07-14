@@ -5,7 +5,7 @@ import "leaflet/dist/leaflet.css";
 import { AppIcon } from "./AppIcon";
 import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
-import { displayValue } from "../i18n";
+import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
 import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, recognitionSuggestionLabel, wineQuantityLabel } from "../domain/cellar";
@@ -157,6 +157,7 @@ export function auditWishlistPortfolioStrategy(entry: AiAuditLog): WishlistPortf
   if (!strategyEntry) return null;
   return {
     model: entry.model,
+    reasoning_effort: entry.reasoning_effort,
     overview: rawString(strategyEntry.overview),
     buy_now: rawString(strategyEntry.buy_now),
     wait_watch: rawString(strategyEntry.wait_watch),
@@ -276,6 +277,7 @@ export function CompareWinesModal({
             <div className="compare-ai-cost">
               <strong>{t("aiRequestCost")}</strong>
               <span>{formatAiBudget(aiResult.estimated_cost_usd)}</span>
+              <span>{aiResult.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(aiResult.reasoning_effort))}</span>
             </div>
           </section>
         ) : null}
@@ -1134,7 +1136,7 @@ export function WineDetail({
             {auditEntries.map((entry) => (
               <div className="audit-row" key={entry.id}>
                 <strong>{entry.feature.replace(/_/g, " ")}</strong>
-                <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                <span>{entry.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(entry.reasoning_effort))} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
                 <p>{entry.summary}</p>
               </div>
             ))}
@@ -1245,7 +1247,7 @@ export function WishlistDetail({
             {auditEntries.map((entry) => (
               <div className="audit-row" key={entry.id}>
                 <strong>{entry.feature.replace(/_/g, " ")}</strong>
-                <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                <span>{entry.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(entry.reasoning_effort))} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
                 <p>{entry.summary}</p>
               </div>
             ))}
@@ -1290,6 +1292,7 @@ export function WishlistPortfolioStrategyPanel({
                   <strong>{strategy.item_count}</strong>
                   <span>{t("records")}</span>
                   <strong>{formatAiBudget(strategy.estimated_cost_usd)}</strong>
+                  <span>{strategy.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(strategy.reasoning_effort))}</span>
                   {generatedAtLabel ? <span>{generatedAtLabel}</span> : null}
                 </div>
                 <p>{clipUiText(strategy.buy_now || strategy.overview, 168)}</p>
@@ -1318,6 +1321,7 @@ export function WishlistPortfolioStrategyPanel({
           <div className="compare-ai-cost">
             <strong>{t("aiRequestCost")}</strong>
             <span>{formatAiBudget(strategy.estimated_cost_usd)}</span>
+            <span>{strategy.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(strategy.reasoning_effort))}</span>
             {generatedAtLabel ? <span>{generatedAtLabel}</span> : null}
           </div>
         </>

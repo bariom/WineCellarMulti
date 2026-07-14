@@ -1,10 +1,12 @@
 import { CSSProperties, FormEvent } from "react";
 import { EmptyState } from "../components/AppUi";
+import { reasoningEffortTranslationKey } from "../i18n";
 
 type BuyingAdviceResult = {
   summary: string;
   warning: string;
   model: string;
+  reasoning_effort: string;
   recommendations: Array<{
     name: string;
     producer: string;
@@ -89,7 +91,7 @@ export default function BuyingAdviceView({
             <span>{locale === "it" ? "Ricerca live" : "Live search"}</span>
             <h2>{locale === "it" ? "Cosa dovrei acquistare?" : "What should I buy?"}</h2>
           </div>
-          {buyingAdviceResult?.estimated_cost_usd ? <small>{t("aiRequestCost")}: {formatAiBudget(buyingAdviceResult.estimated_cost_usd)}</small> : null}
+          {buyingAdviceResult?.estimated_cost_usd ? <small>{t("aiRequestCost")}: {formatAiBudget(buyingAdviceResult.estimated_cost_usd)}<br />{buyingAdviceResult.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(buyingAdviceResult.reasoning_effort))}</small> : null}
         </div>
         <form className="pairing-form buying-advice-form" onSubmit={onGenerateBuyingAdvice}>
           <div className="buying-advice-fields">

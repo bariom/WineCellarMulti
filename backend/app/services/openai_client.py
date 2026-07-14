@@ -16,6 +16,7 @@ from app.services.ai_models import (
     LEGACY_MODEL,
     ModelSelection,
     parameters_for_model,
+    reasoning_effort_for_request,
     safe_fallback_model,
     select_ai_model,
 )
@@ -44,6 +45,8 @@ class OpenAIResponse:
     fallback_occurred: bool = False
     fallback_reason: str = ""
     request_id: str = ""
+    task_type: str = "sommelier"
+    reasoning_effort: str | None = None
     charged_cost_usd: Decimal = Decimal("0.000000")
 
 
@@ -266,6 +269,8 @@ def log_ai_request(
     latency_ms: int,
     usage: TokenUsage,
     request_id: str,
+    task_type: str,
+    reasoning_effort: str | None,
 ) -> None:
     logger.info(
         json.dumps(
@@ -274,6 +279,8 @@ def log_ai_request(
                 "requested_model": selection.requested_model,
                 "effective_model": effective_model,
                 "model_role": selection.role,
+                "task_type": task_type,
+                "reasoning_effort": reasoning_effort,
                 "gpt56_enabled": settings.openai_enable_gpt56,
                 "model_routing_enabled": settings.openai_enable_model_routing,
                 "fallback_occurred": fallback_occurred,
@@ -317,9 +324,16 @@ def create_response(
     request_count = 0
     payload: dict[str, Any]
     request_id = ""
+    effective_reasoning_effort: str | None = None
     while True:
         request_count += 1
         try:
+            effective_reasoning_effort = reasoning_effort_for_request(
+                effective_model,
+                task_type,
+                complexity,
+                reasoning_effort,
+            )
             payload, request_id = send_response_request(
                 response_body(
                     effective_model,
@@ -329,7 +343,7 @@ def create_response(
                     web_search=web_search,
                     web_search_use_default_location=web_search_use_default_location,
                     web_search_context_size=web_search_context_size,
-                    reasoning_effort=reasoning_effort,
+                    reasoning_effort=effective_reasoning_effort,
                     max_output_tokens=max_output_tokens,
                     max_tool_calls=max_tool_calls,
                 ),
@@ -381,6 +395,8 @@ def create_response(
         fallback_occurred=fallback_occurred,
         fallback_reason=fallback_reason,
         request_id=request_id,
+        task_type=task_type,
+        reasoning_effort=effective_reasoning_effort,
     )
     log_ai_request(
         selection=selection,
@@ -390,5 +406,7 @@ def create_response(
         latency_ms=round((time.monotonic() - started_at) * 1000),
         usage=usage,
         request_id=request_id,
+        task_type=task_type,
+        reasoning_effort=effective_reasoning_effort,
     )
     return result

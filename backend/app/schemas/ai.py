@@ -15,6 +15,7 @@ class AiAuditLogResponse(BaseModel):
     entity_id: UUID
     feature: str
     model: str
+    reasoning_effort: str = ""
     outcome: str
     summary: str
     sources: list[dict]
@@ -57,6 +58,7 @@ class AiSettingsResponse(BaseModel):
     score_model: str
     wishlist_model: str
     pairing_model: str
+    model_advisor_enabled: bool = False
     pairing_preferences: str = ""
     pairing_candidate_limit: int = 25
     model_options: list[str]
@@ -72,12 +74,14 @@ class AiSettingsUpdate(BaseModel):
     score_model: str | None = None
     wishlist_model: str | None = None
     pairing_model: str | None = None
+    model_advisor_enabled: bool | None = None
     pairing_preferences: str | None = Field(default=None, max_length=2000)
     pairing_candidate_limit: int | None = Field(default=None, ge=5, le=50)
 
 
 class AiGenerationRequest(BaseModel):
     locale: str = Field(default="it", pattern="^(it|en)$")
+    model: str | None = Field(default=None, max_length=120)
 
 
 class WineLabelEnrichmentRequest(AiGenerationRequest):
@@ -120,13 +124,14 @@ class RegionalGapTargetSuggestionRequest(AiGenerationRequest):
 
 class RegionalGapTargetSuggestionResponse(BaseModel):
     model: str
+    reasoning_effort: str = ""
     profile: str
     rationale: str = ""
     targets: list[RegionalGapTarget] = Field(default_factory=list)
     estimated_cost_usd: Decimal = Decimal("0")
 
 
-class PairingRequest(BaseModel):
+class PairingRequest(AiGenerationRequest):
     dish: str = Field(min_length=2, max_length=240)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     include_market: bool = False
@@ -134,7 +139,6 @@ class PairingRequest(BaseModel):
     ignore_preferences: bool = False
     prefer_local_wines: bool = False
     local_origin: str = Field(default="", max_length=160)
-    locale: str = Field(default="it", pattern="^(it|en)$")
 
 
 class PairingCellarMatch(BaseModel):
@@ -155,12 +159,13 @@ class PairingMarketWine(BaseModel):
 class PairingResponse(BaseModel):
     summary: str = ""
     model: str
+    reasoning_effort: str = ""
     cellar_matches: list[PairingCellarMatch] = Field(default_factory=list)
     market_recommendations: dict[str, list[PairingMarketWine]] = Field(default_factory=dict)
     estimated_cost_usd: Decimal = Decimal("0")
 
 
-class BuyingAdviceRequest(BaseModel):
+class BuyingAdviceRequest(AiGenerationRequest):
     purpose: str = Field(pattern="^(drink_now|cellar|pairing)$")
     pairing_with: str = Field(default="", max_length=240)
     preferences: str = Field(default="", max_length=600)
@@ -168,7 +173,6 @@ class BuyingAdviceRequest(BaseModel):
     location: str = Field(min_length=2, max_length=160)
     min_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
-    locale: str = Field(default="it", pattern="^(it|en)$")
 
 
 class BuyingRecommendation(BaseModel):
@@ -190,18 +194,19 @@ class BuyingRecommendation(BaseModel):
 class BuyingAdviceResponse(BaseModel):
     summary: str = ""
     model: str
+    reasoning_effort: str = ""
     recommendations: list[BuyingRecommendation] = Field(default_factory=list)
     warning: str = ""
     estimated_cost_usd: Decimal = Decimal("0")
 
 
-class WineCompareRequest(BaseModel):
+class WineCompareRequest(AiGenerationRequest):
     wine_ids: list[UUID] = Field(min_length=2, max_length=2)
-    locale: str = Field(default="it", pattern="^(it|en)$")
 
 
 class WineCompareResponse(BaseModel):
     model: str
+    reasoning_effort: str = ""
     style_profile: str
     readiness: str
     occasion: str
@@ -212,6 +217,7 @@ class WineCompareResponse(BaseModel):
 
 class WishlistPortfolioStrategyResponse(BaseModel):
     model: str
+    reasoning_effort: str = ""
     overview: str
     buy_now: str
     wait_watch: str

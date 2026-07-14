@@ -4,7 +4,7 @@ import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarR
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, WineGeographyMap } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
 import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
-import { displayValue, helpGuideContent, helpGuideContentV2, landingContent, themeOptions, translate } from "./i18n";
+import { displayValue, helpGuideContent, helpGuideContentV2, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText } from "./domain/cellar";
@@ -20,6 +20,27 @@ type BreakdownDrilldown = {
   metric: BreakdownMetric;
   label: string;
 } | null;
+
+type AiModelAdviceRole = "economy" | "balanced" | "advanced";
+
+type AiModelAdviceState = {
+  featureLabel: string;
+  currentModel: string;
+  recommendedModel: string;
+  role: AiModelAdviceRole;
+  resolve: (model: string | null) => void;
+};
+
+function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentModel: string) {
+  const roleHints: Record<AiModelAdviceRole, string[]> = {
+    economy: ["luna", "5.4-mini", "5.4-nano"],
+    balanced: ["terra", "gpt-5.4"],
+    advanced: ["sol", "gpt-5.5"],
+  };
+  return roleHints[role]
+    .map((hint) => modelOptions.find((model) => hint.startsWith("gpt-") ? model.toLowerCase() === hint : model.toLowerCase().includes(hint)))
+    .find(Boolean) || currentModel;
+}
 
 const PairingView = lazy(() => import("./views/PairingView"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
@@ -61,6 +82,7 @@ const emptyAiSettingsDraft: AiSettingsDraft = {
   score_model: "gpt-5.4-mini",
   wishlist_model: "gpt-5.4",
   pairing_model: "gpt-5.4",
+  model_advisor_enabled: false,
   pairing_preferences: "",
   pairing_candidate_limit: 25,
 };
@@ -713,6 +735,7 @@ export function App() {
   const [aiUsage, setAiUsage] = useState<AiUsage | null>(null);
   const [aiSettings, setAiSettings] = useState<AiSettings | null>(null);
   const [aiSettingsDraft, setAiSettingsDraft] = useState<AiSettingsDraft>(emptyAiSettingsDraft);
+  const [aiModelAdvice, setAiModelAdvice] = useState<AiModelAdviceState | null>(null);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
@@ -977,11 +1000,13 @@ export function App() {
 
   async function enrichCatalogSuggestionIfNeeded(catalogItem: CatalogWine, label: string, target: "wine" | "wishlist") {
     if (!needsWineLabelEnrichment(catalogItem)) return catalogItem;
+    const model = await requestAiModelAdvice(t("searchWineDataWithAi"), "economy", aiSettings?.grape_model || aiSettingsDraft.grape_model);
+    if (!model) return catalogItem;
     setWineEnrichmentLoading(true);
     try {
       const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
         method: "POST",
-        body: JSON.stringify({ label, locale }),
+        body: JSON.stringify({ label, locale, model }),
       });
       if (target === "wine" && enrichment.vintage) {
         setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
@@ -1047,11 +1072,13 @@ export function App() {
     const targetDraft = target === "wine" ? draft : wishlistDraft;
     const label = targetDraft.name.trim();
     if (!label) return;
+    const model = await requestAiModelAdvice(t("searchWineDataWithAi"), "economy", aiSettings?.grape_model || aiSettingsDraft.grape_model);
+    if (!model) return;
     setWineEnrichmentLoading(true);
     try {
       const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
         method: "POST",
-        body: JSON.stringify({ label, locale, source: "manual" }),
+        body: JSON.stringify({ label, locale, source: "manual", model }),
       });
       const catalogItem: CatalogWine = {
         name: safeEnrichedWineName(label, enrichment.name),
@@ -1483,6 +1510,7 @@ export function App() {
           score_model: nextSettings.score_model,
           wishlist_model: nextSettings.wishlist_model,
           pairing_model: nextSettings.pairing_model,
+          model_advisor_enabled: nextSettings.model_advisor_enabled,
           pairing_preferences: nextSettings.pairing_preferences || "",
           pairing_candidate_limit: nextSettings.pairing_candidate_limit,
         });
@@ -2523,6 +2551,7 @@ export function App() {
         score_model: nextSettings.score_model,
         wishlist_model: nextSettings.wishlist_model,
         pairing_model: nextSettings.pairing_model,
+        model_advisor_enabled: nextSettings.model_advisor_enabled,
         pairing_preferences: nextSettings.pairing_preferences || "",
         pairing_candidate_limit: nextSettings.pairing_candidate_limit,
       });
@@ -2811,11 +2840,41 @@ export function App() {
     }
   }
 
+  function requestAiModelAdvice(
+    featureLabel: string,
+    role: AiModelAdviceRole,
+    currentModel: string,
+  ): Promise<string | null> {
+    if (!aiSettings?.model_advisor_enabled) return Promise.resolve(currentModel);
+    const recommendedModel = advisedModel(role, aiSettings.model_options, currentModel);
+    return new Promise((resolve) => {
+      setAiModelAdvice({ featureLabel, currentModel, recommendedModel, role, resolve });
+    });
+  }
+
+  function closeAiModelAdvice(model: string | null) {
+    aiModelAdvice?.resolve(model);
+    setAiModelAdvice(null);
+  }
+
+  function wineFeatureModelAdvice(feature: WineAiFeature) {
+    return {
+      notes: { label: t("aiNotes"), role: "economy" as const, model: aiSettings?.ai_notes_model || aiSettingsDraft.ai_notes_model },
+      "drink-window": { label: t("drinkWindow"), role: "balanced" as const, model: aiSettings?.drink_window_model || aiSettingsDraft.drink_window_model },
+      value: { label: t("value"), role: "economy" as const, model: aiSettings?.value_model || aiSettingsDraft.value_model },
+      grapes: { label: t("grapes"), role: "economy" as const, model: aiSettings?.grape_model || aiSettingsDraft.grape_model },
+      scores: { label: t("scores"), role: "economy" as const, model: aiSettings?.score_model || aiSettingsDraft.score_model },
+    }[feature];
+  }
+
   async function generateWineAi(wine: Wine, feature: WineAiFeature, options?: { openMarketModal?: boolean }) {
     if (feature === "scores" && wine.scores_not_applicable) {
       setError(t("excludedFromAiScores"));
       return;
     }
+    const featureAdvice = wineFeatureModelAdvice(feature);
+    const model = await requestAiModelAdvice(featureAdvice.label, featureAdvice.role, featureAdvice.model);
+    if (!model) return;
     const openMarketModal = options?.openMarketModal ?? true;
     setGeneratingAi(feature);
     setAiOverlayProgress({ itemName: wineProgressName(wine) });
@@ -2823,7 +2882,7 @@ export function App() {
     try {
       const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
         method: "POST",
-        body: JSON.stringify({ locale }),
+        body: JSON.stringify({ locale, model }),
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
@@ -2864,12 +2923,14 @@ export function App() {
       setError(t("aiCompareOnlyTwo"));
       return;
     }
+    const model = await requestAiModelAdvice(t("compare"), "balanced", aiSettings?.pairing_model || aiSettingsDraft.pairing_model);
+    if (!model) return;
     setCompareAiLoading(true);
     setError("");
     try {
       const result = await api<WineCompareAiResult>("/api/v1/ai/compare-wines", {
         method: "POST",
-        body: JSON.stringify({ wine_ids: compareWineIds, locale }),
+        body: JSON.stringify({ wine_ids: compareWineIds, locale, model }),
       });
       setCompareAiResult(result);
       await Promise.all([loadAiAudit(), loadAiUsage(), loadBilling()]);
@@ -2973,6 +3034,9 @@ export function App() {
     if (!items.length) return;
     const generationItems = feature === "scores" ? items.filter((wine) => !wine.scores_not_applicable) : items;
     if (!generationItems.length) return;
+    const featureAdvice = wineFeatureModelAdvice(feature);
+    const model = await requestAiModelAdvice(featureAdvice.label, featureAdvice.role, featureAdvice.model);
+    if (!model) return;
     setGeneratingAi(`batch-${feature}`);
     setError("");
       try {
@@ -2980,7 +3044,7 @@ export function App() {
           setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: generationItems.length });
           const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
           method: "POST",
-          body: JSON.stringify({ locale }),
+          body: JSON.stringify({ locale, model }),
         });
         setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
         setSelectedWineId(updated.id);
@@ -2995,12 +3059,19 @@ export function App() {
   }
 
   async function generateWishlistAi(item: WishlistItem, feature: "strategy" | "purpose" | "target-price") {
+    const usesValueModel = feature === "target-price";
+    const model = await requestAiModelAdvice(
+      usesValueModel ? t("targetPrice") : t("wishlist"),
+      "balanced",
+      usesValueModel ? (aiSettings?.value_model || aiSettingsDraft.value_model) : (aiSettings?.wishlist_model || aiSettingsDraft.wishlist_model),
+    );
+    if (!model) return;
     setGeneratingAi(`wishlist-${feature}`);
     setError("");
     try {
       const updated = await api<WishlistItem>(`/api/v1/ai/wishlist/${item.id}/${feature}`, {
         method: "POST",
-        body: JSON.stringify({ locale }),
+        body: JSON.stringify({ locale, model }),
       });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
       setSelectedWishlistId(updated.id);
@@ -3020,12 +3091,14 @@ export function App() {
 
   async function generateWishlistPortfolioStrategy() {
     if (!selectedWishlistListId) return;
+    const model = await requestAiModelAdvice(t("wishlist"), "advanced", aiSettings?.wishlist_model || aiSettingsDraft.wishlist_model);
+    if (!model) return;
     setGeneratingAi("wishlist-portfolio-strategy");
     setError("");
     try {
       const result = await api<WishlistPortfolioStrategy>("/api/v1/ai/wishlist/portfolio-strategy", {
         method: "POST",
-        body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId }),
+        body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId, model }),
       });
       setWishlistPortfolioStrategy(result);
       setWishlistPortfolioStrategyOpen(true);
@@ -3043,6 +3116,8 @@ export function App() {
       setError(t("pairingEmptyDish"));
       return;
     }
+    const model = await requestAiModelAdvice(t("pairing"), "balanced", aiSettings?.pairing_model || aiSettingsDraft.pairing_model);
+    if (!model) return;
     setGeneratingAi("pairing");
     setError("");
     try {
@@ -3057,6 +3132,7 @@ export function App() {
           prefer_local_wines: pairingMarketOnly && pairingPreferLocal,
           local_origin: pairingMarketOnly ? pairingLocalOrigin.trim() : "",
           locale,
+          model,
         }),
       });
       setPairingResult(result);
@@ -3078,6 +3154,8 @@ export function App() {
       setError(locale === "it" ? "Indica il piatto per l'abbinamento." : "Enter the food to pair.");
       return;
     }
+    const model = await requestAiModelAdvice(t("aiMagicLabelBuying"), "balanced", aiSettings?.pairing_model || aiSettingsDraft.pairing_model);
+    if (!model) return;
     setGeneratingAi("buying-advice");
     setError("");
     try {
@@ -3092,6 +3170,7 @@ export function App() {
           min_price_chf: buyingMinPrice.trim() ? Number(buyingMinPrice.trim()) : null,
           max_price_chf: buyingMaxPrice.trim() ? Number(buyingMaxPrice.trim()) : null,
           locale,
+          model,
         }),
       });
       setBuyingAdviceResult(result);
@@ -3148,6 +3227,7 @@ export function App() {
       aiSettingsDraft.score_model !== aiSettings.score_model ||
       aiSettingsDraft.wishlist_model !== aiSettings.wishlist_model ||
       aiSettingsDraft.pairing_model !== aiSettings.pairing_model ||
+      aiSettingsDraft.model_advisor_enabled !== aiSettings.model_advisor_enabled ||
       aiSettingsDraft.pairing_preferences !== aiSettings.pairing_preferences ||
       aiSettingsDraft.pairing_candidate_limit !== aiSettings.pairing_candidate_limit
     ),
@@ -4440,6 +4520,8 @@ export function App() {
   }
 
   async function generateRegionalGapTargets() {
+    const model = await requestAiModelAdvice(t("regionalGapAnalysis"), "advanced", aiSettings?.wishlist_model || aiSettingsDraft.wishlist_model);
+    if (!model) return;
     setGeneratingAi("regional-gap-targets");
     setError("");
     try {
@@ -4453,6 +4535,7 @@ export function App() {
             current_pct: Math.round(row.currentPct * 10) / 10,
             value_chf: Math.round(row.value * 100) / 100,
           })),
+          model,
         }),
       });
       setRegionalGapAiSuggestion(result);
@@ -4766,6 +4849,7 @@ export function App() {
                   <div className="regional-ai-cost">
                     <strong>{t("aiRequestCost")}</strong>
                     <span>{formatAiBudget(regionalGapAiSuggestion.estimated_cost_usd)}</span>
+                    <span>{regionalGapAiSuggestion.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(regionalGapAiSuggestion.reasoning_effort))}</span>
                   </div>
                   <button type="button" onClick={applyRegionalGapAiSuggestion}>{t("applyAiTarget")}</button>
                 </div>
@@ -8135,6 +8219,17 @@ export function App() {
                       <p className="ai-models-help-note">{t("aiModelsHelpUsageNote")}</p>
                     </div>
                   ) : null}
+                  <label className="ai-model-advisor-setting">
+                    <input
+                      type="checkbox"
+                      checked={aiSettingsDraft.model_advisor_enabled}
+                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, model_advisor_enabled: event.target.checked })}
+                    />
+                    <span>
+                      <strong>{t("aiModelAdvisor")}</strong>
+                      <small>{t("aiModelAdvisorHelp")}</small>
+                    </span>
+                  </label>
                   <div className="settings-model-grid">
                     <label>
                       <span>{t("aiNotes")}</span>
@@ -8937,7 +9032,7 @@ export function App() {
                       {visibleAiAudit.map((entry) => (
                         <div className="audit-row" key={entry.id}>
                           <strong>{entry.feature.replace(/_/g, " ")} - {aiEntityName(entry)}</strong>
-                          <span>{entry.model} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
+                          <span>{entry.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(entry.reasoning_effort))} - {formatDisplayDate(entry.created_at)} - {entry.total_tokens.toLocaleString()} {t("tokens")} - {formatUsd(entry.estimated_cost_usd)}</span>
                           <p>{entry.summary}</p>
                         </div>
                       ))}
@@ -8971,6 +9066,42 @@ export function App() {
           ) : null}
         </section>
       )}
+      {aiModelAdvice ? (
+        <div className="auth-modal-overlay ai-model-advisor-overlay" onClick={() => closeAiModelAdvice(null)}>
+          <section className="auth-modal-card ai-model-advisor-modal" role="dialog" aria-modal="true" aria-labelledby="ai-model-advisor-title" onClick={(event) => event.stopPropagation()}>
+            <div className="auth-modal-head">
+              <div>
+                <span>{t("aiModelAdvisor")}</span>
+                <h2 id="ai-model-advisor-title">{t("aiModelAdvisorTitle")}</h2>
+              </div>
+              <button type="button" className="secondary compact" onClick={() => closeAiModelAdvice(null)}>{t("cancel")}</button>
+            </div>
+            <p className="ai-model-advisor-intro">{t("aiModelAdvisorIntro")} <strong>{aiModelAdvice.featureLabel}</strong></p>
+            <div className="ai-model-advisor-comparison">
+              <div>
+                <span>{t("aiModelCurrent")}</span>
+                <strong>{aiModelAdvice.currentModel}</strong>
+              </div>
+              <div className="recommended">
+                <span>{t("aiModelRecommended")}</span>
+                <strong>{aiModelAdvice.recommendedModel}</strong>
+              </div>
+            </div>
+            <p className="ai-model-advisor-reason">
+              {t(aiModelAdvice.role === "economy" ? "aiModelAdvisorReasonEconomy" : aiModelAdvice.role === "balanced" ? "aiModelAdvisorReasonBalanced" : "aiModelAdvisorReasonAdvanced")}
+            </p>
+            <small className="ai-model-advisor-note">{t("aiModelAdvisorOneRequest")}</small>
+            <div className="ai-model-advisor-actions">
+              {aiModelAdvice.recommendedModel !== aiModelAdvice.currentModel ? (
+                <button type="button" onClick={() => closeAiModelAdvice(aiModelAdvice.recommendedModel)}>{t("useRecommendedModel")}</button>
+              ) : null}
+              <button type="button" className={aiModelAdvice.recommendedModel !== aiModelAdvice.currentModel ? "secondary" : ""} onClick={() => closeAiModelAdvice(aiModelAdvice.currentModel)}>
+                {aiModelAdvice.recommendedModel === aiModelAdvice.currentModel ? t("continue") : t("keepCurrentModel")}
+              </button>
+            </div>
+          </section>
+        </div>
+      ) : null}
       {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
       {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} locale={locale} progress={aiOverlayProgress} /> : null}
       {showBackToTop ? (

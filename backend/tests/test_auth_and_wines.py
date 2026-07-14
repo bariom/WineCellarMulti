@@ -1950,15 +1950,17 @@ def test_ai_generation_requires_configured_openai_key():
     assert settings.json()["has_openai_api_key"] is False
     assert "gpt-5.5" in settings.json()["model_options"]
     assert settings.json()["pairing_model"] == "gpt-5.4"
+    assert settings.json()["model_advisor_enabled"] is False
 
     updated_settings = client.patch(
         "/api/v1/ai/settings",
-        json={"openai_api_key": "sk-test", "ai_notes_model": "gpt-5.5", "pairing_model": "gpt-5.5"},
+        json={"openai_api_key": "sk-test", "ai_notes_model": "gpt-5.5", "pairing_model": "gpt-5.5", "model_advisor_enabled": True},
     )
     assert updated_settings.status_code == 200
     assert updated_settings.json()["has_openai_api_key"] is True
     assert updated_settings.json()["ai_notes_model"] == "gpt-5.5"
     assert updated_settings.json()["pairing_model"] == "gpt-5.5"
+    assert updated_settings.json()["model_advisor_enabled"] is True
     with TestingSessionLocal() as db:
         stored_settings = db.get(UserAiSettings, uuid.UUID(client.get("/api/v1/session").json()["user_id"]))
         assert stored_settings is not None
@@ -2367,7 +2369,7 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
     assert created.status_code == 201
 
     def fake_create_response(*args, **kwargs):
-        assert args[0] == "gpt-5.5"
+        assert args[0] == "gpt-5.4"
         assert "Name: Barolo" in args[2]
         assert "Producer: Example Producer" in args[2]
         assert "Vintage: 2019" in args[2]
@@ -2382,7 +2384,7 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores")
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores", json={"model": "gpt-5.4"})
     assert generated.status_code == 200
     assert generated.json()["scores"] == [
         {"critic": "Existing Critic", "score": "94", "note": "Stored score"},
@@ -2459,6 +2461,7 @@ def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
                 '"verdict":"Open Dom Perignon first if the goal is immediacy and finesse; keep Tignanello for a more structured meal or a later date."}'
             ),
             usage=TokenUsage(input_tokens=220, output_tokens=140, total_tokens=360),
+            reasoning_effort="medium",
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
@@ -2469,6 +2472,7 @@ def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
     )
     assert compared.status_code == 200
     assert compared.json()["model"] == "gpt-5.5"
+    assert compared.json()["reasoning_effort"] == "medium"
     assert "Tignanello vs Dom Perignon" in compared.json()["style_profile"]
     assert "Open Dom Perignon first" in compared.json()["verdict"]
     assert compared.json()["estimated_cost_usd"] != "0.000000"
@@ -2479,6 +2483,7 @@ def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
     assert audit.status_code == 200
     compare_entry = next(entry for entry in audit.json() if entry["feature"] == "wine_compare")
     assert "Tignanello vs Dom Perignon" in compare_entry["summary"]
+    assert compare_entry["reasoning_effort"] == "medium"
     assert compare_entry["estimated_cost_usd"] == compared.json()["estimated_cost_usd"]
 
 

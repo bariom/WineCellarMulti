@@ -28,6 +28,40 @@ ADVANCED_TASKS = {
     "multi_step_planning",
 }
 
+TASK_REASONING_EFFORT = {
+    # Retrieval, extraction and concise structured transformations.
+    "ai_notes": "low",
+    "label_enrichment": "low",
+    "grape_inference": "low",
+    "score_summary": "low",
+    "wine_value": "low",
+    "wishlist_value": "low",
+    # Interpretation and decisions that benefit from a moderate reasoning budget.
+    "drink_window": "medium",
+    "wine_comparison": "medium",
+    "pairing": "medium",
+    "buying_advice": "medium",
+    "wishlist_advice": "medium",
+    "wishlist_purpose": "medium",
+    # Multi-factor portfolio planning where deeper synthesis is material.
+    "regional_gap_targets": "high",
+    "portfolio_strategy": "high",
+}
+
+COMPLEXITY_REASONING_EFFORT = {
+    "economy": "low",
+    "simple": "low",
+    "low": "low",
+    "balanced": "medium",
+    "standard": "medium",
+    "medium": "medium",
+    "advanced": "high",
+    "complex": "high",
+    "high": "high",
+}
+
+VALID_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh", "max"}
+
 
 @dataclass(frozen=True)
 class ModelSelection:
@@ -147,3 +181,30 @@ def parameters_for_model(model: str) -> ModelParameters:
         # the second request; legacy-only calls may use it as one normal retry.
         max_retries=min(max(int(settings.openai_max_retries), 0), 1),
     )
+
+
+def reasoning_effort_for_request(
+    model: str,
+    task_type: str,
+    complexity: str | None = None,
+    explicit_effort: str | None = None,
+) -> str | None:
+    """Choose effort by task, independently from model price/capability.
+
+    Explicit per-call effort wins. Complexity is the next strongest signal,
+    followed by Vinaris' task policy. Role-based environment values remain the
+    fallback for unknown integrations and rollback compatibility.
+    """
+    if explicit_effort is not None:
+        explicit = explicit_effort.strip().lower()
+        return explicit if explicit in VALID_REASONING_EFFORTS else parameters_for_model(model).reasoning_effort
+
+    normalized_complexity = (complexity or "").strip().lower()
+    if normalized_complexity in COMPLEXITY_REASONING_EFFORT:
+        return COMPLEXITY_REASONING_EFFORT[normalized_complexity]
+
+    normalized_task = task_type.strip().lower()
+    if normalized_task in TASK_REASONING_EFFORT:
+        return TASK_REASONING_EFFORT[normalized_task]
+
+    return parameters_for_model(model).reasoning_effort

@@ -104,6 +104,11 @@ def validate_model(model: str) -> str:
     return model
 
 
+def request_model(payload: AiGenerationRequest, configured_model: str) -> str:
+    """Apply a model override to one request without changing user settings."""
+    return validate_model(payload.model) if payload.model else configured_model
+
+
 def available_model_options() -> list[str]:
     """Models exposed to user/API settings; GPT-5.5 remains internal fallback when GPT-5.6 is enabled."""
     return list(GPT56_MODEL_OPTIONS if settings.openai_enable_gpt56 else LEGACY_MODEL_OPTIONS)
@@ -159,6 +164,7 @@ def get_or_create_user_ai_settings(db: Session, context: CurrentContext) -> User
             score_model=default_model_for_field("score_model"),
             wishlist_model=default_model_for_field("wishlist_model"),
             pairing_model=default_model_for_field("pairing_model"),
+            model_advisor_enabled=False,
             pairing_preferences="",
             pairing_candidate_limit=PAIRING_MAX_CANDIDATES,
         )
@@ -193,6 +199,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         score_model=user_settings.score_model,
         wishlist_model=user_settings.wishlist_model,
         pairing_model=user_settings.pairing_model,
+        model_advisor_enabled=user_settings.model_advisor_enabled,
         pairing_preferences=user_settings.pairing_preferences or "",
         pairing_candidate_limit=user_settings.pairing_candidate_limit,
         model_options=available_model_options(),
@@ -536,6 +543,7 @@ def record_ai_audit(
     feature: str,
     model: str,
     summary: str,
+    reasoning_effort: str = "",
     sources: list[dict] | None = None,
     usage: TokenUsage | None = None,
     provider_source: str = "user_key",
@@ -566,6 +574,7 @@ def record_ai_audit(
             entity_id=entity_id,
             feature=feature,
             model=model,
+            reasoning_effort=reasoning_effort,
             outcome="success",
             summary=clip_summary(summary),
             sources=(sources or []) + [source_metadata],
@@ -669,6 +678,8 @@ def update_ai_settings(
                 setattr(user_settings, field, validate_model(value))
     if payload.pairing_preferences is not None:
         user_settings.pairing_preferences = payload.pairing_preferences.strip()[:2000]
+    if payload.model_advisor_enabled is not None:
+        user_settings.model_advisor_enabled = payload.model_advisor_enabled
     if payload.pairing_candidate_limit is not None:
         user_settings.pairing_candidate_limit = payload.pairing_candidate_limit
     user_settings.updated_at = datetime.now(timezone.utc)
@@ -1124,7 +1135,7 @@ def compare_wines(
         db,
         context,
         user_settings,
-        model=user_settings.pairing_model,
+        model=request_model(payload, user_settings.pairing_model),
         task_type="wine_comparison",
         system_prompt=(
             "You compare two wines for a private collector. Return JSON only. "
@@ -1157,6 +1168,7 @@ def compare_wines(
     )
     compare_response = WineCompareResponse(
         model=effective_response_model(response, user_settings.pairing_model),
+        reasoning_effort=response.reasoning_effort or "",
         style_profile=replace_compare_placeholders(str(result.get("style_profile") or "").strip(), first.name, second.name),
         readiness=replace_compare_placeholders(str(result.get("readiness") or "").strip(), first.name, second.name),
         occasion=replace_compare_placeholders(str(result.get("occasion") or "").strip(), first.name, second.name),
@@ -1171,6 +1183,7 @@ def compare_wines(
         entity_id=context.household.id,
         feature="wine_compare",
         model=effective_response_model(response, user_settings.pairing_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{first.name} vs {second.name}: {compare_response.verdict}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1257,7 +1270,7 @@ def suggest_pairing(
         db,
         context,
         user_settings,
-        model=user_settings.pairing_model,
+        model=request_model(payload, user_settings.pairing_model),
         task_type="pairing",
         system_prompt=(
             "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
@@ -1288,6 +1301,7 @@ def suggest_pairing(
     )
     cleaned = clean_pairing_response(parse_json_response(response.text), {str(wine.id) for wine in cellar_wines}, payload.include_market)
     cleaned.model = effective_response_model(response, user_settings.pairing_model)
+    cleaned.reasoning_effort = response.reasoning_effort or ""
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
@@ -1302,6 +1316,7 @@ def suggest_pairing(
         entity_id=context.household.id,
         feature="pairing",
         model=effective_response_model(response, user_settings.pairing_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.dish}: {cleaned.summary}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1373,8 +1388,8 @@ def suggest_buying_advice(
         db,
         context,
         user_settings,
-        model=user_settings.pairing_model,
-        task_type="pairing",
+        model=request_model(payload, user_settings.pairing_model),
+        task_type="buying_advice",
         system_prompt=(
             "You are a pragmatic wine purchasing advisor with live web search. Return JSON only. "
             "Every recommendation must correspond to a concrete retailer product page found during this search. "
@@ -1435,6 +1450,7 @@ def suggest_buying_advice(
         summary=str(parsed.get("summary") or "").strip()[:1500],
         warning=str(parsed.get("warning") or "").strip()[:1000],
         model=effective_model,
+        reasoning_effort=response.reasoning_effort or "",
         recommendations=recommendations,
         estimated_cost_usd=charged_cost,
     )
@@ -1445,6 +1461,7 @@ def suggest_buying_advice(
         entity_id=context.household.id,
         feature="buying_advice",
         model=effective_model,
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.purpose} / {payload.needed_by} / {payload.location}: {result.summary}",
         sources=sources,
         usage=response.usage,
@@ -1468,14 +1485,14 @@ def generate_wine_notes(
         db,
         context,
         user_settings,
-        model=user_settings.ai_notes_model,
+        model=request_model(payload, user_settings.ai_notes_model),
         task_type="ai_notes",
         system_prompt=f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
         user_prompt=f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_lookup_context(wine)}",
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
-    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=effective_response_model(response, user_settings.ai_notes_model), summary=notes, usage=response.usage, provider_source=provider_source)
+    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=effective_response_model(response, user_settings.ai_notes_model), summary=notes, reasoning_effort=response.reasoning_effort or "", usage=response.usage, provider_source=provider_source)
     db.commit()
     db.refresh(wine)
     return ai_wine_response(db, context, wine)
@@ -1490,7 +1507,7 @@ def enrich_wine_label(
     if payload.source == "label" and not context.user.can_use_label_recognition:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
     user_settings = get_or_create_user_ai_settings(db, context)
-    model = validate_model(user_settings.grape_model or settings.openai_grape_model)
+    model = request_model(payload, user_settings.grape_model or settings.openai_grape_model)
     schema = {
         "name": "wine_label_enrichment",
         "schema": {
@@ -1562,6 +1579,7 @@ def enrich_wine_label(
         entity_id=context.household.id,
         feature="wine_label_enrichment",
         model=effective_response_model(response, model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.label}: {cleaned.producer} {cleaned.name} {cleaned.vintage}".strip(),
         usage=response.usage,
         provider_source=provider_source,
@@ -1598,7 +1616,7 @@ def generate_drink_window(
         db,
         context,
         user_settings,
-        model=user_settings.drink_window_model,
+        model=request_model(payload, user_settings.drink_window_model),
         task_type="drink_window",
         system_prompt=f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_lookup_context(wine)}",
@@ -1617,6 +1635,7 @@ def generate_drink_window(
         entity_id=wine.id,
         feature="drink_window",
         model=effective_response_model(response, user_settings.drink_window_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{wine.drink_from}-{wine.drink_to}: {wine.drink_window_notes}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1669,7 +1688,7 @@ def generate_wine_value(
         db,
         context,
         user_settings,
-        model=user_settings.value_model,
+        model=request_model(payload, user_settings.value_model),
         task_type="wine_value",
         system_prompt=(
             "You estimate wine value cautiously. Return JSON only. "
@@ -1713,6 +1732,7 @@ def generate_wine_value(
         entity_id=wine.id,
         feature="ai_value",
         model=effective_response_model(response, user_settings.value_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{wine.currency} {wine.current_value}: {wine.ai_value_notes}",
         sources=audit_sources,
         usage=response.usage,
@@ -1763,7 +1783,7 @@ def generate_grapes(
         db,
         context,
         user_settings,
-        model=user_settings.grape_model,
+        model=request_model(payload, user_settings.grape_model),
         task_type="grape_inference",
         system_prompt=(
             "You verify exact wine grape composition using web sources. Return JSON only. "
@@ -1801,6 +1821,7 @@ def generate_grapes(
         entity_id=wine.id,
         feature="grapes",
         model=effective_response_model(response, user_settings.grape_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=note or ("Verified grape composition saved" if saved_verified_grapes else "No verified grape composition found"),
         sources=web_search_source_entries(response.web_sources),
         usage=response.usage,
@@ -1850,7 +1871,7 @@ def generate_scores(
         db,
         context,
         user_settings,
-        model=user_settings.score_model,
+        model=request_model(payload, user_settings.score_model),
         task_type="score_summary",
         system_prompt=(
             "You research published wine critic scores using web sources. Return JSON only. "
@@ -1903,6 +1924,7 @@ def generate_scores(
         entity_id=wine.id,
         feature="scores",
         model=effective_response_model(response, user_settings.score_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{len(additional_scores)} new scores found ({len(wine.scores)} total)",
         sources=web_search_source_entries(response.web_sources),
         usage=response.usage,
@@ -1940,7 +1962,7 @@ def generate_wishlist_strategy(
         db,
         context,
         user_settings,
-        model=user_settings.wishlist_model,
+        model=request_model(payload, user_settings.wishlist_model),
         task_type="wishlist_advice",
         system_prompt=f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_advice_context(item)}",
@@ -1958,6 +1980,7 @@ def generate_wishlist_strategy(
         entity_id=item.id,
         feature="wishlist_strategy",
         model=effective_response_model(response, user_settings.wishlist_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{item.priority} / {item.status}: {item.ai_strategy}",
         usage=response.usage,
         provider_source=provider_source,
@@ -1994,7 +2017,7 @@ def generate_wishlist_purpose(
         db,
         context,
         user_settings,
-        model=user_settings.wishlist_model,
+        model=request_model(payload, user_settings.wishlist_model),
         task_type="wishlist_purpose",
         system_prompt=f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
         user_prompt=f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_advice_context(item)}",
@@ -2011,6 +2034,7 @@ def generate_wishlist_purpose(
         entity_id=item.id,
         feature="wishlist_purpose",
         model=effective_response_model(response, user_settings.wishlist_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{item.purpose} / {item.priority}: {item.ai_purpose_advice}",
         usage=response.usage,
         provider_source=provider_source,
@@ -2065,7 +2089,7 @@ def generate_wishlist_target_price(
         db,
         context,
         user_settings,
-        model=user_settings.value_model,
+        model=request_model(payload, user_settings.value_model),
         task_type="wishlist_value",
         system_prompt=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
@@ -2110,6 +2134,7 @@ def generate_wishlist_target_price(
         entity_id=item.id,
         feature="wishlist_target_price",
         model=effective_response_model(response, user_settings.value_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=(
             f"Target {item.currency} {item.target_price} / "
             f"Market {item.ai_market_price_currency or item.currency} {item.ai_market_price}: {item.ai_strategy}"
@@ -2174,7 +2199,7 @@ def suggest_regional_gap_targets(
         db,
         context,
         user_settings,
-        model=user_settings.wishlist_model,
+        model=request_model(payload, user_settings.wishlist_model),
         task_type="regional_gap_targets",
         system_prompt=(
             "You advise a private wine collector on regional portfolio allocation. Return JSON only. "
@@ -2229,6 +2254,7 @@ def suggest_regional_gap_targets(
     )
     suggestion = RegionalGapTargetSuggestionResponse(
         model=effective_response_model(response, user_settings.wishlist_model),
+        reasoning_effort=response.reasoning_effort or "",
         profile=payload.profile,
         rationale=str(result.get("rationale") or "").strip()[:1200],
         targets=normalized,
@@ -2241,6 +2267,7 @@ def suggest_regional_gap_targets(
         entity_id=context.household.id,
         feature="regional_gap_targets",
         model=effective_response_model(response, user_settings.wishlist_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.profile}: {suggestion.rationale}",
         sources=[{"kind": "regional_gap_targets", "profile": payload.profile, "targets": [target.model_dump(mode="json") for target in normalized]}],
         usage=response.usage,
@@ -2293,7 +2320,7 @@ def generate_wishlist_portfolio_strategy(
         db,
         context,
         user_settings,
-        model=user_settings.wishlist_model,
+        model=request_model(payload, user_settings.wishlist_model),
         task_type="portfolio_strategy",
         system_prompt=(
             "You are a disciplined private wine buying advisor working at the portfolio level. Return JSON only. "
@@ -2324,6 +2351,7 @@ def generate_wishlist_portfolio_strategy(
     )
     strategy_response = WishlistPortfolioStrategyResponse(
         model=effective_response_model(response, user_settings.wishlist_model),
+        reasoning_effort=response.reasoning_effort or "",
         overview=str(result.get("overview") or "").strip(),
         buy_now=str(result.get("buy_now") or "").strip(),
         wait_watch=str(result.get("wait_watch") or "").strip(),
@@ -2342,6 +2370,7 @@ def generate_wishlist_portfolio_strategy(
         entity_id=context.household.id,
         feature="wishlist_portfolio_strategy",
         model=effective_response_model(response, user_settings.wishlist_model),
+        reasoning_effort=response.reasoning_effort or "",
         summary=f"{strategy_response.overview} Next: {strategy_response.next_step}",
         sources=[
             {
