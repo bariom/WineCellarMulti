@@ -103,7 +103,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
   }
 
   return (
-    <details className="detail-section coownership-panel" open={agreements.length > 0}>
+    <details className="detail-section coownership-panel">
       <summary>{locale === "it" ? "Accordi di comproprietà" : "Co-ownership agreements"}</summary>
       {agreements.map((agreement) => (
         <div className="coownership-agreement-card" key={agreement.id}>
