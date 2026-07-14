@@ -871,6 +871,28 @@ export function WineDetail({
           <strong>{detailValue}</strong>
         </div>
 
+        <details className="wine-ai-tools">
+          <summary>{locale === "it" ? "Strumenti AI" : "AI tools"}</summary>
+          <div className="ai-actions detail-ai-actions">
+            <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
+              <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} />
+            </button>
+            <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("drink-window")}>
+              <ButtonBusyContent busy={generating === "drink-window"} idleLabel={t("drinkWindow")} busyLabel={t("generating")} />
+            </button>
+            <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("value")}>
+              <ButtonBusyContent busy={generating === "value"} idleLabel={t("value")} busyLabel={t("generating")} />
+            </button>
+            <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
+              <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} />
+            </button>
+            <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.scores_not_applicable} onClick={() => onGenerate("scores")}>
+              <ButtonBusyContent busy={generating === "scores"} idleLabel={wine.scores.length ? t("findMoreScores") : t("scores")} busyLabel={t("generating")} />
+            </button>
+          </div>
+          {generating ? <LoadingState label={t("generating")} compact /> : null}
+        </details>
+
         <div className="detail-hero-metrics">
           <div className="detail-hero-metric">
             <span>{t("status")}</span>
@@ -996,25 +1018,6 @@ export function WineDetail({
       ) : null}
 
       {coOwnershipSection}
-
-      <div className="ai-actions detail-ai-actions">
-        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
-          <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} />
-        </button>
-        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("drink-window")}>
-          <ButtonBusyContent busy={generating === "drink-window"} idleLabel={t("drinkWindow")} busyLabel={t("generating")} />
-        </button>
-        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("value")}>
-          <ButtonBusyContent busy={generating === "value"} idleLabel={t("value")} busyLabel={t("generating")} />
-        </button>
-        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("grapes")}>
-          <ButtonBusyContent busy={generating === "grapes"} idleLabel={t("grapes")} busyLabel={t("generating")} />
-        </button>
-        <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating) || wine.scores_not_applicable} onClick={() => onGenerate("scores")}>
-          <ButtonBusyContent busy={generating === "scores"} idleLabel={wine.scores.length ? t("findMoreScores") : t("scores")} busyLabel={t("generating")} />
-        </button>
-      </div>
-      {generating ? <LoadingState label={t("generating")} compact /> : null}
 
       {canWrite && wine.quantity > 0 ? (
         <details className="detail-section consume-panel">

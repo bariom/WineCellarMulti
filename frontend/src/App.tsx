@@ -5049,8 +5049,10 @@ export function App() {
     if (!owners.length && !coOwnershipAgreements.length && !canWriteWine) return null;
     return (
       <section className="coownership-workspace">
-        <div className="detail-section coownership-summary">
+        <header className="coownership-workspace-header">
           <h3>{locale === "it" ? "Multiproprietà" : "Co-ownership"}</h3>
+        </header>
+        <div className="coownership-summary">
           {owners.length ? (
             <div className="ownership-list">
               {owners.map((owner, index) => (
