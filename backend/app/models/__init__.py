@@ -1,5 +1,6 @@
 from app.models.ai_audit import AiAuditLog
 from app.models.billing import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, UserAiCreditTransaction, UserEntitlement
+from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
@@ -16,6 +17,8 @@ from app.models.wishlist import WishlistItem, WishlistList
 
 __all__ = [
     "AiAuditLog",
+    "CoOwnershipAgreement",
+    "CoOwnershipParticipant",
     "Household",
     "HouseholdInvite",
     "Membership",

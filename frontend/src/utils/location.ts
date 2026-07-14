@@ -26,6 +26,11 @@ export function passwordResetTokenFromUrl() {
   return params.get("password_reset_token") || "";
 }
 
+export function coOwnershipTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("coownership_token") || "";
+}
+
 export const STRIPE_CHECKOUT_PLAN_KEY = "vinaris_stripe_checkout_plan";
 
 export const STRIPE_CHECKOUT_BALANCE_KEY = "vinaris_stripe_checkout_balance";

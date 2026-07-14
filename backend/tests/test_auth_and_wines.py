@@ -1266,6 +1266,85 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert parsed_portal["customer"] == ["cus_test"]
 
 
+def test_coownership_agreement_supports_registered_and_external_participants(monkeypatch):
+    deliveries = []
+
+    def fake_send_email(*, recipients, subject, body):
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr("app.api.routes.coownership.send_email", fake_send_email)
+    owner_client = TestClient(app)
+    guest_user_client = TestClient(app)
+    assert register(owner_client).status_code == 201
+    assert register(guest_user_client, email="partner@example.com", password="strong-password-2").status_code == 201
+    created_wine = owner_client.post(
+        "/api/v1/wines",
+        json={"name": "Shared Barolo", "vintage": "2019", "quantity": 12, "price": 1200, "currency": "CHF"},
+    )
+    assert created_wine.status_code == 201
+
+    created = owner_client.post(
+        f"/api/v1/co-ownership-agreements/wines/{created_wine.json()['id']}",
+        json={
+            "ownership_mode": "undivided",
+            "custody_location": "Main cellar, rack B",
+            "terms": "A bottle may be opened only with unanimous consent.",
+            "email_registered_users": False,
+            "participants": [
+                {"name": "Cellar Owner", "email": "owner@example.com", "share_pct": "33.333334", "contribution": 400},
+                {"name": "Registered Partner", "email": "partner@example.com", "share_pct": "33.333333", "contribution": 400},
+                {"name": "External Partner", "email": "external@example.com", "share_pct": "33.333333", "contribution": 400},
+            ],
+        },
+    )
+    assert created.status_code == 201
+    agreement = created.json()
+    assert agreement["status"] == "pending"
+    assert agreement["wine_snapshot"]["quantity"] == 12
+    assert len(agreement["document_hash"]) == 64
+    assert len(deliveries) == 1
+    assert deliveries[0]["recipients"] == ["external@example.com"]
+    registered = next(item for item in agreement["participants"] if item["email"] == "partner@example.com")
+    external = next(item for item in agreement["participants"] if item["email"] == "external@example.com")
+    assert registered["user_id"] is not None
+    assert registered["delivery_channel"] == "notification"
+    assert external["user_id"] is None
+    assert external["invite_url"]
+
+    with TestingSessionLocal() as db:
+        partner = db.query(User).filter(User.email == "partner@example.com").one()
+        assert db.query(UserNotification).filter(
+            UserNotification.user_id == partner.id,
+            UserNotification.kind == "coownership_agreement",
+        ).count() == 1
+
+    tokens = {
+        item["email"]: parse_qs(urlparse(item["invite_url"]).query)["coownership_token"][0]
+        for item in agreement["participants"]
+    }
+    viewed = TestClient(app).get(f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}")
+    assert viewed.status_code == 200
+    first_accept = TestClient(app).post(
+        f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}/respond",
+        json={"decision": "accepted", "full_name": "External Partner"},
+    )
+    assert first_accept.status_code == 200
+    assert first_accept.json()["status"] == "pending"
+    for email in ("owner@example.com", "partner@example.com"):
+        response = TestClient(app).post(
+            f"/api/v1/co-ownership-agreements/public/{tokens[email]}/respond",
+            json={"decision": "accepted", "full_name": email},
+        )
+        assert response.status_code == 200
+    assert response.json()["status"] == "accepted"
+    assert response.json()["finalized_at"] is not None
+    replay = TestClient(app).post(
+        f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}/respond",
+        json={"decision": "accepted", "full_name": "External Partner"},
+    )
+    assert replay.status_code == 409
+
 def test_stripe_ai_pack_checkout_webhook_adds_balance_without_redeem_code(monkeypatch):
     from app.api.routes import billing as billing_routes
 

@@ -261,6 +261,8 @@ RESEND_API_KEY=re_xxxxxxxxx
 
 Emails are sent best-effort. If email delivery is not configured or a delivery fails, the application flow still completes and the email is skipped. Email verification requires a working email provider. Admin alerts go to all approved, unblocked application admins.
 
+Co-ownership agreements support both registered Vinaris users and external participants. Registered users receive an in-app notification and can optionally receive email; external participants receive a private response link by email. If delivery fails, the agreement creator can copy the participant-specific link from the wine detail. Each new agreement is versioned, snapshots the wine and ownership terms, and becomes final only after every participant accepts it.
+
 Find the Linux machine IP with:
 
 ```bash
@@ -276,6 +278,10 @@ hostname -I
 - `POST /api/v1/auth/logout`
 - `POST /api/v1/auth/password-reset/request`
 - `POST /api/v1/auth/password-reset/confirm`
+- `GET /api/v1/co-ownership-agreements/wines/{wine_id}`
+- `POST /api/v1/co-ownership-agreements/wines/{wine_id}`
+- `GET /api/v1/co-ownership-agreements/public/{token}`
+- `POST /api/v1/co-ownership-agreements/public/{token}/respond`
 - `GET /api/v1/billing/status`
 - `POST /api/v1/billing/checkout`
 - `POST /api/v1/billing/redeem`

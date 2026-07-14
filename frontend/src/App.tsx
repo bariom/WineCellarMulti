@@ -1,9 +1,10 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
+import { CoOwnershipPanel, CoOwnershipPublicPage } from "./components/CoOwnershipPanels";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, WineGeographyMap } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
+import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
 import { displayValue, helpGuideContent, helpGuideContentV2, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -12,7 +13,7 @@ import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError }
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
-import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
+import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, coOwnershipTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -772,6 +773,8 @@ export function App() {
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [emailVerificationConfirmed, setEmailVerificationConfirmed] = useState(false);
   const [passwordResetToken, setPasswordResetToken] = useState("");
+  const [coOwnershipToken, setCoOwnershipToken] = useState("");
+  const [coOwnershipAgreements, setCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
@@ -1649,6 +1652,7 @@ export function App() {
     const emailVerificationResult = emailVerificationResultFromUrl();
     const emailVerificationToken = emailVerificationTokenFromUrl();
     const passwordResetToken = passwordResetTokenFromUrl();
+    const coOwnershipToken = coOwnershipTokenFromUrl();
     if (emailVerificationToken) {
       setEmailVerificationToken(emailVerificationToken);
       setEmailVerificationConfirmed(false);
@@ -1660,6 +1664,10 @@ export function App() {
       setPasswordResetToken(passwordResetToken);
       setAuthMode("reset-password");
       setAuthModalOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    if (coOwnershipToken) {
+      setCoOwnershipToken(coOwnershipToken);
       window.history.replaceState(null, "", window.location.pathname);
     }
     if (emailVerificationResult === "success") {
@@ -2397,7 +2405,10 @@ export function App() {
   }
 
   async function openNotification(notification: UserNotification) {
-    if (notification.action_url?.includes("/settings/profile")) {
+    if (notification.action_url?.includes("coownership_token=")) {
+      const url = new URL(notification.action_url, window.location.origin);
+      setCoOwnershipToken(url.searchParams.get("coownership_token") || "");
+    } else if (notification.action_url?.includes("/settings/profile")) {
       setActiveView("settings");
       setSettingsTab("profile");
     } else if (notification.action_url?.includes("/settings/ai")) {
@@ -2414,6 +2425,28 @@ export function App() {
     }
     setNotificationsOpen(false);
     await markNotificationRead(notification);
+  }
+
+  async function loadCoOwnershipAgreements(wineId: string) {
+    const next = await api<CoOwnershipAgreement[]>(`/api/v1/co-ownership-agreements/wines/${wineId}`);
+    setCoOwnershipAgreements(next);
+  }
+
+  async function createCoOwnershipAgreement(wine: Wine, payload: Record<string, unknown>) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<CoOwnershipAgreement>(`/api/v1/co-ownership-agreements/wines/${wine.id}`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await loadCoOwnershipAgreements(wine.id);
+      setNotice(locale === "it" ? "Accordo creato e inviti predisposti." : "Agreement created and invitations prepared.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to create co-ownership agreement");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function createWineShareOffer(wine: Wine) {
@@ -3767,6 +3800,14 @@ export function App() {
     });
   }, [offlineMode, session?.authenticated, selectedWineId, wines]);
 
+  useEffect(() => {
+    if (offlineMode || !session?.authenticated || !selectedWineId) {
+      setCoOwnershipAgreements([]);
+      return;
+    }
+    loadCoOwnershipAgreements(selectedWineId).catch(() => setCoOwnershipAgreements([]));
+  }, [offlineMode, session?.authenticated, selectedWineId]);
+
   const cellarOwnership = ownershipStats(cellarWines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
@@ -4968,6 +5009,10 @@ export function App() {
   const gpt56ModelsEnabled = aiSettings?.model_options?.length
     ? aiSettings.model_options.every((model) => model.startsWith("gpt-5.6-"))
     : false;
+
+  if (coOwnershipToken) {
+    return <CoOwnershipPublicPage token={coOwnershipToken} locale={locale} onClose={() => setCoOwnershipToken("")} />;
+  }
 
   return (
     <main className="app-shell">
@@ -7021,6 +7066,14 @@ export function App() {
                   locale={locale}
                 />
                 {renderSharePanel(selectedVisibleWine)}
+                <CoOwnershipPanel
+                  wine={selectedVisibleWine}
+                  session={session}
+                  agreements={coOwnershipAgreements}
+                  canWrite={canWriteWine && !offlineMode}
+                  saving={saving}
+                  onCreate={(payload) => createCoOwnershipAgreement(selectedVisibleWine, payload)}
+                />
               </>
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail

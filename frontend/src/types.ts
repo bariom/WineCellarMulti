@@ -278,6 +278,47 @@ export type WishlistList = {
   portfolio_strategy: WishlistPortfolioStrategy | null;
 };
 
+export type CoOwnershipParticipant = {
+  id: string;
+  user_id: string | null;
+  name: string;
+  email: string;
+  share_pct: string;
+  contribution: string | null;
+  status: string;
+  invited_at: string | null;
+  viewed_at: string | null;
+  responded_at: string | null;
+  acceptance_name: string;
+  acceptance_method: string;
+  delivery_channel: string;
+  delivery_status: string;
+  invite_url: string | null;
+};
+
+export type CoOwnershipAgreement = {
+  id: string;
+  wine_id: string;
+  version: number;
+  status: string;
+  ownership_mode: "undivided" | "allocated";
+  custody_location: string;
+  terms: string;
+  wine_snapshot: Record<string, string | number | null>;
+  document_hash: string;
+  created_at: string;
+  finalized_at: string | null;
+  responding_participant_id: string | null;
+  participants: CoOwnershipParticipant[];
+};
+
+export type CoOwnershipParticipantDraft = {
+  name: string;
+  email: string;
+  share_pct: string;
+  contribution: string;
+};
+
 export type WishlistDraft = {
   wishlist_list_id: string;
   name: string;

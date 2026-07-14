@@ -14352,3 +14352,83 @@ tbody tr:hover {
     transition: none;
   }
 }
+.coownership-panel {
+  margin-top: 1rem;
+}
+
+.coownership-agreement-card,
+.coownership-document,
+.coownership-response {
+  margin-top: 1rem;
+}
+
+.coownership-document {
+  padding: 1.35rem;
+  border: 1px solid var(--border-color, #d8d2c5);
+  border-radius: 16px;
+  background: var(--surface, #fff);
+  color: var(--text-color, #1f2a24);
+}
+
+.coownership-document header,
+.coownership-document footer {
+  display: grid;
+  gap: 0.35rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border-color, #d8d2c5);
+}
+
+.coownership-document footer {
+  margin-top: 1.25rem;
+  padding-top: 1rem;
+  padding-bottom: 0;
+  border-top: 1px solid var(--border-color, #d8d2c5);
+  border-bottom: 0;
+  overflow-wrap: anywhere;
+}
+
+.coownership-document section {
+  margin-top: 1.25rem;
+}
+
+.coownership-terms {
+  white-space: pre-wrap;
+}
+
+.coownership-public-page {
+  width: min(920px, calc(100% - 2rem));
+  margin: 2rem auto;
+}
+
+.coownership-public-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+@media print {
+  body * {
+    visibility: hidden !important;
+  }
+
+  .coownership-printable,
+  .coownership-printable * {
+    visibility: visible !important;
+  }
+
+  .coownership-printable {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+    background: #fff;
+    color: #111;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
