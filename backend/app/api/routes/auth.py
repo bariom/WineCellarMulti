@@ -30,12 +30,14 @@ from app.api.deps import CurrentContext, active_entitlement_valid_until, build_s
 from app.core.config import settings
 from app.core.rate_limit import enforce_rate_limit
 from app.core.crypto import encrypt_secret
-from app.core.security import hash_email_verification_token, hash_password, hash_redeem_code, hash_session_token, new_email_verification_token, new_session_token, verify_password
+from app.core.security import hash_email_verification_token, hash_password, hash_password_reset_token, hash_redeem_code, hash_session_token, new_email_verification_token, new_password_reset_token, new_session_token, verify_password
 from app.db.session import get_db
 from app.models import AiAuditLog, Household, Membership, PasskeyChallenge, RedeemCode, User, UserEntitlement, UserPasskey, UserSession, Wine
 from app.schemas.auth import (
     EmailVerificationRequest,
     LoginRequest,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     PasskeyLoginVerifyRequest,
     PasskeyRegistrationOptionsRequest,
     PasskeyRegistrationVerifyRequest,
@@ -443,6 +445,19 @@ def notify_user_email_verification(user: User, verification_url: str) -> bool:
     )
 
 
+def notify_user_password_reset(user: User, reset_url: str) -> bool:
+    return send_email(
+        recipients=[user.email],
+        subject=f"[{settings.app_name}] Reset your password",
+        body=(
+            "We received a request to reset your Vinaris password.\n\n"
+            f"Open this link within {settings.password_reset_ttl_minutes} minutes:\n"
+            f"{reset_url}\n\n"
+            "This link can be used once. If you did not request a password reset, you can ignore this email."
+        ),
+    )
+
+
 def verify_email_token(payload: EmailVerificationRequest, db: Session) -> User:
     token_hash = hash_email_verification_token(payload.token)
     user = db.scalar(select(User).where(User.email_verification_token_hash == token_hash))
@@ -567,6 +582,57 @@ def confirm_email(payload: EmailVerificationRequest, request: Request, db: Sessi
     )
     verify_email_token(payload, db)
     return {"status": "verified"}
+
+
+@router.post("/password-reset/request", status_code=status.HTTP_204_NO_CONTENT)
+def request_password_reset(payload: PasswordResetRequest, request: Request, db: Session = Depends(get_db)) -> Response:
+    enforce_rate_limit(
+        request,
+        scope="auth:password-reset:ip",
+        limit=settings.rate_limit_password_reset_attempts,
+        window_seconds=settings.rate_limit_password_reset_window_seconds,
+    )
+    enforce_rate_limit(
+        request,
+        scope="auth:password-reset:account",
+        limit=settings.rate_limit_password_reset_attempts,
+        window_seconds=settings.rate_limit_password_reset_window_seconds,
+        subject=payload.email,
+    )
+    if not settings.email_enabled:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Password reset requires email delivery configuration")
+    user = db.scalar(select(User).where(User.email == payload.email.lower()))
+    if user is None:
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    reset_token = new_password_reset_token()
+    user.password_reset_token_hash = hash_password_reset_token(reset_token)
+    user.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(minutes=max(settings.password_reset_ttl_minutes, 1))
+    reset_url = f"{request_origin(request)}/?password_reset_token={reset_token}"
+    if not notify_user_password_reset(user, reset_url):
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Unable to send password reset email")
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+def confirm_password_reset(payload: PasswordResetConfirmRequest, request: Request, db: Session = Depends(get_db)) -> Response:
+    enforce_rate_limit(
+        request,
+        scope="auth:password-reset:confirm:ip",
+        limit=settings.rate_limit_password_reset_attempts,
+        window_seconds=settings.rate_limit_password_reset_window_seconds,
+    )
+    user = db.scalar(select(User).where(User.password_reset_token_hash == hash_password_reset_token(payload.token)))
+    if user is None or user.password_reset_expires_at is None or utc_datetime(user.password_reset_expires_at) < datetime.now(timezone.utc):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password reset link is invalid or expired")
+    user.password_hash = hash_password(payload.password)
+    user.password_reset_token_hash = ""
+    user.password_reset_expires_at = None
+    db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/login", response_model=SessionResponse)

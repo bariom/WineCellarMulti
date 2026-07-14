@@ -5,7 +5,7 @@ import time
 import uuid
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
-from urllib.parse import parse_qs
+from urllib.parse import parse_qs, urlparse
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
@@ -189,6 +189,38 @@ def test_login_rate_limit_blocks_repeated_account_attempts(monkeypatch):
     assert limited.status_code == 429
     assert limited.json()["detail"] == "Too many requests. Try again later."
     assert int(limited.headers["Retry-After"]) >= 1
+
+
+def test_password_reset_changes_password_invalidates_sessions_and_is_single_use(monkeypatch):
+    deliveries = []
+
+    def fake_send_email(*, recipients, subject, body):
+        deliveries.append({"recipients": recipients, "subject": subject, "body": body})
+        return True
+
+    monkeypatch.setattr("app.api.routes.auth.send_email", fake_send_email)
+    monkeypatch.setattr(settings, "smtp_host", "smtp.example.com")
+    monkeypatch.setattr(settings, "smtp_from_email", "noreply@example.com")
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    reset_client = TestClient(app)
+
+    requested = reset_client.post("/api/v1/auth/password-reset/request", json={"email": "owner@example.com"})
+    assert requested.status_code == 204
+    assert len(deliveries) == 1
+    reset_url = next(part for part in deliveries[0]["body"].split() if "password_reset_token=" in part)
+    token = parse_qs(urlparse(reset_url).query)["password_reset_token"][0]
+
+    completed = reset_client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "new-strong-password-1"})
+    assert completed.status_code == 204
+    assert client.get("/api/v1/session").json()["authenticated"] is False
+    assert TestClient(app).post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"}).status_code == 401
+    assert TestClient(app).post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "new-strong-password-1"}).status_code == 200
+    assert reset_client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "another-strong-password"}).status_code == 400
+
+    unknown = reset_client.post("/api/v1/auth/password-reset/request", json={"email": "unknown@example.com"})
+    assert unknown.status_code == 204
+    assert len(deliveries) == 1
 
 
 def test_email_verification_and_passkey_options_are_rate_limited(monkeypatch):

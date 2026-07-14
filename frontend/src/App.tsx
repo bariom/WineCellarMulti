@@ -12,7 +12,7 @@ import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError }
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
-import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
+import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -771,6 +771,7 @@ export function App() {
   const [acceptToken, setAcceptToken] = useState("");
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [emailVerificationConfirmed, setEmailVerificationConfirmed] = useState(false);
+  const [passwordResetToken, setPasswordResetToken] = useState("");
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
@@ -795,7 +796,7 @@ export function App() {
   const [importResult, setImportResult] = useState<ImportResult | null>(null);
   const [offlineMode, setOfflineMode] = useState(false);
   const [offlineFileName, setOfflineFileName] = useState("");
-  const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [authMode, setAuthMode] = useState<"login" | "register" | "forgot-password" | "reset-password">("login");
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [marketViewContext, setMarketViewContext] = useState<MarketViewContext | null>(null);
   const [compareWineIds, setCompareWineIds] = useState<string[]>([]);
@@ -1647,10 +1648,17 @@ export function App() {
     const stripeCheckoutResult = stripeCheckoutResultFromUrl();
     const emailVerificationResult = emailVerificationResultFromUrl();
     const emailVerificationToken = emailVerificationTokenFromUrl();
+    const passwordResetToken = passwordResetTokenFromUrl();
     if (emailVerificationToken) {
       setEmailVerificationToken(emailVerificationToken);
       setEmailVerificationConfirmed(false);
       setAuthMode("login");
+      setAuthModalOpen(true);
+      window.history.replaceState(null, "", window.location.pathname);
+    }
+    if (passwordResetToken) {
+      setPasswordResetToken(passwordResetToken);
+      setAuthMode("reset-password");
       setAuthModalOpen(true);
       window.history.replaceState(null, "", window.location.pathname);
     }
@@ -1735,12 +1743,33 @@ export function App() {
     event.preventDefault();
     setSaving(true);
     setError("");
-    if (authMode === "register" && authDraft.password !== authDraft.password_confirm) {
+    if ((authMode === "register" || authMode === "reset-password") && authDraft.password !== authDraft.password_confirm) {
       setError(t("passwordMismatch"));
       setSaving(false);
       return;
     }
     try {
+      if (authMode === "forgot-password") {
+        await api<void>("/api/v1/auth/password-reset/request", {
+          method: "POST",
+          body: JSON.stringify({ email: authDraft.email }),
+        });
+        setNotice(t("passwordResetEmailSent"));
+        setAuthMode("login");
+        return;
+      }
+      if (authMode === "reset-password") {
+        if (!passwordResetToken) throw new Error(t("passwordResetInvalid"));
+        await api<void>("/api/v1/auth/password-reset/confirm", {
+          method: "POST",
+          body: JSON.stringify({ token: passwordResetToken, password: authDraft.password }),
+        });
+        setPasswordResetToken("");
+        setAuthDraft(emptyAuthDraft);
+        setAuthMode("login");
+        setNotice(t("passwordResetSuccess"));
+        return;
+      }
       const path = authMode === "register" ? "/api/v1/auth/register" : "/api/v1/auth/login";
       const payload =
         authMode === "register"
@@ -3259,12 +3288,12 @@ export function App() {
   const availableRedeemCodes = billingStatus?.available_redeem_codes || [];
   const trialRedeemCodes = availableRedeemCodes.filter((code) => code.kind === "trial");
   const standardRedeemCodes = availableRedeemCodes.filter((code) => code.kind !== "trial");
-  const shouldPrioritizeEmailVerification = !authenticated && Boolean(emailVerificationToken);
+  const shouldPrioritizeAuthAction = !authenticated && (Boolean(emailVerificationToken) || Boolean(passwordResetToken));
   const showInlineAuthError = Boolean(visibleError) && !authenticated && (isMobileViewport || authModalOpen);
   const showMobileAuthPanel =
     isMobileViewport &&
-    !shouldPrioritizeEmailVerification &&
-    (authModalOpen || Boolean(acceptToken) || Boolean(emailVerificationToken) || emailVerificationConfirmed || canShowOfflineBackupPanel);
+    !shouldPrioritizeAuthAction &&
+    (authModalOpen || Boolean(acceptToken) || Boolean(emailVerificationToken) || Boolean(passwordResetToken) || emailVerificationConfirmed || canShowOfflineBackupPanel);
   const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
     <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
       <div>
@@ -3330,7 +3359,7 @@ export function App() {
         <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
       </div>
       <form className="wine-form" onSubmit={submitAuth}>
-        <h2>{authMode === "register" ? t("createAccount") : t("login")}</h2>
+        <h2>{authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("passwordResetTitle") : authMode === "reset-password" ? t("passwordResetNewPassword") : t("login")}</h2>
         {session?.pending_approval ? (
           <div className="invite-notice">
             <strong>{t("pendingApproval")}</strong>
@@ -3343,10 +3372,12 @@ export function App() {
             <span>{t("pendingEmailVerificationHelp")}</span>
           </div>
         ) : null}
-        <label>
-          <span>{t("email")}</span>
-          <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
-        </label>
+        {authMode !== "reset-password" ? (
+          <label>
+            <span>{t("email")}</span>
+            <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
+          </label>
+        ) : null}
         {authMode === "register" ? (
           <>
             <label>
@@ -3359,21 +3390,24 @@ export function App() {
             </label>
           </>
         ) : null}
-        <label>
-          <span>{t("password")}</span>
-          <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "register" ? 8 : 1} required />
-        </label>
-        {authMode === "register" ? (
+        {authMode !== "forgot-password" ? (
+          <label>
+            <span>{t("password")}</span>
+            <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "login" ? 1 : 8} required />
+          </label>
+        ) : null}
+        {authMode === "register" || authMode === "reset-password" ? (
           <label>
             <span>{t("confirmPassword")}</span>
             <input type="password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
           </label>
         ) : null}
-        <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : t("login")}</button>
+        <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("sendPasswordReset") : authMode === "reset-password" ? t("saveNewPassword") : t("login")}</button>
         {authMode === "login" ? (
-          <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>
-            {t("passkeyLogin")}
-          </button>
+          <>
+            <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>{t("passkeyLogin")}</button>
+            <button type="button" className="secondary" disabled={saving} onClick={() => setAuthMode("forgot-password")}>{t("forgotPassword")}</button>
+          </>
         ) : null}
       </form>
       {canShowOfflineBackupPanel ? (
@@ -5158,7 +5192,7 @@ export function App() {
         </div>
       ) : null}
 
-      {!authenticated ? shouldPrioritizeEmailVerification ? (
+      {!authenticated ? shouldPrioritizeAuthAction ? (
         publicAuthPanel
       ) : (
         <>

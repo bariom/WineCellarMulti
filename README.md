@@ -274,6 +274,8 @@ hostname -I
 - `POST /api/v1/auth/register`
 - `POST /api/v1/auth/login`
 - `POST /api/v1/auth/logout`
+- `POST /api/v1/auth/password-reset/request`
+- `POST /api/v1/auth/password-reset/confirm`
 - `GET /api/v1/billing/status`
 - `POST /api/v1/billing/checkout`
 - `POST /api/v1/billing/redeem`

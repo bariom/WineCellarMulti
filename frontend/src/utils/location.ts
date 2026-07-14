@@ -21,6 +21,11 @@ export function emailVerificationTokenFromUrl() {
   return params.get("email_verify_token") || "";
 }
 
+export function passwordResetTokenFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("password_reset_token") || "";
+}
+
 export const STRIPE_CHECKOUT_PLAN_KEY = "vinaris_stripe_checkout_plan";
 
 export const STRIPE_CHECKOUT_BALANCE_KEY = "vinaris_stripe_checkout_balance";
