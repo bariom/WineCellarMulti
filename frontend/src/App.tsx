@@ -8104,7 +8104,7 @@ export function App() {
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("aiSettings")}</span>
-                      <h3>OpenAI</h3>
+                      <h3>{t("aiSettingsTitle")}</h3>
                     </div>
                     <div className="heading-actions">
                       <strong className={(aiSettings?.has_openai_api_key || aiSettings?.can_use_app_credits) ? "status-pill configured" : "status-pill"}>
@@ -8122,56 +8122,45 @@ export function App() {
                       </button>
                     </div>
                   </div>
-                  <label>
-                    <span>{t("aiProvider")}</span>
-                    <select value={aiSettingsDraft.provider_mode} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, provider_mode: event.target.value as AiSettingsDraft["provider_mode"] })}>
-                      <option value="auto">{t("aiProviderAuto")}</option>
-                      <option value="user_key">{t("aiProviderUserKey")}</option>
-                      <option value="credits">{t("aiProviderCredits")}</option>
-                    </select>
-                  </label>
-                  {aiSettingsHelpOpen ? (
-                    <div className="settings-help-panel ai-settings-help" id="ai-settings-help-panel">
-                      <strong>{t("aiSettingsHelpTitle")}</strong>
-                      <p>{t("aiSettingsHelpKey")}</p>
-                      <ul>
-                        <li>{t("aiSettingsHelpSecurity")}</li>
-                        <li>{t("aiSettingsHelpCredits")}</li>
-                        <li>{t("aiSettingsHelpFeatures")}</li>
-                      </ul>
-                    </div>
-                  ) : null}
-                  <label>
-                    <span>OpenAI API key</span>
-                    <input
-                      type="password"
-                      value={aiSettingsDraft.openai_api_key}
-                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
-                      placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
-                    />
-                  </label>
-                  <label>
-                    <span>{t("pairingPreferences")}</span>
-                    <textarea
-                      value={aiSettingsDraft.pairing_preferences}
-                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
-                      placeholder={t("pairingPreferencesPlaceholder")}
-                      rows={4}
-                    />
-                    <small>{t("pairingPreferencesHelp")}</small>
-                  </label>
-                  <label>
-                    <span>{t("pairingCandidateLimit")}</span>
-                    <input
-                      type="number"
-                      min="5"
-                      max="50"
-                      step="1"
-                      value={aiSettingsDraft.pairing_candidate_limit}
-                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_candidate_limit: Math.min(50, Math.max(5, Number(event.target.value) || 5)) })}
-                    />
-                    <small>{t("pairingCandidateLimitHelp")}</small>
-                  </label>
+                  <div className="ai-settings-sections">
+                    <section className="ai-settings-section">
+                      <div className="ai-settings-section-heading">
+                        <div>
+                          <span>{t("aiConnection")}</span>
+                          <strong>{t("aiConnectionTitle")}</strong>
+                          <small>{t("aiConnectionHelp")}</small>
+                        </div>
+                      </div>
+                      <div className="ai-settings-connection-grid">
+                        <label>
+                          <span>{t("aiProvider")}</span>
+                          <select value={aiSettingsDraft.provider_mode} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, provider_mode: event.target.value as AiSettingsDraft["provider_mode"] })}>
+                            <option value="auto">{t("aiProviderAuto")}</option>
+                            <option value="user_key">{t("aiProviderUserKey")}</option>
+                            <option value="credits">{t("aiProviderCredits")}</option>
+                          </select>
+                        </label>
+                        <label>
+                          <span>OpenAI API key</span>
+                          <input
+                            type="password"
+                            value={aiSettingsDraft.openai_api_key}
+                            onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
+                            placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
+                          />
+                        </label>
+                      </div>
+                      {aiSettingsHelpOpen ? (
+                        <div className="settings-help-panel ai-settings-help" id="ai-settings-help-panel">
+                          <strong>{t("aiSettingsHelpTitle")}</strong>
+                          <p>{t("aiSettingsHelpKey")}</p>
+                          <ul>
+                            <li>{t("aiSettingsHelpSecurity")}</li>
+                            <li>{t("aiSettingsHelpCredits")}</li>
+                            <li>{t("aiSettingsHelpFeatures")}</li>
+                          </ul>
+                        </div>
+                      ) : null}
                     {showAiBudgetPanel ? (
                       <div className="token-box">
                         <strong>{t("aiCreditBalance")}</strong>
@@ -8197,66 +8186,99 @@ export function App() {
                         ) : null}
                       </div>
                     ) : null}
-                  <div className="settings-section-heading">
-                    <div>
-                      <span>{t("aiSettings")}</span>
-                      <strong>{t("models")}</strong>
-                    </div>
-                    <button
-                      type="button"
-                      className="help-icon-button"
-                      aria-expanded={aiModelsHelpOpen}
-                      aria-controls="ai-models-help-panel"
-                      aria-label={t("aiModelsHelpLabel")}
-                      onClick={() => setAiModelsHelpOpen((current) => !current)}
-                    >
-                      ?
-                    </button>
-                  </div>
-                  {aiModelsHelpOpen ? (
-                    <div className="settings-help-panel ai-settings-help" id="ai-models-help-panel">
-                      <strong>{t("aiModelsHelpTitle")}</strong>
-                      <p>{t("aiModelsHelpIntro")}</p>
-                      <ul>
-                        {gpt56ModelsEnabled ? (
-                          <>
-                            <li>{t("aiModelsHelpLuna")}</li>
-                            <li>{t("aiModelsHelpTerra")}</li>
-                            <li>{t("aiModelsHelpSol")}</li>
-                          </>
-                        ) : (
-                          <>
-                            <li>{t("aiModelsHelpNano")}</li>
-                            <li>{t("aiModelsHelpMini")}</li>
-                            <li>{t("aiModelsHelpStandard")}</li>
-                            <li>{t("aiModelsHelpPremium")}</li>
-                          </>
-                        )}
-                      </ul>
-                      <p className="ai-models-help-note">{t("aiModelsHelpUsageNote")}</p>
-                    </div>
-                  ) : null}
-                  <label className="ai-model-advisor-setting">
-                    <input
-                      type="checkbox"
-                      checked={aiSettingsDraft.model_advisor_enabled}
-                      onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, model_advisor_enabled: event.target.checked })}
-                    />
-                    <span>
-                      <strong>{t("aiModelAdvisor")}</strong>
-                      <small>{t("aiModelAdvisorHelp")}</small>
-                    </span>
-                  </label>
-                  <div className="settings-model-grid">
+                    </section>
+
+                    <section className="ai-settings-section">
+                      <div className="ai-settings-section-heading">
+                        <div>
+                          <span>{t("pairing")}</span>
+                          <strong>{t("aiPairingTitle")}</strong>
+                          <small>{t("aiPairingHelp")}</small>
+                        </div>
+                      </div>
+                      <label>
+                        <span>{t("pairingPreferences")}</span>
+                        <textarea
+                          value={aiSettingsDraft.pairing_preferences}
+                          onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
+                          placeholder={t("pairingPreferencesPlaceholder")}
+                          rows={4}
+                        />
+                        <small>{t("pairingPreferencesHelp")}</small>
+                      </label>
+                      <label className="ai-pairing-limit">
+                        <span>{t("pairingCandidateLimit")}</span>
+                        <input
+                          type="number"
+                          min="5"
+                          max="50"
+                          step="1"
+                          value={aiSettingsDraft.pairing_candidate_limit}
+                          onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_candidate_limit: Math.min(50, Math.max(5, Number(event.target.value) || 5)) })}
+                        />
+                        <small>{t("pairingCandidateLimitHelp")}</small>
+                      </label>
+                    </section>
+
+                    <section className="ai-settings-section ai-models-section">
+                      <div className="ai-settings-section-heading">
+                        <div>
+                          <span>{t("models")}</span>
+                          <strong>{t("aiModelsTitle")}</strong>
+                          <small>{t("aiModelsSectionHelp")}</small>
+                        </div>
+                        <button
+                          type="button"
+                          className="help-icon-button"
+                          aria-expanded={aiModelsHelpOpen}
+                          aria-controls="ai-models-help-panel"
+                          aria-label={t("aiModelsHelpLabel")}
+                          onClick={() => setAiModelsHelpOpen((current) => !current)}
+                        >
+                          ?
+                        </button>
+                      </div>
+                      {aiModelsHelpOpen ? (
+                        <div className="settings-help-panel ai-settings-help" id="ai-models-help-panel">
+                          <strong>{t("aiModelsHelpTitle")}</strong>
+                          <p>{t("aiModelsHelpIntro")}</p>
+                          <ul>
+                            {gpt56ModelsEnabled ? (
+                              <>
+                                <li>{t("aiModelsHelpLuna")}</li>
+                                <li>{t("aiModelsHelpTerra")}</li>
+                                <li>{t("aiModelsHelpSol")}</li>
+                              </>
+                            ) : (
+                              <>
+                                <li>{t("aiModelsHelpNano")}</li>
+                                <li>{t("aiModelsHelpMini")}</li>
+                                <li>{t("aiModelsHelpStandard")}</li>
+                                <li>{t("aiModelsHelpPremium")}</li>
+                              </>
+                            )}
+                          </ul>
+                          <p className="ai-models-help-note">{t("aiModelsHelpUsageNote")}</p>
+                        </div>
+                      ) : null}
+                      <label className="ai-model-advisor-setting">
+                        <input
+                          type="checkbox"
+                          checked={aiSettingsDraft.model_advisor_enabled}
+                          onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, model_advisor_enabled: event.target.checked })}
+                        />
+                        <span>
+                          <strong>{t("aiModelAdvisor")}</strong>
+                          <small>{t("aiModelAdvisorHelp")}</small>
+                        </span>
+                      </label>
+                      <div className="ai-model-group">
+                        <strong>{t("aiModelsDataTitle")}</strong>
+                        <small>{t("aiModelsDataHelp")}</small>
+                        <div className="settings-model-grid">
                     <label>
                       <span>{t("aiNotes")}</span>
                       <select value={aiSettingsDraft.ai_notes_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, ai_notes_model: event.target.value })}>
-                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
-                      </select>
-                    </label>
-                    <label>
-                      <span>{t("drinkWindow")}</span>
-                      <select value={aiSettingsDraft.drink_window_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, drink_window_model: event.target.value })}>
                         {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
                       </select>
                     </label>
@@ -8278,6 +8300,18 @@ export function App() {
                         {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
                       </select>
                     </label>
+                        </div>
+                      </div>
+                      <div className="ai-model-group">
+                        <strong>{t("aiModelsPlanningTitle")}</strong>
+                        <small>{t("aiModelsPlanningHelp")}</small>
+                        <div className="settings-model-grid">
+                    <label>
+                      <span>{t("drinkWindow")}</span>
+                      <select value={aiSettingsDraft.drink_window_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, drink_window_model: event.target.value })}>
+                        {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
+                      </select>
+                    </label>
                     <label>
                       <span>{t("wishlist")}</span>
                       <select value={aiSettingsDraft.wishlist_model} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, wishlist_model: event.target.value })}>
@@ -8290,6 +8324,9 @@ export function App() {
                         {(aiSettings?.model_options || []).map((model) => <option key={model} value={model}>{model}</option>)}
                       </select>
                     </label>
+                        </div>
+                      </div>
+                    </section>
                   </div>
                   <button type="submit" disabled={saving}>{saving ? t("saving") : t("saveSettings")}</button>
                 </form>
