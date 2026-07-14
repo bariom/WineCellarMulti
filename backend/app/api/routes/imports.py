@@ -385,6 +385,7 @@ def prepare_import_wishlist_lists(
         original_id = as_uuid(raw_list.get("id"))
         name = as_str(raw_list.get("name")) or DEFAULT_WISHLIST_LIST_NAME
         description = as_str(raw_list.get("description"))
+        portfolio_strategy = raw_list.get("portfolio_strategy") if isinstance(raw_list.get("portfolio_strategy"), dict) else None
         normalized_name = name.strip().lower()
         existing = existing_by_name.get(normalized_name)
         if existing is None:
@@ -397,12 +398,16 @@ def prepare_import_wishlist_lists(
                 created_by_user_id=context.user.id,
                 name=name,
                 description=description,
+                portfolio_strategy=portfolio_strategy,
             )
             db.add(existing)
             db.flush()
-            existing_by_name[normalized_name] = existing
-        elif description and not existing.description:
-            existing.description = description
+        else:
+            if portfolio_strategy is not None:
+                existing.portfolio_strategy = portfolio_strategy
+            if description and not existing.description:
+                existing.description = description
+        existing_by_name[normalized_name] = existing
         list_id_map[original_id] = existing.id
         list_name_map[normalized_name] = existing.id
     if not list_name_map and default_list is not None:

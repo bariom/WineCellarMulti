@@ -159,6 +159,7 @@ def list_wishlist_lists(
                 "name": wishlist_list.name,
                 "description": wishlist_list.description,
                 "item_count": counts.get(wishlist_list.id, 0),
+                "portfolio_strategy": wishlist_list.portfolio_strategy,
             },
         )
         for wishlist_list in rows
@@ -187,6 +188,7 @@ def create_wishlist_list(
             "name": wishlist_list.name,
             "description": wishlist_list.description,
             "item_count": 0,
+            "portfolio_strategy": wishlist_list.portfolio_strategy,
         },
     )
 
@@ -218,6 +220,7 @@ def update_wishlist_list(
             "name": wishlist_list.name,
             "description": wishlist_list.description,
             "item_count": item_count,
+            "portfolio_strategy": wishlist_list.portfolio_strategy,
         },
     )
 
@@ -258,6 +261,7 @@ def delete_wishlist_list(
             "name": fallback_list.name,
             "description": fallback_list.description,
             "item_count": item_count,
+            "portfolio_strategy": fallback_list.portfolio_strategy,
         },
     )
 

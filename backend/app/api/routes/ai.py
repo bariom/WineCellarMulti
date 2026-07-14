@@ -2363,6 +2363,7 @@ def generate_wishlist_portfolio_strategy(
         generated_at=datetime.now(timezone.utc),
         estimated_cost_usd=charged_cost,
     )
+    wishlist_list.portfolio_strategy = strategy_response.model_dump(mode="json")
     record_ai_audit(
         db,
         context,

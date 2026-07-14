@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from decimal import Decimal
 
-from sqlalchemy import ForeignKey, Numeric, String, Text, Uuid
+from sqlalchemy import ForeignKey, JSON, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -17,6 +17,7 @@ class WishlistList(Base):
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     name: Mapped[str] = mapped_column(String(120), default="Wishlist")
     description: Mapped[str] = mapped_column(Text, default="")
+    portfolio_strategy: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
 
 
 class WishlistItem(Base):

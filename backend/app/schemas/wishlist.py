@@ -88,3 +88,4 @@ class WishlistListResponse(WishlistListBase):
     id: UUID
     household_id: UUID
     item_count: int = 0
+    portfolio_strategy: dict | None = None

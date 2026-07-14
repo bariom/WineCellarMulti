@@ -2438,6 +2438,9 @@ export function App() {
         name: rawString(item.name, `Wishlist ${index + 1}`),
         description: rawString(item.description),
         item_count: nextWishlist.filter((wishlistItem) => wishlistItem.wishlist_list_id === rawString(item.id, `offline-wishlist-list-${index}`)).length,
+        portfolio_strategy: item.portfolio_strategy && typeof item.portfolio_strategy === "object" && !Array.isArray(item.portfolio_strategy)
+          ? rawObject(item.portfolio_strategy) as WishlistPortfolioStrategy
+          : null,
       }));
       const derivedWishlistLists = nextWishlistLists.length
         ? nextWishlistLists
@@ -2447,6 +2450,7 @@ export function App() {
             name: "Wishlist",
             description: "",
             item_count: nextWishlist.length,
+            portfolio_strategy: null,
           }];
       setOfflineMode(true);
       setOfflineFileName(file.name);
@@ -3103,6 +3107,7 @@ export function App() {
         body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId, model }),
       });
       setWishlistPortfolioStrategy(result);
+      setWishlistLists((current) => current.map((item) => item.id === selectedWishlistListId ? { ...item, portfolio_strategy: result } : item));
       setWishlistPortfolioStrategyOpen(true);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
@@ -3467,11 +3472,12 @@ export function App() {
       },
     ) || null;
   const visibleWishlistPortfolioStrategy =
-    wishlistPortfolioStrategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);
+    wishlistPortfolioStrategy || selectedWishlistList?.portfolio_strategy || (latestWishlistPortfolioAudit ? auditWishlistPortfolioStrategy(latestWishlistPortfolioAudit) : null);
   const previousWishlistListIdRef = useRef(selectedWishlistListId);
   useEffect(() => {
     if (previousWishlistListIdRef.current !== selectedWishlistListId) {
       previousWishlistListIdRef.current = selectedWishlistListId;
+      setWishlistPortfolioStrategy(null);
       setWishlistPortfolioStrategyOpen(!visibleWishlistPortfolioStrategy);
       return;
     }

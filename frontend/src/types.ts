@@ -275,6 +275,7 @@ export type WishlistList = {
   name: string;
   description: string;
   item_count: number;
+  portfolio_strategy: WishlistPortfolioStrategy | null;
 };
 
 export type WishlistDraft = {
