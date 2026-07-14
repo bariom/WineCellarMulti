@@ -3891,7 +3891,7 @@ textarea {
 
 .ownership-edit-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(100px, 0.65fr) minmax(120px, 0.8fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
 }
 
@@ -3928,6 +3928,19 @@ textarea {
   font-weight: 800;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.coownership-form-help {
+  margin: -2px 0 2px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+@container (max-width: 460px) {
+  .ownership-edit-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 .score-edit-row {
@@ -14389,6 +14402,7 @@ tbody tr:hover {
 }
 .coownership-panel {
   margin-top: 1rem;
+  container-type: inline-size;
 }
 
 .coownership-workspace {

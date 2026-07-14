@@ -124,6 +124,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
       {canWrite ? (
         <form className="wine-form no-print" onSubmit={submit}>
           <h3>{locale === "it" ? "Crea una nuova versione" : "Create a new version"}</h3>
+          <p className="coownership-form-help">{locale === "it" ? "Definisci quote, custodia e regole condivise per questa posizione." : "Define the shares, custody, and shared rules for this position."}</p>
           <label><span>{locale === "it" ? "Tipo di comproprietà" : "Ownership type"}</span><select value={ownershipMode} onChange={(event) => setOwnershipMode(event.target.value as "undivided" | "allocated")}><option value="undivided">{locale === "it" ? "Quota indivisa sul lotto" : "Undivided lot share"}</option><option value="allocated">{locale === "it" ? "Bottiglie assegnate" : "Allocated bottles"}</option></select></label>
           <label><span>{locale === "it" ? "Luogo di custodia" : "Custody location"}</span><input value={custodyLocation} onChange={(event) => setCustodyLocation(event.target.value)} /></label>
           <label><span>{locale === "it" ? "Condizioni" : "Terms"}</span><textarea rows={5} value={terms} onChange={(event) => setTerms(event.target.value)} placeholder={locale === "it" ? "Regole per apertura, vendita, spostamento, spese e uscita dalla comproprietà." : "Rules for opening, selling, moving, expenses, and leaving the co-ownership."} /></label>
