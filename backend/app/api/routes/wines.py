@@ -673,6 +673,35 @@ def decide_share_offer_revocation(
     )
     if notification is not None:
         notification.read_at = datetime.now(timezone.utc)
+    sender = db.get(User, offer.created_by_user_id)
+    wine = db.get(Wine, offer.wine_id)
+    if sender is not None:
+        wine_label = " ".join(part for part in ((wine.name if wine else "Wine"), (wine.vintage if wine else "")) if part).strip()
+        if sender.locale.lower().startswith("it"):
+            title = f"Revoca comproprietà: {wine_label}"
+            message = (
+                f"{context.user.display_name or context.user.email} ha approvato la rimozione della posizione condivisa. "
+                "Il vino è stato rimosso dalla sua cantina."
+                if decision == "approve"
+                else f"{context.user.display_name or context.user.email} ha scelto di mantenere la posizione condivisa nella propria cantina."
+            )
+        else:
+            title = f"Co-ownership revocation: {wine_label}"
+            message = (
+                f"{context.user.display_name or context.user.email} approved removal of the shared position. "
+                "The wine was removed from their cellar."
+                if decision == "approve"
+                else f"{context.user.display_name or context.user.email} chose to keep the shared position in their cellar."
+            )
+        create_user_notification(
+            db,
+            sender,
+            kind="share_revocation_result",
+            title=title,
+            message=message,
+            action_url="/cellar",
+            fingerprint=f"share-revocation-result:{offer.id}:{decision}",
+        )
     db.commit()
     db.refresh(offer)
     return share_offer_response(db, offer)

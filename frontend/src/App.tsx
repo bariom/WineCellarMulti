@@ -5329,6 +5329,7 @@ export function App() {
                       <div className="notification-item" key={offer.id}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("share_offer")}</i>{offer.wine_name} {offer.wine_vintage}</strong>
                         <span>{offer.share_pct}% - {offer.created_by_email}</span>
+                        {offer.message ? <span className="share-offer-message">{offer.message}</span> : null}
                         <div className="member-actions">
                           <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>{t("accept")}</button>
                           <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>{t("decline")}</button>

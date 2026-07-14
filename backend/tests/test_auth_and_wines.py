@@ -1772,6 +1772,9 @@ def test_invite_acceptance_and_viewer_permissions():
     assert approved_revocation.status_code == 200
     assert approved_revocation.json()["status"] == "revoked"
     assert member.get("/api/v1/wines").json() == []
+    revocation_result = next(item for item in owner.get("/api/v1/notifications").json() if item["kind"] == "share_revocation_result")
+    assert revocation_result["title"] == "Revoca comproprietà: Shared Wine"
+    assert "approvato" in revocation_result["message"]
     reopened_after_revocation = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json()
     assert len(reopened_after_revocation) == 1
     assert reopened_after_revocation[0]["email"] == "viewer@example.com"

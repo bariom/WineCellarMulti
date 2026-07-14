@@ -14420,6 +14420,12 @@ tbody tr:hover {
   font-size: 0.82rem;
 }
 
+.share-offer-message {
+  color: var(--text);
+  font-style: italic;
+  line-height: 1.4;
+}
+
 .wine-ai-tools {
   display: grid;
   gap: 0.5rem;
