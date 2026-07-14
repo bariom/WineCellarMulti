@@ -12,7 +12,7 @@ from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.api.routes.tags import get_or_create_user_tag
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import Household, Membership, User, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
+from app.models import Household, Membership, User, UserNotification, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
 from app.schemas.wine import (
     WineConsume,
     WineCreate,
@@ -25,6 +25,7 @@ from app.schemas.wine import (
     WineTastingEntryUpdate,
     WineUpdate,
 )
+from app.services.notifications import create_user_notification
 
 
 router = APIRouter()
@@ -475,7 +476,10 @@ def list_share_offer_recipients(
         return []
     existing_recipient_ids = set(
         db.scalars(
-            select(WineShareOffer.recipient_user_id).where(WineShareOffer.wine_id == wine.id),
+            select(WineShareOffer.recipient_user_id).where(
+                WineShareOffer.wine_id == wine.id,
+                WineShareOffer.status != "cancelled",
+            ),
         ),
     )
     users = db.scalars(select(User).where(User.email.in_(list(owner_by_email))))
@@ -492,6 +496,25 @@ def list_share_offer_recipients(
             ),
         )
     return sorted(recipients, key=lambda item: (item.display_name.lower(), item.email.lower()))
+
+
+@router.get("/{wine_id}/share-offers", response_model=list[WineShareOfferResponse])
+def list_outgoing_share_offers(
+    wine_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> list[WineShareOfferResponse]:
+    wine = get_household_wine(db, context, wine_id)
+    offers = db.scalars(
+        select(WineShareOffer)
+        .where(
+            WineShareOffer.wine_id == wine.id,
+            WineShareOffer.created_by_user_id == context.user.id,
+            WineShareOffer.status.in_(("pending", "accepted", "revocation_pending")),
+        )
+        .order_by(WineShareOffer.created_at.desc()),
+    )
+    return [share_offer_response(db, offer) for offer in offers]
 
 
 @router.post("/{wine_id}/share-offers", response_model=WineShareOfferResponse, status_code=status.HTTP_201_CREATED)
@@ -559,6 +582,7 @@ def accept_share_offer(
     copied_wine = wine_copy_for_recipient(wine, target_household, context.user, offer.share_pct)
     db.add(copied_wine)
     db.flush()
+    offer.recipient_wine_id = copied_wine.id
     record_wine_value_history(db, copied_wine, source="shared")
     offer.status = "accepted"
     offer.decided_at = datetime.now(timezone.utc)
@@ -569,6 +593,102 @@ def accept_share_offer(
         user_tag_names_by_wine(db, context, [copied_wine.id]).get(copied_wine.id),
         wine_value_history_by_wine(db, [copied_wine.id]).get(copied_wine.id),
     )
+
+
+@router.post("/share-offers/{offer_id}/revoke", response_model=WineShareOfferResponse)
+def request_share_offer_revocation(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineShareOfferResponse:
+    offer = db.scalar(
+        select(WineShareOffer).where(
+            WineShareOffer.id == offer_id,
+            WineShareOffer.household_id == context.household.id,
+            WineShareOffer.created_by_user_id == context.user.id,
+            WineShareOffer.status == "accepted",
+        ),
+    )
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Accepted share offer not found")
+    recipient = db.get(User, offer.recipient_user_id)
+    if recipient is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share recipient not found")
+    offer.status = "revocation_pending"
+    create_user_notification(
+        db,
+        recipient,
+        kind="share_revocation",
+        title="Richiesta di rimozione comproprietà",
+        message="Il mittente chiede di rimuovere questa posizione condivisa dalla tua cantina. Approva per completare l'operazione.",
+        action_url=f"/share-offer-revocation/{offer.id}",
+        fingerprint=f"share-revocation:{offer.id}",
+    )
+    db.commit()
+    db.refresh(offer)
+    return share_offer_response(db, offer)
+
+
+@router.post("/share-offers/{offer_id}/revocation/{decision}", response_model=WineShareOfferResponse)
+def decide_share_offer_revocation(
+    offer_id: UUID,
+    decision: str,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> WineShareOfferResponse:
+    if decision not in {"approve", "decline"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid revocation decision")
+    offer = db.scalar(
+        select(WineShareOffer).where(
+            WineShareOffer.id == offer_id,
+            WineShareOffer.recipient_user_id == context.user.id,
+            WineShareOffer.status == "revocation_pending",
+        ),
+    )
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share revocation request not found")
+    if decision == "approve":
+        copied_wine = db.get(Wine, offer.recipient_wine_id) if offer.recipient_wine_id else None
+        if copied_wine is not None:
+            db.delete(copied_wine)
+        offer.status = "revoked"
+    else:
+        offer.status = "accepted"
+    offer.decided_at = datetime.now(timezone.utc)
+    notification = db.scalar(
+        select(UserNotification).where(
+            UserNotification.user_id == context.user.id,
+            UserNotification.fingerprint == f"share-revocation:{offer.id}",
+        ),
+    )
+    if notification is not None:
+        notification.read_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(offer)
+    return share_offer_response(db, offer)
+
+
+@router.delete("/share-offers/{offer_id}", response_model=WineShareOfferResponse)
+def cancel_share_offer(
+    offer_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineShareOfferResponse:
+    offer = db.scalar(
+        select(WineShareOffer).where(
+            WineShareOffer.id == offer_id,
+            WineShareOffer.household_id == context.household.id,
+            WineShareOffer.created_by_user_id == context.user.id,
+            WineShareOffer.status == "pending",
+        ),
+    )
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending share offer not found")
+    offer.status = "cancelled"
+    offer.decided_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(offer)
+    return share_offer_response(db, offer)
 
 
 @router.post("/share-offers/{offer_id}/decline", response_model=WineShareOfferResponse)

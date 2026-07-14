@@ -18,6 +18,7 @@ class WineShareOffer(Base):
     wine_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True)
     created_by_user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
     recipient_user_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    recipient_wine_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="SET NULL"), nullable=True, index=True)
     recipient_email: Mapped[str] = mapped_column(String(320), index=True)
     share_pct: Mapped[Decimal] = mapped_column(Numeric(5, 2), default=0)
     message: Mapped[str] = mapped_column(Text, default="")

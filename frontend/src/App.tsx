@@ -707,6 +707,7 @@ export function App() {
   const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
   const [shareOffers, setShareOffers] = useState<WineShareOffer[]>([]);
+  const [outgoingShareOffers, setOutgoingShareOffers] = useState<WineShareOffer[]>([]);
   const [shareOfferRecipients, setShareOfferRecipients] = useState<WineShareOfferRecipient[]>([]);
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
@@ -2437,6 +2438,10 @@ export function App() {
     });
   }
 
+  async function loadOutgoingShareOffers(wineId: string) {
+    setOutgoingShareOffers(await api<WineShareOffer[]>(`/api/v1/wines/${wineId}/share-offers`));
+  }
+
   async function loadCoOwnershipAgreements(wineId: string) {
     const next = await api<CoOwnershipAgreement[]>(`/api/v1/co-ownership-agreements/wines/${wineId}`);
     setCoOwnershipAgreements(next);
@@ -2473,7 +2478,7 @@ export function App() {
         }),
       });
       setShareDraft({ email: "", share_pct: "50", message: "" });
-      await loadShareOfferRecipients(wine.id);
+      await Promise.all([loadShareOfferRecipients(wine.id), loadOutgoingShareOffers(wine.id)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to share wine");
     } finally {
@@ -2929,6 +2934,53 @@ export function App() {
     return new Promise((resolve) => {
       setAiModelAdvice({ featureLabel, currentModel, recommendedModel, selectedModel: currentModel, role, resolve });
     });
+  }
+
+  async function cancelWineShareOffer(wine: Wine, offer: WineShareOffer) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<WineShareOffer>(`/api/v1/wines/share-offers/${offer.id}`, { method: "DELETE" });
+      await Promise.all([loadShareOfferRecipients(wine.id), loadOutgoingShareOffers(wine.id)]);
+      setNotice(locale === "it" ? "Invio di comproprietà annullato." : "Co-ownership send cancelled.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to cancel share offer");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function requestWineShareOfferRevocation(wine: Wine, offer: WineShareOffer) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<WineShareOffer>(`/api/v1/wines/share-offers/${offer.id}/revoke`, { method: "POST" });
+      await loadOutgoingShareOffers(wine.id);
+      setNotice(locale === "it" ? "Richiesta di annullamento inviata al comproprietario." : "Removal request sent to the co-owner.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to request share removal");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function decideWineShareOfferRevocation(notification: UserNotification, decision: "approve" | "decline") {
+    const match = notification.action_url?.match(/\/share-offer-revocation\/([^/?#]+)/);
+    if (!match) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<WineShareOffer>(`/api/v1/wines/share-offers/${match[1]}/revocation/${decision}`, { method: "POST" });
+      setUserNotifications((current) => current.filter((item) => item.id !== notification.id));
+      await loadWines();
+      setNotice(decision === "approve"
+        ? (locale === "it" ? "Comproprietà rimossa dalla tua cantina." : "Co-ownership removed from your cellar.")
+        : (locale === "it" ? "La comproprietà resta nella tua cantina." : "The co-ownership remains in your cellar."));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to decide share removal");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function closeAiModelAdvice(model: string | null) {
@@ -3822,9 +3874,11 @@ export function App() {
   useEffect(() => {
     if (offlineMode || !session?.authenticated || !selectedWineId || !canWriteWine) {
       setShareOfferRecipients([]);
+      setOutgoingShareOffers([]);
       return;
     }
     loadShareOfferRecipients(selectedWineId).catch(() => setShareOfferRecipients([]));
+    loadOutgoingShareOffers(selectedWineId).catch(() => setOutgoingShareOffers([]));
   }, [offlineMode, session?.authenticated, selectedWineId, canWriteWine]);
 
   const cellarOwnership = ownershipStats(cellarWines, session);
@@ -4493,6 +4547,25 @@ export function App() {
         <button type="button" disabled={saving || !shareDraft.email.trim()} onClick={() => createWineShareOffer(wine)}>
           {t("shareWine")}
         </button>
+        {outgoingShareOffers.length ? (
+          <div className="share-offer-pending-list">
+            <strong>{locale === "it" ? "Invii in attesa" : "Pending sends"}</strong>
+            {outgoingShareOffers.map((offer) => (
+              <div className="share-offer-pending-row" key={offer.id}>
+                <span>{offer.recipient_email} · {offer.share_pct}%{offer.status === "revocation_pending" ? ` · ${locale === "it" ? "in attesa di approvazione" : "awaiting approval"}` : ""}</span>
+                {offer.status === "pending" ? (
+                  <button type="button" className="secondary compact" disabled={saving} onClick={() => cancelWineShareOffer(wine, offer)}>
+                    {locale === "it" ? "Annulla invio" : "Cancel send"}
+                  </button>
+                ) : offer.status === "accepted" ? (
+                  <button type="button" className="secondary compact" disabled={saving} onClick={() => requestWineShareOfferRevocation(wine, offer)}>
+                    {locale === "it" ? "Richiedi annullamento" : "Request removal"}
+                  </button>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : null}
       </details>
     );
   }
@@ -5195,14 +5268,25 @@ export function App() {
                       <div className="notification-item" key={notification.id}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notification.title}</strong>
                         <span>{notification.message}</span>
-                        <div className="member-actions">
-                          <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
-                            {notification.action_url ? t("open") : t("markRead")}
-                          </button>
-                          <button type="button" className="secondary compact" disabled={saving} onClick={() => markNotificationRead(notification)}>
-                            {t("markRead")}
-                          </button>
-                        </div>
+                        {notification.kind === "share_revocation" ? (
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(notification, "approve")}>
+                              {locale === "it" ? "Approva rimozione" : "Approve removal"}
+                            </button>
+                            <button type="button" className="secondary compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(notification, "decline")}>
+                              {locale === "it" ? "Mantieni" : "Keep"}
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
+                              {notification.action_url ? t("open") : t("markRead")}
+                            </button>
+                            <button type="button" className="secondary compact" disabled={saving} onClick={() => markNotificationRead(notification)}>
+                              {t("markRead")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     ))}
                     {canAppAdmin && pendingUsers.length ? (

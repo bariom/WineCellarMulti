@@ -1724,6 +1724,18 @@ def test_invite_acceptance_and_viewer_permissions():
     )
     assert share_offer.status_code == 201
     assert share_offer.json()["recipient_email"] == "viewer@example.com"
+    outgoing_offers = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offers")
+    assert outgoing_offers.status_code == 200
+    assert len(outgoing_offers.json()) == 1
+    cancelled_offer = owner.delete(f"/api/v1/wines/share-offers/{outgoing_offers.json()[0]['id']}")
+    assert cancelled_offer.status_code == 200
+    assert cancelled_offer.json()["status"] == "cancelled"
+    assert owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json() == [{"email": "viewer@example.com", "display_name": "Viewer", "share_pct": "50.0"}]
+    share_offer = owner.post(
+        f"/api/v1/wines/{owner_wine_id}/share-offers",
+        json={"email": "viewer@example.com", "share_pct": 50, "message": "You own this allocation too."},
+    )
+    assert share_offer.status_code == 201
     assert owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json() == []
     assert owner.patch(f"/api/v1/wines/{owner_wine_id}", json={"quantity": 5}).status_code == 200
 
@@ -1741,6 +1753,18 @@ def test_invite_acceptance_and_viewer_permissions():
     assert personal_list.status_code == 200
     assert [wine["name"] for wine in personal_list.json()] == ["Shared Wine"]
     assert personal_list.json()[0]["quantity"] == 5
+    accepted_outgoing = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offers")
+    assert accepted_outgoing.status_code == 200
+    assert accepted_outgoing.json()[0]["status"] == "accepted"
+    revocation = owner.post(f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revoke")
+    assert revocation.status_code == 200
+    assert revocation.json()["status"] == "revocation_pending"
+    revocation_notifications = member.get("/api/v1/notifications")
+    assert any(item["kind"] == "share_revocation" for item in revocation_notifications.json())
+    approved_revocation = member.post(f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revocation/approve")
+    assert approved_revocation.status_code == 200
+    assert approved_revocation.json()["status"] == "revoked"
+    assert member.get("/api/v1/wines").json() == []
 
     member_households = member.get("/api/v1/household/memberships")
     assert member_households.status_code == 200
