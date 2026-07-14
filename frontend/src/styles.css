@@ -13987,6 +13987,20 @@ tbody tr:hover {
   transform: none;
 }
 
+/* Chart segments keep their data-driven inline color instead of button chrome. */
+.stacked-progress-segment {
+  min-height: 0;
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
+.stacked-progress-segment:not(:disabled):hover {
+  background-image: none;
+  box-shadow: none;
+  transform: none;
+}
+
 @media (max-width: 820px) {
   body {
     font-size: 14px;
