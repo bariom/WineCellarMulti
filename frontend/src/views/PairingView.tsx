@@ -1,5 +1,6 @@
 import { FormEvent } from "react";
 import { FeatureIcon } from "../components/AppIcon";
+import { EmptyState } from "../components/AppUi";
 
 type WineLike = {
   id: string;
@@ -325,7 +326,7 @@ export default function PairingView({
               <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} />
             </button>
             {generatingAi === "pairing" ? <LoadingState label={t("generating")} compact /> : null}
-            {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
+            {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
           </form>
           {pairingResult ? (
             <div className="pairing-result">

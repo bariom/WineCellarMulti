@@ -110,6 +110,28 @@ export function LoadingState({ label, compact = false }: { label: string; compac
   );
 }
 
+export function EmptyState({
+  title,
+  icon = "bottle",
+  compact = false,
+  children,
+}: {
+  title: string;
+  icon?: AppIconName;
+  compact?: boolean;
+  children?: ReactNode;
+}) {
+  return (
+    <div className={`empty-state-panel${compact ? " compact" : ""}`} role="status">
+      <i aria-hidden="true"><AppIcon name={icon} variant="premium" tone="accent" detailLevel="rich" /></i>
+      <div>
+        <strong>{title}</strong>
+        {children ? <span>{children}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 export function GlobalLoadingOverlay({ label }: { label: string }) {
   return (
     <div className="global-loading-overlay" role="status" aria-live="polite" aria-busy="true">

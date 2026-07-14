@@ -1,4 +1,5 @@
 import { CSSProperties, FormEvent } from "react";
+import { EmptyState } from "../components/AppUi";
 
 type BuyingAdviceResult = {
   summary: string;
@@ -166,7 +167,7 @@ export default function BuyingAdviceView({
             : (locale === "it" ? "La ricerca privilegia negozi locali e ritiro, verificando la disponibilità pubblicata." : "The search prioritizes local shops and pickup, checking published availability.")}</small>
           <button type="submit" disabled={!canGenerateAi || busy}>{busy ? t("generating") : (locale === "it" ? "Cerca vini da acquistare" : "Find wines to buy")}</button>
           {busy ? <div className="loading-state compact" role="status" aria-live="polite"><span>{t("generating")}</span></div> : null}
-          {!canGenerateAi ? <p className="empty-state">{t("noApiKey")}</p> : null}
+          {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
         </form>
         {buyingAdviceResult ? (
           <div className="buying-advice-result">
@@ -190,7 +191,7 @@ export default function BuyingAdviceView({
                 </article>
               ))}
             </div>
-            {!buyingAdviceResult.recommendations.length ? <p className="empty-state">{locale === "it" ? "Nessuna offerta verificabile trovata per questi criteri." : "No verifiable offer found for these criteria."}</p> : null}
+            {!buyingAdviceResult.recommendations.length ? <EmptyState title={locale === "it" ? "Nessuna offerta verificabile trovata per questi criteri." : "No verifiable offer found for these criteria."} icon="search" /> : null}
           </div>
         ) : null}
       </section>
