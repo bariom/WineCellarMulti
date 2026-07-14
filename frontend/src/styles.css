@@ -13759,6 +13759,10 @@ label > span,
   border-bottom-color: color-mix(in srgb, var(--border) 70%, transparent);
 }
 
+.card-heading.card-heading-button {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
 .card-heading h2,
 .section-heading h3,
 .list-header h2 {
