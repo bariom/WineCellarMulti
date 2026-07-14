@@ -4,7 +4,7 @@ import { CoOwnershipPanel, CoOwnershipPublicPage } from "./components/CoOwnershi
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, WineGeographyMap } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
+import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
 import { displayValue, helpGuideContent, helpGuideContentV2, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -707,6 +707,7 @@ export function App() {
   const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
   const [shareOffers, setShareOffers] = useState<WineShareOffer[]>([]);
+  const [shareOfferRecipients, setShareOfferRecipients] = useState<WineShareOfferRecipient[]>([]);
   const [passkeys, setPasskeys] = useState<Passkey[]>([]);
   const [householdMemberships, setHouseholdMemberships] = useState<HouseholdMembership[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -2427,6 +2428,15 @@ export function App() {
     await markNotificationRead(notification);
   }
 
+  async function loadShareOfferRecipients(wineId: string) {
+    const recipients = await api<WineShareOfferRecipient[]>(`/api/v1/wines/${wineId}/share-offer-recipients`);
+    setShareOfferRecipients(recipients);
+    setShareDraft((current) => {
+      const selected = recipients.find((recipient) => recipient.email === current.email) || recipients[0];
+      return { ...current, email: selected?.email || "", share_pct: selected ? String(selected.share_pct) : "" };
+    });
+  }
+
   async function loadCoOwnershipAgreements(wineId: string) {
     const next = await api<CoOwnershipAgreement[]>(`/api/v1/co-ownership-agreements/wines/${wineId}`);
     setCoOwnershipAgreements(next);
@@ -2463,6 +2473,7 @@ export function App() {
         }),
       });
       setShareDraft({ email: "", share_pct: "50", message: "" });
+      await loadShareOfferRecipients(wine.id);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to share wine");
     } finally {
@@ -3808,6 +3819,14 @@ export function App() {
     loadCoOwnershipAgreements(selectedWineId).catch(() => setCoOwnershipAgreements([]));
   }, [offlineMode, session?.authenticated, selectedWineId]);
 
+  useEffect(() => {
+    if (offlineMode || !session?.authenticated || !selectedWineId || !canWriteWine) {
+      setShareOfferRecipients([]);
+      return;
+    }
+    loadShareOfferRecipients(selectedWineId).catch(() => setShareOfferRecipients([]));
+  }, [offlineMode, session?.authenticated, selectedWineId, canWriteWine]);
+
   const cellarOwnership = ownershipStats(cellarWines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
@@ -4448,7 +4467,17 @@ export function App() {
         <p className="empty-state">{t("shareWineHelp")}</p>
         <label>
           <span>{t("email")}</span>
-          <input type="email" value={shareDraft.email} onChange={(event) => setShareDraft({ ...shareDraft, email: event.target.value })} />
+          <select
+            value={shareDraft.email}
+            onChange={(event) => {
+              const recipient = shareOfferRecipients.find((item) => item.email === event.target.value);
+              setShareDraft({ ...shareDraft, email: event.target.value, share_pct: recipient ? String(recipient.share_pct) : "" });
+            }}
+            disabled={!shareOfferRecipients.length}
+          >
+            <option value="">{locale === "it" ? "Scegli un comproprietario Vinaris" : "Choose a Vinaris co-owner"}</option>
+            {shareOfferRecipients.map((recipient) => <option key={recipient.email} value={recipient.email}>{recipient.display_name} · {recipient.email} · {recipient.share_pct}%</option>)}
+          </select>
         </label>
         <div className="form-row">
           <label>
@@ -4460,6 +4489,7 @@ export function App() {
           <span>{t("message")}</span>
           <textarea rows={2} value={shareDraft.message} onChange={(event) => setShareDraft({ ...shareDraft, message: event.target.value })} />
         </label>
+        {!shareOfferRecipients.length ? <p className="empty-state">{locale === "it" ? "Non ci sono altri comproprietari Vinaris a cui inviare questo vino." : "There are no other eligible Vinaris co-owners for this wine."}</p> : null}
         <button type="button" disabled={saving || !shareDraft.email.trim()} onClick={() => createWineShareOffer(wine)}>
           {t("shareWine")}
         </button>

@@ -278,6 +278,12 @@ export type WishlistList = {
   portfolio_strategy: WishlistPortfolioStrategy | null;
 };
 
+export type WineShareOfferRecipient = {
+  email: string;
+  display_name: string;
+  share_pct: string;
+};
+
 export type CoOwnershipParticipant = {
   id: string;
   user_id: string | null;

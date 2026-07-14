@@ -1701,15 +1701,30 @@ def test_invite_acceptance_and_viewer_permissions():
 
     private_wine = owner.post("/api/v1/wines", json={"name": "Private Wine", "quantity": 1, "price": 50})
     assert private_wine.status_code == 201
-    owner_wine = owner.post("/api/v1/wines", json={"name": "Shared Wine", "quantity": 6, "price": 20})
+    owner_wine = owner.post(
+        "/api/v1/wines",
+        json={
+            "name": "Shared Wine",
+            "quantity": 6,
+            "price": 20,
+            "owners": [
+                    {"name": "Cellar Owner", "email": "owner@example.com", "share_pct": 50},
+                    {"name": "Viewer", "email": "viewer@example.com", "share_pct": 50},
+            ],
+        },
+    )
     assert owner_wine.status_code == 201
     owner_wine_id = owner_wine.json()["id"]
+    eligible_recipients = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients")
+    assert eligible_recipients.status_code == 200
+    assert eligible_recipients.json() == [{"email": "viewer@example.com", "display_name": "Viewer", "share_pct": "50.0"}]
     share_offer = owner.post(
         f"/api/v1/wines/{owner_wine_id}/share-offers",
         json={"email": "viewer@example.com", "share_pct": 50, "message": "You own this allocation too."},
     )
     assert share_offer.status_code == 201
     assert share_offer.json()["recipient_email"] == "viewer@example.com"
+    assert owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json() == []
     assert owner.patch(f"/api/v1/wines/{owner_wine_id}", json={"quantity": 5}).status_code == 200
 
     offers = member.get("/api/v1/wines/share-offers")

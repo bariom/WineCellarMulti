@@ -203,6 +203,12 @@ class WineShareOfferCreate(BaseModel):
     message: str = ""
 
 
+class WineShareOfferRecipientResponse(BaseModel):
+    email: str
+    display_name: str
+    share_pct: Decimal
+
+
 class WineShareOfferResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

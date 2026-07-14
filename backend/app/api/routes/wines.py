@@ -18,6 +18,7 @@ from app.schemas.wine import (
     WineCreate,
     WineResponse,
     WineShareOfferCreate,
+    WineShareOfferRecipientResponse,
     WineShareOfferResponse,
     TastingArchiveItemResponse,
     TastingArchivePageResponse,
@@ -463,6 +464,42 @@ def list_share_offers(
         .order_by(WineShareOffer.created_at.desc()),
     )
     return [share_offer_response(db, offer) for offer in offers]
+
+
+@router.get("/{wine_id}/share-offer-recipients", response_model=list[WineShareOfferRecipientResponse])
+def list_share_offer_recipients(
+    wine_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> list[WineShareOfferRecipientResponse]:
+    wine = get_household_wine(db, context, wine_id)
+    owner_rows = normalize_owner_rows([dict(owner) for owner in (wine.owners or [])])
+    owner_by_email = {
+        str(owner.get("email") or "").strip().lower(): owner
+        for owner in owner_rows
+        if str(owner.get("email") or "").strip()
+    }
+    if not owner_by_email:
+        return []
+    existing_recipient_ids = set(
+        db.scalars(
+            select(WineShareOffer.recipient_user_id).where(WineShareOffer.wine_id == wine.id),
+        ),
+    )
+    users = db.scalars(select(User).where(User.email.in_(list(owner_by_email))))
+    recipients: list[WineShareOfferRecipientResponse] = []
+    for user in users:
+        if user.id == context.user.id or user.id in existing_recipient_ids:
+            continue
+        owner = owner_by_email[user.email.lower()]
+        recipients.append(
+            WineShareOfferRecipientResponse(
+                email=user.email,
+                display_name=str(owner.get("name") or user.display_name or user.email),
+                share_pct=Decimal(str(owner.get("share_pct") or 0)),
+            ),
+        )
+    return sorted(recipients, key=lambda item: (item.display_name.lower(), item.email.lower()))
 
 
 @router.post("/{wine_id}/share-offers", response_model=WineShareOfferResponse, status_code=status.HTTP_201_CREATED)
