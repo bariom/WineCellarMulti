@@ -2465,6 +2465,20 @@ export function App() {
     }
   }
 
+  async function cancelCoOwnershipAgreement(wine: Wine, agreement: CoOwnershipAgreement) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/co-ownership-agreements/wines/${wine.id}/${agreement.id}`, { method: "DELETE" });
+      await loadCoOwnershipAgreements(wine.id);
+      setNotice(locale === "it" ? "Proposta invalidata cancellata." : "Invalidated proposal deleted.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete invalidated agreement");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function createWineShareOffer(wine: Wine) {
     if (!shareDraft.email.trim()) return;
     setSaving(true);
@@ -5161,6 +5175,7 @@ export function App() {
           canWrite={canWriteWine && !offlineMode}
           saving={saving}
           onCreate={(payload) => createCoOwnershipAgreement(wine, payload)}
+          onCancel={(agreement) => cancelCoOwnershipAgreement(wine, agreement)}
         />
       </section>
     );

@@ -52,6 +52,7 @@ class CoOwnershipAgreementResponse(BaseModel):
     created_at: datetime
     finalized_at: datetime | None = None
     responding_participant_id: UUID | None = None
+    can_cancel: bool = False
     participants: list[CoOwnershipParticipantResponse]
 
 

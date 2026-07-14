@@ -9,6 +9,7 @@ function statusLabel(status: string, locale: Locale) {
     pending: ["Pending", "In attesa"],
     accepted: ["Accepted", "Accettato"],
     declined: ["Declined", "Rifiutato"],
+    invalidated: ["Invalidated", "Invalidato"],
   };
   return labels[status]?.[locale === "it" ? 1 : 0] || status;
 }
@@ -53,13 +54,14 @@ function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, prin
 }
 
 
-export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, onCreate }: {
+export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, onCreate, onCancel }: {
   wine: Wine;
   session: Session | null;
   agreements: CoOwnershipAgreement[];
   canWrite: boolean;
   saving: boolean;
   onCreate: (payload: Record<string, unknown>) => Promise<void>;
+  onCancel: (agreement: CoOwnershipAgreement) => Promise<void>;
 }) {
   const locale = session?.locale || "it";
   const initialParticipants = useMemo<CoOwnershipParticipantDraft[]>(() => {
@@ -90,6 +92,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
   }
 
   const total = participants.reduce((sum, item) => sum + Number(item.share_pct || 0), 0);
+  const blockingAgreement = agreements.find((agreement) => agreement.status === "pending" || agreement.status === "invalidated");
 
   function printAgreement(agreementId: string) {
     setPrintAgreementId(agreementId);
@@ -107,6 +110,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           {agreementDocument(agreement, locale, printAgreementId === agreement.id)}
           <div className="inline-form no-print">
             <button type="button" className="secondary compact" onClick={() => printAgreement(agreement.id)}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
+            {agreement.can_cancel ? <button type="button" className="danger compact" disabled={saving} onClick={() => onCancel(agreement)}>{locale === "it" ? "Cancella proposta invalidata" : "Delete invalidated proposal"}</button> : null}
           </div>
           {agreement.participants.some((item) => item.invite_url) ? (
             <details className="no-print">
@@ -121,7 +125,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           ) : null}
         </div>
       ))}
-      {canWrite ? (
+      {canWrite && !blockingAgreement ? (
         <form className="wine-form no-print" onSubmit={submit}>
           <h3>{locale === "it" ? "Crea una nuova versione" : "Create a new version"}</h3>
           <p className="coownership-form-help">{locale === "it" ? "Definisci quote, custodia e regole condivise per questa posizione." : "Define the shares, custody, and shared rules for this position."}</p>
@@ -149,7 +153,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           <label className="detail-toggle-row"><input type="checkbox" checked={emailRegisteredUsers} onChange={(event) => setEmailRegisteredUsers(event.target.checked)} /><span>{locale === "it" ? "Invia email anche agli utenti Vinaris (riceveranno comunque una notifica)" : "Email Vinaris users too (they always receive an in-app notification)"}</span></label>
           <button type="submit" disabled={saving || participants.length < 2 || Math.abs(total - 100) > 0.000001}>{saving ? "…" : locale === "it" ? "Crea e invia accordo" : "Create and send agreement"}</button>
         </form>
-      ) : null}
+      ) : blockingAgreement ? <p className="empty-state">{blockingAgreement.status === "invalidated" ? (locale === "it" ? "Questa proposta è stata invalidata da un rifiuto. L'iniziatore deve cancellarla prima di crearne una nuova versione." : "This proposal was invalidated by a rejection. Its initiator must delete it before a new version can be created.") : (locale === "it" ? "È già presente una proposta in attesa di risposta." : "A proposal is already awaiting responses.")}</p> : null}
     </details>
   );
 }

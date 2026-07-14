@@ -315,6 +315,7 @@ export type CoOwnershipAgreement = {
   created_at: string;
   finalized_at: string | null;
   responding_participant_id: string | null;
+  can_cancel: boolean;
   participants: CoOwnershipParticipant[];
 };
 

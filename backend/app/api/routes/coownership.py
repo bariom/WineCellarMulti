@@ -77,6 +77,7 @@ def agreement_response(db: Session, agreement: CoOwnershipAgreement, request: Re
         created_at=agreement.created_at,
         finalized_at=agreement.finalized_at,
         responding_participant_id=responding_participant_id,
+        can_cancel=expose_links and agreement.status == "invalidated",
         participants=participants,
     )
 
@@ -125,7 +126,7 @@ def update_agreement_status(db: Session, agreement: CoOwnershipAgreement) -> Non
         agreement.status = "accepted"
         agreement.finalized_at = now_utc()
     elif "declined" in statuses:
-        agreement.status = "declined"
+        agreement.status = "invalidated"
         agreement.finalized_at = None
     else:
         agreement.status = "pending"
@@ -153,6 +154,14 @@ def list_wine_agreements(wine_id: UUID, request: Request, db: Session = Depends(
 @router.post("/wines/{wine_id}", response_model=CoOwnershipAgreementResponse, status_code=status.HTTP_201_CREATED)
 def create_agreement(wine_id: UUID, payload: CoOwnershipAgreementCreate, request: Request, db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)) -> CoOwnershipAgreementResponse:
     wine = get_household_wine(db, context, wine_id)
+    blocking_agreement = db.scalar(
+        select(CoOwnershipAgreement).where(
+            CoOwnershipAgreement.wine_id == wine.id,
+            CoOwnershipAgreement.status.in_(("pending", "invalidated")),
+        ),
+    )
+    if blocking_agreement is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Cancel the current invalidated proposal before creating a new version")
     emails = [item.email.lower() for item in payload.participants]
     if len(set(emails)) != len(emails):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Participant emails must be unique")
@@ -258,6 +267,8 @@ def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, re
         window_seconds=settings.rate_limit_coownership_response_window_seconds,
     )
     participant, agreement = public_participant(db, token)
+    if agreement.status != "pending":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This agreement is no longer open for responses")
     if participant.status != "pending":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This invitation has already been answered")
     participant.status = payload.decision
@@ -265,6 +276,11 @@ def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, re
     participant.acceptance_method = "secure_link"
     participant.responded_at = now_utc()
     update_agreement_status(db, agreement)
+    if agreement.status == "invalidated":
+        for other in participant_rows(db, agreement.id):
+            if other.status == "pending":
+                other.status = "invalidated"
+                other.responded_at = now_utc()
     creator = db.get(User, agreement.created_by_user_id)
     if creator is not None:
         create_user_notification(
@@ -279,3 +295,25 @@ def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, re
     db.commit()
     db.refresh(agreement)
     return agreement_response(db, agreement, request, expose_links=False, responding_participant_id=participant.id)
+
+
+@router.delete("/wines/{wine_id}/{agreement_id}", status_code=status.HTTP_204_NO_CONTENT)
+def cancel_invalidated_agreement(
+    wine_id: UUID,
+    agreement_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> None:
+    get_household_wine(db, context, wine_id)
+    agreement = db.scalar(
+        select(CoOwnershipAgreement).where(
+            CoOwnershipAgreement.id == agreement_id,
+            CoOwnershipAgreement.wine_id == wine_id,
+            CoOwnershipAgreement.created_by_user_id == context.user.id,
+            CoOwnershipAgreement.status == "invalidated",
+        ),
+    )
+    if agreement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invalidated agreement not found")
+    db.delete(agreement)
+    db.commit()
