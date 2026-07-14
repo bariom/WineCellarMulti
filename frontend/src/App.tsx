@@ -827,6 +827,7 @@ export function App() {
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
+  const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [selectedWishlistListId, setSelectedWishlistListId] = useState<string>("");
   const [pendingWineScrollId, setPendingWineScrollId] = useState<string | null>(null);
@@ -5957,7 +5958,7 @@ export function App() {
               : activeView === "home" || activeView === "pairing" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
-          } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""}`}
+          } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
         >
           {!needsRedeem ? (
           <div className="view-tabs">
@@ -7226,6 +7227,8 @@ export function App() {
                   marketAuditEntry={selectedWineMarketAudit}
                   onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine: selectedVisibleWine, entry })}
                   coOwnershipSection={renderCoOwnershipSection(selectedVisibleWine)}
+                  expanded={wineDetailExpanded}
+                  onToggleExpanded={() => setWineDetailExpanded((expanded) => !expanded)}
                   t={t}
                   locale={locale}
                 />
