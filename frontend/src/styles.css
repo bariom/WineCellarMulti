@@ -13354,13 +13354,13 @@ textarea:hover {
   border-radius: 7px;
 }
 
-.side-panel-actions > .detail-expand-button {
+.side-panel-action-buttons > .detail-expand-button {
   justify-self: end;
 }
 
-.side-panel-action-buttons > button:first-child:nth-last-child(1),
-.side-panel-action-buttons > button:first-child:nth-last-child(3),
-.side-panel-action-buttons > button:first-child:nth-last-child(5) {
+.side-panel-add-button:only-child,
+.side-panel-add-button:first-child:nth-last-child(3),
+.side-panel-add-button:first-child:nth-last-child(5) {
   grid-column: 1 / -1;
 }
 

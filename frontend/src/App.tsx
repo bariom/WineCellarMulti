@@ -6735,7 +6735,13 @@ export function App() {
             ) : null}
             {isWineCollectionView ? (
               <div className="side-panel-actions">
-                {selectedVisibleWine && !wineFormOpen ? (
+                <div className="side-panel-action-buttons">
+                  {activeView === "cellar" ? (
+                    <button type="button" className="side-panel-add-button" onClick={startAddWine} disabled={!canWriteWine}>
+                      {t("addWine")}
+                    </button>
+                  ) : null}
+                  {selectedVisibleWine && !wineFormOpen ? (
                   <button
                     type="button"
                     className="secondary compact detail-expand-button"
@@ -6745,14 +6751,8 @@ export function App() {
                   >
                     <span aria-hidden="true">{wineDetailExpanded ? "↙" : "↗"}</span>
                   </button>
-                ) : null}
-                <div className="side-panel-action-buttons">
-                {activeView === "cellar" ? (
-                  <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
-                    {t("addWine")}
-                  </button>
-                ) : null}
-                {selectedVisibleWine && !wineFormOpen ? (
+                  ) : null}
+                  {selectedVisibleWine && !wineFormOpen ? (
                   <>
                     <button type="button" className={compareWineIds.includes(selectedVisibleWine.id) ? "" : "secondary"} onClick={() => toggleCompareWine(selectedVisibleWine)}>
                       {compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
@@ -6761,8 +6761,8 @@ export function App() {
                       {t("editSelected")}
                     </button>
                   </>
-                ) : null}
-                {compareWineIds.length ? (
+                  ) : null}
+                  {compareWineIds.length ? (
                   <>
                     <button type="button" className="secondary" onClick={openCompareModal}>
                       {t("openCompare")} ({compareWineIds.length}/2)
@@ -6771,16 +6771,16 @@ export function App() {
                       {t("clearCompare")}
                     </button>
                   </>
-                ) : null}
+                  ) : null}
                 </div>
               </div>
             ) : (
               <div className="side-panel-actions">
                 <div className="side-panel-action-buttons">
-                <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
-                  {t("addWishlist")}
-                </button>
-                {selectedWishlistItem && !wishlistFormOpen ? (
+                  <button type="button" className="side-panel-add-button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
+                    {t("addWishlist")}
+                  </button>
+                  {selectedWishlistItem && !wishlistFormOpen ? (
                   <>
                     <button type="button" className="secondary" onClick={() => startEditWishlistItem(selectedWishlistItem)} disabled={!canWriteWine}>
                       {t("editSelected")}
@@ -6789,7 +6789,7 @@ export function App() {
                       {t("convert")}
                     </button>
                   </>
-                ) : null}
+                  ) : null}
                 </div>
               </div>
             )}
