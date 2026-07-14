@@ -6720,7 +6720,7 @@ export function App() {
 
           {isCollectionView ? (
           <aside className="wine-side-panel">
-            {isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
+            {false && isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
               <div className="wine-side-panel-topbar">
                 <button
                   type="button"
@@ -6735,6 +6735,18 @@ export function App() {
             ) : null}
             {isWineCollectionView ? (
               <div className="side-panel-actions">
+                {selectedVisibleWine && !wineFormOpen ? (
+                  <button
+                    type="button"
+                    className="secondary compact detail-expand-button"
+                    aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
+                    title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
+                    onClick={() => setWineDetailExpanded((expanded) => !expanded)}
+                  >
+                    <span aria-hidden="true">{wineDetailExpanded ? "↙" : "↗"}</span>
+                  </button>
+                ) : null}
+                <div className="side-panel-action-buttons">
                 {activeView === "cellar" ? (
                   <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
                     {t("addWine")}
@@ -6760,9 +6772,11 @@ export function App() {
                     </button>
                   </>
                 ) : null}
+                </div>
               </div>
             ) : (
               <div className="side-panel-actions">
+                <div className="side-panel-action-buttons">
                 <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
                   {t("addWishlist")}
                 </button>
@@ -6776,6 +6790,7 @@ export function App() {
                     </button>
                   </>
                 ) : null}
+                </div>
               </div>
             )}
             {isWineCollectionView && wineFormOpen ? (
