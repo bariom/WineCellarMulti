@@ -13364,6 +13364,18 @@ textarea:hover {
   grid-column: 1 / -1;
 }
 
+@media (max-width: 820px) {
+  .side-panel-actions {
+    top: 56px;
+  }
+}
+
+@media (max-width: 520px) {
+  .side-panel-actions {
+    top: 52px;
+  }
+}
+
 .wine-side-panel > .wine-detail,
 .wine-side-panel > .wine-form,
 .wine-side-panel > .share-panel {
