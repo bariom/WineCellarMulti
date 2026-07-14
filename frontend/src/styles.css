@@ -14450,6 +14450,33 @@ tbody tr:hover {
   container-type: inline-size;
 }
 
+.coownership-panel > summary {
+  position: relative;
+  padding-right: 24px;
+  list-style: none;
+  cursor: pointer;
+}
+
+.coownership-panel > summary::-webkit-details-marker {
+  display: none;
+}
+
+.coownership-panel > summary::after {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  content: "▾";
+  transform: translateY(-50%) rotate(-90deg);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.coownership-panel[open] > summary::after {
+  color: var(--text);
+  transform: translateY(-50%) rotate(0deg);
+}
+
 .coownership-workspace {
   display: grid;
   gap: 0.85rem;
