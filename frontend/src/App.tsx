@@ -7744,7 +7744,16 @@ export function App() {
                     ) : null}
                   </div>
                   <DrinkWindowMini wine={wine} />
-                  <strong className="row-value">{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
+                  <div className="row-price-block" aria-label={`${t("currentPrice")}, ${t("positionTotal")}`}>
+                    <div>
+                      <span>{t("currentPrice")}</span>
+                      <strong>{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
+                    </div>
+                    <div>
+                      <span>{t("positionTotal")}</span>
+                      <strong>{formatMoney(wineUnitValue(wine) * Math.max(Number(wine.quantity || 0), 0), wine.currency, locale)}</strong>
+                    </div>
+                  </div>
                   <div className="row-actions">
                     <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
                       <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>

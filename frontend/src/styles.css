@@ -12918,6 +12918,41 @@ textarea:hover {
   display: none;
 }
 
+.operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
+  grid-column: 3;
+  grid-row: 1;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-self: center;
+  justify-self: stretch;
+  gap: 10px;
+  min-width: 0;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-price-block > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-price-block span {
+  color: var(--text-muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.07em;
+  line-height: 1.1;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-price-block strong {
+  color: var(--financial-text);
+  font-size: 0.94rem;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .operational-workspace .wine-row:not(.wishlist-row) > .row-actions {
   grid-column: 4;
   grid-row: 1;
@@ -12971,6 +13006,10 @@ textarea:hover {
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) .row-value {
+    grid-column: 3;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
     grid-column: 3;
   }
 }
@@ -13038,6 +13077,7 @@ textarea:hover {
 
   .operational-workspace .wine-row:not(.wishlist-row) > .mini-drink-window,
   .operational-workspace .wine-row:not(.wishlist-row) .row-value,
+  .operational-workspace .wine-row:not(.wishlist-row) .row-price-block,
   .operational-workspace .wine-row:not(.wishlist-row) > .row-actions {
     grid-column: 1;
     grid-row: auto;
@@ -13049,6 +13089,11 @@ textarea:hover {
     padding-inline: 0;
     border: 0;
     background: transparent;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
+    grid-template-columns: repeat(2, max-content);
+    justify-content: start;
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) > .row-actions {
