@@ -14356,6 +14356,17 @@ tbody tr:hover {
   margin-top: 1rem;
 }
 
+.coownership-workspace {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.coownership-workspace > .share-panel,
+.coownership-workspace > .coownership-panel {
+  margin-top: 0;
+}
+
 .coownership-agreement-card,
 .coownership-document,
 .coownership-response {

@@ -811,6 +811,7 @@ export function WineDetail({
   onDeleteTastingEntry,
   marketAuditEntry,
   onOpenMarketView,
+  coOwnershipSection,
   t,
   locale,
 }: {
@@ -828,6 +829,7 @@ export function WineDetail({
   onDeleteTastingEntry: (wine: Wine, entryId: string) => Promise<void>;
   marketAuditEntry: AiAuditLog | null;
   onOpenMarketView: (entry: AiAuditLog) => void;
+  coOwnershipSection?: ReactNode;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -948,7 +950,7 @@ export function WineDetail({
         ) : null}
       </div>
 
-      {(wine.scores.length || wine.grapes.length || wine.tags.length || ownershipRows(wine).length) ? (
+      {(wine.scores.length || wine.grapes.length || wine.tags.length) ? (
         <div className="detail-technical-block">
           {wine.scores.length ? (
             <div className="detail-section">
@@ -990,21 +992,10 @@ export function WineDetail({
             </div>
           ) : null}
 
-          {ownershipRows(wine).length ? (
-            <div className="detail-section">
-              <h3>{t("multiOwnership")}</h3>
-              <div className="ownership-list">
-                {ownershipRows(wine).map((owner, index) => (
-                  <div className="ownership-row" key={`${owner.email || owner.name}-${index}`}>
-                    <span>{owner.name}{owner.email ? ` - ${owner.email}` : ""}</span>
-                    <strong>{Number(owner.share_pct).toFixed(0)}%</strong>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : null}
         </div>
       ) : null}
+
+      {coOwnershipSection}
 
       <div className="ai-actions detail-ai-actions">
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>

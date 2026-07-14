@@ -5014,6 +5014,37 @@ export function App() {
     return <CoOwnershipPublicPage token={coOwnershipToken} locale={locale} onClose={() => setCoOwnershipToken("")} />;
   }
 
+  function renderCoOwnershipSection(wine: Wine) {
+    const owners = ownershipRows(wine);
+    if (!owners.length && !coOwnershipAgreements.length && !canWriteWine) return null;
+    return (
+      <section className="coownership-workspace">
+        <div className="detail-section coownership-summary">
+          <h3>{locale === "it" ? "Multiproprietà" : "Co-ownership"}</h3>
+          {owners.length ? (
+            <div className="ownership-list">
+              {owners.map((owner, index) => (
+                <div className="ownership-row" key={`${owner.email || owner.name}-${index}`}>
+                  <span>{owner.name}{owner.email ? ` - ${owner.email}` : ""}</span>
+                  <strong>{Number(owner.share_pct).toLocaleString(locale, { maximumFractionDigits: 6 })}%</strong>
+                </div>
+              ))}
+            </div>
+          ) : <p className="empty-state">{locale === "it" ? "Nessuna quota di multiproprietà configurata." : "No co-ownership shares are configured."}</p>}
+        </div>
+        {renderSharePanel(wine)}
+        <CoOwnershipPanel
+          wine={wine}
+          session={session}
+          agreements={coOwnershipAgreements}
+          canWrite={canWriteWine && !offlineMode}
+          saving={saving}
+          onCreate={(payload) => createCoOwnershipAgreement(wine, payload)}
+        />
+      </section>
+    );
+  }
+
   return (
     <main className="app-shell">
       <datalist id="wine-catalog-suggestions">
@@ -7062,17 +7093,9 @@ export function App() {
                   onDeleteTastingEntry={deleteWineTastingEntry}
                   marketAuditEntry={selectedWineMarketAudit}
                   onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine: selectedVisibleWine, entry })}
+                  coOwnershipSection={renderCoOwnershipSection(selectedVisibleWine)}
                   t={t}
                   locale={locale}
-                />
-                {renderSharePanel(selectedVisibleWine)}
-                <CoOwnershipPanel
-                  wine={selectedVisibleWine}
-                  session={session}
-                  agreements={coOwnershipAgreements}
-                  canWrite={canWriteWine && !offlineMode}
-                  saving={saving}
-                  onCreate={(payload) => createCoOwnershipAgreement(selectedVisibleWine, payload)}
                 />
               </>
             ) : activeView === "wishlist" && selectedWishlistItem ? (
@@ -7887,10 +7910,10 @@ export function App() {
                         onDeleteTastingEntry={deleteWineTastingEntry}
                         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
                         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
+                        coOwnershipSection={renderCoOwnershipSection(wine)}
                         t={t}
                         locale={locale}
                       />
-                      {renderSharePanel(wine)}
                     </div>
                   </div>
                 ) : null}
