@@ -5896,7 +5896,7 @@ export function App() {
                   </div>
                 </article>
 
-                <article className="dashboard-card">
+                <article className="dashboard-card operational-summary-card">
                   <button type="button" className="card-heading card-heading-button" onClick={() => setDashboardFocus("timeline")}>
                     <div>
                       <span>{t("upcomingDeliveries")}</span>
@@ -5914,7 +5914,7 @@ export function App() {
                   </div>
                 </article>
 
-                <article className="dashboard-card">
+                <article className="dashboard-card operational-summary-card">
                   <button type="button" className="card-heading card-heading-button" onClick={() => openOperationalCellarFilter("to_collect")}>
                     <div>
                       <span>{t("upcomingDeliveries")}</span>
@@ -5932,7 +5932,7 @@ export function App() {
                   </div>
                 </article>
 
-                <article className="dashboard-card">
+                <article className="dashboard-card operational-summary-card">
                   <button type="button" className="card-heading card-heading-button" onClick={() => { setActiveView("history"); setHistorySection("tastings"); clearFilters("history"); }}>
                     <div>
                       <span>{t("tastingEntries")}</span>
