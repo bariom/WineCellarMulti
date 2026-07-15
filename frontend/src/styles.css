@@ -13379,6 +13379,10 @@ textarea:hover {
   .side-panel-actions {
     top: 56px;
   }
+
+  .side-panel-action-buttons > .side-panel-add-button:only-child {
+    margin-inline: auto;
+  }
 }
 
 @media (max-width: 520px) {
@@ -13551,7 +13555,7 @@ textarea:hover {
   }
 
   .side-panel-actions {
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
   }
 
   .detail-title {
