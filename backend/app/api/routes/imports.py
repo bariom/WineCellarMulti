@@ -25,6 +25,7 @@ from app.models import (
     UserWineTag,
     Wine,
     WineShareOffer,
+    WineTastingEntry,
     WineValueHistory,
     WishlistItem,
     WishlistList,
@@ -120,8 +121,12 @@ def as_legacy_ai_text(value: Any, *, kind: str) -> str:
         if low is not None and high is not None and currency:
             parts.append(f"Fascia mercato stimata: {currency} {low}-{high}.")
         alternative = parsed.get("alternative")
-        if isinstance(alternative, dict) and (alternative.get("name") or alternative.get("producer")):
-            parts.append(f"Alternativa: {as_str(alternative.get('producer'))} {as_str(alternative.get('name'))}.".strip())
+        if isinstance(alternative, dict) and (
+            alternative.get("name") or alternative.get("producer")
+        ):
+            parts.append(
+                f"Alternativa: {as_str(alternative.get('producer'))} {as_str(alternative.get('name'))}.".strip()
+            )
         return " ".join(part.rstrip(".") + "." for part in parts if part)
 
     parts = [
@@ -227,7 +232,13 @@ def model_payload(instance: Wine | WishlistItem) -> dict[str, Any]:
 
 
 def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
-    wines = list(db.scalars(select(Wine).where(Wine.household_id == household_id).order_by(Wine.name.asc(), Wine.vintage.desc())))
+    wines = list(
+        db.scalars(
+            select(Wine)
+            .where(Wine.household_id == household_id)
+            .order_by(Wine.name.asc(), Wine.vintage.desc())
+        )
+    )
     wine_ids = [wine.id for wine in wines]
     value_history_by_wine: dict[UUID, list[dict[str, Any]]] = {wine.id: [] for wine in wines}
     if wine_ids:
@@ -248,12 +259,24 @@ def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
 
 
 def export_wishlist(db: Session, household_id: UUID) -> list[dict[str, Any]]:
-    wishlist = list(db.scalars(select(WishlistItem).where(WishlistItem.household_id == household_id).order_by(WishlistItem.name.asc())))
+    wishlist = list(
+        db.scalars(
+            select(WishlistItem)
+            .where(WishlistItem.household_id == household_id)
+            .order_by(WishlistItem.name.asc())
+        )
+    )
     return [model_payload(item) for item in wishlist]
 
 
 def export_wishlist_lists(db: Session, household_id: UUID) -> list[dict[str, Any]]:
-    wishlist_lists = list(db.scalars(select(WishlistList).where(WishlistList.household_id == household_id).order_by(WishlistList.name.asc(), WishlistList.id.asc())))
+    wishlist_lists = list(
+        db.scalars(
+            select(WishlistList)
+            .where(WishlistList.household_id == household_id)
+            .order_by(WishlistList.name.asc(), WishlistList.id.asc())
+        )
+    )
     return [model_payload(item) for item in wishlist_lists]
 
 
@@ -278,7 +301,11 @@ def export_members(db: Session, household_id: UUID) -> list[dict[str, Any]]:
 
 
 def export_invites(db: Session, household_id: UUID) -> list[dict[str, Any]]:
-    invites = db.scalars(select(HouseholdInvite).where(HouseholdInvite.household_id == household_id).order_by(HouseholdInvite.created_at.desc()))
+    invites = db.scalars(
+        select(HouseholdInvite)
+        .where(HouseholdInvite.household_id == household_id)
+        .order_by(HouseholdInvite.created_at.desc())
+    )
     return [
         {
             "id": str(invite.id),
@@ -294,21 +321,39 @@ def export_invites(db: Session, household_id: UUID) -> list[dict[str, Any]]:
 
 
 def export_share_offers(db: Session, household_id: UUID) -> list[dict[str, Any]]:
-    offers = db.scalars(select(WineShareOffer).where(WineShareOffer.household_id == household_id).order_by(WineShareOffer.created_at.desc()))
+    offers = db.scalars(
+        select(WineShareOffer)
+        .where(WineShareOffer.household_id == household_id)
+        .order_by(WineShareOffer.created_at.desc())
+    )
     return [model_payload(offer) for offer in offers]
 
 
 def export_user_tags(db: Session, user_id: UUID) -> list[dict[str, Any]]:
-    tags = db.scalars(select(UserTag).where(UserTag.user_id == user_id).order_by(UserTag.name.asc()))
+    tags = db.scalars(
+        select(UserTag).where(UserTag.user_id == user_id).order_by(UserTag.name.asc())
+    )
     return [model_payload(tag) for tag in tags]
 
 
 def export_ai_audit(db: Session, household_id: UUID) -> list[dict[str, Any]]:
-    logs = db.scalars(select(AiAuditLog).where(AiAuditLog.household_id == household_id).order_by(AiAuditLog.created_at.desc()))
+    logs = db.scalars(
+        select(AiAuditLog)
+        .where(AiAuditLog.household_id == household_id)
+        .order_by(AiAuditLog.created_at.desc())
+    )
     return [model_payload(log) for log in logs]
 
 
-SUPPORTED_EXPORT_BLOCKS = ("wines", "wishlist", "members", "invites", "share_offers", "user_tags", "ai_audit")
+SUPPORTED_EXPORT_BLOCKS = (
+    "wines",
+    "wishlist",
+    "members",
+    "invites",
+    "share_offers",
+    "user_tags",
+    "ai_audit",
+)
 
 
 def is_vinaris_export(payload: dict[str, Any]) -> bool:
@@ -318,7 +363,9 @@ def is_vinaris_export(payload: dict[str, Any]) -> bool:
 def payload_list(payload: dict[str, Any], key: str) -> list[dict[str, Any]]:
     value = payload.get(key, [])
     if not isinstance(value, list):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid export block: {key}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid export block: {key}"
+        )
     return [item for item in value if isinstance(item, dict)]
 
 
@@ -336,21 +383,41 @@ def selected_import_blocks(payload: dict[str, Any]) -> list[str]:
     return included_export_blocks(payload)
 
 
-def clear_household_export_blocks(db: Session, context: CurrentContext, blocks: list[str]) -> tuple[int, int]:
+def clear_household_export_blocks(
+    db: Session, context: CurrentContext, blocks: list[str]
+) -> tuple[int, int]:
     if "share_offers" in blocks and "wines" not in blocks:
-        db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
+        db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(
+            synchronize_session=False
+        )
     if "invites" in blocks:
-        db.query(HouseholdInvite).filter(HouseholdInvite.household_id == context.household.id).delete(synchronize_session=False)
+        db.query(HouseholdInvite).filter(
+            HouseholdInvite.household_id == context.household.id
+        ).delete(synchronize_session=False)
     if "ai_audit" in blocks:
-        db.query(AiAuditLog).filter(AiAuditLog.household_id == context.household.id).delete(synchronize_session=False)
+        db.query(AiAuditLog).filter(AiAuditLog.household_id == context.household.id).delete(
+            synchronize_session=False
+        )
     wines_deleted = 0
     wishlist_deleted = 0
     if "wines" in blocks:
-        db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
-        wines_deleted = db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
+        db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(
+            synchronize_session=False
+        )
+        wines_deleted = (
+            db.query(Wine)
+            .filter(Wine.household_id == context.household.id)
+            .delete(synchronize_session=False)
+        )
     if "wishlist" in blocks:
-        wishlist_deleted = db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
-        db.query(WishlistList).filter(WishlistList.household_id == context.household.id).delete(synchronize_session=False)
+        wishlist_deleted = (
+            db.query(WishlistItem)
+            .filter(WishlistItem.household_id == context.household.id)
+            .delete(synchronize_session=False)
+        )
+        db.query(WishlistList).filter(WishlistList.household_id == context.household.id).delete(
+            synchronize_session=False
+        )
     return wines_deleted, wishlist_deleted
 
 
@@ -373,10 +440,14 @@ def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) ->
     return wishlist_list
 
 
-def existing_wishlist_lists_by_name(db: Session, context: CurrentContext) -> dict[str, WishlistList]:
+def existing_wishlist_lists_by_name(
+    db: Session, context: CurrentContext
+) -> dict[str, WishlistList]:
     return {
         wishlist_list.name.strip().lower(): wishlist_list
-        for wishlist_list in db.scalars(select(WishlistList).where(WishlistList.household_id == context.household.id))
+        for wishlist_list in db.scalars(
+            select(WishlistList).where(WishlistList.household_id == context.household.id)
+        )
     }
 
 
@@ -388,15 +459,27 @@ def prepare_import_wishlist_lists(
     create_missing: bool = True,
 ) -> tuple[dict[UUID, UUID], dict[str, UUID]]:
     existing_by_name = existing_wishlist_lists_by_name(db, context)
-    default_list = get_or_create_default_wishlist_list(db, context) if create_missing else next(iter(existing_by_name.values()), None)
+    default_list = (
+        get_or_create_default_wishlist_list(db, context)
+        if create_missing
+        else next(iter(existing_by_name.values()), None)
+    )
     list_id_map: dict[UUID, UUID] = {}
     list_name_map: dict[str, UUID] = {}
-    raw_lists = payload_list(payload, "wishlist_lists") if isinstance(payload.get("wishlist_lists"), list) else []
+    raw_lists = (
+        payload_list(payload, "wishlist_lists")
+        if isinstance(payload.get("wishlist_lists"), list)
+        else []
+    )
     for raw_list in raw_lists:
         original_id = as_uuid(raw_list.get("id"))
         name = as_str(raw_list.get("name")) or DEFAULT_WISHLIST_LIST_NAME
         description = as_str(raw_list.get("description"))
-        portfolio_strategy = raw_list.get("portfolio_strategy") if isinstance(raw_list.get("portfolio_strategy"), dict) else None
+        portfolio_strategy = (
+            raw_list.get("portfolio_strategy")
+            if isinstance(raw_list.get("portfolio_strategy"), dict)
+            else None
+        )
         normalized_name = name.strip().lower()
         existing = existing_by_name.get(normalized_name)
         if existing is None:
@@ -466,7 +549,9 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
     }
 
 
-def legacy_wishlist_data(raw: dict[str, Any], context: CurrentContext, wishlist_list_id: UUID) -> dict[str, Any]:
+def legacy_wishlist_data(
+    raw: dict[str, Any], context: CurrentContext, wishlist_list_id: UUID
+) -> dict[str, Any]:
     return {
         "id": as_uuid(raw.get("id")),
         "household_id": context.household.id,
@@ -494,7 +579,9 @@ def legacy_wishlist_data(raw: dict[str, Any], context: CurrentContext, wishlist_
 
 
 def upsert_model(db: Session, model: type[Wine] | type[WishlistItem], data: dict[str, Any]) -> None:
-    instance = db.scalar(select(model).where(model.id == data["id"], model.household_id == data["household_id"]))
+    instance = db.scalar(
+        select(model).where(model.id == data["id"], model.household_id == data["household_id"])
+    )
     if instance is None:
         db.add(model(**data))
         return
@@ -510,11 +597,15 @@ def existing_by_id_or_key(
     key: tuple[str, ...],
     existing_keys: dict[tuple[str, ...], Wine | WishlistItem],
 ) -> Wine | WishlistItem | None:
-    instance = db.scalar(select(model).where(model.id == data["id"], model.household_id == household_id))
+    instance = db.scalar(
+        select(model).where(model.id == data["id"], model.household_id == household_id)
+    )
     return instance or existing_keys.get(key)
 
 
-def ensure_unused_id(db: Session, model: Any, candidate_id: UUID, reserved_ids: set[UUID] | None = None) -> UUID:
+def ensure_unused_id(
+    db: Session, model: Any, candidate_id: UUID, reserved_ids: set[UUID] | None = None
+) -> UUID:
     reserved = reserved_ids if reserved_ids is not None else set()
     next_id = candidate_id
     while next_id in reserved or db.get(model, next_id) is not None:
@@ -523,45 +614,72 @@ def ensure_unused_id(db: Session, model: Any, candidate_id: UUID, reserved_ids: 
     return next_id
 
 
-def existing_wine_keys(db: Session, context: CurrentContext) -> dict[tuple[str, str, str, str, str], Wine]:
+def existing_wine_keys(
+    db: Session, context: CurrentContext
+) -> dict[tuple[str, str, str, str, str], Wine]:
     wines = db.scalars(select(Wine).where(Wine.household_id == context.household.id))
     return {wine_duplicate_key(model_payload(wine)): wine for wine in wines}
 
 
-def existing_wishlist_keys(db: Session, context: CurrentContext) -> dict[WishlistDuplicateKey, WishlistItem]:
-    items = db.scalars(select(WishlistItem).where(WishlistItem.household_id == context.household.id))
+def existing_wishlist_keys(
+    db: Session, context: CurrentContext
+) -> dict[WishlistDuplicateKey, WishlistItem]:
+    items = db.scalars(
+        select(WishlistItem).where(WishlistItem.household_id == context.household.id)
+    )
     return {wishlist_duplicate_key(model_payload(item)): item for item in items}
 
 
-def legacy_payload_lists(payload: dict[str, Any]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+def legacy_payload_lists(
+    payload: dict[str, Any],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     wines = payload.get("wines", [])
     wishlist = payload.get("wishlist", [])
     if not isinstance(wines, list) or not isinstance(wishlist, list):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid legacy export")
-    return [item for item in wines if isinstance(item, dict)], [item for item in wishlist if isinstance(item, dict)]
+    return [item for item in wines if isinstance(item, dict)], [
+        item for item in wishlist if isinstance(item, dict)
+    ]
 
 
-def vinaris_preview_payload(payload: dict[str, Any], db: Session, context: CurrentContext) -> LegacyImportPreview:
+def vinaris_preview_payload(
+    payload: dict[str, Any], db: Session, context: CurrentContext
+) -> LegacyImportPreview:
     blocks = included_export_blocks(payload)
     raw_wines = payload_list(payload, "wines")
     raw_wishlist = payload_list(payload, "wishlist")
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
-    _, wishlist_list_name_map = prepare_import_wishlist_lists(payload, db, context, create_missing=False)
+    _, wishlist_list_name_map = prepare_import_wishlist_lists(
+        payload, db, context, create_missing=False
+    )
     default_wishlist_list = get_or_create_default_wishlist_list(db, context)
     wine_duplicates: list[str] = []
     wishlist_duplicates: list[str] = []
 
     for raw_wine in raw_wines:
         data = legacy_wine_data(raw_wine, context)
-        if existing_by_id_or_key(db, Wine, context.household.id, data, wine_duplicate_key(data), wine_keys):
+        if existing_by_id_or_key(
+            db, Wine, context.household.id, data, wine_duplicate_key(data), wine_keys
+        ):
             wine_duplicates.append(data["name"])
     for raw_item in raw_wishlist:
         raw_list_name = as_str(raw_item.get("wishlist_list_name"))
-        mapped_list_id = wishlist_list_name_map.get(raw_list_name.strip().lower()) if raw_list_name else None
-        mapped_list_id = mapped_list_id or (default_wishlist_list.id if default_wishlist_list else UUID(int=0))
+        mapped_list_id = (
+            wishlist_list_name_map.get(raw_list_name.strip().lower()) if raw_list_name else None
+        )
+        mapped_list_id = mapped_list_id or (
+            default_wishlist_list.id if default_wishlist_list else UUID(int=0)
+        )
         data = legacy_wishlist_data(raw_item, context, mapped_list_id)
-        if existing_by_id_or_key(db, WishlistItem, context.household.id, data, wishlist_duplicate_key(data), wishlist_keys):
+        if existing_by_id_or_key(
+            db,
+            WishlistItem,
+            context.household.id,
+            data,
+            wishlist_duplicate_key(data),
+            wishlist_keys,
+        ):
             wishlist_duplicates.append(data["name"])
 
     return LegacyImportPreview(
@@ -595,6 +713,7 @@ def import_vinaris_json_payload(
         Wine: set(),
         WishlistItem: set(),
         WishlistList: set(),
+        WineTastingEntry: set(),
         WineValueHistory: set(),
         HouseholdInvite: set(),
         UserTag: set(),
@@ -602,12 +721,16 @@ def import_vinaris_json_payload(
         AiAuditLog: set(),
     }
     if mode == "replace_all":
-        result.wines_deleted, result.wishlist_deleted = clear_household_export_blocks(db, context, blocks)
+        result.wines_deleted, result.wishlist_deleted = clear_household_export_blocks(
+            db, context, blocks
+        )
         db.flush()
 
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
-    wishlist_list_id_map, wishlist_list_name_map = prepare_import_wishlist_lists(payload, db, context, reserved_ids[WishlistList])
+    wishlist_list_id_map, wishlist_list_name_map = prepare_import_wishlist_lists(
+        payload, db, context, reserved_ids[WishlistList]
+    )
     default_wishlist_list = get_or_create_default_wishlist_list(db, context)
     imported_wine_ids: dict[UUID, UUID] = {}
     imported_wishlist_ids: dict[UUID, UUID] = {}
@@ -634,11 +757,49 @@ def import_vinaris_json_payload(
             wine_keys[key] = wine
             result.wines_imported += 1
         imported_wine_ids[original_id] = wine.id
+        for raw_entry in as_list(raw_wine.get("tasting_history")):
+            if not isinstance(raw_entry, dict):
+                continue
+            try:
+                consumed_at = date.fromisoformat(as_str(raw_entry.get("consumed_at")))
+            except ValueError:
+                continue
+            entry_id = as_uuid(raw_entry.get("id"))
+            tasting_entry = db.scalar(
+                select(WineTastingEntry).where(
+                    WineTastingEntry.id == entry_id,
+                    WineTastingEntry.wine_id == wine.id,
+                )
+            )
+            entry_data = {
+                "wine_id": wine.id,
+                "household_id": context.household.id,
+                "consumed_at": consumed_at,
+                "note": as_str(raw_entry.get("note")),
+                "rating": int(raw_entry.get("rating") or 0),
+                "enjoyment": as_str(raw_entry.get("enjoyment")),
+                "occasion": as_str(raw_entry.get("occasion")),
+                "pairing": as_str(raw_entry.get("pairing")),
+                "companions": as_str(raw_entry.get("companions")),
+                "created_at": as_datetime(raw_entry.get("created_at")) or datetime.now(UTC),
+            }
+            if tasting_entry is None:
+                entry_data["id"] = ensure_unused_id(
+                    db, WineTastingEntry, entry_id, reserved_ids[WineTastingEntry]
+                )
+                db.add(WineTastingEntry(**entry_data))
+            elif mode in {"update_existing", "replace_all"}:
+                for field, value in entry_data.items():
+                    setattr(tasting_entry, field, value)
         for raw_entry in as_list(raw_wine.get("value_history")):
             if not isinstance(raw_entry, dict):
                 continue
             entry_id = as_uuid(raw_entry.get("id"))
-            value_entry = db.scalar(select(WineValueHistory).where(WineValueHistory.id == entry_id, WineValueHistory.wine_id == wine.id))
+            value_entry = db.scalar(
+                select(WineValueHistory).where(
+                    WineValueHistory.id == entry_id, WineValueHistory.wine_id == wine.id
+                )
+            )
             value_data = {
                 "id": entry_id,
                 "wine_id": wine.id,
@@ -648,7 +809,9 @@ def import_vinaris_json_payload(
                 "recorded_at": as_datetime(raw_entry.get("recorded_at")) or datetime.now(UTC),
             }
             if value_entry is None:
-                value_data["id"] = ensure_unused_id(db, WineValueHistory, value_data["id"], reserved_ids[WineValueHistory])
+                value_data["id"] = ensure_unused_id(
+                    db, WineValueHistory, value_data["id"], reserved_ids[WineValueHistory]
+                )
                 db.add(WineValueHistory(**value_data))
             elif mode in {"update_existing", "replace_all"}:
                 for field, value in value_data.items():
@@ -668,7 +831,9 @@ def import_vinaris_json_payload(
         data["ai_market_price_currency"] = as_str(raw_item.get("ai_market_price_currency"))
         data["ai_context_note"] = as_str(raw_item.get("ai_context_note"))
         key = wishlist_duplicate_key(data)
-        existing = existing_by_id_or_key(db, WishlistItem, context.household.id, data, key, wishlist_keys)
+        existing = existing_by_id_or_key(
+            db, WishlistItem, context.household.id, data, key, wishlist_keys
+        )
         if mode == "skip_duplicates" and existing is not None:
             result.wishlist_skipped += 1
             imported_wishlist_ids[original_id] = existing.id
@@ -695,7 +860,11 @@ def import_vinaris_json_payload(
         if user is None:
             result.members_skipped += 1
             continue
-        membership = db.scalar(select(Membership).where(Membership.user_id == user.id, Membership.household_id == context.household.id))
+        membership = db.scalar(
+            select(Membership).where(
+                Membership.user_id == user.id, Membership.household_id == context.household.id
+            )
+        )
         if membership is None:
             db.add(
                 Membership(
@@ -709,23 +878,40 @@ def import_vinaris_json_payload(
             continue
         if mode in {"update_existing", "replace_all"}:
             membership.role = as_str(raw_member.get("role")) or membership.role
-            membership.visibility_scope = as_str(raw_member.get("visibility_scope")) or membership.visibility_scope
+            membership.visibility_scope = (
+                as_str(raw_member.get("visibility_scope")) or membership.visibility_scope
+            )
             result.members_updated += 1
         else:
             result.members_skipped += 1
 
-    existing_invites = list(db.scalars(select(HouseholdInvite).where(HouseholdInvite.household_id == context.household.id)))
+    existing_invites = list(
+        db.scalars(
+            select(HouseholdInvite).where(HouseholdInvite.household_id == context.household.id)
+        )
+    )
     for raw_invite in payload_list(payload, "invites") if "invites" in blocks else []:
         email = as_str(raw_invite.get("email"))
         created_at = as_datetime(raw_invite.get("created_at")) or datetime.now(UTC)
-        existing_invite = next((invite for invite in existing_invites if invite.email.lower() == email.lower() and invite.created_at == created_at), None)
+        existing_invite = next(
+            (
+                invite
+                for invite in existing_invites
+                if invite.email.lower() == email.lower() and invite.created_at == created_at
+            ),
+            None,
+        )
         if mode == "skip_duplicates" and existing_invite is not None:
             result.invites_skipped += 1
             continue
         if existing_invite is not None and mode in {"update_existing", "replace_all"}:
             existing_invite.role = as_str(raw_invite.get("role")) or existing_invite.role
-            existing_invite.visibility_scope = as_str(raw_invite.get("visibility_scope")) or existing_invite.visibility_scope
-            existing_invite.expires_at = as_datetime(raw_invite.get("expires_at")) or existing_invite.expires_at
+            existing_invite.visibility_scope = (
+                as_str(raw_invite.get("visibility_scope")) or existing_invite.visibility_scope
+            )
+            existing_invite.expires_at = (
+                as_datetime(raw_invite.get("expires_at")) or existing_invite.expires_at
+            )
             existing_invite.accepted_at = as_datetime(raw_invite.get("accepted_at"))
             result.invites_updated += 1
             continue
@@ -760,7 +946,15 @@ def import_vinaris_json_payload(
         if existing_tag is None:
             tag_id = as_uuid(raw_tag.get("id"))
             tag_id = ensure_unused_id(db, UserTag, tag_id, reserved_ids[UserTag])
-            db.add(UserTag(id=tag_id, user_id=context.user.id, name=name, color=as_str(raw_tag.get("color")), created_at=as_datetime(raw_tag.get("created_at")) or datetime.now(UTC)))
+            db.add(
+                UserTag(
+                    id=tag_id,
+                    user_id=context.user.id,
+                    name=name,
+                    color=as_str(raw_tag.get("color")),
+                    created_at=as_datetime(raw_tag.get("created_at")) or datetime.now(UTC),
+                )
+            )
             result.user_tags_imported += 1
             continue
         if mode in {"update_existing", "replace_all"}:
@@ -776,24 +970,35 @@ def import_vinaris_json_payload(
         for tag_name in {as_str(tag) for tag in as_list(raw_wine.get("tags")) if as_str(tag)}:
             tag = existing_tags.get(tag_name.lower())
             if tag is None:
-                tag = UserTag(user_id=context.user.id, name=tag_name, color="", created_at=datetime.now(UTC))
+                tag = UserTag(
+                    user_id=context.user.id, name=tag_name, color="", created_at=datetime.now(UTC)
+                )
                 db.add(tag)
                 db.flush()
                 existing_tags[tag_name.lower()] = tag
-            if db.scalar(
-                select(UserWineTag.id).where(
-                    UserWineTag.user_id == context.user.id,
-                    UserWineTag.wine_id == wine_id,
-                    UserWineTag.tag_id == tag.id,
+            if (
+                db.scalar(
+                    select(UserWineTag.id).where(
+                        UserWineTag.user_id == context.user.id,
+                        UserWineTag.wine_id == wine_id,
+                        UserWineTag.tag_id == tag.id,
+                    )
                 )
-            ) is None:
+                is None
+            ):
                 db.add(UserWineTag(user_id=context.user.id, wine_id=wine_id, tag_id=tag.id))
 
-    existing_offers = list(db.scalars(select(WineShareOffer).where(WineShareOffer.household_id == context.household.id)))
+    existing_offers = list(
+        db.scalars(
+            select(WineShareOffer).where(WineShareOffer.household_id == context.household.id)
+        )
+    )
     for raw_offer in payload_list(payload, "share_offers") if "share_offers" in blocks else []:
         original_wine_id = as_uuid(raw_offer.get("wine_id"))
         mapped_wine_id = imported_wine_ids.get(original_wine_id, original_wine_id)
-        wine = db.scalar(select(Wine).where(Wine.id == mapped_wine_id, Wine.household_id == context.household.id))
+        wine = db.scalar(
+            select(Wine).where(Wine.id == mapped_wine_id, Wine.household_id == context.household.id)
+        )
         if wine is None:
             result.share_offers_skipped += 1
             continue
@@ -843,11 +1048,15 @@ def import_vinaris_json_payload(
         )
         result.share_offers_imported += 1
 
-    existing_audit = list(db.scalars(select(AiAuditLog).where(AiAuditLog.household_id == context.household.id)))
+    existing_audit = list(
+        db.scalars(select(AiAuditLog).where(AiAuditLog.household_id == context.household.id))
+    )
     for raw_log in payload_list(payload, "ai_audit") if "ai_audit" in blocks else []:
         entity_type = as_str(raw_log.get("entity_type"))
         original_entity_id = as_uuid(raw_log.get("entity_id"))
-        mapped_entity_id = imported_wine_ids.get(original_entity_id, imported_wishlist_ids.get(original_entity_id, original_entity_id))
+        mapped_entity_id = imported_wine_ids.get(
+            original_entity_id, imported_wishlist_ids.get(original_entity_id, original_entity_id)
+        )
         created_at = as_datetime(raw_log.get("created_at")) or datetime.now(UTC)
         existing_log = next(
             (
@@ -896,10 +1105,22 @@ def import_vinaris_json_payload(
 
 
 def clear_household_cellar(db: Session, context: CurrentContext) -> tuple[int, int]:
-    db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
-    wines_deleted = db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
-    wishlist_deleted = db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
-    db.query(WishlistList).filter(WishlistList.household_id == context.household.id).delete(synchronize_session=False)
+    db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
+    wines_deleted = (
+        db.query(Wine)
+        .filter(Wine.household_id == context.household.id)
+        .delete(synchronize_session=False)
+    )
+    wishlist_deleted = (
+        db.query(WishlistItem)
+        .filter(WishlistItem.household_id == context.household.id)
+        .delete(synchronize_session=False)
+    )
+    db.query(WishlistList).filter(WishlistList.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
     return wines_deleted, wishlist_deleted
 
 
@@ -918,11 +1139,22 @@ def preview_legacy_json(
 
     for raw_wine in raw_wines:
         data = legacy_wine_data(raw_wine, context)
-        if existing_by_id_or_key(db, Wine, context.household.id, data, wine_duplicate_key(data), wine_keys):
+        if existing_by_id_or_key(
+            db, Wine, context.household.id, data, wine_duplicate_key(data), wine_keys
+        ):
             wine_duplicates.append(data["name"])
     for raw_item in raw_wishlist:
-        data = legacy_wishlist_data(raw_item, context, default_wishlist_list.id if default_wishlist_list else UUID(int=0))
-        if existing_by_id_or_key(db, WishlistItem, context.household.id, data, wishlist_duplicate_key(data), wishlist_keys):
+        data = legacy_wishlist_data(
+            raw_item, context, default_wishlist_list.id if default_wishlist_list else UUID(int=0)
+        )
+        if existing_by_id_or_key(
+            db,
+            WishlistItem,
+            context.household.id,
+            data,
+            wishlist_duplicate_key(data),
+            wishlist_keys,
+        ):
             wishlist_duplicates.append(data["name"])
 
     return LegacyImportPreview(
@@ -953,7 +1185,9 @@ def preview_json_import(
 @router.post("/legacy-json", response_model=LegacyImportResult)
 def import_legacy_json(
     payload: dict[str, Any],
-    mode: str = Query(default="add_all", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"),
+    mode: str = Query(
+        default="add_all", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"
+    ),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_admin_context),
 ) -> LegacyImportResult:
@@ -984,14 +1218,18 @@ def import_legacy_json(
         wine = Wine(**data)
         db.add(wine)
         db.flush()
-        set_user_wine_tags(db, context, wine, [as_str(tag) for tag in as_list(raw_wine.get("tags")) if as_str(tag)])
+        set_user_wine_tags(
+            db, context, wine, [as_str(tag) for tag in as_list(raw_wine.get("tags")) if as_str(tag)]
+        )
         wine_keys[key] = wine
         result.wines_imported += 1
 
     for raw_item in wishlist:
         data = legacy_wishlist_data(raw_item, context, default_wishlist_list.id)
         key = wishlist_duplicate_key(data)
-        existing = existing_by_id_or_key(db, WishlistItem, context.household.id, data, key, wishlist_keys)
+        existing = existing_by_id_or_key(
+            db, WishlistItem, context.household.id, data, key, wishlist_keys
+        )
         if mode == "skip_duplicates" and existing is not None:
             result.wishlist_skipped += 1
             continue
@@ -1015,7 +1253,9 @@ def import_legacy_json(
 @router.post("/json", response_model=LegacyImportResult)
 def import_json(
     payload: dict[str, Any],
-    mode: str = Query(default="add_all", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"),
+    mode: str = Query(
+        default="add_all", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"
+    ),
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_admin_context),
 ) -> LegacyImportResult:
@@ -1031,7 +1271,12 @@ def empty_cellar(
 ) -> LegacyImportResult:
     wines_deleted, wishlist_deleted = clear_household_cellar(db, context)
     db.commit()
-    return LegacyImportResult(wines_imported=0, wishlist_imported=0, wines_deleted=wines_deleted, wishlist_deleted=wishlist_deleted)
+    return LegacyImportResult(
+        wines_imported=0,
+        wishlist_imported=0,
+        wines_deleted=wines_deleted,
+        wishlist_deleted=wishlist_deleted,
+    )
 
 
 @router.get("/export-json")

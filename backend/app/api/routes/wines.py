@@ -1,46 +1,68 @@
 import uuid
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, defer
 
-from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
+from app.api.deps import (
+    CurrentContext,
+    get_current_context,
+    require_admin_context,
+    require_write_context,
+)
 from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.api.routes.tags import get_or_create_user_tag
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import Household, Membership, User, UserNotification, UserTag, UserWineTag, Wine, WineShareOffer, WineValueHistory
+from app.models import (
+    Household,
+    Membership,
+    User,
+    UserNotification,
+    UserTag,
+    UserWineTag,
+    Wine,
+    WineShareOffer,
+    WineTastingEntry,
+    WineValueHistory,
+)
 from app.schemas.wine import (
+    TastingArchiveItemResponse,
+    TastingArchivePageResponse,
     WineConsume,
     WineCreate,
     WineResponse,
     WineShareOfferCreate,
     WineShareOfferRecipientResponse,
     WineShareOfferResponse,
-    TastingArchiveItemResponse,
-    TastingArchivePageResponse,
     WineTastingEntryUpdate,
     WineUpdate,
 )
 from app.services.notifications import create_user_notification
 
-
 router = APIRouter()
 
 
 def user_can_see_wine(context: CurrentContext, wine: Wine) -> bool:
-    if context.membership.role in ("owner", "admin") or context.membership.visibility_scope == "all":
+    if (
+        context.membership.role in ("owner", "admin")
+        or context.membership.visibility_scope == "all"
+    ):
         return True
     if wine.created_by_user_id == context.user.id:
         return True
     user_email = context.user.email.strip().lower()
-    return any(str(owner.get("email", "")).strip().lower() == user_email for owner in (wine.owners or []))
+    return any(
+        str(owner.get("email", "")).strip().lower() == user_email for owner in (wine.owners or [])
+    )
 
 
-def get_household_wine(db: Session, context: CurrentContext, wine_id: UUID, *, enforce_visibility: bool = True) -> Wine:
+def get_household_wine(
+    db: Session, context: CurrentContext, wine_id: UUID, *, enforce_visibility: bool = True
+) -> Wine:
     wine = db.scalar(
         select(Wine).where(
             Wine.id == wine_id,
@@ -54,7 +76,9 @@ def get_household_wine(db: Session, context: CurrentContext, wine_id: UUID, *, e
     return wine
 
 
-def user_tag_names_by_wine(db: Session, context: CurrentContext, wine_ids: list[UUID]) -> dict[UUID, list[str]]:
+def user_tag_names_by_wine(
+    db: Session, context: CurrentContext, wine_ids: list[UUID]
+) -> dict[UUID, list[str]]:
     if not wine_ids:
         return {}
     rows = db.execute(
@@ -69,7 +93,9 @@ def user_tag_names_by_wine(db: Session, context: CurrentContext, wine_ids: list[
     return result
 
 
-def wine_value_history_by_wine(db: Session, wine_ids: list[UUID]) -> dict[UUID, list[WineValueHistory]]:
+def wine_value_history_by_wine(
+    db: Session, wine_ids: list[UUID]
+) -> dict[UUID, list[WineValueHistory]]:
     if not wine_ids:
         return {}
     rows = db.scalars(
@@ -92,7 +118,7 @@ def record_wine_value_history(db: Session, wine: Wine, *, source: str) -> None:
             value=wine.current_value,
             currency=wine.currency,
             source=source,
-            recorded_at=datetime.now(timezone.utc),
+            recorded_at=datetime.now(UTC),
         ),
     )
 
@@ -245,7 +271,7 @@ def tasting_archive_entry_matches(entry: dict, wine: Wine, query: str) -> bool:
     return query in haystack
 
 
-def tasting_archive_entry(entry: dict, wine: Wine) -> TastingArchiveItemResponse:
+def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchiveItemResponse:
     return TastingArchiveItemResponse(
         wine_id=wine.id,
         wine_name=wine.name,
@@ -256,15 +282,15 @@ def tasting_archive_entry(entry: dict, wine: Wine) -> TastingArchiveItemResponse
         wine_region=wine.region,
         wine_appellation=wine.appellation,
         wine_status=wine.status,
-        consumed_at=entry["consumed_at"],
-        note=str(entry.get("note") or ""),
-        rating=int(entry.get("rating") or 0),
-        enjoyment=str(entry.get("enjoyment") or ""),
-        occasion=str(entry.get("occasion") or ""),
-        pairing=str(entry.get("pairing") or ""),
-        companions=str(entry.get("companions") or ""),
-        created_at=entry["created_at"],
-        tasting_id=entry["id"],
+        consumed_at=entry.consumed_at,
+        note=entry.note,
+        rating=entry.rating,
+        enjoyment=entry.enjoyment,
+        occasion=entry.occasion,
+        pairing=entry.pairing,
+        companions=entry.companions,
+        created_at=entry.created_at,
+        tasting_id=entry.id,
     )
 
 
@@ -292,10 +318,14 @@ def upsert_owner_share(wine: Wine, owner_name: str, owner_email: str, share_pct:
     wine.owners = owners
 
 
-def wine_copy_for_recipient(source: Wine, target_household: Household, recipient: User, share_pct: Decimal) -> Wine:
+def wine_copy_for_recipient(
+    source: Wine, target_household: Household, recipient: User, share_pct: Decimal
+) -> Wine:
     recipient_email = recipient.email.strip().lower()
     recipient_owners = normalize_owner_rows([dict(owner) for owner in (source.owners or [])])
-    if not any(str(owner.get("email", "")).strip().lower() == recipient_email for owner in recipient_owners):
+    if not any(
+        str(owner.get("email", "")).strip().lower() == recipient_email for owner in recipient_owners
+    ):
         recipient_owners.append(
             {
                 "name": recipient.display_name or recipient.email,
@@ -337,12 +367,18 @@ def wine_copy_for_recipient(source: Wine, target_household: Household, recipient
         grapes=source.grapes,
         scores=source.scores,
         scores_not_applicable=source.scores_not_applicable,
-        tasting_history=normalize_tasting_history([dict(entry) for entry in (source.tasting_history or [])]),
+        tasting_history=normalize_tasting_history(
+            [dict(entry) for entry in (source.tasting_history or [])]
+        ),
     )
 
 
-def set_user_wine_tags(db: Session, context: CurrentContext, wine: Wine, tag_names: list[str]) -> None:
-    db.query(UserWineTag).filter(UserWineTag.user_id == context.user.id, UserWineTag.wine_id == wine.id).delete()
+def set_user_wine_tags(
+    db: Session, context: CurrentContext, wine: Wine, tag_names: list[str]
+) -> None:
+    db.query(UserWineTag).filter(
+        UserWineTag.user_id == context.user.id, UserWineTag.wine_id == wine.id
+    ).delete()
     cleaned_names = []
     for tag_name in tag_names:
         cleaned_name = " ".join(str(tag_name).strip().split())[:80]
@@ -383,63 +419,68 @@ def list_tasting_archive(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> TastingArchivePageResponse:
-    wines = list(
-        db.scalars(
-            select(Wine)
-            .where(Wine.household_id == context.household.id)
-            .order_by(Wine.name.asc(), Wine.vintage.desc()),
-        ),
-    )
     query = q.strip().lower()
     normalized_type = normalize_wine_type(type).lower()
     normalized_status = status_filter.strip().lower()
+    filters = [WineTastingEntry.household_id == context.household.id]
+    if normalized_type:
+        filters.append(func.lower(Wine.type) == normalized_type)
+    if normalized_status:
+        filters.append(func.lower(Wine.status) == normalized_status)
+    if query:
+        like = f"%{query}%"
+        filters.append(
+            or_(
+                func.lower(Wine.name).like(like),
+                func.lower(Wine.producer).like(like),
+                func.lower(Wine.vintage).like(like),
+                func.lower(Wine.region).like(like),
+                func.lower(Wine.appellation).like(like),
+                func.lower(WineTastingEntry.note).like(like),
+                func.lower(WineTastingEntry.occasion).like(like),
+                func.lower(WineTastingEntry.pairing).like(like),
+                func.lower(WineTastingEntry.companions).like(like),
+            )
+        )
 
-    visible_items: list[TastingArchiveItemResponse] = []
-    rated_count = 0
-    notes_count = 0
-    latest_consumed_at = None
-
-    for wine in wines:
-        if not user_can_see_wine(context, wine):
-            continue
-        if normalized_type and normalize_wine_type(wine.type).lower() != normalized_type:
-            continue
-        if normalized_status and wine.status.strip().lower() != normalized_status:
-            continue
-
-        for raw_entry in normalize_tasting_history([dict(entry) for entry in (wine.tasting_history or [])]):
-            consumed_at = raw_entry.get("consumed_at")
-            created_at = raw_entry.get("created_at")
-            if not consumed_at or not created_at:
-                continue
-            entry = {
-                **raw_entry,
-                "id": UUID(str(raw_entry["id"])),
-                "consumed_at": date.fromisoformat(str(consumed_at)),
-                "created_at": datetime.fromisoformat(str(created_at)),
-            }
-            if not tasting_archive_entry_matches(entry, wine, query):
-                continue
-            if entry["rating"] > 0:
-                rated_count += 1
-            if str(entry.get("note") or "").strip():
-                notes_count += 1
-            if latest_consumed_at is None or entry["consumed_at"] > latest_consumed_at:
-                latest_consumed_at = entry["consumed_at"]
-            visible_items.append(tasting_archive_entry(entry, wine))
-
-    visible_items.sort(key=lambda item: (item.consumed_at, item.created_at), reverse=True)
-    total = len(visible_items)
-    page_items = visible_items[offset:offset + limit]
+    base = (
+        select(WineTastingEntry, Wine)
+        .join(Wine, Wine.id == WineTastingEntry.wine_id)
+        .where(*filters)
+    )
+    stats = db.execute(
+        select(
+            func.count(WineTastingEntry.id),
+            func.coalesce(func.sum(case((WineTastingEntry.rating > 0, 1), else_=0)), 0),
+            func.coalesce(func.sum(case((WineTastingEntry.note != "", 1), else_=0)), 0),
+            func.max(WineTastingEntry.consumed_at),
+        )
+        .join(Wine, Wine.id == WineTastingEntry.wine_id)
+        .where(*filters)
+    ).one()
+    rows = db.execute(
+        base.order_by(
+            WineTastingEntry.consumed_at.desc(),
+            WineTastingEntry.created_at.desc(),
+            WineTastingEntry.id.desc(),
+        )
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    visible_items = [
+        tasting_archive_entry(entry, wine)
+        for entry, wine in rows
+        if user_can_see_wine(context, wine)
+    ]
 
     return TastingArchivePageResponse(
-        total=total,
+        total=int(stats[0] or 0),
         limit=limit,
         offset=offset,
-        rated_count=rated_count,
-        notes_count=notes_count,
-        latest_consumed_at=latest_consumed_at,
-        items=page_items,
+        rated_count=int(stats[1] or 0),
+        notes_count=int(stats[2] or 0),
+        latest_consumed_at=stats[3],
+        items=visible_items,
     )
 
 
@@ -459,7 +500,9 @@ def list_share_offers(
     return [share_offer_response(db, offer) for offer in offers]
 
 
-@router.get("/{wine_id}/share-offer-recipients", response_model=list[WineShareOfferRecipientResponse])
+@router.get(
+    "/{wine_id}/share-offer-recipients", response_model=list[WineShareOfferRecipientResponse]
+)
 def list_share_offer_recipients(
     wine_id: UUID,
     db: Session = Depends(get_db),
@@ -493,7 +536,11 @@ def list_share_offer_recipients(
     users = db.scalars(select(User).where(User.email.in_(list(owner_by_email))))
     recipients: list[WineShareOfferRecipientResponse] = []
     for user in users:
-        if user.id == context.user.id or user.id in original_sender_ids or user.id in existing_recipient_ids:
+        if (
+            user.id == context.user.id
+            or user.id in original_sender_ids
+            or user.id in existing_recipient_ids
+        ):
             continue
         owner = owner_by_email[user.email.lower()]
         recipients.append(
@@ -525,7 +572,11 @@ def list_outgoing_share_offers(
     return [share_offer_response(db, offer) for offer in offers]
 
 
-@router.post("/{wine_id}/share-offers", response_model=WineShareOfferResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/{wine_id}/share-offers",
+    response_model=WineShareOfferResponse,
+    status_code=status.HTTP_201_CREATED,
+)
 def create_share_offer(
     wine_id: UUID,
     payload: WineShareOfferCreate,
@@ -535,10 +586,15 @@ def create_share_offer(
     wine = get_household_wine(db, context, wine_id)
     recipient_email = payload.email.strip().lower()
     if recipient_email == context.user.email.lower():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot share a wine with yourself")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot share a wine with yourself"
+        )
     recipient = db.scalar(select(User).where(User.email == recipient_email))
     if recipient is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User must register before receiving a share offer")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User must register before receiving a share offer",
+        )
     original_sender = db.scalar(
         select(WineShareOffer.id).where(
             WineShareOffer.recipient_wine_id == wine.id,
@@ -547,7 +603,10 @@ def create_share_offer(
         ),
     )
     if original_sender is not None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cannot send a received shared position back to its original sender")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot send a received shared position back to its original sender",
+        )
 
     offer = db.scalar(
         select(WineShareOffer).where(
@@ -594,15 +653,22 @@ def accept_share_offer(
     target_household = user_personal_household(db, context.user.id) or context.household
     if not wine.owners:
         if sender is not None:
-            upsert_owner_share(wine, sender.display_name or sender.email, sender.email, Decimal("100") - offer.share_pct)
-    upsert_owner_share(wine, context.user.display_name or context.user.email, context.user.email, offer.share_pct)
+            upsert_owner_share(
+                wine,
+                sender.display_name or sender.email,
+                sender.email,
+                Decimal("100") - offer.share_pct,
+            )
+    upsert_owner_share(
+        wine, context.user.display_name or context.user.email, context.user.email, offer.share_pct
+    )
     copied_wine = wine_copy_for_recipient(wine, target_household, context.user, offer.share_pct)
     db.add(copied_wine)
     db.flush()
     offer.recipient_wine_id = copied_wine.id
     record_wine_value_history(db, copied_wine, source="shared")
     offer.status = "accepted"
-    offer.decided_at = datetime.now(timezone.utc)
+    offer.decided_at = datetime.now(UTC)
     db.commit()
     db.refresh(copied_wine)
     return wine_response(
@@ -627,12 +693,18 @@ def request_share_offer_revocation(
         ),
     )
     if offer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Accepted share offer not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Accepted share offer not found"
+        )
     recipient = db.get(User, offer.recipient_user_id)
     if recipient is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share recipient not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Share recipient not found"
+        )
     wine = db.get(Wine, offer.wine_id)
-    wine_label = " ".join(part for part in ((wine.name if wine else "Wine"), (wine.vintage if wine else "")) if part).strip()
+    wine_label = " ".join(
+        part for part in ((wine.name if wine else "Wine"), (wine.vintage if wine else "")) if part
+    ).strip()
     sender_label = context.user.display_name or context.user.email
     share_label = f"{offer.share_pct}% of {wine.quantity if wine else 0} bottles"
     if recipient.locale.lower().startswith("it"):
@@ -656,7 +728,9 @@ def request_share_offer_revocation(
     return share_offer_response(db, offer)
 
 
-@router.post("/share-offers/{offer_id}/revocation/{decision}", response_model=WineShareOfferResponse)
+@router.post(
+    "/share-offers/{offer_id}/revocation/{decision}", response_model=WineShareOfferResponse
+)
 def decide_share_offer_revocation(
     offer_id: UUID,
     decision: str,
@@ -664,7 +738,9 @@ def decide_share_offer_revocation(
     context: CurrentContext = Depends(get_current_context),
 ) -> WineShareOfferResponse:
     if decision not in {"approve", "decline"}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid revocation decision")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid revocation decision"
+        )
     offer = db.scalar(
         select(WineShareOffer).where(
             WineShareOffer.id == offer_id,
@@ -673,7 +749,9 @@ def decide_share_offer_revocation(
         ),
     )
     if offer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share revocation request not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Share revocation request not found"
+        )
     if decision == "approve":
         copied_wine = db.get(Wine, offer.recipient_wine_id) if offer.recipient_wine_id else None
         if copied_wine is not None:
@@ -681,7 +759,7 @@ def decide_share_offer_revocation(
         offer.status = "revoked"
     else:
         offer.status = "accepted"
-    offer.decided_at = datetime.now(timezone.utc)
+    offer.decided_at = datetime.now(UTC)
     notification = db.scalar(
         select(UserNotification).where(
             UserNotification.user_id == context.user.id,
@@ -689,11 +767,15 @@ def decide_share_offer_revocation(
         ),
     )
     if notification is not None:
-        notification.read_at = datetime.now(timezone.utc)
+        notification.read_at = datetime.now(UTC)
     sender = db.get(User, offer.created_by_user_id)
     wine = db.get(Wine, offer.wine_id)
     if sender is not None:
-        wine_label = " ".join(part for part in ((wine.name if wine else "Wine"), (wine.vintage if wine else "")) if part).strip()
+        wine_label = " ".join(
+            part
+            for part in ((wine.name if wine else "Wine"), (wine.vintage if wine else ""))
+            if part
+        ).strip()
         if sender.locale.lower().startswith("it"):
             title = f"Revoca comproprietà: {wine_label}"
             message = (
@@ -739,9 +821,11 @@ def cancel_share_offer(
         ),
     )
     if offer is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending share offer not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Pending share offer not found"
+        )
     offer.status = "cancelled"
-    offer.decided_at = datetime.now(timezone.utc)
+    offer.decided_at = datetime.now(UTC)
     db.commit()
     db.refresh(offer)
     return share_offer_response(db, offer)
@@ -763,7 +847,7 @@ def decline_share_offer(
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share offer not found")
     offer.status = "declined"
-    offer.decided_at = datetime.now(timezone.utc)
+    offer.decided_at = datetime.now(UTC)
     db.commit()
     db.refresh(offer)
     return share_offer_response(db, offer)
@@ -830,7 +914,11 @@ def update_wine(
         if field == "owners":
             value = normalize_owner_rows(value or [])
         setattr(wine, field, value)
-    if "current_value" in data and wine.current_value is not None and (old_value != wine.current_value or old_currency != wine.currency):
+    if (
+        "current_value" in data
+        and wine.current_value is not None
+        and (old_value != wine.current_value or old_currency != wine.currency)
+    ):
         record_wine_value_history(db, wine, source="manual")
     if tag_names is not None:
         set_user_wine_tags(db, context, wine, tag_names)
@@ -838,7 +926,9 @@ def update_wine(
     db.refresh(wine)
     return wine_response(
         wine,
-        tag_names if tag_names is not None else user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        tag_names
+        if tag_names is not None
+        else user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
         wine_value_history_by_wine(db, [wine.id]).get(wine.id),
     )
 
@@ -852,20 +942,37 @@ def consume_wine_bottle(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     if wine.quantity <= 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No bottles left to consume")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No bottles left to consume"
+        )
 
     tasting_entry = {
         "id": str(uuid.uuid4()),
-        "consumed_at": (payload.consumed_at or datetime.now(timezone.utc).date()).isoformat(),
+        "consumed_at": (payload.consumed_at or datetime.now(UTC).date()).isoformat(),
         "note": payload.note.strip(),
         "rating": payload.tasting_rating,
         "enjoyment": payload.tasting_enjoyment,
         "occasion": payload.tasting_occasion.strip(),
         "pairing": payload.tasting_pairing.strip(),
         "companions": payload.tasting_companions.strip(),
-        "created_at": datetime.now(timezone.utc).isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
     }
     wine.tasting_history = normalize_tasting_history([*(wine.tasting_history or []), tasting_entry])
+    db.add(
+        WineTastingEntry(
+            id=UUID(tasting_entry["id"]),
+            wine_id=wine.id,
+            household_id=wine.household_id,
+            consumed_at=date.fromisoformat(tasting_entry["consumed_at"]),
+            note=tasting_entry["note"],
+            rating=tasting_entry["rating"],
+            enjoyment=tasting_entry["enjoyment"],
+            occasion=tasting_entry["occasion"],
+            pairing=tasting_entry["pairing"],
+            companions=tasting_entry["companions"],
+            created_at=datetime.fromisoformat(tasting_entry["created_at"]),
+        )
+    )
     wine.quantity = max(wine.quantity - 1, 0)
     if payload.tasting_rating > 0:
         wine.rating = payload.tasting_rating
@@ -905,6 +1012,19 @@ def update_wine_tasting_entry(
         "companions": payload.tasting_companions.strip(),
     }
     wine.tasting_history = normalize_tasting_history(entries)
+    tasting = db.scalar(
+        select(WineTastingEntry).where(
+            WineTastingEntry.id == tasting_id, WineTastingEntry.wine_id == wine.id
+        )
+    )
+    if tasting is not None:
+        tasting.consumed_at = payload.consumed_at
+        tasting.note = payload.note.strip()
+        tasting.rating = payload.tasting_rating
+        tasting.enjoyment = payload.tasting_enjoyment
+        tasting.occasion = payload.tasting_occasion.strip()
+        tasting.pairing = payload.tasting_pairing.strip()
+        tasting.companions = payload.tasting_companions.strip()
 
     db.commit()
     db.refresh(wine)
@@ -926,6 +1046,13 @@ def delete_wine_tasting_entry(
     entries, index = tasting_entry_index(wine, tasting_id)
     entries.pop(index)
     wine.tasting_history = normalize_tasting_history(entries)
+    tasting = db.scalar(
+        select(WineTastingEntry).where(
+            WineTastingEntry.id == tasting_id, WineTastingEntry.wine_id == wine.id
+        )
+    )
+    if tasting is not None:
+        db.delete(tasting)
 
     db.commit()
     db.refresh(wine)

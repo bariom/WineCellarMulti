@@ -76,3 +76,34 @@ class WineValueHistory(Base):
     recorded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, index=True
     )
+
+
+class WineTastingEntry(Base):
+    __tablename__ = "wine_tasting_entries"
+    __table_args__ = (
+        Index(
+            "ix_wine_tastings_household_consumed_created",
+            "household_id",
+            "consumed_at",
+            "created_at",
+        ),
+        Index("ix_wine_tastings_wine_consumed", "wine_id", "consumed_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    consumed_at: Mapped[date] = mapped_column(Date, index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    rating: Mapped[int] = mapped_column(default=0)
+    enjoyment: Mapped[str] = mapped_column(String(16), default="")
+    occasion: Mapped[str] = mapped_column(String(200), default="")
+    pairing: Mapped[str] = mapped_column(String(300), default="")
+    companions: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, index=True
+    )

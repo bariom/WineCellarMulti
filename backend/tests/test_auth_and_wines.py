@@ -3,7 +3,7 @@ import hmac
 import json
 import time
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from urllib.parse import parse_qs, urlparse
 
@@ -13,14 +13,24 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
+from app.core.rate_limit import rate_limiter
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import AiAuditLog, Household, Membership, RedeemCode, User, UserAiCreditTransaction, UserAiSettings, UserEntitlement, UserNotification, Wine
-from app.core.config import settings
-from app.core.rate_limit import rate_limiter
+from app.models import (
+    AiAuditLog,
+    Household,
+    Membership,
+    RedeemCode,
+    User,
+    UserAiCreditTransaction,
+    UserAiSettings,
+    UserEntitlement,
+    UserNotification,
+    Wine,
+)
 from app.services.openai_client import OpenAIResponse, TokenUsage
-
 
 engine = create_engine(
     "sqlite+pysqlite:///:memory:",
@@ -49,7 +59,9 @@ def teardown_function():
     app.dependency_overrides.clear()
 
 
-def register(client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"):
+def register(
+    client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
+):
     return client.post(
         "/api/v1/auth/register",
         json={
@@ -61,7 +73,9 @@ def register(client: TestClient, email: str = "owner@example.com", password: str
     )
 
 
-def create_redeem_code(admin_client: TestClient, email: str | None = None, duration_days: int = 30) -> str:
+def create_redeem_code(
+    admin_client: TestClient, email: str | None = None, duration_days: int = 30
+) -> str:
     payload = {"label": "Test access", "duration_days": duration_days, "max_redemptions": 1}
     if email:
         payload["email"] = email
@@ -88,7 +102,9 @@ def test_register_login_session_and_logout():
     assert registered.json()["theme_preference"] == "system"
     assert client.get("/api/v1/auth/passkeys").json() == []
 
-    preferences = client.patch("/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "private-cellar"})
+    preferences = client.patch(
+        "/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "private-cellar"}
+    )
     assert preferences.status_code == 200
     assert preferences.json()["locale"] == "en"
     assert preferences.json()["theme_preference"] == "private-cellar"
@@ -98,14 +114,18 @@ def test_register_login_session_and_logout():
     assert pending.status_code == 201
     assert pending.json()["authenticated"] is False
     assert pending.json()["pending_approval"] is True
-    blocked_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
+    blocked_login = pending_client.post(
+        "/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"}
+    )
     assert blocked_login.status_code == 403
     pending_users = client.get("/api/v1/auth/pending-users")
     assert pending_users.status_code == 200
     assert pending_users.json()[0]["email"] == "pending@example.com"
     approved = client.post(f"/api/v1/auth/pending-users/{pending_users.json()[0]['id']}/approve")
     assert approved.status_code == 200
-    approved_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
+    approved_login = pending_client.post(
+        "/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"}
+    )
     assert approved_login.status_code == 200
     assert approved_login.json()["is_app_admin"] is False
     assert approved_login.json()["has_active_entitlement"] is False
@@ -118,14 +138,18 @@ def test_register_login_session_and_logout():
     users = client.get("/api/v1/auth/users")
     assert users.status_code == 200
     pending_record = next(user for user in users.json() if user["email"] == "pending@example.com")
-    promoted = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_app_admin": True})
+    promoted = client.patch(
+        f"/api/v1/auth/users/{pending_record['id']}", json={"is_app_admin": True}
+    )
     assert promoted.status_code == 200
     assert promoted.json()["is_app_admin"] is True
     assert promoted.json()["ai_credit_balance_usd"] == "0.500000"
     blocked = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_blocked": True})
     assert blocked.status_code == 200
     assert blocked.json()["is_blocked"] is True
-    blocked_login = pending_client.post("/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"})
+    blocked_login = pending_client.post(
+        "/api/v1/auth/login", json={"email": "pending@example.com", "password": "strong-password-2"}
+    )
     assert blocked_login.status_code == 403
     deleted_user = client.delete(f"/api/v1/auth/users/{pending_record['id']}")
     assert deleted_user.status_code == 204
@@ -139,7 +163,9 @@ def test_register_login_session_and_logout():
     assert passkey_options.status_code == 200
     assert passkey_options.json()["challenge"]
 
-    login = client.post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"})
+    login = client.post(
+        "/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"}
+    )
     assert login.status_code == 200
     assert login.json()["authenticated"] is True
     assert login.json()["locale"] == "en"
@@ -154,17 +180,32 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
     first = client.post(
         "/api/v1/auth/register",
         headers={"X-Forwarded-For": "198.51.100.10"},
-        json={"email": "first@example.com", "display_name": "First", "password": "strong-password-1", "household_name": "First Cellar"},
+        json={
+            "email": "first@example.com",
+            "display_name": "First",
+            "password": "strong-password-1",
+            "household_name": "First Cellar",
+        },
     )
     second = client.post(
         "/api/v1/auth/register",
         headers={"X-Forwarded-For": "198.51.100.11"},
-        json={"email": "second@example.com", "display_name": "Second", "password": "strong-password-2", "household_name": "Second Cellar"},
+        json={
+            "email": "second@example.com",
+            "display_name": "Second",
+            "password": "strong-password-2",
+            "household_name": "Second Cellar",
+        },
     )
     limited = client.post(
         "/api/v1/auth/register",
         headers={"X-Forwarded-For": "198.51.100.12"},
-        json={"email": "third@example.com", "display_name": "Third", "password": "strong-password-3", "household_name": "Third Cellar"},
+        json={
+            "email": "third@example.com",
+            "display_name": "Third",
+            "password": "strong-password-3",
+            "household_name": "Third Cellar",
+        },
     )
 
     assert first.status_code == 201
@@ -205,20 +246,51 @@ def test_password_reset_changes_password_invalidates_sessions_and_is_single_use(
     assert register(client).status_code == 201
     reset_client = TestClient(app)
 
-    requested = reset_client.post("/api/v1/auth/password-reset/request", json={"email": "owner@example.com"})
+    requested = reset_client.post(
+        "/api/v1/auth/password-reset/request", json={"email": "owner@example.com"}
+    )
     assert requested.status_code == 204
     assert len(deliveries) == 1
-    reset_url = next(part for part in deliveries[0]["body"].split() if "password_reset_token=" in part)
+    reset_url = next(
+        part for part in deliveries[0]["body"].split() if "password_reset_token=" in part
+    )
     token = parse_qs(urlparse(reset_url).query)["password_reset_token"][0]
 
-    completed = reset_client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "new-strong-password-1"})
+    completed = reset_client.post(
+        "/api/v1/auth/password-reset/confirm",
+        json={"token": token, "password": "new-strong-password-1"},
+    )
     assert completed.status_code == 204
     assert client.get("/api/v1/session").json()["authenticated"] is False
-    assert TestClient(app).post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "strong-password-1"}).status_code == 401
-    assert TestClient(app).post("/api/v1/auth/login", json={"email": "owner@example.com", "password": "new-strong-password-1"}).status_code == 200
-    assert reset_client.post("/api/v1/auth/password-reset/confirm", json={"token": token, "password": "another-strong-password"}).status_code == 400
+    assert (
+        TestClient(app)
+        .post(
+            "/api/v1/auth/login",
+            json={"email": "owner@example.com", "password": "strong-password-1"},
+        )
+        .status_code
+        == 401
+    )
+    assert (
+        TestClient(app)
+        .post(
+            "/api/v1/auth/login",
+            json={"email": "owner@example.com", "password": "new-strong-password-1"},
+        )
+        .status_code
+        == 200
+    )
+    assert (
+        reset_client.post(
+            "/api/v1/auth/password-reset/confirm",
+            json={"token": token, "password": "another-strong-password"},
+        ).status_code
+        == 400
+    )
 
-    unknown = reset_client.post("/api/v1/auth/password-reset/request", json={"email": "unknown@example.com"})
+    unknown = reset_client.post(
+        "/api/v1/auth/password-reset/request", json={"email": "unknown@example.com"}
+    )
     assert unknown.status_code == 204
     assert len(deliveries) == 1
 
@@ -237,8 +309,14 @@ def test_email_verification_and_passkey_options_are_rate_limited(monkeypatch):
     rate_limiter.clear()
     monkeypatch.setattr(settings, "rate_limit_passkey_options_attempts", 1)
     monkeypatch.setattr(settings, "rate_limit_passkey_window_seconds", 60)
-    assert client.post("/api/v1/auth/passkeys/register/options", json={"name": "Laptop"}).status_code == 200
-    assert client.post("/api/v1/auth/passkeys/register/options", json={"name": "Laptop"}).status_code == 429
+    assert (
+        client.post("/api/v1/auth/passkeys/register/options", json={"name": "Laptop"}).status_code
+        == 200
+    )
+    assert (
+        client.post("/api/v1/auth/passkeys/register/options", json={"name": "Laptop"}).status_code
+        == 429
+    )
 
 
 def test_register_grants_signup_ai_credit():
@@ -269,11 +347,20 @@ def test_app_admin_can_set_user_ai_credit_balance():
     admin_client = TestClient(app)
     user_client = TestClient(app)
     assert register(admin_client).status_code == 201
-    assert register(user_client, email="gifted@example.com", password="strong-password-2").status_code == 201
+    assert (
+        register(user_client, email="gifted@example.com", password="strong-password-2").status_code
+        == 201
+    )
 
-    app_user = next(user for user in admin_client.get("/api/v1/auth/users").json() if user["email"] == "gifted@example.com")
+    app_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/users").json()
+        if user["email"] == "gifted@example.com"
+    )
     assert app_user["ai_credit_balance_usd"] == "0.500000"
-    assert admin_client.post(f"/api/v1/auth/pending-users/{app_user['id']}/approve").status_code == 200
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{app_user['id']}/approve").status_code == 200
+    )
 
     updated = admin_client.patch(
         f"/api/v1/auth/users/{app_user['id']}",
@@ -281,10 +368,18 @@ def test_app_admin_can_set_user_ai_credit_balance():
     )
     assert updated.status_code == 200
     assert updated.json()["ai_credit_balance_usd"] == "1.750000"
-    assert user_client.post("/api/v1/auth/login", json={"email": "gifted@example.com", "password": "strong-password-2"}).status_code == 200
+    assert (
+        user_client.post(
+            "/api/v1/auth/login",
+            json={"email": "gifted@example.com", "password": "strong-password-2"},
+        ).status_code
+        == 200
+    )
     user_notifications = user_client.get("/api/v1/notifications")
     assert user_notifications.status_code == 200
-    assert any("Welcome gift" in notification["message"] for notification in user_notifications.json())
+    assert any(
+        "Welcome gift" in notification["message"] for notification in user_notifications.json()
+    )
 
     second_update = admin_client.patch(
         f"/api/v1/auth/users/{app_user['id']}",
@@ -293,12 +388,18 @@ def test_app_admin_can_set_user_ai_credit_balance():
     assert second_update.status_code == 200
     second_notifications = user_client.get("/api/v1/notifications")
     assert second_notifications.status_code == 200
-    assert any("Second gift" in notification["message"] for notification in second_notifications.json())
+    assert any(
+        "Second gift" in notification["message"] for notification in second_notifications.json()
+    )
 
     with TestingSessionLocal() as db:
         user = db.get(User, uuid.UUID(app_user["id"]))
         assert user is not None
-        credit_entries = list(db.query(UserAiCreditTransaction).filter(UserAiCreditTransaction.user_id == user.id).order_by(UserAiCreditTransaction.created_at.asc()))
+        credit_entries = list(
+            db.query(UserAiCreditTransaction)
+            .filter(UserAiCreditTransaction.user_id == user.id)
+            .order_by(UserAiCreditTransaction.created_at.asc())
+        )
         assert len(credit_entries) == 3
         assert credit_entries[0].source == "signup_bonus"
         assert credit_entries[1].source == "admin_adjustment"
@@ -308,24 +409,48 @@ def test_app_admin_can_set_user_ai_credit_balance():
         assert credit_entries[2].amount_usd == Decimal("0.250000")
         assert "Second gift" in credit_entries[2].note
 
-        notifications = list(db.query(UserNotification).filter(UserNotification.user_id == user.id).all())
+        notifications = list(
+            db.query(UserNotification).filter(UserNotification.user_id == user.id).all()
+        )
         ai_credit_notification = next(
-            notification for notification in notifications
+            notification
+            for notification in notifications
             if notification.kind == "ai_credits" and "Welcome gift" in notification.message
         )
         assert "Welcome gift" in ai_credit_notification.message
-        assert any(notification.kind == "ai_credits" and "Second gift" in notification.message for notification in notifications)
+        assert any(
+            notification.kind == "ai_credits" and "Second gift" in notification.message
+            for notification in notifications
+        )
 
 
 def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
     admin_client = TestClient(app)
     member_client = TestClient(app)
     assert register(admin_client).status_code == 201
-    assert register(member_client, email="member@example.com", password="strong-password-2").status_code == 201
+    assert (
+        register(
+            member_client, email="member@example.com", password="strong-password-2"
+        ).status_code
+        == 201
+    )
 
-    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "member@example.com")
-    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
-    assert member_client.post("/api/v1/auth/login", json={"email": "member@example.com", "password": "strong-password-2"}).status_code == 200
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "member@example.com"
+    )
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
+    assert (
+        member_client.post(
+            "/api/v1/auth/login",
+            json={"email": "member@example.com", "password": "strong-password-2"},
+        ).status_code
+        == 200
+    )
 
     session = member_client.get("/api/v1/session").json()
     with TestingSessionLocal() as db:
@@ -360,7 +485,7 @@ def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
                     summary="Generated notes",
                     total_tokens=120,
                     estimated_cost_usd=Decimal("0.001000"),
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 ),
                 AiAuditLog(
                     household_id=household.id,
@@ -373,7 +498,7 @@ def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
                     summary="Estimated value",
                     total_tokens=140,
                     estimated_cost_usd=Decimal("0.001400"),
-                    created_at=datetime.now(timezone.utc),
+                    created_at=datetime.now(UTC),
                 ),
             ],
         )
@@ -399,11 +524,29 @@ def test_app_admin_can_fetch_single_user_stats():
     admin_client = TestClient(app)
     member_client = TestClient(app)
     assert register(admin_client).status_code == 201
-    assert register(member_client, email="detail@example.com", password="strong-password-2").status_code == 201
+    assert (
+        register(
+            member_client, email="detail@example.com", password="strong-password-2"
+        ).status_code
+        == 201
+    )
 
-    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "detail@example.com")
-    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
-    assert member_client.post("/api/v1/auth/login", json={"email": "detail@example.com", "password": "strong-password-2"}).status_code == 200
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "detail@example.com"
+    )
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
+    assert (
+        member_client.post(
+            "/api/v1/auth/login",
+            json={"email": "detail@example.com", "password": "strong-password-2"},
+        ).status_code
+        == 200
+    )
 
     user_stats = admin_client.get(f"/api/v1/auth/users/{pending_user['id']}/stats")
     assert user_stats.status_code == 200
@@ -445,23 +588,34 @@ def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
     assert admin_notifications.json()[0]["kind"] == "new_user_registration"
     assert "production@example.com" in admin_notifications.json()[0]["message"]
 
-    blocked_login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
+    blocked_login = user_client.post(
+        "/api/v1/auth/login",
+        json={"email": "production@example.com", "password": "strong-password-2"},
+    )
     assert blocked_login.status_code == 403
     assert "verification" in blocked_login.json()["detail"].lower()
 
-    verification_email = next(message for message in deliveries if message["recipients"] == ["production@example.com"])
+    verification_email = next(
+        message for message in deliveries if message["recipients"] == ["production@example.com"]
+    )
     verification_url = str(verification_email["body"]).split("email_verify_token=", 1)[1].split()[0]
     token = parse_qs(f"email_verify_token={verification_url}")["email_verify_token"][0]
     prefetched = user_client.get(f"/api/v1/auth/verify-email?token={token}", follow_redirects=False)
     assert prefetched.status_code == 303
 
-    still_blocked_login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
+    still_blocked_login = user_client.post(
+        "/api/v1/auth/login",
+        json={"email": "production@example.com", "password": "strong-password-2"},
+    )
     assert still_blocked_login.status_code == 403
 
     verified = user_client.post("/api/v1/auth/verify-email", json={"token": token})
     assert verified.status_code == 200
 
-    login = user_client.post("/api/v1/auth/login", json={"email": "production@example.com", "password": "strong-password-2"})
+    login = user_client.post(
+        "/api/v1/auth/login",
+        json={"email": "production@example.com", "password": "strong-password-2"},
+    )
     assert login.status_code == 200
     assert login.json()["authenticated"] is True
 
@@ -494,7 +648,9 @@ def test_register_auto_approves_with_resend_configuration(monkeypatch):
     assert registered.status_code == 201
     assert registered.json()["pending_email_verification"] is True
 
-    verification_email = next(message for message in deliveries if message["recipients"] == ["resend@example.com"])
+    verification_email = next(
+        message for message in deliveries if message["recipients"] == ["resend@example.com"]
+    )
     assert "email_verify_token=" in str(verification_email["body"])
 
 
@@ -519,8 +675,12 @@ def test_pending_registration_sends_admin_email(monkeypatch):
     assert pending.status_code == 201
     assert pending.json()["pending_approval"] is True
 
-    admin_email = next(message for message in deliveries if message["recipients"] == ["owner@example.com"])
-    user_email = next(message for message in deliveries if message["recipients"] == ["pending@example.com"])
+    admin_email = next(
+        message for message in deliveries if message["recipients"] == ["owner@example.com"]
+    )
+    user_email = next(
+        message for message in deliveries if message["recipients"] == ["pending@example.com"]
+    )
 
     assert "pending@example.com" in str(admin_email["body"])
     assert "Main Cellar" in str(admin_email["body"])
@@ -544,26 +704,46 @@ def test_pending_user_approval_and_rejection_send_user_email(monkeypatch):
     assert register(admin_client).status_code == 201
 
     pending_client = TestClient(app)
-    assert register(pending_client, email="approve@example.com", password="strong-password-2").json()["pending_approval"] is True
-    approve_target = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "approve@example.com")
+    assert (
+        register(pending_client, email="approve@example.com", password="strong-password-2").json()[
+            "pending_approval"
+        ]
+        is True
+    )
+    approve_target = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "approve@example.com"
+    )
     approved = admin_client.post(f"/api/v1/auth/pending-users/{approve_target['id']}/approve")
     assert approved.status_code == 200
 
     reject_client = TestClient(app)
-    assert register(reject_client, email="reject@example.com", password="strong-password-3").json()["pending_approval"] is True
-    reject_target = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "reject@example.com")
+    assert (
+        register(reject_client, email="reject@example.com", password="strong-password-3").json()[
+            "pending_approval"
+        ]
+        is True
+    )
+    reject_target = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "reject@example.com"
+    )
     rejected = admin_client.delete(f"/api/v1/auth/pending-users/{reject_target['id']}")
     assert rejected.status_code == 204
 
     approval_email = next(
         message
         for message in deliveries
-        if message["recipients"] == ["approve@example.com"] and "approved" in str(message["subject"]).lower()
+        if message["recipients"] == ["approve@example.com"]
+        and "approved" in str(message["subject"]).lower()
     )
     rejection_email = next(
         message
         for message in deliveries
-        if message["recipients"] == ["reject@example.com"] and "not approved" in str(message["subject"]).lower()
+        if message["recipients"] == ["reject@example.com"]
+        and "not approved" in str(message["subject"]).lower()
     )
     assert "approved" in str(approval_email["subject"]).lower()
     assert "not approved" in str(rejection_email["subject"]).lower()
@@ -584,7 +764,9 @@ def test_household_invite_sends_email(monkeypatch):
 
     owner = TestClient(app)
     assert register(owner).status_code == 201
-    invite = owner.post("/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"})
+    invite = owner.post(
+        "/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"}
+    )
     assert invite.status_code == 201
 
     assert len(deliveries) == 1
@@ -613,13 +795,21 @@ def test_contact_support_sends_email_with_optional_context(monkeypatch):
     anonymous = TestClient(app)
     response = anonymous.post(
         "/api/v1/support/contact",
-        json={"email": "guest@example.com", "subject": "Need help", "message": "I cannot understand how to start using the app."},
+        json={
+            "email": "guest@example.com",
+            "subject": "Need help",
+            "message": "I cannot understand how to start using the app.",
+        },
     )
     assert response.status_code == 202
 
     authenticated = admin_client.post(
         "/api/v1/support/contact",
-        json={"email": "owner@example.com", "subject": "Billing help", "message": "I need help with the redeem code screen after login."},
+        json={
+            "email": "owner@example.com",
+            "subject": "Billing help",
+            "message": "I need help with the redeem code screen after login.",
+        },
     )
     assert authenticated.status_code == 202
     assert len(deliveries) == 2
@@ -639,7 +829,11 @@ def test_contact_support_is_rate_limited(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
     rate_limiter.clear()
-    payload = {"email": "guest@example.com", "subject": "Need help", "message": "I need assistance with my cellar."}
+    payload = {
+        "email": "guest@example.com",
+        "subject": "Need help",
+        "message": "I need assistance with my cellar.",
+    }
 
     assert client.post("/api/v1/support/contact", json=payload).status_code == 202
     assert client.post("/api/v1/support/contact", json=payload).status_code == 202
@@ -685,7 +879,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
                     vintage="2021",
                     quantity=1,
                     status="Ordered",
-                    expected_delivery=(datetime.now(timezone.utc) + timedelta(days=10)).date(),
+                    expected_delivery=(datetime.now(UTC) + timedelta(days=10)).date(),
                 ),
             ]
         )
@@ -700,7 +894,15 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert "smart_future_deliveries" in kinds
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).filter(UserNotification.user_id == db.query(User).filter(User.email == "owner@example.com").one().id).count() == 4
+        assert (
+            db.query(UserNotification)
+            .filter(
+                UserNotification.user_id
+                == db.query(User).filter(User.email == "owner@example.com").one().id
+            )
+            .count()
+            == 4
+        )
 
     drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
     marked = client.post(f"/api/v1/notifications/{drink_now_notification['id']}/read")
@@ -781,7 +983,9 @@ def test_create_wine_adds_pending_entry_to_catalog_for_admin_approval():
 
     pending = client.get("/api/v1/wines/catalog/pending")
     assert pending.status_code == 200
-    pending_entry = next(entry for entry in pending.json() if entry["name"] == "Unique Catalog Test")
+    pending_entry = next(
+        entry for entry in pending.json() if entry["name"] == "Unique Catalog Test"
+    )
     assert pending_entry["producer"] == "Producer Test"
     assert pending_entry["is_active"] is False
 
@@ -843,7 +1047,9 @@ def test_create_catalog_entry_requires_complementary_data():
     client = TestClient(app)
     assert register(client).status_code == 201
 
-    response = client.post("/api/v1/wines/catalog", json={"name": "Dogaia Brivio", "aliases": ["Dogaia Brivio"]})
+    response = client.post(
+        "/api/v1/wines/catalog", json={"name": "Dogaia Brivio", "aliases": ["Dogaia Brivio"]}
+    )
     assert response.status_code == 422
 
 
@@ -881,7 +1087,9 @@ def test_ai_wine_label_enrichment(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    assert (
+        client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    )
     with TestingSessionLocal() as db:
         user = db.query(User).filter(User.email == "owner@example.com").one()
         user.can_use_label_recognition = True
@@ -908,7 +1116,9 @@ def test_ai_wine_label_enrichment(monkeypatch):
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "grattamacco bolgheri superiore 2016"})
+    response = client.post(
+        "/api/v1/ai/wine-label/enrich", json={"label": "grattamacco bolgheri superiore 2016"}
+    )
     assert response.status_code == 200
     assert response.json()["producer"] == "Grattamacco"
     assert response.json()["appellation"] == "Bolgheri Superiore"
@@ -931,8 +1141,8 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
             UserEntitlement(
                 user_id=current_user.id,
                 source="test",
-                valid_from=datetime.now(timezone.utc),
-                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+                valid_from=datetime.now(UTC),
+                valid_until=datetime.now(UTC) + timedelta(days=30),
             ),
         )
         db.add(
@@ -945,7 +1155,12 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
         )
         db.commit()
 
-    assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits", "grape_model": "gpt-5.4"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"provider_mode": "credits", "grape_model": "gpt-5.4"}
+        ).status_code
+        == 200
+    )
     monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
     monkeypatch.setattr(settings, "ai_pack_markup_percent", "20")
 
@@ -973,7 +1188,9 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
     starting_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
-    response = client.post("/api/v1/ai/wine-label/enrich", json={"label": "Dogaia di Brivio", "source": "manual"})
+    response = client.post(
+        "/api/v1/ai/wine-label/enrich", json={"label": "Dogaia di Brivio", "source": "manual"}
+    )
     assert response.status_code == 200
     assert response.json()["name"] == "Dogaia"
     assert response.json()["producer"] == "Guido Brivio"
@@ -1008,8 +1225,13 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     assert pending.status_code == 201
     pending_users = admin_client.get("/api/v1/auth/pending-users").json()
     pending_user = next(user for user in pending_users if user["email"] == "redeem@example.com")
-    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
-    login = user_client.post("/api/v1/auth/login", json={"email": "redeem@example.com", "password": "strong-password-2"})
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
+    login = user_client.post(
+        "/api/v1/auth/login", json={"email": "redeem@example.com", "password": "strong-password-2"}
+    )
     assert login.status_code == 200
     assert login.json()["has_active_entitlement"] is False
     assert user_client.get("/api/v1/wines").status_code == 402
@@ -1023,7 +1245,7 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     with TestingSessionLocal() as db:
         code = db.get(RedeemCode, uuid.UUID(unused_code_id))
         assert code is not None
-        code.expires_at = datetime.now(timezone.utc) - timedelta(minutes=1)
+        code.expires_at = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
     assert user_client.get("/api/v1/billing/status").json()["has_active_entitlement"] is False
     assert user_client.get("/api/v1/wines").status_code == 402
@@ -1037,7 +1259,10 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     assert revoked_code["is_active"] is False
     force_deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{unused_code_id}?force=true")
     assert force_deleted.status_code == 204
-    assert all(code["id"] != unused_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
+    assert all(
+        code["id"] != unused_code_id
+        for code in admin_client.get("/api/v1/billing/redeem-codes").json()
+    )
 
     extra_code = admin_client.post(
         "/api/v1/billing/redeem-codes",
@@ -1047,7 +1272,10 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     extra_code_id = extra_code.json()["id"]
     deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{extra_code_id}")
     assert deleted.status_code == 204
-    assert all(code["id"] != extra_code_id for code in admin_client.get("/api/v1/billing/redeem-codes").json())
+    assert all(
+        code["id"] != extra_code_id
+        for code in admin_client.get("/api/v1/billing/redeem-codes").json()
+    )
 
 
 def test_new_user_gets_single_lifetime_trial_redeem_code():
@@ -1061,10 +1289,19 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
     user_client = TestClient(app)
     pending = register(user_client, email="trial@example.com", password="strong-password-2")
     assert pending.status_code == 201
-    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "trial@example.com")
-    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "trial@example.com"
+    )
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
 
-    login = user_client.post("/api/v1/auth/login", json={"email": "trial@example.com", "password": "strong-password-2"})
+    login = user_client.post(
+        "/api/v1/auth/login", json={"email": "trial@example.com", "password": "strong-password-2"}
+    )
     assert login.status_code == 200
     assert login.json()["has_active_entitlement"] is False
     assert user_client.get("/api/v1/wines").status_code == 402
@@ -1098,7 +1335,7 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
                 duration_days=5,
                 max_redemptions=1,
                 email=user.email,
-                expires_at=datetime.now(timezone.utc) + timedelta(days=5),
+                expires_at=datetime.now(UTC) + timedelta(days=5),
             ),
         )
         db.commit()
@@ -1115,13 +1352,25 @@ def test_app_admin_can_enable_label_recognition_for_beta_user():
     user_client = TestClient(app)
     pending = register(user_client, email="label-beta@example.com", password="strong-password-2")
     assert pending.status_code == 201
-    pending_user = next(user for user in admin_client.get("/api/v1/auth/pending-users").json() if user["email"] == "label-beta@example.com")
-    assert admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code == 200
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "label-beta@example.com"
+    )
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
 
-    login = user_client.post("/api/v1/auth/login", json={"email": "label-beta@example.com", "password": "strong-password-2"})
+    login = user_client.post(
+        "/api/v1/auth/login",
+        json={"email": "label-beta@example.com", "password": "strong-password-2"},
+    )
     assert login.status_code == 200
     assert login.json()["can_use_label_recognition"] is False
-    trial_code = user_client.get("/api/v1/billing/status").json()["available_redeem_codes"][0]["code"]
+    trial_code = user_client.get("/api/v1/billing/status").json()["available_redeem_codes"][0][
+        "code"
+    ]
     assert user_client.post("/api/v1/billing/redeem", json={"code": trial_code}).status_code == 200
 
     blocked = user_client.post(
@@ -1130,20 +1379,33 @@ def test_app_admin_can_enable_label_recognition_for_beta_user():
     )
     assert blocked.status_code == 403
 
-    app_user = next(user for user in admin_client.get("/api/v1/auth/users").json() if user["email"] == "label-beta@example.com")
+    app_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/users").json()
+        if user["email"] == "label-beta@example.com"
+    )
     assert app_user["can_use_label_recognition"] is False
-    enabled = admin_client.patch(f"/api/v1/auth/users/{app_user['id']}", json={"can_use_label_recognition": True})
+    enabled = admin_client.patch(
+        f"/api/v1/auth/users/{app_user['id']}", json={"can_use_label_recognition": True}
+    )
     assert enabled.status_code == 200
     assert enabled.json()["can_use_label_recognition"] is True
 
-    refreshed_login = user_client.post("/api/v1/auth/login", json={"email": "label-beta@example.com", "password": "strong-password-2"})
+    refreshed_login = user_client.post(
+        "/api/v1/auth/login",
+        json={"email": "label-beta@example.com", "password": "strong-password-2"},
+    )
     assert refreshed_login.status_code == 200
     assert refreshed_login.json()["can_use_label_recognition"] is True
 
 
 def stripe_signature(payload: bytes, secret: str) -> str:
     timestamp = int(time.time())
-    digest = hmac.new(secret.encode("utf-8"), f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8"), hashlib.sha256).hexdigest()
+    digest = hmac.new(
+        secret.encode("utf-8"),
+        f"{timestamp}.{payload.decode('utf-8')}".encode(),
+        hashlib.sha256,
+    ).hexdigest()
     return f"t={timestamp},v1={digest}"
 
 
@@ -1184,7 +1446,10 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
         },
     }
     payload = json.dumps(event, separators=(",", ":")).encode("utf-8")
-    headers = {"Stripe-Signature": stripe_signature(payload, webhook_secret), "Content-Type": "application/json"}
+    headers = {
+        "Stripe-Signature": stripe_signature(payload, webhook_secret),
+        "Content-Type": "application/json",
+    }
 
     first = client.post("/api/v1/billing/stripe/webhook", content=payload, headers=headers)
     assert first.status_code == 204
@@ -1199,7 +1464,10 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert len(status_payload["available_redeem_codes"]) == 1
     paid_code = status_payload["available_redeem_codes"][0]["code"]
     assert paid_code.startswith("WCM-")
-    assert any(message["recipients"] == ["stripe@example.com"] and paid_code in str(message["body"]) for message in deliveries)
+    assert any(
+        message["recipients"] == ["stripe@example.com"] and paid_code in str(message["body"])
+        for message in deliveries
+    )
     notifications = client.get("/api/v1/notifications")
     assert notifications.status_code == 200
     assert notifications.json()[0]["kind"] == "redeem_code"
@@ -1229,16 +1497,26 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
         },
     }
     invoice_payload = json.dumps(invoice_event, separators=(",", ":")).encode("utf-8")
-    invoice_headers = {"Stripe-Signature": stripe_signature(invoice_payload, webhook_secret), "Content-Type": "application/json"}
-    renewed = client.post("/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers)
+    invoice_headers = {
+        "Stripe-Signature": stripe_signature(invoice_payload, webhook_secret),
+        "Content-Type": "application/json",
+    }
+    renewed = client.post(
+        "/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers
+    )
     assert renewed.status_code == 204
-    duplicate_renewal = client.post("/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers)
+    duplicate_renewal = client.post(
+        "/api/v1/billing/stripe/webhook", content=invoice_payload, headers=invoice_headers
+    )
     assert duplicate_renewal.status_code == 204
     renewal_status = client.get("/api/v1/billing/status").json()
     assert len(renewal_status["entitlements"]) == 1
     assert len(renewal_status["available_redeem_codes"]) == 1
     renewal_code = renewal_status["available_redeem_codes"][0]["code"]
-    assert any(message["recipients"] == ["stripe@example.com"] and renewal_code in str(message["body"]) for message in deliveries)
+    assert any(
+        message["recipients"] == ["stripe@example.com"] and renewal_code in str(message["body"])
+        for message in deliveries
+    )
 
     class FakePortalResponse:
         def __enter__(self):
@@ -1277,10 +1555,21 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
     owner_client = TestClient(app)
     guest_user_client = TestClient(app)
     assert register(owner_client).status_code == 201
-    assert register(guest_user_client, email="partner@example.com", password="strong-password-2").status_code == 201
+    assert (
+        register(
+            guest_user_client, email="partner@example.com", password="strong-password-2"
+        ).status_code
+        == 201
+    )
     created_wine = owner_client.post(
         "/api/v1/wines",
-        json={"name": "Shared Barolo", "vintage": "2019", "quantity": 12, "price": 1200, "currency": "CHF"},
+        json={
+            "name": "Shared Barolo",
+            "vintage": "2019",
+            "quantity": 12,
+            "price": 1200,
+            "currency": "CHF",
+        },
     )
     assert created_wine.status_code == 201
 
@@ -1292,9 +1581,24 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
             "terms": "A bottle may be opened only with unanimous consent.",
             "email_registered_users": False,
             "participants": [
-                {"name": "Cellar Owner", "email": "owner@example.com", "share_pct": "33.333334", "contribution": 400},
-                {"name": "Registered Partner", "email": "partner@example.com", "share_pct": "33.333333", "contribution": 400},
-                {"name": "External Partner", "email": "external@example.com", "share_pct": "33.333333", "contribution": 400},
+                {
+                    "name": "Cellar Owner",
+                    "email": "owner@example.com",
+                    "share_pct": "33.333334",
+                    "contribution": 400,
+                },
+                {
+                    "name": "Registered Partner",
+                    "email": "partner@example.com",
+                    "share_pct": "33.333333",
+                    "contribution": 400,
+                },
+                {
+                    "name": "External Partner",
+                    "email": "external@example.com",
+                    "share_pct": "33.333333",
+                    "contribution": 400,
+                },
             ],
         },
     )
@@ -1305,8 +1609,12 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
     assert len(agreement["document_hash"]) == 64
     assert len(deliveries) == 1
     assert deliveries[0]["recipients"] == ["external@example.com"]
-    registered = next(item for item in agreement["participants"] if item["email"] == "partner@example.com")
-    external = next(item for item in agreement["participants"] if item["email"] == "external@example.com")
+    registered = next(
+        item for item in agreement["participants"] if item["email"] == "partner@example.com"
+    )
+    external = next(
+        item for item in agreement["participants"] if item["email"] == "external@example.com"
+    )
     assert registered["user_id"] is not None
     assert registered["delivery_channel"] == "notification"
     assert external["user_id"] is None
@@ -1314,16 +1622,23 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
 
     with TestingSessionLocal() as db:
         partner = db.query(User).filter(User.email == "partner@example.com").one()
-        assert db.query(UserNotification).filter(
-            UserNotification.user_id == partner.id,
-            UserNotification.kind == "coownership_agreement",
-        ).count() == 1
+        assert (
+            db.query(UserNotification)
+            .filter(
+                UserNotification.user_id == partner.id,
+                UserNotification.kind == "coownership_agreement",
+            )
+            .count()
+            == 1
+        )
 
     tokens = {
         item["email"]: parse_qs(urlparse(item["invite_url"]).query)["coownership_token"][0]
         for item in agreement["participants"]
     }
-    viewed = TestClient(app).get(f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}")
+    viewed = TestClient(app).get(
+        f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}"
+    )
     assert viewed.status_code == 200
     first_accept = TestClient(app).post(
         f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}/respond",
@@ -1344,6 +1659,7 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
         json={"decision": "accepted", "full_name": "External Partner"},
     )
     assert replay.status_code == 409
+
 
 def test_stripe_ai_pack_checkout_webhook_adds_balance_without_redeem_code(monkeypatch):
     from app.api.routes import billing as billing_routes
@@ -1376,12 +1692,20 @@ def test_stripe_ai_pack_checkout_webhook_adds_balance_without_redeem_code(monkey
                 "payment_status": "paid",
                 "amount_total": 500,
                 "currency": "chf",
-                "metadata": {"user_id": user_id, "duration_days": "0", "plan": "ai_credits", "ai_credit_amount_usd": "5.00"},
+                "metadata": {
+                    "user_id": user_id,
+                    "duration_days": "0",
+                    "plan": "ai_credits",
+                    "ai_credit_amount_usd": "5.00",
+                },
             },
         },
     }
     payload = json.dumps(event, separators=(",", ":")).encode("utf-8")
-    headers = {"Stripe-Signature": stripe_signature(payload, webhook_secret), "Content-Type": "application/json"}
+    headers = {
+        "Stripe-Signature": stripe_signature(payload, webhook_secret),
+        "Content-Type": "application/json",
+    }
 
     first = client.post("/api/v1/billing/stripe/webhook", content=payload, headers=headers)
     assert first.status_code == 204
@@ -1432,7 +1756,10 @@ def test_stripe_checkout_uses_selected_annual_price(monkeypatch):
     monkeypatch.setattr("app.api.routes.billing.urlopen", fake_urlopen)
 
     client = TestClient(app)
-    assert register(client, email="checkout@example.com", password="strong-password-4").status_code == 201
+    assert (
+        register(client, email="checkout@example.com", password="strong-password-4").status_code
+        == 201
+    )
     response = client.post("/api/v1/billing/checkout", json={"plan": "annual"})
 
     assert response.status_code == 200
@@ -1494,7 +1821,9 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     invalid_rating = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 7})
     assert invalid_rating.status_code == 422
 
-    updated = client.patch(f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped", "rating": 6})
+    updated = client.patch(
+        f"/api/v1/wines/{wine_id}", json={"quantity": 5, "status": "Shipped", "rating": 6}
+    )
     assert updated.status_code == 200
     assert updated.json()["quantity"] == 5
     assert updated.json()["status"] == "Shipped"
@@ -1560,6 +1889,36 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
     assert no_more.status_code == 400
 
 
+def test_tasting_archive_reads_paginated_normalized_entries():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Archive Search Wine", "quantity": 2, "price": 25, "status": "Delivered"},
+    )
+    wine_id = created.json()["id"]
+    assert (
+        client.post(
+            f"/api/v1/wines/{wine_id}/consume",
+            json={"consumed_at": "2026-01-10", "note": "First archive note"},
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"/api/v1/wines/{wine_id}/consume",
+            json={"consumed_at": "2026-02-10", "note": "Second archive note", "tasting_rating": 5},
+        ).status_code
+        == 200
+    )
+
+    page = client.get("/api/v1/wines/tasting-archive?q=second&limit=1&offset=0")
+    assert page.status_code == 200
+    assert page.json()["total"] == 1
+    assert page.json()["rated_count"] == 1
+    assert page.json()["items"][0]["note"] == "Second archive note"
+
+
 def test_user_can_create_and_switch_to_second_household():
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -1580,9 +1939,14 @@ def test_user_can_create_and_switch_to_second_household():
 
     after = client.get("/api/v1/household/memberships")
     assert after.status_code == 200
-    assert sorted(entry["household_name"] for entry in after.json()) == ["Main Cellar", "Test Cellar"]
+    assert sorted(entry["household_name"] for entry in after.json()) == [
+        "Main Cellar",
+        "Test Cellar",
+    ]
 
-    switched = client.post("/api/v1/household/switch", json={"household_id": before.json()[0]["household_id"]})
+    switched = client.post(
+        "/api/v1/household/switch", json={"household_id": before.json()[0]["household_id"]}
+    )
     assert switched.status_code == 200
     assert switched.json()["household_name"] == "Main Cellar"
 
@@ -1600,7 +1964,9 @@ def test_household_deletion_requires_fallback_and_switches_session():
 
     listed = client.get("/api/v1/household/memberships")
     assert listed.status_code == 200
-    fallback_household_id = next(entry["household_id"] for entry in listed.json() if entry["household_name"] == "Main Cellar")
+    fallback_household_id = next(
+        entry["household_id"] for entry in listed.json() if entry["household_name"] == "Main Cellar"
+    )
 
     deleted = client.delete("/api/v1/household")
     assert deleted.status_code == 204
@@ -1624,7 +1990,9 @@ def test_user_tags_can_be_defined_and_assigned_to_wines():
     assert tag.json()["name"] == "En Primeur"
     assert tag.json()["color"] == "#8f2039"
     assert client.get("/api/v1/tags").json()[0]["name"] == "En Primeur"
-    renamed = client.patch(f"/api/v1/tags/{tag.json()['id']}", json={"name": "Primeur", "color": "#245142"})
+    renamed = client.patch(
+        f"/api/v1/tags/{tag.json()['id']}", json={"name": "Primeur", "color": "#245142"}
+    )
     assert renamed.status_code == 200
     assert renamed.json()["name"] == "Primeur"
 
@@ -1664,7 +2032,9 @@ def test_invite_acceptance_and_viewer_permissions():
     assert renamed.json()["household_name"] == "Renamed Cellar"
     assert owner.get("/api/v1/session").json()["active_household_name"] == "Renamed Cellar"
 
-    invite = owner.post("/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"})
+    invite = owner.post(
+        "/api/v1/household/invites", json={"email": "viewer@example.com", "role": "viewer"}
+    )
     assert invite.status_code == 201
     invite_id = invite.json()["id"]
     invite_token = invite.json()["invite_token"]
@@ -1682,9 +2052,17 @@ def test_invite_acceptance_and_viewer_permissions():
     assert registered_viewer.status_code == 201
     assert registered_viewer.json()["pending_approval"] is True
     pending_viewers = owner.get("/api/v1/auth/pending-users")
-    viewer_user = next(user for user in pending_viewers.json() if user["email"] == "viewer@example.com")
+    viewer_user = next(
+        user for user in pending_viewers.json() if user["email"] == "viewer@example.com"
+    )
     assert owner.post(f"/api/v1/auth/pending-users/{viewer_user['id']}/approve").status_code == 200
-    assert member.post("/api/v1/auth/login", json={"email": "viewer@example.com", "password": "strong-password-2"}).status_code == 200
+    assert (
+        member.post(
+            "/api/v1/auth/login",
+            json={"email": "viewer@example.com", "password": "strong-password-2"},
+        ).status_code
+        == 200
+    )
     redeem_code = create_redeem_code(owner, email="viewer@example.com")
     assert member.post("/api/v1/billing/redeem", json={"code": redeem_code}).status_code == 200
     received_invites = member.get("/api/v1/household/invites/received")
@@ -1697,9 +2075,14 @@ def test_invite_acceptance_and_viewer_permissions():
 
     members_after = owner.get("/api/v1/household/members")
     assert members_after.status_code == 200
-    assert sorted(member_data["email"] for member_data in members_after.json()) == ["owner@example.com", "viewer@example.com"]
+    assert sorted(member_data["email"] for member_data in members_after.json()) == [
+        "owner@example.com",
+        "viewer@example.com",
+    ]
 
-    private_wine = owner.post("/api/v1/wines", json={"name": "Private Wine", "quantity": 1, "price": 50})
+    private_wine = owner.post(
+        "/api/v1/wines", json={"name": "Private Wine", "quantity": 1, "price": 50}
+    )
     assert private_wine.status_code == 201
     owner_wine = owner.post(
         "/api/v1/wines",
@@ -1708,8 +2091,8 @@ def test_invite_acceptance_and_viewer_permissions():
             "quantity": 6,
             "price": 20,
             "owners": [
-                    {"name": "Cellar Owner", "email": "owner@example.com", "share_pct": 50},
-                    {"name": "Viewer", "email": "viewer@example.com", "share_pct": 50},
+                {"name": "Cellar Owner", "email": "owner@example.com", "share_pct": 50},
+                {"name": "Viewer", "email": "viewer@example.com", "share_pct": 50},
             ],
         },
     )
@@ -1717,10 +2100,16 @@ def test_invite_acceptance_and_viewer_permissions():
     owner_wine_id = owner_wine.json()["id"]
     eligible_recipients = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients")
     assert eligible_recipients.status_code == 200
-    assert eligible_recipients.json() == [{"email": "viewer@example.com", "display_name": "Viewer", "share_pct": "50.0"}]
+    assert eligible_recipients.json() == [
+        {"email": "viewer@example.com", "display_name": "Viewer", "share_pct": "50.0"}
+    ]
     share_offer = owner.post(
         f"/api/v1/wines/{owner_wine_id}/share-offers",
-        json={"email": "viewer@example.com", "share_pct": 50, "message": "You own this allocation too."},
+        json={
+            "email": "viewer@example.com",
+            "share_pct": 50,
+            "message": "You own this allocation too.",
+        },
     )
     assert share_offer.status_code == 201
     assert share_offer.json()["recipient_email"] == "viewer@example.com"
@@ -1736,7 +2125,11 @@ def test_invite_acceptance_and_viewer_permissions():
     assert reopened_recipients[0]["share_pct"] == "50.0"
     share_offer = owner.post(
         f"/api/v1/wines/{owner_wine_id}/share-offers",
-        json={"email": "viewer@example.com", "share_pct": 50, "message": "You own this allocation too."},
+        json={
+            "email": "viewer@example.com",
+            "share_pct": 50,
+            "message": "You own this allocation too.",
+        },
     )
     assert share_offer.status_code == 201
     assert owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json() == []
@@ -1749,10 +2142,18 @@ def test_invite_acceptance_and_viewer_permissions():
     assert accepted_offer.status_code == 200
     assert accepted_offer.json()["quantity"] == 5
     assert accepted_offer.json()["owner_share_pct"] == "50.00"
-    assert sorted(owner["email"] for owner in accepted_offer.json()["owners"]) == ["owner@example.com", "viewer@example.com"]
-    viewer_owner = next(owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com")
+    assert sorted(owner["email"] for owner in accepted_offer.json()["owners"]) == [
+        "owner@example.com",
+        "viewer@example.com",
+    ]
+    viewer_owner = next(
+        owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com"
+    )
     assert viewer_owner["share_pct"] == 50.0
-    assert member.get(f"/api/v1/wines/{accepted_offer.json()['id']}/share-offer-recipients").json() == []
+    assert (
+        member.get(f"/api/v1/wines/{accepted_offer.json()['id']}/share-offer-recipients").json()
+        == []
+    )
     returned_share = member.post(
         f"/api/v1/wines/{accepted_offer.json()['id']}/share-offers",
         json={"email": "owner@example.com", "share_pct": 50},
@@ -1772,29 +2173,45 @@ def test_invite_acceptance_and_viewer_permissions():
         },
     )
     assert agreement_created_after_share.status_code == 201
-    recipient_agreements = member.get(f"/api/v1/co-ownership-agreements/wines/{accepted_offer.json()['id']}")
+    recipient_agreements = member.get(
+        f"/api/v1/co-ownership-agreements/wines/{accepted_offer.json()['id']}"
+    )
     assert recipient_agreements.status_code == 200
-    assert [item["id"] for item in recipient_agreements.json()] == [agreement_created_after_share.json()["id"]]
+    assert [item["id"] for item in recipient_agreements.json()] == [
+        agreement_created_after_share.json()["id"]
+    ]
     accepted_outgoing = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offers")
     assert accepted_outgoing.status_code == 200
     assert accepted_outgoing.json()[0]["status"] == "accepted"
-    revocation = owner.post(f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revoke")
+    revocation = owner.post(
+        f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revoke"
+    )
     assert revocation.status_code == 200
     assert revocation.json()["status"] == "revocation_pending"
     revocation_notifications = member.get("/api/v1/notifications")
-    revocation_notification = next(item for item in revocation_notifications.json() if item["kind"] == "share_revocation")
+    revocation_notification = next(
+        item for item in revocation_notifications.json() if item["kind"] == "share_revocation"
+    )
     assert revocation_notification["title"] == "Rimozione richiesta: Shared Wine"
     assert "owner@example.com" in revocation_notification["message"]
     assert "Shared Wine" in revocation_notification["message"]
     assert "50.00% di 5 bottiglie" in revocation_notification["message"]
-    approved_revocation = member.post(f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revocation/approve")
+    approved_revocation = member.post(
+        f"/api/v1/wines/share-offers/{accepted_outgoing.json()[0]['id']}/revocation/approve"
+    )
     assert approved_revocation.status_code == 200
     assert approved_revocation.json()["status"] == "revoked"
     assert member.get("/api/v1/wines").json() == []
-    revocation_result = next(item for item in owner.get("/api/v1/notifications").json() if item["kind"] == "share_revocation_result")
+    revocation_result = next(
+        item
+        for item in owner.get("/api/v1/notifications").json()
+        if item["kind"] == "share_revocation_result"
+    )
     assert revocation_result["title"] == "Revoca comproprietà: Shared Wine"
     assert "approvato" in revocation_result["message"]
-    reopened_after_revocation = owner.get(f"/api/v1/wines/{owner_wine_id}/share-offer-recipients").json()
+    reopened_after_revocation = owner.get(
+        f"/api/v1/wines/{owner_wine_id}/share-offer-recipients"
+    ).json()
     assert len(reopened_after_revocation) == 1
     assert reopened_after_revocation[0]["email"] == "viewer@example.com"
     assert reopened_after_revocation[0]["share_pct"] == "50.0"
@@ -1805,7 +2222,9 @@ def test_invite_acceptance_and_viewer_permissions():
     assert shared_household["household_name"] == "Renamed Cellar"
     assert invited_membership_id
 
-    switched = member.post("/api/v1/household/switch", json={"household_id": shared_household["household_id"]})
+    switched = member.post(
+        "/api/v1/household/switch", json={"household_id": shared_household["household_id"]}
+    )
     assert switched.status_code == 200
     viewer_rename = member.patch("/api/v1/household", json={"name": "Viewer Rename"})
     assert viewer_rename.status_code == 403
@@ -1825,18 +2244,39 @@ def test_invite_acceptance_and_viewer_permissions():
     assert full_viewer_list.status_code == 200
     assert [wine["name"] for wine in full_viewer_list.json()] == ["Private Wine", "Shared Wine"]
 
-    viewer_create = member.post("/api/v1/wines", json={"name": "Blocked Wine", "quantity": 1, "price": 20})
+    viewer_create = member.post(
+        "/api/v1/wines", json={"name": "Blocked Wine", "quantity": 1, "price": 20}
+    )
     assert viewer_create.status_code == 403
 
-    promoted = owner.patch(f"/api/v1/household/members/{invited_membership_id}", json={"role": "member"})
+    promoted = owner.patch(
+        f"/api/v1/household/members/{invited_membership_id}", json={"role": "member"}
+    )
     assert promoted.status_code == 200
     assert promoted.json()["role"] == "member"
 
     assert member.post("/api/v1/auth/logout").status_code == 204
-    assert member.post("/api/v1/auth/login", json={"email": "viewer@example.com", "password": "strong-password-2"}).status_code == 200
-    shared_household = next(item for item in member.get("/api/v1/household/memberships").json() if item["role"] == "member")
-    assert member.post("/api/v1/household/switch", json={"household_id": shared_household["household_id"]}).status_code == 200
-    member_create = member.post("/api/v1/wines", json={"name": "Allowed Wine", "quantity": 1, "price": 30})
+    assert (
+        member.post(
+            "/api/v1/auth/login",
+            json={"email": "viewer@example.com", "password": "strong-password-2"},
+        ).status_code
+        == 200
+    )
+    shared_household = next(
+        item
+        for item in member.get("/api/v1/household/memberships").json()
+        if item["role"] == "member"
+    )
+    assert (
+        member.post(
+            "/api/v1/household/switch", json={"household_id": shared_household["household_id"]}
+        ).status_code
+        == 200
+    )
+    member_create = member.post(
+        "/api/v1/wines", json={"name": "Allowed Wine", "quantity": 1, "price": 30}
+    )
     assert member_create.status_code == 201
 
     viewer_members = member.get("/api/v1/household/members")
@@ -1845,7 +2285,9 @@ def test_invite_acceptance_and_viewer_permissions():
     removed = owner.delete(f"/api/v1/household/members/{invited_membership_id}")
     assert removed.status_code == 204
     members_after_remove = owner.get("/api/v1/household/members")
-    assert [member_data["email"] for member_data in members_after_remove.json()] == ["owner@example.com"]
+    assert [member_data["email"] for member_data in members_after_remove.json()] == [
+        "owner@example.com"
+    ]
 
     revoked = owner.delete(f"/api/v1/household/invites/{invite_id}")
     assert revoked.status_code == 204
@@ -1918,15 +2360,24 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert wishlist.status_code == 200
     assert wishlist.json()[0]["name"] == "Wanted Wine"
     assert wishlist.json()[0]["priority"] == "High"
-    assert wishlist.json()[0]["ai_strategy"] == "Buon prezzo. Sotto mercato. Target interessante. Fascia mercato stimata: CHF 40-50."
-    assert wishlist.json()[0]["ai_purpose_advice"] == "Scopo consigliato: Cellar. Da cantina. Annata giovane. Confidenza: medium."
+    assert (
+        wishlist.json()[0]["ai_strategy"]
+        == "Buon prezzo. Sotto mercato. Target interessante. Fascia mercato stimata: CHF 40-50."
+    )
+    assert (
+        wishlist.json()[0]["ai_purpose_advice"]
+        == "Scopo consigliato: Cellar. Da cantina. Annata giovane. Confidenza: medium."
+    )
 
     wishlist_id = wishlist.json()[0]["id"]
     converted = client.post(f"/api/v1/wishlist/{wishlist_id}/convert")
     assert converted.status_code == 201
     assert converted.json()["wine_id"]
     assert client.get("/api/v1/wishlist").json() == []
-    assert sorted(wine["name"] for wine in client.get("/api/v1/wines").json()) == ["Imported Wine", "Wanted Wine"]
+    assert sorted(wine["name"] for wine in client.get("/api/v1/wines").json()) == [
+        "Imported Wine",
+        "Wanted Wine",
+    ]
 
     exported = client.get("/api/v1/imports/export-json")
     assert exported.status_code == 200
@@ -1934,7 +2385,9 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert [wine["name"] for wine in exported.json()["wines"]] == ["Imported Wine", "Wanted Wine"]
 
     replacement_payload = {
-        "wines": [{"id": str(uuid.uuid4()), "name": "Replacement Wine", "quantity": 1, "price": 10}],
+        "wines": [
+            {"id": str(uuid.uuid4()), "name": "Replacement Wine", "quantity": 1, "price": 10}
+        ],
         "wishlist": [],
     }
     replaced = client.post("/api/v1/imports/legacy-json?mode=replace_all", json=replacement_payload)
@@ -2039,9 +2492,13 @@ def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
     assert register(target, email="target@example.com").status_code == 201
     pending_users = source.get("/api/v1/auth/pending-users")
     assert pending_users.status_code == 200
-    target_user = next(user for user in pending_users.json() if user["email"] == "target@example.com")
+    target_user = next(
+        user for user in pending_users.json() if user["email"] == "target@example.com"
+    )
     assert source.post(f"/api/v1/auth/pending-users/{target_user['id']}/approve").status_code == 200
-    target_login = target.post("/api/v1/auth/login", json={"email": "target@example.com", "password": "strong-password-1"})
+    target_login = target.post(
+        "/api/v1/auth/login", json={"email": "target@example.com", "password": "strong-password-1"}
+    )
     assert target_login.status_code == 200
     target_session = target.get("/api/v1/session").json()
     with TestingSessionLocal() as db:
@@ -2049,8 +2506,8 @@ def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
             UserEntitlement(
                 user_id=uuid.UUID(target_session["user_id"]),
                 source="test",
-                valid_from=datetime.now(timezone.utc),
-                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+                valid_from=datetime.now(UTC),
+                valid_until=datetime.now(UTC) + timedelta(days=30),
             ),
         )
         db.commit()
@@ -2088,7 +2545,7 @@ def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
                 output_tokens=5,
                 total_tokens=15,
                 estimated_cost_usd=Decimal("0.001000"),
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             ),
         )
         db.commit()
@@ -2118,7 +2575,9 @@ def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
 
     with TestingSessionLocal() as db:
         target_household_id = uuid.UUID(target.get("/api/v1/session").json()["active_household_id"])
-        memberships = list(db.query(Membership).filter(Membership.household_id == target_household_id).all())
+        memberships = list(
+            db.query(Membership).filter(Membership.household_id == target_household_id).all()
+        )
         assert len(memberships) == 1
 
 
@@ -2146,7 +2605,12 @@ def test_ai_generation_requires_configured_openai_key(monkeypatch):
 
     updated_settings = client.patch(
         "/api/v1/ai/settings",
-        json={"openai_api_key": "sk-test", "ai_notes_model": "gpt-5.5", "pairing_model": "gpt-5.5", "model_advisor_enabled": True},
+        json={
+            "openai_api_key": "sk-test",
+            "ai_notes_model": "gpt-5.5",
+            "pairing_model": "gpt-5.5",
+            "model_advisor_enabled": True,
+        },
     )
     assert updated_settings.status_code == 200
     assert updated_settings.json()["has_openai_api_key"] is True
@@ -2154,7 +2618,9 @@ def test_ai_generation_requires_configured_openai_key(monkeypatch):
     assert updated_settings.json()["pairing_model"] == "gpt-5.5"
     assert updated_settings.json()["model_advisor_enabled"] is True
     with TestingSessionLocal() as db:
-        stored_settings = db.get(UserAiSettings, uuid.UUID(client.get("/api/v1/session").json()["user_id"]))
+        stored_settings = db.get(
+            UserAiSettings, uuid.UUID(client.get("/api/v1/session").json()["user_id"])
+        )
         assert stored_settings is not None
         assert stored_settings.openai_api_key.startswith("enc:v1:")
         assert "sk-test" not in stored_settings.openai_api_key
@@ -2182,8 +2648,8 @@ def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
             UserEntitlement(
                 user_id=current_user.id,
                 source="test",
-                valid_from=datetime.now(timezone.utc),
-                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+                valid_from=datetime.now(UTC),
+                valid_until=datetime.now(UTC) + timedelta(days=30),
             ),
         )
         db.add(
@@ -2222,8 +2688,16 @@ def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
     assert billing.status_code == 200
     assert billing.json()["ai_credit_balance_usd"] == "5.496400"
     with TestingSessionLocal() as db:
-        entries = list(db.scalars(select(UserAiCreditTransaction).where(UserAiCreditTransaction.user_id == uuid.UUID(session["user_id"]))))
-        assert any(entry.source == "usage_reservation" and entry.amount_usd < 0 for entry in entries)
+        entries = list(
+            db.scalars(
+                select(UserAiCreditTransaction).where(
+                    UserAiCreditTransaction.user_id == uuid.UUID(session["user_id"])
+                )
+            )
+        )
+        assert any(
+            entry.source == "usage_reservation" and entry.amount_usd < 0 for entry in entries
+        )
         assert any(entry.source == "usage_refund" and entry.amount_usd > 0 for entry in entries)
 
 
@@ -2241,8 +2715,8 @@ def test_ai_pack_rejects_request_before_provider_when_balance_cannot_cover_minim
             UserEntitlement(
                 user_id=current_user.id,
                 source="test",
-                valid_from=datetime.now(timezone.utc),
-                valid_until=datetime.now(timezone.utc) + timedelta(days=30),
+                valid_from=datetime.now(UTC),
+                valid_until=datetime.now(UTC) + timedelta(days=30),
             )
         )
         db.add(
@@ -2316,7 +2790,9 @@ def test_ai_pack_usage_keeps_base_cost_for_app_admin(monkeypatch):
         )
         db.commit()
 
-    created = client.post("/api/v1/wines", json={"name": "Admin AI Wine", "quantity": 1, "price": 20})
+    created = client.post(
+        "/api/v1/wines", json={"name": "Admin AI Wine", "quantity": 1, "price": 20}
+    )
     assert created.status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
 
@@ -2348,7 +2824,9 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    assert (
+        client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    )
     created = client.post(
         "/api/v1/wishlist",
         json={
@@ -2378,7 +2856,9 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
                 '{"market_price":35,"market_price_currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready",'
                 '"market_note":"Buona disponibilita in Svizzera.","market_sources":[{"merchant":"Vergani","country":"Switzerland","price":36,"currency":"CHF","url":"https://example.com/ver","note":"In stock"}]}'
             )
-        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+        return OpenAIResponse(
+            text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150)
+        )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
 
@@ -2401,12 +2881,23 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     assert target_price.json()["ai_purpose_generated_at"]
     wishlist = client.get("/api/v1/wishlist")
     assert wishlist.status_code == 200
-    assert wishlist.json()[0]["ai_strategy_generated_at"] == target_price.json()["ai_strategy_generated_at"]
-    assert wishlist.json()[0]["ai_purpose_generated_at"] == target_price.json()["ai_purpose_generated_at"]
+    assert (
+        wishlist.json()[0]["ai_strategy_generated_at"]
+        == target_price.json()["ai_strategy_generated_at"]
+    )
+    assert (
+        wishlist.json()[0]["ai_purpose_generated_at"]
+        == target_price.json()["ai_purpose_generated_at"]
+    )
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
-    wishlist_target_entry = next(entry for entry in audit.json() if entry["feature"] == "wishlist_target_price")
-    assert any(source.get("kind") == "market_source" and source.get("merchant") == "Vergani" for source in wishlist_target_entry["sources"])
+    wishlist_target_entry = next(
+        entry for entry in audit.json() if entry["feature"] == "wishlist_target_price"
+    )
+    assert any(
+        source.get("kind") == "market_source" and source.get("merchant") == "Vergani"
+        for source in wishlist_target_entry["sources"]
+    )
     assert any(source.get("kind") == "market_note" for source in wishlist_target_entry["sources"])
 
     usage = client.get("/api/v1/ai/usage")
@@ -2419,7 +2910,12 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "wishlist_model": "gpt-5.5"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "wishlist_model": "gpt-5.5"}
+        ).status_code
+        == 200
+    )
     first = client.post(
         "/api/v1/wishlist",
         json={
@@ -2475,8 +2971,14 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
 
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
-    strategy_entry = next(entry for entry in audit.json() if entry["feature"] == "wishlist_portfolio_strategy")
-    strategy_source = next(source for source in strategy_entry["sources"] if source.get("kind") == "wishlist_portfolio_strategy")
+    strategy_entry = next(
+        entry for entry in audit.json() if entry["feature"] == "wishlist_portfolio_strategy"
+    )
+    strategy_source = next(
+        source
+        for source in strategy_entry["sources"]
+        if source.get("kind") == "wishlist_portfolio_strategy"
+    )
     assert strategy_source["item_count"] == 2
     assert "shortlist operativa" in strategy_source["next_step"]
 
@@ -2490,10 +2992,19 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    assert (
+        client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    )
     created = client.post(
         "/api/v1/wines",
-        json={"name": "Dom Perignon", "producer": "Moet", "vintage": "2017", "quantity": 1, "price": 165, "currency": "CHF"},
+        json={
+            "name": "Dom Perignon",
+            "producer": "Moet",
+            "vintage": "2017",
+            "quantity": 1,
+            "price": 165,
+            "currency": "CHF",
+        },
     )
     assert created.status_code == 201
     wine_id = created.json()["id"]
@@ -2519,8 +3030,14 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
     audit = client.get("/api/v1/ai/audit")
     assert audit.status_code == 200
     value_entry = next(entry for entry in audit.json() if entry["feature"] == "ai_value")
-    assert any(source.get("kind") == "market_source" and source.get("merchant") == "Vergani Wiedikon" for source in value_entry["sources"])
-    assert any(source.get("kind") == "market_note" and "merchant svizzeri" in source.get("text", "") for source in value_entry["sources"])
+    assert any(
+        source.get("kind") == "market_source" and source.get("merchant") == "Vergani Wiedikon"
+        for source in value_entry["sources"]
+    )
+    assert any(
+        source.get("kind") == "market_note" and "merchant svizzeri" in source.get("text", "")
+        for source in value_entry["sources"]
+    )
 
 
 def test_ai_scores_respects_wine_exclusion_flag():
@@ -2528,11 +3045,19 @@ def test_ai_scores_respects_wine_exclusion_flag():
     assert register(client).status_code == 201
     created = client.post(
         "/api/v1/wines",
-        json={"name": "No Score Wine", "producer": "Producer", "vintage": "2022", "quantity": 1, "price": 20},
+        json={
+            "name": "No Score Wine",
+            "producer": "Producer",
+            "vintage": "2022",
+            "quantity": 1,
+            "price": 20,
+        },
     )
     assert created.status_code == 201
 
-    updated = client.patch(f"/api/v1/wines/{created.json()['id']}", json={"scores_not_applicable": True})
+    updated = client.patch(
+        f"/api/v1/wines/{created.json()['id']}", json={"scores_not_applicable": True}
+    )
     assert updated.status_code == 200
     assert updated.json()["scores_not_applicable"] is True
 
@@ -2546,7 +3071,12 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "score_model": "gpt-5.5"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "score_model": "gpt-5.5"}
+        ).status_code
+        == 200
+    )
     created = client.post(
         "/api/v1/wines",
         json={
@@ -2576,7 +3106,9 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores", json={"model": "gpt-5.4"})
+    generated = client.post(
+        f"/api/v1/ai/wines/{created.json()['id']}/scores", json={"model": "gpt-5.4"}
+    )
     assert generated.status_code == 200
     assert generated.json()["scores"] == [
         {"critic": "Existing Critic", "score": "94", "note": "Stored score"},
@@ -2589,10 +3121,18 @@ def test_ai_grapes_cache_verified_web_result(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    assert (
+        client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    )
     created = client.post(
         "/api/v1/wines",
-        json={"name": "Chateau Citran", "producer": "Chateau Citran", "vintage": "2018", "quantity": 1, "price": 25},
+        json={
+            "name": "Chateau Citran",
+            "producer": "Chateau Citran",
+            "vintage": "2018",
+            "quantity": 1,
+            "price": 25,
+        },
     )
     assert created.status_code == 201
 
@@ -2606,7 +3146,9 @@ def test_ai_grapes_cache_verified_web_result(monkeypatch):
         return OpenAIResponse(
             text='{"grapes":[{"name":"Merlot","percentage_from":50,"percentage_to":50},{"name":"Cabernet Sauvignon","percentage_from":39,"percentage_to":39},{"name":"Cabernet Franc","percentage_from":11,"percentage_to":11}],"notes":"Source-supported 2018 blend."}',
             usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
-            web_sources=({"url": "https://example.com/citran-2018", "title": "Chateau Citran 2018"},),
+            web_sources=(
+                {"url": "https://example.com/citran-2018", "title": "Chateau Citran 2018"},
+            ),
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
@@ -2615,7 +3157,13 @@ def test_ai_grapes_cache_verified_web_result(monkeypatch):
     assert generated.json()["grapes_source_url"] == "https://example.com/citran-2018"
     assert generated.json()["grapes_verified_at"] is not None
 
-    monkeypatch.setattr(ai_routes, "create_response", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("cached grapes must not call AI")))
+    monkeypatch.setattr(
+        ai_routes,
+        "create_response",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("cached grapes must not call AI")
+        ),
+    )
     cached = client.post(f"/api/v1/ai/wines/{created.json()['id']}/grapes")
     assert cached.status_code == 200
     assert cached.json()["grapes"] == generated.json()["grapes"]
@@ -2626,14 +3174,37 @@ def test_compare_wines_ai_returns_structured_comparison(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}
+        ).status_code
+        == 200
+    )
     first = client.post(
         "/api/v1/wines",
-        json={"name": "Tignanello", "producer": "Antinori", "vintage": "2021", "quantity": 1, "price": 140, "currency": "CHF", "type": "Red", "region": "Tuscany"},
+        json={
+            "name": "Tignanello",
+            "producer": "Antinori",
+            "vintage": "2021",
+            "quantity": 1,
+            "price": 140,
+            "currency": "CHF",
+            "type": "Red",
+            "region": "Tuscany",
+        },
     )
     second = client.post(
         "/api/v1/wines",
-        json={"name": "Dom Perignon", "producer": "Moet", "vintage": "2015", "quantity": 1, "price": 180, "currency": "CHF", "type": "Sparkling", "region": "Champagne"},
+        json={
+            "name": "Dom Perignon",
+            "producer": "Moet",
+            "vintage": "2015",
+            "quantity": 1,
+            "price": 180,
+            "currency": "CHF",
+            "type": "Sparkling",
+            "region": "Champagne",
+        },
     )
     assert first.status_code == 201
     assert second.status_code == 201
@@ -2686,7 +3257,11 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     assert register(client).status_code == 201
     settings_response = client.patch(
         "/api/v1/ai/settings",
-        json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4", "pairing_candidate_limit": 5},
+        json={
+            "openai_api_key": "sk-test",
+            "pairing_model": "gpt-5.4",
+            "pairing_candidate_limit": 5,
+        },
     )
     assert settings_response.status_code == 200
     assert settings_response.json()["pairing_candidate_limit"] == 5
@@ -2719,7 +3294,11 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
             f'"cellar_matches":[{{"wine_id":"{wine_id}","wine_name":"Barolo","producer":"Produttore","reason":"Struttura e tannino.","serving_note":"Servire a 18 C."}}],'
             '"market_recommendations":{"low":[{"name":"Chianti","producer":"Prod","price_hint":"entro 30 CHF","reason":"Acidita."}],"medium":[],"high":[]}}'
         )
-        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150), model="gpt-5.5")
+        return OpenAIResponse(
+            text=text,
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            model="gpt-5.5",
+        )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
 
@@ -2742,7 +3321,12 @@ def test_pairing_restaurant_mode_can_prefer_local_market_wines(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}
+        ).status_code
+        == 200
+    )
 
     def fake_create_response(*args, **kwargs):
         assert args[0] == "gpt-5.5"
@@ -2754,7 +3338,9 @@ def test_pairing_restaurant_mode_can_prefer_local_market_wines(monkeypatch):
             '"cellar_matches":[],'
             '"market_recommendations":{"low":[{"name":"Chianti Classico","producer":"Prod","price_hint":"entro 30 CHF","reason":"Rosso locale adatto alla carne."}],"medium":[],"high":[]}}'
         )
-        return OpenAIResponse(text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+        return OpenAIResponse(
+            text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150)
+        )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
 
@@ -2777,7 +3363,12 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}
+        ).status_code
+        == 200
+    )
 
     def fake_create_response(*args, **kwargs):
         assert kwargs["web_search"] is True
@@ -2827,7 +3418,9 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
 
     audit = client.get("/api/v1/ai/audit").json()
     entry = next(item for item in audit if item["feature"] == "buying_advice")
-    assert any(source.get("url") == "https://example.com/wine/merlot" for source in entry["sources"])
+    assert any(
+        source.get("url") == "https://example.com/wine/merlot" for source in entry["sources"]
+    )
 
 
 def test_ai_usage_summarizes_current_user_costs():
@@ -2851,7 +3444,7 @@ def test_ai_usage_summarizes_current_user_costs():
                 output_tokens=250,
                 total_tokens=1250,
                 estimated_cost_usd=Decimal("0.001800"),
-                created_at=datetime.now(timezone.utc),
+                created_at=datetime.now(UTC),
             ),
         )
         db.commit()
