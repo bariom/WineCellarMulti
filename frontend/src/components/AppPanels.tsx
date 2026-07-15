@@ -66,11 +66,13 @@ export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: Translatio
   const deltaPercent = first.numericValue > 0 ? (deltaValue / first.numericValue) * 100 : 0;
   const deltaPositive = deltaValue >= 0;
   const sourceLabels: Record<string, string> = {
-    ai: "AI",
+    ai: t("valueSourceAi"),
     imported: "Import",
-    manual: "Manual",
+    manual: t("valueSourceManual"),
     shared: "Share",
   };
+  const hasAiEstimate = entries.some((entry) => entry.source === "ai");
+  const hasManualCorrection = entries.some((entry) => entry.source === "manual");
 
   return (
     <div className="value-history-card">
@@ -101,12 +103,19 @@ export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: Translatio
         <polygon className="value-history-area" points={areaPoints} fill={`url(#valueArea-${wine.id})`} />
         <polyline className="value-history-line" points={points} stroke={`url(#valueLine-${wine.id})`} />
         {chartPoints.map(({ entry, x, y }, index) => (
-          <g key={entry.id} className={index === chartPoints.length - 1 ? "value-history-point latest" : "value-history-point"}>
+          <g key={entry.id} className={`value-history-point source-${entry.source}${index === chartPoints.length - 1 ? " latest" : ""}`}>
+            <title>{`${sourceLabels[entry.source] || entry.source}: ${entry.currency} ${entry.numericValue.toFixed(0)}`}</title>
             <circle className="point-halo" cx={x} cy={y} r="4.6" />
             <circle className="point-core" cx={x} cy={y} r="2.2" />
           </g>
         ))}
       </svg>
+      {hasAiEstimate || hasManualCorrection ? (
+        <div className="value-history-legend" aria-label={t("valueEvolution")}>
+          {hasAiEstimate ? <span className="source-ai"><i aria-hidden="true" />{t("valueSourceAi")}</span> : null}
+          {hasManualCorrection ? <span className="source-manual"><i aria-hidden="true" />{t("valueSourceManual")}</span> : null}
+        </div>
+      ) : null}
       <div className="value-history-meta">
         <span>{formatDisplayDate(first.recorded_at)}: {first.currency} {first.numericValue.toFixed(0)}</span>
         <strong>{last.currency} {last.numericValue.toFixed(0)}</strong>

@@ -9538,6 +9538,54 @@ button.stat-card:hover {
   fill: var(--primary);
 }
 
+.value-history-point.source-ai .point-halo {
+  fill: color-mix(in srgb, var(--danger) 14%, transparent);
+  stroke: color-mix(in srgb, var(--danger) 58%, var(--border));
+}
+
+.value-history-point.source-ai .point-core {
+  fill: var(--danger);
+}
+
+.value-history-point.source-manual .point-halo {
+  fill: color-mix(in srgb, var(--drink-ideal) 16%, transparent);
+  stroke: color-mix(in srgb, var(--drink-ideal) 65%, var(--border));
+}
+
+.value-history-point.source-manual .point-core {
+  fill: var(--drink-ideal);
+}
+
+.value-history-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px 14px;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.value-history-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.value-history-legend i {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.value-history-legend .source-ai i {
+  background: var(--danger);
+}
+
+.value-history-legend .source-manual i {
+  background: var(--drink-ideal);
+}
+
 .value-history-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
