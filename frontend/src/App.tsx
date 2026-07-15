@@ -5024,6 +5024,27 @@ export function App() {
     openWineInView(wine, "history", "tastings");
   }
 
+  function openQuickWineSearch(nextQuery: string) {
+    setActiveView("cellar");
+    setHistorySection("wines");
+    setSearchQuery(nextQuery);
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setQuickWineFilter("");
+    setMaturityFilter(null);
+    setTagFilter([]);
+    setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
+    setSortMode("name");
+    setSelectedWineId(null);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+  }
+
   function toggleWineDetailFocus() {
     setWineDetailExpanded((expanded) => !expanded);
   }
@@ -6137,6 +6158,33 @@ export function App() {
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
+            <form
+              className="view-tabs-quick-search"
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                openQuickWineSearch(searchQuery);
+              }}
+            >
+              <AppIcon name="search" variant="action" tone="muted" size="0.95rem" />
+              <input
+                value={searchQuery}
+                onChange={(event) => openQuickWineSearch(event.target.value)}
+                placeholder={t("searchPlaceholder")}
+                aria-label={t("search")}
+              />
+              {searchQuery ? (
+                <button
+                  type="button"
+                  className="view-tabs-quick-search-clear"
+                  onClick={() => openQuickWineSearch("")}
+                  aria-label={t("clearFilters")}
+                  title={t("clearFilters")}
+                >
+                  ×
+                </button>
+              ) : null}
+            </form>
           </div>
           ) : null}
           {activeView === "home" ? (

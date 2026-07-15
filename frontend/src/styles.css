@@ -11879,6 +11879,74 @@ textarea {
   padding: 5px 26px 5px 9px;
 }
 
+.view-tabs-quick-search {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: clamp(180px, 18vw, 280px);
+  min-width: 0;
+  margin-left: auto;
+  min-height: 32px;
+  padding: 4px 7px 4px 9px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface));
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 64%, transparent);
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.view-tabs-quick-search:focus-within {
+  border-color: color-mix(in srgb, var(--accent) 72%, var(--border));
+  background: var(--surface-raised);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent),
+    0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent);
+}
+
+.view-tabs-quick-search .app-icon {
+  flex: 0 0 auto;
+  color: var(--text-muted);
+}
+
+.view-tabs-quick-search input {
+  width: 100%;
+  min-width: 0;
+  min-height: 22px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.view-tabs-quick-search input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.88;
+}
+
+.view-tabs-quick-search-clear {
+  display: inline-grid;
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  place-items: center;
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.view-tabs-quick-search-clear:hover {
+  transform: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
+}
+
 .topbar-icon-button {
   width: 32px;
   height: 32px;
@@ -11938,6 +12006,28 @@ textarea {
   padding: 7px 13px;
   font-size: 0.82rem;
   line-height: 1;
+}
+
+.view-tabs .view-tabs-quick-search {
+  flex: 0 1 clamp(180px, 18vw, 280px);
+}
+
+.view-tabs .view-tabs-quick-search-clear {
+  width: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--text-muted) 14%, transparent);
+  color: var(--text-muted);
+  font-size: 1rem;
+}
+
+.view-tabs .view-tabs-quick-search-clear:hover {
+  transform: none;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--text);
 }
 
 @media (max-width: 980px) and (min-width: 521px) {
