@@ -867,6 +867,16 @@ export function App() {
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (!wineDetailExpanded) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setWineDetailExpanded(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [wineDetailExpanded]);
+
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
@@ -3674,9 +3684,6 @@ export function App() {
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
     .filter((wine): wine is Wine => Boolean(wine));
-  const selectedWineMarketAudit = selectedVisibleWine
-    ? aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === selectedVisibleWine.id && entry.feature === "ai_value") || null
-    : null;
   const selectedWishlistMarketAudit = selectedWishlistItem
     ? aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === selectedWishlistItem.id && entry.feature === "wishlist_target_price") || null
     : null;
@@ -5017,6 +5024,10 @@ export function App() {
     openWineInView(wine, "history", "tastings");
   }
 
+  function toggleWineDetailFocus() {
+    setWineDetailExpanded((expanded) => !expanded);
+  }
+
   const activePairingBudget = Number(pairingMaxPrice || 0);
   const hasPairingBudget = Number.isFinite(activePairingBudget) && activePairingBudget > 0;
   const cellarBottleValues = wines
@@ -5247,7 +5258,7 @@ export function App() {
 
   function renderCoOwnershipSection(wine: Wine) {
     const owners = ownershipRows(wine);
-    if (!owners.length && !coOwnershipAgreements.length && !canWriteWine) return null;
+    if (!owners.length && !coOwnershipAgreements.length) return null;
     return (
       <section className="coownership-workspace">
         <header className="coownership-workspace-header">
@@ -5279,6 +5290,30 @@ export function App() {
           onVoidPayment={(agreement, paymentId) => voidCoOwnershipPayment(wine, agreement, paymentId)}
         />
       </section>
+    );
+  }
+
+  function renderWineDetail(wine: Wine) {
+    return (
+      <WineDetail
+        wine={wine}
+        session={session}
+        auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
+        canGenerate={canGenerateAi}
+        canWrite={canWriteWine}
+        saving={saving}
+        generating={generatingAi}
+        onGenerate={(feature) => generateWineAi(wine, feature)}
+        onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
+        onConsume={(payload) => consumeWineBottle(wine, payload)}
+        onUpdateTastingEntry={updateWineTastingEntry}
+        onDeleteTastingEntry={deleteWineTastingEntry}
+        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
+        onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
+        coOwnershipSection={renderCoOwnershipSection(wine)}
+        t={t}
+        locale={locale}
+      />
     );
   }
 
@@ -6839,7 +6874,7 @@ export function App() {
                   className="secondary compact detail-expand-button"
                   aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
                   title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
-                  onClick={() => setWineDetailExpanded((expanded) => !expanded)}
+                  onClick={toggleWineDetailFocus}
                 >
                   <span aria-hidden="true">{wineDetailExpanded ? "⤡" : "⤢"}</span>
                 </button>
@@ -6860,7 +6895,7 @@ export function App() {
                     className="secondary side-panel-icon-button detail-expand-button"
                     aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
                     title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
-                    onClick={() => setWineDetailExpanded((expanded) => !expanded)}
+                    onClick={toggleWineDetailFocus}
                   >
                     <span aria-hidden="true">{wineDetailExpanded ? "↙" : "↗"}</span>
                   </button>
@@ -7367,27 +7402,7 @@ export function App() {
                 </div>
               </form>
             ) : isWineCollectionView && selectedVisibleWine ? (
-              <>
-                <WineDetail
-                  wine={selectedVisibleWine}
-                  session={session}
-                  auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedVisibleWine.id)}
-                  canGenerate={canGenerateAi}
-                  canWrite={canWriteWine}
-                  saving={saving}
-                  generating={generatingAi}
-                  onGenerate={(feature) => generateWineAi(selectedVisibleWine, feature)}
-                  onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(selectedVisibleWine, excluded)}
-                  onConsume={(payload) => consumeWineBottle(selectedVisibleWine, payload)}
-                  onUpdateTastingEntry={updateWineTastingEntry}
-                  onDeleteTastingEntry={deleteWineTastingEntry}
-                  marketAuditEntry={selectedWineMarketAudit}
-                  onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine: selectedVisibleWine, entry })}
-                  coOwnershipSection={renderCoOwnershipSection(selectedVisibleWine)}
-                  t={t}
-                  locale={locale}
-                />
-              </>
+              renderWineDetail(selectedVisibleWine)
             ) : activeView === "wishlist" && selectedWishlistItem ? (
                 <WishlistDetail
                   item={selectedWishlistItem}
@@ -9523,6 +9538,36 @@ export function App() {
           ) : null}
         </section>
       )}
+      {wineDetailExpanded && selectedVisibleWine ? (
+        <div
+          className="wine-detail-modal-layer"
+          role="presentation"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setWineDetailExpanded(false);
+          }}
+        >
+          <section className="wine-detail-modal" role="dialog" aria-modal="true" aria-labelledby="wine-detail-modal-title">
+            <header className="wine-detail-modal-header">
+              <div>
+                <span>{t("wineDetail")}</span>
+                <h2 id="wine-detail-modal-title">{selectedVisibleWine.name}{selectedVisibleWine.vintage ? ` · ${selectedVisibleWine.vintage}` : ""}</h2>
+              </div>
+              <button
+                type="button"
+                className="secondary compact wine-detail-modal-close"
+                onClick={() => setWineDetailExpanded(false)}
+                aria-label={t("close")}
+                title={t("close")}
+              >
+                <span aria-hidden="true">×</span>
+              </button>
+            </header>
+            <div className="wine-detail-modal-content">
+              {renderWineDetail(selectedVisibleWine)}
+            </div>
+          </section>
+        </div>
+      ) : null}
       {aiModelAdvice ? (
         <div className="auth-modal-overlay ai-model-advisor-overlay" onClick={() => closeAiModelAdvice(null)}>
           <section className="auth-modal-card ai-model-advisor-modal" role="dialog" aria-modal="true" aria-labelledby="ai-model-advisor-title" onClick={(event) => event.stopPropagation()}>
