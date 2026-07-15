@@ -9625,8 +9625,8 @@ button.stat-card:hover {
 
 .tasting-archive-entry {
   display: grid;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
   border-radius: 12px;
   background:
@@ -9640,8 +9640,8 @@ button.stat-card:hover {
 .tasting-archive-head {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 16px;
-  align-items: start;
+  gap: 12px;
+  align-items: center;
 }
 
 .tasting-archive-title {
@@ -9678,11 +9678,16 @@ button.stat-card:hover {
 }
 
 .tasting-archive-summary {
-  display: grid;
-  gap: 6px;
-  text-align: right;
-  justify-items: end;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   white-space: nowrap;
+}
+
+.tasting-archive-summary .tasting-enjoyment-badge {
+  width: 34px;
+  height: 34px;
+  font-size: 1.05rem;
 }
 
 .tasting-archive-meta,
@@ -9693,7 +9698,7 @@ button.stat-card:hover {
 .tasting-archive-meta {
   width: fit-content;
   max-width: 100%;
-  padding: 7px 10px;
+  padding: 5px 8px;
   border: 1px solid color-mix(in srgb, var(--border) 70%, var(--collector-edge));
   border-radius: 8px;
   background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));

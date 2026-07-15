@@ -258,7 +258,7 @@ export default function TastingArchiveSection({
         <article className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
           <div className="tasting-archive-head">
             <div className="tasting-archive-title">
-              <strong>{entry.wine.name}</strong>
+              <strong><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} aria-hidden="true" />{entry.wine.name}</strong>
               <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
             </div>
             <div className="tasting-archive-summary">

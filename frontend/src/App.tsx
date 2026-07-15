@@ -6734,6 +6734,7 @@ export function App() {
               </div>
             ) : null}
             {isWineCollectionView ? (
+              activeView === "cellar" || (selectedVisibleWine && !wineFormOpen) || compareWineIds.length > 0 ? (
               <div className="side-panel-actions">
                 <div className="side-panel-action-buttons">
                   {activeView === "cellar" ? (
@@ -6768,6 +6769,7 @@ export function App() {
                   ) : null}
                 </div>
               </div>
+              ) : null
             ) : (
               <div className="side-panel-actions">
                 <div className="side-panel-action-buttons">
