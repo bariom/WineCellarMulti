@@ -1017,8 +1017,6 @@ export function WineDetail({
         </div>
       ) : null}
 
-      {coOwnershipSection}
-
       {canWrite && wine.quantity > 0 ? (
         <details className="detail-section consume-panel">
           <summary>
@@ -1109,6 +1107,8 @@ export function WineDetail({
           {wine.ai_value_notes ? <DetailNote title={t("value")}>{wine.ai_value_notes}</DetailNote> : null}
         </div>
       ) : null}
+
+      {coOwnershipSection}
 
       <TastingHistorySection
         wine={wine}

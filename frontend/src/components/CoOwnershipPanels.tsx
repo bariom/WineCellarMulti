@@ -24,7 +24,7 @@ function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, prin
         <h2>{locale === "it" ? "Accordo di comproprietà dei vini" : "Wine co-ownership agreement"}</h2>
         <span>{locale === "it" ? "Versione" : "Version"} {agreement.version} · {statusLabel(agreement.status, locale)}</span>
       </header>
-      <div className="detail-grid">
+      <div className="detail-grid coownership-detail-grid">
         <div><span>{locale === "it" ? "Vino" : "Wine"}</span><strong>{String(wine.name || "")} {String(wine.vintage || "")}</strong></div>
         <div><span>{locale === "it" ? "Produttore" : "Producer"}</span><strong>{String(wine.producer || "-")}</strong></div>
         <div><span>{locale === "it" ? "Quantità" : "Quantity"}</span><strong>{String(wine.quantity || 0)}</strong></div>
@@ -92,15 +92,16 @@ function PaymentLedger({ agreement, locale, saving, onRecord, onVoid }: {
   return (
     <section className="coownership-payment-ledger no-print">
       <div className="coownership-ledger-heading">
-        <div><span>{locale === "it" ? "Registro economico separato" : "Separate financial ledger"}</span><h3>{locale === "it" ? "Versamenti e rimborsi" : "Payments and reimbursements"}</h3></div>
+        <div><span>{locale === "it" ? "Registro economico" : "Separate financial ledger"}</span><h3>{locale === "it" ? "Versamenti e rimborsi" : "Payments and reimbursements"}</h3></div>
         <small>{locale === "it" ? "Non modifica quote, accettazioni o documento firmato." : "Does not change shares, acceptances, or the signed document."}</small>
       </div>
       <div className="coownership-ledger-list">
         {agreement.participants.map((participant) => {
           const draft = draftFor(participant.id);
           const settled = participant.outstanding !== null && Number(participant.outstanding) <= 0;
+          const open = participant.outstanding !== null && Number(participant.outstanding) > 0;
           return (
-            <article className="coownership-ledger-participant" key={participant.id}>
+            <article className={`coownership-ledger-participant${open ? " open" : ""}${settled ? " settled" : ""}`} key={participant.id}>
               <header>
                 <div><strong>{participant.name}</strong><span>{participant.email}</span></div>
                 <span className={`coownership-balance-status${settled ? " settled" : ""}`}>
