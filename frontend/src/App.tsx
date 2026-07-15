@@ -5367,16 +5367,20 @@ export function App() {
           <div className="session-pill">
             <strong>{session?.user_display_name || session?.user_email}</strong>
             {householdMemberships.length > 1 ? (
-              <select
-                value={activeMembership?.household_id || ""}
-                onChange={(event) => switchHousehold(event.target.value).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to switch household"))}
-              >
-                {householdMemberships.map((membership) => (
-                  <option key={membership.membership_id} value={membership.household_id}>
-                    {membership.household_name}
-                  </option>
-                ))}
-              </select>
+              <label className="household-switch" title={locale === "it" ? "Cambia cantina" : "Switch cellar"}>
+                <AppIcon name="cellar" variant="action" tone="muted" size="0.95rem" />
+                <select
+                  aria-label={locale === "it" ? "Cambia cantina" : "Switch cellar"}
+                  value={activeMembership?.household_id || ""}
+                  onChange={(event) => switchHousehold(event.target.value).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to switch household"))}
+                >
+                  {householdMemberships.map((membership) => (
+                    <option key={membership.membership_id} value={membership.household_id}>
+                      {membership.household_name}
+                    </option>
+                  ))}
+                </select>
+              </label>
             ) : null}
             <span>{session?.membership_role}</span>
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}

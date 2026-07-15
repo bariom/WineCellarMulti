@@ -11046,7 +11046,7 @@ textarea {
 
   .session-pill {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, 38px);
+    grid-template-columns: minmax(0, 1fr) repeat(3, 30px);
     gap: 5px 8px;
     width: 100%;
     max-width: 100%;
@@ -11083,14 +11083,41 @@ textarea {
     justify-self: start;
   }
 
-  .session-pill > select {
-    grid-column: 1 / -1;
+  .session-pill .household-switch {
+    grid-column: 1;
     grid-row: 2;
+    position: relative;
+    display: grid;
+    width: 30px;
+    height: 30px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
+    color: var(--text-muted);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 62%, transparent);
+  }
+
+  .session-pill .household-switch .app-icon {
+    display: inline-grid;
+  }
+
+  .session-pill .household-switch select {
+    position: absolute;
+    inset: 0;
     min-width: 0;
-    max-width: 100%;
     width: 100%;
-    min-height: 34px;
-    padding-block: 4px;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .session-pill .household-switch:focus-within {
+    border-color: color-mix(in srgb, var(--focus) 72%, var(--border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent);
   }
 
   .session-pill > button {
@@ -11099,23 +11126,23 @@ textarea {
   }
 
   .session-pill .topbar-icon-button {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
   }
 
   .session-pill .notification-wrap {
     grid-column: 2;
-    grid-row: 3;
+    grid-row: 2;
     width: auto;
     min-width: 0;
     justify-self: end;
   }
 
   .session-pill .notification-wrap .notification-button {
-    width: 34px;
-    height: 34px;
-    min-width: 34px;
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
     padding: 0;
     font-size: 0.88rem;
     justify-items: center;
@@ -11137,13 +11164,13 @@ textarea {
 
   .session-pill .topbar-settings-button {
     grid-column: 3;
-    grid-row: 3;
+    grid-row: 2;
     justify-self: end;
   }
 
   .session-pill .topbar-logout-button {
     grid-column: 4;
-    grid-row: 3;
+    grid-row: 2;
     justify-self: end;
   }
 
@@ -11900,6 +11927,14 @@ textarea {
   max-width: 250px;
   min-height: 30px;
   padding: 5px 26px 5px 9px;
+}
+
+.household-switch {
+  display: contents;
+}
+
+.household-switch .app-icon {
+  display: none;
 }
 
 .view-tabs-quick-search {
