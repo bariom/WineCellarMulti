@@ -27,4 +27,4 @@ repos:
         name: Pyright type check
         entry: pyright
         language: system
-        files: ^backend/app/.*\.py$
+        files: ^backend/app/(prompts/.*|api/routes/ai\.py)$

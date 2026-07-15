@@ -5,7 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_current_context, require_admin_context, require_write_context
+from app.api.deps import (
+    CurrentContext,
+    get_current_context,
+    require_admin_context,
+    require_write_context,
+)
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, Wine, WishlistItem, WishlistList
@@ -17,7 +22,6 @@ from app.schemas.wishlist import (
     WishlistResponse,
     WishlistUpdate,
 )
-
 
 router = APIRouter(prefix="/wishlist")
 
@@ -299,8 +303,12 @@ def create_wishlist_item(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> dict:
-    get_household_wishlist_list(db, context, payload.wishlist_list_id)
+    wishlist_list_id = payload.wishlist_list_id
+    if wishlist_list_id is None:
+        wishlist_list_id = get_or_create_default_wishlist_list(db, context).id
+    get_household_wishlist_list(db, context, wishlist_list_id)
     data = payload.model_dump()
+    data["wishlist_list_id"] = wishlist_list_id
     data["type"] = normalize_wine_type(data.get("type"))
     item = WishlistItem(
         household_id=context.household.id,

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
-from decimal import Decimal, InvalidOperation
 import json
+from datetime import UTC, date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -12,12 +12,23 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_admin_context
-from app.api.routes.wines import normalize_owner_rows
+from app.api.routes.wines import normalize_owner_rows, set_user_wine_tags
 from app.core.security import hash_invite_token, new_invite_token
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import AiAuditLog, HouseholdInvite, Membership, User, UserTag, Wine, WineShareOffer, WineValueHistory, WishlistItem, WishlistList
-
+from app.models import (
+    AiAuditLog,
+    HouseholdInvite,
+    Membership,
+    User,
+    UserTag,
+    UserWineTag,
+    Wine,
+    WineShareOffer,
+    WineValueHistory,
+    WishlistItem,
+    WishlistList,
+)
 
 router = APIRouter(prefix="/imports")
 
@@ -537,7 +548,7 @@ def vinaris_preview_payload(payload: dict[str, Any], db: Session, context: Curre
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
     _, wishlist_list_name_map = prepare_import_wishlist_lists(payload, db, context, create_missing=False)
-    default_wishlist_list = next(iter(existing_wishlist_lists_by_name(db, context).values()), None)
+    default_wishlist_list = get_or_create_default_wishlist_list(db, context)
     wine_duplicates: list[str] = []
     wishlist_duplicates: list[str] = []
 
@@ -597,7 +608,7 @@ def import_vinaris_json_payload(
     wine_keys = existing_wine_keys(db, context)
     wishlist_keys = existing_wishlist_keys(db, context)
     wishlist_list_id_map, wishlist_list_name_map = prepare_import_wishlist_lists(payload, db, context, reserved_ids[WishlistList])
-    default_wishlist_list = next(iter(existing_wishlist_lists_by_name(db, context).values()), None)
+    default_wishlist_list = get_or_create_default_wishlist_list(db, context)
     imported_wine_ids: dict[UUID, UUID] = {}
     imported_wishlist_ids: dict[UUID, UUID] = {}
 
@@ -634,7 +645,7 @@ def import_vinaris_json_payload(
                 "value": as_decimal(raw_entry.get("value")),
                 "currency": as_str(raw_entry.get("currency")) or wine.currency,
                 "source": as_str(raw_entry.get("source")) or "imported",
-                "recorded_at": as_datetime(raw_entry.get("recorded_at")) or datetime.now(timezone.utc),
+                "recorded_at": as_datetime(raw_entry.get("recorded_at")) or datetime.now(UTC),
             }
             if value_entry is None:
                 value_data["id"] = ensure_unused_id(db, WineValueHistory, value_data["id"], reserved_ids[WineValueHistory])
@@ -706,7 +717,7 @@ def import_vinaris_json_payload(
     existing_invites = list(db.scalars(select(HouseholdInvite).where(HouseholdInvite.household_id == context.household.id)))
     for raw_invite in payload_list(payload, "invites") if "invites" in blocks else []:
         email = as_str(raw_invite.get("email"))
-        created_at = as_datetime(raw_invite.get("created_at")) or datetime.now(timezone.utc)
+        created_at = as_datetime(raw_invite.get("created_at")) or datetime.now(UTC)
         existing_invite = next((invite for invite in existing_invites if invite.email.lower() == email.lower() and invite.created_at == created_at), None)
         if mode == "skip_duplicates" and existing_invite is not None:
             result.invites_skipped += 1
@@ -729,7 +740,7 @@ def import_vinaris_json_payload(
                 role=as_str(raw_invite.get("role")) or "member",
                 visibility_scope=as_str(raw_invite.get("visibility_scope")) or "shared",
                 token_hash=hash_invite_token(new_invite_token()),
-                expires_at=as_datetime(raw_invite.get("expires_at")) or datetime.now(timezone.utc),
+                expires_at=as_datetime(raw_invite.get("expires_at")) or datetime.now(UTC),
                 accepted_at=as_datetime(raw_invite.get("accepted_at")),
                 created_at=created_at,
             ),
@@ -749,7 +760,7 @@ def import_vinaris_json_payload(
         if existing_tag is None:
             tag_id = as_uuid(raw_tag.get("id"))
             tag_id = ensure_unused_id(db, UserTag, tag_id, reserved_ids[UserTag])
-            db.add(UserTag(id=tag_id, user_id=context.user.id, name=name, color=as_str(raw_tag.get("color")), created_at=as_datetime(raw_tag.get("created_at")) or datetime.now(timezone.utc)))
+            db.add(UserTag(id=tag_id, user_id=context.user.id, name=name, color=as_str(raw_tag.get("color")), created_at=as_datetime(raw_tag.get("created_at")) or datetime.now(UTC)))
             result.user_tags_imported += 1
             continue
         if mode in {"update_existing", "replace_all"}:
@@ -757,6 +768,26 @@ def import_vinaris_json_payload(
             result.user_tags_updated += 1
         else:
             result.user_tags_skipped += 1
+
+    for raw_wine in payload_list(payload, "wines") if "wines" in blocks else []:
+        wine_id = imported_wine_ids.get(as_uuid(raw_wine.get("id")))
+        if wine_id is None:
+            continue
+        for tag_name in {as_str(tag) for tag in as_list(raw_wine.get("tags")) if as_str(tag)}:
+            tag = existing_tags.get(tag_name.lower())
+            if tag is None:
+                tag = UserTag(user_id=context.user.id, name=tag_name, color="", created_at=datetime.now(UTC))
+                db.add(tag)
+                db.flush()
+                existing_tags[tag_name.lower()] = tag
+            if db.scalar(
+                select(UserWineTag.id).where(
+                    UserWineTag.user_id == context.user.id,
+                    UserWineTag.wine_id == wine_id,
+                    UserWineTag.tag_id == tag.id,
+                )
+            ) is None:
+                db.add(UserWineTag(user_id=context.user.id, wine_id=wine_id, tag_id=tag.id))
 
     existing_offers = list(db.scalars(select(WineShareOffer).where(WineShareOffer.household_id == context.household.id)))
     for raw_offer in payload_list(payload, "share_offers") if "share_offers" in blocks else []:
@@ -767,7 +798,7 @@ def import_vinaris_json_payload(
             result.share_offers_skipped += 1
             continue
         recipient_email = as_str(raw_offer.get("recipient_email"))
-        created_at = as_datetime(raw_offer.get("created_at")) or datetime.now(timezone.utc)
+        created_at = as_datetime(raw_offer.get("created_at")) or datetime.now(UTC)
         existing_offer = next(
             (
                 offer
@@ -817,7 +848,7 @@ def import_vinaris_json_payload(
         entity_type = as_str(raw_log.get("entity_type"))
         original_entity_id = as_uuid(raw_log.get("entity_id"))
         mapped_entity_id = imported_wine_ids.get(original_entity_id, imported_wishlist_ids.get(original_entity_id, original_entity_id))
-        created_at = as_datetime(raw_log.get("created_at")) or datetime.now(timezone.utc)
+        created_at = as_datetime(raw_log.get("created_at")) or datetime.now(UTC)
         existing_log = next(
             (
                 log
@@ -952,6 +983,8 @@ def import_legacy_json(
             data["id"] = uuid4()
         wine = Wine(**data)
         db.add(wine)
+        db.flush()
+        set_user_wine_tags(db, context, wine, [as_str(tag) for tag in as_list(raw_wine.get("tags")) if as_str(tag)])
         wine_keys[key] = wine
         result.wines_imported += 1
 
@@ -1015,7 +1048,7 @@ def export_json(
 ) -> dict[str, Any]:
     export_payload: dict[str, Any] = {
         "schema": "winecellarmulti.export.v2",
-        "exported_at": datetime.now(timezone.utc).isoformat(),
+        "exported_at": datetime.now(UTC).isoformat(),
         "household": {
             "id": str(context.household.id),
             "name": context.household.name,

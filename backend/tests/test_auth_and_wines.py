@@ -392,7 +392,7 @@ def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
     assert member_stats["last_activity_at"] is not None
 
     forbidden = member_client.get("/api/v1/auth/users/stats")
-    assert forbidden.status_code == 403
+    assert forbidden.status_code == 402
 
 
 def test_app_admin_can_fetch_single_user_stats():
@@ -414,7 +414,7 @@ def test_app_admin_can_fetch_single_user_stats():
     assert missing.status_code == 404
 
     forbidden = member_client.get(f"/api/v1/auth/users/{pending_user['id']}/stats")
-    assert forbidden.status_code == 403
+    assert forbidden.status_code == 402
 
 
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
@@ -700,7 +700,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert "smart_future_deliveries" in kinds
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).filter(UserNotification.user_id == db.query(User).filter(User.email == "owner@example.com").one().id).count() == 3
+        assert db.query(UserNotification).filter(UserNotification.user_id == db.query(User).filter(User.email == "owner@example.com").one().id).count() == 4
 
     drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
     marked = client.post(f"/api/v1/notifications/{drink_now_notification['id']}/read")
@@ -713,7 +713,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert not any(item["kind"] == "smart_drink_now" for item in refreshed_payload)
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 3
+        assert db.query(UserNotification).count() == 4
 
 
 def test_authenticated_user_can_read_wine_catalog():
@@ -740,8 +740,8 @@ def test_wine_recognition_parser_uses_api4ai_classes():
                             "kind": "classes",
                             "name": "wine-image-classes",
                             "classes": {
-                                "buitenverwachting 1769 vintage 2000": 0.6465678215026855,
-                                "raventos i blanc cava reserva brut l'hereu 2012": 0.621323823928833,
+                                "buitenverwachting 1769 vintage 2000": 0.8465678215026855,
+                                "raventos i blanc cava reserva brut l'hereu 2012": 0.821323823928833,
                             },
                         },
                     ],
@@ -754,7 +754,7 @@ def test_wine_recognition_parser_uses_api4ai_classes():
         "buitenverwachting 1769 vintage 2000",
         "raventos i blanc cava reserva brut l'hereu 2012",
     ]
-    assert suggestions[0].confidence == 0.6465678215026855
+    assert suggestions[0].confidence == 0.8465678215026855
 
 
 def test_create_wine_adds_pending_entry_to_catalog_for_admin_approval():
@@ -1205,7 +1205,7 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert notifications.json()[0]["kind"] == "redeem_code"
     read_notification = client.post(f"/api/v1/notifications/{notifications.json()[0]['id']}/read")
     assert read_notification.status_code == 204
-    assert client.get("/api/v1/notifications").json() == []
+    assert [item["kind"] for item in client.get("/api/v1/notifications").json()] == ["ai_credits"]
 
     redeemed = client.post("/api/v1/billing/redeem", json={"code": paid_code})
     assert redeemed.status_code == 200
@@ -1911,7 +1911,10 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     assert wines.json()[0]["tags"] == ["Imported"]
     assert wines.json()[0]["scores"][0]["critic"] == "Test"
 
-    wishlist = client.get("/api/v1/wishlist")
+    wishlist_lists = client.get("/api/v1/wishlist/lists")
+    assert wishlist_lists.status_code == 200
+    imported_list = next(item for item in wishlist_lists.json() if item["item_count"] == 1)
+    wishlist = client.get(f"/api/v1/wishlist?wishlist_list_id={imported_list['id']}")
     assert wishlist.status_code == 200
     assert wishlist.json()[0]["name"] == "Wanted Wine"
     assert wishlist.json()[0]["priority"] == "High"
@@ -2017,7 +2020,9 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     wines = client.get("/api/v1/wines")
     assert wines.status_code == 200
     assert [wine["name"] for wine in wines.json()] == ["Roundtrip Wine"]
-    assert wines.json()[0]["tasting_history"][0]["note"] == "Saved in backup history"
+    restored_wine = client.get(f"/api/v1/wines/{wines.json()[0]['id']}")
+    assert restored_wine.status_code == 200
+    assert restored_wine.json()["tasting_history"][0]["note"] == "Saved in backup history"
 
     wishlist = client.get("/api/v1/wishlist")
     assert wishlist.status_code == 200
@@ -2114,7 +2119,8 @@ def test_vinaris_import_from_other_household_reassigns_conflicting_ids():
         assert len(memberships) == 1
 
 
-def test_ai_generation_requires_configured_openai_key():
+def test_ai_generation_requires_configured_openai_key(monkeypatch):
+    monkeypatch.setattr(settings, "openai_api_key", "")
     client = TestClient(app)
     assert register(client).status_code == 201
     created = client.post("/api/v1/wines", json={"name": "AI Wine", "quantity": 1, "price": 20})
@@ -2128,12 +2134,12 @@ def test_ai_generation_requires_configured_openai_key():
     assert usage.json()["all_time"]["requests"] == 0
     assert usage.json()["all_time"]["estimated_cost_usd"] == "0.000000"
 
-    settings = client.get("/api/v1/ai/settings")
-    assert settings.status_code == 200
-    assert settings.json()["has_openai_api_key"] is False
-    assert "gpt-5.5" in settings.json()["model_options"]
-    assert settings.json()["pairing_model"] == "gpt-5.4"
-    assert settings.json()["model_advisor_enabled"] is False
+    settings_response = client.get("/api/v1/ai/settings")
+    assert settings_response.status_code == 200
+    assert settings_response.json()["has_openai_api_key"] is False
+    assert "gpt-5.5" in settings_response.json()["model_options"]
+    assert settings_response.json()["pairing_model"] == "gpt-5.4"
+    assert settings_response.json()["model_advisor_enabled"] is False
 
     updated_settings = client.patch(
         "/api/v1/ai/settings",

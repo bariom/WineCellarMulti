@@ -793,7 +793,7 @@ def wishlist_advice_context(item: WishlistItem) -> str:
     )
 
 
-def wishlist_market_context(item: WishlistItem) -> str:
+def wishlist_market_context(item: WishlistItem, *, include_ai_context: bool = False) -> str:
     """Identity and target price needed for an exact wishlist market lookup."""
     return "\n".join(
         [
@@ -804,6 +804,7 @@ def wishlist_market_context(item: WishlistItem) -> str:
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
             f"Target price: {item.currency} {item.target_price}",
+            *([f"AI context note: {item.ai_context_note}"] if include_ai_context else []),
         ],
     )
 
@@ -2057,7 +2058,7 @@ def generate_wishlist_target_price(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wishlist_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(item.currency), currency=item.currency, target_price=item.target_price, wishlist_context=wishlist_market_context(item))
+    prompt = wishlist_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(item.currency), currency=item.currency, target_price=item.target_price, wishlist_context=wishlist_market_context(item, include_ai_context=True))
     schema = {
         "name": "wishlist_market_price",
         "schema": {

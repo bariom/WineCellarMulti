@@ -1,12 +1,12 @@
-from decimal import Decimal
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 
 class WishlistBase(BaseModel):
-    wishlist_list_id: UUID
+    wishlist_list_id: UUID | None = None
     name: str = Field(min_length=1, max_length=200)
     producer: str = ""
     vintage: str = ""
@@ -64,6 +64,7 @@ class WishlistResponse(WishlistBase):
 
     id: UUID
     household_id: UUID
+    wishlist_list_id: UUID
     ai_strategy_generated_at: datetime | None = None
     ai_purpose_generated_at: datetime | None = None
 
