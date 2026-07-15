@@ -7,7 +7,7 @@ Vinaris includes a web app manifest and service worker, so Android/Chrome can in
 Do not reuse `bariomwines.duckdns.org` if it must keep serving the old WineCellar app at `/`.
 Use the dedicated hostname for Vinaris, `vinaris.app`, and keep `vinaris.duckdns.org` only as a temporary transition hostname if needed. Point nginx to:
 
-- frontend preview: `127.0.0.1:4174`
+- frontend build: `/home/administrator/progetti/WineCellarMulti/frontend/dist`
 - backend API: `127.0.0.1:8000`
 
 The frontend fetches `/api/...`, so nginx must proxy `/api/` to the backend before the generic `/` location.
@@ -20,6 +20,15 @@ server {
 
     ssl_certificate /etc/ssl/vinaris/fullchain.pem;
     ssl_certificate_key /etc/ssl/vinaris/vinaris.app-PrivateKey.pem;
+
+    root /home/administrator/progetti/WineCellarMulti/frontend/dist;
+    index index.html;
+
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_comp_level 6;
+    gzip_types application/javascript application/json application/manifest+json image/svg+xml text/css text/plain;
 
     location ~ /\.(?!well-known/acme-challenge/) {
         deny all;
@@ -53,26 +62,23 @@ server {
     }
 
     location = /sw.js {
-        proxy_pass http://127.0.0.1:4174;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
         add_header Cache-Control "no-cache";
     }
 
     location = /manifest.webmanifest {
-        proxy_pass http://127.0.0.1:4174;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        add_header Content-Type "application/manifest+json";
+        add_header Cache-Control "no-cache";
+        default_type application/manifest+json;
+    }
+
+    location /assets/ {
+        try_files $uri =404;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
     }
 
     location / {
-        proxy_pass http://127.0.0.1:4174;
-        proxy_http_version 1.1;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        try_files $uri $uri/ /index.html;
+        add_header Cache-Control "no-cache";
     }
 }
 
@@ -116,13 +122,12 @@ server {
 
 ## Start commands
 
-Build and serve the frontend:
+Build the frontend; nginx serves the generated `dist` directory directly:
 
 ```bash
 cd frontend
 npm install
 npm run build
-npm run preview:pwa
 ```
 
 Run the backend:

@@ -1,6 +1,7 @@
-# WineCellarMulti systemd services
+# WineCellarMulti production services
 
-These services start the backend API and PWA frontend after reboot.
+The backend API runs as a systemd service. Nginx serves the built PWA files
+directly, so no persistent frontend Node process is required.
 
 Assumptions:
 
@@ -8,7 +9,7 @@ Assumptions:
 - Linux user: `administrator`
 - Backend virtualenv: `/home/administrator/progetti/WineCellarMulti/backend/.venv`
 - Backend port: `127.0.0.1:8000`
-- Frontend preview port: `127.0.0.1:4174`
+- Frontend build: `/home/administrator/progetti/WineCellarMulti/frontend/dist`
 - PostgreSQL runs via Docker Compose.
 
 ## Install or update services
@@ -18,10 +19,8 @@ From the repository root:
 ```bash
 cd /home/administrator/progetti/WineCellarMulti
 sudo cp deploy/systemd/winecellarmulti-backend.service /etc/systemd/system/
-sudo cp deploy/systemd/winecellarmulti-frontend.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable winecellarmulti-backend
-sudo systemctl enable winecellarmulti-frontend
 ```
 
 ## Make PostgreSQL restart automatically
@@ -51,7 +50,8 @@ cd /home/administrator/progetti/WineCellarMulti
 ./start.sh
 ```
 
-The script starts PostgreSQL, waits for it to be ready, runs Alembic migrations, builds the frontend when needed, and restarts the API and frontend systemd services.
+The script starts PostgreSQL, waits for it to be ready, runs Alembic migrations,
+builds the frontend when needed, restarts the API, and reloads nginx.
 
 Manual equivalent:
 
@@ -59,21 +59,21 @@ Manual equivalent:
 cd /home/administrator/progetti/WineCellarMulti
 ./update.sh
 sudo systemctl restart winecellarmulti-backend
-sudo systemctl restart winecellarmulti-frontend
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
 ## Check status
 
 ```bash
 sudo systemctl status winecellarmulti-backend --no-pager
-sudo systemctl status winecellarmulti-frontend --no-pager
+sudo systemctl status nginx --no-pager
 ```
 
 ## Logs
 
 ```bash
 sudo journalctl -u winecellarmulti-backend -f
-sudo journalctl -u winecellarmulti-frontend -f
+sudo journalctl -u nginx -f
 ```
 
 ## Reboot test
@@ -86,7 +86,7 @@ After reconnecting:
 
 ```bash
 systemctl is-active winecellarmulti-backend
-systemctl is-active winecellarmulti-frontend
+systemctl is-active nginx
 docker ps --filter name=winecellarmulti-postgres
 ```
 

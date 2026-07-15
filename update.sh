@@ -51,7 +51,11 @@ RESTARTED=false
 if restart_service_if_available winecellarmulti-backend; then
   RESTARTED=true
 fi
-if restart_service_if_available winecellarmulti-frontend; then
+
+if command -v nginx >/dev/null 2>&1; then
+  echo "Validating and reloading nginx"
+  sudo nginx -t
+  sudo systemctl reload nginx
   RESTARTED=true
 fi
 

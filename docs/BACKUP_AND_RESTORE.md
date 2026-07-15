@@ -157,10 +157,10 @@ chmod +x scripts/restore-db.sh
 
 ### 5. Stop the application
 
-Stop the frontend and backend so users cannot write while the database is being restored:
+Stop the backend so users cannot write while the database is being restored.
+Nginx can continue serving the static frontend while the API is unavailable:
 
 ```bash
-sudo systemctl stop winecellarmulti-frontend
 sudo systemctl stop winecellarmulti-backend
 ```
 
@@ -194,21 +194,20 @@ The script will:
 
 ```bash
 sudo systemctl start winecellarmulti-backend
-sudo systemctl start winecellarmulti-frontend
 ```
 
 ### 8. Check service health
 
 ```bash
 sudo systemctl status winecellarmulti-backend --no-pager
-sudo systemctl status winecellarmulti-frontend --no-pager
+sudo systemctl status nginx --no-pager
 ```
 
 Check recent logs if something is not active:
 
 ```bash
 sudo journalctl -u winecellarmulti-backend --since "15 minutes ago" --no-pager
-sudo journalctl -u winecellarmulti-frontend --since "15 minutes ago" --no-pager
+sudo journalctl -u nginx --since "15 minutes ago" --no-pager
 ```
 
 ### 9. Verify the restored application

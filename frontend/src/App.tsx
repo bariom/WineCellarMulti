@@ -1,11 +1,10 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
-import { CoOwnershipPanel, CoOwnershipPublicPage } from "./components/CoOwnershipPanels";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
-import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, WineGeographyMap } from "./components/AppPanels";
+import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
 import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
-import { displayValue, helpGuideContent, helpGuideContentV2, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
+import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText } from "./domain/cellar";
@@ -47,6 +46,46 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 const PairingView = lazy(() => import("./views/PairingView"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
+const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
+const HelpView = lazy(() => import("./views/HelpView"));
+const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
+const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
+
+function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const [shouldLoad, setShouldLoad] = useState(false);
+
+  useEffect(() => {
+    if (shouldLoad) return;
+    const container = containerRef.current;
+    if (!container || !("IntersectionObserver" in window)) {
+      setShouldLoad(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        setShouldLoad(true);
+        observer.disconnect();
+      },
+      { rootMargin: "400px 0px" },
+    );
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [shouldLoad]);
+
+  return (
+    <div ref={containerRef} className="deferred-map-placeholder">
+      {shouldLoad ? (
+        <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+          <WineGeographyMap wines={wines} t={t} />
+        </Suspense>
+      ) : (
+        <LoadingState label={t("loadingData")} />
+      )}
+    </div>
+  );
+}
 
 const TASTING_ARCHIVE_PAGE_SIZE = 50;
 const OPERATIONAL_ACTION_SNOOZE_DAYS = 14;
@@ -249,14 +288,6 @@ function grapesFromText(value: string): WineDraft["grapes"] {
     })
     .filter((grape) => grape.name.length > 1)
     .slice(0, 8);
-}
-
-function parseHelpBullet(value: string) {
-  const marker = "[AI] ";
-  if (value.startsWith(marker)) {
-    return { isAi: true, text: value.slice(marker.length) };
-  }
-  return { isAi: false, text: value };
 }
 
 function aiBudgetFillRatio(balance: string | number, packSize: string | number) {
@@ -917,7 +948,6 @@ export function App() {
   const [aiOverlayRenderMode, setAiOverlayRenderMode] = useState("");
   const [aiOverlayVisible, setAiOverlayVisible] = useState(false);
   const landing = landingContent[locale];
-  const helpGuide = helpGuideContentV2[locale];
   const exportBlocks = [
     { key: "wines", label: t("exportIncludesWines") },
     { key: "wishlist", label: t("exportIncludesWishlist") },
@@ -1584,11 +1614,43 @@ export function App() {
       await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated)]);
       return;
     }
-    const nextLists = await loadWishlistLists();
+    const [nextLists] = await Promise.all([
+      loadWishlistLists(),
+      loadWines(),
+      loadPortfolioValueHistory(),
+      loadNotifications(nextSession.authenticated),
+      loadBilling(nextSession.authenticated, nextSession.is_app_admin),
+    ]);
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
       : nextLists[0]?.id || "";
-    await Promise.all([loadWines(), loadPortfolioValueHistory(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadPendingCatalogEntries(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
+
+    window.setTimeout(() => {
+      void Promise.allSettled([
+        loadWishlist(activeWishlistListId),
+        loadShareOffers(nextSession.authenticated),
+        loadReceivedInvites(nextSession.authenticated),
+        loadTags(nextSession.membership_role),
+        loadAiSettings(nextSession.membership_role),
+        loadTastingArchiveOverview(nextSession.authenticated),
+      ]);
+    }, 300);
+  }
+
+  function loadSettingsTabData(tab: SettingsTab) {
+    if (!session?.authenticated || offlineMode) return;
+    const reportError = (nextError: unknown) => setError(nextError instanceof Error ? nextError.message : "Unable to load settings data");
+    if (tab === "profile") {
+      void Promise.all([loadPasskeys(true), loadBilling(true, session.is_app_admin)]).catch(reportError);
+    } else if (tab === "ai") {
+      void Promise.all([loadAiAudit(session.membership_role), loadAiUsage(session.membership_role), loadAiSettings(session.membership_role)]).catch(reportError);
+    } else if (tab === "tags") {
+      void loadTags(session.membership_role).catch(reportError);
+    } else if (tab === "sharing") {
+      void Promise.all([loadHouseholdData(session.membership_role), loadShareOffers(true), loadReceivedInvites(true)]).catch(reportError);
+    } else if (tab === "users" && session.is_app_admin) {
+      void Promise.all([loadAppUsers(true), loadPendingCatalogEntries(true), loadBilling(true, true)]).catch(reportError);
+    }
   }
 
   async function loadData() {
@@ -4893,6 +4955,7 @@ export function App() {
   function toggleSettingsView() {
     const nextView: ViewName = activeView === "settings" ? "home" : "settings";
     setActiveView(nextView);
+    if (nextView === "settings") loadSettingsTabData(settingsTab);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     clearFilters(nextView);
@@ -5274,7 +5337,11 @@ export function App() {
     : false;
 
   if (coOwnershipToken) {
-    return <CoOwnershipPublicPage token={coOwnershipToken} locale={locale} onClose={() => setCoOwnershipToken("")} />;
+    return (
+      <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+        <CoOwnershipPublicPage token={coOwnershipToken} locale={locale} onClose={() => setCoOwnershipToken("")} />
+      </Suspense>
+    );
   }
 
   function renderCoOwnershipSection(wine: Wine) {
@@ -5298,18 +5365,20 @@ export function App() {
           ) : <p className="empty-state">{locale === "it" ? "Nessuna quota di multiproprietà configurata." : "No co-ownership shares are configured."}</p>}
         </div>
         {renderSharePanel(wine)}
-        <CoOwnershipPanel
-          wine={wine}
-          session={session}
-          agreements={coOwnershipAgreements}
-          canWrite={canWriteWine && !offlineMode}
-          saving={saving}
-          focusRequestId={coOwnershipFocusRequest?.wineId === wine.id ? coOwnershipFocusRequest.requestId : ""}
-          onCreate={(payload) => createCoOwnershipAgreement(wine, payload)}
-          onCancel={(agreement) => cancelCoOwnershipAgreement(wine, agreement)}
-          onRecordPayment={(agreement, participantId, payload) => recordCoOwnershipPayment(wine, agreement, participantId, payload)}
-          onVoidPayment={(agreement, paymentId) => voidCoOwnershipPayment(wine, agreement, paymentId)}
-        />
+        <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+          <CoOwnershipPanel
+            wine={wine}
+            session={session}
+            agreements={coOwnershipAgreements}
+            canWrite={canWriteWine && !offlineMode}
+            saving={saving}
+            focusRequestId={coOwnershipFocusRequest?.wineId === wine.id ? coOwnershipFocusRequest.requestId : ""}
+            onCreate={(payload) => createCoOwnershipAgreement(wine, payload)}
+            onCancel={(agreement) => cancelCoOwnershipAgreement(wine, agreement)}
+            onRecordPayment={(agreement, participantId, payload) => recordCoOwnershipPayment(wine, agreement, participantId, payload)}
+            onVoidPayment={(agreement, paymentId) => voidCoOwnershipPayment(wine, agreement, paymentId)}
+          />
+        </Suspense>
       </section>
     );
   }
@@ -6453,7 +6522,7 @@ export function App() {
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("wineOrigins")}</h2>
                     </div>
                   </div>
-                  <WineGeographyMap wines={cellarWines} t={t} />
+                  <DeferredWineGeographyMap wines={cellarWines} t={t} />
                 </article>
 
                 <article className="dashboard-card">
@@ -6891,32 +6960,9 @@ export function App() {
           ) : null}
 
           {activeView === "help" ? (
-            <section className="help-center">
-              <div className="help-hero">
-                <p className="eyebrow">{helpGuide.eyebrow}</p>
-                <h2>{helpGuide.title}</h2>
-                <p>{helpGuide.intro}</p>
-              </div>
-              <div className="help-grid">
-                {helpGuide.sections.map((section) => (
-                  <article className="help-card" key={section.title}>
-                    <h3>{section.title}</h3>
-                    <p>{section.body}</p>
-                    <ul>
-                      {section.bullets.map((bullet) => {
-                        const parsedBullet = parseHelpBullet(bullet);
-                        return (
-                          <li key={bullet}>
-                            {parsedBullet.isAi ? <span className="help-ai-badge">AI</span> : null}
-                            <span>{parsedBullet.text}</span>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </article>
-                ))}
-              </div>
-            </section>
+            <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+              <HelpView locale={locale} />
+            </Suspense>
           ) : null}
 
           {isCollectionView ? (
@@ -8408,10 +8454,7 @@ export function App() {
                   className={settingsTab === tab ? "" : "secondary"}
                   onClick={() => {
                     setSettingsTab(tab);
-                    if (tab === "users") {
-                      loadAppUsers(true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load users"));
-                      loadBilling(true, true).catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load billing"));
-                    }
+                    loadSettingsTabData(tab);
                   }}
                 >
                   {settingsTabLabels[tab]}

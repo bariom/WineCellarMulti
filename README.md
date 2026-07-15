@@ -165,8 +165,11 @@ Production preview uses port `4174` to avoid conflicting with the old WineCellar
 ```bash
 cd frontend
 npm run build
-npm run preview:pwa
 ```
+
+In production nginx serves `frontend/dist` directly with compression and
+long-lived caching for hashed assets. `vite preview` remains available only
+for local verification of a production build.
 
 See `docs/PWA_DEPLOYMENT.md` for the nginx configuration.
 

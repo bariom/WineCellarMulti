@@ -23,9 +23,9 @@ Usage: ./start.sh [--install-services] [--build]
 Starts the production stack after a reboot or outage:
   - starts PostgreSQL with Docker Compose
   - runs backend migrations
-  - optionally installs/enables systemd services
+  - optionally installs/enables the backend systemd service
   - builds the frontend when needed
-  - restarts backend and frontend services
+  - serves the frontend build directly through nginx
 
 Options:
   --install-services  Copy and enable the bundled systemd units.
@@ -60,12 +60,10 @@ if [[ ! -f "$ROOT_DIR/.env" || ! -f "$BACKEND_DIR/.env" ]]; then
 fi
 
 if [[ "$INSTALL_SERVICES" == "true" ]]; then
-  echo "Installing systemd services"
+  echo "Installing backend systemd service"
   sudo cp "$ROOT_DIR/deploy/systemd/winecellarmulti-backend.service" /etc/systemd/system/
-  sudo cp "$ROOT_DIR/deploy/systemd/winecellarmulti-frontend.service" /etc/systemd/system/
   sudo systemctl daemon-reload
   sudo systemctl enable winecellarmulti-backend
-  sudo systemctl enable winecellarmulti-frontend
 fi
 
 echo "Starting PostgreSQL"
@@ -103,12 +101,12 @@ if [[ "$BUILD_FRONTEND" == "true" || ! -d "dist" ]]; then
   npm run build
 fi
 
-echo "Restarting application services"
+echo "Restarting backend and reloading nginx"
 sudo systemctl restart winecellarmulti-backend
-sudo systemctl restart winecellarmulti-frontend
+sudo nginx -t
+sudo systemctl reload nginx
 
-echo "Checking services"
+echo "Checking backend service"
 sudo systemctl --no-pager --full status winecellarmulti-backend | sed -n '1,12p'
-sudo systemctl --no-pager --full status winecellarmulti-frontend | sed -n '1,12p'
 
 echo "WineCellarMulti is started."
