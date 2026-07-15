@@ -1,6 +1,6 @@
 """normalize wine tasting history for paginated archive queries
 
-Revision ID: 0049_normalize_wine_tasting_entries
+Revision ID: 0049_normalize_tastings
 Revises: 0048_query_performance_indexes
 """
 
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0049_normalize_wine_tasting_entries"
+revision = "0049_normalize_tastings"
 down_revision = "0048_query_performance_indexes"
 branch_labels = None
 depends_on = None
