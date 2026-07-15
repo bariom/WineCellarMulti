@@ -2024,7 +2024,10 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     assert restored_wine.status_code == 200
     assert restored_wine.json()["tasting_history"][0]["note"] == "Saved in backup history"
 
-    wishlist = client.get("/api/v1/wishlist")
+    wishlist_lists = client.get("/api/v1/wishlist/lists")
+    assert wishlist_lists.status_code == 200
+    imported_list = next(item for item in wishlist_lists.json() if item["item_count"] == 1)
+    wishlist = client.get(f"/api/v1/wishlist?wishlist_list_id={imported_list['id']}")
     assert wishlist.status_code == 200
     assert [item["name"] for item in wishlist.json()] == ["Roundtrip Wishlist"]
 
