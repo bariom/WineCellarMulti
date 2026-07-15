@@ -7,7 +7,7 @@ from app.models.billing import (
     UserAiCreditTransaction,
     UserEntitlement,
 )
-from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant
+from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant, CoOwnershipPayment
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
@@ -26,6 +26,7 @@ __all__ = [
     "AiAuditLog",
     "CoOwnershipAgreement",
     "CoOwnershipParticipant",
+    "CoOwnershipPayment",
     "Household",
     "HouseholdInvite",
     "Membership",

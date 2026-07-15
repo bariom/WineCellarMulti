@@ -54,7 +54,91 @@ function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, prin
 }
 
 
-export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, onCreate, onCancel }: {
+type PaymentDraft = { amount: string; paid_on: string; note: string };
+
+function todayValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function paymentMoney(value: string | null, currency: string, locale: Locale) {
+  if (value === null) return "—";
+  return `${currency} ${Number(value).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function PaymentLedger({ agreement, locale, saving, onRecord, onVoid }: {
+  agreement: CoOwnershipAgreement;
+  locale: Locale;
+  saving: boolean;
+  onRecord?: (participantId: string, payload: { amount: number; paid_on: string; note: string }) => Promise<void>;
+  onVoid?: (paymentId: string) => Promise<void>;
+}) {
+  const currency = String(agreement.wine_snapshot.currency || "CHF");
+  const [drafts, setDrafts] = useState<Record<string, PaymentDraft>>({});
+  const draftFor = (participantId: string): PaymentDraft => drafts[participantId] || { amount: "", paid_on: todayValue(), note: "" };
+
+  function updateDraft(participantId: string, patch: Partial<PaymentDraft>) {
+    setDrafts((current) => ({ ...current, [participantId]: { ...draftFor(participantId), ...patch } }));
+  }
+
+  async function submitPayment(event: FormEvent, participantId: string) {
+    event.preventDefault();
+    const draft = draftFor(participantId);
+    const amount = Number(draft.amount);
+    if (!onRecord || !Number.isFinite(amount) || amount <= 0 || !draft.paid_on) return;
+    await onRecord(participantId, { amount, paid_on: draft.paid_on, note: draft.note.trim() });
+    setDrafts((current) => ({ ...current, [participantId]: { amount: "", paid_on: todayValue(), note: "" } }));
+  }
+
+  return (
+    <section className="coownership-payment-ledger no-print">
+      <div className="coownership-ledger-heading">
+        <div><span>{locale === "it" ? "Registro economico separato" : "Separate financial ledger"}</span><h3>{locale === "it" ? "Versamenti e rimborsi" : "Payments and reimbursements"}</h3></div>
+        <small>{locale === "it" ? "Non modifica quote, accettazioni o documento firmato." : "Does not change shares, acceptances, or the signed document."}</small>
+      </div>
+      <div className="coownership-ledger-list">
+        {agreement.participants.map((participant) => {
+          const draft = draftFor(participant.id);
+          const settled = participant.outstanding !== null && Number(participant.outstanding) <= 0;
+          return (
+            <article className="coownership-ledger-participant" key={participant.id}>
+              <header>
+                <div><strong>{participant.name}</strong><span>{participant.email}</span></div>
+                <span className={`coownership-balance-status${settled ? " settled" : ""}`}>
+                  {participant.contribution === null ? (locale === "it" ? "Da definire" : "Not defined") : settled ? (locale === "it" ? "Saldato" : "Settled") : (locale === "it" ? "Aperto" : "Open")}
+                </span>
+              </header>
+              <div className="coownership-ledger-totals">
+                <div><span>{locale === "it" ? "Dovuto" : "Due"}</span><strong>{paymentMoney(participant.contribution, currency, locale)}</strong></div>
+                <div><span>{locale === "it" ? "Versato" : "Paid"}</span><strong>{paymentMoney(participant.paid_total, currency, locale)}</strong></div>
+                <div><span>{locale === "it" ? "Residuo" : "Outstanding"}</span><strong>{paymentMoney(participant.outstanding, currency, locale)}</strong></div>
+              </div>
+              {participant.payments.length ? (
+                <div className="coownership-payment-list">
+                  {participant.payments.map((payment) => (
+                    <div className={`coownership-payment-row${payment.voided_at ? " voided" : ""}`} key={payment.id}>
+                      <span><strong>{paymentMoney(payment.amount, payment.currency, locale)}</strong><small>{new Date(`${payment.paid_on}T00:00:00`).toLocaleDateString(locale)}{payment.note ? ` · ${payment.note}` : ""}</small></span>
+                      {payment.voided_at ? <small>{locale === "it" ? "Annullato" : "Voided"}</small> : agreement.can_manage_payments && onVoid ? <button type="button" className="secondary compact" disabled={saving} onClick={() => onVoid(payment.id)}>{locale === "it" ? "Annulla" : "Void"}</button> : null}
+                    </div>
+                  ))}
+                </div>
+              ) : <p className="empty-state">{locale === "it" ? "Nessun versamento registrato." : "No payments recorded."}</p>}
+              {agreement.can_manage_payments && onRecord ? (
+                <form className="coownership-payment-form" onSubmit={(event) => submitPayment(event, participant.id)}>
+                  <label><span>{locale === "it" ? "Importo" : "Amount"}</span><input required type="number" min="0.01" step="0.01" value={draft.amount} onChange={(event) => updateDraft(participant.id, { amount: event.target.value })} /></label>
+                  <label><span>{locale === "it" ? "Data" : "Date"}</span><input required type="date" value={draft.paid_on} onChange={(event) => updateDraft(participant.id, { paid_on: event.target.value })} /></label>
+                  <label><span>{locale === "it" ? "Nota" : "Note"}</span><input maxLength={500} value={draft.note} onChange={(event) => updateDraft(participant.id, { note: event.target.value })} placeholder={locale === "it" ? "Bonifico, contanti…" : "Transfer, cash…"} /></label>
+                  <button type="submit" className="compact" disabled={saving || !draft.amount || Number(draft.amount) <= 0}>{locale === "it" ? "Registra" : "Record"}</button>
+                </form>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, onCreate, onCancel, onRecordPayment, onVoidPayment }: {
   wine: Wine;
   session: Session | null;
   agreements: CoOwnershipAgreement[];
@@ -62,6 +146,8 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
   saving: boolean;
   onCreate: (payload: Record<string, unknown>) => Promise<void>;
   onCancel: (agreement: CoOwnershipAgreement) => Promise<void>;
+  onRecordPayment: (agreement: CoOwnershipAgreement, participantId: string, payload: { amount: number; paid_on: string; note: string }) => Promise<void>;
+  onVoidPayment: (agreement: CoOwnershipAgreement, paymentId: string) => Promise<void>;
 }) {
   const locale = session?.locale || "it";
   const initialParticipants = useMemo<CoOwnershipParticipantDraft[]>(() => {
@@ -108,6 +194,13 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
       {agreements.map((agreement) => (
         <div className="coownership-agreement-card" key={agreement.id}>
           {agreementDocument(agreement, locale, printAgreementId === agreement.id)}
+          <PaymentLedger
+            agreement={agreement}
+            locale={locale}
+            saving={saving}
+            onRecord={(participantId, payload) => onRecordPayment(agreement, participantId, payload)}
+            onVoid={(paymentId) => onVoidPayment(agreement, paymentId)}
+          />
           <div className="inline-form no-print">
             <button type="button" className="secondary compact" onClick={() => printAgreement(agreement.id)}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
             {agreement.can_cancel ? <button type="button" className="danger compact" disabled={saving} onClick={() => onCancel(agreement)}>{locale === "it" ? "Cancella proposta rifiutata" : "Delete rejected proposal"}</button> : null}
@@ -196,7 +289,7 @@ export function CoOwnershipPublicPage({ token, locale, onClose }: { token: strin
     <main className="coownership-public-page">
       <div className="coownership-public-actions no-print"><button type="button" className="secondary" onClick={onClose}>{locale === "it" ? "Torna a Vinaris" : "Back to Vinaris"}</button>{agreement ? <button type="button" className="secondary" onClick={() => window.print()}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button> : null}</div>
       {error ? <div className="error-banner"><span>{error}</span></div> : null}
-      {agreement ? agreementDocument(agreement, locale) : !error ? <p>{locale === "it" ? "Caricamento accordo…" : "Loading agreement…"}</p> : null}
+      {agreement ? <>{agreementDocument(agreement, locale)}<PaymentLedger agreement={agreement} locale={locale} saving={saving} /></> : !error ? <p>{locale === "it" ? "Caricamento accordo…" : "Loading agreement…"}</p> : null}
       {agreement && participant?.status === "pending" ? (
         <section className="wine-form coownership-response no-print">
           <h3>{locale === "it" ? "La tua risposta" : "Your response"}</h3>

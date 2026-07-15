@@ -1,6 +1,6 @@
 import hashlib
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -15,21 +15,34 @@ from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.rate_limit import enforce_rate_limit
 from app.core.security import hash_coownership_invite_token, new_coownership_invite_token
 from app.db.session import get_db
-from app.models import CoOwnershipAgreement, CoOwnershipParticipant, User, Wine, WineShareOffer
-from app.schemas.coownership import CoOwnershipAgreementCreate, CoOwnershipAgreementResponse, CoOwnershipParticipantResponse, CoOwnershipResponseRequest
+from app.models import (
+    CoOwnershipAgreement,
+    CoOwnershipParticipant,
+    CoOwnershipPayment,
+    User,
+    Wine,
+    WineShareOffer,
+)
+from app.schemas.coownership import (
+    CoOwnershipAgreementCreate,
+    CoOwnershipAgreementResponse,
+    CoOwnershipParticipantResponse,
+    CoOwnershipPaymentCreate,
+    CoOwnershipPaymentResponse,
+    CoOwnershipResponseRequest,
+)
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
-
 
 router = APIRouter(prefix="/co-ownership-agreements")
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def aware_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def request_origin(request: Request) -> str:
@@ -41,10 +54,38 @@ def participant_rows(db: Session, agreement_id: UUID) -> list[CoOwnershipPartici
     return list(db.scalars(select(CoOwnershipParticipant).where(CoOwnershipParticipant.agreement_id == agreement_id).order_by(CoOwnershipParticipant.email.asc())))
 
 
+def payment_response(payment: CoOwnershipPayment) -> CoOwnershipPaymentResponse:
+    return CoOwnershipPaymentResponse(
+        id=payment.id,
+        participant_id=payment.participant_id,
+        amount=payment.amount,
+        currency=payment.currency,
+        paid_on=payment.paid_on,
+        note=payment.note,
+        created_at=payment.created_at,
+        voided_at=payment.voided_at,
+    )
+
+
 def agreement_response(db: Session, agreement: CoOwnershipAgreement, request: Request, *, expose_links: bool, responding_participant_id: UUID | None = None) -> CoOwnershipAgreementResponse:
+    payment_records = list(
+        db.scalars(
+            select(CoOwnershipPayment)
+            .where(CoOwnershipPayment.agreement_id == agreement.id)
+            .order_by(CoOwnershipPayment.paid_on.desc(), CoOwnershipPayment.created_at.desc()),
+        ),
+    )
+    payments_by_participant: dict[UUID, list[CoOwnershipPayment]] = {}
+    for payment in payment_records:
+        payments_by_participant.setdefault(payment.participant_id, []).append(payment)
     participants = []
     for participant in participant_rows(db, agreement.id):
         token = decrypt_secret(participant.invite_token_encrypted) if expose_links else ""
+        participant_payments = payments_by_participant.get(participant.id, [])
+        paid_total = sum(
+            (payment.amount for payment in participant_payments if payment.voided_at is None),
+            Decimal("0"),
+        )
         participants.append(
             CoOwnershipParticipantResponse(
                 id=participant.id,
@@ -62,6 +103,9 @@ def agreement_response(db: Session, agreement: CoOwnershipAgreement, request: Re
                 delivery_channel=participant.delivery_channel,
                 delivery_status=participant.delivery_status,
                 invite_url=f"{request_origin(request)}/?coownership_token={token}" if token else None,
+                paid_total=paid_total,
+                outstanding=(max(participant.contribution - paid_total, Decimal("0")) if participant.contribution is not None else None),
+                payments=[payment_response(payment) for payment in participant_payments],
             )
         )
     return CoOwnershipAgreementResponse(
@@ -78,8 +122,26 @@ def agreement_response(db: Session, agreement: CoOwnershipAgreement, request: Re
         finalized_at=agreement.finalized_at,
         responding_participant_id=responding_participant_id,
         can_cancel=expose_links and agreement.status in {"invalidated", "declined"},
+        can_manage_payments=expose_links,
         participants=participants,
     )
+
+
+def manageable_agreement(
+    db: Session,
+    context: CurrentContext,
+    agreement_id: UUID,
+) -> CoOwnershipAgreement:
+    agreement = db.scalar(
+        select(CoOwnershipAgreement).where(
+            CoOwnershipAgreement.id == agreement_id,
+            CoOwnershipAgreement.household_id == context.household.id,
+            CoOwnershipAgreement.created_by_user_id == context.user.id,
+        ),
+    )
+    if agreement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Co-ownership agreement not found")
+    return agreement
 
 
 def wine_snapshot(wine: Wine) -> dict:
@@ -162,6 +224,70 @@ def list_wine_agreements(wine_id: UUID, request: Request, db: Session = Depends(
         .order_by(CoOwnershipAgreement.created_at.desc()),
     )
     return [agreement_response(db, agreement, request, expose_links=agreement.created_by_user_id == context.user.id) for agreement in agreements]
+
+
+@router.post(
+    "/{agreement_id}/participants/{participant_id}/payments",
+    response_model=CoOwnershipPaymentResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_participant_payment(
+    agreement_id: UUID,
+    participant_id: UUID,
+    payload: CoOwnershipPaymentCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CoOwnershipPaymentResponse:
+    agreement = manageable_agreement(db, context, agreement_id)
+    participant = db.scalar(
+        select(CoOwnershipParticipant).where(
+            CoOwnershipParticipant.id == participant_id,
+            CoOwnershipParticipant.agreement_id == agreement.id,
+        ),
+    )
+    if participant is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Co-owner not found")
+    payment = CoOwnershipPayment(
+        agreement_id=agreement.id,
+        participant_id=participant.id,
+        recorded_by_user_id=context.user.id,
+        amount=payload.amount,
+        currency=str(agreement.wine_snapshot.get("currency") or "CHF")[:8].upper(),
+        paid_on=payload.paid_on,
+        note=payload.note.strip(),
+    )
+    db.add(payment)
+    db.commit()
+    db.refresh(payment)
+    return payment_response(payment)
+
+
+@router.delete(
+    "/{agreement_id}/payments/{payment_id}",
+    response_model=CoOwnershipPaymentResponse,
+)
+def void_participant_payment(
+    agreement_id: UUID,
+    payment_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CoOwnershipPaymentResponse:
+    agreement = manageable_agreement(db, context, agreement_id)
+    payment = db.scalar(
+        select(CoOwnershipPayment).where(
+            CoOwnershipPayment.id == payment_id,
+            CoOwnershipPayment.agreement_id == agreement.id,
+        ),
+    )
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment record not found")
+    if payment.voided_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Payment record is already voided")
+    payment.voided_at = now_utc()
+    payment.voided_by_user_id = context.user.id
+    db.commit()
+    db.refresh(payment)
+    return payment_response(payment)
 
 
 @router.post("/wines/{wine_id}", response_model=CoOwnershipAgreementResponse, status_code=status.HTTP_201_CREATED)

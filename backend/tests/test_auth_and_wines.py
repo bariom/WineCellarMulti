@@ -1619,6 +1619,51 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
     assert registered["delivery_channel"] == "notification"
     assert external["user_id"] is None
     assert external["invite_url"]
+    assert agreement["can_manage_payments"] is True
+
+    first_payment = owner_client.post(
+        f"/api/v1/co-ownership-agreements/{agreement['id']}/participants/{registered['id']}/payments",
+        json={"amount": 150, "paid_on": "2026-07-15", "note": "Bank transfer"},
+    )
+    assert first_payment.status_code == 201
+    second_payment = owner_client.post(
+        f"/api/v1/co-ownership-agreements/{agreement['id']}/participants/{registered['id']}/payments",
+        json={"amount": 250, "paid_on": "2026-07-16", "note": "Final balance"},
+    )
+    assert second_payment.status_code == 201
+    unauthorized_payment = guest_user_client.post(
+        f"/api/v1/co-ownership-agreements/{agreement['id']}/participants/{registered['id']}/payments",
+        json={"amount": 1, "paid_on": "2026-07-16", "note": "Unauthorized"},
+    )
+    assert unauthorized_payment.status_code in {401, 404}
+
+    payment_summary = owner_client.get(
+        f"/api/v1/co-ownership-agreements/wines/{created_wine.json()['id']}"
+    ).json()[0]
+    registered_summary = next(
+        item
+        for item in payment_summary["participants"]
+        if item["email"] == "partner@example.com"
+    )
+    assert Decimal(registered_summary["paid_total"]) == Decimal("400")
+    assert Decimal(registered_summary["outstanding"]) == Decimal("0")
+
+    voided = owner_client.delete(
+        f"/api/v1/co-ownership-agreements/{agreement['id']}/payments/{second_payment.json()['id']}"
+    )
+    assert voided.status_code == 200
+    assert voided.json()["voided_at"] is not None
+    after_void = owner_client.get(
+        f"/api/v1/co-ownership-agreements/wines/{created_wine.json()['id']}"
+    ).json()[0]
+    registered_after_void = next(
+        item
+        for item in after_void["participants"]
+        if item["email"] == "partner@example.com"
+    )
+    assert Decimal(registered_after_void["paid_total"]) == Decimal("150")
+    assert Decimal(registered_after_void["outstanding"]) == Decimal("250")
+    assert len(registered_after_void["payments"]) == 2
 
     with TestingSessionLocal() as db:
         partner = db.query(User).filter(User.email == "partner@example.com").one()
@@ -1640,6 +1685,7 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
         f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}"
     )
     assert viewed.status_code == 200
+    assert viewed.json()["can_manage_payments"] is False
     first_accept = TestClient(app).post(
         f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}/respond",
         json={"decision": "accepted", "full_name": "External Partner"},

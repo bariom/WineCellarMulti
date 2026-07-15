@@ -284,6 +284,17 @@ export type WineShareOfferRecipient = {
   share_pct: string;
 };
 
+export type CoOwnershipPayment = {
+  id: string;
+  participant_id: string;
+  amount: string;
+  currency: string;
+  paid_on: string;
+  note: string;
+  created_at: string;
+  voided_at: string | null;
+};
+
 export type CoOwnershipParticipant = {
   id: string;
   user_id: string | null;
@@ -300,6 +311,9 @@ export type CoOwnershipParticipant = {
   delivery_channel: string;
   delivery_status: string;
   invite_url: string | null;
+  paid_total: string;
+  outstanding: string | null;
+  payments: CoOwnershipPayment[];
 };
 
 export type CoOwnershipAgreement = {
@@ -316,6 +330,7 @@ export type CoOwnershipAgreement = {
   finalized_at: string | null;
   responding_participant_id: string | null;
   can_cancel: boolean;
+  can_manage_payments: boolean;
   participants: CoOwnershipParticipant[];
 };
 

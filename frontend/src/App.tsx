@@ -2518,6 +2518,48 @@ export function App() {
     }
   }
 
+  async function recordCoOwnershipPayment(
+    wine: Wine,
+    agreement: CoOwnershipAgreement,
+    participantId: string,
+    payload: { amount: number; paid_on: string; note: string },
+  ) {
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/co-ownership-agreements/${agreement.id}/participants/${participantId}/payments`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await loadCoOwnershipAgreements(wine.id);
+      setNotice(locale === "it" ? "Rimborso registrato." : "Reimbursement recorded.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to record reimbursement");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function voidCoOwnershipPayment(
+    wine: Wine,
+    agreement: CoOwnershipAgreement,
+    paymentId: string,
+  ) {
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/co-ownership-agreements/${agreement.id}/payments/${paymentId}`, { method: "DELETE" });
+      await loadCoOwnershipAgreements(wine.id);
+      setNotice(locale === "it" ? "Registrazione annullata." : "Payment record voided.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to void reimbursement");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function createWineShareOffer(wine: Wine) {
     if (!shareDraft.email.trim()) return;
     setSaving(true);
@@ -5223,6 +5265,8 @@ export function App() {
           saving={saving}
           onCreate={(payload) => createCoOwnershipAgreement(wine, payload)}
           onCancel={(agreement) => cancelCoOwnershipAgreement(wine, agreement)}
+          onRecordPayment={(agreement, participantId, payload) => recordCoOwnershipPayment(wine, agreement, participantId, payload)}
+          onVoidPayment={(agreement, paymentId) => voidCoOwnershipPayment(wine, agreement, paymentId)}
         />
       </section>
     );
