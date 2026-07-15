@@ -6134,6 +6134,7 @@ export function App() {
         >
           {!needsRedeem ? (
           <div className="view-tabs">
+            <div className="view-tabs-navigation">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
               {t("home")}
@@ -6158,6 +6159,7 @@ export function App() {
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
+            </div>
             <form
               className="view-tabs-quick-search"
               role="search"

@@ -11253,6 +11253,29 @@ textarea {
     white-space: nowrap;
   }
 
+  .view-tabs {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .view-tabs-navigation {
+    width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .view-tabs-navigation::-webkit-scrollbar {
+    display: none;
+  }
+
+  .view-tabs .view-tabs-quick-search {
+    width: 100%;
+    margin-left: 0;
+  }
+
   .side-panel-actions {
     top: 52px;
     display: grid;
@@ -12006,6 +12029,14 @@ textarea {
   padding: 7px 13px;
   font-size: 0.82rem;
   line-height: 1;
+}
+
+.view-tabs-navigation {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  min-width: 0;
+  gap: 4px;
 }
 
 .view-tabs .view-tabs-quick-search {
