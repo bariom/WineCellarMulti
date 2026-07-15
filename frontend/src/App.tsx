@@ -6744,7 +6744,7 @@ export function App() {
                   {selectedVisibleWine && !wineFormOpen ? (
                   <button
                     type="button"
-                    className="secondary compact detail-expand-button"
+                    className="secondary side-panel-icon-button detail-expand-button"
                     aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
                     title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
                     onClick={() => setWineDetailExpanded((expanded) => !expanded)}
@@ -6754,21 +6754,27 @@ export function App() {
                   ) : null}
                   {selectedVisibleWine && !wineFormOpen ? (
                   <>
-                    <button type="button" className={compareWineIds.includes(selectedVisibleWine.id) ? "" : "secondary"} onClick={() => toggleCompareWine(selectedVisibleWine)}>
-                      {compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
+                    <button
+                      type="button"
+                      className={compareWineIds.includes(selectedVisibleWine.id) ? "side-panel-icon-button" : "secondary side-panel-icon-button"}
+                      onClick={() => toggleCompareWine(selectedVisibleWine)}
+                      aria-label={compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
+                      title={compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
+                    >
+                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
                     </button>
-                    <button type="button" className="secondary" onClick={() => startEditWine(selectedVisibleWine)} disabled={!canWriteWine}>
-                      {t("editSelected")}
+                    <button type="button" className="secondary side-panel-icon-button" onClick={() => startEditWine(selectedVisibleWine)} disabled={!canWriteWine} aria-label={t("editSelected")} title={t("editSelected")}>
+                      <AppIcon name="edit" />
                     </button>
                   </>
                   ) : null}
                   {compareWineIds.length ? (
                   <>
-                    <button type="button" className="secondary" onClick={openCompareModal}>
-                      {t("openCompare")} ({compareWineIds.length}/2)
+                    <button type="button" className="secondary side-panel-icon-button" onClick={openCompareModal} aria-label={`${t("openCompare")} (${compareWineIds.length}/2)`} title={`${t("openCompare")} (${compareWineIds.length}/2)`}>
+                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
                     </button>
-                    <button type="button" className="secondary" onClick={clearComparedWines}>
-                      {t("clearCompare")}
+                    <button type="button" className="secondary side-panel-icon-button" onClick={clearComparedWines} aria-label={t("clearCompare")} title={t("clearCompare")}>
+                      <AppIcon name="delete" />
                     </button>
                   </>
                   ) : null}
