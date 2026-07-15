@@ -1,0 +1,30 @@
+minimum_pre_commit_version: "4.0.0"
+default_stages: [pre-commit]
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: Ruff lint
+        entry: ruff check --fix
+        language: system
+        files: ^backend/app/.*\.py$
+      - id: ruff-format
+        name: Ruff format
+        entry: ruff format
+        language: system
+        files: ^backend/app/prompts/.*\.py$
+      - id: pyright
+        name: Pyright type check
+        entry: pyright
+        language: system
+        files: ^backend/app/.*\.py$

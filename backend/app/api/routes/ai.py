@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from dataclasses import replace
-from decimal import Decimal, InvalidOperation, ROUND_FLOOR
 import math
 import re
+from dataclasses import replace
+from datetime import UTC, datetime
+from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from typing import Any
 from uuid import UUID, uuid4
 
@@ -13,16 +13,40 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
-from app.api.routes.wines import get_household_wine, record_wine_value_history, user_can_see_wine, user_tag_names_by_wine, wine_response, wine_value_history_by_wine
-from app.api.routes.wishlist import get_household_wishlist_item, get_household_wishlist_list, get_or_create_default_wishlist_list, wishlist_ai_generated_dates, wishlist_response
+from app.api.routes.billing import stripe_ai_credit_amount
+from app.api.routes.wines import (
+    get_household_wine,
+    record_wine_value_history,
+    user_can_see_wine,
+    user_tag_names_by_wine,
+    wine_response,
+    wine_value_history_by_wine,
+)
+from app.api.routes.wishlist import (
+    get_household_wishlist_item,
+    get_household_wishlist_list,
+    get_or_create_default_wishlist_list,
+    wishlist_ai_generated_dates,
+    wishlist_response,
+)
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, User, UserAiCreditTransaction, UserAiSettings, Wine, WishlistItem
+from app.prompts import (
+    ai_notes_prompt,
+    drink_window_prompt,
+    grape_composition_prompt,
+    wine_scores_prompt,
+    wine_value_prompt,
+    wishlist_advice_prompt,
+    wishlist_purpose_prompt,
+    wishlist_value_prompt,
+)
 from app.schemas.ai import (
-    AiGenerationRequest,
     AiAuditLogResponse,
+    AiGenerationRequest,
     AiSettingsResponse,
     AiSettingsUpdate,
     AiUsageBucket,
@@ -34,9 +58,9 @@ from app.schemas.ai import (
     PairingMarketWine,
     PairingRequest,
     PairingResponse,
+    RegionalGapTarget,
     RegionalGapTargetSuggestionRequest,
     RegionalGapTargetSuggestionResponse,
-    RegionalGapTarget,
     WineCompareRequest,
     WineCompareResponse,
     WineLabelEnrichmentRequest,
@@ -46,11 +70,14 @@ from app.schemas.ai import (
 )
 from app.schemas.wine import WineResponse
 from app.schemas.wishlist import WishlistResponse
-from app.services.openai_client import TokenUsage, create_response, parse_json_response
-from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
+from app.services.ai_credits import (
+    ZERO_USD,
+    ai_credit_balance,
+    create_ai_credit_transaction,
+    quantize_usd,
+)
 from app.services.ai_models import parameters_for_model
-from app.api.routes.billing import stripe_ai_credit_amount
-
+from app.services.openai_client import TokenUsage, create_response, parse_json_response
 
 router = APIRouter(prefix="/ai")
 
@@ -600,8 +627,8 @@ def usage_bucket(entries: list[AiAuditLog]) -> AiUsageBucket:
 
 def utc_datetime(value: datetime) -> datetime:
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 @router.get("/audit", response_model=list[AiAuditLogResponse])
@@ -631,7 +658,7 @@ def get_ai_usage(
             .where(AiAuditLog.user_id == context.user.id),
         ),
     )
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     today = [entry for entry in entries if utc_datetime(entry.created_at).date() == now.date()]
     current_month = [
         entry
@@ -682,7 +709,7 @@ def update_ai_settings(
         user_settings.model_advisor_enabled = payload.model_advisor_enabled
     if payload.pairing_candidate_limit is not None:
         user_settings.pairing_candidate_limit = payload.pairing_candidate_limit
-    user_settings.updated_at = datetime.now(timezone.utc)
+    user_settings.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(user_settings)
     return ai_settings_response(db, context, user_settings)
@@ -804,7 +831,7 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
     )
     high_priority_count = sum(1 for item in items if wishlist_priority_rank(item.priority) == 0)
     ready_to_buy_count = sum(1 for item in items if wishlist_ready_to_buy(item.status))
-    total_target_value = sum(Decimal(str(item.target_price or 0)) for item in items)
+    total_target_value = sum((Decimal(str(item.target_price or 0)) for item in items), Decimal("0"))
     lines = [
         f"Household: {household_name}",
         f"Wishlist items: {len(items)}",
@@ -944,7 +971,7 @@ def select_pairing_candidates(wines: list[Wine], limit: int = PAIRING_MAX_CANDID
     if len(wines) <= limit:
         return wines
 
-    current_year = datetime.now(timezone.utc).year
+    current_year = datetime.now(UTC).year
     by_type: dict[str, list[Wine]] = {}
     for wine in sorted(wines, key=lambda item: pairing_candidate_sort_key(item, current_year)):
         by_type.setdefault((wine.type or "Other").strip() or "Other", []).append(wine)
@@ -1481,14 +1508,15 @@ def generate_wine_notes(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = ai_notes_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
     response, provider_source = create_ai_response(
         db,
         context,
         user_settings,
         model=request_model(payload, user_settings.ai_notes_model),
         task_type="ai_notes",
-        system_prompt=f"You are a concise wine expert. {response_language_instruction(payload.locale)} Do not invent exact facts; say when evidence is limited.",
-        user_prompt=f"Create practical cellar notes for this wine in 3-5 sentences.\n\n{wine_lookup_context(wine)}",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
@@ -1597,6 +1625,7 @@ def generate_drink_window(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = drink_window_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
     schema = {
         "name": "drink_window",
         "schema": {
@@ -1618,8 +1647,8 @@ def generate_drink_window(
         user_settings,
         model=request_model(payload, user_settings.drink_window_model),
         task_type="drink_window",
-        system_prompt=f"You are a conservative wine cellar planner. Return JSON only. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Estimate a drinking window for this wine. Use realistic years and concise notes.\n\n{wine_lookup_context(wine)}",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -1654,6 +1683,7 @@ def generate_wine_value(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = wine_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(wine.currency), currency=wine.currency, wine_context=wine_market_context(wine))
     schema = {
         "name": "wine_value",
         "schema": {
@@ -1690,21 +1720,8 @@ def generate_wine_value(
         user_settings,
         model=request_model(payload, user_settings.value_model),
         task_type="wine_value",
-        system_prompt=(
-            "You estimate wine value cautiously. Return JSON only. "
-            "Use live web search for current market prices. "
-            "If verified market data is uncertain, keep close to the best verified sources and explain uncertainty. "
-            "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
-            "Keep market_note concise and useful. "
-            f"{value_currency_instruction(wine.currency)} "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            f"Estimate current unit value for this exact wine. Final current_value and currency must be {wine.currency}. "
-            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
-            "Use market_note for a short availability or confidence comment.\n\n"
-            f"{wine_market_context(wine)}"
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
         web_search=True,
     )
@@ -1721,7 +1738,7 @@ def generate_wine_value(
     wine.current_value = max(value, Decimal("0"))
     wine.currency = result_currency
     wine.ai_value_notes = str(result["notes"])[:2000]
-    wine.ai_value_estimated_at = datetime.now(timezone.utc)
+    wine.ai_value_estimated_at = datetime.now(UTC)
     note_entry = market_note_source(result.get("market_note") or result.get("notes"))
     audit_sources = market_sources + web_search_source_entries(response.web_sources) + ([note_entry] if note_entry else [])
     record_wine_value_history(db, wine, source="ai")
@@ -1755,6 +1772,7 @@ def generate_grapes(
     if wine.grapes and wine.grapes_source_url:
         return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = grape_composition_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
     schema = {
         "name": "grape_composition",
         "schema": {
@@ -1785,16 +1803,8 @@ def generate_grapes(
         user_settings,
         model=request_model(payload, user_settings.grape_model),
         task_type="grape_inference",
-        system_prompt=(
-            "You verify exact wine grape composition using web sources. Return JSON only. "
-            "Never estimate from appellation rules or a typical blend. Return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            "Search the web for the exact grape composition of this wine and vintage. "
-            "Prefer the winery, technical sheet, importer, or a reputable merchant. Percentages must be source-supported.\n\n"
-            f"{wine_lookup_context(wine)}"
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
         web_search=True,
         web_search_context_size="medium",
@@ -1810,7 +1820,7 @@ def generate_grapes(
         wine.grapes = grapes
         wine.grapes_source_url = str(verified_source.get("url") or "")[:500]
         wine.grapes_source_title = str(verified_source.get("title") or "")[:200]
-        wine.grapes_verified_at = datetime.now(timezone.utc)
+        wine.grapes_verified_at = datetime.now(UTC)
     note = str(result.get("notes") or "").strip()
     if note and saved_verified_grapes:
         wine.ai_notes = f"{wine.ai_notes}\n\nUve: {note}".strip()[:4000]
@@ -1843,6 +1853,7 @@ def generate_scores(
     if wine.scores_not_applicable:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI score lookup disabled for this wine")
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = wine_scores_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
     schema = {
         "name": "wine_scores",
         "schema": {
@@ -1873,18 +1884,8 @@ def generate_scores(
         user_settings,
         model=request_model(payload, user_settings.score_model),
         task_type="score_summary",
-        system_prompt=(
-            "You research published wine critic scores using web sources. Return JSON only. "
-            "Never invent a score: include a score only when a credible source supports the wine, vintage and critic. "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            "Search the web for additional published critic scores for this exact wine and vintage, including en-primeur scores when relevant. "
-            "Return published critic-and-score combinations for this wine; the application preserves existing scores and removes duplicates. "
-            "Prefer primary critic publications or reputable wine merchants quoting named critics. "
-            "In each note, include the source name and state if the score is an en-primeur range. If evidence is weak, return an empty scores array.\n\n"
-            f"{wine_lookup_context(wine)}"
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
         web_search=True,
         web_search_context_size="medium",
@@ -1944,6 +1945,7 @@ def generate_wishlist_strategy(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = wishlist_advice_prompt(locale=payload.locale, wishlist_context=wishlist_advice_context(item))
     schema = {
         "name": "wishlist_strategy",
         "schema": {
@@ -1964,8 +1966,8 @@ def generate_wishlist_strategy(
         user_settings,
         model=request_model(payload, user_settings.wishlist_model),
         task_type="wishlist_advice",
-        system_prompt=f"You are a pragmatic wine buying advisor. Return JSON only. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_advice_context(item)}",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -2000,6 +2002,7 @@ def generate_wishlist_purpose(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = wishlist_purpose_prompt(locale=payload.locale, wishlist_context=wishlist_advice_context(item))
     schema = {
         "name": "wishlist_purpose",
         "schema": {
@@ -2019,8 +2022,8 @@ def generate_wishlist_purpose(
         user_settings,
         model=request_model(payload, user_settings.wishlist_model),
         task_type="wishlist_purpose",
-        system_prompt=f"You decide the best purpose for a wishlist wine. Return JSON only. {response_language_instruction(payload.locale)}",
-        user_prompt=f"Recommend whether this wine is best for drinking, cellaring, gifting, or investment.\n\n{wishlist_advice_context(item)}",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
     )
     result = parse_json_response(response.text)
@@ -2054,6 +2057,7 @@ def generate_wishlist_target_price(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = wishlist_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(item.currency), currency=item.currency, target_price=item.target_price, wishlist_context=wishlist_market_context(item))
     schema = {
         "name": "wishlist_market_price",
         "schema": {
@@ -2091,23 +2095,8 @@ def generate_wishlist_target_price(
         user_settings,
         model=request_model(payload, user_settings.value_model),
         task_type="wishlist_value",
-        system_prompt=(
-            "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
-            "Use live web search for current market prices. "
-            "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
-            "Keep market_note concise and useful. "
-            f"{value_currency_instruction(item.currency)} "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            f"Estimate the current market price for this exact wishlist item. "
-            f"Final market_price and market_price_currency must be {item.currency}. "
-            f"The user target price is {item.currency} {item.target_price}; use it only to evaluate opportunity after estimating market price independently. "
-            "Use price_advice to compare the user target price with the estimated market price. "
-            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
-            "Use market_note for a short availability or confidence comment.\n\n"
-            f"{wishlist_market_context(item)}"
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
         web_search=True,
     )
@@ -2219,7 +2208,8 @@ def suggest_regional_gap_targets(
         json_schema=schema,
     )
     result = parse_json_response(response.text)
-    raw_targets = result.get("targets") if isinstance(result.get("targets"), list) else []
+    raw_targets_value = result.get("targets")
+    raw_targets: list[Any] = raw_targets_value if isinstance(raw_targets_value, list) else []
     target_by_region: dict[str, Decimal] = {}
     for item in raw_targets:
         if not isinstance(item, dict):
@@ -2360,7 +2350,7 @@ def generate_wishlist_portfolio_strategy(
         wishlist_list_id=wishlist_list.id,
         wishlist_list_name=wishlist_list.name,
         item_count=len(items),
-        generated_at=datetime.now(timezone.utc),
+        generated_at=datetime.now(UTC),
         estimated_cost_usd=charged_cost,
     )
     wishlist_list.portfolio_strategy = strategy_response.model_dump(mode="json")

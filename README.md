@@ -84,6 +84,36 @@ chmod +x dev.sh
 ./dev.sh
 ```
 
+## Code quality
+
+Install the backend development dependencies and activate its virtual environment:
+
+```bash
+cd backend
+python -m pip install -e ".[dev]"
+source .venv/bin/activate
+cd ..
+```
+
+On Windows PowerShell, use `.venv\Scripts\Activate.ps1` in place of
+`source .venv/bin/activate`.
+
+Then install the Git hooks from the repository root:
+
+```bash
+pre-commit install
+```
+
+The hooks validate staged application Python files with Ruff (lint and format)
+and Pyright. Run the same checks manually with:
+
+```bash
+ruff check app
+ruff format --check app
+pyright app
+pytest
+```
+
 Update backend and frontend from the repository root:
 
 ```bash
