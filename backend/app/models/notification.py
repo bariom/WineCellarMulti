@@ -13,10 +13,13 @@ class UserNotification(Base):
     __tablename__ = "user_notifications"
     __table_args__ = (
         Index("uq_user_notifications_user_id_fingerprint", "user_id", "fingerprint", unique=True),
+        Index("ix_user_notifications_user_read_created", "user_id", "read_at", "created_at"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
     kind: Mapped[str] = mapped_column(String(80), default="info")
     title: Mapped[str] = mapped_column(String(180))
     message: Mapped[str] = mapped_column(Text, default="")

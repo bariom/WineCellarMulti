@@ -4,7 +4,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, Date, DateTime, ForeignKey, JSON, Numeric, String, Text, Uuid
+from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -12,10 +12,15 @@ from app.db.base import Base
 
 class Wine(Base):
     __tablename__ = "wines"
+    __table_args__ = (Index("ix_wines_household_name_vintage", "household_id", "name", "vintage"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    household_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True)
-    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
     name: Mapped[str] = mapped_column(String(200), index=True)
     producer: Mapped[str] = mapped_column(String(200), default="")
     vintage: Mapped[str] = mapped_column(String(16), default="")
@@ -40,14 +45,18 @@ class Wine(Base):
     drink_to: Mapped[int | None] = mapped_column(nullable=True)
     drink_window_notes: Mapped[str] = mapped_column(Text, default="")
     ai_value_notes: Mapped[str] = mapped_column(Text, default="")
-    ai_value_estimated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    ai_value_estimated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     rating: Mapped[int] = mapped_column(default=0)
     owners: Mapped[list[dict]] = mapped_column(JSON, default=list)
     tags: Mapped[list[str]] = mapped_column(JSON, default=list)
     grapes: Mapped[list[dict]] = mapped_column(JSON, default=list)
     grapes_source_url: Mapped[str] = mapped_column(String(500), default="")
     grapes_source_title: Mapped[str] = mapped_column(String(200), default="")
-    grapes_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    grapes_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
     tasting_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
@@ -55,10 +64,15 @@ class Wine(Base):
 
 class WineValueHistory(Base):
     __tablename__ = "wine_value_history"
+    __table_args__ = (Index("ix_wine_value_history_wine_recorded_at", "wine_id", "recorded_at"),)
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    wine_id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True)
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
     value: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     source: Mapped[str] = mapped_column(String(32), default="manual")
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, index=True)
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, index=True
+    )
