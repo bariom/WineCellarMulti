@@ -6720,7 +6720,7 @@ export function App() {
 
           {isCollectionView ? (
           <aside className="wine-side-panel">
-            {isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
+            {false && isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
               <div className="wine-side-panel-topbar">
                 <button
                   type="button"
@@ -6735,12 +6735,24 @@ export function App() {
             ) : null}
             {isWineCollectionView ? (
               <div className="side-panel-actions">
-                {activeView === "cellar" ? (
-                  <button type="button" onClick={startAddWine} disabled={!canWriteWine}>
-                    {t("addWine")}
+                <div className="side-panel-action-buttons">
+                  {activeView === "cellar" ? (
+                    <button type="button" className="side-panel-add-button" onClick={startAddWine} disabled={!canWriteWine}>
+                      {t("addWine")}
+                    </button>
+                  ) : null}
+                  {selectedVisibleWine && !wineFormOpen ? (
+                  <button
+                    type="button"
+                    className="secondary compact detail-expand-button"
+                    aria-label={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio vino" : "Reduce wine detail") : (locale === "it" ? "Espandi dettaglio vino" : "Expand wine detail")}
+                    title={wineDetailExpanded ? (locale === "it" ? "Riduci dettaglio" : "Reduce detail") : (locale === "it" ? "Espandi dettaglio" : "Expand detail")}
+                    onClick={() => setWineDetailExpanded((expanded) => !expanded)}
+                  >
+                    <span aria-hidden="true">{wineDetailExpanded ? "↙" : "↗"}</span>
                   </button>
-                ) : null}
-                {selectedVisibleWine && !wineFormOpen ? (
+                  ) : null}
+                  {selectedVisibleWine && !wineFormOpen ? (
                   <>
                     <button type="button" className={compareWineIds.includes(selectedVisibleWine.id) ? "" : "secondary"} onClick={() => toggleCompareWine(selectedVisibleWine)}>
                       {compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
@@ -6749,8 +6761,8 @@ export function App() {
                       {t("editSelected")}
                     </button>
                   </>
-                ) : null}
-                {compareWineIds.length ? (
+                  ) : null}
+                  {compareWineIds.length ? (
                   <>
                     <button type="button" className="secondary" onClick={openCompareModal}>
                       {t("openCompare")} ({compareWineIds.length}/2)
@@ -6759,14 +6771,16 @@ export function App() {
                       {t("clearCompare")}
                     </button>
                   </>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="side-panel-actions">
-                <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
-                  {t("addWishlist")}
-                </button>
-                {selectedWishlistItem && !wishlistFormOpen ? (
+                <div className="side-panel-action-buttons">
+                  <button type="button" className="side-panel-add-button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
+                    {t("addWishlist")}
+                  </button>
+                  {selectedWishlistItem && !wishlistFormOpen ? (
                   <>
                     <button type="button" className="secondary" onClick={() => startEditWishlistItem(selectedWishlistItem)} disabled={!canWriteWine}>
                       {t("editSelected")}
@@ -6775,7 +6789,8 @@ export function App() {
                       {t("convert")}
                     </button>
                   </>
-                ) : null}
+                  ) : null}
+                </div>
               </div>
             )}
             {isWineCollectionView && wineFormOpen ? (
