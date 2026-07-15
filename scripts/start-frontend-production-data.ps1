@@ -11,7 +11,13 @@ $nodeDirectory = "C:\ERI\node"
 $npmCommand = Join-Path $nodeDirectory "npm.cmd"
 
 if (-not (Test-Path -LiteralPath $npmCommand)) {
-  throw "npm non trovato in $npmCommand. Aggiorna il percorso Node nello script."
+  $npmFromPath = Get-Command "npm.cmd" -ErrorAction SilentlyContinue
+  if (-not $npmFromPath) {
+    throw "npm non trovato né in $npmCommand né nel PATH."
+  }
+
+  $npmCommand = $npmFromPath.Source
+  $nodeDirectory = Split-Path -Parent $npmCommand
 }
 
 if (-not (Test-Path -LiteralPath $frontendDirectory)) {
