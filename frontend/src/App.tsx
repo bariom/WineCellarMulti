@@ -1429,6 +1429,10 @@ export function App() {
     }
   }
 
+  async function loadHouseholdMemberships() {
+    setHouseholdMemberships(await api<HouseholdMembership[]>("/api/v1/household/memberships"));
+  }
+
   async function loadAppUsers(isAppAdmin = session?.is_app_admin) {
     if (isAppAdmin) {
       const [nextUsers, nextPendingUsers] = await Promise.all([
@@ -1620,6 +1624,7 @@ export function App() {
       loadPortfolioValueHistory(),
       loadNotifications(nextSession.authenticated),
       loadBilling(nextSession.authenticated, nextSession.is_app_admin),
+      loadHouseholdMemberships(),
     ]);
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
