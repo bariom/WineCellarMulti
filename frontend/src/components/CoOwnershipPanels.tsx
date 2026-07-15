@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type { CoOwnershipAgreement, CoOwnershipParticipantDraft, Locale, Session, Wine } from "../types";
 import { api } from "../services/api";
@@ -139,12 +139,13 @@ function PaymentLedger({ agreement, locale, saving, onRecord, onVoid }: {
   );
 }
 
-export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, onCreate, onCancel, onRecordPayment, onVoidPayment }: {
+export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, focusRequestId, onCreate, onCancel, onRecordPayment, onVoidPayment }: {
   wine: Wine;
   session: Session | null;
   agreements: CoOwnershipAgreement[];
   canWrite: boolean;
   saving: boolean;
+  focusRequestId?: string;
   onCreate: (payload: Record<string, unknown>) => Promise<void>;
   onCancel: (agreement: CoOwnershipAgreement) => Promise<void>;
   onRecordPayment: (agreement: CoOwnershipAgreement, participantId: string, payload: { amount: number; paid_on: string; note: string }) => Promise<void>;
@@ -164,8 +165,18 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
   const [terms, setTerms] = useState("");
   const [emailRegisteredUsers, setEmailRegisteredUsers] = useState(true);
   const [printAgreementId, setPrintAgreementId] = useState<string | null>(null);
+  const panelRef = useRef<HTMLDetailsElement>(null);
 
   useEffect(() => setParticipants(initialParticipants), [initialParticipants]);
+
+  useEffect(() => {
+    if (!focusRequestId || !panelRef.current) return;
+    panelRef.current.open = true;
+    const frame = window.requestAnimationFrame(() => {
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequestId]);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -190,7 +201,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
   }
 
   return (
-    <details className="wine-form share-panel collapsible-panel coownership-panel">
+    <details ref={panelRef} className="wine-form share-panel collapsible-panel coownership-panel">
       <summary>{locale === "it" ? "Accordi di comproprietà" : "Co-ownership agreements"}</summary>
       {agreements.map((agreement) => (
         <div className="coownership-agreement-card" key={agreement.id}>

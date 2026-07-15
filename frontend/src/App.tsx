@@ -806,6 +806,7 @@ export function App() {
   const [passwordResetToken, setPasswordResetToken] = useState("");
   const [coOwnershipToken, setCoOwnershipToken] = useState("");
   const [coOwnershipAgreements, setCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
+  const [coOwnershipFocusRequest, setCoOwnershipFocusRequest] = useState<{ wineId: string; requestId: string } | null>(null);
   const [inviteToken, setInviteToken] = useState("");
   const [generatedInviteLink, setGeneratedInviteLink] = useState("");
   const [redeemCodeDraft, setRedeemCodeDraft] = useState<RedeemCodeDraft>(emptyRedeemCodeDraft);
@@ -2459,7 +2460,15 @@ export function App() {
     } else if (notification.action_url?.includes("/home")) {
       setActiveView("home");
     } else if (notification.action_url?.includes("/cellar")) {
-      setActiveView("cellar");
+      const url = new URL(notification.action_url, window.location.origin);
+      const wineId = url.searchParams.get("wine_id");
+      if (wineId) {
+        const targetWine = wines.find((wine) => wine.id === wineId) || await loadWineDetail(wineId);
+        setCoOwnershipFocusRequest({ wineId, requestId: notification.id });
+        openWineInView(targetWine, "cellar");
+      } else {
+        setActiveView("cellar");
+      }
     } else if (notification.action_url?.includes("/wishlist")) {
       setActiveView("wishlist");
     } else if (notification.action_url?.includes("/history")) {
@@ -5263,6 +5272,7 @@ export function App() {
           agreements={coOwnershipAgreements}
           canWrite={canWriteWine && !offlineMode}
           saving={saving}
+          focusRequestId={coOwnershipFocusRequest?.wineId === wine.id ? coOwnershipFocusRequest.requestId : ""}
           onCreate={(payload) => createCoOwnershipAgreement(wine, payload)}
           onCancel={(agreement) => cancelCoOwnershipAgreement(wine, agreement)}
           onRecordPayment={(agreement, participantId, payload) => recordCoOwnershipPayment(wine, agreement, participantId, payload)}

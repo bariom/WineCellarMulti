@@ -422,13 +422,17 @@ def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, re
                 other.responded_at = now_utc()
     creator = db.get(User, agreement.created_by_user_id)
     if creator is not None:
+        wine = db.get(Wine, agreement.wine_id)
+        wine_label = " ".join(
+            part for part in [wine.name if wine else "", wine.vintage if wine else ""] if part
+        ).strip() or "vino"
         create_user_notification(
             db,
             creator,
             kind="coownership_response",
             title="Risposta a un accordo di comproprietà",
-            message=f"{participant.name} ha {('accettato' if payload.decision == 'accepted' else 'rifiutato')} l'accordo. Stato: {agreement.status}.",
-            action_url="/cellar",
+            message=f"{participant.name} ha {('accettato' if payload.decision == 'accepted' else 'rifiutato')} l'accordo per {wine_label}. Stato: {agreement.status}.",
+            action_url=f"/cellar?wine_id={agreement.wine_id}&section=coownership",
             fingerprint=f"coownership-response:{agreement.id}:{participant.id}",
         )
     db.commit()

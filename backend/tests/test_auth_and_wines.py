@@ -1692,6 +1692,14 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
     )
     assert first_accept.status_code == 200
     assert first_accept.json()["status"] == "pending"
+    response_notifications = owner_client.get("/api/v1/notifications").json()
+    response_notification = next(
+        item for item in response_notifications if item["kind"] == "coownership_response"
+    )
+    assert response_notification["action_url"] == (
+        f"/cellar?wine_id={created_wine.json()['id']}&section=coownership"
+    )
+    assert "Shared Barolo 2019" in response_notification["message"]
     for email in ("owner@example.com", "partner@example.com"):
         response = TestClient(app).post(
             f"/api/v1/co-ownership-agreements/public/{tokens[email]}/respond",
