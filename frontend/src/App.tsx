@@ -695,9 +695,19 @@ function appActionSvgIcon(kind: "compare" | "edit" | "import" | "export" | "dele
   );
 }
 
+function PortfolioValueSparkline({ points }: { points: Array<{ recorded_at: string; value: string }> }) {
+  const values = points.map((point) => Number(point.value)).filter(Number.isFinite);
+  if (values.length < 2) return null;
+  const minimum = Math.min(...values);
+  const range = Math.max(Math.max(...values) - minimum, 1);
+  const path = values.map((value, index) => `${index ? "L" : "M"}${(index / (values.length - 1)) * 100} ${30 - ((value - minimum) / range) * 26}`).join(" ");
+  return <svg className="portfolio-value-sparkline" viewBox="0 0 100 32" role="img" aria-label="Evoluzione valore cantina"><path d={path} /></svg>;
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
+  const [portfolioValueHistory, setPortfolioValueHistory] = useState<Array<{ recorded_at: string; value: string }>>([]);
   const [wineCatalog, setWineCatalog] = useState<CatalogWine[]>([]);
   const [wineRecognitionResult, setWineRecognitionResult] = useState<WineRecognitionResult | null>(null);
   const [wineRecognitionTarget, setWineRecognitionTarget] = useState<"wine" | "wishlist">("wine");
@@ -1249,6 +1259,10 @@ export function App() {
     setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : null));
   }
 
+  async function loadPortfolioValueHistory() {
+    setPortfolioValueHistory(await api<Array<{ recorded_at: string; value: string }>>("/api/v1/wines/value-history/portfolio"));
+  }
+
   async function loadTastingArchive(offset = tastingArchiveOffset) {
     if (offlineMode || !session?.authenticated) {
       setTastingArchivePage(null);
@@ -1544,7 +1558,7 @@ export function App() {
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
       : nextLists[0]?.id || "";
-    await Promise.all([loadWines(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadPendingCatalogEntries(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
+    await Promise.all([loadWines(), loadPortfolioValueHistory(), loadWishlist(activeWishlistListId), loadShareOffers(nextSession.authenticated), loadReceivedInvites(nextSession.authenticated), loadNotifications(nextSession.authenticated), loadTags(nextSession.membership_role), loadPasskeys(nextSession.authenticated), loadHouseholdData(nextSession.membership_role), loadAppUsers(nextSession.is_app_admin), loadPendingCatalogEntries(nextSession.is_app_admin), loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadAiAudit(nextSession.membership_role), loadAiUsage(nextSession.membership_role), loadAiSettings(nextSession.membership_role), loadTastingArchiveOverview(nextSession.authenticated)]);
   }
 
   async function loadData() {
@@ -7330,6 +7344,7 @@ export function App() {
                       <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
                       <small>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</small>
                     </span>
+                    <PortfolioValueSparkline points={portfolioValueHistory} />
                   </button>
                   <button type="button" className={`cellar-kpi-card ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                     <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>

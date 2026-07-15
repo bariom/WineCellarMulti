@@ -13354,6 +13354,22 @@ textarea:hover {
   gap: 8px;
 }
 
+.portfolio-value-sparkline {
+  width: 92px;
+  height: 34px;
+  margin-left: auto;
+  overflow: visible;
+  color: var(--primary);
+}
+
+.portfolio-value-sparkline path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .side-panel-actions .side-panel-icon-button {
   display: inline-grid;
   width: 36px;

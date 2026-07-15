@@ -409,6 +409,40 @@ def list_wines(
     return [wine_response(wine, tags_by_wine.get(wine.id), include_details=False) for wine in wines]
 
 
+@router.get("/value-history/portfolio")
+def portfolio_value_history(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(get_current_context)
+) -> list[dict]:
+    wines = {
+        wine.id: wine
+        for wine in db.scalars(select(Wine).where(Wine.household_id == context.household.id))
+        if user_can_see_wine(context, wine)
+    }
+    if not wines:
+        return []
+    rows = db.scalars(
+        select(WineValueHistory)
+        .where(WineValueHistory.wine_id.in_(wines))
+        .order_by(WineValueHistory.recorded_at.asc(), WineValueHistory.id.asc())
+    )
+    values: dict[UUID, Decimal] = {}
+    points: list[dict] = []
+    for row in rows:
+        wine = wines[row.wine_id]
+        values[wine.id] = row.value * max(wine.quantity, 0)
+        points.append({"recorded_at": row.recorded_at, "value": sum(values.values(), Decimal("0"))})
+    current = sum(
+        (
+            Decimal(str(wine.current_value or wine.price or 0)) * max(wine.quantity, 0)
+            for wine in wines.values()
+        ),
+        Decimal("0"),
+    )
+    if not points or points[-1]["value"] != current:
+        points.append({"recorded_at": datetime.now(UTC), "value": current})
+    return points[-30:]
+
+
 @router.get("/tasting-archive", response_model=TastingArchivePageResponse)
 def list_tasting_archive(
     q: str = Query(default=""),
