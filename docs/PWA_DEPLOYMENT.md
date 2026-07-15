@@ -4,8 +4,7 @@ Vinaris includes a web app manifest and service worker, so Android/Chrome can in
 
 ## Recommended nginx layout
 
-Do not reuse `bariomwines.duckdns.org` if it must keep serving the old WineCellar app at `/`.
-Use the dedicated hostname for Vinaris, `vinaris.app`, and keep `vinaris.duckdns.org` only as a temporary transition hostname if needed. Point nginx to:
+Use the dedicated hostname for Vinaris, `vinaris.app`. Point nginx to:
 
 - frontend build: `/home/administrator/progetti/WineCellarMulti/frontend/dist`
 - backend API: `127.0.0.1:8000`
@@ -86,33 +85,6 @@ server {
     listen 80;
     listen [::]:80;
     server_name vinaris.app www.vinaris.app;
-
-    location / {
-        return 301 https://vinaris.app$request_uri;
-    }
-}
-```
-
-Optional transition block for the legacy hostname:
-
-```nginx
-server {
-    listen 80;
-    listen [::]:80;
-    server_name vinaris.duckdns.org;
-
-    location / {
-        return 301 https://vinaris.app$request_uri;
-    }
-}
-
-server {
-    listen 443 ssl;
-    listen [::]:443 ssl;
-    server_name vinaris.duckdns.org;
-
-    ssl_certificate /etc/letsencrypt/live/vinaris.duckdns.org/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/vinaris.duckdns.org/privkey.pem;
 
     location / {
         return 301 https://vinaris.app$request_uri;
