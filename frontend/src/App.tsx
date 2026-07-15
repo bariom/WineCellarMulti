@@ -1,4 +1,4 @@
-import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useRef, useState } from "react";
+import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { CoOwnershipPanel, CoOwnershipPublicPage } from "./components/CoOwnershipPanels";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
@@ -695,13 +695,32 @@ function appActionSvgIcon(kind: "compare" | "edit" | "import" | "export" | "dele
   );
 }
 
-function PortfolioValueSparkline({ points }: { points: Array<{ recorded_at: string; value: string }> }) {
+function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_at: string; value: string }>; label: string }) {
+  const gradientId = `portfolio-value-area-${useId().replace(/:/g, "")}`;
   const values = points.map((point) => Number(point.value)).filter(Number.isFinite);
   if (values.length < 2) return null;
   const minimum = Math.min(...values);
   const range = Math.max(Math.max(...values) - minimum, 1);
-  const path = values.map((value, index) => `${index ? "L" : "M"}${(index / (values.length - 1)) * 100} ${30 - ((value - minimum) / range) * 26}`).join(" ");
-  return <svg className="portfolio-value-sparkline" viewBox="0 0 100 32" role="img" aria-label="Evoluzione valore cantina"><path d={path} /></svg>;
+  const coordinates = values.map((value, index) => ({
+    x: (index / (values.length - 1)) * 100,
+    y: 29 - ((value - minimum) / range) * 25,
+  }));
+  const path = coordinates.map(({ x, y }, index) => `${index ? "L" : "M"}${x} ${y}`).join(" ");
+  const areaPath = `${path} L100 32 L0 32 Z`;
+  const latest = coordinates[coordinates.length - 1];
+  return (
+    <svg className="portfolio-value-sparkline" viewBox="0 0 100 32" role="img" aria-label={label}>
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop stopColor="var(--primary)" stopOpacity="0.3" />
+          <stop offset="1" stopColor="var(--accent)" stopOpacity="0.04" />
+        </linearGradient>
+      </defs>
+      <path className="portfolio-value-area" d={areaPath} fill={`url(#${gradientId})`} />
+      <path className="portfolio-value-line" d={path} />
+      <circle className="portfolio-value-latest" cx={latest.x} cy={latest.y} r="1.8" />
+    </svg>
+  );
 }
 
 export function App() {
@@ -4166,6 +4185,13 @@ export function App() {
         : 0;
       const maturityLabel = drinkStart && drinkEnd ? `${drinkStart}-${drinkEnd}` : t("notSpecified");
       const hasMaturityWindow = Boolean(drinkStart && drinkEnd);
+      const actionTone = !wine.drink_from || !wine.drink_to
+        ? "neutral"
+        : wine.drink_to < currentYear
+          ? "monitor"
+          : wine.drink_from <= currentYear && wine.drink_to >= currentYear
+            ? "drink-now"
+            : "wait";
       return {
         wine,
         isLargestPriceIncrease: largestPriceIncrease?.wine.id === wine.id,
@@ -4180,6 +4206,7 @@ export function App() {
         maturityPeakWidth,
         maturityLabel,
         hasMaturityWindow,
+        actionTone,
         action: !wine.drink_from || !wine.drink_to
           ? t("completeData")
           : wine.drink_to < currentYear
@@ -6041,10 +6068,13 @@ export function App() {
                     <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
                     <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
                   </div>
-                  <div className="hero-kpi">
+                  <div className="hero-kpi hero-kpi--value">
                     <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
                     <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
-                    <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
+                    <div className="hero-kpi-value-trend">
+                      <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
+                      <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
+                    </div>
                   </div>
                 </div>
               </section>
@@ -6103,7 +6133,7 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, highlight, isLargestPriceIncrease, priceIncreasePct, purchasePrice, sharePct, ownedValue, totalValue, action, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
+                        {keyPositionCandidates.map(({ wine, highlight, priceIncreasePct, ownedValue, totalValue, action, actionTone, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <div className="key-position-head">
@@ -6114,19 +6144,33 @@ export function App() {
                               </div>
                             </div>
                             <div className="key-position-metrics">
-                              <div><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
-                              <div><span>{t("totalValue")}</span><strong>{formatMoney(totalValue, wine.currency, locale)}</strong></div>
-                              <div><span>{t("ownership")}</span><strong>{Math.round(sharePct)}%</strong></div>
-                              <div><span>{isLargestPriceIncrease ? `${t("priceIncrease")} · ${t("purchasePrice")}` : t("action")}</span><strong>{isLargestPriceIncrease && priceIncreasePct !== null ? `+${formatPercentage(priceIncreasePct, locale, 1)} · ${purchasePrice > 0 ? formatMoney(purchasePrice, wine.currency, locale) : t("notSpecified")}` : action}</strong></div>
+                              <div className="key-position-metric"><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
+                              <div className="key-position-metric"><span>{t("totalValue")}</span><strong>{formatMoney(totalValue, wine.currency, locale)}</strong></div>
+                              <div className={`key-position-metric key-position-metric--${priceIncreasePct === null ? "neutral" : priceIncreasePct >= 0 ? "positive" : "negative"}`}>
+                                <span>{t("priceIncrease")}</span>
+                                <strong>{priceIncreasePct !== null ? `${priceIncreasePct > 0 ? "+" : ""}${formatPercentage(priceIncreasePct, locale, 1)}` : "—"}</strong>
+                              </div>
+                            </div>
+                            <div className={`recommendation-badge recommendation-badge--${actionTone}`}>
+                              <span>{t("action")}</span><strong>{action}</strong>
                             </div>
                             <div className="key-position-maturity">
                               <div>
                                 <span>{t("maturityMap")}</span>
                                 <strong>{maturityLabel}</strong>
                               </div>
-                              <div className="key-position-maturity-track">
-                                {maturityPeakWidth ? <span className="key-position-maturity-peak" style={{ left: `${maturityPeakLeft}%`, width: `${maturityPeakWidth}%` }} /> : null}
-                                <span className="key-position-maturity-fill" style={{ width: `${maturityProgress}%` }} />
+                              <div
+                                className={`key-position-maturity-track${hasMaturityWindow ? " has-window" : ""}`}
+                                role="img"
+                                aria-label={`${t("maturityMap")}: ${maturityLabel}. ${t("currentYear")}: ${currentYear}`}
+                              >
+                                {maturityPeakWidth ? (
+                                  <>
+                                    <span className="key-position-maturity-before" style={{ width: `${maturityPeakLeft}%` }} />
+                                    <span className="key-position-maturity-peak" style={{ left: `${maturityPeakLeft}%`, width: `${maturityPeakWidth}%` }} />
+                                    <span className="key-position-maturity-after" style={{ left: `${Math.min(100, maturityPeakLeft + maturityPeakWidth)}%` }} />
+                                  </>
+                                ) : null}
                                 {hasMaturityWindow ? (
                                   <span
                                     className="key-position-maturity-current"
@@ -7342,9 +7386,11 @@ export function App() {
                     <span className="cellar-kpi-copy">
                       <span>{t("totalValue")}</span>
                       <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
-                      <small>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</small>
+                      <span className="cellar-kpi-value-footer">
+                        <small>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</small>
+                        <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
+                      </span>
                     </span>
-                    <PortfolioValueSparkline points={portfolioValueHistory} />
                   </button>
                   <button type="button" className={`cellar-kpi-card ${quickWineFilter === "mine" ? "active" : ""}`} onClick={() => applyQuickWineFilter("mine")}>
                     <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>
