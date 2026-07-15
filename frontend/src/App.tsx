@@ -6754,15 +6754,6 @@ export function App() {
                   ) : null}
                   {selectedVisibleWine && !wineFormOpen ? (
                   <>
-                    <button
-                      type="button"
-                      className={compareWineIds.includes(selectedVisibleWine.id) ? "side-panel-icon-button" : "secondary side-panel-icon-button"}
-                      onClick={() => toggleCompareWine(selectedVisibleWine)}
-                      aria-label={compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
-                      title={compareWineIds.includes(selectedVisibleWine.id) ? t("compareSelected") : t("compare")}
-                    >
-                      <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
-                    </button>
                     <button type="button" className="secondary side-panel-icon-button" onClick={() => startEditWine(selectedVisibleWine)} disabled={!canWriteWine} aria-label={t("editSelected")} title={t("editSelected")}>
                       <AppIcon name="edit" />
                     </button>
@@ -6772,9 +6763,6 @@ export function App() {
                   <>
                     <button type="button" className="secondary side-panel-icon-button" onClick={openCompareModal} aria-label={`${t("openCompare")} (${compareWineIds.length}/2)`} title={`${t("openCompare")} (${compareWineIds.length}/2)`}>
                       <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
-                    </button>
-                    <button type="button" className="secondary side-panel-icon-button" onClick={clearComparedWines} aria-label={t("clearCompare")} title={t("clearCompare")}>
-                      <AppIcon name="delete" />
                     </button>
                   </>
                   ) : null}

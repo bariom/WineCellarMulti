@@ -77,6 +77,14 @@ npm install
 npm run dev
 ```
 
+On Windows, to test the local frontend against the production API (without Docker), run:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\start-frontend-production-data.ps1
+```
+
+Then open `http://localhost:5173`. This uses production authentication and data, so avoid destructive tests.
+
 Or run backend and frontend together from the repository root:
 
 ```bash
