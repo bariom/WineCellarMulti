@@ -11007,8 +11007,8 @@ textarea {
   }
 
   .topbar {
-    grid-template-columns: 1fr;
-    align-items: start;
+    grid-template-columns: minmax(116px, 0.82fr) minmax(0, 1.18fr);
+    align-items: stretch;
     gap: 8px;
     overflow: visible;
     min-height: auto;
@@ -11020,13 +11020,13 @@ textarea {
   }
 
   .eyebrow {
-    margin-bottom: 4px;
-    font-size: 10px;
+    margin-bottom: 2px;
+    font-size: 9px;
   }
 
   .topbar h1 {
-    font-size: clamp(1.2rem, 8vw, 1.85rem);
-    line-height: 1.02;
+    font-size: clamp(1.1rem, 5.4vw, 1.28rem);
+    line-height: 1.04;
   }
 
   .public-brand-mark {
@@ -11046,19 +11046,23 @@ textarea {
 
   .session-pill {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) repeat(3, 30px);
-    gap: 5px 8px;
-    width: 100%;
+    grid-template-columns: repeat(4, 30px);
+    gap: 5px 4px;
+    width: fit-content;
     max-width: 100%;
     padding: 5px;
+    justify-self: end;
     overflow: visible;
     border-radius: 10px;
   }
 
   .session-pill strong {
-    grid-column: 1 / 4;
+    grid-column: 1 / 3;
     grid-row: 1;
     min-width: 0;
+    width: 100%;
+    justify-self: end;
+    text-align: right;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -11067,9 +11071,9 @@ textarea {
   }
 
   .session-pill > span {
-    grid-column: 4;
+    grid-column: 3 / 5;
     grid-row: 1;
-    justify-self: end;
+    justify-self: start;
     align-self: center;
     white-space: nowrap;
     font-size: 0.72rem;
@@ -11129,6 +11133,17 @@ textarea {
     width: 30px;
     height: 30px;
     min-width: 30px;
+  }
+
+  button.topbar-icon-button {
+    display: grid;
+    place-items: center;
+    padding: 0;
+    line-height: 0;
+  }
+
+  button.topbar-icon-button svg {
+    display: block;
   }
 
   .session-pill .notification-wrap {
