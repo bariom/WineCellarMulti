@@ -15475,6 +15475,15 @@ tbody tr:hover {
   text-align: left;
 }
 
+.coownership-library-item.attention-pending {
+  border-left: 4px solid color-mix(in srgb, var(--accent) 78%, var(--primary));
+}
+
+.coownership-library-item.attention-declined {
+  border-left: 4px solid var(--danger);
+  background: color-mix(in srgb, var(--danger-surface) 56%, var(--surface));
+}
+
 .coownership-library-item:hover,
 .coownership-library-item.active {
   border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
@@ -15483,7 +15492,7 @@ tbody tr:hover {
   transform: none;
 }
 
-.coownership-library-item > span {
+.coownership-library-copy {
   display: grid;
   min-width: 0;
   gap: 3px;
@@ -15500,9 +15509,33 @@ tbody tr:hover {
   color: var(--text-muted);
 }
 
+.coownership-library-state {
+  display: grid;
+  flex: 0 0 auto;
+  justify-items: end;
+}
+
 .coownership-library-item em {
   flex: 0 0 auto;
   font-style: normal;
+}
+
+.coownership-response-summary {
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 4px;
+  font-size: 0.72rem;
+  font-weight: 900;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.coownership-response-summary.status-pending {
+  color: color-mix(in srgb, var(--accent) 70%, var(--text));
+}
+
+.coownership-response-summary.status-declined {
+  color: var(--danger-text);
 }
 
 .coownership-library-detail .coownership-document {
@@ -15615,6 +15648,54 @@ tbody tr:hover {
   margin-top: 1.25rem;
 }
 
+.coownership-response-alert {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: 10px;
+}
+
+.coownership-response-alert strong {
+  font-size: 0.78rem;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.coownership-response-alert span {
+  color: var(--text);
+  font-weight: 800;
+}
+
+.coownership-response-alert.status-pending {
+  border-color: color-mix(in srgb, var(--accent) 66%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.coownership-response-alert.status-declined {
+  border-color: color-mix(in srgb, var(--danger) 62%, var(--border));
+  background: color-mix(in srgb, var(--danger-surface) 76%, var(--surface));
+  color: var(--danger-text);
+}
+
+.coownership-document .ownership-row.participant-status-pending {
+  border: 1px solid color-mix(in srgb, var(--accent) 56%, var(--border));
+  border-left: 4px solid color-mix(in srgb, var(--accent) 80%, var(--primary));
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-muted));
+}
+
+.coownership-document .ownership-row.participant-status-declined {
+  border: 1px solid color-mix(in srgb, var(--danger) 50%, var(--border));
+  border-left: 4px solid var(--danger);
+  background: color-mix(in srgb, var(--danger-surface) 78%, var(--surface));
+}
+
+.coownership-document .ownership-row.participant-status-accepted {
+  opacity: 0.82;
+}
+
 .coownership-status {
   display: inline-flex;
   align-items: center;
@@ -15643,8 +15724,9 @@ tbody tr:hover {
 }
 
 .coownership-status.status-pending {
-  background: color-mix(in srgb, var(--surface-muted) 80%, var(--surface));
-  color: var(--text-muted);
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+  color: color-mix(in srgb, var(--accent) 72%, var(--text));
 }
 
 .coownership-terms {

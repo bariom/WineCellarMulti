@@ -15,8 +15,25 @@ function statusLabel(status: string, locale: Locale) {
 }
 
 
+function participantStatusSummary(agreement: CoOwnershipAgreement, status: "pending" | "declined", locale: Locale) {
+  const participants = agreement.participants.filter((participant) => participant.status === status);
+  if (!participants.length) return "";
+  const names = participants.map((participant) => participant.name).join(", ");
+  if (status === "declined") {
+    return locale === "it"
+      ? `${names} ${participants.length === 1 ? "ha rifiutato" : "hanno rifiutato"}`
+      : `${names} ${participants.length === 1 ? "has" : "have"} declined`;
+  }
+  return locale === "it"
+    ? `${names} ${participants.length === 1 ? "deve" : "devono"} ancora accettare`
+    : `${names} ${participants.length === 1 ? "still needs" : "still need"} to accept`;
+}
+
+
 function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, printable = true) {
   const wine = agreement.wine_snapshot;
+  const declinedSummary = participantStatusSummary(agreement, "declined", locale);
+  const pendingSummary = participantStatusSummary(agreement, "pending", locale);
   return (
     <article className={`coownership-document${printable ? " coownership-printable" : ""}`}>
       <header>
@@ -35,9 +52,21 @@ function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, prin
       {agreement.custody_location ? <p><strong>{locale === "it" ? "Custodia:" : "Custody:"}</strong> {agreement.custody_location}</p> : null}
       <section>
         <h3>{locale === "it" ? "Comproprietari" : "Co-owners"}</h3>
+        {declinedSummary ? (
+          <div className="coownership-response-alert status-declined" role="status">
+            <strong>{locale === "it" ? "Accordo rifiutato" : "Agreement declined"}</strong>
+            <span>{declinedSummary}</span>
+          </div>
+        ) : null}
+        {pendingSummary ? (
+          <div className="coownership-response-alert status-pending" role="status">
+            <strong>{locale === "it" ? "Risposte mancanti" : "Responses outstanding"}</strong>
+            <span>{pendingSummary}</span>
+          </div>
+        ) : null}
         <div className="ownership-list">
           {agreement.participants.map((participant) => (
-            <div className="ownership-row" key={participant.id}>
+            <div className={`ownership-row participant-status-${participant.status}`} key={participant.id}>
               <span>{participant.name} · {participant.email}<small className={`coownership-status status-${participant.status}`}>{statusLabel(participant.status, locale)}</small></span>
               <strong>{Number(participant.share_pct).toLocaleString(locale, { maximumFractionDigits: 6 })}%{participant.contribution ? ` · ${String(wine.currency || "")} ${participant.contribution}` : ""}</strong>
             </div>
@@ -93,17 +122,27 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
         {agreements.map((agreement) => {
           const wine = agreement.wine_snapshot;
           const wineLabel = [String(wine.name || ""), String(wine.vintage || "")].filter(Boolean).join(" ");
+          const declinedSummary = participantStatusSummary(agreement, "declined", locale);
+          const pendingSummary = participantStatusSummary(agreement, "pending", locale);
+          const attentionStatus = declinedSummary ? "declined" : pendingSummary ? "pending" : null;
+          const attentionSummary = declinedSummary || pendingSummary;
           return (
             <button
-              className={`coownership-library-item${agreement.id === selectedAgreement?.id ? " active" : ""}`}
+              className={`coownership-library-item${agreement.id === selectedAgreement?.id ? " active" : ""}${attentionStatus ? ` attention-${attentionStatus}` : ""}`}
               key={agreement.id}
               type="button"
               role="listitem"
               aria-pressed={agreement.id === selectedAgreement?.id}
               onClick={() => setSelectedAgreementId(agreement.id)}
             >
-              <span><strong>{wineLabel || (locale === "it" ? "Vino senza nome" : "Unnamed wine")}</strong><small>{String(wine.producer || "-")} · {locale === "it" ? "Versione" : "Version"} {agreement.version}</small></span>
-              <em className={`coownership-status status-${agreement.status}`}>{statusLabel(agreement.status, locale)}</em>
+              <span className="coownership-library-copy">
+                <strong>{wineLabel || (locale === "it" ? "Vino senza nome" : "Unnamed wine")}</strong>
+                <small>{String(wine.producer || "-")} · {locale === "it" ? "Versione" : "Version"} {agreement.version}</small>
+                {attentionStatus ? <b className={`coownership-response-summary status-${attentionStatus}`}>{attentionSummary}</b> : null}
+              </span>
+              <span className="coownership-library-state">
+                <em className={`coownership-status status-${agreement.status}`}>{statusLabel(agreement.status, locale)}</em>
+              </span>
             </button>
           );
         })}
