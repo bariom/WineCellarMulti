@@ -60,6 +60,62 @@ function todayValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
+
+export function CoOwnershipAgreementLibrary({ agreements, locale }: { agreements: CoOwnershipAgreement[]; locale: Locale }) {
+  const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(agreements[0]?.id || null);
+  const [printAgreementId, setPrintAgreementId] = useState<string | null>(null);
+  const selectedAgreement = agreements.find((agreement) => agreement.id === selectedAgreementId) || agreements[0] || null;
+
+  useEffect(() => {
+    if (!selectedAgreementId || !agreements.some((agreement) => agreement.id === selectedAgreementId)) {
+      setSelectedAgreementId(agreements[0]?.id || null);
+    }
+  }, [agreements, selectedAgreementId]);
+
+  function printAgreement() {
+    if (!selectedAgreement) return;
+    setPrintAgreementId(selectedAgreement.id);
+    window.requestAnimationFrame(() => {
+      window.print();
+      setPrintAgreementId(null);
+    });
+  }
+
+  return (
+    <section className="coownership-library">
+      <div className="coownership-library-list" role="list" aria-label={locale === "it" ? "I miei accordi di comproprietà" : "My co-ownership agreements"}>
+        {agreements.map((agreement) => {
+          const wine = agreement.wine_snapshot;
+          const wineLabel = [String(wine.name || ""), String(wine.vintage || "")].filter(Boolean).join(" ");
+          return (
+            <button
+              className={`coownership-library-item${agreement.id === selectedAgreement?.id ? " active" : ""}`}
+              key={agreement.id}
+              type="button"
+              role="listitem"
+              aria-pressed={agreement.id === selectedAgreement?.id}
+              onClick={() => setSelectedAgreementId(agreement.id)}
+            >
+              <span><strong>{wineLabel || (locale === "it" ? "Vino senza nome" : "Unnamed wine")}</strong><small>{String(wine.producer || "-")} · {locale === "it" ? "Versione" : "Version"} {agreement.version}</small></span>
+              <em className={`coownership-status status-${agreement.status}`}>{statusLabel(agreement.status, locale)}</em>
+            </button>
+          );
+        })}
+      </div>
+      {selectedAgreement ? (
+        <div className="coownership-library-detail">
+          {agreementDocument(selectedAgreement, locale, printAgreementId === selectedAgreement.id)}
+          <div className="inline-form no-print">
+            <button type="button" className="secondary compact" onClick={printAgreement}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
+          </div>
+        </div>
+      ) : (
+        <p className="empty-state">{locale === "it" ? "Non partecipi ancora ad alcun accordo di comproprietà." : "You are not part of any co-ownership agreement yet."}</p>
+      )}
+    </section>
+  );
+}
+
 function paymentMoney(value: string | null, currency: string, locale: Locale) {
   if (value === null) return "—";
   return `${currency} ${Number(value).toLocaleString(locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

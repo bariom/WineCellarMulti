@@ -5,7 +5,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
@@ -224,6 +224,35 @@ def list_wine_agreements(wine_id: UUID, request: Request, db: Session = Depends(
         .order_by(CoOwnershipAgreement.created_at.desc()),
     )
     return [agreement_response(db, agreement, request, expose_links=agreement.created_by_user_id == context.user.id) for agreement in agreements]
+
+
+@router.get("/mine", response_model=list[CoOwnershipAgreementResponse])
+def list_my_agreements(
+    request: Request,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> list[CoOwnershipAgreementResponse]:
+    """Return every agreement the current user created or is a named participant in."""
+    agreements = db.scalars(
+        select(CoOwnershipAgreement)
+        .outerjoin(CoOwnershipParticipant, CoOwnershipParticipant.agreement_id == CoOwnershipAgreement.id)
+        .where(
+            or_(
+                CoOwnershipAgreement.created_by_user_id == context.user.id,
+                CoOwnershipParticipant.user_id == context.user.id,
+            )
+        )
+        .order_by(CoOwnershipAgreement.created_at.desc())
+    ).unique()
+    return [
+        agreement_response(
+            db,
+            agreement,
+            request,
+            expose_links=agreement.created_by_user_id == context.user.id,
+        )
+        for agreement in agreements
+    ]
 
 
 @router.post(

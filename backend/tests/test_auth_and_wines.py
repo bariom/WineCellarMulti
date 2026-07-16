@@ -1621,6 +1621,11 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
     assert external["invite_url"]
     assert agreement["can_manage_payments"] is True
 
+    owner_agreements = owner_client.get("/api/v1/co-ownership-agreements/mine")
+    assert owner_agreements.status_code == 200
+    assert [item["id"] for item in owner_agreements.json()] == [agreement["id"]]
+    assert owner_agreements.json()[0]["can_manage_payments"] is True
+
     first_payment = owner_client.post(
         f"/api/v1/co-ownership-agreements/{agreement['id']}/participants/{registered['id']}/payments",
         json={"amount": 150, "paid_on": "2026-07-15", "note": "Bank transfer"},

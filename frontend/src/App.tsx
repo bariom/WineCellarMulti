@@ -51,6 +51,7 @@ const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
+const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
 
 function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -787,6 +788,7 @@ export function App() {
   const [invites, setInvites] = useState<Invite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
+  const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [operationalActionsExpanded, setOperationalActionsExpanded] = useState(false);
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
@@ -1569,6 +1571,14 @@ export function App() {
     }
   }
 
+  async function loadMyCoOwnershipAgreements() {
+    if (!session?.authenticated || offlineMode) {
+      setMyCoOwnershipAgreements([]);
+      return;
+    }
+    setMyCoOwnershipAgreements(await api<CoOwnershipAgreement[]>("/api/v1/co-ownership-agreements/mine"));
+  }
+
   async function loadAiAudit(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
       const nextAudit = await api<AiAuditLog[]>("/api/v1/ai/audit");
@@ -1653,7 +1663,7 @@ export function App() {
     } else if (tab === "tags") {
       void loadTags(session.membership_role).catch(reportError);
     } else if (tab === "sharing") {
-      void Promise.all([loadHouseholdData(session.membership_role), loadShareOffers(true), loadReceivedInvites(true)]).catch(reportError);
+      void Promise.all([loadHouseholdData(session.membership_role), loadShareOffers(true), loadReceivedInvites(true), loadMyCoOwnershipAgreements()]).catch(reportError);
     } else if (tab === "users" && session.is_app_admin) {
       void Promise.all([loadAppUsers(true), loadPendingCatalogEntries(true), loadBilling(true, true)]).catch(reportError);
     }
@@ -9328,6 +9338,20 @@ export function App() {
                     <p className="empty-state">{t("noCatalogAdminResults")}</p>
                   ) : null}
                 </section>
+              ) : null}
+
+              {settingsTab === "sharing" ? (
+              <section className="settings-card settings-card-wide">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{locale === "it" ? "Accordi" : "Agreements"}</span>
+                    <h3>{locale === "it" ? "I miei accordi di comproprietà" : "My co-ownership agreements"}</h3>
+                  </div>
+                </div>
+                <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento accordi…" : "Loading agreements…"} />}>
+                  <CoOwnershipAgreementLibrary agreements={myCoOwnershipAgreements} locale={locale} />
+                </Suspense>
+              </section>
               ) : null}
 
               {settingsTab === "sharing" ? (
