@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 import type { CoOwnershipAgreement, CoOwnershipParticipantDraft, Locale, Session, Wine } from "../types";
 import { api } from "../services/api";
@@ -30,7 +31,7 @@ function participantStatusSummary(agreement: CoOwnershipAgreement, status: "pend
 }
 
 
-function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, printable = true) {
+function agreementDocument(agreement: CoOwnershipAgreement, locale: Locale, printable = false) {
   const wine = agreement.wine_snapshot;
   const declinedSummary = participantStatusSummary(agreement, "declined", locale);
   const pendingSummary = participantStatusSummary(agreement, "pending", locale);
@@ -87,6 +88,14 @@ type PaymentDraft = { amount: string; paid_on: string; note: string };
 
 function todayValue() {
   return new Date().toISOString().slice(0, 10);
+}
+
+
+function PrintableAgreement({ agreement, locale }: { agreement: CoOwnershipAgreement; locale: Locale }) {
+  return createPortal(
+    <div className="coownership-print-root">{agreementDocument(agreement, locale, true)}</div>,
+    document.body,
+  );
 }
 
 
@@ -149,7 +158,7 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
       </div>
       {selectedAgreement ? (
         <div className="coownership-library-detail">
-          {agreementDocument(selectedAgreement, locale, printAgreementId === selectedAgreement.id)}
+          {agreementDocument(selectedAgreement, locale)}
           <div className="inline-form no-print">
             <button type="button" className="secondary compact" onClick={printAgreement}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
           </div>
@@ -157,6 +166,7 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
       ) : (
         <p className="empty-state">{locale === "it" ? "Non partecipi ancora ad alcun accordo di comproprietà." : "You are not part of any co-ownership agreement yet."}</p>
       )}
+      {selectedAgreement && printAgreementId === selectedAgreement.id ? <PrintableAgreement agreement={selectedAgreement} locale={locale} /> : null}
     </section>
   );
 }
@@ -292,6 +302,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
 
   const total = participants.reduce((sum, item) => sum + Number(item.share_pct || 0), 0);
   const blockingAgreement = agreements.find((agreement) => agreement.status === "pending" || agreement.status === "invalidated" || agreement.status === "declined");
+  const printableAgreement = agreements.find((agreement) => agreement.id === printAgreementId) || null;
 
   function printAgreement(agreementId: string) {
     setPrintAgreementId(agreementId);
@@ -306,7 +317,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
       <summary>{locale === "it" ? "Accordi di comproprietà" : "Co-ownership agreements"}</summary>
       {agreements.map((agreement) => (
         <div className="coownership-agreement-card" key={agreement.id}>
-          {agreementDocument(agreement, locale, printAgreementId === agreement.id)}
+          {agreementDocument(agreement, locale)}
           <PaymentLedger
             agreement={agreement}
             locale={locale}
@@ -362,6 +373,7 @@ export function CoOwnershipPanel({ wine, session, agreements, canWrite, saving, 
           </form>
         </details>
       ) : blockingAgreement ? <p className="empty-state">{blockingAgreement.status === "invalidated" || blockingAgreement.status === "declined" ? (locale === "it" ? "Questa proposta è stata rifiutata. L'iniziatore può cancellarla prima di crearne una nuova versione." : "This proposal was rejected. Its initiator can delete it before a new version is created.") : (locale === "it" ? "È già presente una proposta in attesa di risposta." : "A proposal is already awaiting responses.")}</p> : null}
+      {printableAgreement ? <PrintableAgreement agreement={printableAgreement} locale={locale} /> : null}
     </details>
   );
 }

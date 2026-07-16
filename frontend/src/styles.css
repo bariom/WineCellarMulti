@@ -5401,9 +5401,6 @@ textarea {
   width: 100%;
   align-items: center;
   justify-items: center;
-  position: relative;
-  z-index: 1;
-  border-top: 0;
 }
 
 .key-position-metric {
@@ -5415,7 +5412,6 @@ textarea {
   justify-items: center;
   gap: 7px;
   width: min(100%, 168px);
-  min-width: 0;
   aspect-ratio: 1;
   padding: 26px 20px 22px;
   position: relative;
@@ -5454,7 +5450,6 @@ textarea {
   border-radius: 50%;
   box-shadow: inset 0 0 18px color-mix(in srgb, var(--metric-tone) 7%, transparent);
   opacity: 0.82;
-  pointer-events: none;
 }
 
 .key-position-metric > span {
@@ -5517,8 +5512,6 @@ textarea {
   gap: 8px;
   width: fit-content;
   padding: 7px 11px 7px 9px;
-  position: relative;
-  z-index: 1;
   border: 1px solid color-mix(in srgb, var(--recommendation-tone) 34%, var(--border));
   border-radius: 999px;
   background: color-mix(in srgb, var(--recommendation-tone) 8%, var(--surface-raised));
@@ -5558,8 +5551,6 @@ textarea {
 .key-position-maturity {
   display: grid;
   gap: 9px;
-  position: relative;
-  z-index: 1;
 }
 
 .key-position-maturity > div:first-child {
@@ -16161,19 +16152,30 @@ tbody tr:hover {
 }
 
 @media print {
+  @page {
+    margin: 14mm;
+  }
+
   body * {
     visibility: hidden !important;
   }
 
-  .coownership-printable,
-  .coownership-printable * {
+  #root {
+    display: none !important;
+  }
+
+  .coownership-print-root,
+  .coownership-print-root * {
     visibility: visible !important;
   }
 
+  .coownership-print-root {
+    display: block;
+  }
+
   .coownership-printable {
-    position: absolute;
-    inset: 0;
-    width: 100%;
+    position: static;
+    width: auto;
     margin: 0;
     border: 0;
     box-shadow: none;
