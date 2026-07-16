@@ -931,7 +931,15 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert not any(item["kind"] == "smart_drink_now" for item in refreshed_payload)
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 5
+        assert db.query(UserNotification).count() == 4
+
+    regenerated = client.get(
+        "/api/v1/notifications/center?category=system&view=active&item_state=all"
+    )
+    assert regenerated.status_code == 200
+    assert not any(item["kind"] == "smart_drink_now" for item in regenerated.json()["items"])
+    with TestingSessionLocal() as db:
+        assert db.query(UserNotification).count() == 4
 
 
 def test_notification_center_history_filters_and_pagination():
@@ -959,6 +967,8 @@ def test_notification_center_history_filters_and_pagination():
     )
     assert first_page.status_code == 200
     assert len(first_page.json()["items"]) == 10
+    created_at_values = [item["created_at"] for item in first_page.json()["items"]]
+    assert created_at_values == sorted(created_at_values, reverse=True)
     assert first_page.json()["has_more"] is True
     assert first_page.json()["next_offset"] == 10
 
@@ -969,13 +979,6 @@ def test_notification_center_history_filters_and_pagination():
     assert set(item["id"] for item in first_page.json()["items"]).isdisjoint(
         item["id"] for item in second_page.json()["items"]
     )
-
-    assert client.post("/api/v1/notifications/read-all").status_code == 204
-    unread = client.get(
-        "/api/v1/notifications/center?category=system&view=active&item_state=unread"
-    )
-    assert unread.status_code == 200
-    assert unread.json()["items"] == []
 
     notification_id = first_page.json()["items"][0]["id"]
     assert client.post(f"/api/v1/notifications/{notification_id}/archive").status_code == 204
@@ -988,9 +991,33 @@ def test_notification_center_history_filters_and_pagination():
 
     assert client.post(f"/api/v1/notifications/{notification_id}/restore").status_code == 204
     restored = client.get(
-        "/api/v1/notifications/center?category=system&view=active&item_state=read"
+        "/api/v1/notifications/center?category=system&view=active&item_state=unread"
     )
     assert any(item["id"] == notification_id for item in restored.json()["items"])
+
+    assert client.post(f"/api/v1/notifications/{notification_id}/archive").status_code == 204
+    assert client.delete(f"/api/v1/notifications/{notification_id}").status_code == 204
+    after_delete = client.get(
+        "/api/v1/notifications/center?category=system&view=archived&item_state=all"
+    )
+    assert all(item["id"] != notification_id for item in after_delete.json()["items"])
+    with TestingSessionLocal() as db:
+        assert db.get(UserNotification, uuid.UUID(notification_id)) is None
+    assert client.delete(f"/api/v1/notifications/{notification_id}").status_code == 404
+
+    assert client.post("/api/v1/notifications/read-all").status_code == 204
+    unread = client.get(
+        "/api/v1/notifications/center?category=system&view=active&item_state=unread"
+    )
+    assert unread.status_code == 200
+    assert unread.json()["items"] == []
+    with TestingSessionLocal() as db:
+        assert (
+            db.query(UserNotification)
+            .filter(UserNotification.fingerprint.like("notification-center-page:%"))
+            .count()
+            == 0
+        )
 
 
 def test_authenticated_user_can_read_wine_catalog():

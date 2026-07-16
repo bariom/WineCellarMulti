@@ -1,24 +1,31 @@
 from __future__ import annotations
 
 import math
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext
-from app.models import User, UserNotification, Wine
+from app.models import User, UserNotification, UserNotificationDismissal, Wine
 
-
-DELIVERED_STATUSES = {"delivered", "consegnato", "bevuto", "consumed", "cancelled", "canceled", "annullato"}
+DELIVERED_STATUSES = {
+    "delivered",
+    "consegnato",
+    "bevuto",
+    "consumed",
+    "cancelled",
+    "canceled",
+    "annullato",
+}
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def as_aware_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def has_vintage_for_drink_window(wine: Wine) -> bool:
@@ -57,7 +64,10 @@ def to_collect_summary(wines: list[Wine]) -> tuple[str, str]:
     fingerprint_parts: list[str] = []
     for wine in preview:
         merchant = (wine.merchant or "").strip()
-        wine_label = " ".join(part for part in [wine.name.strip(), wine.vintage.strip()] if part).strip() or "Wine"
+        wine_label = (
+            " ".join(part for part in [wine.name.strip(), wine.vintage.strip()] if part).strip()
+            or "Wine"
+        )
         if merchant:
             summary_parts.append(f"{wine_label} ({merchant})")
             fingerprint_parts.append(f"{wine_label}|{merchant}")
@@ -79,8 +89,16 @@ def create_user_notification(
     message: str,
     action_url: str | None = None,
     fingerprint: str | None = None,
-) -> UserNotification:
+) -> UserNotification | None:
     if fingerprint:
+        dismissed = db.scalar(
+            select(UserNotificationDismissal.id).where(
+                UserNotificationDismissal.user_id == user.id,
+                UserNotificationDismissal.fingerprint == fingerprint,
+            )
+        )
+        if dismissed is not None:
+            return None
         existing = db.scalar(
             select(UserNotification).where(
                 UserNotification.user_id == user.id,
@@ -117,31 +135,37 @@ def _notification_copy(locale: str, key: str, **values: object) -> tuple[str, st
         if italian:
             return (
                 "Finestra scaduta",
-                f"Ci sono {values['count']} vini oltre la finestra ideale in {values['household_name']}.",
+                f"Ci sono {values['count']} vini oltre la finestra ideale "
+                f"in {values['household_name']}.",
             )
         return (
             "Past peak window",
-            f"There are {values['count']} wines past their ideal window in {values['household_name']}.",
+            f"There are {values['count']} wines past their ideal window "
+            f"in {values['household_name']}.",
         )
     if key == "future_deliveries":
         if italian:
             return (
                 "Consegne in arrivo",
-                f"Hai {values['count']} consegne future. La prossima e prevista per il {values['next_date']}.",
+                f"Hai {values['count']} consegne future. "
+                f"La prossima e prevista per il {values['next_date']}.",
             )
         return (
             "Upcoming deliveries",
-            f"You have {values['count']} future deliveries. The next one is expected on {values['next_date']}.",
+            f"You have {values['count']} future deliveries. "
+            f"The next one is expected on {values['next_date']}.",
         )
     if key == "to_collect":
         if italian:
             return (
                 "Bottiglie da ritirare",
-                f"Hai {values['count']} vini in stato Da ritirare in {values['household_name']}: {values['wine_summary']}.",
+                f"Hai {values['count']} vini in stato Da ritirare "
+                f"in {values['household_name']}: {values['wine_summary']}.",
             )
         return (
             "Bottles to collect",
-            f"You have {values['count']} wines marked To Collect in {values['household_name']}: {values['wine_summary']}.",
+            f"You have {values['count']} wines marked To Collect "
+            f"in {values['household_name']}: {values['wine_summary']}.",
         )
     if key == "entitlement_expiring":
         if italian:
@@ -173,7 +197,11 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
         )
 
         drink_now_count = sum(
-            1 for wine in wines if wine.drink_from and wine.drink_to and wine.drink_from <= current_year <= wine.drink_to
+            1
+            for wine in wines
+            if wine.drink_from
+            and wine.drink_to
+            and wine.drink_from <= current_year <= wine.drink_to
         )
         if drink_now_count:
             title, message = _notification_copy(
@@ -185,7 +213,8 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
             before = db.scalar(
                 select(UserNotification.id).where(
                     UserNotification.user_id == context.user.id,
-                    UserNotification.fingerprint == f"smart:{context.household.id}:drink_now:{drink_now_count}",
+                    UserNotification.fingerprint
+                    == f"smart:{context.household.id}:drink_now:{drink_now_count}",
                 )
             )
             create_user_notification(
@@ -199,7 +228,11 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
             )
             created += 0 if before else 1
 
-        past_window_count = sum(1 for wine in wines if wine.drink_to and wine.drink_to < current_year and has_vintage_for_drink_window(wine))
+        past_window_count = sum(
+            1
+            for wine in wines
+            if wine.drink_to and wine.drink_to < current_year and has_vintage_for_drink_window(wine)
+        )
         if past_window_count:
             title, message = _notification_copy(
                 locale,
@@ -210,7 +243,8 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
             before = db.scalar(
                 select(UserNotification.id).where(
                     UserNotification.user_id == context.user.id,
-                    UserNotification.fingerprint == f"smart:{context.household.id}:past_window:{past_window_count}",
+                    UserNotification.fingerprint
+                    == f"smart:{context.household.id}:past_window:{past_window_count}",
                 )
             )
             create_user_notification(
@@ -238,7 +272,10 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
                     count=len(future_deliveries),
                     next_date=next_delivery.strftime("%d/%m/%Y"),
                 )
-                fingerprint = f"smart:{context.household.id}:future_deliveries:{len(future_deliveries)}:{next_delivery.isoformat()}"
+                fingerprint = (
+                    f"smart:{context.household.id}:future_deliveries:"
+                    f"{len(future_deliveries)}:{next_delivery.isoformat()}"
+                )
                 before = db.scalar(
                     select(UserNotification.id).where(
                         UserNotification.user_id == context.user.id,
@@ -267,7 +304,9 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
                 household_name=context.household.name,
                 wine_summary=wine_summary,
             )
-            fingerprint = f"smart:{context.household.id}:to_collect:{to_collect_count}:{fingerprint_summary}"
+            fingerprint = (
+                f"smart:{context.household.id}:to_collect:{to_collect_count}:{fingerprint_summary}"
+            )
             before = db.scalar(
                 select(UserNotification.id).where(
                     UserNotification.user_id == context.user.id,

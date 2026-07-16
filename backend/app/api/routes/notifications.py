@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_authenticated_context
@@ -13,6 +13,7 @@ from app.models import (
     HouseholdInvite,
     User,
     UserNotification,
+    UserNotificationDismissal,
     Wine,
     WineShareOffer,
 )
@@ -74,6 +75,27 @@ def notification_response(db: Session, notification: UserNotification) -> Notifi
         read_at=notification.read_at,
         archived_at=notification.archived_at,
     )
+
+
+def permanently_delete_notification(
+    db: Session,
+    notification: UserNotification,
+) -> None:
+    if notification.fingerprint:
+        dismissal = db.scalar(
+            select(UserNotificationDismissal).where(
+                UserNotificationDismissal.user_id == notification.user_id,
+                UserNotificationDismissal.fingerprint == notification.fingerprint,
+            )
+        )
+        if dismissal is None:
+            db.add(
+                UserNotificationDismissal(
+                    user_id=notification.user_id,
+                    fingerprint=notification.fingerprint,
+                )
+            )
+    db.delete(notification)
 
 
 @router.get("", response_model=list[NotificationResponse])
@@ -255,7 +277,7 @@ def notification_center(
     persisted_rows = list(db.scalars(persisted_query)) if persisted_limit else []
     has_more = len(persisted_rows) > persisted_limit
     persisted = persisted_rows[:persisted_limit]
-    items = virtual_items + [
+    persisted_items = [
         NotificationCenterItem(
             id=str(notification.id),
             source="notification",
@@ -280,6 +302,11 @@ def notification_center(
         )
         for notification in persisted
     ]
+    items = sorted(
+        [*virtual_items, *persisted_items],
+        key=lambda item: item.created_at,
+        reverse=True,
+    )
 
     def persisted_count(value: str | None, *, unread_only: bool = False) -> int:
         conditions = [*base_conditions, *category_conditions(value)]
@@ -320,15 +347,17 @@ def mark_all_notifications_read(
     context: CurrentContext = Depends(get_authenticated_context),
     db: Session = Depends(get_db),
 ) -> Response:
-    db.execute(
-        update(UserNotification)
-        .where(
-            UserNotification.user_id == context.user.id,
-            UserNotification.archived_at.is_(None),
-            UserNotification.read_at.is_(None),
+    notifications = list(
+        db.scalars(
+            select(UserNotification).where(
+                UserNotification.user_id == context.user.id,
+                UserNotification.archived_at.is_(None),
+                UserNotification.read_at.is_(None),
+            )
         )
-        .values(read_at=datetime.now(UTC))
     )
+    for notification in notifications:
+        permanently_delete_notification(db, notification)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -342,7 +371,7 @@ def mark_notification_read(
     notification = db.get(UserNotification, notification_id)
     if notification is None or notification.user_id != context.user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
-    notification.read_at = notification.read_at or datetime.now(UTC)
+    permanently_delete_notification(db, notification)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -373,5 +402,20 @@ def restore_notification(
     if notification is None or notification.user_id != context.user.id:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
     notification.archived_at = None
+    notification.read_at = None
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_notification(
+    notification_id: UUID,
+    context: CurrentContext = Depends(get_authenticated_context),
+    db: Session = Depends(get_db),
+) -> Response:
+    notification = db.get(UserNotification, notification_id)
+    if notification is None or notification.user_id != context.user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    permanently_delete_notification(db, notification)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

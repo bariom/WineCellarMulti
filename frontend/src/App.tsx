@@ -2902,6 +2902,24 @@ export function App() {
     }
   }
 
+  async function deleteNotification(item: NotificationCenterItem) {
+    if (item.source !== "notification") return;
+    const confirmed = window.confirm(locale === "it"
+      ? "Eliminare definitivamente questa notifica? Non potrà essere recuperata."
+      : "Permanently delete this notification? It cannot be recovered.");
+    if (!confirmed) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>(`/api/v1/notifications/${item.id}`, { method: "DELETE" });
+      await loadNotifications(true);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete notification");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function selectNotificationTab(category: NotificationCenterCategory) {
     setNotificationTab(category);
     void loadNotifications(true, { category, offset: 0 });
@@ -5792,21 +5810,6 @@ export function App() {
                       })}
                     </div>
                     <div className="notification-feed" role="tabpanel">
-                    {activeOperationalItems.map((item) => (
-                      <div className="notification-item operational-action-item" key={`operational:${item.id}`}>
-                        <button type="button" className="operational-action-open" onClick={item.onOpen}>
-                          <strong className="notification-title">
-                            <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
-                            {item.title}
-                          </strong>
-                          <span>{item.detail}</span>
-                          <b>{formatBottleCount(item.count, locale)}</b>
-                        </button>
-                        <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
-                          {t("snoozeAction")}
-                        </button>
-                      </div>
-                    ))}
                     {activeNotificationItems.map((item) => {
                       const notificationCopy = localizedNotification(item, locale);
                       return (
@@ -5829,6 +5832,9 @@ export function App() {
                             {item.action_url ? <button type="button" className="compact" disabled={saving} onClick={() => openNotification(item)}>{t("open")}</button> : null}
                             <button type="button" className="secondary compact" disabled={saving} onClick={() => restoreNotification(item)}>
                               {locale === "it" ? "Ripristina" : "Restore"}
+                            </button>
+                            <button type="button" className="danger compact" disabled={saving} onClick={() => deleteNotification(item)}>
+                              {locale === "it" ? "Elimina" : "Delete"}
                             </button>
                           </div>
                         ) : item.action_kind === "accept_invite" ? (
@@ -5862,15 +5868,32 @@ export function App() {
                               </button>
                             ) : null}
                             {item.source === "notification" ? (
-                              <button type="button" className="secondary compact" disabled={saving} onClick={() => archiveNotification(item)}>
-                                {locale === "it" ? "Archivia" : "Archive"}
-                              </button>
+                              <>
+                                <button type="button" className="secondary compact" disabled={saving} onClick={() => archiveNotification(item)}>
+                                  {locale === "it" ? "Archivia" : "Archive"}
+                                </button>
+                              </>
                             ) : null}
                           </div>
                         )}
                       </div>
                       );
                     })}
+                    {activeOperationalItems.map((item) => (
+                      <div className="notification-item operational-action-item" key={`operational:${item.id}`}>
+                        <button type="button" className="operational-action-open" onClick={item.onOpen}>
+                          <strong className="notification-title">
+                            <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
+                            {item.title}
+                          </strong>
+                          <span>{item.detail}</span>
+                          <b>{formatBottleCount(item.count, locale)}</b>
+                        </button>
+                        <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
+                          {t("snoozeAction")}
+                        </button>
+                      </div>
+                    ))}
                     {notificationTab === "action" && showLiveAdminItems && canAppAdmin && pendingUsers.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>

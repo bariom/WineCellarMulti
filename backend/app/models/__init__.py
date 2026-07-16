@@ -11,7 +11,7 @@ from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant,
 from app.models.household import Household
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
-from app.models.notification import UserNotification
+from app.models.notification import UserNotification, UserNotificationDismissal
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.session import UserSession
 from app.models.tags import UserTag, UserWineTag
@@ -40,6 +40,7 @@ __all__ = [
     "UserAiSettings",
     "UserEntitlement",
     "UserNotification",
+    "UserNotificationDismissal",
     "UserPasskey",
     "UserSession",
     "UserTag",
