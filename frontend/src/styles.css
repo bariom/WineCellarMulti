@@ -15403,6 +15403,36 @@ tbody tr:hover {
   background: var(--primary);
 }
 
+@media (max-width: 520px) {
+  .notification-tabs {
+    grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.35fr) minmax(0, 0.95fr);
+    gap: 3px;
+    padding: 3px;
+  }
+
+  .notification-tabs button {
+    gap: 4px;
+    padding: 6px 4px;
+    overflow: hidden;
+    font-size: 0.7rem;
+  }
+
+  .notification-tabs button span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .notification-tabs button b {
+    flex: 0 0 auto;
+    min-width: 18px;
+    height: 18px;
+    padding-inline: 4px;
+    font-size: 0.64rem;
+  }
+}
+
 .notification-feed {
   display: grid;
   gap: 8px;
