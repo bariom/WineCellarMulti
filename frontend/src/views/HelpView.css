@@ -22,8 +22,6 @@
 .help-hero .help-close-button { position: absolute; top: 18px; right: 18px; }
 .help-toolbar .help-close-button { margin-left: auto; }
 .help-close-button:hover, .help-close-button:focus-visible { border-color: var(--primary); background: var(--primary); color: var(--primary-contrast); }
-.help-toolbar .help-support-link { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid color-mix(in srgb, var(--primary) 52%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--text); text-decoration: none; }
-.help-toolbar .help-support-link::after { color: var(--primary); content: "↗"; font-size: 1rem; line-height: 1; }
 .help-article { background: var(--surface); }
 .help-article ol { display: grid; gap: 8px; margin: 0; padding-left: 22px; }
 .help-warnings { display: grid; gap: 4px; }

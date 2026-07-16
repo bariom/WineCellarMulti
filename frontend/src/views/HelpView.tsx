@@ -101,7 +101,6 @@ export default function HelpView({ locale, role, aiAvailable, initialSlug, onArt
         <div className="help-toolbar no-print">
           <button type="button" className="secondary compact" onClick={closeArticle}>{locale === "it" ? "Torna al centro assistenza" : "Back to Help Center"}</button>
           <button type="button" className="secondary compact" onClick={() => window.print()}>{locale === "it" ? "Stampa" : "Print"}</button>
-          <a className="secondary compact help-support-link" href={`mailto:?subject=${encodeURIComponent(`Vinaris · ${selectedArticle.title}`)}`}>{locale === "it" ? "Contatta supporto" : "Contact support"}</a>
           <button type="button" className="help-close-button" onClick={onClose} aria-label={locale === "it" ? "Chiudi il centro assistenza" : "Close Help Center"} title={locale === "it" ? "Chiudi assistenza" : "Close help"} />
         </div>
         <article className="help-article" ref={articleRef} tabIndex={-1}>
