@@ -5651,9 +5651,37 @@ textarea {
   transform: translateX(-50%);
 }
 
+@media (min-width: 641px) {
+  .key-position-card-heading {
+    padding-top: 14px;
+  }
+
+  .key-position-button {
+    gap: 14px;
+    padding-block: 7px 20px;
+  }
+
+  .key-position-metric {
+    width: min(100%, 150px);
+    padding: 22px 18px 18px;
+  }
+
+  .key-position-head h2 {
+    font-size: clamp(2rem, 3.7vw, 3.8rem);
+  }
+
+  .key-position-head {
+    margin-top: -20px;
+  }
+
+  .key-position-yearmark {
+    font-size: clamp(3.2rem, 7vw, 5.9rem);
+  }
+}
+
 @media (max-width: 1120px) {
   .key-position-button {
-    padding: 22px 28px 24px;
+    padding: 7px 28px 20px;
   }
 }
 
