@@ -1276,6 +1276,95 @@ summary:focus-visible {
   font-size: 1.08rem;
 }
 
+.cellar-settings-section {
+  gap: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+.cellar-settings-section > summary,
+.cellar-settings-subsection > summary {
+  position: relative;
+  display: grid;
+  gap: 3px;
+  padding: 16px 48px 16px 18px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.cellar-settings-section > summary::-webkit-details-marker,
+.cellar-settings-subsection > summary::-webkit-details-marker {
+  display: none;
+}
+
+.cellar-settings-section > summary::after,
+.cellar-settings-subsection > summary::after {
+  position: absolute;
+  top: 50%;
+  right: 18px;
+  color: var(--text-muted);
+  content: "›";
+  font-size: 1.5rem;
+  line-height: 1;
+  transform: translateY(-50%);
+  transition: transform 160ms ease, color 160ms ease;
+}
+
+.cellar-settings-section[open] > summary::after,
+.cellar-settings-subsection[open] > summary::after {
+  color: var(--text);
+  transform: translateY(-50%) rotate(90deg);
+}
+
+.cellar-settings-section > summary > span,
+.cellar-settings-subsection > summary > span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.cellar-settings-section > summary > strong,
+.cellar-settings-subsection > summary > strong {
+  color: var(--text);
+  font-size: 1.03rem;
+}
+
+.cellar-settings-section > summary > small,
+.cellar-settings-subsection > summary > small {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.cellar-settings-section[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 78%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 48%, var(--surface));
+}
+
+.cellar-settings-section-body {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+}
+
+.cellar-settings-subsection {
+  display: grid;
+  gap: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface));
+}
+
+.cellar-settings-subsection[open] > summary {
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+}
+
+.cellar-settings-subsection > .member-list {
+  padding: 10px;
+}
+
 .help-icon-button {
   width: 34px;
   height: 34px;

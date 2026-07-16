@@ -791,6 +791,7 @@ export function App() {
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
   const [coOwnershipAgreementFocusId, setCoOwnershipAgreementFocusId] = useState<string | null>(null);
+  const [coOwnershipLibraryVisible, setCoOwnershipLibraryVisible] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [operationalActionsExpanded, setOperationalActionsExpanded] = useState(false);
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
@@ -4438,6 +4439,7 @@ export function App() {
       .map((participant) => ({ agreement, participant })));
   const openCoOwnershipAgreements = (agreementId: string) => {
     setCoOwnershipAgreementFocusId(agreementId);
+    setCoOwnershipLibraryVisible(true);
     setActiveView("settings");
     setSettingsTab("sharing");
     setNotificationsOpen(false);
@@ -8957,13 +8959,13 @@ export function App() {
               ) : null}
 
               {settingsTab === "sharing" ? (
-              <section className="settings-card settings-card-wide">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("sharedCellar")}</span>
-                    <h3>{t("household")}</h3>
-                  </div>
-                </div>
+              <details className="settings-card settings-card-wide cellar-settings-section">
+                <summary>
+                  <span>{locale === "it" ? "Struttura" : "Structure"}</span>
+                  <strong>{locale === "it" ? "Gestione della cantina" : "Cellar management"}</strong>
+                  <small>{locale === "it" ? "Nome, creazione, eliminazione e accessi" : "Name, creation, deletion and access"}</small>
+                </summary>
+                <div className="cellar-settings-section-body">
                 <form className="inline-form" onSubmit={updateHouseholdName}>
                   <label>
                     <span>{t("cellarName")}</span>
@@ -9023,7 +9025,13 @@ export function App() {
                   </div>
                 </div>
                 {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
-                <div className="member-list">
+                <details className="cellar-settings-subsection">
+                  <summary>
+                    <span>{locale === "it" ? "Accessi" : "Access"}</span>
+                    <strong>{locale === "it" ? "Membri e visibilità" : "Members and visibility"}</strong>
+                    <small>{members.length} {locale === "it" ? "membri nella cantina attiva" : "members in the active cellar"}</small>
+                  </summary>
+                  <div className="member-list">
                   {members.map((member) => (
                     <div className="member-row" key={member.membership_id}>
                       <div>
@@ -9067,8 +9075,10 @@ export function App() {
                       )}
                     </div>
                   ))}
+                  </div>
+                </details>
                 </div>
-              </section>
+              </details>
               ) : null}
 
               {settingsTab === "users" && canAppAdmin ? (
@@ -9379,7 +9389,9 @@ export function App() {
               ) : null}
 
               {settingsTab === "sharing" ? (
-              <section className="settings-card settings-card-wide">
+              <details className="settings-card settings-card-wide cellar-settings-section" open={coOwnershipLibraryVisible} onToggle={(event) => setCoOwnershipLibraryVisible((event.currentTarget as HTMLDetailsElement).open)}>
+                <summary><span>{locale === "it" ? "Comproprietà" : "Co-ownership"}</span><strong>{locale === "it" ? "I miei accordi" : "My agreements"}</strong><small>{myCoOwnershipAgreements.length} {locale === "it" ? "accordi personali" : "personal agreements"}</small></summary>
+                <div className="cellar-settings-section-body">
                 <div className="settings-card-heading">
                   <div>
                     <span>{locale === "it" ? "Accordi" : "Agreements"}</span>
@@ -9389,11 +9401,14 @@ export function App() {
                 <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento accordi…" : "Loading agreements…"} />}>
                   <CoOwnershipAgreementLibrary agreements={myCoOwnershipAgreements} locale={locale} focusAgreementId={coOwnershipAgreementFocusId} />
                 </Suspense>
-              </section>
+                </div>
+              </details>
               ) : null}
 
               {settingsTab === "sharing" ? (
-              <section className="settings-card">
+              <details className="settings-card cellar-settings-section">
+                <summary><span>{locale === "it" ? "Posizioni condivise" : "Shared positions"}</span><strong>{t("pendingShareOffers")}</strong><small>{shareOffers.length ? `${shareOffers.length} ${locale === "it" ? "richieste da valutare" : "requests to review"}` : (locale === "it" ? "Nessuna richiesta aperta" : "No open requests")}</small></summary>
+                <div className="cellar-settings-section-body">
                 <div className="settings-card-heading">
                   <div>
                     <span>{t("ownership")}</span>
@@ -9423,7 +9438,8 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("noActionItems")}</p>
                 )}
-              </section>
+                </div>
+              </details>
               ) : null}
 
               {settingsTab === "data" && canAdmin ? (
@@ -9550,7 +9566,9 @@ export function App() {
               ) : null}
 
               {settingsTab === "sharing" && canAdmin ? (
-                <section className="settings-card">
+                <details className="settings-card cellar-settings-section">
+                  <summary><span>{locale === "it" ? "Collaborazione" : "Collaboration"}</span><strong>{locale === "it" ? "Invita un membro" : "Invite a member"}</strong><small>{locale === "it" ? "Definisci ruolo e visibilità" : "Set role and visibility"}</small></summary>
+                  <div className="cellar-settings-section-body">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("inviteMember")}</span>
@@ -9591,11 +9609,14 @@ export function App() {
                       </div>
                     ) : null}
                   </form>
-                </section>
+                  </div>
+                </details>
               ) : null}
 
               {settingsTab === "sharing" && canAdmin ? (
-                <section className="settings-card">
+                <details className="settings-card cellar-settings-section">
+                  <summary><span>{locale === "it" ? "Collaborazione" : "Collaboration"}</span><strong>{locale === "it" ? "Inviti in attesa" : "Pending invites"}</strong><small>{invites.length ? `${invites.length} ${locale === "it" ? "inviti da seguire" : "invites to follow"}` : (locale === "it" ? "Nessun invito aperto" : "No open invites")}</small></summary>
+                  <div className="cellar-settings-section-body">
                   <div className="settings-card-heading">
                     <div>
                       <span>{t("pendingInvites")}</span>
@@ -9623,7 +9644,8 @@ export function App() {
                   ) : (
                     <p className="empty-state">{t("noInvites")}</p>
                   )}
-                </section>
+                  </div>
+                </details>
               ) : null}
 
                 {settingsTab === "ai" && canWriteWine ? (
@@ -9685,7 +9707,9 @@ export function App() {
                 ) : null}
 
               {settingsTab === "sharing" ? (
-              <form className="settings-card" onSubmit={acceptInvite}>
+              <details className="settings-card cellar-settings-section">
+                <summary><span>{locale === "it" ? "Collaborazione" : "Collaboration"}</span><strong>{locale === "it" ? "Accetta un invito" : "Accept an invitation"}</strong><small>{locale === "it" ? "Usa un token ricevuto esternamente" : "Use an invitation token received externally"}</small></summary>
+                <form className="cellar-settings-section-body" onSubmit={acceptInvite}>
                 <div className="settings-card-heading">
                   <div>
                     <span>{t("acceptInvite")}</span>
@@ -9699,7 +9723,8 @@ export function App() {
                 <button type="submit" className="secondary" disabled={saving || !acceptToken.trim()}>
                   {t("accept")}
                 </button>
-              </form>
+                </form>
+              </details>
               ) : null}
             </div>
           </section>
