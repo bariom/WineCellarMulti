@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     rate_limit_passkey_window_seconds: int = 300
     rate_limit_support_attempts: int = 5
     rate_limit_support_window_seconds: int = 3600
+    monitoring_api_token: str = ""
     openai_api_key: str = ""
     openai_responses_url: str = "https://api.openai.com/v1/responses"
     # OPENAI_MODEL and the feature-specific variables remain as compatibility
@@ -129,7 +130,12 @@ class Settings(BaseSettings):
             return self.resend_enabled
         return self.smtp_enabled
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="ignore")
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=False,
+        extra="ignore",
+    )
 
 
 settings = Settings()
