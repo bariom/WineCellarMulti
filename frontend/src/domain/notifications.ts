@@ -57,6 +57,13 @@ export function localizedNotification(notification: UserNotification, locale: Lo
       }
       return { title: "Response to a co-ownership agreement", message: "A participant responded to a co-ownership agreement." };
     }
+    case "household_invite_accepted":
+      return { title: "Invitation accepted", message: "A member accepted your cellar invitation." };
+    case "share_offer_response":
+      return {
+        title: notification.title.toLowerCase().includes("rifiut") ? "Shared position declined" : "Shared position accepted",
+        message: "A recipient responded to your shared-position proposal.",
+      };
     case "share_revocation": {
       const wine = notificationSubject(notification.title, "Rimozione richiesta:");
       return { title: wine ? `Removal requested: ${wine}` : "Removal requested", message: "A request to remove a shared position from your cellar requires your response." };

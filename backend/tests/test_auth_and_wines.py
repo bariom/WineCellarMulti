@@ -2127,10 +2127,23 @@ def test_invite_acceptance_and_viewer_permissions():
     received_invites = member.get("/api/v1/household/invites/received")
     assert received_invites.status_code == 200
     assert received_invites.json()[0]["household_name"] == "Renamed Cellar"
+    invite_center = member.get("/api/v1/notifications/center")
+    assert invite_center.status_code == 200
+    invite_item = next(
+        item for item in invite_center.json()["items"] if item["source"] == "household_invite"
+    )
+    assert invite_item["category"] == "action"
+    assert invite_item["state"] == "pending"
+    assert invite_center.json()["counts"]["actionable"] >= 1
     accepted = member.post(f"/api/v1/household/invites/{invite_id}/accept")
     assert accepted.status_code == 200
     assert accepted.json()["role"] == "viewer"
     invited_membership_id = accepted.json()["membership_id"]
+    owner_updates = owner.get("/api/v1/notifications/center")
+    assert any(
+        item["kind"] == "household_invite_accepted" and item["category"] == "update"
+        for item in owner_updates.json()["items"]
+    )
 
     members_after = owner.get("/api/v1/household/members")
     assert members_after.status_code == 200
@@ -2197,6 +2210,12 @@ def test_invite_acceptance_and_viewer_permissions():
     offers = member.get("/api/v1/wines/share-offers")
     assert offers.status_code == 200
     assert offers.json()[0]["wine_name"] == "Shared Wine"
+    share_center = member.get("/api/v1/notifications/center")
+    share_item = next(
+        item for item in share_center.json()["items"] if item["source"] == "share_offer"
+    )
+    assert share_item["resource_id"] == offers.json()[0]["id"]
+    assert share_item["action_kind"] == "decide_share_offer"
     accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
     assert accepted_offer.status_code == 200
     assert accepted_offer.json()["quantity"] == 5
@@ -2209,6 +2228,11 @@ def test_invite_acceptance_and_viewer_permissions():
         owner for owner in accepted_offer.json()["owners"] if owner["email"] == "viewer@example.com"
     )
     assert viewer_owner["share_pct"] == 50.0
+    owner_share_updates = owner.get("/api/v1/notifications/center")
+    assert any(
+        item["kind"] == "share_offer_response" and item["category"] == "update"
+        for item in owner_share_updates.json()["items"]
+    )
     assert (
         member.get(f"/api/v1/wines/{accepted_offer.json()['id']}/share-offer-recipients").json()
         == []

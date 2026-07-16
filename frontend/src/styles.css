@@ -857,7 +857,7 @@ summary:focus-visible {
   z-index: 120;
   display: grid;
   gap: 10px;
-  width: min(360px, calc(100vw - 32px));
+  width: min(460px, calc(100vw - 32px));
   max-height: min(720px, calc(100vh - 120px));
   overflow: auto;
   padding: 12px;
@@ -1274,6 +1274,21 @@ summary:focus-visible {
 .settings-card-heading h3 {
   margin: 2px 0 0;
   font-size: 1.08rem;
+}
+
+.notification-heading > div:first-child {
+  display: grid;
+  gap: 2px;
+}
+
+.notification-heading > div:first-child > strong {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+}
+
+.notification-heading > div:first-child > span {
+  color: var(--text-muted);
+  font-size: 0.74rem;
 }
 
 .cellar-settings-section {
@@ -15252,6 +15267,78 @@ tbody tr:hover {
 .coownership-document,
 .coownership-response {
   margin-top: 1rem;
+}
+
+.notification-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--primary));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, transparent);
+}
+
+.notification-tabs button {
+  display: flex;
+  min-width: 0;
+  min-height: 36px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 8px;
+  border-color: transparent;
+  box-shadow: none;
+  font-size: 0.76rem;
+}
+
+.notification-tabs button.active {
+  color: var(--primary-contrast);
+  background: var(--primary);
+}
+
+.notification-tabs button b {
+  display: inline-grid;
+  min-width: 19px;
+  height: 19px;
+  place-items: center;
+  padding: 0 5px;
+  border-radius: 999px;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 13%, transparent);
+  font-size: 0.68rem;
+}
+
+.notification-feed {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-item-pending {
+  border: 1px solid color-mix(in srgb, var(--primary) 42%, var(--border));
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--primary) 7%, transparent), transparent 58%),
+    var(--surface-muted);
+}
+
+.notification-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.notification-item-meta span {
+  color: var(--primary);
+  font-size: 0.65rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.notification-item-meta time {
+  color: var(--text-muted);
+  font-size: 0.7rem;
 }
 
 .coownership-library {

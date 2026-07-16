@@ -442,6 +442,30 @@ export type UserNotification = {
   read_at: string | null;
 };
 
+export type NotificationCenterCategory = "action" | "update" | "system";
+
+export type NotificationCenterItem = UserNotification & {
+  source: "notification" | "household_invite" | "share_offer";
+  category: NotificationCenterCategory;
+  state: "unread" | "pending";
+  action_kind: "open" | "accept_invite" | "decide_share_offer" | "decide_share_revocation";
+  resource_id: string | null;
+  actor_label: string | null;
+  metadata: Record<string, string | number | boolean | null>;
+};
+
+export type NotificationCenterResponse = {
+  items: NotificationCenterItem[];
+  counts: {
+    total: number;
+    unread: number;
+    actionable: number;
+    actions: number;
+    updates: number;
+    system: number;
+  };
+};
+
 export type OperationalActionSnooze = {
   signature: string;
   until: number;

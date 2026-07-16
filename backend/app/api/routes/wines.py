@@ -703,6 +703,23 @@ def accept_share_offer(
     record_wine_value_history(db, copied_wine, source="shared")
     offer.status = "accepted"
     offer.decided_at = datetime.now(UTC)
+    if sender is not None:
+        italian = (sender.locale or "it").lower().startswith("it")
+        wine_label = " ".join(part for part in (wine.name, wine.vintage) if part).strip()
+        recipient_name = context.user.display_name or context.user.email
+        create_user_notification(
+            db,
+            sender,
+            kind="share_offer_response",
+            title="Condivisione accettata" if italian else "Shared position accepted",
+            message=(
+                f"{recipient_name} ha accettato la condivisione di {wine_label}."
+                if italian
+                else f"{recipient_name} accepted the shared position for {wine_label}."
+            ),
+            action_url=f"/cellar?wine_id={wine.id}",
+            fingerprint=f"share-offer-response:{offer.id}:accepted",
+        )
     db.commit()
     db.refresh(copied_wine)
     return wine_response(
@@ -880,8 +897,29 @@ def decline_share_offer(
     )
     if offer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Share offer not found")
+    sender = db.get(User, offer.created_by_user_id)
+    wine = db.get(Wine, offer.wine_id)
     offer.status = "declined"
     offer.decided_at = datetime.now(UTC)
+    if sender is not None:
+        italian = (sender.locale or "it").lower().startswith("it")
+        wine_label = " ".join(
+            part for part in (wine.name if wine else "", wine.vintage if wine else "") if part
+        ).strip() or ("vino" if italian else "wine")
+        recipient_name = context.user.display_name or context.user.email
+        create_user_notification(
+            db,
+            sender,
+            kind="share_offer_response",
+            title="Condivisione rifiutata" if italian else "Shared position declined",
+            message=(
+                f"{recipient_name} ha rifiutato la condivisione di {wine_label}."
+                if italian
+                else f"{recipient_name} declined the shared position for {wine_label}."
+            ),
+            action_url=f"/cellar?wine_id={offer.wine_id}",
+            fingerprint=f"share-offer-response:{offer.id}:declined",
+        )
     db.commit()
     db.refresh(offer)
     return share_offer_response(db, offer)

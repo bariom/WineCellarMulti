@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
@@ -9,8 +9,17 @@ from app.api.deps import CurrentContext, get_current_context, require_admin_cont
 from app.core.config import settings
 from app.core.security import hash_invite_token, new_invite_token
 from app.db.session import get_db
-from app.models import AiAuditLog, Household, HouseholdInvite, Membership, User, UserSession, Wine, WineShareOffer, WishlistItem
-from app.services.email import send_email
+from app.models import (
+    AiAuditLog,
+    Household,
+    HouseholdInvite,
+    Membership,
+    User,
+    UserSession,
+    Wine,
+    WineShareOffer,
+    WishlistItem,
+)
 from app.schemas.household import (
     HouseholdCreate,
     HouseholdMembershipResponse,
@@ -22,7 +31,8 @@ from app.schemas.household import (
     MemberResponse,
     MemberRoleUpdate,
 )
-
+from app.services.email import send_email
+from app.services.notifications import create_user_notification
 
 router = APIRouter(prefix="/household")
 
@@ -41,7 +51,9 @@ def member_response(db: Session, membership: Membership) -> MemberResponse:
     )
 
 
-def notify_invited_user(*, email: str, household_name: str, role: str, visibility_scope: str, inviter_name: str) -> None:
+def notify_invited_user(
+    *, email: str, household_name: str, role: str, visibility_scope: str, inviter_name: str
+) -> None:
     send_email(
         recipients=[email],
         subject=f"[{settings.app_name}] Household invitation",
@@ -91,7 +103,9 @@ def switch_household(
         ),
     )
     if membership is None:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No membership for household")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="No membership for household"
+        )
     household = db.get(Household, membership.household_id)
     if household is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Household not found")
@@ -115,7 +129,9 @@ def create_household(
 ) -> HouseholdMembershipResponse:
     name = payload.name.strip()
     if not name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
+        )
 
     household = Household(name=name)
     db.add(household)
@@ -146,14 +162,22 @@ def delete_active_household(
     context: CurrentContext = Depends(get_current_context),
 ) -> Response:
     if context.membership.role != "owner":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only the household owner can delete a cellar")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the household owner can delete a cellar",
+        )
 
-    member_rows = list(db.scalars(select(Membership).where(Membership.household_id == context.household.id)))
+    member_rows = list(
+        db.scalars(select(Membership).where(Membership.household_id == context.household.id))
+    )
     fallback_household_by_user: dict[UUID, UUID] = {}
     for membership in member_rows:
         fallback = db.scalar(
             select(Membership.household_id)
-            .where(Membership.user_id == membership.user_id, Membership.household_id != context.household.id)
+            .where(
+                Membership.user_id == membership.user_id,
+                Membership.household_id != context.household.id,
+            )
             .order_by(Membership.id.asc())
         )
         if fallback is None:
@@ -163,22 +187,43 @@ def delete_active_household(
             )
         fallback_household_by_user[membership.user_id] = fallback
 
-    sessions = list(db.scalars(select(UserSession).where(UserSession.active_household_id == context.household.id)))
+    sessions = list(
+        db.scalars(
+            select(UserSession).where(UserSession.active_household_id == context.household.id)
+        )
+    )
     for user_session in sessions:
         fallback_household_id = fallback_household_by_user.get(user_session.user_id)
         if fallback_household_id is None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to reassign active cellar for one or more members")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Unable to reassign active cellar for one or more members",
+            )
         user_session.active_household_id = fallback_household_id
 
     wine_ids = list(db.scalars(select(Wine.id).where(Wine.household_id == context.household.id)))
     if wine_ids:
-        db.query(WineShareOffer).filter(WineShareOffer.wine_id.in_(wine_ids)).delete(synchronize_session=False)
-    db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(synchronize_session=False)
-    db.query(AiAuditLog).filter(AiAuditLog.household_id == context.household.id).delete(synchronize_session=False)
-    db.query(HouseholdInvite).filter(HouseholdInvite.household_id == context.household.id).delete(synchronize_session=False)
-    db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(synchronize_session=False)
-    db.query(Wine).filter(Wine.household_id == context.household.id).delete(synchronize_session=False)
-    db.query(Membership).filter(Membership.household_id == context.household.id).delete(synchronize_session=False)
+        db.query(WineShareOffer).filter(WineShareOffer.wine_id.in_(wine_ids)).delete(
+            synchronize_session=False
+        )
+    db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
+    db.query(AiAuditLog).filter(AiAuditLog.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
+    db.query(HouseholdInvite).filter(HouseholdInvite.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
+    db.query(WishlistItem).filter(WishlistItem.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
+    db.query(Wine).filter(Wine.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
+    db.query(Membership).filter(Membership.household_id == context.household.id).delete(
+        synchronize_session=False
+    )
     db.delete(context.household)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -192,7 +237,9 @@ def update_active_household(
 ) -> HouseholdMembershipResponse:
     name = payload.name.strip()
     if not name:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
+        )
 
     context.household.name = name
     db.commit()
@@ -235,7 +282,9 @@ def create_invite(
             ),
         )
         if existing_membership is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User is already a member")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="User is already a member"
+            )
     token = new_invite_token()
     invite = HouseholdInvite(
         household_id=context.household.id,
@@ -244,8 +293,8 @@ def create_invite(
         role=payload.role,
         visibility_scope=visibility_scope,
         token_hash=hash_invite_token(token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.invite_ttl_days),
-        created_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(UTC) + timedelta(days=settings.invite_ttl_days),
+        created_at=datetime.now(UTC),
     )
     db.add(invite)
     db.commit()
@@ -301,7 +350,7 @@ def list_received_invites(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> list[InviteResponse]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     invites = db.scalars(
         select(HouseholdInvite)
         .where(
@@ -351,13 +400,37 @@ def revoke_invite(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-def accept_invite_record(db: Session, context: CurrentContext, invite: HouseholdInvite) -> MemberResponse:
+def accept_invite_record(
+    db: Session, context: CurrentContext, invite: HouseholdInvite
+) -> MemberResponse:
     if invite.accepted_at is not None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
-    if invite.expires_at.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc):
+    if invite.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_410_GONE, detail="Invite expired")
     if invite.email.lower() != context.user.email.lower():
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email"
+        )
+
+    inviter = db.get(User, invite.invited_by_user_id)
+    household = db.get(Household, invite.household_id)
+    if inviter is not None:
+        italian = (inviter.locale or "it").lower().startswith("it")
+        household_name = household.name if household is not None else "Vinaris"
+        member_name = context.user.display_name or context.user.email
+        create_user_notification(
+            db,
+            inviter,
+            kind="household_invite_accepted",
+            title="Invito accettato" if italian else "Invitation accepted",
+            message=(
+                f"{member_name} ha accettato l'invito a {household_name}."
+                if italian
+                else f"{member_name} accepted the invitation to {household_name}."
+            ),
+            action_url="/settings/sharing",
+            fingerprint=f"household-invite-accepted:{invite.id}",
+        )
 
     existing = db.scalar(
         select(Membership).where(
@@ -366,7 +439,7 @@ def accept_invite_record(db: Session, context: CurrentContext, invite: Household
         ),
     )
     if existing is not None:
-        invite.accepted_at = datetime.now(timezone.utc)
+        invite.accepted_at = datetime.now(UTC)
         db.commit()
         db.refresh(existing)
         return member_response(db, existing)
@@ -377,7 +450,7 @@ def accept_invite_record(db: Session, context: CurrentContext, invite: Household
         role=invite.role,
         visibility_scope=invite.visibility_scope,
     )
-    invite.accepted_at = datetime.now(timezone.utc)
+    invite.accepted_at = datetime.now(UTC)
     db.add(membership)
     db.commit()
     db.refresh(membership)
@@ -390,7 +463,11 @@ def accept_invite(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> MemberResponse:
-    invite = db.scalar(select(HouseholdInvite).where(HouseholdInvite.token_hash == hash_invite_token(payload.token)))
+    invite = db.scalar(
+        select(HouseholdInvite).where(
+            HouseholdInvite.token_hash == hash_invite_token(payload.token)
+        )
+    )
     if invite is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Invite not found")
     return accept_invite_record(db, context, invite)
@@ -424,13 +501,19 @@ def update_member_role(
     if membership is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     if membership.role == "owner":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner role cannot be changed")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Owner role cannot be changed"
+        )
     if payload.role is None and payload.visibility_scope is None:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No membership changes provided")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No membership changes provided"
+        )
     if payload.role is not None:
         membership.role = payload.role
     if payload.visibility_scope is not None:
-        membership.visibility_scope = "all" if membership.role in ("owner", "admin") else payload.visibility_scope
+        membership.visibility_scope = (
+            "all" if membership.role in ("owner", "admin") else payload.visibility_scope
+        )
     db.commit()
     db.refresh(membership)
     return member_response(db, membership)
@@ -451,7 +534,9 @@ def remove_member(
     if membership is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Member not found")
     if membership.role == "owner":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Owner membership cannot be removed")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Owner membership cannot be removed"
+        )
     db.delete(membership)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

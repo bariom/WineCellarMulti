@@ -3,7 +3,7 @@ import { AppIcon, AppIconName } from "./components/AppIcon";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
+import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -788,12 +788,15 @@ export function App() {
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
-  const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
+  const [notificationCenter, setNotificationCenter] = useState<NotificationCenterResponse>({
+    items: [],
+    counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 },
+  });
+  const [notificationTab, setNotificationTab] = useState<NotificationCenterCategory>("action");
   const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
   const [coOwnershipAgreementFocusId, setCoOwnershipAgreementFocusId] = useState<string | null>(null);
   const [coOwnershipLibraryVisible, setCoOwnershipLibraryVisible] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [operationalActionsExpanded, setOperationalActionsExpanded] = useState(false);
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
   const [activeKeyPositionIndex, setActiveKeyPositionIndex] = useState(0);
   const keyPositionStripRef = useRef<HTMLDivElement | null>(null);
@@ -1568,9 +1571,13 @@ export function App() {
 
   async function loadNotifications(authenticated = session?.authenticated) {
     if (authenticated) {
-      setUserNotifications(await api<UserNotification[]>("/api/v1/notifications"));
+      const center = await api<NotificationCenterResponse>("/api/v1/notifications/center");
+      setNotificationCenter(center);
     } else {
-      setUserNotifications([]);
+      setNotificationCenter({
+        items: [],
+        counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 },
+      });
     }
   }
 
@@ -1687,7 +1694,7 @@ export function App() {
           setWishlistLists([]);
           setShareOffers([]);
           setReceivedInvites([]);
-          setUserNotifications([]);
+          setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
           setUserTags([]);
           setPasskeys([]);
           setHouseholdMemberships([]);
@@ -1717,7 +1724,7 @@ export function App() {
         setWishlistLists([]);
         setShareOffers([]);
         setReceivedInvites([]);
-        setUserNotifications([]);
+        setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
         setUserTags([]);
         setPasskeys([]);
         setHouseholdMemberships([]);
@@ -1828,10 +1835,13 @@ export function App() {
     const timer = window.setInterval(() => {
       Promise.all([
         loadNotifications(true),
+        loadReceivedInvites(true),
+        loadShareOffers(true),
+        loadMyCoOwnershipAgreements(true),
         loadBilling(true, session.is_app_admin),
         loadAiSettings(session.membership_role, false),
       ]).catch(() => undefined);
-    }, 30000);
+    }, 15000);
     return () => window.clearInterval(timer);
   }, [session?.authenticated, session?.is_app_admin, session?.membership_role]);
 
@@ -2079,7 +2089,7 @@ export function App() {
     setWishlist([]);
     setShareOffers([]);
     setReceivedInvites([]);
-    setUserNotifications([]);
+    setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
     setUserTags([]);
     setPasskeys([]);
     setHouseholdMemberships([]);
@@ -2533,7 +2543,7 @@ export function App() {
     setError("");
     try {
       await api<void>(`/api/v1/notifications/${notification.id}/read`, { method: "POST" });
-      setUserNotifications((current) => current.filter((item) => item.id !== notification.id));
+      await loadNotifications(true);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update notification");
     }
@@ -2549,6 +2559,14 @@ export function App() {
     } else if (notification.action_url?.includes("/settings/ai")) {
       setActiveView("settings");
       setSettingsTab("ai");
+    } else if (notification.action_url?.includes("/settings/sharing")) {
+      setActiveView("settings");
+      setSettingsTab("sharing");
+      loadSettingsTabData("sharing");
+    } else if (notification.action_url?.includes("/settings/users")) {
+      setActiveView("settings");
+      setSettingsTab("users");
+      loadSettingsTabData("users");
     } else if (notification.action_url?.includes("/home")) {
       setActiveView("home");
     } else if (notification.action_url?.includes("/cellar")) {
@@ -2689,7 +2707,7 @@ export function App() {
     try {
       await api<Wine | WineShareOffer>(`/api/v1/wines/share-offers/${offer.id}/${decision}`, { method: "POST" });
       setShareOffers((current) => current.filter((item) => item.id !== offer.id));
-      await loadWines();
+      await Promise.all([loadWines(), loadNotifications(true)]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update share offer");
     } finally {
@@ -2754,7 +2772,7 @@ export function App() {
       setSelectedWishlistId(null);
       setShareOffers([]);
       setReceivedInvites([]);
-      setUserNotifications([]);
+      setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
       setUserTags([]);
       setPasskeys([]);
       setHouseholdMemberships([]);
@@ -2782,15 +2800,30 @@ export function App() {
     }
   }
 
-  async function acceptReceivedInvite(invite: Invite) {
+  async function acceptNotificationInvite(item: NotificationCenterItem) {
+    if (!item.resource_id) return;
     setSaving(true);
     setError("");
     try {
-      await api<Member>(`/api/v1/household/invites/${invite.id}/accept`, { method: "POST" });
-      setReceivedInvites((current) => current.filter((item) => item.id !== invite.id));
+      await api<Member>(`/api/v1/household/invites/${item.resource_id}/accept`, { method: "POST" });
+      setNotificationsOpen(false);
       await loadData();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to accept invite");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function decideNotificationShareOffer(item: NotificationCenterItem, decision: "accept" | "decline") {
+    if (!item.resource_id) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<Wine | WineShareOffer>(`/api/v1/wines/share-offers/${item.resource_id}/${decision}`, { method: "POST" });
+      await Promise.all([loadWines(), loadShareOffers(true), loadNotifications(true)]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update share offer");
     } finally {
       setSaving(false);
     }
@@ -3168,8 +3201,7 @@ export function App() {
     setError("");
     try {
       await api<WineShareOffer>(`/api/v1/wines/share-offers/${match[1]}/revocation/${decision}`, { method: "POST" });
-      setUserNotifications((current) => current.filter((item) => item.id !== notification.id));
-      await loadWines();
+      await Promise.all([loadWines(), loadNotifications(true)]);
       setNotice(decision === "approve"
         ? (locale === "it" ? "Comproprietà rimossa dalla tua cantina." : "Co-ownership removed from your cellar.")
         : (locale === "it" ? "La comproprietà resta nella tua cantina." : "The co-ownership remains in your cellar."));
@@ -4596,9 +4628,41 @@ export function App() {
       return !snooze || snooze.signature !== item.signature || snooze.until <= now.getTime();
     })
     .slice(0, 6);
-  const operationalActionCount = operationalActionItems.length;
-  const entitlementNotificationCount = authenticated && !session?.is_app_admin ? 1 : 0;
-  const notificationCount = userNotifications.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0) + receivedInvites.length + shareOffers.length + entitlementNotificationCount;
+  const centerKinds = new Set(notificationCenter.items.map((item) => item.kind));
+  const operationalCenterKindById: Record<string, string> = {
+    "coownership-pending": "coownership_agreement",
+    "past-window": "smart_past_window",
+    "drink-now": "smart_drink_now",
+    "future-deliveries": "smart_future_deliveries",
+    "to-collect": "smart_to_collect",
+  };
+  const supplementalOperationalItems = operationalActionItems.filter((item) => {
+    const matchingKind = operationalCenterKindById[item.id];
+    return !matchingKind || !centerKinds.has(matchingKind);
+  });
+  const operationalActionItemsByCategory = {
+    action: supplementalOperationalItems.filter((item) => item.id.startsWith("coownership-")),
+    system: supplementalOperationalItems.filter((item) => !item.id.startsWith("coownership-")),
+  };
+  const supersededAdminNotificationIds = new Set(
+    canAppAdmin && pendingUsers.length
+      ? notificationCenter.items
+        .filter((item) => item.kind === "new_user_registration")
+        .map((item) => item.id)
+      : [],
+  );
+  const visibleCenterItems = notificationCenter.items.filter((item) => !supersededAdminNotificationIds.has(item.id));
+  const adminActionCount = canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0;
+  const notificationCategoryCounts = {
+    action: notificationCenter.counts.actions - supersededAdminNotificationIds.size + operationalActionItemsByCategory.action.length + adminActionCount,
+    update: notificationCenter.counts.updates,
+    system: notificationCenter.counts.system + operationalActionItemsByCategory.system.length,
+  };
+  const notificationCount = notificationCategoryCounts.action + notificationCategoryCounts.update + notificationCategoryCounts.system;
+  const activeNotificationItems = visibleCenterItems.filter((item) => item.category === notificationTab);
+  const activeOperationalItems = notificationTab === "action"
+    ? operationalActionItemsByCategory.action
+    : notificationTab === "system" ? operationalActionItemsByCategory.system : [];
   const activeRedeemCodesCount = redeemCodes.filter((code) => code.is_active).length;
   const approvedUsersCount = appUsers.filter((user) => user.is_approved).length;
   const adminUsersSorted = [...appUsers].sort((first, second) => {
@@ -5510,7 +5574,26 @@ export function App() {
             <span>{session?.membership_role}</span>
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
             {!offlineMode ? <div className="notification-wrap">
-              <button type="button" className="secondary compact notification-button" aria-label={t("notifications")} title={t("notifications")} onClick={() => setNotificationsOpen((open) => !open)}>
+              <button
+                type="button"
+                className="secondary compact notification-button"
+                aria-label={t("notifications")}
+                title={t("notifications")}
+                onClick={() => {
+                  if (!notificationsOpen) {
+                    setNotificationTab(notificationCategoryCounts.action
+                      ? "action"
+                      : notificationCategoryCounts.update ? "update" : "system");
+                    void Promise.allSettled([
+                      loadNotifications(true),
+                      loadReceivedInvites(true),
+                      loadShareOffers(true),
+                      loadMyCoOwnershipAgreements(true),
+                    ]);
+                  }
+                  setNotificationsOpen((open) => !open);
+                }}
+              >
                 <span className="notification-button-icon" aria-hidden="true">{notificationBellIcon()}</span>
                 {notificationCount ? <strong>{notificationCount}</strong> : null}
               </button>
@@ -5524,7 +5607,10 @@ export function App() {
                   />
                   <div className="notification-panel" role="dialog" aria-modal="true" aria-label={t("notifications")} onClick={(event) => event.stopPropagation()}>
                     <div className="notification-heading">
-                      <strong>{t("notifications")}</strong>
+                      <div>
+                        <strong>{locale === "it" ? "Centro di controllo" : "Control center"}</strong>
+                        <span>{locale === "it" ? "Eventi e attività operative" : "Events and operational activity"}</span>
+                      </div>
                       <div className="notification-heading-actions">
                         <span>{notificationCount}</span>
                         <button
@@ -5537,71 +5623,81 @@ export function App() {
                         </button>
                       </div>
                     </div>
-                    {operationalActionCount ? (
-                      <section className="operational-actions-section" aria-label={t("operationalActions")}>
-                        <div className="operational-actions-head">
-                          <div>
-                            <strong>{t("operationalActions")}</strong>
-                          </div>
+                    <div className="notification-tabs" role="tablist" aria-label={t("notifications")}>
+                      {(["action", "update", "system"] as NotificationCenterCategory[]).map((category) => {
+                        const label = category === "action"
+                          ? (locale === "it" ? "Da fare" : "To do")
+                          : category === "update"
+                            ? (locale === "it" ? "Aggiornamenti" : "Updates")
+                            : (locale === "it" ? "Sistema" : "System");
+                        return (
                           <button
                             type="button"
-                            className="secondary compact operational-actions-toggle"
-                            aria-expanded={operationalActionsExpanded}
-                            onClick={() => setOperationalActionsExpanded((expanded) => !expanded)}
+                            role="tab"
+                            aria-selected={notificationTab === category}
+                            className={notificationTab === category ? "active" : "secondary"}
+                            key={category}
+                            onClick={() => setNotificationTab(category)}
                           >
-                            {operationalActionsExpanded ? t("hideActions") : `${t("showActions")} ${operationalActionCount}`}
+                            <span>{label}</span>
+                            <b>{notificationCategoryCounts[category]}</b>
                           </button>
-                        </div>
-                        {operationalActionsExpanded ? (
-                          operationalActionItems.map((item) => (
-                            <div className="notification-item operational-action-item" key={item.id}>
-                              <button type="button" className="operational-action-open" onClick={item.onOpen}>
-                                <strong className="notification-title">
-                                  <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
-                                  {item.title}
-                                </strong>
-                                <span>{item.detail}</span>
-                                <b>{formatBottleCount(item.count, locale)}</b>
-                              </button>
-                              <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
-                                {t("snoozeAction")}
-                              </button>
-                            </div>
-                          ))
-                        ) : null}
-                      </section>
-                    ) : null}
-                    {authenticated && !session?.is_app_admin ? (
-                      <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("profile"); setNotificationsOpen(false); }}>
-                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("smart_entitlement_expiring")}</i>{t("entitlementValidity")}</strong>
-                        <span>
-                          {session?.has_active_entitlement && session.entitlement_days_remaining !== null
-                            ? `${session.entitlement_days_remaining} ${t("daysRemaining")} - ${formatDisplayDate(session.entitlement_valid_until || "")}`
-                          : t("redeemRequired")}
-                        </span>
-                      </button>
-                    ) : null}
-                    {userNotifications.map((notification) => {
-                      const notificationCopy = localizedNotification(notification, locale);
+                        );
+                      })}
+                    </div>
+                    <div className="notification-feed" role="tabpanel">
+                    {activeOperationalItems.map((item) => (
+                      <div className="notification-item operational-action-item" key={`operational:${item.id}`}>
+                        <button type="button" className="operational-action-open" onClick={item.onOpen}>
+                          <strong className="notification-title">
+                            <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
+                            {item.title}
+                          </strong>
+                          <span>{item.detail}</span>
+                          <b>{formatBottleCount(item.count, locale)}</b>
+                        </button>
+                        <button type="button" className="secondary compact operational-action-snooze" onClick={() => snoozeOperationalAction(item)}>
+                          {t("snoozeAction")}
+                        </button>
+                      </div>
+                    ))}
+                    {activeNotificationItems.map((item) => {
+                      const notificationCopy = localizedNotification(item, locale);
                       return (
-                      <div className="notification-item" key={notification.id}>
-                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notificationCopy.title}</strong>
+                      <div className={`notification-item notification-item-${item.state}`} key={item.id}>
+                        <div className="notification-item-meta">
+                          <span>{item.state === "pending" ? (locale === "it" ? "In attesa" : "Pending") : (locale === "it" ? "Nuova" : "New")}</span>
+                          <time dateTime={item.created_at}>{formatDisplayDate(item.created_at)}</time>
+                        </div>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>{notificationCopy.title}</strong>
                         <span>{notificationCopy.message}</span>
-                        {notification.kind === "share_revocation" ? (
+                        {item.metadata.message ? <span className="share-offer-message">{String(item.metadata.message)}</span> : null}
+                        {item.action_kind === "accept_invite" ? (
                           <div className="member-actions">
-                            <button type="button" className="compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(notification, "approve")}>
+                            <button type="button" className="compact" disabled={saving} onClick={() => acceptNotificationInvite(item)}>{t("accept")}</button>
+                          </div>
+                        ) : item.action_kind === "decide_share_offer" ? (
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => decideNotificationShareOffer(item, "accept")}>{t("accept")}</button>
+                            <button type="button" className="secondary compact" disabled={saving} onClick={() => decideNotificationShareOffer(item, "decline")}>{t("decline")}</button>
+                          </div>
+                        ) : item.action_kind === "decide_share_revocation" ? (
+                          <div className="member-actions">
+                            <button type="button" className="compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(item, "approve")}>
                               {locale === "it" ? "Approva rimozione" : "Approve removal"}
                             </button>
-                            <button type="button" className="secondary compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(notification, "decline")}>
+                            <button type="button" className="secondary compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(item, "decline")}>
                               {locale === "it" ? "Mantieni" : "Keep"}
                             </button>
                           </div>
                         ) : (
                           <div className="member-actions">
-                            <button type="button" className="compact" disabled={saving} onClick={() => openNotification(notification)}>
-                              {notification.action_url ? t("open") : t("markRead")}
-                            </button>
-                            <button type="button" className="secondary compact" disabled={saving} onClick={() => markNotificationRead(notification)}>
+                            {item.action_url ? (
+                              <button type="button" className="compact" disabled={saving} onClick={() => openNotification(item)}>
+                                {t("open")}
+                              </button>
+                            ) : null}
+                            <button type="button" className={item.action_url ? "secondary compact" : "compact"} disabled={saving} onClick={() => markNotificationRead(item)}>
                               {t("markRead")}
                             </button>
                           </div>
@@ -5609,39 +5705,22 @@ export function App() {
                       </div>
                       );
                     })}
-                    {canAppAdmin && pendingUsers.length ? (
+                    {notificationTab === "action" && canAppAdmin && pendingUsers.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
                         <span>{t("reviewUsers")}</span>
                       </button>
                     ) : null}
-                    {canAppAdmin && pendingCatalogEntries.length ? (
+                    {notificationTab === "action" && canAppAdmin && pendingCatalogEntries.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("ai_audit")}</i>{pendingCatalogEntries.length} {t("pendingCatalogEntries")}</strong>
                         <span>{t("approveCatalogEntry")}</span>
                       </button>
                     ) : null}
-                    {receivedInvites.map((invite) => (
-                      <div className="notification-item" key={invite.id}>
-                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("invite")}</i>{invite.household_name || t("sharedCellar")}</strong>
-                        <span>{t("acceptInvite")} - {invite.role}</span>
-                        <button type="button" className="compact" disabled={saving} onClick={() => acceptReceivedInvite(invite)}>
-                          {t("accept")}
-                        </button>
-                      </div>
-                    ))}
-                    {shareOffers.map((offer) => (
-                      <div className="notification-item" key={offer.id}>
-                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("share_offer")}</i>{offer.wine_name} {offer.wine_vintage}</strong>
-                        <span>{offer.share_pct}% - {offer.created_by_email}</span>
-                        {offer.message ? <span className="share-offer-message">{offer.message}</span> : null}
-                        <div className="member-actions">
-                          <button type="button" className="compact" disabled={saving} onClick={() => decideShareOffer(offer, "accept")}>{t("accept")}</button>
-                          <button type="button" className="secondary compact" disabled={saving} onClick={() => decideShareOffer(offer, "decline")}>{t("decline")}</button>
-                        </div>
-                      </div>
-                    ))}
-                    {!notificationCount && !operationalActionCount ? <p className="empty-state">{t("noNotifications")}</p> : null}
+                    {!activeNotificationItems.length && !activeOperationalItems.length && !(notificationTab === "action" && adminActionCount) ? (
+                      <p className="empty-state">{locale === "it" ? "Nessuna attività in questa sezione" : "No activity in this section"}</p>
+                    ) : null}
+                    </div>
                   </div>
                 </>
               ) : null}
