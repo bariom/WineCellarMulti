@@ -658,6 +658,7 @@ function notificationSvgIcon(kind: string) {
   if (kind === "pending_users") return dashboardStatSvgIcon("shared");
   if (kind === "invite") return dashboardStatSvgIcon("shared");
   if (kind === "share_offer") return dashboardStatSvgIcon("shared");
+  if (kind === "coownership_agreement" || kind === "coownership_payment") return dashboardStatSvgIcon("shared");
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M6 10a6 6 0 1 1 12 0c0 4-6 10-6 10S6 14 6 10Z" />
@@ -789,6 +790,7 @@ export function App() {
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [userNotifications, setUserNotifications] = useState<UserNotification[]>([]);
   const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
+  const [coOwnershipAgreementFocusId, setCoOwnershipAgreementFocusId] = useState<string | null>(null);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [operationalActionsExpanded, setOperationalActionsExpanded] = useState(false);
   const [operationalActionSnoozes, setOperationalActionSnoozes] = useState<OperationalActionSnoozes>(() => readOperationalActionSnoozes());
@@ -1571,8 +1573,8 @@ export function App() {
     }
   }
 
-  async function loadMyCoOwnershipAgreements() {
-    if (!session?.authenticated || offlineMode) {
+  async function loadMyCoOwnershipAgreements(authenticated = session?.authenticated) {
+    if (!authenticated || offlineMode) {
       setMyCoOwnershipAgreements([]);
       return;
     }
@@ -1626,7 +1628,7 @@ export function App() {
 
   async function loadAuthenticatedSessionData(nextSession: Session) {
     if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
-      await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated)]);
+      await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated), loadMyCoOwnershipAgreements(nextSession.authenticated)]);
       return;
     }
     const [nextLists] = await Promise.all([
@@ -1636,6 +1638,7 @@ export function App() {
       loadNotifications(nextSession.authenticated),
       loadBilling(nextSession.authenticated, nextSession.is_app_admin),
       loadHouseholdMemberships(),
+      loadMyCoOwnershipAgreements(nextSession.authenticated),
     ]);
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
@@ -4427,7 +4430,42 @@ export function App() {
     (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
+  const pendingCoOwnershipAgreements = myCoOwnershipAgreements.filter((agreement) => agreement.status === "pending");
+  const outstandingCoOwnershipShares = myCoOwnershipAgreements
+    .filter((agreement) => !["invalidated", "declined"].includes(agreement.status))
+    .flatMap((agreement) => agreement.participants
+      .filter((participant) => participant.outstanding !== null && Number(participant.outstanding) > 0)
+      .map((participant) => ({ agreement, participant })));
+  const openCoOwnershipAgreements = (agreementId: string) => {
+    setCoOwnershipAgreementFocusId(agreementId);
+    setActiveView("settings");
+    setSettingsTab("sharing");
+    setNotificationsOpen(false);
+    loadSettingsTabData("sharing");
+  };
   const operationalActionCandidates: OperationalActionItem[] = [
+    pendingCoOwnershipAgreements.length ? {
+      id: "coownership-pending",
+      kind: "coownership_agreement",
+      title: t("pendingCoOwnershipAgreements"),
+      detail: pendingCoOwnershipAgreements[0]
+        ? `${String(pendingCoOwnershipAgreements[0].wine_snapshot.name || "")} ${String(pendingCoOwnershipAgreements[0].wine_snapshot.vintage || "")}`.trim()
+        : t("openFilteredCellar"),
+      count: pendingCoOwnershipAgreements.length,
+      signature: pendingCoOwnershipAgreements.map((agreement) => `${agreement.id}:${agreement.status}`).join("|"),
+      onOpen: () => openCoOwnershipAgreements(pendingCoOwnershipAgreements[0].id),
+    } : null,
+    outstandingCoOwnershipShares.length ? {
+      id: "coownership-outstanding",
+      kind: "coownership_payment",
+      title: t("unpaidCoOwnershipShares"),
+      detail: outstandingCoOwnershipShares[0]
+        ? `${String(outstandingCoOwnershipShares[0].agreement.wine_snapshot.name || "")} · ${outstandingCoOwnershipShares[0].participant.name}`
+        : t("openFilteredCellar"),
+      count: outstandingCoOwnershipShares.length,
+      signature: outstandingCoOwnershipShares.map(({ agreement, participant }) => `${agreement.id}:${participant.id}:${participant.outstanding}`).join("|"),
+      onOpen: () => openCoOwnershipAgreements(outstandingCoOwnershipShares[0].agreement.id),
+    } : null,
     cellarStats.pastWindow ? {
       id: "past-window",
       kind: "smart_past_window",
@@ -9349,7 +9387,7 @@ export function App() {
                   </div>
                 </div>
                 <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento accordi…" : "Loading agreements…"} />}>
-                  <CoOwnershipAgreementLibrary agreements={myCoOwnershipAgreements} locale={locale} />
+                  <CoOwnershipAgreementLibrary agreements={myCoOwnershipAgreements} locale={locale} focusAgreementId={coOwnershipAgreementFocusId} />
                 </Suspense>
               </section>
               ) : null}

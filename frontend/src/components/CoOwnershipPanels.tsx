@@ -61,7 +61,7 @@ function todayValue() {
 }
 
 
-export function CoOwnershipAgreementLibrary({ agreements, locale }: { agreements: CoOwnershipAgreement[]; locale: Locale }) {
+export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreementId }: { agreements: CoOwnershipAgreement[]; locale: Locale; focusAgreementId?: string | null }) {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(agreements[0]?.id || null);
   const [printAgreementId, setPrintAgreementId] = useState<string | null>(null);
   const selectedAgreement = agreements.find((agreement) => agreement.id === selectedAgreementId) || agreements[0] || null;
@@ -71,6 +71,12 @@ export function CoOwnershipAgreementLibrary({ agreements, locale }: { agreements
       setSelectedAgreementId(agreements[0]?.id || null);
     }
   }, [agreements, selectedAgreementId]);
+
+  useEffect(() => {
+    if (focusAgreementId && agreements.some((agreement) => agreement.id === focusAgreementId)) {
+      setSelectedAgreementId(focusAgreementId);
+    }
+  }, [agreements, focusAgreementId]);
 
   function printAgreement() {
     if (!selectedAgreement) return;
