@@ -14,6 +14,8 @@ import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNu
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
 import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, coOwnershipTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
+import type { HelpRole } from "./help/types";
+import { HelpContext } from "./help/HelpContext";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -52,6 +54,11 @@ const HelpView = lazy(() => import("./views/HelpView"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
+
+function helpSlugFromLocation() {
+  const match = window.location.pathname.match(/^\/help(?:\/([^/]+))?\/?$/);
+  return match ? decodeURIComponent(match[1] || "") || null : null;
+}
 
 function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -899,6 +906,8 @@ export function App() {
   });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [activeView, setActiveView] = useState<ViewName>("home");
+  const [helpSlug, setHelpSlug] = useState<string | null>(() => helpSlugFromLocation());
+  const helpReturnViewRef = useRef<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
@@ -913,6 +922,22 @@ export function App() {
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    if (helpSlug !== null || window.location.pathname === "/help") setActiveView("help");
+    const onPopState = () => {
+      const slug = helpSlugFromLocation();
+      if (slug !== null || window.location.pathname === "/help") {
+        setHelpSlug(slug);
+        setActiveView("help");
+      } else if (activeView === "help") {
+        setHelpSlug(null);
+        setActiveView(helpReturnViewRef.current);
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [activeView]);
 
   useEffect(() => {
     if (!wineDetailExpanded) return;
@@ -3690,6 +3715,35 @@ export function App() {
         (aiSettings.provider_mode === "credits" && aiSettings.can_use_app_credits)
       ),
     );
+  const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
+    ? session.membership_role
+    : "viewer";
+  const contextualHelpArticle = selectedWineId
+    ? "wine-detail"
+    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", pairing: "pairing", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
+
+  function updateHelpLocation(slug: string | null, replace = false) {
+    const path = slug ? `/help/${encodeURIComponent(slug)}` : "/help";
+    window.history[replace ? "replaceState" : "pushState"]({}, "", `${path}${window.location.search}`);
+  }
+
+  function openHelp(slug: string | null = null) {
+    if (activeView !== "help") helpReturnViewRef.current = activeView;
+    setHelpSlug(slug);
+    setActiveView("help");
+    updateHelpLocation(slug);
+  }
+
+  function closeHelp() {
+    setHelpSlug(null);
+    setActiveView(helpReturnViewRef.current);
+    window.history.pushState({}, "", `/${window.location.search}`);
+  }
+
+  function changeHelpArticle(slug: string | null) {
+    setHelpSlug(slug);
+    updateHelpLocation(slug);
+  }
   const showManualWineAiSearch =
     (activeView === "cellar" || activeView === "history") &&
     wineFormOpen &&
@@ -5662,6 +5716,7 @@ export function App() {
   }
 
   return (
+    <HelpContext.Provider value={{ openHelp }}>
     <main className="app-shell">
       <datalist id="wine-catalog-suggestions">
         {wineTemplateSuggestions.map((wine) => (
@@ -6560,10 +6615,11 @@ export function App() {
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
             </button>
-            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => { setActiveView("help"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("help"); }}>
+            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => openHelp()}>
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
+            {activeView !== "help" ? <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button> : null}
             </div>
             <form
               className="view-tabs-quick-search"
@@ -7311,7 +7367,14 @@ export function App() {
 
           {activeView === "help" ? (
             <Suspense fallback={<LoadingState label={t("loadingData")} />}>
-              <HelpView locale={locale} />
+              <HelpView
+                locale={locale}
+                role={helpRole}
+                aiAvailable={canGenerateAi}
+                initialSlug={helpSlug}
+                onArticleChange={changeHelpArticle}
+                onClose={closeHelp}
+              />
             </Suspense>
           ) : null}
 
@@ -8512,10 +8575,10 @@ export function App() {
               </div>
             ) : null}
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} /> : null}
-            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <EmptyState title={t("noWineMatch")} icon="cellar" /> : null}
-            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <EmptyState title={t("noHistoryMatch")} icon="calendar" /> : null}
-            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? <EmptyState title={t("noTastingArchiveMatch")} icon="glass-sparkle" /> : null}
-            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <EmptyState title={t("noWishlistMatch")} icon="wishlist" /> : null}
+            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <EmptyState title={t("noWineMatch")} icon="cellar" helpSlug="cellar-and-filters" /> : null}
+            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <EmptyState title={t("noHistoryMatch")} icon="calendar" helpSlug="consumption-and-tastings" /> : null}
+            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? <EmptyState title={t("noTastingArchiveMatch")} icon="glass-sparkle" helpSlug="consumption-and-tastings" /> : null}
+            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <EmptyState title={t("noWishlistMatch")} icon="wishlist" helpSlug="wishlist" /> : null}
             {activeView === "history" && historySection === "tastings" && visibleTastingEntries.length ? (
               <>
                 {usingPagedTastingArchive ? (
@@ -10141,5 +10204,6 @@ export function App() {
         />
       ) : null}
     </main>
+    </HelpContext.Provider>
   );
 }

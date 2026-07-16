@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AppIcon } from "./AppIcon";
 import type { AppIconName } from "./AppIcon";
+import { useHelp } from "../help/HelpContext";
 import { displayValue } from "../i18n";
 import type { TranslationKey } from "../i18n";
 import type { AiOverlayProgress, Locale, TastingEnjoyment, Wine } from "../types";
@@ -115,18 +116,22 @@ export function EmptyState({
   icon = "bottle",
   compact = false,
   children,
+  helpSlug,
 }: {
   title: string;
   icon?: AppIconName;
   compact?: boolean;
   children?: ReactNode;
+  helpSlug?: string;
 }) {
+  const help = useHelp();
   return (
     <div className={`empty-state-panel${compact ? " compact" : ""}`} role="status">
       <i aria-hidden="true"><AppIcon name={icon} variant="premium" tone="accent" detailLevel="rich" /></i>
       <div>
         <strong>{title}</strong>
         {children ? <span>{children}</span> : null}
+        {helpSlug && help ? <button type="button" className="secondary compact" onClick={() => help.openHelp(helpSlug)}>?</button> : null}
       </div>
     </div>
   );
