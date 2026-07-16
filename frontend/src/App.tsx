@@ -7,6 +7,7 @@ import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResul
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
+import { localizedNotification } from "./domain/notifications";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
@@ -5530,10 +5531,12 @@ export function App() {
                         </span>
                       </button>
                     ) : null}
-                    {userNotifications.map((notification) => (
+                    {userNotifications.map((notification) => {
+                      const notificationCopy = localizedNotification(notification, locale);
+                      return (
                       <div className="notification-item" key={notification.id}>
-                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notification.title}</strong>
-                        <span>{notification.message}</span>
+                        <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(notification.kind)}</i>{notificationCopy.title}</strong>
+                        <span>{notificationCopy.message}</span>
                         {notification.kind === "share_revocation" ? (
                           <div className="member-actions">
                             <button type="button" className="compact" disabled={saving} onClick={() => decideWineShareOfferRevocation(notification, "approve")}>
@@ -5554,7 +5557,8 @@ export function App() {
                           </div>
                         )}
                       </div>
-                    ))}
+                      );
+                    })}
                     {canAppAdmin && pendingUsers.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
