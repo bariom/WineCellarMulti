@@ -3735,9 +3735,15 @@ export function App() {
   }
 
   function closeHelp() {
+    leaveHelpFor(helpReturnViewRef.current);
+  }
+
+  function leaveHelpFor(view: ViewName) {
     setHelpSlug(null);
-    setActiveView(helpReturnViewRef.current);
-    window.history.pushState({}, "", `/${window.location.search}`);
+    if (window.location.pathname === "/help" || window.location.pathname.startsWith("/help/")) {
+      window.history.pushState({}, "", `/${window.location.search}`);
+    }
+    setActiveView(view);
   }
 
   function changeHelpArticle(slug: string | null) {
@@ -5262,7 +5268,7 @@ export function App() {
 
   function toggleSettingsView() {
     const nextView: ViewName = activeView === "settings" ? "home" : "settings";
-    setActiveView(nextView);
+    leaveHelpFor(nextView);
     if (nextView === "settings") loadSettingsTabData(settingsTab);
     setWineFormOpen(false);
     setWishlistFormOpen(false);
@@ -6594,33 +6600,33 @@ export function App() {
         >
           {!needsRedeem ? (
           <div className="view-tabs">
-            <div className="view-tabs-navigation">
-            <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { setActiveView("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
+            {activeView !== "help" ? <div className="view-tabs-navigation">
+            <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
               {t("home")}
             </button>
-            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { setActiveView("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}>
+            <button type="button" className={activeView === "cellar" ? "" : "secondary"} onClick={() => { leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}>
               <AppIcon name="cellar" variant="navigation" detailLevel="rich" />
               {t("cellar")} ({cellarWines.length})
             </button>
-            <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { setActiveView("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
+            <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
               <AppIcon name="calendar" variant="navigation" />
               {t("history")}
             </button>
-            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { setActiveView("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
+            <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
-            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setActiveView("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
+            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
             </button>
-            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => openHelp()}>
+            <button type="button" className="secondary" onClick={() => openHelp()}>
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
-            {activeView !== "help" ? <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button> : null}
-            </div>
+            <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button>
+            </div> : null}
             <form
               className="view-tabs-quick-search"
               role="search"
@@ -8575,9 +8581,9 @@ export function App() {
               </div>
             ) : null}
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} /> : null}
-            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <EmptyState title={t("noWineMatch")} icon="cellar" helpSlug="cellar-and-filters" /> : null}
-            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <EmptyState title={t("noHistoryMatch")} icon="calendar" helpSlug="consumption-and-tastings" /> : null}
-            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? <EmptyState title={t("noTastingArchiveMatch")} icon="glass-sparkle" helpSlug="consumption-and-tastings" /> : null}
+            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <EmptyState title={t("noWineMatch")} icon="cellar" helpSlug="cellar-filters" /> : null}
+            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <EmptyState title={t("noHistoryMatch")} icon="calendar" helpSlug="consumption" /> : null}
+            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? <EmptyState title={t("noTastingArchiveMatch")} icon="glass-sparkle" helpSlug="consumption" /> : null}
             {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <EmptyState title={t("noWishlistMatch")} icon="wishlist" helpSlug="wishlist" /> : null}
             {activeView === "history" && historySection === "tastings" && visibleTastingEntries.length ? (
               <>

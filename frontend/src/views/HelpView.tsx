@@ -16,6 +16,7 @@ type HelpViewProps = {
 };
 
 const categories: HelpCategory[] = ["getting-started", "cellar", "decisions", "sharing", "account", "troubleshooting"];
+const aiArticleIds = new Set(["label-recognition", "value-window", "wishlist", "pairing", "buying-advice", "compare", "ai-pack"]);
 const categoryLabels: Record<Locale, Record<HelpCategory, string>> = {
   it: { "getting-started": "Per iniziare", cellar: "Cantina", decisions: "Decisioni", sharing: "Condivisioni", account: "Account", troubleshooting: "Problemi" },
   en: { "getting-started": "Getting started", cellar: "Cellar", decisions: "Decisions", sharing: "Sharing", account: "Account", troubleshooting: "Troubleshooting" },
@@ -56,6 +57,7 @@ export default function HelpView({ locale, role, aiAvailable, initialSlug, onArt
     return searchHelpArticles(byCategory, query);
   }, [articles, category, query]);
   const selectedArticle = articles.find((article) => article.slug === selectedSlug || article.id === selectedSlug) || null;
+  const selectedUsesAi = Boolean(selectedArticle && aiArticleIds.has(selectedArticle.id));
   const frequentArticles = articles.filter((article) => ["onboarding", "cellar-filters", "value-window", "ai-pack"].includes(article.id));
 
   useEffect(() => {
@@ -99,14 +101,16 @@ export default function HelpView({ locale, role, aiAvailable, initialSlug, onArt
         <div className="help-toolbar no-print">
           <button type="button" className="secondary compact" onClick={closeArticle}>{locale === "it" ? "Torna al centro assistenza" : "Back to Help Center"}</button>
           <button type="button" className="secondary compact" onClick={() => window.print()}>{locale === "it" ? "Stampa" : "Print"}</button>
-          <a className="secondary compact" href={`mailto:?subject=${encodeURIComponent(`Vinaris · ${selectedArticle.title}`)}`}>{locale === "it" ? "Contatta supporto" : "Contact support"}</a>
+          <a className="secondary compact help-support-link" href={`mailto:?subject=${encodeURIComponent(`Vinaris · ${selectedArticle.title}`)}`}>{locale === "it" ? "Contatta supporto" : "Contact support"}</a>
+          <button type="button" className="help-close-button" onClick={onClose} aria-label={locale === "it" ? "Chiudi il centro assistenza" : "Close Help Center"} title={locale === "it" ? "Chiudi assistenza" : "Close help"} />
         </div>
         <article className="help-article" ref={articleRef} tabIndex={-1}>
           <p className="eyebrow">{categoryLabels[locale][selectedArticle.category]}</p>
+          {selectedUsesAi ? <span className="help-ai-badge">AI · {locale === "it" ? "Funzione assistita" : "Assisted feature"}</span> : null}
           <h2>{selectedArticle.title}</h2>
           <p className="help-summary">{selectedArticle.summary}</p>
           {roleNote ? <p className="help-role-note">{roleNote}</p> : null}
-          {!aiAvailable && selectedArticle.id === "ai-pack" ? <p className="help-role-note">{locale === "it" ? "L’AI non è configurata: l’articolo spiega comunque come abilitarla." : "AI is not configured: this article explains how to enable it."}</p> : null}
+          {selectedUsesAi ? <p className="help-ai-note">{aiAvailable ? (locale === "it" ? "AI disponibile: verifica sempre risultati, fonti e costi prima di agire." : "AI is available: always verify results, sources and costs before acting.") : (locale === "it" ? "AI non configurata: questa funzione richiede una chiave personale oppure credito AI Pack." : "AI is not configured: this feature requires a personal key or AI Pack credit.")}</p> : null}
           <h3>{locale === "it" ? "Passaggi" : "Steps"}</h3>
           <ol>{selectedArticle.steps.map((step) => <li key={step}>{step}</li>)}</ol>
           {selectedArticle.warnings.length ? <aside className="help-warnings"><strong>{locale === "it" ? "Attenzione" : "Important"}</strong>{selectedArticle.warnings.map((warning) => <p key={warning}>{warning}</p>)}</aside> : null}
@@ -121,6 +125,7 @@ export default function HelpView({ locale, role, aiAvailable, initialSlug, onArt
   return (
     <section className="help-center" aria-label={locale === "it" ? "Centro assistenza" : "Help Center"}>
       <div className="help-hero">
+        <button type="button" className="help-close-button" onClick={onClose} aria-label={locale === "it" ? "Chiudi il centro assistenza" : "Close Help Center"} title={locale === "it" ? "Chiudi assistenza" : "Close help"} />
         <p className="eyebrow">{locale === "it" ? "Centro assistenza" : "Help Center"}</p>
         <h2>{locale === "it" ? "Come possiamo aiutarti?" : "How can we help?"}</h2>
         <p>{locale === "it" ? "Cerca guide operative, funzioni AI, ruoli e soluzioni ai problemi." : "Search practical guides, AI features, roles and troubleshooting."}</p>
@@ -130,9 +135,8 @@ export default function HelpView({ locale, role, aiAvailable, initialSlug, onArt
         <button type="button" aria-current={category === "all" ? "page" : undefined} onClick={() => setCategory("all")}>{locale === "it" ? "Tutte" : "All"}</button>
         {categories.map((item) => <button type="button" key={item} aria-current={category === item ? "page" : undefined} onClick={() => setCategory(item)}>{categoryLabels[locale][item]}</button>)}
       </nav>
-      {!query && category === "all" ? <section><h3>{locale === "it" ? "Attività frequenti" : "Frequent tasks"}</h3><div className="help-grid">{frequentArticles.map((article) => <button type="button" className="help-card" key={article.id} onClick={() => openArticle(article)}><strong>{article.title}</strong><span>{article.summary}</span></button>)}</div></section> : null}
-      <section><h3>{query ? (locale === "it" ? "Risultati" : "Results") : categoryLabels[locale][category === "all" ? "getting-started" : category]}</h3>{visibleArticles.length ? <div className="help-grid">{visibleArticles.map((article) => <button type="button" className="help-card" key={article.id} onClick={() => openArticle(article)}><span>{categoryLabels[locale][article.category]}</span><strong>{article.title}</strong><small>{article.summary}</small>{!article.roles.includes(role) ? <em>{locale === "it" ? "Dipende dal ruolo" : "Role dependent"}</em> : null}</button>)}</div> : <div className="empty-state-panel" role="status"><div><strong>{locale === "it" ? "Nessun articolo trovato" : "No articles found"}</strong><span>{locale === "it" ? "Prova sinonimi o contatta il supporto." : "Try different words or contact support."}</span></div></div>}</section>
-      <button type="button" className="secondary compact" onClick={onClose}>{locale === "it" ? "Chiudi assistenza" : "Close help"}</button>
+      {!query && category === "all" ? <section><h3>{locale === "it" ? "Attività frequenti" : "Frequent tasks"}</h3><div className="help-grid">{frequentArticles.map((article) => <button type="button" className="help-card" key={article.id} onClick={() => openArticle(article)}>{aiArticleIds.has(article.id) ? <span className="help-ai-badge">AI</span> : null}<strong>{article.title}</strong><span>{article.summary}</span></button>)}</div></section> : null}
+      <section><h3>{query ? (locale === "it" ? "Risultati" : "Results") : categoryLabels[locale][category === "all" ? "getting-started" : category]}</h3>{visibleArticles.length ? <div className="help-grid">{visibleArticles.map((article) => <button type="button" className="help-card" key={article.id} onClick={() => openArticle(article)}><span>{categoryLabels[locale][article.category]}</span>{aiArticleIds.has(article.id) ? <span className="help-ai-badge">AI</span> : null}<strong>{article.title}</strong><small>{article.summary}</small>{!article.roles.includes(role) ? <em>{locale === "it" ? "Dipende dal ruolo" : "Role dependent"}</em> : null}</button>)}</div> : <div className="empty-state-panel" role="status"><div><strong>{locale === "it" ? "Nessun articolo trovato" : "No articles found"}</strong><span>{locale === "it" ? "Prova sinonimi o contatta il supporto." : "Try different words or contact support."}</span></div></div>}</section>
     </section>
   );
 }

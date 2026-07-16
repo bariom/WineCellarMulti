@@ -1,16 +1,29 @@
 .help-center { display: grid; gap: 16px; }
-.help-hero, .help-article { display: grid; gap: 10px; padding: 22px; border: 1px solid var(--border); border-radius: 18px; background: var(--hero-bg); box-shadow: var(--shadow-soft); }
+.help-hero, .help-article { display: grid; gap: 12px; padding: 26px; border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border)); border-radius: 22px; background: linear-gradient(135deg, color-mix(in srgb, var(--surface) 96%, var(--accent)) 0%, var(--hero-bg) 100%); box-shadow: var(--shadow-soft); }
+.help-hero { position: relative; padding-right: 68px; }
 .help-hero h2, .help-center h3, .help-article h2 { margin: 0; color: var(--text); }
 .help-hero p, .help-card small, .help-card span, .help-summary, .help-article li, .help-article > small { color: var(--text-muted); line-height: 1.5; }
 .help-search input { width: 100%; min-height: 42px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); }
 .help-categories, .help-toolbar, .help-feedback, .help-related { display: flex; flex-wrap: wrap; gap: 8px; }
+.help-toolbar { align-items: center; }
 .help-categories button, .help-related button, .help-feedback button { padding: 7px 10px; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); }
 .help-categories button[aria-current="page"], .help-feedback button[aria-pressed="true"] { border-color: var(--primary); background: var(--primary); color: var(--primary-contrast); }
 .help-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.help-card { display: grid; align-content: start; gap: 8px; min-height: 132px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); color: var(--text); text-align: left; box-shadow: var(--shadow-soft); }
-.help-card:hover, .help-card:focus-visible { border-color: var(--primary); transform: translateY(-1px); }
+.help-card { display: grid; align-content: start; gap: 9px; min-height: 144px; padding: 18px; border: 1px solid color-mix(in srgb, var(--border) 82%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--surface) 94%, var(--surface-muted)); color: var(--text); text-align: left; box-shadow: 0 8px 22px color-mix(in srgb, var(--collector-depth) 10%, transparent); }
+.help-card:hover, .help-card:focus-visible { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 14px 28px color-mix(in srgb, var(--primary) 16%, transparent); }
 .help-card > span, .help-card em { font-size: .72rem; font-style: normal; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
 .help-card em, .help-role-note, .help-warnings { padding: 10px; border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border)); border-radius: 10px; background: color-mix(in srgb, var(--accent) 10%, var(--surface)); color: var(--text); }
+.help-ai-badge { width: fit-content; padding: 4px 8px; border: 1px solid color-mix(in srgb, var(--accent) 62%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--accent) 20%, var(--surface)); color: var(--text); font-size: .68rem; font-weight: 850; letter-spacing: .06em; text-transform: uppercase; }
+.help-ai-note { margin: 0; padding: 12px; border-left: 3px solid var(--accent); border-radius: 0 10px 10px 0; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--text); line-height: 1.45; }
+.help-close-button { position: relative; display: inline-grid; width: 38px; height: 38px; place-items: center; border: 1px solid var(--border); border-radius: 50%; background: var(--surface); color: var(--text); }
+.help-close-button::before, .help-close-button::after { position: absolute; width: 15px; height: 2px; border-radius: 2px; background: currentColor; content: ""; }
+.help-close-button::before { transform: rotate(45deg); }
+.help-close-button::after { transform: rotate(-45deg); }
+.help-hero .help-close-button { position: absolute; top: 18px; right: 18px; }
+.help-toolbar .help-close-button { margin-left: auto; }
+.help-close-button:hover, .help-close-button:focus-visible { border-color: var(--primary); background: var(--primary); color: var(--primary-contrast); }
+.help-toolbar .help-support-link { display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border: 1px solid color-mix(in srgb, var(--primary) 52%, var(--border)); border-radius: 999px; background: color-mix(in srgb, var(--primary) 10%, var(--surface)); color: var(--text); text-decoration: none; }
+.help-toolbar .help-support-link::after { color: var(--primary); content: "↗"; font-size: 1rem; line-height: 1; }
 .help-article { background: var(--surface); }
 .help-article ol { display: grid; gap: 8px; margin: 0; padding-left: 22px; }
 .help-warnings { display: grid; gap: 4px; }
@@ -18,4 +31,4 @@
 .help-context-trigger { min-width: 34px; font-weight: 800; }
 @media print { .app-shell:has(.help-article) > :not(.workspace), .view-tabs, .no-print { display: none !important; } .help-article { border: 0; box-shadow: none; } }
 @media (max-width: 820px) { .help-grid { grid-template-columns: 1fr; } .help-hero, .help-article { padding: 16px; } }
-@media (prefers-reduced-motion: reduce) { .help-card { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .help-card { transition: none; } .help-card:hover, .help-card:focus-visible { transform: none; } }
