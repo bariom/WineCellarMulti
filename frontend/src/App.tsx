@@ -1572,7 +1572,20 @@ export function App() {
   async function loadNotifications(authenticated = session?.authenticated) {
     if (authenticated) {
       const center = await api<NotificationCenterResponse>("/api/v1/notifications/center");
-      setNotificationCenter(center);
+      const items = center.items.map((item) => item.kind === "smart_to_collect"
+        ? { ...item, category: "action" as const }
+        : item);
+      setNotificationCenter({
+        items,
+        counts: {
+          total: items.length,
+          unread: items.filter((item) => item.state === "unread").length,
+          actionable: items.filter((item) => item.state === "pending" || item.category === "action").length,
+          actions: items.filter((item) => item.category === "action").length,
+          updates: items.filter((item) => item.category === "update").length,
+          system: items.filter((item) => item.category === "system").length,
+        },
+      });
     } else {
       setNotificationCenter({
         items: [],
@@ -4641,8 +4654,8 @@ export function App() {
     return !matchingKind || !centerKinds.has(matchingKind);
   });
   const operationalActionItemsByCategory = {
-    action: supplementalOperationalItems.filter((item) => item.id.startsWith("coownership-")),
-    system: supplementalOperationalItems.filter((item) => !item.id.startsWith("coownership-")),
+    action: supplementalOperationalItems.filter((item) => item.id.startsWith("coownership-") || item.id === "to-collect"),
+    system: supplementalOperationalItems.filter((item) => !item.id.startsWith("coownership-") && item.id !== "to-collect"),
   };
   const supersededAdminNotificationIds = new Set(
     canAppAdmin && pendingUsers.length

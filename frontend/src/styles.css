@@ -15293,8 +15293,12 @@ tbody tr:hover {
 }
 
 .notification-tabs button.active {
-  color: var(--primary-contrast);
-  background: var(--primary);
+  border-color: color-mix(in srgb, var(--primary) 44%, var(--border));
+  color: var(--primary);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface) 90%, transparent), transparent),
+    color-mix(in srgb, var(--primary) 13%, var(--surface));
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .notification-tabs button b {
@@ -15307,6 +15311,11 @@ tbody tr:hover {
   color: inherit;
   background: color-mix(in srgb, currentColor 13%, transparent);
   font-size: 0.68rem;
+}
+
+.notification-tabs button.active b {
+  color: var(--primary-contrast);
+  background: var(--primary);
 }
 
 .notification-feed {

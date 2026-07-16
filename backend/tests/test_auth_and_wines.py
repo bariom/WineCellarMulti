@@ -881,6 +881,15 @@ def test_notifications_generate_smart_reminders_without_duplicates():
                     status="Ordered",
                     expected_delivery=(datetime.now(UTC) + timedelta(days=10)).date(),
                 ),
+                Wine(
+                    household_id=household.id,
+                    created_by_user_id=owner.id,
+                    name="Pickup Bottle",
+                    producer="Producer D",
+                    vintage="2022",
+                    quantity=1,
+                    status="To collect",
+                ),
             ]
         )
         db.commit()
@@ -893,6 +902,13 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert "smart_past_window" in kinds
     assert "smart_future_deliveries" in kinds
 
+    center = client.get("/api/v1/notifications/center")
+    assert center.status_code == 200
+    to_collect_items = [
+        item for item in center.json()["items"] if item["kind"] == "smart_to_collect"
+    ]
+    assert all(item["category"] == "action" for item in to_collect_items)
+
     with TestingSessionLocal() as db:
         assert (
             db.query(UserNotification)
@@ -901,7 +917,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
                 == db.query(User).filter(User.email == "owner@example.com").one().id
             )
             .count()
-            == 4
+            == 5
         )
 
     drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
@@ -915,7 +931,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert not any(item["kind"] == "smart_drink_now" for item in refreshed_payload)
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 4
+        assert db.query(UserNotification).count() == 5
 
 
 def test_authenticated_user_can_read_wine_catalog():

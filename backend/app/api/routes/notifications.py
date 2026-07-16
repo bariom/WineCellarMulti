@@ -31,6 +31,7 @@ ACTION_NOTIFICATION_KINDS = {
     "new_user_registration",
     "payment_failed",
     "share_revocation",
+    "smart_to_collect",
 }
 UPDATE_NOTIFICATION_KINDS = {
     "coownership_response",
