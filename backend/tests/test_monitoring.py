@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.services.request_metrics import request_metrics
 
 engine = create_engine(
     "sqlite+pysqlite:///:memory:",
@@ -37,6 +38,7 @@ def teardown_function():
 def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
     monkeypatch.setattr(settings, "monitoring_api_token", "monitoring-test-token")
     client = TestClient(app)
+    initial_metrics = request_metrics.snapshot()
 
     assert client.get("/api/v1/monitoring/business").status_code == 401
 
@@ -66,8 +68,8 @@ def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
 
     application = client.get("/api/v1/monitoring/application", headers=headers)
     assert application.status_code == 200
-    assert application.json()["requests_total"] >= 2
-    assert application.json()["errors_total"] == 0
+    assert application.json()["requests_total"] >= initial_metrics["requests_total"] + 2
+    assert application.json()["errors_total"] == initial_metrics["errors_total"]
 
     system = client.get("/api/v1/monitoring/system", headers=headers)
     assert system.status_code == 200
