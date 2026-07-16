@@ -790,9 +790,15 @@ export function App() {
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [notificationCenter, setNotificationCenter] = useState<NotificationCenterResponse>({
     items: [],
-    counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 },
+    counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 },
+    offset: 0,
+    next_offset: null,
+    has_more: false,
   });
+  const [notificationActiveCounts, setNotificationActiveCounts] = useState<NotificationCenterResponse["counts"]>({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
   const [notificationTab, setNotificationTab] = useState<NotificationCenterCategory>("action");
+  const [notificationView, setNotificationView] = useState<"active" | "archived">("active");
+  const [notificationStateFilter, setNotificationStateFilter] = useState<"all" | "unread" | "read">("all");
   const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
   const [coOwnershipAgreementFocusId, setCoOwnershipAgreementFocusId] = useState<string | null>(null);
   const [coOwnershipLibraryVisible, setCoOwnershipLibraryVisible] = useState(false);
@@ -1569,28 +1575,58 @@ export function App() {
     setRedeemCodes(nextCodes);
   }
 
-  async function loadNotifications(authenticated = session?.authenticated) {
+  async function loadNotifications(
+    authenticated = session?.authenticated,
+    options: {
+      category?: NotificationCenterCategory;
+      view?: "active" | "archived";
+      itemState?: "all" | "unread" | "read";
+      offset?: number;
+      append?: boolean;
+    } = {},
+  ) {
     if (authenticated) {
-      const center = await api<NotificationCenterResponse>("/api/v1/notifications/center");
+      const category = options.category ?? notificationTab;
+      const view = options.view ?? notificationView;
+      const itemState = options.itemState ?? notificationStateFilter;
+      const offset = options.offset ?? 0;
+      const query = new URLSearchParams({
+        category,
+        view,
+        item_state: itemState,
+        offset: String(offset),
+        limit: "20",
+      });
+      const center = await api<NotificationCenterResponse>(`/api/v1/notifications/center?${query}`);
       const items = center.items.map((item) => item.kind === "smart_to_collect"
         ? { ...item, category: "action" as const }
         : item);
-      setNotificationCenter({
-        items,
-        counts: {
-          total: items.length,
-          unread: items.filter((item) => item.state === "unread").length,
-          actionable: items.filter((item) => item.state === "pending" || item.category === "action").length,
-          actions: items.filter((item) => item.category === "action").length,
-          updates: items.filter((item) => item.category === "update").length,
-          system: items.filter((item) => item.category === "system").length,
-        },
-      });
+      const legacyReclassified = center.items.filter((item) => item.kind === "smart_to_collect" && item.category !== "action").length;
+      const counts = {
+        ...center.counts,
+        attention: center.counts.attention ?? center.counts.total,
+        actions: center.counts.actions + legacyReclassified,
+        system: Math.max(center.counts.system - legacyReclassified, 0),
+      };
+      setNotificationCenter((current) => ({
+        items: options.append
+          ? [...current.items, ...items.filter((item) => !current.items.some((currentItem) => currentItem.id === item.id))]
+          : items,
+        counts,
+        offset: center.offset ?? offset,
+        next_offset: center.next_offset ?? null,
+        has_more: center.has_more ?? false,
+      }));
+      if (view === "active" && itemState === "all") setNotificationActiveCounts(counts);
     } else {
       setNotificationCenter({
         items: [],
-        counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 },
+        counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 },
+        offset: 0,
+        next_offset: null,
+        has_more: false,
       });
+      setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
     }
   }
 
@@ -1707,7 +1743,8 @@ export function App() {
           setWishlistLists([]);
           setShareOffers([]);
           setReceivedInvites([]);
-          setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
+          setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
+          setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
           setUserTags([]);
           setPasskeys([]);
           setHouseholdMemberships([]);
@@ -1737,7 +1774,8 @@ export function App() {
         setWishlistLists([]);
         setShareOffers([]);
         setReceivedInvites([]);
-        setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
+        setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
+        setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
         setUserTags([]);
         setPasskeys([]);
         setHouseholdMemberships([]);
@@ -1847,7 +1885,9 @@ export function App() {
     if (!session?.authenticated) return;
     const timer = window.setInterval(() => {
       Promise.all([
-        loadNotifications(true),
+        notificationsOpen && notificationCenter.items.length > 20
+          ? Promise.resolve()
+          : loadNotifications(true),
         loadReceivedInvites(true),
         loadShareOffers(true),
         loadMyCoOwnershipAgreements(true),
@@ -1856,7 +1896,7 @@ export function App() {
       ]).catch(() => undefined);
     }, 15000);
     return () => window.clearInterval(timer);
-  }, [session?.authenticated, session?.is_app_admin, session?.membership_role]);
+  }, [session?.authenticated, session?.is_app_admin, session?.membership_role, notificationTab, notificationView, notificationStateFilter, notificationsOpen, notificationCenter.items.length]);
 
   useEffect(() => {
     const darkQuery = window.matchMedia("(prefers-color-scheme: dark)");
@@ -2102,7 +2142,8 @@ export function App() {
     setWishlist([]);
     setShareOffers([]);
     setReceivedInvites([]);
-    setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
+    setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
+    setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
     setUserTags([]);
     setPasskeys([]);
     setHouseholdMemberships([]);
@@ -2785,7 +2826,8 @@ export function App() {
       setSelectedWishlistId(null);
       setShareOffers([]);
       setReceivedInvites([]);
-      setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, actions: 0, updates: 0, system: 0 } });
+      setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
+      setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
       setUserTags([]);
       setPasskeys([]);
       setHouseholdMemberships([]);
@@ -2826,6 +2868,60 @@ export function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  async function markAllNotificationsRead() {
+    setError("");
+    try {
+      await api<void>("/api/v1/notifications/read-all", { method: "POST" });
+      await loadNotifications(true);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update notifications");
+    }
+  }
+
+  async function archiveNotification(item: NotificationCenterItem) {
+    if (item.source !== "notification") return;
+    setError("");
+    try {
+      await api<void>(`/api/v1/notifications/${item.id}/archive`, { method: "POST" });
+      await loadNotifications(true);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to archive notification");
+    }
+  }
+
+  async function restoreNotification(item: NotificationCenterItem) {
+    if (item.source !== "notification") return;
+    setError("");
+    try {
+      await api<void>(`/api/v1/notifications/${item.id}/restore`, { method: "POST" });
+      await loadNotifications(true);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to restore notification");
+    }
+  }
+
+  function selectNotificationTab(category: NotificationCenterCategory) {
+    setNotificationTab(category);
+    void loadNotifications(true, { category, offset: 0 });
+  }
+
+  function selectNotificationView(view: "active" | "archived") {
+    setNotificationView(view);
+    const itemState = view === "archived" ? "all" : notificationStateFilter;
+    if (view === "archived") setNotificationStateFilter("all");
+    void loadNotifications(true, { view, itemState, offset: 0 });
+  }
+
+  function selectNotificationStateFilter(itemState: "all" | "unread" | "read") {
+    setNotificationStateFilter(itemState);
+    void loadNotifications(true, { itemState, offset: 0 });
+  }
+
+  function loadMoreNotifications() {
+    if (notificationCenter.next_offset === null) return;
+    void loadNotifications(true, { offset: notificationCenter.next_offset, append: true });
   }
 
   async function decideNotificationShareOffer(item: NotificationCenterItem, decision: "accept" | "decline") {
@@ -3214,6 +3310,7 @@ export function App() {
     setError("");
     try {
       await api<WineShareOffer>(`/api/v1/wines/share-offers/${match[1]}/revocation/${decision}`, { method: "POST" });
+      await api<void>(`/api/v1/notifications/${notification.id}/archive`, { method: "POST" });
       await Promise.all([loadWines(), loadNotifications(true)]);
       setNotice(decision === "approve"
         ? (locale === "it" ? "Comproprietà rimossa dalla tua cantina." : "Co-ownership removed from your cellar.")
@@ -4649,7 +4746,8 @@ export function App() {
     "future-deliveries": "smart_future_deliveries",
     "to-collect": "smart_to_collect",
   };
-  const supplementalOperationalItems = operationalActionItems.filter((item) => {
+  const showLiveOperationalItems = notificationView === "active" && notificationStateFilter !== "read";
+  const supplementalOperationalItems = (showLiveOperationalItems ? operationalActionItems : []).filter((item) => {
     const matchingKind = operationalCenterKindById[item.id];
     return !matchingKind || !centerKinds.has(matchingKind);
   });
@@ -4665,13 +4763,18 @@ export function App() {
       : [],
   );
   const visibleCenterItems = notificationCenter.items.filter((item) => !supersededAdminNotificationIds.has(item.id));
-  const adminActionCount = canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0;
+  const showLiveAdminItems = notificationView === "active" && notificationStateFilter !== "read";
+  const adminActionCount = canAppAdmin && showLiveAdminItems ? pendingUsers.length + pendingCatalogEntries.length : 0;
+  const displayedCenterCounts = notificationView === "active" && notificationStateFilter === "all"
+    ? notificationActiveCounts
+    : notificationCenter.counts;
   const notificationCategoryCounts = {
-    action: notificationCenter.counts.actions - supersededAdminNotificationIds.size + operationalActionItemsByCategory.action.length + adminActionCount,
-    update: notificationCenter.counts.updates,
-    system: notificationCenter.counts.system + operationalActionItemsByCategory.system.length,
+    action: displayedCenterCounts.actions - supersededAdminNotificationIds.size + operationalActionItemsByCategory.action.length + adminActionCount,
+    update: displayedCenterCounts.updates,
+    system: displayedCenterCounts.system + operationalActionItemsByCategory.system.length,
   };
-  const notificationCount = notificationCategoryCounts.action + notificationCategoryCounts.update + notificationCategoryCounts.system;
+  const localBadgeItems = operationalActionItems.filter((item) => !operationalCenterKindById[item.id] || item.id === "coownership-pending");
+  const notificationCount = notificationActiveCounts.attention + localBadgeItems.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0);
   const activeNotificationItems = visibleCenterItems.filter((item) => item.category === notificationTab);
   const activeOperationalItems = notificationTab === "action"
     ? operationalActionItemsByCategory.action
@@ -5316,9 +5419,9 @@ export function App() {
     );
   }
 
-  function renderRegionalGapCard() {
+  function renderRegionalGapCard(compact = false) {
     return (
-      <article className="dashboard-card wide-card regional-gap-card">
+      <article className={`dashboard-card wide-card regional-gap-card${compact ? " regional-gap-card-compact" : ""}`}>
         <div className="card-heading">
           <div>
             <span>{t("regionalGapAnalysis")}</span>
@@ -5439,7 +5542,7 @@ export function App() {
               <span><i className="regional-legend-target" />{t("targetPortfolio")} {t(regionalGapProfileLabels[regionalGapProfile]).toLowerCase()}</span>
             </div>
           </div>
-          <details className="regional-gap-suggestions" open={!isMobileViewport}>
+          <details className="regional-gap-suggestions" open={compact ? undefined : !isMobileViewport}>
             <summary>{t("gapSuggestions")}</summary>
             {regionalGapSuggestions.length ? regionalGapSuggestions.map((row) => (
               <div className="regional-gap-row" key={row.region}>
@@ -5594,11 +5697,14 @@ export function App() {
                 title={t("notifications")}
                 onClick={() => {
                   if (!notificationsOpen) {
-                    setNotificationTab(notificationCategoryCounts.action
+                    const targetCategory = notificationActiveCounts.actions
                       ? "action"
-                      : notificationCategoryCounts.update ? "update" : "system");
+                      : notificationActiveCounts.updates ? "update" : "system";
+                    setNotificationTab(targetCategory);
+                    setNotificationView("active");
+                    setNotificationStateFilter("all");
                     void Promise.allSettled([
-                      loadNotifications(true),
+                      loadNotifications(true, { category: targetCategory, view: "active", itemState: "all", offset: 0 }),
                       loadReceivedInvites(true),
                       loadShareOffers(true),
                       loadMyCoOwnershipAgreements(true),
@@ -5636,6 +5742,33 @@ export function App() {
                         </button>
                       </div>
                     </div>
+                    <div className="notification-control-bar">
+                      <div className="notification-view-switch" role="group" aria-label={locale === "it" ? "Vista notifiche" : "Notification view"}>
+                        <button type="button" className={notificationView === "active" ? "active" : "secondary"} onClick={() => selectNotificationView("active")}>
+                          {locale === "it" ? "Attive" : "Active"}
+                        </button>
+                        <button type="button" className={notificationView === "archived" ? "active" : "secondary"} onClick={() => selectNotificationView("archived")}>
+                          {locale === "it" ? "Archivio" : "Archive"}
+                        </button>
+                      </div>
+                      {notificationView === "active" ? (
+                        <>
+                          <label className="notification-state-filter">
+                            <span className="sr-only">{locale === "it" ? "Filtra per stato" : "Filter by state"}</span>
+                            <select value={notificationStateFilter} onChange={(event) => selectNotificationStateFilter(event.target.value as "all" | "unread" | "read")}>
+                              <option value="all">{locale === "it" ? "Tutte" : "All"}</option>
+                              <option value="unread">{locale === "it" ? "Nuove" : "Unread"}</option>
+                              <option value="read">{locale === "it" ? "Lette" : "Read"}</option>
+                            </select>
+                          </label>
+                          {notificationActiveCounts.unread ? (
+                            <button type="button" className="secondary compact notification-read-all" onClick={() => void markAllNotificationsRead()}>
+                              {locale === "it" ? "Segna tutte lette" : "Mark all read"}
+                            </button>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </div>
                     <div className="notification-tabs" role="tablist" aria-label={t("notifications")}>
                       {(["action", "update", "system"] as NotificationCenterCategory[]).map((category) => {
                         const label = category === "action"
@@ -5650,7 +5783,7 @@ export function App() {
                             aria-selected={notificationTab === category}
                             className={notificationTab === category ? "active" : "secondary"}
                             key={category}
-                            onClick={() => setNotificationTab(category)}
+                            onClick={() => selectNotificationTab(category)}
                           >
                             <span>{label}</span>
                             <b>{notificationCategoryCounts[category]}</b>
@@ -5679,13 +5812,26 @@ export function App() {
                       return (
                       <div className={`notification-item notification-item-${item.state}`} key={item.id}>
                         <div className="notification-item-meta">
-                          <span>{item.state === "pending" ? (locale === "it" ? "In attesa" : "Pending") : (locale === "it" ? "Nuova" : "New")}</span>
+                          <span>{item.state === "pending"
+                            ? (locale === "it" ? "In attesa" : "Pending")
+                            : item.state === "archived"
+                              ? (locale === "it" ? "Archiviata" : "Archived")
+                              : item.state === "read"
+                                ? (locale === "it" ? "Letta" : "Read")
+                                : (locale === "it" ? "Nuova" : "New")}</span>
                           <time dateTime={item.created_at}>{formatDisplayDate(item.created_at)}</time>
                         </div>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>{notificationCopy.title}</strong>
                         <span>{notificationCopy.message}</span>
                         {item.metadata.message ? <span className="share-offer-message">{String(item.metadata.message)}</span> : null}
-                        {item.action_kind === "accept_invite" ? (
+                        {notificationView === "archived" ? (
+                          <div className="member-actions">
+                            {item.action_url ? <button type="button" className="compact" disabled={saving} onClick={() => openNotification(item)}>{t("open")}</button> : null}
+                            <button type="button" className="secondary compact" disabled={saving} onClick={() => restoreNotification(item)}>
+                              {locale === "it" ? "Ripristina" : "Restore"}
+                            </button>
+                          </div>
+                        ) : item.action_kind === "accept_invite" ? (
                           <div className="member-actions">
                             <button type="button" className="compact" disabled={saving} onClick={() => acceptNotificationInvite(item)}>{t("accept")}</button>
                           </div>
@@ -5710,21 +5856,28 @@ export function App() {
                                 {t("open")}
                               </button>
                             ) : null}
-                            <button type="button" className={item.action_url ? "secondary compact" : "compact"} disabled={saving} onClick={() => markNotificationRead(item)}>
-                              {t("markRead")}
-                            </button>
+                            {item.state === "unread" ? (
+                              <button type="button" className={item.action_url ? "secondary compact" : "compact"} disabled={saving} onClick={() => markNotificationRead(item)}>
+                                {t("markRead")}
+                              </button>
+                            ) : null}
+                            {item.source === "notification" ? (
+                              <button type="button" className="secondary compact" disabled={saving} onClick={() => archiveNotification(item)}>
+                                {locale === "it" ? "Archivia" : "Archive"}
+                              </button>
+                            ) : null}
                           </div>
                         )}
                       </div>
                       );
                     })}
-                    {notificationTab === "action" && canAppAdmin && pendingUsers.length ? (
+                    {notificationTab === "action" && showLiveAdminItems && canAppAdmin && pendingUsers.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
                         <span>{t("reviewUsers")}</span>
                       </button>
                     ) : null}
-                    {notificationTab === "action" && canAppAdmin && pendingCatalogEntries.length ? (
+                    {notificationTab === "action" && showLiveAdminItems && canAppAdmin && pendingCatalogEntries.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("ai_audit")}</i>{pendingCatalogEntries.length} {t("pendingCatalogEntries")}</strong>
                         <span>{t("approveCatalogEntry")}</span>
@@ -5732,6 +5885,11 @@ export function App() {
                     ) : null}
                     {!activeNotificationItems.length && !activeOperationalItems.length && !(notificationTab === "action" && adminActionCount) ? (
                       <p className="empty-state">{locale === "it" ? "Nessuna attività in questa sezione" : "No activity in this section"}</p>
+                    ) : null}
+                    {notificationCenter.has_more ? (
+                      <button type="button" className="secondary notification-load-more" onClick={loadMoreNotifications}>
+                        {locale === "it" ? "Carica altre" : "Load more"}
+                      </button>
                     ) : null}
                     </div>
                   </div>
@@ -6664,7 +6822,7 @@ export function App() {
                   </div>
                 </article>
 
-                {renderMaturityHeatmapCard()}
+                {renderRegionalGapCard(true)}
 
                 <article className="dashboard-card wide-card geographic-map-card">
                   <div className="card-heading">
@@ -6675,6 +6833,8 @@ export function App() {
                   </div>
                   <DeferredWineGeographyMap wines={cellarWines} t={t} />
                 </article>
+
+                {renderMaturityHeatmapCard()}
 
                 <article className="dashboard-card">
                   <div className="card-heading">
@@ -6757,7 +6917,6 @@ export function App() {
                       ))}
                     </div>
                   </article>
-                  {renderRegionalGapCard()}
                   <article className="dashboard-card">
                     <div className="card-heading">
                       <div>

@@ -6839,6 +6839,18 @@ textarea {
   align-items: center;
 }
 
+.regional-gap-card-compact .regional-gap-layout {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.regional-gap-card-compact .regional-radar {
+  width: min(100%, 330px);
+}
+
+.regional-gap-card-compact .regional-target-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .regional-radar-wrap {
   display: grid;
   gap: 10px;
@@ -11322,6 +11334,22 @@ textarea {
     min-height: 44px;
   }
 
+  .notification-control-bar {
+    flex-wrap: wrap;
+  }
+
+  .notification-view-switch {
+    flex: 1 1 auto;
+  }
+
+  .notification-view-switch button {
+    min-width: 0;
+  }
+
+  .notification-read-all {
+    flex: 1 1 100%;
+  }
+
   .language-switch {
     display: grid;
     grid-column: 1 / -1;
@@ -15269,6 +15297,63 @@ tbody tr:hover {
   margin-top: 1rem;
 }
 
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.notification-control-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.notification-view-switch {
+  display: inline-grid;
+  grid-template-columns: repeat(2, auto);
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-muted);
+}
+
+.notification-view-switch button {
+  min-height: 30px;
+  padding: 5px 10px;
+  border-color: transparent;
+  box-shadow: none;
+  font-size: 0.72rem;
+}
+
+.notification-view-switch button.active {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+}
+
+.notification-state-filter {
+  min-width: 0;
+  margin-left: auto;
+}
+
+.notification-state-filter select {
+  min-width: 82px;
+  min-height: 36px;
+  padding: 6px 28px 6px 9px;
+  font-size: 0.74rem;
+}
+
+.notification-read-all {
+  min-height: 36px;
+  padding-inline: 9px;
+  font-size: 0.7rem;
+}
+
 .notification-tabs {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -15330,6 +15415,15 @@ tbody tr:hover {
     var(--surface-muted);
 }
 
+.notification-item-read {
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.notification-item-archived {
+  border: 1px dashed color-mix(in srgb, var(--border) 82%, var(--text-muted));
+  background: color-mix(in srgb, var(--surface-muted) 58%, var(--surface));
+}
+
 .notification-item-meta {
   display: flex;
   align-items: center;
@@ -15348,6 +15442,11 @@ tbody tr:hover {
 .notification-item-meta time {
   color: var(--text-muted);
   font-size: 0.7rem;
+}
+
+.notification-load-more {
+  width: 100%;
+  min-height: 40px;
 }
 
 .coownership-library {

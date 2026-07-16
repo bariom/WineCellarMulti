@@ -440,6 +440,7 @@ export type UserNotification = {
   action_url: string | null;
   created_at: string;
   read_at: string | null;
+  archived_at?: string | null;
 };
 
 export type NotificationCenterCategory = "action" | "update" | "system";
@@ -447,7 +448,7 @@ export type NotificationCenterCategory = "action" | "update" | "system";
 export type NotificationCenterItem = UserNotification & {
   source: "notification" | "household_invite" | "share_offer";
   category: NotificationCenterCategory;
-  state: "unread" | "pending";
+  state: "unread" | "read" | "pending" | "archived";
   action_kind: "open" | "accept_invite" | "decide_share_offer" | "decide_share_revocation";
   resource_id: string | null;
   actor_label: string | null;
@@ -460,10 +461,14 @@ export type NotificationCenterResponse = {
     total: number;
     unread: number;
     actionable: number;
+    attention: number;
     actions: number;
     updates: number;
     system: number;
   };
+  offset: number;
+  next_offset: number | null;
+  has_more: boolean;
 };
 
 export type OperationalActionSnooze = {

@@ -13,6 +13,7 @@ class NotificationResponse(BaseModel):
     action_url: str | None
     created_at: datetime
     read_at: datetime | None
+    archived_at: datetime | None = None
 
 
 class NotificationCenterItem(BaseModel):
@@ -29,6 +30,7 @@ class NotificationCenterItem(BaseModel):
     actor_label: str | None = None
     created_at: datetime
     read_at: datetime | None = None
+    archived_at: datetime | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 
@@ -36,6 +38,7 @@ class NotificationCenterCounts(BaseModel):
     total: int
     unread: int
     actionable: int
+    attention: int
     actions: int
     updates: int
     system: int
@@ -44,3 +47,6 @@ class NotificationCenterCounts(BaseModel):
 class NotificationCenterResponse(BaseModel):
     items: list[NotificationCenterItem]
     counts: NotificationCenterCounts
+    offset: int = 0
+    next_offset: int | None = None
+    has_more: bool = False

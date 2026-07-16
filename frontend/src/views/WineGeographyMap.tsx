@@ -1,4 +1,5 @@
-import { CircleMarker, MapContainer, TileLayer, Tooltip } from "react-leaflet";
+import { useEffect } from "react";
+import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./WineGeographyMap.css";
 
@@ -6,6 +7,51 @@ import type { TranslationKey } from "../i18n";
 import type { Wine } from "../types";
 
 type WineRegionLocation = { latitude: number; longitude: number };
+type WineMapPoint = { label: string; location: WineRegionLocation; wines: number; bottles: number };
+
+const DENSITY_RADIUS_KM = 1800;
+
+function distanceKm(first: WineRegionLocation, second: WineRegionLocation) {
+  const latitudeDelta = (second.latitude - first.latitude) * Math.PI / 180;
+  const longitudeDelta = (second.longitude - first.longitude) * Math.PI / 180;
+  const firstLatitude = first.latitude * Math.PI / 180;
+  const secondLatitude = second.latitude * Math.PI / 180;
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(firstLatitude) * Math.cos(secondLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+  return 6371 * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function densestGeographicArea(points: WineMapPoint[]) {
+  if (points.length <= 1) return points;
+  return points.reduce<WineMapPoint[]>((bestCluster, anchor) => {
+    const cluster = points.filter((point) => distanceKm(anchor.location, point.location) <= DENSITY_RADIUS_KM);
+    const clusterWeight = cluster.reduce((total, point) => total + Math.max(point.bottles, 1), 0);
+    const bestWeight = bestCluster.reduce((total, point) => total + Math.max(point.bottles, 1), 0);
+    if (clusterWeight !== bestWeight) return clusterWeight > bestWeight ? cluster : bestCluster;
+    return cluster.length > bestCluster.length ? cluster : bestCluster;
+  }, []);
+}
+
+function DensityViewport({ points }: { points: WineMapPoint[] }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const focusPoints = densestGeographicArea(points);
+    if (!focusPoints.length) return;
+    map.invalidateSize({ pan: false });
+    if (focusPoints.length === 1) {
+      const { latitude, longitude } = focusPoints[0].location;
+      map.setView([latitude, longitude], 6, { animate: false });
+      return;
+    }
+    map.fitBounds(
+      focusPoints.map((point) => [point.location.latitude, point.location.longitude] as [number, number]),
+      { padding: [28, 28], maxZoom: 6, animate: false },
+    );
+  }, [map, points]);
+
+  return null;
+}
 
 const wineRegionLocations: Record<string, WineRegionLocation> = {
   bordeaux: { latitude: 44.84, longitude: -0.58 }, medoc: { latitude: 45.22, longitude: -0.78 }, margaux: { latitude: 45.04, longitude: -0.67 }, pauillac: { latitude: 45.2, longitude: -0.75 }, "saint-estephe": { latitude: 45.19, longitude: -0.77 }, "saint-estèphe": { latitude: 45.19, longitude: -0.77 }, "saint-emilion": { latitude: 44.89, longitude: -0.16 }, "saint-émilion": { latitude: 44.89, longitude: -0.16 }, pomerol: { latitude: 44.93, longitude: -0.2 }, graves: { latitude: 44.68, longitude: -0.5 }, sauternes: { latitude: 44.53, longitude: -0.34 },
@@ -32,7 +78,7 @@ function wineRegionLocation(wine: Wine) {
 }
 
 export default function WineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
-  const markers = new Map<string, { label: string; location: WineRegionLocation; wines: number; bottles: number }>();
+  const markers = new Map<string, WineMapPoint>();
   wines.forEach((wine) => {
     const location = wineRegionLocation(wine);
     const label = wine.region.trim() || wine.appellation.trim();
@@ -49,6 +95,7 @@ export default function WineGeographyMap({ wines, t }: { wines: Wine[]; t: (key:
   return (
     <div className="wine-geography-map" aria-label={t("geographicMap")}>
       <MapContainer center={[24, 8]} zoom={2} minZoom={2} maxZoom={12} scrollWheelZoom className="wine-geography-leaflet">
+        <DensityViewport points={points} />
         <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {points.map((point) => (
           <CircleMarker key={`${point.label}:${point.location.latitude}:${point.location.longitude}`} center={[point.location.latitude, point.location.longitude]} radius={Math.min(22, 7 + Math.sqrt(Math.max(point.bottles, 1)) * 2.25)} pathOptions={{ color: "#fff7ef", weight: 2, fillColor: "#9b3123", fillOpacity: 0.84 }}>

@@ -934,6 +934,65 @@ def test_notifications_generate_smart_reminders_without_duplicates():
         assert db.query(UserNotification).count() == 5
 
 
+def test_notification_center_history_filters_and_pagination():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    with TestingSessionLocal() as db:
+        owner = db.query(User).filter(User.email == "owner@example.com").one()
+        db.add_all(
+            [
+                UserNotification(
+                    user_id=owner.id,
+                    kind="info",
+                    title=f"System event {index}",
+                    message="Notification center pagination test",
+                    fingerprint=f"notification-center-page:{index}",
+                )
+                for index in range(25)
+            ]
+        )
+        db.commit()
+
+    first_page = client.get(
+        "/api/v1/notifications/center?category=system&view=active&item_state=all&limit=10"
+    )
+    assert first_page.status_code == 200
+    assert len(first_page.json()["items"]) == 10
+    assert first_page.json()["has_more"] is True
+    assert first_page.json()["next_offset"] == 10
+
+    second_page = client.get(
+        "/api/v1/notifications/center?category=system&view=active&item_state=all&limit=10&offset=10"
+    )
+    assert second_page.status_code == 200
+    assert set(item["id"] for item in first_page.json()["items"]).isdisjoint(
+        item["id"] for item in second_page.json()["items"]
+    )
+
+    assert client.post("/api/v1/notifications/read-all").status_code == 204
+    unread = client.get(
+        "/api/v1/notifications/center?category=system&view=active&item_state=unread"
+    )
+    assert unread.status_code == 200
+    assert unread.json()["items"] == []
+
+    notification_id = first_page.json()["items"][0]["id"]
+    assert client.post(f"/api/v1/notifications/{notification_id}/archive").status_code == 204
+    archived = client.get(
+        "/api/v1/notifications/center?category=system&view=archived&item_state=all"
+    )
+    assert archived.status_code == 200
+    archived_item = next(item for item in archived.json()["items"] if item["id"] == notification_id)
+    assert archived_item["state"] == "archived"
+
+    assert client.post(f"/api/v1/notifications/{notification_id}/restore").status_code == 204
+    restored = client.get(
+        "/api/v1/notifications/center?category=system&view=active&item_state=read"
+    )
+    assert any(item["id"] == notification_id for item in restored.json()["items"])
+
+
 def test_authenticated_user_can_read_wine_catalog():
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -1662,9 +1721,7 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
         f"/api/v1/co-ownership-agreements/wines/{created_wine.json()['id']}"
     ).json()[0]
     registered_summary = next(
-        item
-        for item in payment_summary["participants"]
-        if item["email"] == "partner@example.com"
+        item for item in payment_summary["participants"] if item["email"] == "partner@example.com"
     )
     assert Decimal(registered_summary["paid_total"]) == Decimal("400")
     assert Decimal(registered_summary["outstanding"]) == Decimal("0")
@@ -1678,9 +1735,7 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
         f"/api/v1/co-ownership-agreements/wines/{created_wine.json()['id']}"
     ).json()[0]
     registered_after_void = next(
-        item
-        for item in after_void["participants"]
-        if item["email"] == "partner@example.com"
+        item for item in after_void["participants"] if item["email"] == "partner@example.com"
     )
     assert Decimal(registered_after_void["paid_total"]) == Decimal("150")
     assert Decimal(registered_after_void["outstanding"]) == Decimal("250")
