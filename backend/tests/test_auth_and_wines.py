@@ -3637,3 +3637,40 @@ def test_ai_usage_summarizes_current_user_costs():
     assert usage.json()["today"]["cached_input_tokens"] == 100
     assert usage.json()["today"]["output_tokens"] == 250
     assert usage.json()["today"]["estimated_cost_usd"] == "0.001800"
+
+
+def test_deleting_user_removes_only_households_without_remaining_members():
+    admin_client = TestClient(app)
+    member_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    assert (
+        register(
+            member_client, email="member@example.com", password="strong-password-2"
+        ).status_code
+        == 201
+    )
+
+    pending_users = admin_client.get("/api/v1/auth/pending-users").json()
+    member_id = pending_users[0]["id"]
+    assert admin_client.post(f"/api/v1/auth/pending-users/{member_id}/approve").status_code == 200
+
+    with TestingSessionLocal() as db:
+        admin = db.query(User).filter(User.email == "owner@example.com").one()
+        member = db.query(User).filter(User.email == "member@example.com").one()
+        admin_household = (
+            db.query(Household).join(Membership).filter(Membership.user_id == admin.id).one()
+        )
+        member_household = (
+            db.query(Household).join(Membership).filter(Membership.user_id == member.id).one()
+        )
+        db.add(Membership(user_id=member.id, household_id=admin_household.id, role="member"))
+        db.commit()
+        member_household_id = member_household.id
+        admin_household_id = admin_household.id
+
+    deleted = admin_client.delete(f"/api/v1/auth/users/{member_id}")
+    assert deleted.status_code == 204
+
+    with TestingSessionLocal() as db:
+        assert db.get(Household, member_household_id) is None
+        assert db.get(Household, admin_household_id) is not None

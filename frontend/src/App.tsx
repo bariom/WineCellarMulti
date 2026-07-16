@@ -6905,7 +6905,24 @@ export function App() {
                       </div>
                       <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
                     </div>
-                    <p>{t("myBottles")}: {formatMoney(cellarStats.myValue, "CHF", locale)} · {t("sharedBottles")}: {formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
+                    <div className="bar-list">
+                      <div className="bar-row">
+                        <div><span>{t("myBottles")}</span><strong>{formatMoney(cellarStats.myValue, "CHF", locale)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${cellarStats.totalValue ? (cellarStats.myValue / cellarStats.totalValue) * 100 : 0}%` }} /></div>
+                      </div>
+                      <div className="bar-row">
+                        <div><span>{t("sharedBottles")}</span><strong>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${cellarStats.totalValue ? (cellarStats.sharedValue / cellarStats.totalValue) * 100 : 0}%` }} /></div>
+                      </div>
+                      <div className="bar-row">
+                        <div><span>{t("averageBottleValue")}</span><strong>{formatMoney(cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0, "CHF", locale)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${cellarStats.bottles ? 100 : 0}%` }} /></div>
+                      </div>
+                    </div>
+                    <div className="card-heading">
+                      <span>{t("valueEvolution")}</span>
+                      <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
+                    </div>
                   </article>
                   <article className="dashboard-card">
                     <div className="card-heading">

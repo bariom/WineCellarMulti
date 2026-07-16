@@ -3,7 +3,7 @@ import logging
 import math
 import secrets
 import string
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
@@ -26,22 +26,50 @@ from webauthn.helpers.structs import (
     UserVerificationRequirement,
 )
 
-from app.api.deps import CurrentContext, active_entitlement_valid_until, build_session_response, get_authenticated_context, get_current_context, require_app_admin_context
+from app.api.deps import (
+    CurrentContext,
+    active_entitlement_valid_until,
+    build_session_response,
+    get_authenticated_context,
+    get_current_context,
+    require_app_admin_context,
+)
 from app.core.config import settings
-from app.core.rate_limit import enforce_rate_limit
 from app.core.crypto import encrypt_secret
-from app.core.security import hash_email_verification_token, hash_password, hash_password_reset_token, hash_redeem_code, hash_session_token, new_email_verification_token, new_password_reset_token, new_session_token, verify_password
+from app.core.rate_limit import enforce_rate_limit
+from app.core.security import (
+    hash_email_verification_token,
+    hash_password,
+    hash_password_reset_token,
+    hash_redeem_code,
+    hash_session_token,
+    new_email_verification_token,
+    new_password_reset_token,
+    new_session_token,
+    verify_password,
+)
 from app.db.session import get_db
-from app.models import AiAuditLog, Household, Membership, PasskeyChallenge, RedeemCode, User, UserEntitlement, UserPasskey, UserSession, Wine
+from app.models import (
+    AiAuditLog,
+    Household,
+    Membership,
+    PasskeyChallenge,
+    RedeemCode,
+    User,
+    UserEntitlement,
+    UserPasskey,
+    UserSession,
+    Wine,
+)
 from app.schemas.auth import (
     EmailVerificationRequest,
     LoginRequest,
-    PasswordResetConfirmRequest,
-    PasswordResetRequest,
     PasskeyLoginVerifyRequest,
     PasskeyRegistrationOptionsRequest,
     PasskeyRegistrationVerifyRequest,
     PasskeyResponse,
+    PasswordResetConfirmRequest,
+    PasswordResetRequest,
     PendingUserResponse,
     RegisterRequest,
     UserAdminResponse,
@@ -50,10 +78,14 @@ from app.schemas.auth import (
     UserPreferencesUpdate,
 )
 from app.schemas.session import SessionResponse
-from app.services.ai_credits import ai_credit_balance, configured_signup_ai_credit, create_ai_credit_transaction, set_ai_credit_balance
+from app.services.ai_credits import (
+    ai_credit_balance,
+    configured_signup_ai_credit,
+    create_ai_credit_transaction,
+    set_ai_credit_balance,
+)
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
-
 
 router = APIRouter(prefix="/auth")
 logger = logging.getLogger(__name__)
@@ -73,8 +105,25 @@ def request_rp_id(request: Request) -> str:
     return host or "localhost"
 
 
+def delete_user_and_orphaned_households(db: Session, user: User) -> None:
+    household_ids = list(db.scalars(select(Membership.household_id).where(Membership.user_id == user.id)))
+    db.query(Membership).filter(Membership.user_id == user.id).delete(synchronize_session=False)
+    db.delete(user)
+    db.flush()
+
+    if not household_ids:
+        return
+    orphaned_households = db.scalars(
+        select(Household)
+        .where(Household.id.in_(household_ids))
+        .where(~select(Membership.id).where(Membership.household_id == Household.id).exists())
+    )
+    for household in orphaned_households:
+        db.delete(household)
+
+
 def utc_datetime(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def normalize_redeem_code(code: str) -> str:
@@ -120,7 +169,7 @@ def ensure_trial_redeem_code(db: Session, user: User) -> RedeemCode | None:
         duration_days=trial_days,
         max_redemptions=1,
         email=user.email.lower(),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=trial_days),
+        expires_at=datetime.now(UTC) + timedelta(days=trial_days),
     )
     db.add(trial_code)
     create_user_notification(
@@ -136,13 +185,13 @@ def ensure_trial_redeem_code(db: Session, user: User) -> RedeemCode | None:
 
 
 def store_passkey_challenge(db: Session, challenge: bytes, purpose: str, user: User | None = None) -> None:
-    db.query(PasskeyChallenge).filter(PasskeyChallenge.expires_at < datetime.now(timezone.utc)).delete()
+    db.query(PasskeyChallenge).filter(PasskeyChallenge.expires_at < datetime.now(UTC)).delete()
     db.add(
         PasskeyChallenge(
             challenge=bytes_to_base64url(challenge),
             purpose=purpose,
             user_id=user.id if user else None,
-            expires_at=datetime.now(timezone.utc) + timedelta(minutes=PASSKEY_CHALLENGE_TTL_MINUTES),
+            expires_at=datetime.now(UTC) + timedelta(minutes=PASSKEY_CHALLENGE_TTL_MINUTES),
         ),
     )
     db.commit()
@@ -154,7 +203,7 @@ def consume_passkey_challenge(db: Session, challenge: str, purpose: str, user: U
         .where(PasskeyChallenge.challenge == challenge)
         .where(PasskeyChallenge.purpose == purpose),
     )
-    if stored is None or utc_datetime(stored.expires_at) < datetime.now(timezone.utc):
+    if stored is None or utc_datetime(stored.expires_at) < datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passkey challenge expired")
     if user is not None and stored.user_id != user.id:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Passkey challenge mismatch")
@@ -199,8 +248,8 @@ def create_session(db: Session, user: User, household: Household) -> tuple[UserS
         user_id=user.id,
         active_household_id=household.id,
         token_hash=hash_session_token(token),
-        expires_at=datetime.now(timezone.utc) + timedelta(days=settings.session_ttl_days),
-        created_at=datetime.now(timezone.utc),
+        expires_at=datetime.now(UTC) + timedelta(days=settings.session_ttl_days),
+        created_at=datetime.now(UTC),
     )
     db.add(user_session)
     db.flush()
@@ -239,7 +288,7 @@ def pending_user_response(user: User) -> PendingUserResponse:
 
 def user_admin_response(user: User, db: Session) -> UserAdminResponse:
     valid_until = active_entitlement_valid_until(db, user)
-    days_remaining = math.ceil((valid_until - datetime.now(timezone.utc)).total_seconds() / 86400) if valid_until else None
+    days_remaining = math.ceil((valid_until - datetime.now(UTC)).total_seconds() / 86400) if valid_until else None
     return UserAdminResponse(
         id=str(user.id),
         email=user.email,
@@ -385,7 +434,7 @@ def notify_admins_of_pending_registration(db: Session, user: User, household: Ho
             f"Name: {user.display_name}\n"
             f"Email: {user.email}\n"
             f"Cellar name: {household.name}\n"
-            f"Created at: {datetime.now(timezone.utc).isoformat()}\n\n"
+            f"Created at: {datetime.now(UTC).isoformat()}\n\n"
             "Open the Vinaris admin users section to review the request."
         ),
     )
@@ -464,9 +513,9 @@ def verify_email_token(payload: EmailVerificationRequest, db: Session) -> User:
     if user is None or user.email_verification_expires_at is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email confirmation link is invalid")
     expires_at = utc_datetime(user.email_verification_expires_at)
-    if expires_at < datetime.now(timezone.utc):
+    if expires_at < datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Email confirmation link expired")
-    user.email_verified_at = datetime.now(timezone.utc)
+    user.email_verified_at = datetime.now(UTC)
     user.email_verification_token_hash = ""
     user.email_verification_expires_at = None
     ensure_trial_redeem_code(db, user)
@@ -513,10 +562,10 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
         password_hash=hash_password(payload.password),
         is_approved=is_approved,
         is_app_admin=first_user,
-        approved_at=datetime.now(timezone.utc) if is_approved else None,
-        email_verified_at=None if requires_email_verification else datetime.now(timezone.utc),
+        approved_at=datetime.now(UTC) if is_approved else None,
+        email_verified_at=None if requires_email_verification else datetime.now(UTC),
         email_verification_token_hash=hash_email_verification_token(email_verification_token) if email_verification_token else "",
-        email_verification_expires_at=datetime.now(timezone.utc) + timedelta(hours=settings.email_verification_ttl_hours) if email_verification_token else None,
+        email_verification_expires_at=datetime.now(UTC) + timedelta(hours=settings.email_verification_ttl_hours) if email_verification_token else None,
     )
     household = Household(name=payload.household_name.strip())
     db.add_all([user, household])
@@ -607,7 +656,7 @@ def request_password_reset(payload: PasswordResetRequest, request: Request, db: 
 
     reset_token = new_password_reset_token()
     user.password_reset_token_hash = hash_password_reset_token(reset_token)
-    user.password_reset_expires_at = datetime.now(timezone.utc) + timedelta(minutes=max(settings.password_reset_ttl_minutes, 1))
+    user.password_reset_expires_at = datetime.now(UTC) + timedelta(minutes=max(settings.password_reset_ttl_minutes, 1))
     reset_url = f"{request_origin(request)}/?password_reset_token={reset_token}"
     if not notify_user_password_reset(user, reset_url):
         db.rollback()
@@ -625,7 +674,7 @@ def confirm_password_reset(payload: PasswordResetConfirmRequest, request: Reques
         window_seconds=settings.rate_limit_password_reset_window_seconds,
     )
     user = db.scalar(select(User).where(User.password_reset_token_hash == hash_password_reset_token(payload.token)))
-    if user is None or user.password_reset_expires_at is None or utc_datetime(user.password_reset_expires_at) < datetime.now(timezone.utc):
+    if user is None or user.password_reset_expires_at is None or utc_datetime(user.password_reset_expires_at) < datetime.now(UTC):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password reset link is invalid or expired")
     user.password_hash = hash_password(payload.password)
     user.password_reset_token_hash = ""
@@ -814,7 +863,7 @@ def verify_passkey_login(
         require_user_verification=False,
     )
     passkey.sign_count = verified.new_sign_count
-    passkey.last_used_at = datetime.now(timezone.utc)
+    passkey.last_used_at = datetime.now(UTC)
     user = db.get(User, passkey.user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User unavailable")
@@ -856,7 +905,7 @@ def approve_pending_user(
     if user is None or user.is_approved:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
     user.is_approved = True
-    user.approved_at = datetime.now(timezone.utc)
+    user.approved_at = datetime.now(UTC)
     ensure_trial_redeem_code(db, user)
     db.commit()
     db.refresh(user)
@@ -874,7 +923,7 @@ def reject_pending_user(
     if user is None or user.is_approved:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
     notify_user_rejected(user)
-    db.delete(user)
+    delete_user_and_orphaned_households(db, user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -992,7 +1041,7 @@ def delete_user_admin(
         other_admin = db.scalar(select(User).where(User.is_app_admin.is_(True), User.id != user.id, User.is_blocked.is_(False)))
         if other_admin is None:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="At least one active application administrator is required")
-    db.delete(user)
+    delete_user_and_orphaned_households(db, user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
