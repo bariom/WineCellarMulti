@@ -1,6 +1,6 @@
 """persist household gap settings and operational snoozes
 
-Revision ID: 0054_household_preference_persistence
+Revision ID: 0054_household_preferences
 Revises: 0053_delete_orphaned_households
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0054_household_preference_persistence"
+revision: str = "0054_household_preferences"
 down_revision: str | None = "0053_delete_orphaned_households"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | None = None
@@ -39,11 +39,28 @@ def upgrade() -> None:
         sa.ForeignKeyConstraint(["household_id"], ["households.id"], ondelete="CASCADE"),
         sa.ForeignKeyConstraint(["user_id"], ["users.id"], ondelete="CASCADE"),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "household_id", "action_id", name="uq_operational_action_snooze"),
+        sa.UniqueConstraint(
+            "user_id",
+            "household_id",
+            "action_id",
+            name="uq_operational_action_snooze",
+        ),
     )
-    op.create_index("ix_user_operational_action_snoozes_user_id", "user_operational_action_snoozes", ["user_id"])
-    op.create_index("ix_user_operational_action_snoozes_household_id", "user_operational_action_snoozes", ["household_id"])
-    op.create_index("ix_user_operational_action_snoozes_until", "user_operational_action_snoozes", ["until"])
+    op.create_index(
+        "ix_user_operational_action_snoozes_user_id",
+        "user_operational_action_snoozes",
+        ["user_id"],
+    )
+    op.create_index(
+        "ix_user_operational_action_snoozes_household_id",
+        "user_operational_action_snoozes",
+        ["household_id"],
+    )
+    op.create_index(
+        "ix_user_operational_action_snoozes_until",
+        "user_operational_action_snoozes",
+        ["until"],
+    )
 
 
 def downgrade() -> None:

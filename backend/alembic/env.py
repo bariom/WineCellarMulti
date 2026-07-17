@@ -5,7 +5,20 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models import ai_audit, household, invite, membership, passkey, session, user, user_ai_settings, wine, wine_share, wishlist  # noqa: F401
+from app.models import (  # noqa: F401
+    ai_audit,
+    household,
+    household_preferences,
+    invite,
+    membership,
+    passkey,
+    session,
+    user,
+    user_ai_settings,
+    wine,
+    wine_share,
+    wishlist,
+)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.database_url)
