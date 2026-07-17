@@ -99,10 +99,22 @@ function PrintableAgreement({ agreement, locale }: { agreement: CoOwnershipAgree
 }
 
 
-export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreementId }: { agreements: CoOwnershipAgreement[]; locale: Locale; focusAgreementId?: string | null }) {
+export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreementId, currentUserEmail, saving, onRespond }: {
+  agreements: CoOwnershipAgreement[];
+  locale: Locale;
+  focusAgreementId?: string | null;
+  currentUserEmail: string | null;
+  saving: boolean;
+  onRespond: (agreement: CoOwnershipAgreement, decision: "accepted" | "declined", fullName: string) => Promise<void>;
+}) {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(agreements[0]?.id || null);
   const [printAgreementId, setPrintAgreementId] = useState<string | null>(null);
+  const [fullName, setFullName] = useState("");
+  const [confirmed, setConfirmed] = useState(false);
   const selectedAgreement = agreements.find((agreement) => agreement.id === selectedAgreementId) || agreements[0] || null;
+  const respondingParticipant = selectedAgreement?.participants.find(
+    (participant) => participant.email.toLowerCase() === currentUserEmail?.toLowerCase(),
+  );
 
   useEffect(() => {
     if (!selectedAgreementId || !agreements.some((agreement) => agreement.id === selectedAgreementId)) {
@@ -115,6 +127,11 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
       setSelectedAgreementId(focusAgreementId);
     }
   }, [agreements, focusAgreementId]);
+
+  useEffect(() => {
+    setFullName(respondingParticipant?.name || "");
+    setConfirmed(false);
+  }, [selectedAgreement?.id, respondingParticipant?.id]);
 
   function printAgreement() {
     if (!selectedAgreement) return;
@@ -159,6 +176,14 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
       {selectedAgreement ? (
         <div className="coownership-library-detail">
           {agreementDocument(selectedAgreement, locale)}
+          {selectedAgreement.status === "pending" && respondingParticipant?.status === "pending" ? (
+            <section className="wine-form coownership-response no-print">
+              <h3>{locale === "it" ? "La tua risposta" : "Your response"}</h3>
+              <label><span>{locale === "it" ? "Conferma il tuo nome completo" : "Confirm your full name"}</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} required /></label>
+              <label className="detail-toggle-row"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>{locale === "it" ? "Dichiaro di aver letto il documento e di esprimere la decisione indicata." : "I declare that I have read the document and express the decision selected below."}</span></label>
+              <div className="inline-form"><button type="button" disabled={saving || !fullName.trim() || !confirmed} onClick={() => void onRespond(selectedAgreement, "accepted", fullName.trim())}>{locale === "it" ? "Accetta" : "Accept"}</button><button type="button" className="danger" disabled={saving || !fullName.trim() || !confirmed} onClick={() => void onRespond(selectedAgreement, "declined", fullName.trim())}>{locale === "it" ? "Rifiuta" : "Decline"}</button></div>
+            </section>
+          ) : null}
           <div className="inline-form no-print">
             <button type="button" className="secondary compact" onClick={printAgreement}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
           </div>

@@ -417,31 +417,21 @@ def public_participant(db: Session, token: str) -> tuple[CoOwnershipParticipant,
     return participant, agreement
 
 
-@router.get("/public/{token}", response_model=CoOwnershipAgreementResponse)
-def view_public_agreement(token: str, request: Request, db: Session = Depends(get_db)) -> CoOwnershipAgreementResponse:
-    participant, agreement = public_participant(db, token)
-    if participant.viewed_at is None:
-        participant.viewed_at = now_utc()
-        db.commit()
-    return agreement_response(db, agreement, request, expose_links=False, responding_participant_id=participant.id)
-
-
-@router.post("/public/{token}/respond", response_model=CoOwnershipAgreementResponse)
-def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, request: Request, db: Session = Depends(get_db)) -> CoOwnershipAgreementResponse:
-    enforce_rate_limit(
-        request,
-        scope="coownership:respond:ip",
-        limit=settings.rate_limit_coownership_response_attempts,
-        window_seconds=settings.rate_limit_coownership_response_window_seconds,
-    )
-    participant, agreement = public_participant(db, token)
+def record_participant_response(
+    db: Session,
+    agreement: CoOwnershipAgreement,
+    participant: CoOwnershipParticipant,
+    payload: CoOwnershipResponseRequest,
+    *,
+    acceptance_method: str,
+) -> None:
     if agreement.status != "pending":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This agreement is no longer open for responses")
     if participant.status != "pending":
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This invitation has already been answered")
     participant.status = payload.decision
     participant.acceptance_name = payload.full_name.strip()
-    participant.acceptance_method = "secure_link"
+    participant.acceptance_method = acceptance_method
     participant.responded_at = now_utc()
     update_agreement_status(db, agreement)
     if agreement.status == "invalidated":
@@ -466,6 +456,50 @@ def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, re
         )
     db.commit()
     db.refresh(agreement)
+
+
+@router.get("/public/{token}", response_model=CoOwnershipAgreementResponse)
+def view_public_agreement(token: str, request: Request, db: Session = Depends(get_db)) -> CoOwnershipAgreementResponse:
+    participant, agreement = public_participant(db, token)
+    if participant.viewed_at is None:
+        participant.viewed_at = now_utc()
+        db.commit()
+    return agreement_response(db, agreement, request, expose_links=False, responding_participant_id=participant.id)
+
+
+@router.post("/public/{token}/respond", response_model=CoOwnershipAgreementResponse)
+def respond_public_agreement(token: str, payload: CoOwnershipResponseRequest, request: Request, db: Session = Depends(get_db)) -> CoOwnershipAgreementResponse:
+    enforce_rate_limit(
+        request,
+        scope="coownership:respond:ip",
+        limit=settings.rate_limit_coownership_response_attempts,
+        window_seconds=settings.rate_limit_coownership_response_window_seconds,
+    )
+    participant, agreement = public_participant(db, token)
+    record_participant_response(db, agreement, participant, payload, acceptance_method="secure_link")
+    return agreement_response(db, agreement, request, expose_links=False, responding_participant_id=participant.id)
+
+
+@router.post("/{agreement_id}/respond", response_model=CoOwnershipAgreementResponse)
+def respond_authenticated_agreement(
+    agreement_id: UUID,
+    payload: CoOwnershipResponseRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> CoOwnershipAgreementResponse:
+    agreement = db.get(CoOwnershipAgreement, agreement_id)
+    if agreement is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Co-ownership agreement not found")
+    participant = db.scalar(
+        select(CoOwnershipParticipant).where(
+            CoOwnershipParticipant.agreement_id == agreement.id,
+            CoOwnershipParticipant.user_id == context.user.id,
+        )
+    )
+    if participant is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You are not a participant in this agreement")
+    record_participant_response(db, agreement, participant, payload, acceptance_method="authenticated_session")
     return agreement_response(db, agreement, request, expose_links=False, responding_participant_id=participant.id)
 
 

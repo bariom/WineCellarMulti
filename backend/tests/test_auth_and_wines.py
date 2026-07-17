@@ -1784,6 +1784,18 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
         item["email"]: parse_qs(urlparse(item["invite_url"]).query)["coownership_token"][0]
         for item in agreement["participants"]
     }
+    authenticated_response = owner_client.post(
+        f"/api/v1/co-ownership-agreements/{agreement['id']}/respond",
+        json={"decision": "accepted", "full_name": "Cellar Owner"},
+    )
+    assert authenticated_response.status_code == 200
+    assert authenticated_response.json()["status"] == "pending"
+    authenticated_participant = next(
+        item
+        for item in authenticated_response.json()["participants"]
+        if item["email"] == "owner@example.com"
+    )
+    assert authenticated_participant["acceptance_method"] == "authenticated_session"
     viewed = TestClient(app).get(
         f"/api/v1/co-ownership-agreements/public/{tokens['external@example.com']}"
     )
@@ -1803,7 +1815,7 @@ def test_coownership_agreement_supports_registered_and_external_participants(mon
         f"/cellar?wine_id={created_wine.json()['id']}&section=coownership"
     )
     assert "Shared Barolo 2019" in response_notification["message"]
-    for email in ("owner@example.com", "partner@example.com"):
+    for email in ("partner@example.com",):
         response = TestClient(app).post(
             f"/api/v1/co-ownership-agreements/public/{tokens[email]}/respond",
             json={"decision": "accepted", "full_name": email},
