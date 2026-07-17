@@ -1724,26 +1724,6 @@ export function App() {
     setMyCoOwnershipAgreements(await api<CoOwnershipAgreement[]>("/api/v1/co-ownership-agreements/mine"));
   }
 
-  async function respondToMyCoOwnershipAgreement(
-    agreement: CoOwnershipAgreement,
-    decision: "accepted" | "declined",
-    fullName: string,
-  ) {
-    setSaving(true);
-    try {
-      await api<CoOwnershipAgreement>(`/api/v1/co-ownership-agreements/${agreement.id}/respond`, {
-        method: "POST",
-        body: JSON.stringify({ decision, full_name: fullName }),
-      });
-      await Promise.all([loadMyCoOwnershipAgreements(true), loadNotifications(true)]);
-      setNotice(locale === "it" ? "Risposta all'accordo registrata." : "Agreement response recorded.");
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to respond to agreement");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   async function loadAiAudit(role = session?.membership_role) {
     if (role === "owner" || role === "admin" || role === "member") {
       const nextAudit = await api<AiAuditLog[]>("/api/v1/ai/audit");
@@ -9911,9 +9891,7 @@ export function App() {
                     agreements={myCoOwnershipAgreements}
                     locale={locale}
                     focusAgreementId={coOwnershipAgreementFocusId}
-                    currentUserEmail={session.user_email}
-                    saving={saving}
-                    onRespond={respondToMyCoOwnershipAgreement}
+                    currentUserEmail={session && session.user_email}
                   />
                 </Suspense>
                 </div>

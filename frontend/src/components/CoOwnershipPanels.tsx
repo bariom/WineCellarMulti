@@ -99,19 +99,21 @@ function PrintableAgreement({ agreement, locale }: { agreement: CoOwnershipAgree
 }
 
 
-export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreementId, currentUserEmail, saving, onRespond }: {
+export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreementId, currentUserEmail }: {
   agreements: CoOwnershipAgreement[];
   locale: Locale;
   focusAgreementId?: string | null;
   currentUserEmail: string | null;
-  saving: boolean;
-  onRespond: (agreement: CoOwnershipAgreement, decision: "accepted" | "declined", fullName: string) => Promise<void>;
 }) {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(agreements[0]?.id || null);
   const [printAgreementId, setPrintAgreementId] = useState<string | null>(null);
+  const [respondedAgreement, setRespondedAgreement] = useState<CoOwnershipAgreement | null>(null);
   const [fullName, setFullName] = useState("");
   const [confirmed, setConfirmed] = useState(false);
-  const selectedAgreement = agreements.find((agreement) => agreement.id === selectedAgreementId) || agreements[0] || null;
+  const [responding, setResponding] = useState(false);
+  const [responseError, setResponseError] = useState("");
+  const listedAgreement = agreements.find((agreement) => agreement.id === selectedAgreementId) || agreements[0] || null;
+  const selectedAgreement = respondedAgreement?.id === listedAgreement?.id ? respondedAgreement : listedAgreement;
   const respondingParticipant = selectedAgreement?.participants.find(
     (participant) => participant.email.toLowerCase() === currentUserEmail?.toLowerCase(),
   );
@@ -140,6 +142,23 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
       window.print();
       setPrintAgreementId(null);
     });
+  }
+
+  async function respond(decision: "accepted" | "declined") {
+    if (!selectedAgreement || !fullName.trim()) return;
+    setResponding(true);
+    setResponseError("");
+    try {
+      const response = await api<CoOwnershipAgreement>(`/api/v1/co-ownership-agreements/${selectedAgreement.id}/respond`, {
+        method: "POST",
+        body: JSON.stringify({ decision, full_name: fullName.trim() }),
+      });
+      setRespondedAgreement(response);
+    } catch (nextError) {
+      setResponseError(nextError instanceof Error ? nextError.message : "Unable to respond to agreement");
+    } finally {
+      setResponding(false);
+    }
   }
 
   return (
@@ -176,12 +195,13 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
       {selectedAgreement ? (
         <div className="coownership-library-detail">
           {agreementDocument(selectedAgreement, locale)}
+          {responseError ? <div className="error-banner"><span>{responseError}</span></div> : null}
           {selectedAgreement.status === "pending" && respondingParticipant?.status === "pending" ? (
             <section className="wine-form coownership-response no-print">
               <h3>{locale === "it" ? "La tua risposta" : "Your response"}</h3>
               <label><span>{locale === "it" ? "Conferma il tuo nome completo" : "Confirm your full name"}</span><input value={fullName} onChange={(event) => setFullName(event.target.value)} required /></label>
               <label className="detail-toggle-row"><input type="checkbox" checked={confirmed} onChange={(event) => setConfirmed(event.target.checked)} /><span>{locale === "it" ? "Dichiaro di aver letto il documento e di esprimere la decisione indicata." : "I declare that I have read the document and express the decision selected below."}</span></label>
-              <div className="inline-form"><button type="button" disabled={saving || !fullName.trim() || !confirmed} onClick={() => void onRespond(selectedAgreement, "accepted", fullName.trim())}>{locale === "it" ? "Accetta" : "Accept"}</button><button type="button" className="danger" disabled={saving || !fullName.trim() || !confirmed} onClick={() => void onRespond(selectedAgreement, "declined", fullName.trim())}>{locale === "it" ? "Rifiuta" : "Decline"}</button></div>
+              <div className="inline-form"><button type="button" disabled={responding || !fullName.trim() || !confirmed} onClick={() => void respond("accepted")}>{locale === "it" ? "Accetta" : "Accept"}</button><button type="button" className="danger" disabled={responding || !fullName.trim() || !confirmed} onClick={() => void respond("declined")}>{locale === "it" ? "Rifiuta" : "Decline"}</button></div>
             </section>
           ) : null}
           <div className="inline-form no-print">
