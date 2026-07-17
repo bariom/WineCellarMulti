@@ -3,7 +3,7 @@ import { AppIcon, AppIconName } from "./components/AppIcon";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
+import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -51,6 +51,7 @@ const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
+const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
@@ -829,6 +830,8 @@ export function App() {
   const [catalogAdminResults, setCatalogAdminResults] = useState<CatalogWine[]>([]);
   const [redeemCodes, setRedeemCodes] = useState<RedeemCode[]>([]);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
+  const [operationsOverview, setOperationsOverview] = useState<OperationalMetricsOverview | null>(null);
+  const [operationsHistory, setOperationsHistory] = useState<OperationalMetricsHistory | null>(null);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
   const [notificationCenter, setNotificationCenter] = useState<NotificationCenterResponse>({
@@ -985,6 +988,19 @@ export function App() {
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [wineDetailExpanded]);
+
+  useEffect(() => {
+    if (settingsTab !== "operations" || !session?.is_app_admin) return;
+    const refreshWhenVisible = () => {
+      if (!document.hidden) void loadOperationsMetrics().catch(() => undefined);
+    };
+    const interval = window.setInterval(refreshWhenVisible, 60000);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [settingsTab, session?.is_app_admin]);
 
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -1693,6 +1709,15 @@ export function App() {
     }
   }
 
+  async function loadOperationsMetrics() {
+    const [overview, history] = await Promise.all([
+      api<OperationalMetricsOverview>("/api/v1/admin/operations/overview"),
+      api<OperationalMetricsHistory>("/api/v1/admin/operations/history?hours=24"),
+    ]);
+    setOperationsOverview(overview);
+    setOperationsHistory(history);
+  }
+
   async function loadMyCoOwnershipAgreements(authenticated = session?.authenticated) {
     if (!authenticated || offlineMode) {
       setMyCoOwnershipAgreements([]);
@@ -1840,6 +1865,8 @@ export function App() {
       void Promise.all([loadHouseholdData(session.membership_role), loadShareOffers(true), loadReceivedInvites(true), loadMyCoOwnershipAgreements()]).catch(reportError);
     } else if (tab === "users" && session.is_app_admin) {
       void Promise.all([loadAppUsers(true), loadPendingCatalogEntries(true), loadBilling(true, true)]).catch(reportError);
+    } else if (tab === "operations" && session.is_app_admin) {
+      void loadOperationsMetrics().catch(reportError);
     }
   }
 
@@ -4723,10 +4750,11 @@ export function App() {
     tags: t("settingsTags"),
     sharing: t("settingsSharing"),
     users: t("settingsUsers"),
+    operations: locale === "it" ? "Operatività" : "Operations",
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
-    (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+    (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
   const pendingCoOwnershipAgreements = myCoOwnershipAgreements.filter((agreement) => agreement.status === "pending");
@@ -9902,6 +9930,12 @@ export function App() {
                 )}
                 </div>
               </details>
+              ) : null}
+
+              {settingsTab === "operations" && canAppAdmin ? (
+                <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
+                  <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} onRefresh={() => void loadOperationsMetrics()} />
+                </Suspense>
               ) : null}
 
               {settingsTab === "data" && canAdmin ? (

@@ -1,0 +1,12 @@
+.operations-card { grid-column: 1 / -1; }
+.operations-metrics-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 18px; }
+.operations-metrics-grid > div { min-height: 82px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); display: grid; align-content: center; gap: 3px; }
+.operations-metrics-grid span, .operations-metrics-grid small, .operations-note { color: var(--text-muted); font-size: 0.78rem; }
+.operations-metrics-grid strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.operations-summary { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 16px; color: var(--text-muted); font-size: 0.84rem; }
+.operations-summary strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.operations-note { margin: 16px 0 0; line-height: 1.5; }
+
+@media (max-width: 620px) {
+  .operations-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

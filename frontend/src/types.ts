@@ -722,7 +722,24 @@ export type TastingEnjoyment = "" | "positive" | "negative";
 
 export type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 
-export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "data";
+export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "operations" | "data";
+
+export type OperationalMetricsOverview = {
+  collected_at: string;
+  system: {
+    host: { cpu_percent: number; memory: { percent: number }; disk: { percent: number } };
+    network: { tcp_established: number | null; tcp_time_wait: number | null; tcp_total: number | null };
+    conntrack: { count: number | null; max: number | null };
+  };
+  application: { requests_total: number; errors_total: number; average_duration_ms: number | null; uptime_seconds: number };
+  business: { users_total: number; households_total: number; wines_total: number; bottles_total: number };
+  history_sampling: string;
+};
+
+export type OperationalMetricsHistory = {
+  hours: number;
+  samples: Array<Pick<OperationalMetricsOverview, "collected_at" | "system" | "application" | "business">>;
+};
 
 export type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "buying" | "help" | "settings";
 

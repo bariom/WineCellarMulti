@@ -2205,6 +2205,25 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
     assert expired_snooze.status_code == 422
 
 
+def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled():
+    client = TestClient(app)
+    assert client.get("/api/v1/admin/operations/overview").status_code == 401
+    assert register(client).status_code == 201
+
+    overview = client.get("/api/v1/admin/operations/overview")
+    assert overview.status_code == 200
+    payload = overview.json()
+    assert payload["system"]["host"]["cpu_percent"] >= 0
+    assert payload["application"]["requests_total"] >= 1
+    assert payload["business"]["users_total"] == 1
+    assert payload["history_sampling"]
+
+    history = client.get("/api/v1/admin/operations/history?hours=24")
+    assert history.status_code == 200
+    assert history.json()["hours"] == 24
+    assert len(history.json()["samples"]) == 1
+
+
 def test_user_tags_can_be_defined_and_assigned_to_wines():
     client = TestClient(app)
     assert register(client).status_code == 201
