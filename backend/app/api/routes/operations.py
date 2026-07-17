@@ -4,13 +4,23 @@ import hmac
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
-from sqlalchemy import delete, func, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_app_admin_context
 from app.core.config import settings
 from app.db.session import get_db
-from app.models import Household, OperationalMetricSample, User, Wine
+from app.models import (
+    AiAuditLog,
+    CoOwnershipAgreement,
+    Household,
+    OperationalMetricSample,
+    User,
+    Wine,
+    WineRecognitionLog,
+    WineTastingEntry,
+    WishlistItem,
+)
 from app.services.openai_costs import organization_cost_summary
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
@@ -22,13 +32,89 @@ SAMPLE_RETENTION = timedelta(days=14)
 
 
 def business_snapshot(db: Session) -> dict[str, int]:
+    now = datetime.now(UTC)
+    today = now.date()
+    thirty_days_ago = now - timedelta(days=30)
+    wine_status = func.lower(Wine.status)
+    users = db.execute(
+        select(
+            func.count(User.id),
+            func.coalesce(func.sum(case((User.is_approved.is_(True), 1), else_=0)), 0),
+            func.coalesce(func.sum(case((User.is_blocked.is_(True), 1), else_=0)), 0),
+            func.coalesce(
+                func.sum(case((User.is_approved.is_(True) & User.is_blocked.is_(False), 1), else_=0)),
+                0,
+            ),
+        )
+    ).one()
+    wines = db.execute(
+        select(
+            func.count(Wine.id),
+            func.coalesce(func.sum(Wine.quantity), 0),
+            func.coalesce(func.sum(case((wine_status == "delivered", Wine.quantity), else_=0)), 0),
+            func.coalesce(func.sum(case((wine_status == "to collect", Wine.quantity), else_=0)), 0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            (Wine.expected_delivery >= today)
+                            & wine_status.not_in(("delivered", "consumed")),
+                            Wine.quantity,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        )
+    ).one()
+    tastings = db.execute(
+        select(
+            func.count(WineTastingEntry.id),
+            func.coalesce(
+                func.sum(case((WineTastingEntry.consumed_at >= thirty_days_ago.date(), 1), else_=0)),
+                0,
+            ),
+        )
+    ).one()
+    ai_usage = db.execute(
+        select(
+            func.count(AiAuditLog.id),
+            func.coalesce(func.sum(case((AiAuditLog.outcome == "success", 1), else_=0)), 0),
+        ).where(AiAuditLog.created_at >= thirty_days_ago)
+    ).one()
+    recognitions = db.execute(
+        select(
+            func.count(WineRecognitionLog.id),
+            func.coalesce(func.sum(case((WineRecognitionLog.status == "success", 1), else_=0)), 0),
+        ).where(WineRecognitionLog.created_at >= thirty_days_ago)
+    ).one()
+    agreements = db.execute(
+        select(
+            func.coalesce(func.sum(case((CoOwnershipAgreement.status == "accepted", 1), else_=0)), 0),
+            func.coalesce(func.sum(case((CoOwnershipAgreement.status == "pending", 1), else_=0)), 0),
+        )
+    ).one()
     return {
-        "users_total": db.scalar(select(func.count()).select_from(User)) or 0,
-        "users_approved": db.scalar(select(func.count()).select_from(User).where(User.is_approved.is_(True))) or 0,
-        "users_blocked": db.scalar(select(func.count()).select_from(User).where(User.is_blocked.is_(True))) or 0,
+        "users_total": users[0],
+        "users_approved": users[1],
+        "users_blocked": users[2],
+        "users_enabled": users[3],
         "households_total": db.scalar(select(func.count()).select_from(Household)) or 0,
-        "wines_total": db.scalar(select(func.count()).select_from(Wine)) or 0,
-        "bottles_total": db.scalar(select(func.coalesce(func.sum(Wine.quantity), 0))) or 0,
+        "wines_total": wines[0],
+        "bottles_total": wines[1],
+        "bottles_in_cellar": wines[2],
+        "bottles_to_collect": wines[3],
+        "bottles_in_future_deliveries": wines[4],
+        "tastings_total": tastings[0],
+        "tastings_30d": tastings[1],
+        "wishlist_items_total": db.scalar(select(func.count()).select_from(WishlistItem)) or 0,
+        "ai_requests_30d": ai_usage[0],
+        "ai_successes_30d": ai_usage[1],
+        "label_recognitions_30d": recognitions[0],
+        "label_recognition_successes_30d": recognitions[1],
+        "coownership_active": agreements[0],
+        "coownership_pending": agreements[1],
     }
 
 

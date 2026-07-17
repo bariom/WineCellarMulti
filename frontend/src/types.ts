@@ -732,7 +732,27 @@ export type OperationalMetricsOverview = {
     conntrack: { count: number | null; max: number | null };
   };
   application: { requests_total: number; errors_total: number; average_duration_ms: number | null; uptime_seconds: number };
-  business: { users_total: number; households_total: number; wines_total: number; bottles_total: number };
+  business: {
+    users_total: number;
+    users_approved: number;
+    users_blocked: number;
+    users_enabled: number;
+    households_total: number;
+    wines_total: number;
+    bottles_total: number;
+    bottles_in_cellar: number;
+    bottles_to_collect: number;
+    bottles_in_future_deliveries: number;
+    tastings_total: number;
+    tastings_30d: number;
+    wishlist_items_total: number;
+    ai_requests_30d: number;
+    ai_successes_30d: number;
+    label_recognitions_30d: number;
+    label_recognition_successes_30d: number;
+    coownership_active: number;
+    coownership_pending: number;
+  };
   openai: {
     available: boolean;
     current_month_usd: number | null;

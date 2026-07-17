@@ -2228,6 +2228,18 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert payload["system"]["host"]["cpu_percent"] >= 0
     assert payload["application"]["requests_total"] >= 1
     assert payload["business"]["users_total"] == 1
+    assert payload["business"]["users_enabled"] == 1
+    assert payload["business"]["households_total"] == 1
+    assert payload["business"]["bottles_in_cellar"] == 0
+    assert payload["business"]["bottles_to_collect"] == 0
+    assert payload["business"]["bottles_in_future_deliveries"] == 0
+    assert payload["business"]["tastings_total"] == 0
+    assert payload["business"]["tastings_30d"] == 0
+    assert payload["business"]["wishlist_items_total"] == 0
+    assert payload["business"]["ai_requests_30d"] == 0
+    assert payload["business"]["label_recognitions_30d"] == 0
+    assert payload["business"]["coownership_active"] == 0
+    assert payload["business"]["coownership_pending"] == 0
     assert payload["openai"]["available"] is False
     assert payload["history_retention_days"] == 14
 
