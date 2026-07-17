@@ -11,6 +11,15 @@
 .operations-metrics-grid strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
 .operations-summary { display: flex; flex-wrap: wrap; gap: 10px 18px; margin-top: 16px; color: var(--text-muted); font-size: 0.84rem; }
 .operations-summary strong { color: var(--text); font-variant-numeric: tabular-nums; }
+.operations-openai-cost { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding: 13px 14px; border: 1px solid color-mix(in srgb, #5e875e 38%, var(--border)); border-radius: 12px; background: color-mix(in srgb, #5e875e 7%, var(--surface-muted)); }
+.operations-openai-cost > div { display: grid; gap: 3px; }
+.operations-openai-cost span, .operations-openai-cost small, .operations-openai-cost p { color: var(--text-muted); font-size: 0.78rem; }
+.operations-openai-cost > div > strong { font-size: 1.25rem; font-variant-numeric: tabular-nums; }
+.operations-openai-cost p { margin: 0; text-align: end; line-height: 1.4; }
+.operations-openai-comparison { justify-items: end; }
+.operations-openai-comparison > strong { font-size: 0.95rem !important; }
+.operations-openai-comparison small.healthy { color: #3f7751; }
+.operations-openai-comparison small.warning { color: #99631f; }
 .operations-history-controls { display: flex; gap: 8px; margin-top: 20px; }
 .operations-history-controls button { padding: 7px 11px; font-size: 0.78rem; }
 .operations-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
@@ -31,4 +40,7 @@
 @media (max-width: 620px) {
   .operations-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operations-charts { grid-template-columns: 1fr; }
+  .operations-openai-cost { align-items: start; flex-direction: column; }
+  .operations-openai-cost p { text-align: start; }
+  .operations-openai-comparison { justify-items: start; }
 }

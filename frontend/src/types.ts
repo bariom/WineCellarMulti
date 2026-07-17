@@ -733,6 +733,14 @@ export type OperationalMetricsOverview = {
   };
   application: { requests_total: number; errors_total: number; average_duration_ms: number | null; uptime_seconds: number };
   business: { users_total: number; households_total: number; wines_total: number; bottles_total: number };
+  openai: {
+    available: boolean;
+    current_month_usd: number | null;
+    previous_period_usd: number | null;
+    change_percent: number | null;
+    period_start: string | null;
+    collected_at: string | null;
+  };
   history_retention_days: number;
 };
 

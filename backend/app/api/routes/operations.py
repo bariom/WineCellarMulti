@@ -11,6 +11,7 @@ from app.api.deps import CurrentContext, require_app_admin_context
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import Household, OperationalMetricSample, User, Wine
+from app.services.openai_costs import organization_cost_summary
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
 
@@ -70,6 +71,7 @@ def operations_overview(
         "system": system,
         "application": application,
         "business": business,
+        "openai": organization_cost_summary(),
         "history_retention_days": SAMPLE_RETENTION.days,
     }
 

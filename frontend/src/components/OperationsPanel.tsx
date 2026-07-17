@@ -54,6 +54,14 @@ function level(value: number, warning: number, critical: number) {
   return "healthy";
 }
 
+function usd(value: number, locale: Locale) {
+  return new Intl.NumberFormat(locale === "it" ? "it-CH" : "en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 export function OperationsPanel({ locale, overview, history, onRefresh }: OperationsPanelProps) {
   const isItalian = locale === "it";
   const [selectedHours, setSelectedHours] = useState(24);
@@ -122,6 +130,20 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
             <span>{isItalian ? "Utenti" : "Users"} <strong>{overview.business.users_total}</strong></span>
             <span>{isItalian ? "Bottiglie" : "Bottles"} <strong>{overview.business.bottles_total}</strong></span>
           </div>
+          <section className="operations-openai-cost" aria-label={isItalian ? "Costi OpenAI" : "OpenAI costs"}>
+            <div>
+              <span>{isItalian ? "Costi OpenAI" : "OpenAI costs"}</span>
+              <strong>{overview.openai.available && overview.openai.current_month_usd !== null ? usd(overview.openai.current_month_usd, locale) : "—"}</strong>
+              <small>{isItalian ? "Mese in corso · dati aggregati del portale OpenAI" : "Current month · aggregate data from the OpenAI portal"}</small>
+            </div>
+            {overview.openai.available && overview.openai.previous_period_usd !== null ? (
+              <div className="operations-openai-comparison">
+                <span>{isItalian ? "Periodo precedente" : "Previous period"}</span>
+                <strong>{usd(overview.openai.previous_period_usd, locale)}</strong>
+                {overview.openai.change_percent !== null && <small className={overview.openai.change_percent > 0 ? "warning" : "healthy"}>{overview.openai.change_percent > 0 ? "+" : ""}{overview.openai.change_percent.toFixed(0)}%</small>}
+              </div>
+            ) : <p>{isItalian ? "Configura OPENAI_ADMIN_KEY sul server per visualizzare i costi." : "Configure OPENAI_ADMIN_KEY on the server to view costs."}</p>}
+          </section>
           <div className="operations-history-controls" role="group" aria-label={isItalian ? "Intervallo storico" : "History range"}>
             {[1, 24, 168].map((option) => <button type="button" key={option} className={selectedHours === option ? "" : "secondary"} onClick={() => void selectHours(option)}>{option === 168 ? (isItalian ? "7 giorni" : "7 days") : `${option}h`}</button>)}
           </div>

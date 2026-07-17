@@ -37,6 +37,11 @@ class Settings(BaseSettings):
     monitoring_api_token: str = ""
     operations_collector_token: str = ""
     openai_api_key: str = ""
+    # Organization Admin key used exclusively for the app-admin operational cost summary.
+    # It is never returned to the browser and is distinct from the application AI key.
+    openai_admin_key: str = ""
+    openai_costs_url: str = "https://api.openai.com/v1/organization/costs"
+    openai_costs_cache_seconds: int = 300
     openai_responses_url: str = "https://api.openai.com/v1/responses"
     # OPENAI_MODEL and the feature-specific variables remain as compatibility
     # aliases for existing deployments. Model selection is centralized in
