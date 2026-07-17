@@ -484,6 +484,14 @@ function readRegionalGapSuggestion(householdId: string | null | undefined): Regi
   }
 }
 
+function regionalGapAiCommentary(suggestion: RegionalGapAiSuggestion, locale: Locale) {
+  const rationale = suggestion.rationale.trim();
+  if (rationale) return rationale;
+  return locale === "it"
+    ? "L'AI ha generato i target regionali visualizzati. Verifica la proposta prima di adottarla."
+    : "AI generated the regional targets shown here. Review the proposal before adopting it.";
+}
+
 function breakdownColor(label: string, index: number, mode: "type" | "region") {
   if (mode === "type") {
     const tone = wineTone(label);
@@ -5308,7 +5316,10 @@ export function App() {
         }),
       });
       setRegionalGapAiSuggestion(result);
-      void api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: regionalGapTargets, last_ai_suggestion: result }) });
+      await api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", {
+        method: "PUT",
+        body: JSON.stringify({ targets: regionalGapTargets, last_ai_suggestion: result }),
+      });
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate regional target");
@@ -5648,7 +5659,7 @@ export function App() {
               {regionalGapAiSuggestion ? (
                 <div className="regional-ai-proposal">
                   <strong>{t("aiTargetProposal")}</strong>
-                  <p>{regionalGapAiSuggestion.rationale}</p>
+                  <p>{regionalGapAiCommentary(regionalGapAiSuggestion, locale)}</p>
                   <div>
                     {regionalGapAiSuggestion.targets.map((target) => (
                       <span key={target.region}>{target.region} {Number(target.target_pct).toFixed(1)}%</span>
@@ -5716,10 +5727,10 @@ export function App() {
                 <strong><small>{t("missingValueGap")}</small>{formatMoney(row.gapValue, "CHF", locale)}</strong>
               </div>
             )) : <p className="empty-state">{t("balancedPortfolio")}</p>}
-            {regionalGapAiSuggestion?.rationale ? (
+            {regionalGapAiSuggestion ? (
               <details className="regional-gap-suggestions">
                 <summary>{locale === "it" ? "Commento dell'analisi AI" : "AI analysis commentary"}</summary>
-                <p className="regional-gap-help">{regionalGapAiSuggestion.rationale}</p>
+                <p className="regional-gap-help">{regionalGapAiCommentary(regionalGapAiSuggestion, locale)}</p>
               </details>
             ) : null}
           </details>
@@ -5730,7 +5741,7 @@ export function App() {
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
-      <img className="public-brand-mark" src="/icons/logo.png" alt="Vinaris" />
+      <img className="public-brand-mark" src="/icons/icon.svg" alt="Vinaris" width="48" height="48" fetchPriority="high" />
       <div className="public-brand-copy">
         <strong>Vinaris</strong>
         <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>
@@ -5828,7 +5839,7 @@ export function App() {
         <div className="topbar-brand">
           {authenticated ? (
             <>
-              <img className="topbar-brand-mark" src="/icons/logo.png" alt="Vinaris" />
+              <img className="topbar-brand-mark" src="/icons/icon.svg" alt="Vinaris" width="56" height="56" fetchPriority="high" />
               <div>
                 <p className="eyebrow">Vinaris</p>
                 <h1>{session?.active_household_name || "Vinaris"}</h1>
@@ -6136,7 +6147,7 @@ export function App() {
         <>
           <section className="mobile-public-landing" aria-labelledby="mobile-public-title">
             <div className="mobile-public-brand">
-              <img src="/icons/logo.png" alt="Vinaris" />
+              <img src="/icons/icon.svg" alt="Vinaris" width="40" height="40" fetchPriority="high" />
               <span>Vinaris</span>
             </div>
             <p className="eyebrow">{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</p>

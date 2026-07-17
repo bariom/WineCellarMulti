@@ -2195,7 +2195,8 @@ def suggest_regional_gap_targets(
             "You advise a private wine collector on regional portfolio allocation. Return JSON only. "
             "Return one target for every input region and no other regions. "
             "The target_pct values must sum to exactly 100. "
-            "Do not recommend individual wines. Explain the allocation logic briefly. "
+            "Do not recommend individual wines. The rationale is required: write two concise sentences "
+            "that explain the allocation logic and the most important proposed changes. "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
@@ -2243,11 +2244,20 @@ def suggest_regional_gap_targets(
         model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,
     )
+    rationale = str(result.get("rationale") or "").strip()[:1200]
+    if not rationale:
+        rationale = (
+            "L'AI ha generato questa ripartizione regionale per il profilo richiesto. "
+            "Verifica i target proposti prima di adottarli nella tua cantina."
+            if payload.locale == "it"
+            else "AI generated this regional allocation for the requested profile. "
+            "Review the proposed targets before adopting them in your cellar."
+        )
     suggestion = RegionalGapTargetSuggestionResponse(
         model=effective_response_model(response, user_settings.wishlist_model),
         reasoning_effort=response.reasoning_effort or "",
         profile=payload.profile,
-        rationale=str(result.get("rationale") or "").strip()[:1200],
+        rationale=rationale,
         targets=normalized,
         estimated_cost_usd=charged_cost,
     )
