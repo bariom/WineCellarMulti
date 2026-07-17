@@ -5733,7 +5733,7 @@ export function App() {
           />
         ))}
       </datalist>
-      <header className="topbar">
+      <header className="topbar" style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         <div className="topbar-brand">
           {authenticated ? (
             <>
@@ -6000,8 +6000,8 @@ export function App() {
             </button>
           </div>
         ) : (
-          <div className="session-pill">
-            <label className="language-switch public-language-switch">
+          <div className="session-pill" style={isMobileViewport ? { display: "flex", flexWrap: "wrap", gap: "8px", width: "100%", maxWidth: "none", boxSizing: "border-box" } : undefined}>
+            <label className="language-switch public-language-switch" style={isMobileViewport ? { flex: "1 1 140px", minWidth: 0 } : undefined}>
               <span>{t("language")}</span>
               <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
                 <option value="it">IT</option>
