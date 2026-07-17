@@ -15,6 +15,7 @@ from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, Wine, WishlistItem, WishlistList
 from app.schemas.wishlist import (
+    WishlistConvert,
     WishlistCreate,
     WishlistListCreate,
     WishlistListResponse,
@@ -357,6 +358,7 @@ def delete_wishlist_item(
 @router.post("/{item_id}/convert", response_model=dict, status_code=status.HTTP_201_CREATED)
 def convert_wishlist_item(
     item_id: UUID,
+    payload: WishlistConvert | None = None,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> dict:
@@ -367,7 +369,7 @@ def convert_wishlist_item(
         name=item.name,
         producer=item.producer,
         vintage=item.vintage,
-        quantity=1,
+        quantity=payload.quantity if payload is not None else 1,
         currency=item.currency,
         price=item.target_price,
         current_value=item.target_price,

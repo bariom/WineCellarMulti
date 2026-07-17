@@ -914,6 +914,8 @@ export function App() {
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
+  const [wishlistConversionItem, setWishlistConversionItem] = useState<WishlistItem | null>(null);
+  const [wishlistConversionQuantity, setWishlistConversionQuantity] = useState("1");
   const [selectedWishlistListId, setSelectedWishlistListId] = useState<string>("");
   const [pendingWineScrollId, setPendingWineScrollId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -3288,14 +3290,19 @@ export function App() {
     await Promise.all([loadWishlist(), loadWishlistLists()]);
   }
 
-  async function convertWishlistItem(item: WishlistItem) {
-    if (!window.confirm(`Convert ${item.name} to an ordered wine?`)) return;
+  function startWishlistConversion(item: WishlistItem) {
+    setWishlistConversionItem(item);
+    setWishlistConversionQuantity("1");
+  }
+
+  async function convertWishlistItem(item: WishlistItem, quantity: number) {
     setSaving(true);
     setError("");
     try {
-      await api<{ wine_id: string }>(`/api/v1/wishlist/${item.id}/convert`, { method: "POST" });
+      await api<{ wine_id: string }>(`/api/v1/wishlist/${item.id}/convert`, { method: "POST", body: JSON.stringify({ quantity }) });
       setWishlistFormOpen(false);
       setEditingWishlistId(null);
+      setWishlistConversionItem(null);
       await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
       setActiveView("cellar");
     } catch (nextError) {
@@ -7447,7 +7454,7 @@ export function App() {
                     <button type="button" className="secondary" onClick={() => startEditWishlistItem(selectedWishlistItem)} disabled={!canWriteWine}>
                       {t("editSelected")}
                     </button>
-                    <button type="button" onClick={() => convertWishlistItem(selectedWishlistItem)} disabled={!canWriteWine || saving}>
+                    <button type="button" onClick={() => startWishlistConversion(selectedWishlistItem)} disabled={!canWriteWine || saving}>
                       {t("convert")}
                     </button>
                   </>
@@ -8815,7 +8822,7 @@ export function App() {
                       <span className="action-icon">{wishlistActionSvgIcon("edit")}</span>
                       <span className="action-label">{t("edit")}</span>
                     </button>
-                    <button type="button" className="wishlist-action-button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); convertWishlistItem(item); }} aria-label={t("convert")} title={t("convert")}>
+                    <button type="button" className="wishlist-action-button" disabled={!canWriteWine || saving} onClick={(event) => { event.stopPropagation(); startWishlistConversion(item); }} aria-label={t("convert")} title={t("convert")}>
                       <span className="action-icon">{wishlistActionSvgIcon("convert")}</span>
                       <span className="action-label">{t("convert")}</span>
                     </button>
@@ -10091,6 +10098,34 @@ export function App() {
           ) : null}
         </section>
       )}
+      {wishlistConversionItem ? (
+        <div className="auth-modal-overlay" onClick={() => !saving && setWishlistConversionItem(null)}>
+          <section className="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="wishlist-conversion-title" onClick={(event) => event.stopPropagation()}>
+            <div className="auth-modal-head">
+              <div>
+                <strong>{locale === "it" ? "Aggiungi alla cantina" : "Add to cellar"}</strong>
+                <h2 id="wishlist-conversion-title">{wishlistConversionItem.name}</h2>
+              </div>
+              <button type="button" className="secondary compact" onClick={() => setWishlistConversionItem(null)} disabled={saving}>{t("cancel")}</button>
+            </div>
+            <form className="auth-panel" onSubmit={(event) => {
+              event.preventDefault();
+              const quantity = Number(wishlistConversionQuantity);
+              if (Number.isInteger(quantity) && quantity > 0) void convertWishlistItem(wishlistConversionItem, quantity);
+            }}>
+              <p className="empty-state">{locale === "it" ? "Indica quante bottiglie acquistate vuoi aggiungere alla cantina." : "Choose how many purchased bottles to add to the cellar."}</p>
+              <label>
+                <span>{t("quantity")}</span>
+                <input autoFocus type="number" min="1" step="1" inputMode="numeric" value={wishlistConversionQuantity} onChange={(event) => setWishlistConversionQuantity(event.target.value)} required />
+              </label>
+              <div className="form-actions">
+                <button type="button" className="secondary" onClick={() => setWishlistConversionItem(null)} disabled={saving}>{t("cancel")}</button>
+                <button type="submit" disabled={saving || !Number.isInteger(Number(wishlistConversionQuantity)) || Number(wishlistConversionQuantity) < 1}>{saving ? t("saving") : (locale === "it" ? "Aggiungi in cantina" : "Add to cellar")}</button>
+              </div>
+            </form>
+          </section>
+        </div>
+      ) : null}
       {wineDetailExpanded && selectedVisibleWine ? (
         <div
           className="wine-detail-modal-layer"

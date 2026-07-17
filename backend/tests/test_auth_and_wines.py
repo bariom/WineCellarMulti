@@ -2551,7 +2551,7 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
     )
 
     wishlist_id = wishlist.json()[0]["id"]
-    converted = client.post(f"/api/v1/wishlist/{wishlist_id}/convert")
+    converted = client.post(f"/api/v1/wishlist/{wishlist_id}/convert", json={"quantity": 3})
     assert converted.status_code == 201
     assert converted.json()["wine_id"]
     assert client.get("/api/v1/wishlist").json() == []
@@ -2559,6 +2559,7 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
         "Imported Wine",
         "Wanted Wine",
     ]
+    assert next(wine for wine in client.get("/api/v1/wines").json() if wine["name"] == "Wanted Wine")["quantity"] == 3
 
     exported = client.get("/api/v1/imports/export-json")
     assert exported.status_code == 200

@@ -112,7 +112,7 @@ def list_notifications(
     )
     if not include_read:
         query = query.where(UserNotification.read_at.is_(None))
-    notifications = db.scalars(query.order_by(UserNotification.created_at.desc()))
+    notifications = db.scalars(query.order_by(UserNotification.created_at.desc(), UserNotification.id.desc()))
     return [notification_response(db, notification) for notification in notifications]
 
 
@@ -270,7 +270,7 @@ def notification_center(
     persisted_query = (
         select(UserNotification)
         .where(*base_conditions, *category_conditions(category))
-        .order_by(UserNotification.created_at.desc())
+        .order_by(UserNotification.created_at.desc(), UserNotification.id.desc())
         .offset(offset)
         .limit(persisted_limit + 1)
     )

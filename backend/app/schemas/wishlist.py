@@ -59,6 +59,10 @@ class WishlistUpdate(BaseModel):
     ai_purpose_advice: str | None = None
 
 
+class WishlistConvert(BaseModel):
+    quantity: int = Field(default=1, ge=1)
+
+
 class WishlistResponse(WishlistBase):
     model_config = ConfigDict(from_attributes=True)
 
