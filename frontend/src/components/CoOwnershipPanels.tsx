@@ -107,13 +107,14 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
 }) {
   const [selectedAgreementId, setSelectedAgreementId] = useState<string | null>(agreements[0]?.id || null);
   const [printAgreementId, setPrintAgreementId] = useState<string | null>(null);
-  const [respondedAgreement, setRespondedAgreement] = useState<CoOwnershipAgreement | null>(null);
+  const [updatedAgreement, setUpdatedAgreement] = useState<CoOwnershipAgreement | null>(null);
   const [fullName, setFullName] = useState("");
   const [confirmed, setConfirmed] = useState(false);
   const [responding, setResponding] = useState(false);
+  const [paymentSaving, setPaymentSaving] = useState(false);
   const [responseError, setResponseError] = useState("");
   const listedAgreement = agreements.find((agreement) => agreement.id === selectedAgreementId) || agreements[0] || null;
-  const selectedAgreement = respondedAgreement?.id === listedAgreement?.id ? respondedAgreement : listedAgreement;
+  const selectedAgreement = updatedAgreement?.id === listedAgreement?.id ? updatedAgreement : listedAgreement;
   const respondingParticipant = selectedAgreement?.participants.find(
     (participant) => participant.email.toLowerCase() === currentUserEmail?.toLowerCase(),
   );
@@ -153,11 +154,49 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
         method: "POST",
         body: JSON.stringify({ decision, full_name: fullName.trim() }),
       });
-      setRespondedAgreement(response);
+      setUpdatedAgreement(response);
     } catch (nextError) {
       setResponseError(nextError instanceof Error ? nextError.message : "Unable to respond to agreement");
     } finally {
       setResponding(false);
+    }
+  }
+
+  async function refreshSelectedAgreement() {
+    if (!selectedAgreement) return;
+    const refreshed = await api<CoOwnershipAgreement[]>("/api/v1/co-ownership-agreements/mine");
+    setUpdatedAgreement(refreshed.find((agreement) => agreement.id === selectedAgreement.id) || null);
+  }
+
+  async function recordPayment(participantId: string, payload: { amount: number; paid_on: string; note: string }) {
+    if (!selectedAgreement) return;
+    setPaymentSaving(true);
+    setResponseError("");
+    try {
+      await api(`/api/v1/co-ownership-agreements/${selectedAgreement.id}/participants/${participantId}/payments`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await refreshSelectedAgreement();
+    } catch (nextError) {
+      setResponseError(nextError instanceof Error ? nextError.message : "Unable to record payment");
+      throw nextError;
+    } finally {
+      setPaymentSaving(false);
+    }
+  }
+
+  async function voidPayment(paymentId: string) {
+    if (!selectedAgreement) return;
+    setPaymentSaving(true);
+    setResponseError("");
+    try {
+      await api(`/api/v1/co-ownership-agreements/${selectedAgreement.id}/payments/${paymentId}`, { method: "DELETE" });
+      await refreshSelectedAgreement();
+    } catch (nextError) {
+      setResponseError(nextError instanceof Error ? nextError.message : "Unable to void payment");
+    } finally {
+      setPaymentSaving(false);
     }
   }
 
@@ -204,6 +243,13 @@ export function CoOwnershipAgreementLibrary({ agreements, locale, focusAgreement
               <div className="inline-form"><button type="button" disabled={responding || !fullName.trim() || !confirmed} onClick={() => void respond("accepted")}>{locale === "it" ? "Accetta" : "Accept"}</button><button type="button" className="danger" disabled={responding || !fullName.trim() || !confirmed} onClick={() => void respond("declined")}>{locale === "it" ? "Rifiuta" : "Decline"}</button></div>
             </section>
           ) : null}
+          <PaymentLedger
+            agreement={selectedAgreement}
+            locale={locale}
+            saving={paymentSaving}
+            onRecord={selectedAgreement.can_manage_payments ? recordPayment : undefined}
+            onVoid={selectedAgreement.can_manage_payments ? voidPayment : undefined}
+          />
           <div className="inline-form no-print">
             <button type="button" className="secondary compact" onClick={printAgreement}>{locale === "it" ? "Stampa / salva PDF" : "Print / save PDF"}</button>
           </div>
