@@ -2205,7 +2205,7 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
     assert expired_snooze.status_code == 422
 
 
-def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled():
+def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeypatch):
     client = TestClient(app)
     assert client.get("/api/v1/admin/operations/overview").status_code == 401
     assert register(client).status_code == 201
@@ -2222,6 +2222,17 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled():
     assert history.status_code == 200
     assert history.json()["hours"] == 24
     assert len(history.json()["samples"]) == 1
+
+    monkeypatch.setattr(settings, "operations_collector_token", "collector-test-token")
+    rejected_collector = client.post("/api/v1/admin/operations/collect", json={"host": {}})
+    assert rejected_collector.status_code == 401
+    accepted_collector = client.post(
+        "/api/v1/admin/operations/collect",
+        headers={"X-Operations-Collector-Token": "collector-test-token"},
+        json={"collected_at": "2026-07-17T00:00:00Z", "host": {"cpu_percent": 12.5}},
+    )
+    assert accepted_collector.status_code == 204
+    assert len(client.get("/api/v1/admin/operations/history?hours=24").json()["samples"]) == 2
 
 
 def test_user_tags_can_be_defined_and_assigned_to_wines():

@@ -1,0 +1,34 @@
+"""Collect host metrics and submit one aggregate sample to the local Vinaris backend."""
+
+from __future__ import annotations
+
+import json
+import os
+from urllib.request import Request, urlopen
+
+from app.core.config import settings
+from app.services.operational_metrics import system_snapshot
+
+
+def main() -> None:
+    token = settings.operations_collector_token
+    if not token:
+        raise SystemExit("OPERATIONS_COLLECTOR_TOKEN is not configured")
+    url = os.getenv("OPERATIONS_COLLECTOR_URL", "http://127.0.0.1:8000/api/v1/admin/operations/collect")
+    payload = json.dumps(system_snapshot()).encode("utf-8")
+    request = Request(
+        url,
+        data=payload,
+        headers={
+            "Content-Type": "application/json",
+            "X-Operations-Collector-Token": token,
+        },
+        method="POST",
+    )
+    with urlopen(request, timeout=5) as response:
+        if response.status != 204:
+            raise SystemExit(f"Collector rejected with HTTP {response.status}")
+
+
+if __name__ == "__main__":
+    main()

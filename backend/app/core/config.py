@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     rate_limit_support_attempts: int = 5
     rate_limit_support_window_seconds: int = 3600
     monitoring_api_token: str = ""
+    operations_collector_token: str = ""
     openai_api_key: str = ""
     openai_responses_url: str = "https://api.openai.com/v1/responses"
     # OPENAI_MODEL and the feature-specific variables remain as compatibility
