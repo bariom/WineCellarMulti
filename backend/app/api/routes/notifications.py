@@ -319,7 +319,7 @@ def notification_center(
     actions = persisted_count("action") + pending_total
     updates = persisted_count("update")
     system = persisted_count("system")
-    unread = persisted_count(None, unread_only=True)
+    unread = persisted_count(None, unread_only=True) + pending_total
     attention = (
         actions
         + persisted_count("update", unread_only=True)

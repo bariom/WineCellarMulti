@@ -14,13 +14,17 @@ type OperationsPanelProps = {
 type ChartScale = { min: number; max: number; suffix: string };
 type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string; axis?: "primary" | "secondary" };
 
+const chartBounds = { left: 14, right: 106, top: 12, bottom: 88 };
+
 function linePath(values: Array<number | null>, scale: ChartScale) {
   if (!values.some((value) => value !== null && Number.isFinite(value))) return "";
   const range = scale.max - scale.min || 1;
   return values.map((value, index) => {
     if (value === null || !Number.isFinite(value)) return null;
-    const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
-    const y = Math.max(8, Math.min(92, 92 - ((value - scale.min) / range) * 84));
+    const x = values.length === 1
+      ? (chartBounds.left + chartBounds.right) / 2
+      : chartBounds.left + (index / (values.length - 1)) * (chartBounds.right - chartBounds.left);
+    const y = Math.max(chartBounds.top, Math.min(chartBounds.bottom, chartBounds.bottom - ((value - scale.min) / range) * (chartBounds.bottom - chartBounds.top)));
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   }).filter(Boolean).join(" ");
 }
@@ -38,9 +42,9 @@ function formatScaleValue(value: number, scale: ChartScale) {
 }
 
 function ScaleLabels({ scale, side }: { scale: ChartScale; side: "left" | "right" }) {
-  return <>{[8, 50, 92].map((y, index) => {
+  return <>{[chartBounds.top, 50, chartBounds.bottom].map((y, index) => {
     const value = scale.max - ((scale.max - scale.min) * index) / 2;
-    return <text key={y} className="operations-chart-scale-label" x={side === "left" ? 1 : 99} y={y} textAnchor={side === "left" ? "start" : "end"} dominantBaseline="middle">{formatScaleValue(value, scale)}</text>;
+    return <text key={y} className="operations-chart-scale-label" x={side === "left" ? 1 : 119} y={y} textAnchor={side === "left" ? "start" : "end"} dominantBaseline="middle">{formatScaleValue(value, scale)}</text>;
   })}</>;
 }
 
@@ -56,8 +60,8 @@ function OperationsChart({ title, lines, locale, primaryScale, secondaryScale }:
     <section className="operations-chart-card">
       <div className="operations-chart-heading"><strong>{title}</strong><span>{locale === "it" ? "Storico" : "History"}</span></div>
       {hasData ? (
-        <svg className="operations-chart" viewBox="0 0 100 100" role="img" aria-label={title} preserveAspectRatio="none">
-          {[8, 50, 92].map((y) => <line className="operations-chart-grid" key={y} x1="0" x2="100" y1={y} y2={y} />)}
+        <svg className="operations-chart" viewBox="0 0 120 100" role="img" aria-label={title} preserveAspectRatio="none">
+          {[chartBounds.top, 50, chartBounds.bottom].map((y) => <line className="operations-chart-grid" key={y} x1={chartBounds.left} x2={chartBounds.right} y1={y} y2={y} />)}
           <ScaleLabels scale={primaryScale} side="left" />
           {secondaryScale ? <ScaleLabels scale={secondaryScale} side="right" /> : null}
           {lines.map((line) => <polyline key={line.label} points={linePath(line.values, line.axis === "secondary" && secondaryScale ? secondaryScale : primaryScale)} stroke={line.color} />)}

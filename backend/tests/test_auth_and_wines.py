@@ -2343,6 +2343,7 @@ def test_invite_acceptance_and_viewer_permissions():
     assert invite_item["category"] == "action"
     assert invite_item["state"] == "pending"
     assert invite_center.json()["counts"]["actionable"] >= 1
+    assert invite_center.json()["counts"]["unread"] >= 1
     accepted = member.post(f"/api/v1/household/invites/{invite_id}/accept")
     assert accepted.status_code == 200
     assert accepted.json()["role"] == "viewer"
@@ -2424,6 +2425,7 @@ def test_invite_acceptance_and_viewer_permissions():
     )
     assert share_item["resource_id"] == offers.json()[0]["id"]
     assert share_item["action_kind"] == "decide_share_offer"
+    assert share_center.json()["counts"]["unread"] >= 1
     accepted_offer = member.post(f"/api/v1/wines/share-offers/{offers.json()[0]['id']}/accept")
     assert accepted_offer.status_code == 200
     assert accepted_offer.json()["quantity"] == 5

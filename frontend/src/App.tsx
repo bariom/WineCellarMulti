@@ -841,10 +841,12 @@ export function App() {
     next_offset: null,
     has_more: false,
   });
+  const observedNotificationKindsRef = useRef(new Set<string>());
+  const observedNotificationScopeRef = useRef<string | null>(null);
   const [notificationActiveCounts, setNotificationActiveCounts] = useState<NotificationCenterResponse["counts"]>({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
   const [notificationTab, setNotificationTab] = useState<"all" | NotificationCenterCategory>("all");
   const [notificationView, setNotificationView] = useState<"active" | "archived">("active");
-  const [notificationStateFilter, setNotificationStateFilter] = useState<"all" | "unread" | "read">("all");
+  const [notificationStateFilter, setNotificationStateFilter] = useState<"all" | "unread">("all");
   const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
   const [coOwnershipAgreementFocusId, setCoOwnershipAgreementFocusId] = useState<string | null>(null);
   const [coOwnershipLibraryVisible, setCoOwnershipLibraryVisible] = useState(false);
@@ -1659,12 +1661,17 @@ export function App() {
     options: {
       category?: "all" | NotificationCenterCategory;
       view?: "active" | "archived";
-      itemState?: "all" | "unread" | "read";
+      itemState?: "all" | "unread";
       offset?: number;
       append?: boolean;
     } = {},
   ) {
     if (authenticated) {
+      const notificationScope = session?.user_email || "";
+      if (observedNotificationScopeRef.current !== notificationScope) {
+        observedNotificationScopeRef.current = notificationScope;
+        observedNotificationKindsRef.current.clear();
+      }
       const selectedCategory = options.category ?? notificationTab;
       const category = selectedCategory === "all" ? undefined : selectedCategory;
       const view = options.view ?? notificationView;
@@ -1681,6 +1688,7 @@ export function App() {
       const items = center.items.map((item) => item.kind === "smart_to_collect"
         ? { ...item, category: "action" as const }
         : item);
+      if (view === "active") items.forEach((item) => observedNotificationKindsRef.current.add(item.kind));
       const legacyReclassified = center.items.filter((item) => item.kind === "smart_to_collect" && item.category !== "action").length;
       const counts = {
         ...center.counts,
@@ -1699,6 +1707,8 @@ export function App() {
       }));
       if (view === "active" && itemState === "all") setNotificationActiveCounts(counts);
     } else {
+      observedNotificationScopeRef.current = null;
+      observedNotificationKindsRef.current.clear();
       setNotificationCenter({
         items: [],
         counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 },
@@ -3091,7 +3101,7 @@ export function App() {
     void loadNotifications(true, { view, itemState, offset: 0 });
   }
 
-  function selectNotificationStateFilter(itemState: "all" | "unread" | "read") {
+  function selectNotificationStateFilter(itemState: "all" | "unread") {
     setNotificationStateFilter(itemState);
     void loadNotifications(true, { itemState, offset: 0 });
   }
@@ -4940,7 +4950,7 @@ export function App() {
       return !snooze || snooze.signature !== item.signature || snooze.until <= now.getTime();
     })
     .slice(0, 6);
-  const centerKinds = new Set(notificationCenter.items.map((item) => item.kind));
+  const centerKinds = new Set([...observedNotificationKindsRef.current, ...notificationCenter.items.map((item) => item.kind)]);
   const operationalCenterKindById: Record<string, string> = {
     "coownership-pending": "coownership_agreement",
     "past-window": "smart_past_window",
@@ -4948,7 +4958,7 @@ export function App() {
     "future-deliveries": "smart_future_deliveries",
     "to-collect": "smart_to_collect",
   };
-  const showLiveOperationalItems = notificationView === "active" && notificationStateFilter !== "read";
+  const showLiveOperationalItems = notificationView === "active" && notificationStateFilter === "all";
   const supplementalOperationalItems = (showLiveOperationalItems ? operationalActionItems : []).filter((item) => {
     const matchingKind = operationalCenterKindById[item.id];
     return !matchingKind || !centerKinds.has(matchingKind);
@@ -4965,7 +4975,7 @@ export function App() {
       : [],
   );
   const visibleCenterItems = notificationCenter.items.filter((item) => !supersededAdminNotificationIds.has(item.id));
-  const showLiveAdminItems = notificationView === "active" && notificationStateFilter !== "read";
+  const showLiveAdminItems = notificationView === "active";
   const adminActionCount = canAppAdmin && showLiveAdminItems ? pendingUsers.length + pendingCatalogEntries.length : 0;
   const displayedCenterCounts = notificationView === "active" && notificationStateFilter === "all"
     ? notificationActiveCounts
@@ -4976,8 +4986,7 @@ export function App() {
     system: displayedCenterCounts.system + operationalActionItemsByCategory.system.length,
   };
   const allNotificationTabCount = notificationCategoryCounts.action + notificationCategoryCounts.update + notificationCategoryCounts.system;
-  const localBadgeItems = operationalActionItems.filter((item) => !operationalCenterKindById[item.id] || item.id === "coownership-pending");
-  const notificationCount = notificationActiveCounts.attention + localBadgeItems.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0);
+  const notificationCount = notificationActiveCounts.unread;
   const activeNotificationItems = notificationTab === "all"
     ? visibleCenterItems
     : visibleCenterItems.filter((item) => item.category === notificationTab);
@@ -5795,7 +5804,7 @@ export function App() {
 
   const publicBrandLockup = (
     <div className="public-brand-lockup">
-      <img className="public-brand-mark" src="/icons/icon.svg" alt="Vinaris" width="48" height="48" fetchPriority="high" />
+      <img className="public-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="48" height="48" fetchPriority="high" />
       <div className="public-brand-copy">
         <strong>Vinaris</strong>
         <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>
@@ -5893,7 +5902,7 @@ export function App() {
         <div className="topbar-brand">
           {authenticated ? (
             <>
-              <img className="topbar-brand-mark" src="/icons/icon.svg" alt="Vinaris" width="56" height="56" fetchPriority="high" />
+              <img className="topbar-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="56" height="56" fetchPriority="high" />
               <div>
                 <p className="eyebrow">Vinaris</p>
                 <h1>{session?.active_household_name || "Vinaris"}</h1>
@@ -5963,7 +5972,9 @@ export function App() {
                         <span>{locale === "it" ? "Eventi e attività operative" : "Events and operational activity"}</span>
                       </div>
                       <div className="notification-heading-actions">
-                        <span>{notificationCount}</span>
+                        <span className="notification-unread-count" aria-label={locale === "it" ? `${notificationCount} notifiche nuove` : `${notificationCount} new notifications`}>
+                          {notificationCount} <small>{locale === "it" ? "nuove" : "new"}</small>
+                        </span>
                         <button
                           type="button"
                           className="secondary compact notification-close-button"
@@ -5987,10 +5998,9 @@ export function App() {
                         <>
                           <label className="notification-state-filter">
                             <span className="sr-only">{locale === "it" ? "Filtra per stato" : "Filter by state"}</span>
-                            <select value={notificationStateFilter} onChange={(event) => selectNotificationStateFilter(event.target.value as "all" | "unread" | "read")}>
+                            <select value={notificationStateFilter} onChange={(event) => selectNotificationStateFilter(event.target.value as "all" | "unread")}>
                               <option value="all">{locale === "it" ? "Tutte" : "All"}</option>
                               <option value="unread">{locale === "it" ? "Nuove" : "Unread"}</option>
-                              <option value="read">{locale === "it" ? "Lette" : "Read"}</option>
                             </select>
                           </label>
                           {notificationActiveCounts.unread ? (
@@ -6200,7 +6210,7 @@ export function App() {
         <>
           <section className="mobile-public-landing" aria-labelledby="mobile-public-title">
             <div className="mobile-public-brand">
-              <img src="/icons/icon.svg" alt="Vinaris" width="40" height="40" fetchPriority="high" />
+              <img src="/icons/icon-192.png" alt="Vinaris" width="40" height="40" fetchPriority="high" />
               <span>Vinaris</span>
             </div>
             <p className="eyebrow">{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</p>
