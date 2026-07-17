@@ -11,31 +11,56 @@ type OperationsPanelProps = {
   onRefresh: () => void;
 };
 
-type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string };
+type ChartScale = { min: number; max: number; suffix: string };
+type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string; axis?: "primary" | "secondary" };
 
-function linePath(values: Array<number | null>) {
-  const valid = values.filter((value): value is number => value !== null && Number.isFinite(value));
-  if (!valid.length) return "";
-  const minimum = Math.min(...valid);
-  const maximum = Math.max(...valid);
-  const range = maximum - minimum || 1;
+function linePath(values: Array<number | null>, scale: ChartScale) {
+  if (!values.some((value) => value !== null && Number.isFinite(value))) return "";
+  const range = scale.max - scale.min || 1;
   return values.map((value, index) => {
     if (value === null || !Number.isFinite(value)) return null;
     const x = values.length === 1 ? 50 : (index / (values.length - 1)) * 100;
-    const y = 92 - ((value - minimum) / range) * 84;
+    const y = Math.max(8, Math.min(92, 92 - ((value - scale.min) / range) * 84));
     return `${x.toFixed(2)},${y.toFixed(2)}`;
   }).filter(Boolean).join(" ");
 }
 
-function OperationsChart({ title, lines, locale }: { title: string; lines: ChartLine[]; locale: Locale }) {
+function roundedScale(values: Array<number | null>, suffix: string): ChartScale {
+  const maximum = Math.max(...values.filter((value): value is number => value !== null && Number.isFinite(value)), 0);
+  if (maximum <= 1) return { min: 0, max: 1, suffix };
+  const magnitude = 10 ** Math.floor(Math.log10(maximum));
+  const factor = [1, 2, 5, 10].find((candidate) => maximum <= candidate * magnitude) || 10;
+  return { min: 0, max: factor * magnitude, suffix };
+}
+
+function formatScaleValue(value: number, scale: ChartScale) {
+  return `${value < 10 && value % 1 ? value.toFixed(1) : value.toFixed(0)}${scale.suffix}`;
+}
+
+function ScaleLabels({ scale, side }: { scale: ChartScale; side: "left" | "right" }) {
+  return <>{[8, 50, 92].map((y, index) => {
+    const value = scale.max - ((scale.max - scale.min) * index) / 2;
+    return <text key={y} className="operations-chart-scale-label" x={side === "left" ? 1 : 99} y={y} textAnchor={side === "left" ? "start" : "end"} dominantBaseline="middle">{formatScaleValue(value, scale)}</text>;
+  })}</>;
+}
+
+function OperationsChart({ title, lines, locale, primaryScale, secondaryScale }: {
+  title: string;
+  lines: ChartLine[];
+  locale: Locale;
+  primaryScale: ChartScale;
+  secondaryScale?: ChartScale;
+}) {
   const hasData = lines.some((line) => line.values.some((value) => value !== null));
   return (
     <section className="operations-chart-card">
       <div className="operations-chart-heading"><strong>{title}</strong><span>{locale === "it" ? "Storico" : "History"}</span></div>
       {hasData ? (
         <svg className="operations-chart" viewBox="0 0 100 100" role="img" aria-label={title} preserveAspectRatio="none">
-          {[16, 50, 84].map((y) => <line className="operations-chart-grid" key={y} x1="0" x2="100" y1={y} y2={y} />)}
-          {lines.map((line) => <polyline key={line.label} points={linePath(line.values)} stroke={line.color} />)}
+          {[8, 50, 92].map((y) => <line className="operations-chart-grid" key={y} x1="0" x2="100" y1={y} y2={y} />)}
+          <ScaleLabels scale={primaryScale} side="left" />
+          {secondaryScale ? <ScaleLabels scale={secondaryScale} side="right" /> : null}
+          {lines.map((line) => <polyline key={line.label} points={linePath(line.values, line.axis === "secondary" && secondaryScale ? secondaryScale : primaryScale)} stroke={line.color} />)}
         </svg>
       ) : <p className="operations-chart-empty">{locale === "it" ? "In attesa di campioni" : "Waiting for samples"}</p>}
       <div className="operations-chart-legend">
@@ -97,6 +122,9 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
   const samples = selectedHistory?.samples || [];
   const latestPersistedSample = samples[samples.length - 1];
   const stale = latestPersistedSample ? Date.now() - new Date(latestPersistedSample.collected_at).getTime() > 180000 : false;
+  const hostScale: ChartScale = { min: 0, max: 100, suffix: "%" };
+  const tcpScale = roundedScale(samples.map((sample) => sample.system.network.tcp_established), "");
+  const latencyScale = roundedScale(samples.map((sample) => sample.application.average_duration_ms), " ms");
 
   return (
     <section className="settings-card operations-card">
@@ -152,11 +180,11 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
               { label: "CPU", color: "#598a62", values: samples.map((sample) => sample.system.host.cpu_percent), suffix: "%" },
               { label: "RAM", color: "#ad7c3c", values: samples.map((sample) => sample.system.host.memory.percent), suffix: "%" },
               { label: isItalian ? "Disco" : "Disk", color: "#4a7ca6", values: samples.map((sample) => sample.system.host.disk.percent), suffix: "%" },
-            ]} />
+            ]} primaryScale={hostScale} />
             <OperationsChart locale={locale} title={isItalian ? "Rete e latenza" : "Network and latency"} lines={[
               { label: "TCP", color: "#7b4b44", values: samples.map((sample) => sample.system.network.tcp_established), suffix: "" },
-              { label: isItalian ? "Latenza" : "Latency", color: "#755487", values: samples.map((sample) => sample.application.average_duration_ms), suffix: " ms" },
-            ]} />
+              { label: isItalian ? "Latenza" : "Latency", color: "#755487", values: samples.map((sample) => sample.application.average_duration_ms), suffix: " ms", axis: "secondary" },
+            ]} primaryScale={tcpScale} secondaryScale={latencyScale} />
           </div>
           <p className="operations-note">
             {isItalian ? `${samples.length} campioni nell'intervallo selezionato. ` : `${samples.length} samples in the selected range. `}

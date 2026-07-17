@@ -29,6 +29,7 @@
 .operations-chart-heading span { color: var(--text-muted); font-size: 0.72rem; }
 .operations-chart { display: block; width: 100%; height: 126px; overflow: visible; border-radius: 8px; background: color-mix(in srgb, var(--surface) 66%, transparent); }
 .operations-chart-grid { stroke: color-mix(in srgb, var(--border) 78%, transparent); stroke-width: .6; }
+.operations-chart-scale-label { fill: var(--text-muted); font-size: 4.5px; font-family: inherit; }
 .operations-chart polyline { fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
 .operations-chart-empty { display: grid; height: 126px; margin: 0; place-items: center; color: var(--text-muted); font-size: 0.78rem; }
 .operations-chart-legend { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 9px; }
