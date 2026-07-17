@@ -842,7 +842,7 @@ export function App() {
     has_more: false,
   });
   const [notificationActiveCounts, setNotificationActiveCounts] = useState<NotificationCenterResponse["counts"]>({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
-  const [notificationTab, setNotificationTab] = useState<NotificationCenterCategory>("action");
+  const [notificationTab, setNotificationTab] = useState<"all" | NotificationCenterCategory>("all");
   const [notificationView, setNotificationView] = useState<"active" | "archived">("active");
   const [notificationStateFilter, setNotificationStateFilter] = useState<"all" | "unread" | "read">("all");
   const [myCoOwnershipAgreements, setMyCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
@@ -1657,7 +1657,7 @@ export function App() {
   async function loadNotifications(
     authenticated = session?.authenticated,
     options: {
-      category?: NotificationCenterCategory;
+      category?: "all" | NotificationCenterCategory;
       view?: "active" | "archived";
       itemState?: "all" | "unread" | "read";
       offset?: number;
@@ -1665,17 +1665,18 @@ export function App() {
     } = {},
   ) {
     if (authenticated) {
-      const category = options.category ?? notificationTab;
+      const selectedCategory = options.category ?? notificationTab;
+      const category = selectedCategory === "all" ? undefined : selectedCategory;
       const view = options.view ?? notificationView;
       const itemState = options.itemState ?? notificationStateFilter;
       const offset = options.offset ?? 0;
       const query = new URLSearchParams({
-        category,
         view,
         item_state: itemState,
         offset: String(offset),
         limit: "20",
       });
+      if (category) query.set("category", category);
       const center = await api<NotificationCenterResponse>(`/api/v1/notifications/center?${query}`);
       const items = center.items.map((item) => item.kind === "smart_to_collect"
         ? { ...item, category: "action" as const }
@@ -3078,7 +3079,7 @@ export function App() {
     }
   }
 
-  function selectNotificationTab(category: NotificationCenterCategory) {
+  function selectNotificationTab(category: "all" | NotificationCenterCategory) {
     setNotificationTab(category);
     void loadNotifications(true, { category, offset: 0 });
   }
@@ -4974,12 +4975,20 @@ export function App() {
     update: displayedCenterCounts.updates,
     system: displayedCenterCounts.system + operationalActionItemsByCategory.system.length,
   };
+  const allNotificationTabCount = notificationCategoryCounts.action + notificationCategoryCounts.update + notificationCategoryCounts.system;
   const localBadgeItems = operationalActionItems.filter((item) => !operationalCenterKindById[item.id] || item.id === "coownership-pending");
   const notificationCount = notificationActiveCounts.attention + localBadgeItems.length + (canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0);
-  const activeNotificationItems = visibleCenterItems.filter((item) => item.category === notificationTab);
+  const activeNotificationItems = notificationTab === "all"
+    ? visibleCenterItems
+    : visibleCenterItems.filter((item) => item.category === notificationTab);
   const activeOperationalItems = notificationTab === "action"
     ? operationalActionItemsByCategory.action
-    : notificationTab === "system" ? operationalActionItemsByCategory.system : [];
+    : notificationTab === "system"
+      ? operationalActionItemsByCategory.system
+      : notificationTab === "all"
+        ? [...operationalActionItemsByCategory.action, ...operationalActionItemsByCategory.system]
+        : [];
+  const showAdminActionItems = notificationTab === "all" || notificationTab === "action";
   const activeRedeemCodesCount = redeemCodes.filter((code) => code.is_active).length;
   const approvedUsersCount = appUsers.filter((user) => user.is_approved).length;
   const adminUsersSorted = [...appUsers].sort((first, second) => {
@@ -5923,14 +5932,11 @@ export function App() {
                 title={t("notifications")}
                 onClick={() => {
                   if (!notificationsOpen) {
-                    const targetCategory = notificationActiveCounts.actions
-                      ? "action"
-                      : notificationActiveCounts.updates ? "update" : "system";
-                    setNotificationTab(targetCategory);
+                    setNotificationTab("all");
                     setNotificationView("active");
-                    setNotificationStateFilter("all");
+                    setNotificationStateFilter("unread");
                     void Promise.allSettled([
-                      loadNotifications(true, { category: targetCategory, view: "active", itemState: "all", offset: 0 }),
+                      loadNotifications(true, { category: "all", view: "active", itemState: "unread", offset: 0 }),
                       loadReceivedInvites(true),
                       loadShareOffers(true),
                       loadMyCoOwnershipAgreements(true),
@@ -5996,8 +6002,10 @@ export function App() {
                       ) : null}
                     </div>
                     <div className="notification-tabs" role="tablist" aria-label={t("notifications")}>
-                      {(["action", "update", "system"] as NotificationCenterCategory[]).map((category) => {
-                        const label = category === "action"
+                      {(["all", "action", "update", "system"] as const).map((category) => {
+                        const label = category === "all"
+                          ? (locale === "it" ? "Tutte" : "All")
+                          : category === "action"
                           ? (locale === "it" ? "Da fare" : "To do")
                           : category === "update"
                             ? (locale === "it" ? "Aggiornamenti" : "Updates")
@@ -6012,7 +6020,7 @@ export function App() {
                             onClick={() => selectNotificationTab(category)}
                           >
                             <span>{label}</span>
-                            <b>{notificationCategoryCounts[category]}</b>
+                            <b>{category === "all" ? allNotificationTabCount : notificationCategoryCounts[category]}</b>
                           </button>
                         );
                       })}
@@ -6102,19 +6110,19 @@ export function App() {
                         </button>
                       </div>
                     ))}
-                    {notificationTab === "action" && showLiveAdminItems && canAppAdmin && pendingUsers.length ? (
+                    {showAdminActionItems && showLiveAdminItems && canAppAdmin && pendingUsers.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("pending_users")}</i>{pendingUsers.length} {t("pendingUsers")}</strong>
                         <span>{t("reviewUsers")}</span>
                       </button>
                     ) : null}
-                    {notificationTab === "action" && showLiveAdminItems && canAppAdmin && pendingCatalogEntries.length ? (
+                    {showAdminActionItems && showLiveAdminItems && canAppAdmin && pendingCatalogEntries.length ? (
                       <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("ai_audit")}</i>{pendingCatalogEntries.length} {t("pendingCatalogEntries")}</strong>
                         <span>{t("approveCatalogEntry")}</span>
                       </button>
                     ) : null}
-                    {!activeNotificationItems.length && !activeOperationalItems.length && !(notificationTab === "action" && adminActionCount) ? (
+                    {!activeNotificationItems.length && !activeOperationalItems.length && !(showAdminActionItems && adminActionCount) ? (
                       <p className="empty-state">{locale === "it" ? "Nessuna attività in questa sezione" : "No activity in this section"}</p>
                     ) : null}
                     {notificationCenter.has_more ? (
