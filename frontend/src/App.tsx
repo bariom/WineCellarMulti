@@ -2022,19 +2022,38 @@ export function App() {
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    const timer = window.setInterval(() => {
+    let notificationRefreshInFlight = false;
+    let accountRefreshInFlight = false;
+    const refreshNotifications = () => {
+      if (document.hidden || notificationRefreshInFlight) return;
+      notificationRefreshInFlight = true;
       Promise.all([
         notificationsOpen && notificationCenter.items.length > 20
           ? Promise.resolve()
           : loadNotifications(true),
+      ]).catch(() => undefined).finally(() => {
+        notificationRefreshInFlight = false;
+      });
+    };
+    const refreshAccountData = () => {
+      if (document.hidden || accountRefreshInFlight) return;
+      accountRefreshInFlight = true;
+      Promise.all([
         loadReceivedInvites(true),
         loadShareOffers(true),
         loadMyCoOwnershipAgreements(true),
         loadBilling(true, session.is_app_admin),
         loadAiSettings(session.membership_role, false),
-      ]).catch(() => undefined);
-    }, 15000);
-    return () => window.clearInterval(timer);
+      ]).catch(() => undefined).finally(() => {
+        accountRefreshInFlight = false;
+      });
+    };
+    const notificationTimer = window.setInterval(refreshNotifications, 30000);
+    const accountTimer = window.setInterval(refreshAccountData, 120000);
+    return () => {
+      window.clearInterval(notificationTimer);
+      window.clearInterval(accountTimer);
+    };
   }, [session?.authenticated, session?.is_app_admin, session?.membership_role, notificationTab, notificationView, notificationStateFilter, notificationsOpen, notificationCenter.items.length]);
 
   useEffect(() => {
