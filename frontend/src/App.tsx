@@ -468,6 +468,13 @@ function readRegionalGapTargets(householdId: string | null | undefined): Regiona
   }
 }
 
+function clearOperationalActionSnooze(actionKey: string) {
+  const snoozes = readOperationalActionSnoozes();
+  if (!(actionKey in snoozes)) return;
+  delete snoozes[actionKey];
+  writeOperationalActionSnoozes(snoozes);
+}
+
 function readRegionalGapSuggestion(householdId: string | null | undefined): RegionalGapAiSuggestion | null {
   try {
     const value = JSON.parse(window.localStorage.getItem(regionalGapAiSuggestionStorageKey(householdId)) || "null") as RegionalGapAiSuggestion | null;
@@ -1752,6 +1759,34 @@ export function App() {
     setRegionalGapAiSuggestion(suggestion);
   }
 
+  async function loadOperationalActionSnoozes(nextSession: Session) {
+    const scope = `${nextSession.user_email || "anonymous"}:${nextSession.active_household_id || "offline"}`;
+    const localSnoozes = Object.entries(readOperationalActionSnoozes())
+      .flatMap(([key, snooze]) => (
+        key.startsWith(`${scope}:`) && snooze.until > Date.now()
+          ? [{ action_id: key.slice(scope.length + 1), signature: snooze.signature, until: new Date(snooze.until).toISOString() }]
+          : []
+      ));
+    const remoteSnoozes = await api<OperationalActionSnoozeRecord[]>("/api/v1/household/operational-action-snoozes");
+    const remoteActionIds = new Set(remoteSnoozes.map((snooze) => snooze.action_id));
+    const missingSnoozes = localSnoozes.filter((snooze) => !remoteActionIds.has(snooze.action_id));
+    if (missingSnoozes.length) {
+      await Promise.all(missingSnoozes.map((snooze) => (
+        api<OperationalActionSnoozeRecord>("/api/v1/household/operational-action-snoozes", {
+          method: "POST",
+          body: JSON.stringify(snooze),
+        })
+      )));
+    }
+    const persistedSnoozes = [...remoteSnoozes, ...missingSnoozes];
+    const nextSnoozes = Object.fromEntries(persistedSnoozes.map((snooze) => [
+      `${scope}:${snooze.action_id}`,
+      { signature: snooze.signature, until: new Date(snooze.until).getTime() },
+    ])) as OperationalActionSnoozes;
+    setOperationalActionSnoozes(nextSnoozes);
+    for (const snooze of localSnoozes) clearOperationalActionSnooze(`${scope}:${snooze.action_id}`);
+  }
+
   async function loadAuthenticatedSessionData(nextSession: Session) {
     if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
       await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated), loadMyCoOwnershipAgreements(nextSession.authenticated)]);
@@ -1766,6 +1801,7 @@ export function App() {
       loadHouseholdMemberships(),
       loadMyCoOwnershipAgreements(nextSession.authenticated),
       loadRegionalGapSettings(nextSession),
+      loadOperationalActionSnoozes(nextSession),
     ]);
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
@@ -5301,6 +5337,18 @@ export function App() {
       writeOperationalActionSnoozes(next);
       return next;
     });
+    void api<OperationalActionSnoozeRecord>("/api/v1/household/operational-action-snoozes", {
+      method: "POST",
+      body: JSON.stringify({
+        action_id: item.id,
+        signature: item.signature,
+        until: new Date(snoozeUntil).toISOString(),
+      }),
+    })
+      .then(() => clearOperationalActionSnooze(actionKey))
+      .catch(() => {
+        // The local entry remains as a temporary offline fallback and is retried at the next login.
+      });
   }
 
   function toggleSettingsView() {

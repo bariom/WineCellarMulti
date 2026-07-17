@@ -2138,6 +2138,73 @@ def test_household_deletion_requires_fallback_and_switches_session():
     assert all(entry["household_id"] != created_household_id for entry in memberships.json())
 
 
+def test_household_preferences_persist_regional_gap_and_operational_snoozes():
+    client = TestClient(app)
+    assert client.get("/api/v1/household/regional-gap-settings").status_code == 401
+    assert register(client).status_code == 201
+
+    empty_settings = client.get("/api/v1/household/regional-gap-settings")
+    assert empty_settings.status_code == 200
+    assert empty_settings.json() == {
+        "targets": [],
+        "last_ai_suggestion": None,
+        "updated_at": None,
+    }
+
+    suggestion = {
+        "rationale": "Increase Burgundy exposure gradually.",
+        "targets": [{"region": "Burgundy", "target_pct": 25}],
+        "model": "gpt-5.4",
+    }
+    saved_settings = client.put(
+        "/api/v1/household/regional-gap-settings",
+        json={
+            "targets": [
+                {"region": "Bordeaux", "targetPct": 40},
+                {"region": "Burgundy", "targetPct": 25},
+            ],
+            "last_ai_suggestion": suggestion,
+        },
+    )
+    assert saved_settings.status_code == 200
+    assert saved_settings.json()["targets"] == [
+        {"region": "Bordeaux", "targetPct": 40},
+        {"region": "Burgundy", "targetPct": 25},
+    ]
+    assert saved_settings.json()["last_ai_suggestion"] == suggestion
+    assert saved_settings.json()["updated_at"] is not None
+
+    snooze_payload = {
+        "action_id": "refresh-value:barolo",
+        "signature": "value-2026-07-17",
+        "until": (datetime.now(UTC) + timedelta(days=14)).isoformat(),
+    }
+    created_snooze = client.post("/api/v1/household/operational-action-snoozes", json=snooze_payload)
+    assert created_snooze.status_code == 200
+    assert created_snooze.json()["action_id"] == snooze_payload["action_id"]
+
+    updated_snooze = client.post(
+        "/api/v1/household/operational-action-snoozes",
+        json={**snooze_payload, "signature": "value-2026-07-18"},
+    )
+    assert updated_snooze.status_code == 200
+    listed_snoozes = client.get("/api/v1/household/operational-action-snoozes")
+    assert listed_snoozes.status_code == 200
+    assert listed_snoozes.json() == [
+        {
+            "action_id": snooze_payload["action_id"],
+            "signature": "value-2026-07-18",
+            "until": updated_snooze.json()["until"],
+        }
+    ]
+
+    expired_snooze = client.post(
+        "/api/v1/household/operational-action-snoozes",
+        json={**snooze_payload, "action_id": "expired", "until": "2020-01-01T00:00:00Z"},
+    )
+    assert expired_snooze.status_code == 422
+
+
 def test_user_tags_can_be_defined_and_assigned_to_wines():
     client = TestClient(app)
     assert register(client).status_code == 201
