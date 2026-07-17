@@ -32,6 +32,32 @@ class HouseholdCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
 
 
+class RegionalGapTargetPayload(BaseModel):
+    region: str = Field(min_length=1, max_length=80)
+    targetPct: float = Field(ge=0, le=100)
+
+
+class RegionalGapSettingsUpdate(BaseModel):
+    targets: list[RegionalGapTargetPayload] = Field(default_factory=list, max_length=12)
+    last_ai_suggestion: dict | None = None
+
+
+class RegionalGapSettingsResponse(BaseModel):
+    targets: list[RegionalGapTargetPayload] = Field(default_factory=list)
+    last_ai_suggestion: dict | None = None
+    updated_at: datetime | None = None
+
+
+class OperationalActionSnoozeCreate(BaseModel):
+    action_id: str = Field(min_length=1, max_length=240)
+    signature: str = Field(min_length=1, max_length=512)
+    until: datetime
+
+
+class OperationalActionSnoozeResponse(OperationalActionSnoozeCreate):
+    pass
+
+
 class InviteCreate(BaseModel):
     email: EmailStr
     role: str = Field(default="member", pattern="^(admin|member|viewer)$")

@@ -2,10 +2,15 @@ from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, get_current_context, require_admin_context
+from app.api.deps import (
+    CurrentContext,
+    get_current_context,
+    require_admin_context,
+    require_write_context,
+)
 from app.core.config import settings
 from app.core.security import hash_invite_token, new_invite_token
 from app.db.session import get_db
@@ -13,8 +18,10 @@ from app.models import (
     AiAuditLog,
     Household,
     HouseholdInvite,
+    HouseholdRegionalGapSettings,
     Membership,
     User,
+    UserOperationalActionSnooze,
     UserSession,
     Wine,
     WineShareOffer,
@@ -30,11 +37,77 @@ from app.schemas.household import (
     InviteResponse,
     MemberResponse,
     MemberRoleUpdate,
+    OperationalActionSnoozeCreate,
+    OperationalActionSnoozeResponse,
+    RegionalGapSettingsResponse,
+    RegionalGapSettingsUpdate,
 )
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
 
 router = APIRouter(prefix="/household")
+
+
+def regional_gap_settings_response(settings: HouseholdRegionalGapSettings | None) -> RegionalGapSettingsResponse:
+    if settings is None:
+        return RegionalGapSettingsResponse()
+    return RegionalGapSettingsResponse(
+        targets=settings.targets or [],
+        last_ai_suggestion=settings.last_ai_suggestion,
+        updated_at=settings.updated_at,
+    )
+
+
+@router.get("/regional-gap-settings", response_model=RegionalGapSettingsResponse)
+def get_regional_gap_settings(db: Session = Depends(get_db), context: CurrentContext = Depends(get_current_context)) -> RegionalGapSettingsResponse:
+    return regional_gap_settings_response(db.get(HouseholdRegionalGapSettings, context.household.id))
+
+
+@router.put("/regional-gap-settings", response_model=RegionalGapSettingsResponse)
+def save_regional_gap_settings(
+    payload: RegionalGapSettingsUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> RegionalGapSettingsResponse:
+    settings = db.get(HouseholdRegionalGapSettings, context.household.id)
+    if settings is None:
+        settings = HouseholdRegionalGapSettings(household_id=context.household.id)
+        db.add(settings)
+    settings.targets = [target.model_dump() for target in payload.targets]
+    settings.last_ai_suggestion = payload.last_ai_suggestion
+    settings.updated_by_user_id = context.user.id
+    db.commit()
+    db.refresh(settings)
+    return regional_gap_settings_response(settings)
+
+
+@router.get("/operational-action-snoozes", response_model=list[OperationalActionSnoozeResponse])
+def list_operational_action_snoozes(db: Session = Depends(get_db), context: CurrentContext = Depends(get_current_context)) -> list[OperationalActionSnoozeResponse]:
+    now = datetime.now(UTC)
+    db.execute(delete(UserOperationalActionSnooze).where(UserOperationalActionSnooze.user_id == context.user.id, UserOperationalActionSnooze.household_id == context.household.id, UserOperationalActionSnooze.until <= now))
+    db.commit()
+    snoozes = db.scalars(select(UserOperationalActionSnooze).where(UserOperationalActionSnooze.user_id == context.user.id, UserOperationalActionSnooze.household_id == context.household.id))
+    return [OperationalActionSnoozeResponse(action_id=item.action_id, signature=item.signature, until=item.until) for item in snoozes]
+
+
+@router.post("/operational-action-snoozes", response_model=OperationalActionSnoozeResponse)
+def save_operational_action_snooze(
+    payload: OperationalActionSnoozeCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> OperationalActionSnoozeResponse:
+    until = payload.until.replace(tzinfo=UTC) if payload.until.tzinfo is None else payload.until.astimezone(UTC)
+    if until <= datetime.now(UTC):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Snooze expiry must be in the future")
+    snooze = db.scalar(select(UserOperationalActionSnooze).where(UserOperationalActionSnooze.user_id == context.user.id, UserOperationalActionSnooze.household_id == context.household.id, UserOperationalActionSnooze.action_id == payload.action_id))
+    if snooze is None:
+        snooze = UserOperationalActionSnooze(user_id=context.user.id, household_id=context.household.id, action_id=payload.action_id, signature=payload.signature, until=until)
+        db.add(snooze)
+    else:
+        snooze.signature = payload.signature
+        snooze.until = until
+    db.commit()
+    return OperationalActionSnoozeResponse(action_id=snooze.action_id, signature=snooze.signature, until=snooze.until)
 
 
 def member_response(db: Session, membership: Membership) -> MemberResponse:

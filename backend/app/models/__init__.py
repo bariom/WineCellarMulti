@@ -9,6 +9,10 @@ from app.models.billing import (
 )
 from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant, CoOwnershipPayment
 from app.models.household import Household
+from app.models.household_preferences import (
+    HouseholdRegionalGapSettings,
+    UserOperationalActionSnooze,
+)
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
 from app.models.notification import UserNotification, UserNotificationDismissal
@@ -28,6 +32,7 @@ __all__ = [
     "CoOwnershipParticipant",
     "CoOwnershipPayment",
     "Household",
+    "HouseholdRegionalGapSettings",
     "HouseholdInvite",
     "Membership",
     "PasskeyChallenge",
@@ -41,6 +46,7 @@ __all__ = [
     "UserEntitlement",
     "UserNotification",
     "UserNotificationDismissal",
+    "UserOperationalActionSnooze",
     "UserPasskey",
     "UserSession",
     "UserTag",

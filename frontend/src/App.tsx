@@ -3,7 +3,7 @@ import { AppIcon, AppIconName } from "./components/AppIcon";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
+import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -454,6 +454,27 @@ function regionalTargetsForCellar(items: Wine[], storedTargets: RegionalGapTarge
 
 function regionalGapStorageKey(householdId: string | null | undefined) {
   return `vinaris:regional-gap-targets:${householdId || "local"}`;
+}
+
+function regionalGapAiSuggestionStorageKey(householdId: string | null | undefined) {
+  return `vinaris:regional-gap-ai-suggestion:${householdId || "local"}`;
+}
+
+function readRegionalGapTargets(householdId: string | null | undefined): RegionalGapTarget[] {
+  try {
+    return JSON.parse(window.localStorage.getItem(regionalGapStorageKey(householdId)) || "[]") as RegionalGapTarget[];
+  } catch {
+    return [];
+  }
+}
+
+function readRegionalGapSuggestion(householdId: string | null | undefined): RegionalGapAiSuggestion | null {
+  try {
+    const value = JSON.parse(window.localStorage.getItem(regionalGapAiSuggestionStorageKey(householdId)) || "null") as RegionalGapAiSuggestion | null;
+    return value?.rationale && Array.isArray(value.targets) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 function breakdownColor(label: string, index: number, mode: "type" | "region") {
@@ -1710,6 +1731,27 @@ export function App() {
     }
   }
 
+  async function loadRegionalGapSettings(nextSession: Session) {
+    const settings = await api<RegionalGapSettings>("/api/v1/household/regional-gap-settings");
+    if (settings.targets.length) {
+      const targets = normalizeRegionalTargets(settings.targets);
+      setRegionalGapTargets(targets);
+      setRegionalGapDraft(targets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+      setRegionalGapAiSuggestion(settings.last_ai_suggestion);
+      return;
+    }
+    const targets = readRegionalGapTargets(nextSession.active_household_id);
+    const suggestion = readRegionalGapSuggestion(nextSession.active_household_id);
+    if (!targets.length && !suggestion) return;
+    const normalized = normalizeRegionalTargets(targets);
+    await api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: normalized, last_ai_suggestion: suggestion }) });
+    window.localStorage.removeItem(regionalGapStorageKey(nextSession.active_household_id));
+    window.localStorage.removeItem(regionalGapAiSuggestionStorageKey(nextSession.active_household_id));
+    setRegionalGapTargets(normalized);
+    setRegionalGapDraft(normalized.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    setRegionalGapAiSuggestion(suggestion);
+  }
+
   async function loadAuthenticatedSessionData(nextSession: Session) {
     if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
       await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated), loadMyCoOwnershipAgreements(nextSession.authenticated)]);
@@ -1723,6 +1765,7 @@ export function App() {
       loadBilling(nextSession.authenticated, nextSession.is_app_admin),
       loadHouseholdMemberships(),
       loadMyCoOwnershipAgreements(nextSession.authenticated),
+      loadRegionalGapSettings(nextSession),
     ]);
     const activeWishlistListId = selectedWishlistListId && nextLists.some((item) => item.id === selectedWishlistListId)
       ? selectedWishlistListId
@@ -4036,22 +4079,6 @@ export function App() {
       setWishlistPortfolioStrategyOpen(true);
     }
   }, [selectedWishlistListId, visibleWishlistPortfolioStrategy]);
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(regionalGapStorageKey(session?.active_household_id));
-      const parsed = stored ? JSON.parse(stored) as RegionalGapTarget[] : [];
-      const nextTargets = regionalTargetsForCellar(cellarWines, parsed);
-      setRegionalGapTargets(nextTargets);
-      setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-      if (!stored) {
-        return;
-      }
-    } catch {
-      const nextTargets = regionalTargetsForCellar(cellarWines);
-      setRegionalGapTargets(nextTargets);
-      setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-    }
-  }, [session?.active_household_id, wines]);
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => normalizeWineType(wine.type)));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => normalizeWineType(item.type)));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
@@ -5204,12 +5231,14 @@ export function App() {
     setMaturityFilter(null);
   }
 
-  function saveRegionalGapTargets(nextDraft: RegionalGapTargetDraft[] = regionalGapDraft) {
+  function saveRegionalGapTargets(nextDraft: RegionalGapTargetDraft[] = regionalGapDraft, preserveAiSuggestion = false) {
     const nextTargets = normalizeRegionalTargets(nextDraft.map((target) => ({ region: target.region, targetPct: Number(target.targetPct || 0) })));
     setRegionalGapTargets(nextTargets);
     setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-    window.localStorage.setItem(regionalGapStorageKey(session?.active_household_id), JSON.stringify(nextTargets));
-    setRegionalGapAiSuggestion(null);
+    void api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: nextTargets, last_ai_suggestion: preserveAiSuggestion ? regionalGapAiSuggestion : null }) });
+    if (!preserveAiSuggestion) {
+      setRegionalGapAiSuggestion(null);
+    }
     setRegionalGapTargetsOpen(false);
     setRegionalGapFeedback(t("regionalTargetsSaved"));
   }
@@ -5218,7 +5247,7 @@ export function App() {
     const nextTargets = regionalTargetsForCellar(cellarWines);
     setRegionalGapTargets(nextTargets);
     setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-    window.localStorage.removeItem(regionalGapStorageKey(session?.active_household_id));
+    void api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: nextTargets, last_ai_suggestion: null }) });
     setRegionalGapAiSuggestion(null);
     setRegionalGapFeedback("");
   }
@@ -5243,6 +5272,7 @@ export function App() {
         }),
       });
       setRegionalGapAiSuggestion(result);
+      void api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: regionalGapTargets, last_ai_suggestion: result }) });
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate regional target");
@@ -5257,7 +5287,7 @@ export function App() {
       const suggestion = regionalGapAiSuggestion.targets.find((item) => item.region === target.region);
       return { region: target.region, targetPct: String(Number(suggestion?.target_pct ?? target.targetPct)) };
     });
-    saveRegionalGapTargets(nextDraft);
+    saveRegionalGapTargets(nextDraft, true);
   }
 
   function snoozeOperationalAction(item: OperationalActionItem) {
@@ -5638,6 +5668,12 @@ export function App() {
                 <strong><small>{t("missingValueGap")}</small>{formatMoney(row.gapValue, "CHF", locale)}</strong>
               </div>
             )) : <p className="empty-state">{t("balancedPortfolio")}</p>}
+            {regionalGapAiSuggestion?.rationale ? (
+              <details className="regional-gap-suggestions">
+                <summary>{locale === "it" ? "Commento dell'analisi AI" : "AI analysis commentary"}</summary>
+                <p className="regional-gap-help">{regionalGapAiSuggestion.rationale}</p>
+              </details>
+            ) : null}
           </details>
         </div>
       </article>

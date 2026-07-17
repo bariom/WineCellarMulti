@@ -478,6 +478,12 @@ export type OperationalActionSnooze = {
 
 export type OperationalActionSnoozes = Record<string, OperationalActionSnooze>;
 
+export type OperationalActionSnoozeRecord = {
+  action_id: string;
+  signature: string;
+  until: string;
+};
+
 export type BillingStatus = {
   has_active_entitlement: boolean;
   valid_until: string | null;
@@ -668,6 +674,12 @@ export type RegionalGapAiSuggestion = {
   rationale: string;
   targets: Array<{ region: string; target_pct: string | number }>;
   estimated_cost_usd: string;
+};
+
+export type RegionalGapSettings = {
+  targets: RegionalGapTarget[];
+  last_ai_suggestion: RegionalGapAiSuggestion | null;
+  updated_at: string | null;
 };
 
 export type AuthDraft = {
