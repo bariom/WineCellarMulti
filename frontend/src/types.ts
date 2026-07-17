@@ -733,7 +733,7 @@ export type OperationalMetricsOverview = {
   };
   application: { requests_total: number; errors_total: number; average_duration_ms: number | null; uptime_seconds: number };
   business: { users_total: number; households_total: number; wines_total: number; bottles_total: number };
-  history_sampling: string;
+  history_retention_days: number;
 };
 
 export type OperationalMetricsHistory = {

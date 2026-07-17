@@ -63,7 +63,7 @@ def operations_overview(
         "system": system,
         "application": application,
         "business": business,
-        "history_sampling": "Samples are retained for 14 days while the operations view is used.",
+        "history_retention_days": SAMPLE_RETENTION.days,
     }
 
 

@@ -40,7 +40,9 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
           </div>
           <p className="operations-note">
             {locale === "it" ? `${history?.samples.length || 0} campioni nelle ultime 24 ore. ` : `${history?.samples.length || 0} samples in the last 24 hours. `}
-            {overview.history_sampling}
+            {locale === "it"
+              ? `I campioni restano disponibili per ${overview.history_retention_days} giorni mentre questa sezione viene usata.`
+              : `Samples are retained for ${overview.history_retention_days} days while this section is used.`}
           </p>
         </>
       ) : <LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}

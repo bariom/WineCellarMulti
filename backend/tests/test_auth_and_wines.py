@@ -2216,7 +2216,7 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled():
     assert payload["system"]["host"]["cpu_percent"] >= 0
     assert payload["application"]["requests_total"] >= 1
     assert payload["business"]["users_total"] == 1
-    assert payload["history_sampling"]
+    assert payload["history_retention_days"] == 14
 
     history = client.get("/api/v1/admin/operations/history?hours=24")
     assert history.status_code == 200
