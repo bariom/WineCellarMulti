@@ -14842,6 +14842,41 @@ tbody tr:hover {
   transform: none;
 }
 
+.tasting-action-copy {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tasting-action-copy span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tasting-action-copy small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+@media (min-width: 821px) {
+  .dashboard-card .action-row > span {
+    font-weight: 500;
+  }
+
+  .dashboard-card .action-row > strong {
+    font-weight: 600;
+  }
+
+  .dashboard-card .tasting-action-copy span {
+    font-weight: 500;
+  }
+}
+
 /* Chart segments keep their data-driven inline color instead of button chrome. */
 .stacked-progress-segment {
   min-height: 0;

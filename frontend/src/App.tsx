@@ -7006,10 +7006,10 @@ export function App() {
                   </button>
                   <div className="action-list">
                     {latestConsumedEntries.length ? latestConsumedEntries.map((entry) => (
-                      <button type="button" className="action-row" key={entry.id} onClick={() => openWineFromTastingArchive(entry.wine)}>
-                        <div>
+                      <button type="button" className="action-row tasting-action-row" key={entry.id} onClick={() => openWineFromTastingArchive(entry.wine)}>
+                        <div className="tasting-action-copy">
                           <span><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} />{entry.wine.name}</span>
-                          <strong>{formatDisplayDate(entry.consumed_at)}</strong>
+                          <small>{formatDisplayDate(entry.consumed_at)}</small>
                         </div>
                         <strong>{entry.rating ? `${entry.rating}/6` : entry.occasion || entry.pairing || "-"}</strong>
                       </button>
