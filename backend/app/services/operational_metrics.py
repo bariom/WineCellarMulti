@@ -21,25 +21,57 @@ def _process_file_descriptors(pid: int) -> int | None:
         return None
 
 
-def system_snapshot() -> dict[str, object]:
-    memory = psutil.virtual_memory()
-    disk = psutil.disk_usage("/")
-    process = psutil.Process(os.getpid())
-    network: dict[str, int | None] = {
-        "tcp_established": None,
-        "tcp_time_wait": None,
-        "tcp_total": None,
+def _linux_tcp_connection_counts() -> dict[str, int] | None:
+    """Read aggregate TCP state counts without materializing every socket.
+
+    ``psutil.net_connections`` walks all process socket tables and can become
+    noticeably slow on busy hosts. Linux exposes the host-level aggregate we
+    need in procfs, so parse it directly when available and retain psutil as a
+    portable fallback.
+    """
+
+    try:
+        entries = [
+            line.split()[3]
+            for path in ("/proc/net/tcp", "/proc/net/tcp6")
+            for line in Path(path).read_text(encoding="utf-8").splitlines()[1:]
+        ]
+    except (OSError, IndexError):
+        return None
+
+    return {
+        "tcp_established": entries.count("01"),
+        "tcp_time_wait": entries.count("06"),
+        "tcp_total": len(entries),
     }
+
+
+def _tcp_connection_counts() -> dict[str, int | None]:
+    linux_counts = _linux_tcp_connection_counts()
+    if linux_counts is not None:
+        return linux_counts
+
     try:
         connections = psutil.net_connections(kind="tcp")
         statuses = [connection.status for connection in connections]
-        network = {
+        return {
             "tcp_established": statuses.count(psutil.CONN_ESTABLISHED),
             "tcp_time_wait": statuses.count(psutil.CONN_TIME_WAIT),
             "tcp_total": len(connections),
         }
     except (psutil.AccessDenied, OSError):
-        pass
+        return {
+            "tcp_established": None,
+            "tcp_time_wait": None,
+            "tcp_total": None,
+        }
+
+
+def system_snapshot() -> dict[str, object]:
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    process = psutil.Process(os.getpid())
+    network = _tcp_connection_counts()
 
     allocated_fds = _read_int("/proc/sys/fs/file-nr")
     return {
