@@ -7,6 +7,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.services import operational_metrics
 from app.services.request_metrics import request_metrics
 
 engine = create_engine(
@@ -74,3 +75,27 @@ def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
     system = client.get("/api/v1/monitoring/system", headers=headers)
     assert system.status_code == 200
     assert system.json()["host"]["memory"]["total_bytes"] > 0
+
+
+def test_linux_tcp_connection_counts_reads_procfs_without_psutil(monkeypatch, tmp_path):
+    tcp = tmp_path / "tcp"
+    tcp6 = tmp_path / "tcp6"
+    tcp.write_text("header\n0: local remote 01\n1: local remote 06\n", encoding="utf-8")
+    tcp6.write_text("header\n0: local remote 01\n", encoding="utf-8")
+    original_path = operational_metrics.Path
+
+    def proc_path(path: str):
+        return original_path({"/proc/net/tcp": tcp, "/proc/net/tcp6": tcp6}.get(path, path))
+
+    monkeypatch.setattr(operational_metrics, "Path", proc_path)
+    monkeypatch.setattr(
+        operational_metrics.psutil,
+        "net_connections",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("psutil fallback should not run")),
+    )
+
+    assert operational_metrics._tcp_connection_counts() == {
+        "tcp_established": 2,
+        "tcp_time_wait": 1,
+        "tcp_total": 3,
+    }

@@ -155,16 +155,16 @@ function successRate(successes: number, total: number) {
 
 export function OperationsPanel({ locale, overview, history, onRefresh }: OperationsPanelProps) {
   const isItalian = locale === "it";
-  const [selectedHours, setSelectedHours] = useState(24);
+  const [selectedHours, setSelectedHours] = useState(1);
   const [selectedHistory, setSelectedHistory] = useState(history);
 
   useEffect(() => {
-    if (selectedHours === 24) setSelectedHistory(history);
+    if (selectedHours === 1) setSelectedHistory(history);
   }, [history, selectedHours]);
 
   async function selectHours(hours: number) {
     setSelectedHours(hours);
-    if (hours === 24) {
+    if (hours === 1) {
       setSelectedHistory(history);
       return;
     }
