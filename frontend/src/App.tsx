@@ -1723,7 +1723,7 @@ export function App() {
   async function loadOperationsMetrics() {
     const [overview, history] = await Promise.all([
       api<OperationalMetricsOverview>("/api/v1/admin/operations/overview"),
-      api<OperationalMetricsHistory>("/api/v1/admin/operations/history?hours=24"),
+      api<OperationalMetricsHistory>("/api/v1/admin/operations/history?hours=1"),
     ]);
     setOperationsOverview(overview);
     setOperationsHistory(history);

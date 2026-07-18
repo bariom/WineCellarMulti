@@ -164,7 +164,7 @@ def operations_overview(
 
 @router.get("/history")
 def operations_history(
-    hours: int = Query(default=24, ge=1, le=168),
+    hours: int = Query(default=1, ge=1, le=168),
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:

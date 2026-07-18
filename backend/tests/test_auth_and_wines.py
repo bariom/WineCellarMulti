@@ -2248,6 +2248,10 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert history.json()["hours"] == 24
     assert len(history.json()["samples"]) == 1
 
+    default_history = client.get("/api/v1/admin/operations/history")
+    assert default_history.status_code == 200
+    assert default_history.json()["hours"] == 1
+
     monkeypatch.setattr(settings, "operations_collector_token", "collector-test-token")
     rejected_collector = client.post("/api/v1/admin/operations/collect", json={"host": {}})
     assert rejected_collector.status_code == 401
