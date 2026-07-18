@@ -7693,23 +7693,29 @@ export function App() {
                     ) : null}
                   </div>
                 ) : null}
-                {!editingId && session?.is_app_admin ? (
+                {session?.is_app_admin ? (
                   <div className="bottle-photo-form-card">
                     <div>
                       <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
                       <small>
-                        {pendingBottlePhoto
+                        {editingId
+                          ? (selectedWine?.photo_detail_url
+                            ? (locale === "it" ? "Sostituisci o elimina la foto associata a questo vino." : "Replace or remove the photo associated with this wine.")
+                            : (locale === "it" ? "Aggiungi una foto prodotto a questo vino." : "Add a product photo to this wine."))
+                          : pendingBottlePhoto
                           ? (locale === "it" ? "Foto pronta: sarà salvata insieme al vino." : "Photo ready: it will be saved with the wine.")
                           : (locale === "it" ? "Scatta la foto prodotto con sagoma e sfondo trasparente." : "Take the guided product photo with a transparent background.")}
                       </small>
                     </div>
                     <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
                       <BottlePhotoCapture
+                        wine={editingId ? selectedWine || undefined : undefined}
                         draftName={draft.name}
-                        prepared={Boolean(pendingBottlePhoto)}
+                        prepared={!editingId && Boolean(pendingBottlePhoto)}
                         canWrite={canWriteWine}
                         locale={locale}
-                        onPrepared={setPendingBottlePhoto}
+                        onPrepared={editingId ? undefined : setPendingBottlePhoto}
+                        onSaved={(updated) => setWines((current) => current.map((item) => item.id === updated.id ? updated : item))}
                         onError={(message) => setError(formatUserErrorMessage(message, locale))}
                       />
                     </Suspense>

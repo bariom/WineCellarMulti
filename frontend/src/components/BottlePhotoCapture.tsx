@@ -359,7 +359,9 @@ export function BottlePhotoCapture({
         <AppIcon name="camera" />
         {wine?.photo_detail_url || prepared
           ? (isItalian ? "Sostituisci foto" : "Replace photo")
-          : (isItalian ? "Fotografa bottiglia" : "Photograph bottle")}
+          : wine
+            ? (isItalian ? "Aggiungi foto" : "Add photo")
+            : (isItalian ? "Fotografa bottiglia" : "Photograph bottle")}
       </button>
       {open ? createPortal((
         <div className="bottle-capture-layer" role="dialog" aria-modal="true" aria-label={isItalian ? "Fotografa bottiglia" : "Photograph bottle"}>
