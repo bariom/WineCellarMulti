@@ -389,7 +389,7 @@ export function BottlePhotoCapture({
               )}
               {busy ? <div className="bottle-processing">{isItalian ? "Elaborazione e scontorno…" : "Processing and removing background…"}</div> : null}
             </div>
-            <input ref={fileRef} className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={selectFile} />
+            <input ref={fileRef} className="visually-hidden" type="file" accept="image/*" onChange={selectFile} />
             <div className="bottle-capture-tips">
               <span>{isItalian ? "✓ Luce morbida frontale" : "✓ Soft frontal light"}</span>
               <span>{isItalian ? "✓ Nessun oggetto dietro" : "✓ No objects behind"}</span>
