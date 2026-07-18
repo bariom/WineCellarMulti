@@ -29,5 +29,6 @@ deploy/*PrivateKey*
 deploy/*CSR*
 deploy/*fullchain*
 backups/
+backend/data/
 docs/demo-video/
 scripts/demo-app-video.mjs

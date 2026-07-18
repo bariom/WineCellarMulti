@@ -31,6 +31,8 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
   return {
     id: rawString(raw.id, `offline-wine-${index}`),
     details_loaded: raw.details_loaded === undefined ? true : Boolean(raw.details_loaded),
+    photo_thumbnail_url: rawString(raw.photo_thumbnail_url),
+    photo_detail_url: rawString(raw.photo_detail_url),
     household_id: rawString(raw.household_id, "offline"),
     name: rawString(raw.name, "Unnamed wine"),
     producer: rawString(raw.producer),

@@ -798,6 +798,8 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     grapes_verified_at: null,
     scores: [],
     scores_not_applicable: false,
+    photo_thumbnail_url: "",
+    photo_detail_url: "",
     tasting_history: [],
     value_history: [],
   };
@@ -819,6 +821,8 @@ export function WineDetail({
   marketAuditEntry,
   onOpenMarketView,
   coOwnershipSection,
+  photoActions,
+  showBottlePhoto = false,
   t,
   locale,
 }: {
@@ -837,6 +841,8 @@ export function WineDetail({
   marketAuditEntry: AiAuditLog | null;
   onOpenMarketView: (entry: AiAuditLog) => void;
   coOwnershipSection?: ReactNode;
+  photoActions?: ReactNode;
+  showBottlePhoto?: boolean;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -869,11 +875,17 @@ export function WineDetail({
     <section className={`wine-detail tone-${wineTone(wine.type)}`}>
       <div className="detail-hero">
         <div className="detail-title">
+          {showBottlePhoto && wine.photo_detail_url ? (
+            <div className="detail-bottle-photo">
+              <img src={wine.photo_detail_url} alt={`${wine.name} ${wine.vintage}`.trim()} />
+            </div>
+          ) : null}
           <div>
             <p className="eyebrow">{t("wineDetail")}</p>
             <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
             {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
             <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
+            {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
           </div>
           <strong>{detailValue}</strong>
         </div>

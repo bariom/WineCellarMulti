@@ -1,9 +1,12 @@
+import struct
 import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from pathlib import Path
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, defer
 
@@ -11,10 +14,12 @@ from app.api.deps import (
     CurrentContext,
     get_current_context,
     require_admin_context,
+    require_app_admin_context,
     require_write_context,
 )
 from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 from app.api.routes.tags import get_or_create_user_tag
+from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import (
@@ -44,6 +49,37 @@ from app.schemas.wine import (
 from app.services.notifications import create_user_notification
 
 router = APIRouter()
+
+PHOTO_SIZES = {"thumbnail": (160, 240, 512_000), "detail": (480, 720, 2_000_000)}
+
+
+def wine_photo_path(wine: Wine, size: str) -> Path:
+    return Path(settings.wine_photo_storage_dir) / str(wine.household_id) / str(wine.id) / f"{size}.png"
+
+
+def validate_processed_photo(content: bytes, size: str) -> None:
+    expected_width, expected_height, max_bytes = PHOTO_SIZES[size]
+    if len(content) > max_bytes:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Processed bottle photo is too large")
+    if len(content) < 33 or content[:8] != b"\x89PNG\r\n\x1a\n" or content[12:16] != b"IHDR":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bottle photos must be processed PNG images")
+    width, height = struct.unpack(">II", content[16:24])
+    color_type = content[25]
+    if (width, height) != (expected_width, expected_height):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid {size} bottle photo dimensions")
+    if color_type not in {4, 6}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bottle photos must include transparency")
+
+
+def photo_urls(wine: Wine) -> dict[str, str]:
+    if not wine.photo_version:
+        return {"photo_thumbnail_url": "", "photo_detail_url": ""}
+    base = f"/api/v1/wines/{wine.id}/photo"
+    version = wine.photo_version
+    return {
+        "photo_thumbnail_url": f"{base}/thumbnail?v={version}",
+        "photo_detail_url": f"{base}/detail?v={version}",
+    }
 
 
 def user_can_see_wine(context: CurrentContext, wine: Wine) -> bool:
@@ -132,7 +168,7 @@ def wine_response(
 ) -> WineResponse:
     if include_details:
         response = WineResponse.model_validate(wine)
-        response = response.model_copy(update={"details_loaded": True})
+        response = response.model_copy(update={"details_loaded": True, **photo_urls(wine)})
         if value_history is not None:
             response = response.model_copy(update={"value_history": value_history})
         if tag_names is not None and tag_names:
@@ -177,6 +213,7 @@ def wine_response(
         grapes_verified_at=wine.grapes_verified_at,
         scores=wine.scores or [],
         scores_not_applicable=wine.scores_not_applicable,
+        **photo_urls(wine),
         tasting_history=[],
         value_history=[],
     )
@@ -966,6 +1003,84 @@ def get_wine(
     )
 
 
+@router.put("/{wine_id}/photo", response_model=WineResponse)
+async def upload_wine_photo(
+    wine_id: UUID,
+    thumbnail_image: UploadFile = File(...),
+    detail_image: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    thumbnail = await thumbnail_image.read(PHOTO_SIZES["thumbnail"][2] + 1)
+    detail = await detail_image.read(PHOTO_SIZES["detail"][2] + 1)
+    validate_processed_photo(thumbnail, "thumbnail")
+    validate_processed_photo(detail, "detail")
+
+    target_dir = wine_photo_path(wine, "detail").parent
+    target_dir.mkdir(parents=True, exist_ok=True)
+    pending = {"thumbnail": thumbnail, "detail": detail}
+    temporary_paths: list[Path] = []
+    try:
+        for size, content in pending.items():
+            temporary = wine_photo_path(wine, size).with_suffix(".tmp")
+            temporary.write_bytes(content)
+            temporary_paths.append(temporary)
+        for size, temporary in zip(pending, temporary_paths, strict=True):
+            temporary.replace(wine_photo_path(wine, size))
+    finally:
+        for temporary in temporary_paths:
+            temporary.unlink(missing_ok=True)
+
+    wine.photo_version = uuid.uuid4().hex
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.get("/{wine_id}/photo/{size}", response_class=FileResponse)
+def get_wine_photo(
+    wine_id: UUID,
+    size: str,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> FileResponse:
+    if size not in PHOTO_SIZES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    wine = get_household_wine(db, context, wine_id)
+    path = wine_photo_path(wine, size)
+    if not wine.photo_version or not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    return FileResponse(
+        path,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
+
+
+@router.delete("/{wine_id}/photo", response_model=WineResponse)
+def delete_wine_photo(
+    wine_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    for size in PHOTO_SIZES:
+        wine_photo_path(wine, size).unlink(missing_ok=True)
+    wine.photo_version = ""
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
 @router.patch("/{wine_id}", response_model=WineResponse)
 def update_wine(
     wine_id: UUID,
@@ -1142,6 +1257,8 @@ def delete_wine(
     context: CurrentContext = Depends(require_admin_context),
 ) -> Response:
     wine = get_household_wine(db, context, wine_id)
+    for size in PHOTO_SIZES:
+        wine_photo_path(wine, size).unlink(missing_ok=True)
     db.delete(wine)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

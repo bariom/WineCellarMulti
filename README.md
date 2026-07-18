@@ -21,6 +21,7 @@ New multi-user foundation for Wine Cellar.
 - email/password session foundation
 - one active household per session
 - CRUD for wines scoped by household
+- Admin-only beta for guided bottle photography with on-device background removal and standardized transparent list/detail images
 - membership roles: `owner`, `admin`, `member`, `viewer`
 
 ## Layout
