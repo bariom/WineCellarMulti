@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import struct
 import time
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -170,6 +171,90 @@ def test_register_login_session_and_logout():
     assert login.json()["authenticated"] is True
     assert login.json()["locale"] == "en"
     assert login.json()["theme_preference"] == "private-cellar"
+
+
+def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post("/api/v1/wines", json={"name": "Photo Bottle", "quantity": 1})
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    assert created.json()["photo_thumbnail_url"] == ""
+    assert created.json()["photo_detail_url"] == ""
+
+    previous_storage_dir = settings.wine_photo_storage_dir
+    settings.wine_photo_storage_dir = str(tmp_path)
+    try:
+        def transparent_png_header(width: int, height: int) -> bytes:
+            return (
+                b"\x89PNG\r\n\x1a\n"
+                + struct.pack(">I", 13)
+                + b"IHDR"
+                + struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+                + b"\x00\x00\x00\x00"
+            )
+
+        uploaded = client.put(
+            f"/api/v1/wines/{wine_id}/photo",
+            files={
+                "thumbnail_image": ("thumbnail.png", transparent_png_header(160, 240), "image/png"),
+                "detail_image": ("detail.png", transparent_png_header(480, 720), "image/png"),
+            },
+        )
+        assert uploaded.status_code == 200
+        payload = uploaded.json()
+        assert payload["photo_thumbnail_url"].startswith(
+            f"/api/v1/wines/{wine_id}/photo/thumbnail?v="
+        )
+        assert payload["photo_detail_url"].startswith(
+            f"/api/v1/wines/{wine_id}/photo/detail?v="
+        )
+
+        thumbnail = client.get(payload["photo_thumbnail_url"])
+        detail = client.get(payload["photo_detail_url"])
+        assert thumbnail.status_code == 200
+        assert thumbnail.headers["content-type"] == "image/png"
+        assert detail.status_code == 200
+        assert detail.headers["cache-control"] == "private, max-age=31536000, immutable"
+
+        with TestingSessionLocal() as db:
+            user = db.scalar(select(User).where(User.email == "owner@example.com"))
+            assert user is not None
+            user.is_app_admin = False
+            now = datetime.now(UTC)
+            db.add(
+                UserEntitlement(
+                    user_id=user.id,
+                    source="test",
+                    source_id=None,
+                    valid_from=now,
+                    valid_until=now + timedelta(days=1),
+                )
+            )
+            db.commit()
+        assert client.get(payload["photo_detail_url"]).status_code == 403
+        assert client.delete(f"/api/v1/wines/{wine_id}/photo").status_code == 403
+        with TestingSessionLocal() as db:
+            user = db.scalar(select(User).where(User.email == "owner@example.com"))
+            assert user is not None
+            user.is_app_admin = True
+            db.commit()
+
+        invalid = client.put(
+            f"/api/v1/wines/{wine_id}/photo",
+            files={
+                "thumbnail_image": ("thumbnail.png", transparent_png_header(161, 240), "image/png"),
+                "detail_image": ("detail.png", transparent_png_header(480, 720), "image/png"),
+            },
+        )
+        assert invalid.status_code == 400
+
+        removed = client.delete(f"/api/v1/wines/{wine_id}/photo")
+        assert removed.status_code == 200
+        assert removed.json()["photo_detail_url"] == ""
+        assert client.get(payload["photo_detail_url"]).status_code == 404
+    finally:
+        settings.wine_photo_storage_dir = previous_storage_dir
 
 
 def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):

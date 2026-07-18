@@ -193,6 +193,8 @@ class WineResponse(BaseModel):
     grapes_verified_at: datetime | None = None
     scores: list[dict]
     scores_not_applicable: bool = False
+    photo_thumbnail_url: str = ""
+    photo_detail_url: str = ""
     tasting_history: list[WineTastingEntryResponse] = Field(default_factory=list)
     value_history: list[WineValueHistoryResponse] = Field(default_factory=list)
 

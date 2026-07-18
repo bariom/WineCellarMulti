@@ -59,6 +59,7 @@ class Wine(Base):
     )
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
+    photo_version: Mapped[str] = mapped_column(String(32), default="")
     tasting_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
 
 

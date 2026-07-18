@@ -16,6 +16,7 @@ import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./d
 import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, coOwnershipTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
 import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
+import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -47,6 +48,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
@@ -962,6 +964,7 @@ export function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
+  const [pendingBottlePhoto, setPendingBottlePhoto] = useState<PreparedBottlePhoto | null>(null);
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
@@ -3265,9 +3268,22 @@ export function App() {
       if (editingId) {
         await api<Wine>(`/api/v1/wines/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
       } else {
-        await api<Wine>("/api/v1/wines", { method: "POST", body: JSON.stringify(payload) });
+        const created = await api<Wine>("/api/v1/wines", { method: "POST", body: JSON.stringify(payload) });
+        if (pendingBottlePhoto) {
+          const formData = new FormData();
+          formData.append("thumbnail_image", pendingBottlePhoto.thumbnail, "bottle-thumbnail.png");
+          formData.append("detail_image", pendingBottlePhoto.detail, "bottle-detail.png");
+          try {
+            await api<Wine>(`/api/v1/wines/${created.id}/photo`, { method: "PUT", body: formData });
+          } catch {
+            setError(locale === "it"
+              ? "Il vino è stato creato, ma la foto non è stata salvata. Puoi aggiungerla dal dettaglio."
+              : "The wine was created, but its photo was not saved. You can add it from the detail view.");
+          }
+        }
       }
       setDraft(emptyDraft);
+      setPendingBottlePhoto(null);
       setEditingId(null);
       setSelectedWineId(null);
       setWineFormOpen(false);
@@ -5023,6 +5039,7 @@ export function App() {
     clearWineRecognitionState();
     setWineRecognitionTarget("wine");
     setDraft(emptyDraft);
+    setPendingBottlePhoto(null);
     setEditingId(null);
     setWineFormOpen(true);
   }
@@ -5095,6 +5112,7 @@ export function App() {
     setSelectedWineId(wine.id);
     setEditingId(wine.id);
     setDraft(wineToDraft(wine));
+    setPendingBottlePhoto(null);
     setWineFormOpen(true);
   }
 
@@ -5228,6 +5246,7 @@ export function App() {
     clearWineRecognitionState();
     setEditingId(null);
     setDraft(emptyDraft);
+    setPendingBottlePhoto(null);
     setWineFormOpen(false);
   }
 
@@ -5882,6 +5901,18 @@ export function App() {
         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
         coOwnershipSection={renderCoOwnershipSection(wine)}
+        photoActions={!offlineMode && session?.is_app_admin ? (
+          <Suspense fallback={null}>
+            <BottlePhotoCapture
+              wine={wine}
+              canWrite={canWriteWine}
+              locale={locale}
+              onSaved={(updated) => setWines((current) => current.map((item) => item.id === updated.id ? updated : item))}
+              onError={(message) => setError(formatUserErrorMessage(message, locale))}
+            />
+          </Suspense>
+        ) : null}
+        showBottlePhoto={Boolean(session?.is_app_admin)}
         t={t}
         locale={locale}
       />
@@ -7662,6 +7693,28 @@ export function App() {
                     ) : null}
                   </div>
                 ) : null}
+                {!editingId && session?.is_app_admin ? (
+                  <div className="bottle-photo-form-card">
+                    <div>
+                      <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
+                      <small>
+                        {pendingBottlePhoto
+                          ? (locale === "it" ? "Foto pronta: sarà salvata insieme al vino." : "Photo ready: it will be saved with the wine.")
+                          : (locale === "it" ? "Scatta la foto prodotto con sagoma e sfondo trasparente." : "Take the guided product photo with a transparent background.")}
+                      </small>
+                    </div>
+                    <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                      <BottlePhotoCapture
+                        draftName={draft.name}
+                        prepared={Boolean(pendingBottlePhoto)}
+                        canWrite={canWriteWine}
+                        locale={locale}
+                        onPrepared={setPendingBottlePhoto}
+                        onError={(message) => setError(formatUserErrorMessage(message, locale))}
+                      />
+                    </Suspense>
+                  </div>
+                ) : null}
                 <label>
                   <span>{t("name")}</span>
                   <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
@@ -8817,7 +8870,8 @@ export function App() {
                     </button>
                     {openWineToneGroups[group.tone] ? group.items.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${session?.is_app_admin && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                  {session?.is_app_admin && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(wine.type)}`} />
@@ -8905,6 +8959,18 @@ export function App() {
                         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
                         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
                         coOwnershipSection={renderCoOwnershipSection(wine)}
+                        photoActions={!offlineMode && session?.is_app_admin ? (
+                          <Suspense fallback={null}>
+                            <BottlePhotoCapture
+                              wine={wine}
+                              canWrite={canWriteWine}
+                              locale={locale}
+                              onSaved={(updated) => setWines((current) => current.map((item) => item.id === updated.id ? updated : item))}
+                              onError={(message) => setError(formatUserErrorMessage(message, locale))}
+                            />
+                          </Suspense>
+                        ) : null}
+                        showBottlePhoto={Boolean(session?.is_app_admin)}
                         t={t}
                         locale={locale}
                       />

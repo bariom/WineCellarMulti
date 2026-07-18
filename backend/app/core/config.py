@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     openai_web_search_tool_cost_usd: str = "0.01"
     api4ai_wine_recognition_url: str = "https://api4ai.cloud/wine-rec/v1/results"
     api4ai_api_key: str = ""
+    wine_photo_storage_dir: str = "data/wine-photos"
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"

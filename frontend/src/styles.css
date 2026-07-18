@@ -16189,6 +16189,34 @@ tbody tr:hover {
   }
 }
 
+/* Guided bottle photography and the two standardized product-photo presentations. */
+.wine-row-bottle-photo {
+  position: absolute;
+  top: 9px;
+  left: 18px;
+  width: 44px;
+  height: 78px;
+  object-fit: contain;
+}
+
+.wine-row.has-bottle-photo .wine-row-main {
+  padding-left: 52px;
+}
+
+.detail-hero .detail-title:has(.detail-bottle-photo) {
+  grid-template-columns: minmax(108px, 150px) minmax(0, 1fr);
+}
+
+.detail-bottle-photo {
+  grid-row: 1 / span 2;
+}
+
+.detail-bottle-photo img {
+  width: 100%;
+  height: 220px;
+  object-fit: contain;
+}
+
 @media print {
   @page {
     margin: 14mm;
