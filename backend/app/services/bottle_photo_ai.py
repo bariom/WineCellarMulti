@@ -121,6 +121,24 @@ def _central_component(numpy: Any, binary: Any) -> Any:
     return selected
 
 
+def _filled_component_alpha(numpy: Any, component: Any, model_alpha: Any) -> Any:
+    """Keep model feathering at the outline, but never cut holes inside it."""
+    height, _ = component.shape
+    alpha = numpy.zeros_like(model_alpha)
+    for y in range(height):
+        visible_x = numpy.flatnonzero(component[y])
+        if not len(visible_x):
+            continue
+        left, right = int(visible_x.min()), int(visible_x.max())
+        alpha[y, left : right + 1] = 1
+        for inset in range(min(3, right - left + 1)):
+            left_x = left + inset
+            right_x = right - inset
+            alpha[y, left_x] = model_alpha[y, left_x]
+            alpha[y, right_x] = model_alpha[y, right_x]
+    return alpha
+
+
 def _center_crop(image: Any) -> Any:
     target_ratio = DETAIL_SIZE[0] / DETAIL_SIZE[1]
     source_ratio = image.width / image.height
@@ -164,7 +182,7 @@ def process_bottle_photo(content: bytes, model_name: str) -> bytes:
     model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
     guided_alpha = model_alpha * _guide_mask(numpy, *DETAIL_SIZE)
     selected = _central_component(numpy, guided_alpha > 0.12)
-    alpha = numpy.where(selected, guided_alpha, 0)
+    alpha = _filled_component_alpha(numpy, selected, guided_alpha)
     visible_y, visible_x = numpy.nonzero(alpha > 0.08)
     if not len(visible_x):
         raise BottlePhotoNotDetected("The AI could not detect a bottle inside the guide")

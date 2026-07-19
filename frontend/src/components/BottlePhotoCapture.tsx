@@ -23,6 +23,16 @@ function canvasPng(canvas: HTMLCanvasElement) {
   });
 }
 
+function canvasJpeg(canvas: HTMLCanvasElement, quality = 0.9) {
+  return new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob(
+      (blob) => blob ? resolve(blob) : reject(new Error("JPEG export failed")),
+      "image/jpeg",
+      quality,
+    );
+  });
+}
+
 function median(values: number[]) {
   const sorted = [...values].sort((first, second) => first - second);
   return sorted[Math.floor(sorted.length / 2)] || 0;
@@ -61,8 +71,31 @@ async function processedAiPhoto(detail: Blob): Promise<ProcessedBottlePhoto> {
 }
 
 async function processBottlePhotoWithAi(source: Blob): Promise<ProcessedBottlePhoto> {
+  const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
+  const uploadCanvas = document.createElement("canvas");
+  uploadCanvas.width = 960;
+  uploadCanvas.height = 1440;
+  const uploadContext = uploadCanvas.getContext("2d");
+  if (!uploadContext) throw new Error("Canvas is not available");
+  const targetRatio = uploadCanvas.width / uploadCanvas.height;
+  const sourceRatio = bitmap.width / bitmap.height;
+  const cropWidth = sourceRatio > targetRatio ? bitmap.height * targetRatio : bitmap.width;
+  const cropHeight = sourceRatio > targetRatio ? bitmap.height : bitmap.width / targetRatio;
+  uploadContext.drawImage(
+    bitmap,
+    (bitmap.width - cropWidth) / 2,
+    (bitmap.height - cropHeight) / 2,
+    cropWidth,
+    cropHeight,
+    0,
+    0,
+    uploadCanvas.width,
+    uploadCanvas.height,
+  );
+  bitmap.close();
+  const optimizedSource = await canvasJpeg(uploadCanvas);
   const formData = new FormData();
-  formData.append("source_image", source, "bottle-source.jpg");
+  formData.append("source_image", optimizedSource, "bottle-source.jpg");
   const response = await fetch("/api/v1/wines/photo/process", {
     method: "POST",
     credentials: "include",
@@ -271,10 +304,44 @@ function detectedBottleMask(pixels: ImageData) {
     if (leftValues.length >= 3) smoothed[y] = { left: median(leftValues), right: median(rightValues) };
   }
 
+  // The label and strong reflections can be very close to the background
+  // colour. They must never create transparent holes inside the bottle. Build
+  // a continuous outer profile from the reliable rows and fill its interior.
+  const bodyRows = smoothed
+    .slice(Math.max(top, Math.floor(height * 0.4)), Math.min(bottom + 1, Math.ceil(height * 0.82)))
+    .filter((row): row is NonNullable<RowBounds> => Boolean(row));
+  const bodyCenters = bodyRows.map((row) => (row.left + row.right) / 2);
+  const bodyCenter = bodyCenters.length ? median(bodyCenters) : centerX;
+  const repaired: RowBounds[] = Array.from({ length: height }, () => null);
+  let repairedRows = 0;
+  for (let y = top; y <= bottom; y += 1) {
+    const row = smoothed[y];
+    const subjectProgress = (y - top) / Math.max(1, bottom - top);
+    const guideWidth = guideWidths[y] * 2;
+    const minimumWidth = subjectProgress < 0.2
+      ? bodyWidth * 0.34
+      : subjectProgress < 0.38
+        ? bodyWidth * (0.34 + ((subjectProgress - 0.2) / 0.18) * 0.54)
+        : bodyWidth * 0.88;
+    const measuredWidth = row ? row.right - row.left : 0;
+    const rowCenter = row ? (row.left + row.right) / 2 : bodyCenter;
+    const stableCenter = Math.abs(rowCenter - bodyCenter) <= bodyWidth * 0.18 ? rowCenter : bodyCenter;
+    const repairedWidth = Math.min(Math.max(measuredWidth, minimumWidth), guideWidth * 0.96);
+    if (repairedWidth < 6) continue;
+    repaired[y] = {
+      left: stableCenter - repairedWidth / 2,
+      right: stableCenter + repairedWidth / 2,
+    };
+    repairedRows += 1;
+  }
+  if (repairedRows / Math.max(1, bottom - top + 1) < 0.96) {
+    throw new Error("Bottle outline is discontinuous");
+  }
+
   let guideContactRows = 0;
   let measuredRows = 0;
   for (let y = top; y <= bottom; y += 1) {
-    const row = smoothed[y];
+    const row = repaired[y];
     if (!row) continue;
     measuredRows += 1;
     if ((row.right - row.left) / 2 >= guideWidths[y] * 0.92) guideContactRows += 1;
@@ -283,7 +350,7 @@ function detectedBottleMask(pixels: ImageData) {
 
   const alpha = new Uint8ClampedArray(width * height);
   for (let y = top; y <= bottom; y += 1) {
-    const row = smoothed[y];
+    const row = repaired[y];
     if (!row) continue;
     const verticalAlpha = clamp(Math.min(y - top + 1, bottom - y + 1) / 3, 0, 1);
     for (let x = Math.ceil(row.left); x <= Math.floor(row.right); x += 1) {
