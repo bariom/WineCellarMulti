@@ -1085,6 +1085,20 @@ export function App() {
     );
   }
 
+  function wineDraftWithTemplate(baseDraft: WineDraft, template: Wine | CatalogWine): WineDraft {
+    return {
+      ...baseDraft,
+      producer: template.producer || baseDraft.producer,
+      region: template.region || baseDraft.region,
+      appellation: template.appellation || baseDraft.appellation,
+      format: template.format || baseDraft.format,
+      type: normalizeWineType(template.type || baseDraft.type),
+      currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
+      current_value: "current_value" in template && template.current_value ? String(template.current_value) : baseDraft.current_value,
+      owner_share_pct: "owner_share_pct" in template ? String(template.owner_share_pct || baseDraft.owner_share_pct) : baseDraft.owner_share_pct,
+    };
+  }
+
   function updateWineDraftName(name: string) {
     const baseDraft = { ...draft, name };
     if (editingId) {
@@ -1096,17 +1110,7 @@ export function App() {
       setDraft(baseDraft);
       return;
     }
-    setDraft({
-      ...baseDraft,
-      producer: template.producer || baseDraft.producer,
-      region: template.region || baseDraft.region,
-      appellation: template.appellation || baseDraft.appellation,
-      format: template.format || baseDraft.format,
-      type: normalizeWineType(template.type || baseDraft.type),
-      currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
-      current_value: "current_value" in template && template.current_value ? String(template.current_value) : baseDraft.current_value,
-      owner_share_pct: "owner_share_pct" in template ? String(template.owner_share_pct || baseDraft.owner_share_pct) : baseDraft.owner_share_pct,
-    });
+    setDraft(wineDraftWithTemplate(baseDraft, template));
   }
 
   function updateWishlistDraftName(name: string) {
@@ -1371,6 +1375,13 @@ export function App() {
       abortController.abort();
     };
   }, [draft.name, wishlistDraft.name, wineFormOpen, wishlistFormOpen, session?.authenticated]);
+
+  useEffect(() => {
+    if (!wineFormOpen || editingId || !draft.name.trim()) return;
+    const template = matchingWineTemplate(draft.name);
+    if (!template) return;
+    setDraft((current) => wineDraftWithTemplate(current, template));
+  }, [draft.name, editingId, wineCatalog, wineFormOpen]);
 
   async function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
