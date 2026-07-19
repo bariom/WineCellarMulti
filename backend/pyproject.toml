@@ -17,6 +17,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+photo-ai = [
+  "rembg[cpu]>=2.0.67",
+]
 dev = [
   "httpx>=0.28.0",
   "pre-commit>=4.0.0",

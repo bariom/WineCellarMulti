@@ -75,6 +75,9 @@ class Settings(BaseSettings):
     api4ai_wine_recognition_url: str = "https://api4ai.cloud/wine-rec/v1/results"
     api4ai_api_key: str = ""
     wine_photo_storage_dir: str = "data/wine-photos"
+    wine_photo_ai_enabled: bool = True
+    wine_photo_ai_model: str = "birefnet-general-lite"
+    wine_photo_ai_max_input_bytes: int = 12_000_000
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"

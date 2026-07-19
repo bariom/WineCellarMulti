@@ -66,10 +66,14 @@ services:
       OPENAI_MAX_RETRIES: ${OPENAI_MAX_RETRIES:-0}
       OPENAI_WEB_SEARCH_TOOL_COST_USD: ${OPENAI_WEB_SEARCH_TOOL_COST_USD:-0.01}
       WINE_PHOTO_STORAGE_DIR: /data/wine-photos
+      WINE_PHOTO_AI_ENABLED: ${WINE_PHOTO_AI_ENABLED:-true}
+      WINE_PHOTO_AI_MODEL: ${WINE_PHOTO_AI_MODEL:-birefnet-general-lite}
+      U2NET_HOME: /data/photo-ai-models
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
       - wine-photo-data:/data/wine-photos
+      - wine-photo-model-data:/data/photo-ai-models
     depends_on:
       postgres:
         condition: service_healthy
@@ -87,3 +91,4 @@ services:
 volumes:
   postgres-data:
   wine-photo-data:
+  wine-photo-model-data:

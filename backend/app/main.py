@@ -1,13 +1,34 @@
+import logging
 import time
+from contextlib import asynccontextmanager
+from threading import Thread
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
+from app.services.bottle_photo_ai import BottlePhotoAiUnavailable, warm_bottle_photo_model
 from app.services.request_metrics import request_metrics
 
-app = FastAPI(title=settings.app_name, debug=settings.app_debug)
+logger = logging.getLogger(__name__)
+
+
+def warm_photo_ai() -> None:
+    try:
+        warm_bottle_photo_model(settings.wine_photo_ai_model)
+    except BottlePhotoAiUnavailable as error:
+        logger.warning("Bottle photo AI warm-up failed: %s", error)
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    if settings.app_env == "production" and settings.wine_photo_ai_enabled:
+        Thread(target=warm_photo_ai, name="bottle-photo-ai-warmup", daemon=True).start()
+    yield
+
+
+app = FastAPI(title=settings.app_name, debug=settings.app_debug, lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origin_list,

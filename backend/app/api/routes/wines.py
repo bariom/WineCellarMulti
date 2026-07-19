@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, Up
 from fastapi.responses import FileResponse
 from sqlalchemy import case, func, or_, select
 from sqlalchemy.orm import Session, defer
+from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import (
     CurrentContext,
@@ -46,6 +47,12 @@ from app.schemas.wine import (
     WineTastingEntryUpdate,
     WineUpdate,
 )
+from app.services.bottle_photo_ai import (
+    BottlePhotoAiUnavailable,
+    BottlePhotoNotDetected,
+    InvalidBottlePhoto,
+    process_bottle_photo,
+)
 from app.services.notifications import create_user_notification
 
 router = APIRouter()
@@ -54,21 +61,38 @@ PHOTO_SIZES = {"thumbnail": (160, 240, 512_000), "detail": (480, 720, 2_000_000)
 
 
 def wine_photo_path(wine: Wine, size: str) -> Path:
-    return Path(settings.wine_photo_storage_dir) / str(wine.household_id) / str(wine.id) / f"{size}.png"
+    return (
+        Path(settings.wine_photo_storage_dir)
+        / str(wine.household_id)
+        / str(wine.id)
+        / f"{size}.png"
+    )
 
 
 def validate_processed_photo(content: bytes, size: str) -> None:
     expected_width, expected_height, max_bytes = PHOTO_SIZES[size]
     if len(content) > max_bytes:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Processed bottle photo is too large")
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Processed bottle photo is too large",
+        )
     if len(content) < 33 or content[:8] != b"\x89PNG\r\n\x1a\n" or content[12:16] != b"IHDR":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bottle photos must be processed PNG images")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bottle photos must be processed PNG images",
+        )
     width, height = struct.unpack(">II", content[16:24])
     color_type = content[25]
     if (width, height) != (expected_width, expected_height):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid {size} bottle photo dimensions")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid {size} bottle photo dimensions",
+        )
     if color_type not in {4, 6}:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Bottle photos must include transparency")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bottle photos must include transparency",
+        )
 
 
 def photo_urls(wine: Wine) -> dict[str, str]:
@@ -1000,6 +1024,56 @@ def get_wine(
         wine,
         user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
         wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.post("/photo/process", response_class=Response)
+async def process_wine_photo(
+    source_image: UploadFile = File(...),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> Response:
+    del context
+    if not settings.wine_photo_ai_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI bottle photo processing is disabled",
+        )
+    content = await source_image.read(settings.wine_photo_ai_max_input_bytes + 1)
+    if len(content) > settings.wine_photo_ai_max_input_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Bottle photo is too large",
+        )
+    if not content:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Bottle photo is empty",
+        )
+    try:
+        processed = await run_in_threadpool(
+            process_bottle_photo,
+            content,
+            settings.wine_photo_ai_model,
+        )
+    except InvalidBottlePhoto as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    except BottlePhotoNotDetected as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(error),
+        ) from error
+    except BottlePhotoAiUnavailable as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+    return Response(
+        content=processed,
+        media_type="image/png",
+        headers={
+            "Cache-Control": "no-store",
+            "X-Bottle-Segmentation": settings.wine_photo_ai_model,
+        },
     )
 
 

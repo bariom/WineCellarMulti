@@ -7,7 +7,7 @@ COPY alembic.ini ./
 COPY alembic ./alembic
 COPY app ./app
 
-RUN pip install --no-cache-dir -e .
+RUN pip install --no-cache-dir -e ".[photo-ai]"
 
 EXPOSE 8000
 

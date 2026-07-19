@@ -21,7 +21,7 @@ New multi-user foundation for Wine Cellar.
 - email/password session foundation
 - one active household per session
 - CRUD for wines scoped by household
-- Admin-only beta for guided bottle photography with on-device background removal and standardized transparent list/detail images
+- Admin-only beta for guided bottle photography with backend BiRefNet segmentation, an on-device fallback, and standardized transparent list/detail images
 - membership roles: `owner`, `admin`, `member`, `viewer`
 
 ## Layout
@@ -57,6 +57,9 @@ docker compose up --build
 ```
 
 This starts PostgreSQL, runs backend migrations, exposes the API on `:8000`, and exposes the frontend on `:5173`.
+The first AI bottle-photo request downloads the approximately 214 MB
+`birefnet-general-lite` model into the persistent `wine-photo-model-data` volume.
+Set `WINE_PHOTO_AI_ENABLED=false` to use only the on-device fallback.
 
 Run the backend:
 
@@ -64,7 +67,7 @@ Run the backend:
 cd backend
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e ".[dev,photo-ai]"
 alembic upgrade head
 chmod +x dev.sh
 ./dev.sh

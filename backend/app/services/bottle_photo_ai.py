@@ -1,0 +1,209 @@
+from __future__ import annotations
+
+from collections import deque
+from functools import lru_cache
+from importlib import import_module
+from io import BytesIO
+from threading import Lock
+from typing import Any
+
+DETAIL_SIZE = (480, 720)
+_session_lock = Lock()
+
+
+class BottlePhotoAiError(RuntimeError):
+    pass
+
+
+class BottlePhotoAiUnavailable(BottlePhotoAiError):
+    pass
+
+
+class BottlePhotoNotDetected(BottlePhotoAiError):
+    pass
+
+
+class InvalidBottlePhoto(BottlePhotoAiError):
+    pass
+
+
+def _vision_modules() -> tuple[Any, Any, Any, Any]:
+    try:
+        numpy = import_module("numpy")
+        image_module = import_module("PIL.Image")
+        image_ops = import_module("PIL.ImageOps")
+        rembg = import_module("rembg")
+    except ImportError as error:
+        raise BottlePhotoAiUnavailable("AI bottle photo processing is not installed") from error
+    return numpy, image_module, image_ops, rembg
+
+
+@lru_cache(maxsize=2)
+def _cached_model_session(model_name: str) -> Any:
+    _, _, _, rembg = _vision_modules()
+    try:
+        return rembg.new_session(model_name)
+    except Exception as error:
+        raise BottlePhotoAiUnavailable("AI bottle segmentation model is unavailable") from error
+
+
+def _model_session(model_name: str) -> Any:
+    with _session_lock:
+        return _cached_model_session(model_name)
+
+
+def warm_bottle_photo_model(model_name: str) -> None:
+    _model_session(model_name)
+
+
+def _guide_half_width(width: int, height: int, y: int) -> float:
+    guide_y = (y / height - 0.05) / 0.9
+    if not 0 <= guide_y <= 1:
+        return 0
+    if guide_y < 0.18:
+        return width * 0.072
+    if guide_y < 0.34:
+        return width * (0.072 + ((guide_y - 0.18) / 0.16) * 0.108)
+    return width * 0.18
+
+
+def _guide_mask(numpy: Any, width: int, height: int) -> Any:
+    guide = numpy.zeros((height, width), dtype=numpy.float32)
+    horizontal = numpy.arange(width, dtype=numpy.float32)
+    center = (width - 1) / 2
+    for y in range(height):
+        radius = _guide_half_width(width, height, y)
+        if radius:
+            guide[y] = numpy.clip((radius - numpy.abs(horizontal - center) + 2) / 4, 0, 1)
+    return guide
+
+
+def _central_component(numpy: Any, binary: Any) -> Any:
+    height, width = binary.shape
+    visited = numpy.zeros((height, width), dtype=numpy.bool_)
+    best_component: list[tuple[int, int]] = []
+    best_score = 0
+    center = width / 2
+    for flat_index in numpy.flatnonzero(binary):
+        y, x = divmod(int(flat_index), width)
+        if visited[y, x]:
+            continue
+        queue: deque[tuple[int, int]] = deque([(y, x)])
+        visited[y, x] = True
+        component: list[tuple[int, int]] = []
+        central_pixels = 0
+        while queue:
+            current_y, current_x = queue.popleft()
+            component.append((current_y, current_x))
+            if abs(current_x - center) < width * 0.06:
+                central_pixels += 1
+            for next_y, next_x in (
+                (current_y - 1, current_x),
+                (current_y + 1, current_x),
+                (current_y, current_x - 1),
+                (current_y, current_x + 1),
+            ):
+                if (
+                    0 <= next_y < height
+                    and 0 <= next_x < width
+                    and binary[next_y, next_x]
+                    and not visited[next_y, next_x]
+                ):
+                    visited[next_y, next_x] = True
+                    queue.append((next_y, next_x))
+        score = len(component) + central_pixels * 5
+        if score > best_score:
+            best_score = score
+            best_component = component
+    selected = numpy.zeros((height, width), dtype=numpy.bool_)
+    for y, x in best_component:
+        selected[y, x] = True
+    return selected
+
+
+def _center_crop(image: Any) -> Any:
+    target_ratio = DETAIL_SIZE[0] / DETAIL_SIZE[1]
+    source_ratio = image.width / image.height
+    if source_ratio > target_ratio:
+        crop_width = round(image.height * target_ratio)
+        left = (image.width - crop_width) // 2
+        box = (left, 0, left + crop_width, image.height)
+    else:
+        crop_height = round(image.width / target_ratio)
+        top = (image.height - crop_height) // 2
+        box = (0, top, image.width, top + crop_height)
+    return image.crop(box)
+
+
+def process_bottle_photo(content: bytes, model_name: str) -> bytes:
+    numpy, image_module, image_ops, rembg = _vision_modules()
+    try:
+        source = image_module.open(BytesIO(content))
+        source.load()
+        source = image_ops.exif_transpose(source).convert("RGB")
+    except Exception as error:
+        raise InvalidBottlePhoto("Unsupported or invalid bottle photo") from error
+    if source.width < 240 or source.height < 360 or source.width * source.height > 40_000_000:
+        raise InvalidBottlePhoto("Bottle photo dimensions are not supported")
+
+    source = _center_crop(source).resize(DETAIL_SIZE, image_module.Resampling.LANCZOS)
+    try:
+        mask_result = rembg.remove(
+            source,
+            session=_model_session(model_name),
+            only_mask=True,
+            post_process_mask=True,
+        )
+    except BottlePhotoAiError:
+        raise
+    except Exception as error:
+        raise BottlePhotoAiUnavailable("AI bottle segmentation failed") from error
+    if isinstance(mask_result, bytes):
+        mask_result = image_module.open(BytesIO(mask_result))
+    mask = mask_result.convert("L").resize(DETAIL_SIZE, image_module.Resampling.LANCZOS)
+    model_alpha = numpy.asarray(mask, dtype=numpy.float32) / 255
+    guided_alpha = model_alpha * _guide_mask(numpy, *DETAIL_SIZE)
+    selected = _central_component(numpy, guided_alpha > 0.12)
+    alpha = numpy.where(selected, guided_alpha, 0)
+    visible_y, visible_x = numpy.nonzero(alpha > 0.08)
+    if not len(visible_x):
+        raise BottlePhotoNotDetected("The AI could not detect a bottle inside the guide")
+
+    min_x, max_x = int(visible_x.min()), int(visible_x.max())
+    min_y, max_y = int(visible_y.min()), int(visible_y.max())
+    subject_width = max_x - min_x + 1
+    subject_height = max_y - min_y + 1
+    subject_center = (min_x + max_x) / 2
+    if (
+        subject_height < DETAIL_SIZE[1] * 0.48
+        or subject_width < DETAIL_SIZE[0] * 0.07
+        or subject_width > DETAIL_SIZE[0] * 0.38
+        or abs(subject_center - DETAIL_SIZE[0] / 2) > DETAIL_SIZE[0] * 0.1
+    ):
+        raise BottlePhotoNotDetected("The detected bottle outline is not reliable")
+
+    rgba = source.convert("RGBA")
+    rgba.putalpha(image_module.fromarray(numpy.uint8(numpy.clip(alpha, 0, 1) * 255), mode="L"))
+    padding = 3
+    subject = rgba.crop(
+        (
+            max(0, min_x - padding),
+            max(0, min_y - padding),
+            min(DETAIL_SIZE[0], max_x + padding + 1),
+            min(DETAIL_SIZE[1], max_y + padding + 1),
+        )
+    )
+    scale = min(
+        DETAIL_SIZE[0] * 0.82 / subject.width,
+        DETAIL_SIZE[1] * 0.9 / subject.height,
+    )
+    output_size = (max(1, round(subject.width * scale)), max(1, round(subject.height * scale)))
+    subject = subject.resize(output_size, image_module.Resampling.LANCZOS)
+    output = image_module.new("RGBA", DETAIL_SIZE, (0, 0, 0, 0))
+    output.alpha_composite(
+        subject,
+        ((DETAIL_SIZE[0] - subject.width) // 2, round(DETAIL_SIZE[1] * 0.055)),
+    )
+    buffer = BytesIO()
+    output.save(buffer, format="PNG", optimize=True)
+    return buffer.getvalue()

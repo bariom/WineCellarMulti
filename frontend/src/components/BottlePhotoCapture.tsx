@@ -1,7 +1,7 @@
 import { ChangeEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-import { api } from "../services/api";
+import { api, extractApiErrorText } from "../services/api";
 import type { Locale, Wine } from "../types";
 import { AppIcon } from "./AppIcon";
 import "./BottlePhotoCapture.css";
@@ -28,6 +28,273 @@ function median(values: number[]) {
   return sorted[Math.floor(sorted.length / 2)] || 0;
 }
 
+class BottlePhotoAiRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+  ) {
+    super(message);
+  }
+}
+
+async function processedAiPhoto(detail: Blob): Promise<ProcessedBottlePhoto> {
+  const bitmap = await createImageBitmap(detail, { imageOrientation: "from-image" });
+  const detailCanvas = document.createElement("canvas");
+  detailCanvas.width = DETAIL_SIZE.width;
+  detailCanvas.height = DETAIL_SIZE.height;
+  const detailContext = detailCanvas.getContext("2d");
+  if (!detailContext) throw new Error("Canvas is not available");
+  detailContext.drawImage(bitmap, 0, 0, DETAIL_SIZE.width, DETAIL_SIZE.height);
+  bitmap.close();
+
+  const thumbnailCanvas = document.createElement("canvas");
+  thumbnailCanvas.width = THUMBNAIL_SIZE.width;
+  thumbnailCanvas.height = THUMBNAIL_SIZE.height;
+  const thumbnailContext = thumbnailCanvas.getContext("2d");
+  if (!thumbnailContext) throw new Error("Canvas is not available");
+  thumbnailContext.imageSmoothingEnabled = true;
+  thumbnailContext.imageSmoothingQuality = "high";
+  thumbnailContext.drawImage(detailCanvas, 0, 0, THUMBNAIL_SIZE.width, THUMBNAIL_SIZE.height);
+
+  const [normalizedDetail, thumbnail] = await Promise.all([canvasPng(detailCanvas), canvasPng(thumbnailCanvas)]);
+  return { detail: normalizedDetail, thumbnail, previewUrl: URL.createObjectURL(normalizedDetail) };
+}
+
+async function processBottlePhotoWithAi(source: Blob): Promise<ProcessedBottlePhoto> {
+  const formData = new FormData();
+  formData.append("source_image", source, "bottle-source.jpg");
+  const response = await fetch("/api/v1/wines/photo/process", {
+    method: "POST",
+    credentials: "include",
+    body: formData,
+  });
+  if (!response.ok) {
+    const message = extractApiErrorText(await response.text()) || `Request failed: ${response.status}`;
+    throw new BottlePhotoAiRequestError(message, response.status);
+  }
+  return processedAiPhoto(await response.blob());
+}
+
+function clamp(value: number, minimum: number, maximum: number) {
+  return Math.max(minimum, Math.min(maximum, value));
+}
+
+function guideHalfWidth(width: number, height: number, y: number) {
+  const guideY = (y / height - 0.05) / 0.9;
+  if (guideY < 0 || guideY > 1) return 0;
+  if (guideY < 0.18) return width * 0.065;
+  if (guideY < 0.34) return width * (0.065 + ((guideY - 0.18) / 0.16) * 0.095);
+  return width * 0.16;
+}
+
+type Rgb = [number, number, number];
+type RowBounds = { left: number; right: number } | null;
+
+function medianColor(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  startX: number,
+  endX: number,
+  startY: number,
+  endY: number,
+): Rgb {
+  const red: number[] = [];
+  const green: number[] = [];
+  const blue: number[] = [];
+  for (let y = clamp(Math.floor(startY), 0, height - 1); y <= clamp(Math.ceil(endY), 0, height - 1); y += 2) {
+    for (let x = clamp(Math.floor(startX), 0, width - 1); x <= clamp(Math.ceil(endX), 0, width - 1); x += 2) {
+      const offset = (y * width + x) * 4;
+      red.push(data[offset]);
+      green.push(data[offset + 1]);
+      blue.push(data[offset + 2]);
+    }
+  }
+  return [median(red), median(green), median(blue)];
+}
+
+function colorDistance(data: Uint8ClampedArray, offset: number, color: Rgb) {
+  const red = data[offset] - color[0];
+  const green = data[offset + 1] - color[1];
+  const blue = data[offset + 2] - color[2];
+  return Math.sqrt(red * red * 0.3 + green * green * 0.59 + blue * blue * 0.11);
+}
+
+function sampleSpread(
+  data: Uint8ClampedArray,
+  width: number,
+  height: number,
+  startX: number,
+  endX: number,
+  startY: number,
+  endY: number,
+  color: Rgb,
+) {
+  const distances: number[] = [];
+  for (let y = clamp(Math.floor(startY), 0, height - 1); y <= clamp(Math.ceil(endY), 0, height - 1); y += 3) {
+    for (let x = clamp(Math.floor(startX), 0, width - 1); x <= clamp(Math.ceil(endX), 0, width - 1); x += 3) {
+      distances.push(colorDistance(data, (y * width + x) * 4, color));
+    }
+  }
+  return median(distances);
+}
+
+function detectedBottleMask(pixels: ImageData) {
+  const { data, width, height } = pixels;
+  const centerX = width / 2;
+  const candidates = new Uint8Array(width * height);
+  const bounds: RowBounds[] = Array.from({ length: height }, () => null);
+  const guideWidths = new Float32Array(height);
+  const sideBandWidth = Math.round(width * 0.085);
+
+  // Compare every row with the areas immediately outside the guide. This adapts
+  // to a non-uniform scene: an object behind the bottle is removed when its
+  // colour continues on either side of the expected bottle outline.
+  for (let y = 0; y < height; y += 1) {
+    const radius = guideHalfWidth(width, height, y);
+    guideWidths[y] = radius;
+    if (!radius) continue;
+    const innerGap = Math.max(5, Math.round(radius * 0.08));
+    const leftStart = centerX - radius - sideBandWidth;
+    const leftEnd = centerX - radius - innerGap;
+    const rightStart = centerX + radius + innerGap;
+    const rightEnd = centerX + radius + sideBandWidth;
+    const leftColor = medianColor(data, width, height, leftStart, leftEnd, y - 5, y + 5);
+    const rightColor = medianColor(data, width, height, rightStart, rightEnd, y - 5, y + 5);
+    const backgroundSpread = Math.min(
+      sampleSpread(data, width, height, leftStart, leftEnd, y - 5, y + 5, leftColor),
+      sampleSpread(data, width, height, rightStart, rightEnd, y - 5, y + 5, rightColor),
+    );
+    const threshold = clamp(30 + backgroundSpread * 1.7, 34, 64);
+    const startX = Math.max(0, Math.floor(centerX - radius));
+    const endX = Math.min(width - 1, Math.ceil(centerX + radius));
+    for (let x = startX; x <= endX; x += 1) {
+      const offset = (y * width + x) * 4;
+      const distance = Math.min(colorDistance(data, offset, leftColor), colorDistance(data, offset, rightColor));
+      const centralBias = Math.abs(x - centerX) < radius * 0.35 ? 0.86 : 1;
+      if (distance > threshold * centralBias) candidates[y * width + x] = 1;
+    }
+  }
+
+  // Find the continuous foreground run nearest the centre on every row. Small
+  // gaps caused by label text or reflections are bridged, while detached scene
+  // details do not enlarge the silhouette.
+  for (let y = 0; y < height; y += 1) {
+    const radius = guideWidths[y];
+    if (!radius) continue;
+    const startX = Math.max(0, Math.floor(centerX - radius));
+    const endX = Math.min(width - 1, Math.ceil(centerX + radius));
+    const seedRange = Math.max(8, Math.round(radius * 0.35));
+    let seed = -1;
+    for (let distance = 0; distance <= seedRange; distance += 1) {
+      const left = Math.round(centerX - distance);
+      const right = Math.round(centerX + distance);
+      if (left >= startX && candidates[y * width + left]) {
+        seed = left;
+        break;
+      }
+      if (right <= endX && candidates[y * width + right]) {
+        seed = right;
+        break;
+      }
+    }
+    if (seed < 0) continue;
+    const gapLimit = Math.max(4, Math.round(radius * 0.08));
+    let leftBound = seed;
+    let gap = 0;
+    for (let x = seed - 1; x >= startX; x -= 1) {
+      if (candidates[y * width + x]) {
+        leftBound = x;
+        gap = 0;
+      } else if (++gap > gapLimit) {
+        break;
+      }
+    }
+    let rightBound = seed;
+    gap = 0;
+    for (let x = seed + 1; x <= endX; x += 1) {
+      if (candidates[y * width + x]) {
+        rightBound = x;
+        gap = 0;
+      } else if (++gap > gapLimit) {
+        break;
+      }
+    }
+    if (rightBound - leftBound >= 6) bounds[y] = { left: leftBound, right: rightBound };
+  }
+
+  const bodyWidths = bounds
+    .slice(Math.floor(height * 0.3), Math.ceil(height * 0.82))
+    .filter((row): row is NonNullable<RowBounds> => Boolean(row))
+    .map((row) => row.right - row.left)
+    .sort((first, second) => first - second);
+  const bodyWidth = bodyWidths[Math.floor(bodyWidths.length * 0.82)] || 0;
+  if (bodyWidth < width * 0.12 || bodyWidth > width * 0.37) throw new Error("Bottle width is unreliable");
+
+  const rowIsSubject = (y: number) => {
+    const row = bounds[y];
+    if (!row) return false;
+    const minimumWidth = y > height * 0.55 ? bodyWidth * 0.38 : bodyWidth * 0.13;
+    return row.right - row.left >= minimumWidth;
+  };
+  let top = -1;
+  for (let y = Math.floor(height * 0.02); y < height * 0.48; y += 1) {
+    let nearbyRows = 0;
+    for (let nextY = y; nextY < Math.min(height, y + 8); nextY += 1) if (rowIsSubject(nextY)) nearbyRows += 1;
+    if (nearbyRows >= 5) {
+      top = y;
+      break;
+    }
+  }
+  let bottom = -1;
+  for (let y = Math.ceil(height * 0.97); y > height * 0.5; y -= 1) {
+    let nearbyRows = 0;
+    for (let previousY = y; previousY >= Math.max(0, y - 8); previousY -= 1) if (rowIsSubject(previousY)) nearbyRows += 1;
+    if (nearbyRows >= 5) {
+      bottom = y;
+      break;
+    }
+  }
+  if (top < 0 || bottom - top < height * 0.5) throw new Error("Bottle height is unreliable");
+
+  const smoothed: RowBounds[] = Array.from({ length: height }, () => null);
+  for (let y = top; y <= bottom; y += 1) {
+    const leftValues: number[] = [];
+    const rightValues: number[] = [];
+    for (let sampleY = Math.max(top, y - 4); sampleY <= Math.min(bottom, y + 4); sampleY += 1) {
+      const row = bounds[sampleY];
+      if (row) {
+        leftValues.push(row.left);
+        rightValues.push(row.right);
+      }
+    }
+    if (leftValues.length >= 3) smoothed[y] = { left: median(leftValues), right: median(rightValues) };
+  }
+
+  let guideContactRows = 0;
+  let measuredRows = 0;
+  for (let y = top; y <= bottom; y += 1) {
+    const row = smoothed[y];
+    if (!row) continue;
+    measuredRows += 1;
+    if ((row.right - row.left) / 2 >= guideWidths[y] * 0.92) guideContactRows += 1;
+  }
+  if (!measuredRows || guideContactRows / measuredRows > 0.42) throw new Error("Bottle edges are not distinguishable from the background");
+
+  const alpha = new Uint8ClampedArray(width * height);
+  for (let y = top; y <= bottom; y += 1) {
+    const row = smoothed[y];
+    if (!row) continue;
+    const verticalAlpha = clamp(Math.min(y - top + 1, bottom - y + 1) / 3, 0, 1);
+    for (let x = Math.ceil(row.left); x <= Math.floor(row.right); x += 1) {
+      const edgeDistance = Math.min(x - row.left, row.right - x);
+      const horizontalAlpha = clamp((edgeDistance + 1) / 3, 0, 1);
+      alpha[y * width + x] = Math.round(255 * horizontalAlpha * verticalAlpha);
+    }
+  }
+  return alpha;
+}
+
 async function processBottlePhoto(source: Blob): Promise<ProcessedBottlePhoto> {
   const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   const working = document.createElement("canvas");
@@ -47,79 +314,17 @@ async function processBottlePhoto(source: Blob): Promise<ProcessedBottlePhoto> {
 
   const pixels = context.getImageData(0, 0, working.width, working.height);
   const { data, width, height } = pixels;
-  const borderRed: number[] = [];
-  const borderGreen: number[] = [];
-  const borderBlue: number[] = [];
-  const sample = (x: number, y: number) => {
-    const offset = (y * width + x) * 4;
-    borderRed.push(data[offset]);
-    borderGreen.push(data[offset + 1]);
-    borderBlue.push(data[offset + 2]);
-  };
-  for (let x = 0; x < width; x += 8) {
-    sample(x, 0);
-    sample(x, height - 1);
-  }
-  for (let y = 8; y < height - 8; y += 8) {
-    sample(0, y);
-    sample(width - 1, y);
-  }
-  const background = [median(borderRed), median(borderGreen), median(borderBlue)];
-  const visited = new Uint8Array(width * height);
-  const queue = new Int32Array(width * height);
-  let queueStart = 0;
-  let queueEnd = 0;
-  const colorDistance = (index: number) => {
-    const offset = index * 4;
-    const red = data[offset] - background[0];
-    const green = data[offset + 1] - background[1];
-    const blue = data[offset + 2] - background[2];
-    return Math.sqrt(red * red + green * green + blue * blue);
-  };
-  const enqueueBackground = (index: number) => {
-    if (visited[index] || colorDistance(index) > 82) return;
-    visited[index] = 1;
-    queue[queueEnd++] = index;
-  };
-  for (let x = 0; x < width; x += 1) {
-    enqueueBackground(x);
-    enqueueBackground((height - 1) * width + x);
-  }
-  for (let y = 1; y < height - 1; y += 1) {
-    enqueueBackground(y * width);
-    enqueueBackground(y * width + width - 1);
-  }
-  while (queueStart < queueEnd) {
-    const index = queue[queueStart++];
-    const x = index % width;
-    if (x > 0) enqueueBackground(index - 1);
-    if (x < width - 1) enqueueBackground(index + 1);
-    if (index >= width) enqueueBackground(index - width);
-    if (index < width * (height - 1)) enqueueBackground(index + width);
-  }
+  const alpha = detectedBottleMask(pixels);
 
   let minX = width;
   let minY = height;
   let maxX = 0;
   let maxY = 0;
-  for (let index = 0; index < visited.length; index += 1) {
+  for (let index = 0; index < alpha.length; index += 1) {
     const offset = index * 4;
     const x = index % width;
     const y = Math.floor(index / width);
-    if (visited[index]) {
-      const distance = colorDistance(index);
-      data[offset + 3] = Math.round(Math.max(0, Math.min(1, (distance - 58) / 28)) * 255);
-    }
-    const guideY = (y / height - 0.05) / 0.9;
-    let allowedHalfWidth = 0;
-    if (guideY >= 0 && guideY <= 1) {
-      allowedHalfWidth = guideY < 0.18
-        ? width * 0.065
-        : guideY < 0.34
-          ? width * (0.065 + ((guideY - 0.18) / 0.16) * 0.095)
-          : width * 0.16;
-    }
-    if (Math.abs(x - width / 2) > allowedHalfWidth) data[offset + 3] = 0;
+    data[offset + 3] = alpha[index];
     if (data[offset + 3] > 40) {
       minX = Math.min(minX, x);
       minY = Math.min(minY, y);
@@ -190,6 +395,7 @@ export function BottlePhotoCapture({
   const [cameraError, setCameraError] = useState("");
   const [busy, setBusy] = useState(false);
   const [processed, setProcessed] = useState<ProcessedBottlePhoto | null>(null);
+  const [processingMode, setProcessingMode] = useState<"ai" | "local" | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -206,6 +412,7 @@ export function BottlePhotoCapture({
     stopCamera();
     if (processed) URL.revokeObjectURL(processed.previewUrl);
     setProcessed(null);
+    setProcessingMode(null);
     setOpen(false);
   }
 
@@ -252,6 +459,7 @@ export function BottlePhotoCapture({
     const requestId = ++cameraRequestRef.current;
     setOpen(true);
     setProcessed(null);
+    setProcessingMode(null);
     setCameraError("");
     stopCamera();
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -282,14 +490,28 @@ export function BottlePhotoCapture({
   async function prepare(source: Blob) {
     setBusy(true);
     try {
-      const result = await processBottlePhoto(source);
+      let result: ProcessedBottlePhoto;
+      let mode: "ai" | "local" = "ai";
+      try {
+        result = await processBottlePhotoWithAi(source);
+      } catch (error) {
+        if (error instanceof BottlePhotoAiRequestError && error.status === 422) throw error;
+        result = await processBottlePhoto(source);
+        mode = "local";
+      }
       if (processed) URL.revokeObjectURL(processed.previewUrl);
       setProcessed(result);
+      setProcessingMode(mode);
       stopCamera();
-    } catch {
-      onError(isItalian
-        ? "Non riesco a isolare la bottiglia. Usa un fondo uniforme e contrastante, poi riprova."
-        : "The bottle could not be isolated. Use a plain, contrasting background and try again.");
+    } catch (error) {
+      const aiRejected = error instanceof BottlePhotoAiRequestError && error.status === 422;
+      onError(aiRejected
+        ? (isItalian
+          ? "L’AI non riconosce una sagoma di bottiglia affidabile. Libera lo spazio dietro la bottiglia, riallineala alla guida e riprova."
+          : "AI could not find a reliable bottle outline. Clear the space behind the bottle, realign it with the guide and try again.")
+        : (isItalian
+          ? "Non riesco a isolare la bottiglia. Usa un fondo uniforme e contrastante, poi riprova."
+          : "The bottle could not be isolated. Use a plain, contrasting background and try again."));
     } finally {
       setBusy(false);
     }
@@ -336,6 +558,7 @@ export function BottlePhotoCapture({
   function retake() {
     if (processed) URL.revokeObjectURL(processed.previewUrl);
     setProcessed(null);
+    setProcessingMode(null);
     startCamera();
   }
 
@@ -379,7 +602,18 @@ export function BottlePhotoCapture({
                 : "Place the bottle on a plain, contrasting background. Keep the full outline, centred neck and front-facing label inside the guide."}
             </p>
             <div className={`bottle-capture-stage${processed ? " preview" : ""}`}>
-              {processed ? <img src={processed.previewUrl} alt={isItalian ? "Anteprima scontornata" : "Background-free preview"} /> : (
+              {processed ? (
+                <>
+                  <img src={processed.previewUrl} alt={isItalian ? "Anteprima scontornata" : "Background-free preview"} />
+                  {processingMode ? (
+                    <span className={`bottle-processing-mode ${processingMode}`}>
+                      {processingMode === "ai"
+                        ? (isItalian ? "Scontorno AI" : "AI cutout")
+                        : (isItalian ? "Scontorno locale" : "Local cutout")}
+                    </span>
+                  ) : null}
+                </>
+              ) : (
                 <>
                   <video ref={videoRef} autoPlay muted playsInline onLoadedData={() => { setCameraError(""); setCameraReady(true); }} />
                   <svg className="bottle-guide" viewBox="0 0 200 300" aria-hidden="true">
@@ -389,7 +623,7 @@ export function BottlePhotoCapture({
                   {cameraError ? <div className="bottle-camera-error" role="alert">{cameraError}</div> : null}
                 </>
               )}
-              {busy ? <div className="bottle-processing">{isItalian ? "Elaborazione e scontorno…" : "Processing and removing background…"}</div> : null}
+              {busy ? <div className="bottle-processing">{isItalian ? "Analisi AI e scontorno…" : "AI analysis and background removal…"}</div> : null}
             </div>
             <input ref={fileRef} className="visually-hidden" type="file" accept="image/*" onChange={selectFile} />
             <div className="bottle-capture-tips">

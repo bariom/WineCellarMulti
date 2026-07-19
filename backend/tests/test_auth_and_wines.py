@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import wines as wines_route
 from app.core.config import settings
 from app.core.rate_limit import rate_limiter
 from app.db.base import Base
@@ -173,9 +174,20 @@ def test_register_login_session_and_logout():
     assert login.json()["theme_preference"] == "private-cellar"
 
 
-def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path):
+def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path, monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
+    ai_png = b"\x89PNG\r\n\x1a\nAI bottle result"
+    monkeypatch.setattr(wines_route, "process_bottle_photo", lambda content, model: ai_png)
+    monkeypatch.setattr(settings, "wine_photo_ai_enabled", True)
+    processed = client.post(
+        "/api/v1/wines/photo/process",
+        files={"source_image": ("bottle.jpg", b"source image", "image/jpeg")},
+    )
+    assert processed.status_code == 200
+    assert processed.content == ai_png
+    assert processed.headers["x-bottle-segmentation"] == "birefnet-general-lite"
+
     created = client.post("/api/v1/wines", json={"name": "Photo Bottle", "quantity": 1})
     assert created.status_code == 201
     wine_id = created.json()["id"]
@@ -234,6 +246,13 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
             db.commit()
         assert client.get(payload["photo_detail_url"]).status_code == 403
         assert client.delete(f"/api/v1/wines/{wine_id}/photo").status_code == 403
+        assert (
+            client.post(
+                "/api/v1/wines/photo/process",
+                files={"source_image": ("bottle.jpg", b"source image", "image/jpeg")},
+            ).status_code
+            == 403
+        )
         with TestingSessionLocal() as db:
             user = db.scalar(select(User).where(User.email == "owner@example.com"))
             assert user is not None
