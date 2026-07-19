@@ -1559,6 +1559,7 @@ export function App() {
             is_app_admin: false,
             is_blocked: false,
             can_use_label_recognition: false,
+            can_manage_wine_photos: false,
             ai_credit_balance_usd: "0.000000",
             approved_at: null,
             entitlement_valid_until: null,
@@ -2316,6 +2317,7 @@ export function App() {
       locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en",
       theme_preference: "system",
       can_use_label_recognition: false,
+      can_manage_wine_photos: false,
       has_active_entitlement: false,
       entitlement_valid_until: null,
       entitlement_days_remaining: null,
@@ -2605,6 +2607,22 @@ export function App() {
     setError("");
     try {
       await api<AppUser>(`/api/v1/auth/users/${user.id}`, { method: "PATCH", body: JSON.stringify({ can_use_label_recognition: !user.can_use_label_recognition }) });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleWinePhotoAccess(user: AppUser) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ can_manage_wine_photos: !user.can_manage_wine_photos }),
+      });
       await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update user");
@@ -2999,6 +3017,7 @@ export function App() {
         locale,
         theme_preference: themePreference,
         can_use_label_recognition: false,
+        can_manage_wine_photos: false,
         has_active_entitlement: true,
         entitlement_valid_until: null,
         entitlement_days_remaining: null,
@@ -3882,6 +3901,8 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
+  const canAccessWinePhotos = !offlineMode && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
+  const canManageWinePhotos = canWriteWine && canAccessWinePhotos;
   const canUseLabelRecognition = canWriteWine && Boolean(session?.can_use_label_recognition);
   const canGenerateAi =
     canWriteWine &&
@@ -5913,7 +5934,7 @@ export function App() {
         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
         coOwnershipSection={renderCoOwnershipSection(wine)}
-        photoActions={!offlineMode && session?.is_app_admin ? (
+        photoActions={canManageWinePhotos ? (
           <Suspense fallback={null}>
             <BottlePhotoCapture
               wine={wine}
@@ -5924,7 +5945,7 @@ export function App() {
             />
           </Suspense>
         ) : null}
-        showBottlePhoto={Boolean(session?.is_app_admin)}
+        showBottlePhoto={canAccessWinePhotos}
         t={t}
         locale={locale}
       />
@@ -7705,7 +7726,7 @@ export function App() {
                     ) : null}
                   </div>
                 ) : null}
-                {session?.is_app_admin ? (
+                {canManageWinePhotos ? (
                   <div className="bottle-photo-form-card">
                     <div>
                       <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
@@ -8888,8 +8909,8 @@ export function App() {
                     </button>
                     {openWineToneGroups[group.tone] ? group.items.map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${session?.is_app_admin && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
-                  {session?.is_app_admin && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${canAccessWinePhotos && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                  {canAccessWinePhotos && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(wine.type)}`} />
@@ -8977,7 +8998,7 @@ export function App() {
                         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && entry.feature === "ai_value") || null}
                         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
                         coOwnershipSection={renderCoOwnershipSection(wine)}
-                        photoActions={!offlineMode && session?.is_app_admin ? (
+                        photoActions={canManageWinePhotos ? (
                           <Suspense fallback={null}>
                             <BottlePhotoCapture
                               wine={wine}
@@ -8988,7 +9009,7 @@ export function App() {
                             />
                           </Suspense>
                         ) : null}
-                        showBottlePhoto={Boolean(session?.is_app_admin)}
+                        showBottlePhoto={canAccessWinePhotos}
                         t={t}
                         locale={locale}
                       />
@@ -9836,6 +9857,7 @@ export function App() {
                                 {user.is_blocked ? <span className="status-pill">{t("blocked")}</span> : null}
                                 {user.is_app_admin ? <span className="status-pill">App admin</span> : null}
                                 {user.can_use_label_recognition ? <span className="status-pill">{t("labelRecognitionEnabled")}</span> : null}
+                                {user.can_manage_wine_photos ? <span className="status-pill">{locale === "it" ? "Foto abilitate" : "Photos enabled"}</span> : null}
                                 <span className="status-pill">{formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
                                 {user.entitlement_days_remaining !== null ? <span className="status-pill">{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
                               </div>
@@ -9896,6 +9918,13 @@ export function App() {
                                   </button>
                                   <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
                                     {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
+                                  </button>
+                                  <button type="button" className={user.can_manage_wine_photos ? "compact" : "secondary compact"} disabled={saving || user.is_app_admin} onClick={() => toggleWinePhotoAccess(user)}>
+                                    {user.is_app_admin
+                                      ? (locale === "it" ? "Foto incluse per admin" : "Photos included for admins")
+                                      : user.can_manage_wine_photos
+                                        ? (locale === "it" ? "Disabilita foto" : "Disable photos")
+                                        : (locale === "it" ? "Abilita foto" : "Enable photos")}
                                   </button>
                                   {user.is_approved ? (
                                     <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>

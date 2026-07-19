@@ -297,6 +297,7 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         is_app_admin=user.is_app_admin,
         is_blocked=user.is_blocked,
         can_use_label_recognition=user.can_use_label_recognition,
+        can_manage_wine_photos=user.can_manage_wine_photos,
         ai_credit_balance_usd=ai_credit_balance(db, user),
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,
@@ -972,6 +973,7 @@ def update_user_admin(
         payload.is_app_admin is None
         and payload.is_blocked is None
         and payload.can_use_label_recognition is None
+        and payload.can_manage_wine_photos is None
         and payload.ai_credit_balance_target_usd is None
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No user changes provided")
@@ -993,6 +995,8 @@ def update_user_admin(
             db.query(UserSession).filter(UserSession.user_id == user.id).delete()
     if payload.can_use_label_recognition is not None:
         user.can_use_label_recognition = payload.can_use_label_recognition
+    if payload.can_manage_wine_photos is not None:
+        user.can_manage_wine_photos = payload.can_manage_wine_photos
     if payload.ai_credit_balance_target_usd is not None:
         if payload.ai_credit_balance_target_usd < Decimal("0"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI credit balance cannot be negative")

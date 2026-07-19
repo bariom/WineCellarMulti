@@ -1,6 +1,6 @@
 import math
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import Cookie, Depends, HTTPException, status
 from sqlalchemy import select
@@ -23,20 +23,28 @@ class CurrentContext:
 
 
 def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     entitlements = db.scalars(
         select(UserEntitlement)
         .where(UserEntitlement.user_id == user.id, UserEntitlement.valid_until > now)
         .order_by(UserEntitlement.valid_until.desc()),
     )
     for entitlement in entitlements:
-        valid_until = entitlement.valid_until.replace(tzinfo=timezone.utc) if entitlement.valid_until.tzinfo is None else entitlement.valid_until.astimezone(timezone.utc)
+        valid_until = (
+            entitlement.valid_until.replace(tzinfo=UTC)
+            if entitlement.valid_until.tzinfo is None
+            else entitlement.valid_until.astimezone(UTC)
+        )
         if entitlement.source in {"redeem", "trial"} and entitlement.source_id is not None:
             code = db.get(RedeemCode, entitlement.source_id)
             if code is None or code.revoked_at is not None:
                 continue
             if code.expires_at is not None:
-                code_expires_at = code.expires_at.replace(tzinfo=timezone.utc) if code.expires_at.tzinfo is None else code.expires_at.astimezone(timezone.utc)
+                code_expires_at = (
+                    code.expires_at.replace(tzinfo=UTC)
+                    if code.expires_at.tzinfo is None
+                    else code.expires_at.astimezone(UTC)
+                )
                 if code_expires_at <= now:
                     continue
                 valid_until = min(valid_until, code_expires_at)
@@ -61,12 +69,13 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "locale": "it",
             "theme_preference": "system",
             "can_use_label_recognition": False,
+            "can_manage_wine_photos": False,
             "has_active_entitlement": False,
             "entitlement_valid_until": None,
             "entitlement_days_remaining": None,
         }
     entitlement_days_remaining = (
-        math.ceil((context.entitlement_valid_until - datetime.now(timezone.utc)).total_seconds() / 86400)
+        math.ceil((context.entitlement_valid_until - datetime.now(UTC)).total_seconds() / 86400)
         if context.entitlement_valid_until
         else None
     )
@@ -84,9 +93,14 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "locale": context.user.locale,
         "theme_preference": context.user.theme_preference,
         "can_use_label_recognition": context.user.can_use_label_recognition,
+        "can_manage_wine_photos": context.user.can_manage_wine_photos,
         "has_active_entitlement": context.has_active_entitlement,
-        "entitlement_valid_until": context.entitlement_valid_until.isoformat() if context.entitlement_valid_until else None,
-        "entitlement_days_remaining": max(entitlement_days_remaining, 0) if entitlement_days_remaining is not None else None,
+        "entitlement_valid_until": context.entitlement_valid_until.isoformat()
+        if context.entitlement_valid_until
+        else None,
+        "entitlement_days_remaining": max(entitlement_days_remaining, 0)
+        if entitlement_days_remaining is not None
+        else None,
     }
 
 
@@ -101,7 +115,7 @@ def get_optional_context(
     user_session = db.scalar(select(UserSession).where(UserSession.token_hash == token_hash))
     if user_session is None:
         return None
-    if user_session.expires_at.replace(tzinfo=timezone.utc) <= datetime.now(timezone.utc):
+    if user_session.expires_at.replace(tzinfo=UTC) <= datetime.now(UTC):
         db.delete(user_session)
         db.commit()
         return None
@@ -112,7 +126,10 @@ def get_optional_context(
         db.delete(user_session)
         db.commit()
         return None
-    email_verification_required = not settings.registration_requires_approval and getattr(user, "email_verified_at", None) is None
+    email_verification_required = (
+        not settings.registration_requires_approval
+        and getattr(user, "email_verified_at", None) is None
+    )
     if not user.is_approved or user.is_blocked or email_verification_required:
         db.delete(user_session)
         db.commit()
@@ -138,21 +155,31 @@ def get_optional_context(
     )
 
 
-def get_authenticated_context(context: CurrentContext | None = Depends(get_optional_context)) -> CurrentContext:
+def get_authenticated_context(
+    context: CurrentContext | None = Depends(get_optional_context),
+) -> CurrentContext:
     if context is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required"
+        )
     return context
 
 
-def get_current_context(context: CurrentContext = Depends(get_authenticated_context)) -> CurrentContext:
+def get_current_context(
+    context: CurrentContext = Depends(get_authenticated_context),
+) -> CurrentContext:
     if not context.user.is_app_admin and not context.has_active_entitlement:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Redeem code required")
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Redeem code required"
+        )
     return context
 
 
 def require_role(context: CurrentContext, allowed_roles: set[str]) -> CurrentContext:
     if context.membership.role not in allowed_roles:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions"
+        )
     return context
 
 
@@ -160,10 +187,30 @@ def require_admin_context(context: CurrentContext = Depends(get_current_context)
     return require_role(context, {"owner", "admin"})
 
 
-def require_app_admin_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:
+def require_app_admin_context(
+    context: CurrentContext = Depends(get_current_context),
+) -> CurrentContext:
     if not context.user.is_app_admin:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Application administrator required")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Application administrator required"
+        )
     return context
+
+
+def require_wine_photo_context(
+    context: CurrentContext = Depends(get_current_context),
+) -> CurrentContext:
+    if not context.user.is_app_admin and not context.user.can_manage_wine_photos:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Bottle photo access required"
+        )
+    return context
+
+
+def require_wine_photo_write_context(
+    context: CurrentContext = Depends(require_wine_photo_context),
+) -> CurrentContext:
+    return require_role(context, {"owner", "admin", "member"})
 
 
 def require_write_context(context: CurrentContext = Depends(get_current_context)) -> CurrentContext:

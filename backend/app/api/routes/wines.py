@@ -16,7 +16,8 @@ from app.api.deps import (
     CurrentContext,
     get_current_context,
     require_admin_context,
-    require_app_admin_context,
+    require_wine_photo_context,
+    require_wine_photo_write_context,
     require_write_context,
 )
 from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
@@ -1032,7 +1033,7 @@ def get_wine(
 @router.post("/photo/process", response_class=Response)
 async def process_wine_photo(
     source_image: UploadFile = File(...),
-    context: CurrentContext = Depends(require_app_admin_context),
+    context: CurrentContext = Depends(require_wine_photo_write_context),
 ) -> Response:
     del context
     if not settings.wine_photo_ai_enabled:
@@ -1086,7 +1087,7 @@ async def upload_wine_photo(
     thumbnail_image: UploadFile = File(...),
     detail_image: UploadFile = File(...),
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_app_admin_context),
+    context: CurrentContext = Depends(require_wine_photo_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     thumbnail = await thumbnail_image.read(PHOTO_SIZES["thumbnail"][2] + 1)
@@ -1124,7 +1125,7 @@ def get_wine_photo(
     wine_id: UUID,
     size: str,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_app_admin_context),
+    context: CurrentContext = Depends(require_wine_photo_context),
 ) -> FileResponse:
     if size not in PHOTO_SIZES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
@@ -1143,7 +1144,7 @@ def get_wine_photo(
 def delete_wine_photo(
     wine_id: UUID,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_app_admin_context),
+    context: CurrentContext = Depends(require_wine_photo_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     for size in PHOTO_SIZES:
