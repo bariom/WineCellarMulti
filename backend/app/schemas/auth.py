@@ -1,4 +1,5 @@
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field
 
@@ -8,6 +9,7 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=200)
     household_name: str = Field(min_length=1, max_length=160)
+    photo_usage_disclaimer_accepted: Literal[True]
 
 
 class LoginRequest(BaseModel):

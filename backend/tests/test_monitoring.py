@@ -50,6 +50,7 @@ def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
             "display_name": "Cellar Owner",
             "password": "strong-password-1",
             "household_name": "Main Cellar",
+            "photo_usage_disclaimer_accepted": True,
         },
     )
     assert registered.status_code == 201

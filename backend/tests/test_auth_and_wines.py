@@ -71,6 +71,7 @@ def register(
             "display_name": "Cellar Owner",
             "password": password,
             "household_name": "Main Cellar",
+            "photo_usage_disclaimer_accepted": True,
         },
     )
 
@@ -84,6 +85,27 @@ def create_redeem_code(
     created = admin_client.post("/api/v1/billing/redeem-codes", json=payload)
     assert created.status_code == 201
     return created.json()["code"]
+
+
+def test_registration_requires_photo_usage_disclaimer_acceptance():
+    client = TestClient(app)
+    registration = {
+        "email": "owner@example.com",
+        "display_name": "Cellar Owner",
+        "password": "strong-password-1",
+        "household_name": "Main Cellar",
+    }
+
+    missing = client.post("/api/v1/auth/register", json=registration)
+    declined = client.post(
+        "/api/v1/auth/register",
+        json={**registration, "photo_usage_disclaimer_accepted": False},
+    )
+
+    assert missing.status_code == 422
+    assert declined.status_code == 422
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(User).where(User.email == "owner@example.com")) is None
 
 
 def test_register_login_session_and_logout():
@@ -103,6 +125,10 @@ def test_register_login_session_and_logout():
     assert registered.json()["locale"] == "it"
     assert registered.json()["theme_preference"] == "system"
     assert client.get("/api/v1/auth/passkeys").json() == []
+    with TestingSessionLocal() as db:
+        registered_user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert registered_user is not None
+        assert registered_user.photo_usage_disclaimer_accepted_at is not None
 
     preferences = client.patch(
         "/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "private-cellar"}
@@ -388,6 +414,7 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
             "display_name": "First",
             "password": "strong-password-1",
             "household_name": "First Cellar",
+            "photo_usage_disclaimer_accepted": True,
         },
     )
     second = client.post(
@@ -398,6 +425,7 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
             "display_name": "Second",
             "password": "strong-password-2",
             "household_name": "Second Cellar",
+            "photo_usage_disclaimer_accepted": True,
         },
     )
     limited = client.post(
@@ -408,6 +436,7 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
             "display_name": "Third",
             "password": "strong-password-3",
             "household_name": "Third Cellar",
+            "photo_usage_disclaimer_accepted": True,
         },
     )
 

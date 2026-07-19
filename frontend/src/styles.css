@@ -5354,6 +5354,34 @@ textarea {
   z-index: 1;
 }
 
+.wine-form .photo-disclaimer-consent {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-subtle) 88%, var(--accent) 12%);
+  cursor: pointer;
+}
+
+.wine-form .photo-disclaimer-consent input {
+  width: 19px;
+  height: 19px;
+  min-height: 0;
+  margin: 1px 0 0;
+  accent-color: var(--primary);
+  box-shadow: none;
+}
+
+.wine-form .photo-disclaimer-consent span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.5;
+}
+
 .key-position-head span,
 .key-position-metrics span,
 .key-position-maturity span {

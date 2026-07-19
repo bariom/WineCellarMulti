@@ -256,6 +256,7 @@ const emptyAuthDraft: AuthDraft = {
   household_name: "Main Cellar",
   password: "",
   password_confirm: "",
+  photo_usage_disclaimer_accepted: false,
 };
 
 const emptyContactSupportDraft: ContactSupportDraft = {
@@ -1644,16 +1645,12 @@ export function App() {
       await api<{ accepted: boolean }>("/api/v1/support/contact", {
         method: "POST",
         body: JSON.stringify({
-          email: contactSupportDraft.email.trim() || session?.user_email || "",
+          email: contactSupportDraft.email.trim(),
           subject: contactSupportDraft.subject.trim(),
           message: contactSupportDraft.message.trim(),
         }),
       });
-      setContactSupportDraft({
-        email: session?.user_email || "",
-        subject: "",
-        message: "",
-      });
+      setContactSupportDraft(emptyContactSupportDraft);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to send support request");
     } finally {
@@ -2169,7 +2166,13 @@ export function App() {
       const path = authMode === "register" ? "/api/v1/auth/register" : "/api/v1/auth/login";
       const payload =
         authMode === "register"
-          ? { email: authDraft.email, display_name: authDraft.display_name, household_name: authDraft.household_name, password: authDraft.password }
+          ? {
+              email: authDraft.email,
+              display_name: authDraft.display_name,
+              household_name: authDraft.household_name,
+              password: authDraft.password,
+              photo_usage_disclaimer_accepted: authDraft.photo_usage_disclaimer_accepted,
+            }
           : { email: authDraft.email, password: authDraft.password };
       const nextSession = await api<Session>(path, { method: "POST", body: JSON.stringify(payload) });
       setSession(nextSession);
@@ -4152,6 +4155,17 @@ export function App() {
             <input type="password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
           </label>
         ) : null}
+        {authMode === "register" ? (
+          <label className="photo-disclaimer-consent">
+            <input
+              type="checkbox"
+              checked={authDraft.photo_usage_disclaimer_accepted}
+              onChange={(event) => setAuthDraft({ ...authDraft, photo_usage_disclaimer_accepted: event.target.checked })}
+              required
+            />
+            <span>{t("photoUsageDisclaimerConsent")}</span>
+          </label>
+        ) : null}
         <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("sendPasswordReset") : authMode === "reset-password" ? t("saveNewPassword") : t("login")}</button>
         {authMode === "login" ? (
           <>
@@ -4467,16 +4481,6 @@ export function App() {
     if (!selectedWishlistListId) return;
     setWishlistDraft((current) => current.wishlist_list_id ? current : { ...current, wishlist_list_id: selectedWishlistListId });
   }, [selectedWishlistListId]);
-
-  useEffect(() => {
-    if (session?.user_email) {
-      setContactSupportDraft((current) => (current.email ? current : { ...current, email: session.user_email || "" }));
-      return;
-    }
-    if (!authenticated && authDraft.email && !contactSupportDraft.email) {
-      setContactSupportDraft((current) => (current.email ? current : { ...current, email: authDraft.email }));
-    }
-  }, [session?.user_email, authenticated, authDraft.email, contactSupportDraft.email]);
 
   useEffect(() => {
     if (offlineMode || !session?.authenticated) {

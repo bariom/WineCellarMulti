@@ -21,6 +21,9 @@ class User(Base):
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
     can_use_label_recognition: Mapped[bool] = mapped_column(Boolean, default=False)
     can_manage_wine_photos: Mapped[bool] = mapped_column(Boolean, default=False)
+    photo_usage_disclaimer_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

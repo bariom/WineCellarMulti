@@ -561,6 +561,7 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
         email=email,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
+        photo_usage_disclaimer_accepted_at=datetime.now(UTC),
         is_approved=is_approved,
         is_app_admin=first_user,
         approved_at=datetime.now(UTC) if is_approved else None,

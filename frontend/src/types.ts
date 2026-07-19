@@ -693,6 +693,7 @@ export type AuthDraft = {
   household_name: string;
   password: string;
   password_confirm: string;
+  photo_usage_disclaimer_accepted: boolean;
 };
 
 export type ContactSupportDraft = {
