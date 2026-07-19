@@ -16198,8 +16198,8 @@ tbody tr:hover {
   height: 78px;
   object-fit: contain;
   filter:
-    drop-shadow(0 2px 2px color-mix(in srgb, var(--text) 28%, transparent))
-    drop-shadow(0 0 5px color-mix(in srgb, var(--text) 16%, transparent));
+    drop-shadow(0 3px 3px color-mix(in srgb, var(--text) 38%, transparent))
+    drop-shadow(0 0 8px color-mix(in srgb, var(--text) 28%, transparent));
 }
 
 .wine-row.has-bottle-photo .wine-row-main {
@@ -16219,8 +16219,8 @@ tbody tr:hover {
   height: 220px;
   object-fit: contain;
   filter:
-    drop-shadow(0 6px 7px color-mix(in srgb, var(--text) 24%, transparent))
-    drop-shadow(0 0 14px color-mix(in srgb, var(--text) 14%, transparent));
+    drop-shadow(0 8px 9px color-mix(in srgb, var(--text) 34%, transparent))
+    drop-shadow(0 0 20px color-mix(in srgb, var(--text) 26%, transparent));
 }
 
 @media print {

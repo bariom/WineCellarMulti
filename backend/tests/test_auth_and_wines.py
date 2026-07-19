@@ -188,7 +188,15 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
     assert processed.content == ai_png
     assert processed.headers["x-bottle-segmentation"] == "birefnet-general-lite"
 
-    created = client.post("/api/v1/wines", json={"name": "Photo Bottle", "quantity": 1})
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Photo Bottle",
+            "producer": "Photo Estate",
+            "vintage": "2019",
+            "quantity": 1,
+        },
+    )
     assert created.status_code == 201
     wine_id = created.json()["id"]
     assert created.json()["photo_thumbnail_url"] == ""
@@ -228,6 +236,40 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert detail.status_code == 200
         assert detail.headers["cache-control"] == "private, max-age=31536000, immutable"
 
+        main_household_id = client.get("/api/v1/session").json()["active_household_id"]
+        second_household = client.post("/api/v1/household", json={"name": "Second Cellar"})
+        assert second_household.status_code == 201
+        suggestion = client.get(
+            "/api/v1/wines/photo/suggestion",
+            params={"name": " photo bottle ", "producer": "PHOTO ESTATE"},
+        )
+        assert suggestion.status_code == 200
+        assert suggestion.json()["source_wine_id"] == wine_id
+        assert client.get(suggestion.json()["thumbnail_url"]).status_code == 200
+
+        target = client.post(
+            "/api/v1/wines",
+            json={
+                "name": "Photo Bottle",
+                "producer": "Photo Estate",
+                "vintage": "2024",
+                "quantity": 1,
+            },
+        )
+        assert target.status_code == 201
+        target_id = target.json()["id"]
+        reused = client.post(f"/api/v1/wines/{target_id}/photo/reuse/{wine_id}")
+        assert reused.status_code == 200
+        assert reused.json()["photo_detail_url"]
+        assert client.get(reused.json()["photo_detail_url"]).content == detail.content
+        assert client.delete(f"/api/v1/wines/{target_id}/photo").status_code == 200
+        assert (
+            client.post(
+                "/api/v1/household/switch", json={"household_id": main_household_id}
+            ).status_code
+            == 200
+        )
+
         admin_photos = client.get("/api/v1/admin/operations/photos")
         assert admin_photos.status_code == 200
         assert admin_photos.json()["total"] == 1
@@ -257,6 +299,14 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert client.get("/api/v1/admin/operations/photos").status_code == 403
         assert client.get(admin_photo["thumbnail_url"]).status_code == 403
         assert client.delete(f"/api/v1/admin/operations/photos/{wine_id}").status_code == 403
+        assert client.get(suggestion.json()["thumbnail_url"]).status_code == 403
+        assert (
+            client.get(
+                "/api/v1/wines/photo/suggestion",
+                params={"name": "Photo Bottle", "producer": "Photo Estate"},
+            ).status_code
+            == 403
+        )
         assert (
             client.post(
                 "/api/v1/wines/photo/process",
@@ -276,6 +326,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         )
         assert delegated_process.status_code == 200
         assert client.get(payload["photo_detail_url"]).status_code == 200
+        assert client.get(suggestion.json()["thumbnail_url"]).status_code == 200
         delegated_upload = client.put(
             f"/api/v1/wines/{wine_id}/photo",
             files={

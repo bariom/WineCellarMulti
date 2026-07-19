@@ -54,7 +54,7 @@
 .operations-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .operations-photo-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
 .operations-photo-card > a { display: grid; grid-row: 1 / span 2; width: 72px; height: 104px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--surface) 74%, transparent); }
-.operations-photo-card img { width: 58px; height: 94px; object-fit: contain; filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--text) 20%, transparent)); }
+.operations-photo-card img { width: 58px; height: 94px; object-fit: contain; filter: drop-shadow(0 4px 5px color-mix(in srgb, var(--text) 34%, transparent)) drop-shadow(0 0 10px color-mix(in srgb, var(--text) 24%, transparent)); }
 .operations-photo-card > div { display: grid; align-content: center; gap: 3px; min-width: 0; }
 .operations-photo-card > div > strong, .operations-photo-card > div > span, .operations-photo-card > div > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .operations-photo-card > button { align-self: end; justify-self: start; }

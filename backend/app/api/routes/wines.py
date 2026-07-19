@@ -1,4 +1,5 @@
 import logging
+import shutil
 import struct
 import uuid
 from datetime import UTC, date, datetime
@@ -96,6 +97,28 @@ def validate_processed_photo(content: bytes, size: str) -> None:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Bottle photos must include transparency",
         )
+
+
+def copy_wine_photo(source: Wine, target: Wine) -> None:
+    source_paths = {size: wine_photo_path(source, size) for size in PHOTO_SIZES}
+    if not source.photo_version or not all(path.is_file() for path in source_paths.values()):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+
+    target_dir = wine_photo_path(target, "detail").parent
+    target_dir.mkdir(parents=True, exist_ok=True)
+    temporary_paths: list[Path] = []
+    try:
+        for size, source_path in source_paths.items():
+            temporary = wine_photo_path(target, size).with_suffix(".tmp")
+            shutil.copyfile(source_path, temporary)
+            temporary_paths.append(temporary)
+        for size, temporary in zip(PHOTO_SIZES, temporary_paths, strict=True):
+            temporary.replace(wine_photo_path(target, size))
+    finally:
+        for temporary in temporary_paths:
+            temporary.unlink(missing_ok=True)
+
+    target.photo_version = uuid.uuid4().hex
 
 
 def photo_urls(wine: Wine) -> dict[str, str]:
@@ -1081,6 +1104,57 @@ async def process_wine_photo(
     )
 
 
+@router.get("/photo/suggestion")
+def suggest_wine_photo(
+    name: str = Query(min_length=2, max_length=200),
+    producer: str = Query(min_length=1, max_length=200),
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_wine_photo_context),
+) -> dict[str, str] | None:
+    normalized_name = name.strip().lower()
+    normalized_producer = producer.strip().lower()
+    if not normalized_name or not normalized_producer:
+        return None
+    wine = db.scalar(
+        select(Wine)
+        .where(
+            Wine.photo_version != "",
+            func.lower(func.trim(Wine.name)) == normalized_name,
+            func.lower(func.trim(Wine.producer)) == normalized_producer,
+        )
+        .limit(1)
+    )
+    if wine is None or not all(wine_photo_path(wine, size).is_file() for size in PHOTO_SIZES):
+        return None
+    return {
+        "source_wine_id": str(wine.id),
+        "thumbnail_url": f"/api/v1/wines/photo/library/{wine.id}/thumbnail?v={wine.photo_version}",
+        "detail_url": f"/api/v1/wines/photo/library/{wine.id}/detail?v={wine.photo_version}",
+    }
+
+
+@router.get("/photo/library/{source_wine_id}/{size}", response_class=FileResponse)
+def get_library_wine_photo(
+    source_wine_id: UUID,
+    size: str,
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_wine_photo_context),
+) -> FileResponse:
+    if size not in PHOTO_SIZES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    source = db.get(Wine, source_wine_id)
+    if source is None or not source.photo_version:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    path = wine_photo_path(source, size)
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    return FileResponse(
+        path,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
+
+
 @router.put("/{wine_id}/photo", response_model=WineResponse)
 async def upload_wine_photo(
     wine_id: UUID,
@@ -1111,6 +1185,27 @@ async def upload_wine_photo(
             temporary.unlink(missing_ok=True)
 
     wine.photo_version = uuid.uuid4().hex
+    db.commit()
+    db.refresh(wine)
+    return wine_response(
+        wine,
+        user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+    )
+
+
+@router.post("/{wine_id}/photo/reuse/{source_wine_id}", response_model=WineResponse)
+def reuse_wine_photo(
+    wine_id: UUID,
+    source_wine_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_wine_photo_write_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    source = db.get(Wine, source_wine_id)
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    copy_wine_photo(source, wine)
     db.commit()
     db.refresh(wine)
     return wine_response(

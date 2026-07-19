@@ -777,6 +777,12 @@ export type OperationalMetricsHistory = {
   samples: Array<Pick<OperationalMetricsOverview, "collected_at" | "system" | "application" | "business">>;
 };
 
+export type WinePhotoSuggestion = {
+  source_wine_id: string;
+  thumbnail_url: string;
+  detail_url: string;
+};
+
 export type OperationalWinePhoto = {
   wine_id: string;
   name: string;

@@ -3,7 +3,7 @@ import { AppIcon, AppIconName } from "./components/AppIcon";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -965,6 +965,8 @@ export function App() {
   const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
   const [pendingBottlePhoto, setPendingBottlePhoto] = useState<PreparedBottlePhoto | null>(null);
+  const [winePhotoSuggestion, setWinePhotoSuggestion] = useState<WinePhotoSuggestion | null>(null);
+  const [selectedSuggestedPhotoId, setSelectedSuggestedPhotoId] = useState<string | null>(null);
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
@@ -3310,10 +3312,20 @@ export function App() {
               ? "Il vino è stato creato, ma la foto non è stata salvata. Puoi aggiungerla dal dettaglio."
               : "The wine was created, but its photo was not saved. You can add it from the detail view.");
           }
+        } else if (selectedSuggestedPhotoId) {
+          try {
+            await api<Wine>(`/api/v1/wines/${created.id}/photo/reuse/${selectedSuggestedPhotoId}`, { method: "POST" });
+          } catch {
+            setError(locale === "it"
+              ? "Il vino è stato creato, ma la foto proposta non è più disponibile. Puoi aggiungerne una dal dettaglio."
+              : "The wine was created, but the suggested photo is no longer available. You can add one from the detail view.");
+          }
         }
       }
       setDraft(emptyDraft);
       setPendingBottlePhoto(null);
+      setWinePhotoSuggestion(null);
+      setSelectedSuggestedPhotoId(null);
       setEditingId(null);
       setSelectedWineId(null);
       setWineFormOpen(false);
@@ -3904,6 +3916,29 @@ export function App() {
   const canAccessWinePhotos = !offlineMode && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
   const canManageWinePhotos = canWriteWine && canAccessWinePhotos;
   const canUseLabelRecognition = canWriteWine && Boolean(session?.can_use_label_recognition);
+
+  useEffect(() => {
+    setWinePhotoSuggestion(null);
+    setSelectedSuggestedPhotoId(null);
+    const name = draft.name.trim();
+    const producer = draft.producer.trim();
+    if (!wineFormOpen || editingId || !canManageWinePhotos || pendingBottlePhoto || name.length < 2 || !producer) return;
+
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      const query = new URLSearchParams({ name, producer });
+      api<WinePhotoSuggestion | null>(`/api/v1/wines/photo/suggestion?${query.toString()}`, { signal: controller.signal })
+        .then((suggestion) => setWinePhotoSuggestion(suggestion))
+        .catch(() => {
+          if (!controller.signal.aborted) setWinePhotoSuggestion(null);
+        });
+    }, 350);
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [canManageWinePhotos, draft.name, draft.producer, editingId, pendingBottlePhoto, wineFormOpen]);
+
   const canGenerateAi =
     canWriteWine &&
     Boolean(
@@ -5073,6 +5108,8 @@ export function App() {
     setWineRecognitionTarget("wine");
     setDraft(emptyDraft);
     setPendingBottlePhoto(null);
+    setWinePhotoSuggestion(null);
+    setSelectedSuggestedPhotoId(null);
     setEditingId(null);
     setWineFormOpen(true);
   }
@@ -5146,6 +5183,8 @@ export function App() {
     setEditingId(wine.id);
     setDraft(wineToDraft(wine));
     setPendingBottlePhoto(null);
+    setWinePhotoSuggestion(null);
+    setSelectedSuggestedPhotoId(null);
     setWineFormOpen(true);
   }
 
@@ -5280,6 +5319,8 @@ export function App() {
     setEditingId(null);
     setDraft(emptyDraft);
     setPendingBottlePhoto(null);
+    setWinePhotoSuggestion(null);
+    setSelectedSuggestedPhotoId(null);
     setWineFormOpen(false);
   }
 
@@ -7744,14 +7785,42 @@ export function App() {
                       <BottlePhotoCapture
                         wine={editingId ? selectedWine || undefined : undefined}
                         draftName={draft.name}
-                        prepared={!editingId && Boolean(pendingBottlePhoto)}
+                        prepared={!editingId && Boolean(pendingBottlePhoto || selectedSuggestedPhotoId)}
                         canWrite={canWriteWine}
                         locale={locale}
-                        onPrepared={editingId ? undefined : setPendingBottlePhoto}
+                        onPrepared={editingId ? undefined : (photo) => {
+                          setSelectedSuggestedPhotoId(null);
+                          setPendingBottlePhoto(photo);
+                        }}
                         onSaved={(updated) => setWines((current) => current.map((item) => item.id === updated.id ? updated : item))}
                         onError={(message) => setError(formatUserErrorMessage(message, locale))}
                       />
                     </Suspense>
+                    {!editingId && winePhotoSuggestion ? (
+                      <div className={`wine-photo-suggestion${selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id ? " selected" : ""}`}>
+                        <img src={winePhotoSuggestion.thumbnail_url} alt={locale === "it" ? `Foto proposta per ${draft.name}` : `Suggested photo for ${draft.name}`} />
+                        <div>
+                          <strong>{locale === "it" ? "Foto già disponibile" : "Photo already available"}</strong>
+                          <small>
+                            {locale === "it"
+                              ? "Trovata per lo stesso vino in un'altra cantina, indipendentemente dall'annata."
+                              : "Found for the same wine in another cellar, regardless of vintage."}
+                          </small>
+                          <button
+                            type="button"
+                            className={selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id ? "compact" : "secondary compact"}
+                            onClick={() => {
+                              setPendingBottlePhoto(null);
+                              setSelectedSuggestedPhotoId((current) => current === winePhotoSuggestion.source_wine_id ? null : winePhotoSuggestion.source_wine_id);
+                            }}
+                          >
+                            {selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id
+                              ? (locale === "it" ? "Foto selezionata" : "Photo selected")
+                              : (locale === "it" ? "Usa questa foto" : "Use this photo")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
                 <label>

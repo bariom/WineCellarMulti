@@ -27,6 +27,37 @@
 
 .bottle-photo-form-card small { color: var(--text-muted); }
 
+.wine-photo-suggestion {
+  grid-template-columns: 72px minmax(0, 1fr);
+  align-items: center;
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.wine-photo-suggestion.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.wine-photo-suggestion img {
+  width: 72px;
+  height: 108px;
+  object-fit: contain;
+  filter:
+    drop-shadow(0 4px 5px color-mix(in srgb, var(--text) 36%, transparent))
+    drop-shadow(0 0 12px color-mix(in srgb, var(--text) 26%, transparent));
+}
+
+.wine-photo-suggestion > div {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+}
+
 .bottle-capture-modal {
   display: grid;
   width: min(520px, 100%);
