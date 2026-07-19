@@ -55,6 +55,7 @@ const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
+const KeyPositionBottlePhoto = lazy(() => import("./components/KeyPositionBottlePhoto").then((module) => ({ default: module.KeyPositionBottlePhoto })));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
@@ -7014,8 +7015,11 @@ export function App() {
                         ref={keyPositionStripRef}
                       >
                         {keyPositionCandidates.map(({ wine, highlight, priceIncreasePct, ownedValue, totalValue, action, actionTone, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
-                          <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <button type="button" className={`key-position-button${canAccessWinePhotos && wine.photo_detail_url ? " has-bottle-photo" : ""}`} key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
+                            {canAccessWinePhotos && wine.photo_detail_url ? (
+                              <Suspense fallback={null}><KeyPositionBottlePhoto photoUrl={wine.photo_detail_url} /></Suspense>
+                            ) : null}
                             <div className="key-position-head">
                               <div>
                                 <span>{highlight}</span>
