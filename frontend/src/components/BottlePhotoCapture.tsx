@@ -469,6 +469,7 @@ export function BottlePhotoCapture({
   const [busy, setBusy] = useState(false);
   const [processed, setProcessed] = useState<ProcessedBottlePhoto | null>(null);
   const [processingMode, setProcessingMode] = useState<"ai" | "local" | null>(null);
+  const [fallbackMessage, setFallbackMessage] = useState("");
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -486,6 +487,7 @@ export function BottlePhotoCapture({
     if (processed) URL.revokeObjectURL(processed.previewUrl);
     setProcessed(null);
     setProcessingMode(null);
+    setFallbackMessage("");
     setOpen(false);
   }
 
@@ -533,6 +535,7 @@ export function BottlePhotoCapture({
     setOpen(true);
     setProcessed(null);
     setProcessingMode(null);
+    setFallbackMessage("");
     setCameraError("");
     stopCamera();
     if (!navigator.mediaDevices?.getUserMedia) {
@@ -562,6 +565,7 @@ export function BottlePhotoCapture({
 
   async function prepare(source: Blob) {
     setBusy(true);
+    setFallbackMessage("");
     try {
       let result: ProcessedBottlePhoto;
       let mode: "ai" | "local" = "ai";
@@ -569,6 +573,12 @@ export function BottlePhotoCapture({
         result = await processBottlePhotoWithAi(source);
       } catch (error) {
         if (error instanceof BottlePhotoAiRequestError && error.status === 422) throw error;
+        const reason = error instanceof BottlePhotoAiRequestError
+          ? `${error.status}: ${error.message}`
+          : (error instanceof Error ? error.message : "unknown error");
+        setFallbackMessage(isItalian
+          ? `AI non disponibile (${reason}). È stato applicato lo scontorno locale.`
+          : `AI unavailable (${reason}). Local cutout was applied.`);
         result = await processBottlePhoto(source);
         mode = "local";
       }
@@ -632,6 +642,7 @@ export function BottlePhotoCapture({
     if (processed) URL.revokeObjectURL(processed.previewUrl);
     setProcessed(null);
     setProcessingMode(null);
+    setFallbackMessage("");
     startCamera();
   }
 
@@ -698,6 +709,7 @@ export function BottlePhotoCapture({
               )}
               {busy ? <div className="bottle-processing">{isItalian ? "Analisi AI e scontorno…" : "AI analysis and background removal…"}</div> : null}
             </div>
+            {fallbackMessage ? <p className="bottle-fallback-message" role="status">{fallbackMessage}</p> : null}
             <input ref={fileRef} className="visually-hidden" type="file" accept="image/*" onChange={selectFile} />
             <div className="bottle-capture-tips">
               <span>{isItalian ? "✓ Luce morbida frontale" : "✓ Soft frontal light"}</span>

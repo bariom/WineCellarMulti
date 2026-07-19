@@ -90,6 +90,8 @@ if [[ ! -x ".venv/bin/python" ]]; then
 fi
 .venv/bin/python -m pip install --upgrade pip
 .venv/bin/python -m pip install -e ".[dev,photo-ai]"
+echo "Checking bottle photo AI model"
+.venv/bin/python -c 'from app.core.config import settings; from app.services.bottle_photo_ai import warm_bottle_photo_model; warm_bottle_photo_model(settings.wine_photo_ai_model) if settings.wine_photo_ai_enabled else None'
 .venv/bin/alembic upgrade head
 
 echo "Preparing frontend"

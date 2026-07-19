@@ -1,3 +1,4 @@
+import logging
 import struct
 import uuid
 from datetime import UTC, date, datetime
@@ -56,6 +57,7 @@ from app.services.bottle_photo_ai import (
 from app.services.notifications import create_user_notification
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 PHOTO_SIZES = {"thumbnail": (160, 240, 512_000), "detail": (480, 720, 2_000_000)}
 
@@ -1063,6 +1065,7 @@ async def process_wine_photo(
             detail=str(error),
         ) from error
     except BottlePhotoAiUnavailable as error:
+        logger.exception("Bottle photo AI processing is unavailable")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=str(error),

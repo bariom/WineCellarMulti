@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 def warm_photo_ai() -> None:
     try:
         warm_bottle_photo_model(settings.wine_photo_ai_model)
-    except BottlePhotoAiUnavailable as error:
-        logger.warning("Bottle photo AI warm-up failed: %s", error)
+    except BottlePhotoAiUnavailable:
+        logger.exception("Bottle photo AI warm-up failed")
 
 
 @asynccontextmanager
