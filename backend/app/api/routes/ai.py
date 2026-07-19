@@ -219,6 +219,7 @@ def ai_settings_response(db: Session, context: CurrentContext, user_settings: Us
         app_credit_balance_usd=app_balance,
         ai_credit_pack_size_usd=stripe_ai_credit_amount() if settings.stripe_ai_credit_price_id else ZERO_USD,
         can_use_app_credits=can_use_app_credits,
+        can_use_included_wine_search=bool(settings.openai_api_key.strip()),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
@@ -487,8 +488,18 @@ def create_ai_response(
     max_tool_calls: int | None = None,
     task_type: str = "sommelier",
     complexity: str | None = None,
+    app_funded: bool = False,
 ) -> tuple[Any, str]:
-    provider_source, api_key = select_ai_provider(db, context, user_settings)
+    if app_funded:
+        api_key = settings.openai_api_key.strip()
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Application OpenAI API key is not configured",
+            )
+        provider_source = "application"
+    else:
+        provider_source, api_key = select_ai_provider(db, context, user_settings)
     # A per-feature model selected in Settings is an explicit user preference.
     # Routing remains the fallback only when a caller deliberately provides no model.
     requested_model = model
@@ -586,6 +597,8 @@ def record_ai_audit(
         extra_cost_usd=extra_cost_usd,
     )
     source_metadata: dict[str, str] = {"provider_source": provider_source}
+    if provider_source == "application":
+        source_metadata["funded_by"] = "application"
     if provider_source == "credits":
         source_metadata["base_cost_usd"] = str(base_cost)
         source_metadata["charged_cost_usd"] = str(billed_cost)
@@ -1587,6 +1600,7 @@ def enrich_wine_label(
         ),
         json_schema=schema,
         web_search=True,
+        app_funded=payload.source == "manual",
     )
     result = parse_json_response(response.text)
     cleaned = WineLabelEnrichmentResponse(
@@ -1606,7 +1620,7 @@ def enrich_wine_label(
         context,
         entity_type="catalog",
         entity_id=context.household.id,
-        feature="wine_label_enrichment",
+        feature="wine_name_search" if payload.source == "manual" else "wine_label_enrichment",
         model=effective_response_model(response, model),
         reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.label}: {cleaned.producer} {cleaned.name} {cleaned.vintage}".strip(),

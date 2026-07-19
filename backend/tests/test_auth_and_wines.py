@@ -197,6 +197,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
     previous_storage_dir = settings.wine_photo_storage_dir
     settings.wine_photo_storage_dir = str(tmp_path)
     try:
+
         def transparent_png_header(width: int, height: int) -> bytes:
             return (
                 b"\x89PNG\r\n\x1a\n"
@@ -218,9 +219,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert payload["photo_thumbnail_url"].startswith(
             f"/api/v1/wines/{wine_id}/photo/thumbnail?v="
         )
-        assert payload["photo_detail_url"].startswith(
-            f"/api/v1/wines/{wine_id}/photo/detail?v="
-        )
+        assert payload["photo_detail_url"].startswith(f"/api/v1/wines/{wine_id}/photo/detail?v=")
 
         thumbnail = client.get(payload["photo_thumbnail_url"])
         detail = client.get(payload["photo_detail_url"])
@@ -228,6 +227,15 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert thumbnail.headers["content-type"] == "image/png"
         assert detail.status_code == 200
         assert detail.headers["cache-control"] == "private, max-age=31536000, immutable"
+
+        admin_photos = client.get("/api/v1/admin/operations/photos")
+        assert admin_photos.status_code == 200
+        assert admin_photos.json()["total"] == 1
+        admin_photo = admin_photos.json()["items"][0]
+        assert admin_photo["wine_id"] == wine_id
+        assert admin_photo["name"] == "Photo Bottle"
+        assert admin_photo["household_name"] == "Main Cellar"
+        assert client.get(admin_photo["thumbnail_url"]).status_code == 200
 
         with TestingSessionLocal() as db:
             user = db.scalar(select(User).where(User.email == "owner@example.com"))
@@ -246,6 +254,9 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
             db.commit()
         assert client.get(payload["photo_detail_url"]).status_code == 403
         assert client.delete(f"/api/v1/wines/{wine_id}/photo").status_code == 403
+        assert client.get("/api/v1/admin/operations/photos").status_code == 403
+        assert client.get(admin_photo["thumbnail_url"]).status_code == 403
+        assert client.delete(f"/api/v1/admin/operations/photos/{wine_id}").status_code == 403
         assert (
             client.post(
                 "/api/v1/wines/photo/process",
@@ -272,6 +283,20 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert removed.status_code == 200
         assert removed.json()["photo_detail_url"] == ""
         assert client.get(payload["photo_detail_url"]).status_code == 404
+
+        uploaded_again = client.put(
+            f"/api/v1/wines/{wine_id}/photo",
+            files={
+                "thumbnail_image": ("thumbnail.png", transparent_png_header(160, 240), "image/png"),
+                "detail_image": ("detail.png", transparent_png_header(480, 720), "image/png"),
+            },
+        )
+        assert uploaded_again.status_code == 200
+        admin_removed = client.delete(f"/api/v1/admin/operations/photos/{wine_id}")
+        assert admin_removed.status_code == 204
+        assert client.get("/api/v1/admin/operations/photos").json()["total"] == 0
+        with TestingSessionLocal() as db:
+            assert db.get(Wine, uuid.UUID(wine_id)).photo_version == ""
     finally:
         settings.wine_photo_storage_dir = previous_storage_dir
 
@@ -1332,7 +1357,7 @@ def test_ai_wine_label_enrichment(monkeypatch):
     assert response.json()["grapes_text"] == "Cabernet Sauvignon, Merlot, Sangiovese"
 
 
-def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch):
+def test_manual_wine_data_enrichment_is_funded_by_application(monkeypatch):
     from app.api.routes import ai as ai_routes
 
     client = TestClient(app)
@@ -1404,7 +1429,14 @@ def test_manual_wine_data_enrichment_uses_ai_pack_without_label_beta(monkeypatch
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert Decimal(billing.json()["ai_credit_balance_usd"]) < starting_balance
+    assert Decimal(billing.json()["ai_credit_balance_usd"]) == starting_balance
+
+    with TestingSessionLocal() as db:
+        audit = db.scalar(select(AiAuditLog).where(AiAuditLog.feature == "wine_name_search"))
+        assert audit is not None
+        assert audit.estimated_cost_usd > Decimal("0")
+        assert audit.sources[-1]["provider_source"] == "application"
+        assert audit.sources[-1]["funded_by"] == "application"
 
 
 def test_app_admin_can_create_and_user_can_redeem_code():
@@ -2295,7 +2327,9 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
         "signature": "value-2026-07-17",
         "until": (datetime.now(UTC) + timedelta(days=14)).isoformat(),
     }
-    created_snooze = client.post("/api/v1/household/operational-action-snoozes", json=snooze_payload)
+    created_snooze = client.post(
+        "/api/v1/household/operational-action-snoozes", json=snooze_payload
+    )
     assert created_snooze.status_code == 200
     assert created_snooze.json()["action_id"] == snooze_payload["action_id"]
 
@@ -2326,6 +2360,33 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert client.get("/api/v1/admin/operations/overview").status_code == 401
     assert register(client).status_code == 201
 
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        household = db.scalar(select(Household).where(Household.name == "Main Cellar"))
+        assert user is not None
+        assert household is not None
+        db.add(
+            Wine(
+                household_id=household.id,
+                created_by_user_id=user.id,
+                name="Photographed Wine",
+                photo_version="photo-version",
+            )
+        )
+        db.add(
+            AiAuditLog(
+                household_id=household.id,
+                user_id=user.id,
+                entity_type="catalog",
+                entity_id=household.id,
+                feature="wine_name_search",
+                model="gpt-5.4",
+                outcome="success",
+                estimated_cost_usd=Decimal("0.012345"),
+            )
+        )
+        db.commit()
+
     overview = client.get("/api/v1/admin/operations/overview")
     assert overview.status_code == 200
     payload = overview.json()
@@ -2340,7 +2401,10 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert payload["business"]["tastings_total"] == 0
     assert payload["business"]["tastings_30d"] == 0
     assert payload["business"]["wishlist_items_total"] == 0
-    assert payload["business"]["ai_requests_30d"] == 0
+    assert payload["business"]["ai_requests_30d"] == 1
+    assert payload["business"]["wine_name_searches_30d"] == 1
+    assert payload["business"]["wine_name_search_cost_30d_usd"] == 0.012345
+    assert payload["business"]["wine_photos_total"] == 1
     assert payload["business"]["label_recognitions_30d"] == 0
     assert payload["business"]["coownership_active"] == 0
     assert payload["business"]["coownership_pending"] == 0
@@ -2791,7 +2855,12 @@ def test_legacy_import_scopes_wines_and_wishlist_to_household():
         "Imported Wine",
         "Wanted Wine",
     ]
-    assert next(wine for wine in client.get("/api/v1/wines").json() if wine["name"] == "Wanted Wine")["quantity"] == 3
+    assert (
+        next(wine for wine in client.get("/api/v1/wines").json() if wine["name"] == "Wanted Wine")[
+            "quantity"
+        ]
+        == 3
+    )
 
     exported = client.get("/api/v1/imports/export-json")
     assert exported.status_code == 200

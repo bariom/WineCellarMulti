@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import hmac
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi.responses import FileResponse
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_app_admin_context
+from app.api.routes.wines import PHOTO_SIZES, wine_photo_path
 from app.core.config import settings
 from app.db.session import get_db
 from app.models import (
@@ -31,7 +34,7 @@ SAMPLE_INTERVAL = timedelta(minutes=5)
 SAMPLE_RETENTION = timedelta(days=14)
 
 
-def business_snapshot(db: Session) -> dict[str, int]:
+def business_snapshot(db: Session) -> dict[str, int | float]:
     now = datetime.now(UTC)
     today = now.date()
     thirty_days_ago = now - timedelta(days=30)
@@ -42,7 +45,9 @@ def business_snapshot(db: Session) -> dict[str, int]:
             func.coalesce(func.sum(case((User.is_approved.is_(True), 1), else_=0)), 0),
             func.coalesce(func.sum(case((User.is_blocked.is_(True), 1), else_=0)), 0),
             func.coalesce(
-                func.sum(case((User.is_approved.is_(True) & User.is_blocked.is_(False), 1), else_=0)),
+                func.sum(
+                    case((User.is_approved.is_(True) & User.is_blocked.is_(False), 1), else_=0)
+                ),
                 0,
             ),
         )
@@ -72,7 +77,9 @@ def business_snapshot(db: Session) -> dict[str, int]:
         select(
             func.count(WineTastingEntry.id),
             func.coalesce(
-                func.sum(case((WineTastingEntry.consumed_at >= thirty_days_ago.date(), 1), else_=0)),
+                func.sum(
+                    case((WineTastingEntry.consumed_at >= thirty_days_ago.date(), 1), else_=0)
+                ),
                 0,
             ),
         )
@@ -83,6 +90,16 @@ def business_snapshot(db: Session) -> dict[str, int]:
             func.coalesce(func.sum(case((AiAuditLog.outcome == "success", 1), else_=0)), 0),
         ).where(AiAuditLog.created_at >= thirty_days_ago)
     ).one()
+    wine_name_searches = db.execute(
+        select(
+            func.count(AiAuditLog.id),
+            func.coalesce(func.sum(AiAuditLog.estimated_cost_usd), 0),
+        ).where(
+            AiAuditLog.created_at >= thirty_days_ago,
+            AiAuditLog.feature == "wine_name_search",
+            AiAuditLog.outcome == "success",
+        )
+    ).one()
     recognitions = db.execute(
         select(
             func.count(WineRecognitionLog.id),
@@ -91,8 +108,12 @@ def business_snapshot(db: Session) -> dict[str, int]:
     ).one()
     agreements = db.execute(
         select(
-            func.coalesce(func.sum(case((CoOwnershipAgreement.status == "accepted", 1), else_=0)), 0),
-            func.coalesce(func.sum(case((CoOwnershipAgreement.status == "pending", 1), else_=0)), 0),
+            func.coalesce(
+                func.sum(case((CoOwnershipAgreement.status == "accepted", 1), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(case((CoOwnershipAgreement.status == "pending", 1), else_=0)), 0
+            ),
         )
     ).one()
     return {
@@ -111,6 +132,12 @@ def business_snapshot(db: Session) -> dict[str, int]:
         "wishlist_items_total": db.scalar(select(func.count()).select_from(WishlistItem)) or 0,
         "ai_requests_30d": ai_usage[0],
         "ai_successes_30d": ai_usage[1],
+        "wine_name_searches_30d": wine_name_searches[0],
+        "wine_name_search_cost_30d_usd": float(wine_name_searches[1]),
+        "wine_photos_total": db.scalar(
+            select(func.count()).select_from(Wine).where(Wine.photo_version != "")
+        )
+        or 0,
         "label_recognitions_30d": recognitions[0],
         "label_recognition_successes_30d": recognitions[1],
         "coownership_active": agreements[0],
@@ -136,7 +163,11 @@ def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
             business=business_snapshot(db),
         )
     )
-    db.execute(delete(OperationalMetricSample).where(OperationalMetricSample.collected_at < now - SAMPLE_RETENTION))
+    db.execute(
+        delete(OperationalMetricSample).where(
+            OperationalMetricSample.collected_at < now - SAMPLE_RETENTION
+        )
+    )
     db.commit()
 
 
@@ -149,7 +180,11 @@ def operations_overview(
     system = system_snapshot()
     application = request_metrics.snapshot()
     business = business_snapshot(db)
-    latest = db.scalar(select(OperationalMetricSample).order_by(OperationalMetricSample.collected_at.desc()).limit(1))
+    latest = db.scalar(
+        select(OperationalMetricSample)
+        .order_by(OperationalMetricSample.collected_at.desc())
+        .limit(1)
+    )
     if latest is None or latest.collected_at.replace(tzinfo=UTC) <= now - SAMPLE_INTERVAL:
         save_sample(db, system, now)
     return {
@@ -178,6 +213,78 @@ def operations_history(
     return {"hours": hours, "samples": [sample_response(sample) for sample in samples]}
 
 
+@router.get("/photos")
+def list_wine_photos(
+    limit: int = Query(default=100, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    photo_filter = Wine.photo_version != ""
+    total = db.scalar(select(func.count()).select_from(Wine).where(photo_filter)) or 0
+    rows = db.execute(
+        select(Wine, Household.name)
+        .join(Household, Household.id == Wine.household_id)
+        .where(photo_filter)
+        .order_by(Household.name, Wine.name, Wine.vintage)
+        .offset(offset)
+        .limit(limit)
+    ).all()
+    return {
+        "total": total,
+        "items": [
+            {
+                "wine_id": str(wine.id),
+                "name": wine.name,
+                "producer": wine.producer,
+                "vintage": wine.vintage,
+                "household_name": household_name,
+                "thumbnail_url": f"/api/v1/admin/operations/photos/{wine.id}/thumbnail?v={wine.photo_version}",
+                "detail_url": f"/api/v1/admin/operations/photos/{wine.id}/detail?v={wine.photo_version}",
+            }
+            for wine, household_name in rows
+        ],
+    }
+
+
+@router.get("/photos/{wine_id}/{size}", response_class=FileResponse)
+def get_wine_photo(
+    wine_id: UUID,
+    size: str,
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> FileResponse:
+    if size not in PHOTO_SIZES:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    wine = db.get(Wine, wine_id)
+    if wine is None or not wine.photo_version:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    path = wine_photo_path(wine, size)
+    if not path.is_file():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    return FileResponse(
+        path,
+        media_type="image/png",
+        headers={"Cache-Control": "private, max-age=31536000, immutable"},
+    )
+
+
+@router.delete("/photos/{wine_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_wine_photo(
+    wine_id: UUID,
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> Response:
+    wine = db.get(Wine, wine_id)
+    if wine is None or not wine.photo_version:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    for size in PHOTO_SIZES:
+        wine_photo_path(wine, size).unlink(missing_ok=True)
+    wine.photo_version = ""
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/collect", status_code=status.HTTP_204_NO_CONTENT)
 def collect_operations_sample(
     payload: dict[str, object],
@@ -186,6 +293,8 @@ def collect_operations_sample(
 ) -> Response:
     expected = settings.operations_collector_token
     if not expected or not hmac.compare_digest(x_operations_collector_token, expected):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid operations collector token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid operations collector token"
+        )
     save_sample(db, payload, datetime.now(UTC))
     return Response(status_code=status.HTTP_204_NO_CONTENT)

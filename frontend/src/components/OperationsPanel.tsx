@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import type { Locale, OperationalMetricsHistory, OperationalMetricsOverview } from "../types";
+import type { Locale, OperationalMetricsHistory, OperationalMetricsOverview, OperationalWinePhotos } from "../types";
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
 import "./OperationsPanel.css";
@@ -157,10 +157,51 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
   const isItalian = locale === "it";
   const [selectedHours, setSelectedHours] = useState(1);
   const [selectedHistory, setSelectedHistory] = useState(history);
+  const [winePhotos, setWinePhotos] = useState<OperationalWinePhotos | null>(null);
+  const [photoError, setPhotoError] = useState("");
+  const [deletingPhotoId, setDeletingPhotoId] = useState("");
 
   useEffect(() => {
     if (selectedHours === 1) setSelectedHistory(history);
   }, [history, selectedHours]);
+
+  async function loadWinePhotos() {
+    try {
+      setPhotoError("");
+      setWinePhotos(await api<OperationalWinePhotos>("/api/v1/admin/operations/photos?limit=200"));
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to load bottle photos");
+    }
+  }
+
+  useEffect(() => {
+    void loadWinePhotos();
+  }, []);
+
+  function refreshAll() {
+    onRefresh();
+    void loadWinePhotos();
+  }
+
+  async function deleteWinePhoto(wineId: string, label: string) {
+    const confirmed = window.confirm(isItalian
+      ? `Eliminare definitivamente la fotografia di ${label}?`
+      : `Permanently delete the photograph for ${label}?`);
+    if (!confirmed) return;
+    setDeletingPhotoId(wineId);
+    try {
+      await api<void>(`/api/v1/admin/operations/photos/${wineId}`, { method: "DELETE" });
+      setWinePhotos((current) => current ? {
+        total: Math.max(0, current.total - 1),
+        items: current.items.filter((item) => item.wine_id !== wineId),
+      } : current);
+      onRefresh();
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to delete bottle photo");
+    } finally {
+      setDeletingPhotoId("");
+    }
+  }
 
   async function selectHours(hours: number) {
     setSelectedHours(hours);
@@ -200,7 +241,7 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
           <span>{isItalian ? "Amministrazione applicazione" : "Application administration"}</span>
           <h3>{isItalian ? "Stato operativo" : "Operational status"}</h3>
         </div>
-        <button type="button" className="secondary compact" onClick={onRefresh}>{isItalian ? "Aggiorna" : "Refresh"}</button>
+        <button type="button" className="secondary compact" onClick={refreshAll}>{isItalian ? "Aggiorna" : "Refresh"}</button>
       </div>
       <p className="settings-help-copy">
         {isItalian ? "Metriche aggregate riservate all'app-admin. L'aggiornamento avviene solo quando questa scheda è aperta." : "Aggregated metrics restricted to the app admin. Refreshing occurs only while this tab is open."}
@@ -294,6 +335,16 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
                 <small>{successRate(overview.business.ai_successes_30d, overview.business.ai_requests_30d)} {isItalian ? "riuscite" : "successful"}</small>
               </div>
               <div>
+                <span>{isItalian ? "Ricerche vino per nome · 30 giorni" : "Wine name searches · 30 days"}</span>
+                <strong>{overview.business.wine_name_searches_30d}</strong>
+                <small>{usd(overview.business.wine_name_search_cost_30d_usd, locale)} {isItalian ? "costo applicazione" : "application cost"}</small>
+              </div>
+              <div>
+                <span>{isItalian ? "Fotografie bottiglia" : "Bottle photographs"}</span>
+                <strong>{overview.business.wine_photos_total}</strong>
+                <small>{isItalian ? "attualmente archiviate" : "currently stored"}</small>
+              </div>
+              <div>
                 <span>{isItalian ? "Etichette · 30 giorni" : "Labels · 30 days"}</span>
                 <strong>{overview.business.label_recognitions_30d}</strong>
                 <small>{successRate(overview.business.label_recognition_successes_30d, overview.business.label_recognitions_30d)} {isItalian ? "riconosciute" : "recognised"}</small>
@@ -309,6 +360,40 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
                 <small>{isItalian ? "bottiglie per cantina" : "bottles per cellar"}</small>
               </div>
             </div>
+          </section>
+          <section className="operations-section operations-photo-section" aria-labelledby="operations-photo-heading">
+            <div className="operations-photo-heading">
+              <div>
+                <h4 id="operations-photo-heading">{isItalian ? "Fotografie bottiglia" : "Bottle photographs"}</h4>
+                <span>{isItalian ? "Anteprima globale riservata all'app-admin" : "Global preview restricted to the app admin"}</span>
+              </div>
+              <strong>{winePhotos?.total ?? overview.business.wine_photos_total}</strong>
+            </div>
+            {photoError ? <p className="operations-photo-error" role="alert">{photoError}</p> : null}
+            {winePhotos ? (
+              winePhotos.items.length ? (
+                <div className="operations-photo-grid">
+                  {winePhotos.items.map((photo) => {
+                    const label = [photo.name, photo.vintage].filter(Boolean).join(" ");
+                    return (
+                      <article className="operations-photo-card" key={photo.wine_id}>
+                        <a href={photo.detail_url} target="_blank" rel="noreferrer" aria-label={`${isItalian ? "Apri fotografia" : "Open photograph"}: ${label}`}>
+                          <img src={photo.thumbnail_url} alt={label} loading="lazy" />
+                        </a>
+                        <div>
+                          <strong>{label}</strong>
+                          <span>{photo.producer || (isItalian ? "Produttore non indicato" : "Producer not provided")}</span>
+                          <small>{photo.household_name}</small>
+                        </div>
+                        <button type="button" className="danger compact" disabled={deletingPhotoId === photo.wine_id} onClick={() => void deleteWinePhoto(photo.wine_id, label)}>
+                          {deletingPhotoId === photo.wine_id ? (isItalian ? "Eliminazione…" : "Deleting…") : (isItalian ? "Elimina" : "Delete")}
+                        </button>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : <p className="operations-photo-empty">{isItalian ? "Nessuna fotografia archiviata." : "No photographs stored."}</p>
+            ) : <LoadingState label={isItalian ? "Caricamento fotografie…" : "Loading photographs…"} compact />}
           </section>
           <section className="operations-openai-cost" aria-label={isItalian ? "Costi OpenAI" : "OpenAI costs"}>
             <div>

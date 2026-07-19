@@ -581,6 +581,7 @@ export type AiSettings = {
   app_credit_balance_usd: string;
   ai_credit_pack_size_usd: string;
   can_use_app_credits: boolean;
+  can_use_included_wine_search: boolean;
   ai_notes_model: string;
   drink_window_model: string;
   value_model: string;
@@ -750,6 +751,9 @@ export type OperationalMetricsOverview = {
     wishlist_items_total: number;
     ai_requests_30d: number;
     ai_successes_30d: number;
+    wine_name_searches_30d: number;
+    wine_name_search_cost_30d_usd: number;
+    wine_photos_total: number;
     label_recognitions_30d: number;
     label_recognition_successes_30d: number;
     coownership_active: number;
@@ -769,6 +773,21 @@ export type OperationalMetricsOverview = {
 export type OperationalMetricsHistory = {
   hours: number;
   samples: Array<Pick<OperationalMetricsOverview, "collected_at" | "system" | "application" | "business">>;
+};
+
+export type OperationalWinePhoto = {
+  wine_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  household_name: string;
+  thumbnail_url: string;
+  detail_url: string;
+};
+
+export type OperationalWinePhotos = {
+  total: number;
+  items: OperationalWinePhoto[];
 };
 
 export type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "buying" | "help" | "settings";

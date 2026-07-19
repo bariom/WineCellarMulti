@@ -3893,6 +3893,7 @@ export function App() {
         (aiSettings.provider_mode === "credits" && aiSettings.can_use_app_credits)
       ),
     );
+  const canUseIncludedWineSearch = canWriteWine && Boolean(aiSettings?.can_use_included_wine_search);
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
     ? session.membership_role
     : "viewer";
@@ -3932,14 +3933,14 @@ export function App() {
     (activeView === "cellar" || activeView === "history") &&
     wineFormOpen &&
     !editingId &&
-    canGenerateAi &&
+    canUseIncludedWineSearch &&
     draft.name.trim().length >= 2 &&
     !matchingWineTemplate(draft.name);
   const showManualWishlistAiSearch =
     activeView === "wishlist" &&
     wishlistFormOpen &&
     !editingWishlistId &&
-    canGenerateAi &&
+    canUseIncludedWineSearch &&
     wishlistDraft.name.trim().length >= 2 &&
     !matchingWineTemplate(wishlistDraft.name);
   const hasAiDraftChanges = Boolean(

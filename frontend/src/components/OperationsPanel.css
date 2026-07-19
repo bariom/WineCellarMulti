@@ -46,11 +46,26 @@
 .operations-chart .u-cursor-x, .operations-chart .u-cursor-y { border-color: color-mix(in srgb, var(--text-muted) 55%, transparent); }
 .operations-chart-empty { display: grid; height: 210px; margin: 0; place-items: center; color: var(--text-muted); font-size: 0.78rem; }
 .operations-note { margin: 16px 0 0; line-height: 1.5; }
+.operations-photo-section { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--border); }
+.operations-photo-heading { display: flex; align-items: end; justify-content: space-between; gap: 16px; }
+.operations-photo-heading > div { display: grid; gap: 3px; }
+.operations-photo-heading span, .operations-photo-card span, .operations-photo-card small { color: var(--text-muted); font-size: 0.74rem; }
+.operations-photo-heading > strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.operations-photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.operations-photo-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.operations-photo-card > a { display: grid; grid-row: 1 / span 2; width: 72px; height: 104px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--surface) 74%, transparent); }
+.operations-photo-card img { width: 58px; height: 94px; object-fit: contain; filter: drop-shadow(0 3px 5px color-mix(in srgb, var(--text) 20%, transparent)); }
+.operations-photo-card > div { display: grid; align-content: center; gap: 3px; min-width: 0; }
+.operations-photo-card > div > strong, .operations-photo-card > div > span, .operations-photo-card > div > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.operations-photo-card > button { align-self: end; justify-self: start; }
+.operations-photo-error { margin: 0; color: var(--danger-text); font-size: 0.78rem; }
+.operations-photo-empty { margin: 0; color: var(--text-muted); font-size: 0.8rem; }
 
 @media (max-width: 620px) {
   .operations-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operations-charts { grid-template-columns: 1fr; }
   .operations-business-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operations-photo-grid { grid-template-columns: 1fr; }
   .operations-openai-cost { align-items: start; flex-direction: column; }
   .operations-openai-cost p { text-align: start; }
   .operations-openai-comparison { justify-items: start; }
@@ -58,4 +73,5 @@
 
 @media (min-width: 621px) and (max-width: 900px) {
   .operations-business-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .operations-photo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
