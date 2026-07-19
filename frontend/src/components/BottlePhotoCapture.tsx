@@ -318,11 +318,17 @@ function detectedBottleMask(pixels: ImageData) {
     const row = smoothed[y];
     const subjectProgress = (y - top) / Math.max(1, bottom - top);
     const guideWidth = guideWidths[y] * 2;
-    const minimumWidth = subjectProgress < 0.2
+    const profileMinimumWidth = subjectProgress < 0.2
       ? bodyWidth * 0.34
       : subjectProgress < 0.38
         ? bodyWidth * (0.34 + ((subjectProgress - 0.2) / 0.18) * 0.54)
         : bodyWidth * 0.88;
+    const guideMinimumWidth = subjectProgress < 0.2
+      ? guideWidth * 0.84
+      : subjectProgress < 0.38
+        ? guideWidth * (0.84 + ((subjectProgress - 0.2) / 0.18) * 0.08)
+        : guideWidth * 0.92;
+    const minimumWidth = Math.max(profileMinimumWidth, guideMinimumWidth);
     const measuredWidth = row ? row.right - row.left : 0;
     const rowCenter = row ? (row.left + row.right) / 2 : bodyCenter;
     const stableCenter = Math.abs(rowCenter - bodyCenter) <= bodyWidth * 0.18 ? rowCenter : bodyCenter;
@@ -341,7 +347,7 @@ function detectedBottleMask(pixels: ImageData) {
   let guideContactRows = 0;
   let measuredRows = 0;
   for (let y = top; y <= bottom; y += 1) {
-    const row = repaired[y];
+    const row = smoothed[y];
     if (!row) continue;
     measuredRows += 1;
     if ((row.right - row.left) / 2 >= guideWidths[y] * 0.92) guideContactRows += 1;
