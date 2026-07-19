@@ -1,0 +1,24 @@
+.admin-photos-card { grid-column: 1 / -1; }
+.admin-photos-heading { align-items: end; }
+.admin-photos-heading > div:first-child { display: grid; gap: 3px; }
+.admin-photos-heading small, .admin-photo-card span, .admin-photo-card small { color: var(--text-muted); font-size: 0.74rem; }
+.admin-photos-heading-actions { display: flex; align-items: center; gap: 12px; }
+.admin-photos-heading-actions > strong { font-size: 1.2rem; font-variant-numeric: tabular-nums; }
+.admin-photos-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 16px; }
+.admin-photo-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 10px; min-width: 0; padding: 10px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.admin-photo-card > a { display: grid; grid-row: 1 / span 2; width: 72px; height: 104px; place-items: center; border-radius: 9px; background: color-mix(in srgb, var(--surface) 74%, transparent); }
+.admin-photo-card img { width: 58px; height: 94px; object-fit: contain; filter: drop-shadow(0 4px 5px color-mix(in srgb, var(--text) 34%, transparent)) drop-shadow(0 0 10px color-mix(in srgb, var(--text) 24%, transparent)); }
+.admin-photo-card > div { display: grid; align-content: center; gap: 3px; min-width: 0; }
+.admin-photo-card > div > strong, .admin-photo-card > div > span, .admin-photo-card > div > small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-photo-card > button { align-self: end; justify-self: start; }
+.admin-photos-error { margin: 12px 0 0; color: var(--danger-text); font-size: 0.78rem; }
+.admin-photos-empty { margin: 16px 0 0; color: var(--text-muted); font-size: 0.8rem; }
+
+@media (max-width: 620px) {
+  .admin-photos-heading { align-items: start; }
+  .admin-photos-grid { grid-template-columns: 1fr; }
+}
+
+@media (min-width: 621px) and (max-width: 900px) {
+  .admin-photos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

@@ -727,7 +727,7 @@ export type TastingEnjoyment = "" | "positive" | "negative";
 
 export type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
 
-export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "operations" | "data";
+export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
 
 export type OperationalMetricsOverview = {
   collected_at: string;

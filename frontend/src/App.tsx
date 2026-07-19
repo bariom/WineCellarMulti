@@ -54,6 +54,7 @@ const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection")
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
+const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
@@ -4864,11 +4865,12 @@ export function App() {
     tags: t("settingsTags"),
     sharing: t("settingsSharing"),
     users: t("settingsUsers"),
+    photos: locale === "it" ? "Fotografie" : "Photographs",
     operations: locale === "it" ? "Operatività" : "Operations",
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
-    (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+    (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
   const pendingCoOwnershipAgreements = myCoOwnershipAgreements.filter((agreement) => agreement.status === "pending");
@@ -10159,6 +10161,12 @@ export function App() {
               {settingsTab === "operations" && canAppAdmin ? (
                 <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
                   <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} onRefresh={() => void loadOperationsMetrics()} />
+                </Suspense>
+              ) : null}
+
+              {settingsTab === "photos" && canAppAdmin ? (
+                <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento fotografie…" : "Loading photographs…"} />}>
+                  <AdminPhotosPanel locale={locale} />
                 </Suspense>
               ) : null}
 
