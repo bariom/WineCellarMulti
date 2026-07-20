@@ -3929,8 +3929,9 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
-  const canAccessWinePhotos = !offlineMode && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
-  const canManageWinePhotos = canWriteWine && canAccessWinePhotos;
+  const canAccessWinePhotos = !offlineMode && Boolean(session?.authenticated);
+  const canManageWinePhotos = canWriteWine && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
+  const canReuseWinePhotos = canWriteWine && canAccessWinePhotos;
   const canUseLabelRecognition = canWriteWine && Boolean(session?.can_use_label_recognition);
 
   useEffect(() => {
@@ -3938,7 +3939,7 @@ export function App() {
     setSelectedSuggestedPhotoId(null);
     const name = draft.name.trim();
     const producer = draft.producer.trim();
-    if (!wineFormOpen || editingId || !canManageWinePhotos || pendingBottlePhoto || name.length < 2 || !producer) return;
+    if (!wineFormOpen || editingId || !canReuseWinePhotos || pendingBottlePhoto || name.length < 2 || !producer) return;
 
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -3953,7 +3954,7 @@ export function App() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [canManageWinePhotos, draft.name, draft.producer, editingId, pendingBottlePhoto, wineFormOpen]);
+  }, [canReuseWinePhotos, draft.name, draft.producer, editingId, pendingBottlePhoto, wineFormOpen]);
 
   const canGenerateAi =
     canWriteWine &&
@@ -7815,21 +7816,22 @@ export function App() {
                     ) : null}
                   </div>
                 ) : null}
-                {canManageWinePhotos ? (
+                {canReuseWinePhotos ? (
                   <div className="bottle-photo-form-card">
                     <div>
                       <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
                       <small>
-                        {editingId
+                        {canManageWinePhotos ? (editingId
                           ? (selectedWine?.photo_detail_url
                             ? (locale === "it" ? "Sostituisci o elimina la foto associata a questo vino." : "Replace or remove the photo associated with this wine.")
                             : (locale === "it" ? "Aggiungi una foto prodotto a questo vino." : "Add a product photo to this wine."))
                           : pendingBottlePhoto
                           ? (locale === "it" ? "Foto pronta: sarà salvata insieme al vino." : "Photo ready: it will be saved with the wine.")
-                          : (locale === "it" ? "Scatta la foto prodotto con sagoma e sfondo trasparente." : "Take the guided product photo with a transparent background.")}
+                          : (locale === "it" ? "Scatta la foto prodotto con sagoma e sfondo trasparente." : "Take the guided product photo with a transparent background."))
+                          : (locale === "it" ? "Se disponibile, puoi associare una foto già presente nell'archivio." : "When available, you can associate a photo already in the library.")}
                       </small>
                     </div>
-                    <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                    {canManageWinePhotos ? <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
                       <BottlePhotoCapture
                         wine={editingId ? selectedWine || undefined : undefined}
                         draftName={draft.name}
@@ -7843,7 +7845,7 @@ export function App() {
                         onSaved={(updated) => setWines((current) => current.map((item) => item.id === updated.id ? updated : item))}
                         onError={(message) => setError(formatUserErrorMessage(message, locale))}
                       />
-                    </Suspense>
+                    </Suspense> : null}
                     {!editingId && winePhotoSuggestion ? (
                       <div className={`wine-photo-suggestion${selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id ? " selected" : ""}`}>
                         <img src={winePhotoSuggestion.thumbnail_url} alt={locale === "it" ? `Foto proposta per ${draft.name}` : `Suggested photo for ${draft.name}`} />
@@ -9974,7 +9976,7 @@ export function App() {
                                 {user.is_blocked ? <span className="status-pill">{t("blocked")}</span> : null}
                                 {user.is_app_admin ? <span className="status-pill">App admin</span> : null}
                                 {user.can_use_label_recognition ? <span className="status-pill">{t("labelRecognitionEnabled")}</span> : null}
-                                {user.can_manage_wine_photos ? <span className="status-pill">{locale === "it" ? "Foto abilitate" : "Photos enabled"}</span> : null}
+                                {user.can_manage_wine_photos ? <span className="status-pill">{locale === "it" ? "Caricamento foto abilitato" : "Photo uploads enabled"}</span> : null}
                                 <span className="status-pill">{formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
                                 {user.entitlement_days_remaining !== null ? <span className="status-pill">{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
                               </div>
@@ -10038,10 +10040,10 @@ export function App() {
                                   </button>
                                   <button type="button" className={user.can_manage_wine_photos ? "compact" : "secondary compact"} disabled={saving || user.is_app_admin} onClick={() => toggleWinePhotoAccess(user)}>
                                     {user.is_app_admin
-                                      ? (locale === "it" ? "Foto incluse per admin" : "Photos included for admins")
+                                      ? (locale === "it" ? "Caricamento foto incluso per admin" : "Photo uploads included for admins")
                                       : user.can_manage_wine_photos
-                                        ? (locale === "it" ? "Disabilita foto" : "Disable photos")
-                                        : (locale === "it" ? "Abilita foto" : "Enable photos")}
+                                        ? (locale === "it" ? "Disabilita caricamento foto" : "Disable photo uploads")
+                                        : (locale === "it" ? "Abilita caricamento foto" : "Enable photo uploads")}
                                   </button>
                                   {user.is_approved ? (
                                     <button type="button" className={user.is_blocked ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleUserBlocked(user)}>

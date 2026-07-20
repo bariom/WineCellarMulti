@@ -320,19 +320,33 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
                 )
             )
             db.commit()
-        assert client.get(payload["photo_detail_url"]).status_code == 403
+        assert client.get(payload["photo_detail_url"]).status_code == 200
         assert client.delete(f"/api/v1/wines/{wine_id}/photo").status_code == 403
         assert client.get("/api/v1/admin/operations/photos").status_code == 403
         assert client.get(admin_photo["thumbnail_url"]).status_code == 403
         assert client.delete(f"/api/v1/admin/operations/photos/{wine_id}").status_code == 403
-        assert client.get(suggestion.json()["thumbnail_url"]).status_code == 403
+        assert client.get(suggestion.json()["thumbnail_url"]).status_code == 200
         assert (
             client.get(
                 "/api/v1/wines/photo/suggestion",
                 params={"name": "Photo Bottle", "producer": "Photo Estate"},
             ).status_code
-            == 403
+            == 200
         )
+        reusable_target = client.post(
+            "/api/v1/wines",
+            json={
+                "name": "Photo Bottle Reuse",
+                "producer": "Photo Estate",
+                "vintage": "2023",
+                "quantity": 1,
+            },
+        )
+        assert reusable_target.status_code == 201
+        reused_without_upload_permission = client.post(
+            f"/api/v1/wines/{reusable_target.json()['id']}/photo/reuse/{wine_id}"
+        )
+        assert reused_without_upload_permission.status_code == 200
         assert (
             client.post(
                 "/api/v1/wines/photo/process",
@@ -378,6 +392,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
             },
         )
         assert invalid.status_code == 400
+        assert client.delete(f"/api/v1/wines/{reusable_target.json()['id']}/photo").status_code == 200
 
         removed = client.delete(f"/api/v1/wines/{wine_id}/photo")
         assert removed.status_code == 200

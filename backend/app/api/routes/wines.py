@@ -17,7 +17,6 @@ from app.api.deps import (
     CurrentContext,
     get_current_context,
     require_admin_context,
-    require_wine_photo_context,
     require_wine_photo_write_context,
     require_write_context,
 )
@@ -1109,7 +1108,7 @@ def suggest_wine_photo(
     name: str = Query(min_length=2, max_length=200),
     producer: str = Query(min_length=1, max_length=200),
     db: Session = Depends(get_db),
-    _: CurrentContext = Depends(require_wine_photo_context),
+    _: CurrentContext = Depends(require_write_context),
 ) -> dict[str, str] | None:
     normalized_name = name.strip().lower()
     normalized_producer = producer.strip().lower()
@@ -1138,7 +1137,7 @@ def get_library_wine_photo(
     source_wine_id: UUID,
     size: str,
     db: Session = Depends(get_db),
-    _: CurrentContext = Depends(require_wine_photo_context),
+    _: CurrentContext = Depends(get_current_context),
 ) -> FileResponse:
     if size not in PHOTO_SIZES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
@@ -1199,7 +1198,7 @@ def reuse_wine_photo(
     wine_id: UUID,
     source_wine_id: UUID,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_wine_photo_write_context),
+    context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     source = db.get(Wine, source_wine_id)
@@ -1220,7 +1219,7 @@ def get_wine_photo(
     wine_id: UUID,
     size: str,
     db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_wine_photo_context),
+    context: CurrentContext = Depends(get_current_context),
 ) -> FileResponse:
     if size not in PHOTO_SIZES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")

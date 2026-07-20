@@ -197,19 +197,14 @@ def require_app_admin_context(
     return context
 
 
-def require_wine_photo_context(
+def require_wine_photo_write_context(
     context: CurrentContext = Depends(get_current_context),
 ) -> CurrentContext:
     if not context.user.is_app_admin and not context.user.can_manage_wine_photos:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Bottle photo access required"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bottle photo uploads are not enabled for this user",
         )
-    return context
-
-
-def require_wine_photo_write_context(
-    context: CurrentContext = Depends(require_wine_photo_context),
-) -> CurrentContext:
     return require_role(context, {"owner", "admin", "member"})
 
 
