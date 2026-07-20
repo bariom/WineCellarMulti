@@ -1,5 +1,7 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
+import { KeyPositionActionBadge, KeyPositionKpi, KeyPositionMaturityTimeline } from "./components/KeyPositionCardParts";
+import { KeyPositionBottlePhoto } from "./components/KeyPositionBottlePhoto";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
@@ -55,7 +57,6 @@ const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
-const KeyPositionBottlePhoto = lazy(() => import("./components/KeyPositionBottlePhoto").then((module) => ({ default: module.KeyPositionBottlePhoto })));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
@@ -63,6 +64,13 @@ const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipP
 function helpSlugFromLocation() {
   const match = window.location.pathname.match(/^\/help(?:\/([^/]+))?\/?$/);
   return match ? decodeURIComponent(match[1] || "") || null : null;
+}
+
+function keyPositionTitleVariant(name: string) {
+  const length = Array.from(name.trim()).length;
+  if (length > 31) return "long";
+  if (length > 17) return "medium";
+  return "short";
 }
 
 function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
@@ -7031,54 +7039,34 @@ export function App() {
                         {keyPositionCandidates.map(({ wine, highlight, priceIncreasePct, ownedValue, totalValue, action, actionTone, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityLabel, hasMaturityWindow }) => (
                           <button type="button" className={`key-position-button${canAccessWinePhotos && wine.photo_detail_url ? " has-bottle-photo" : ""}`} key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
-                            {canAccessWinePhotos && wine.photo_detail_url ? (
-                              <Suspense fallback={null}><KeyPositionBottlePhoto photoUrl={wine.photo_detail_url} /></Suspense>
-                            ) : null}
+                            <KeyPositionBottlePhoto photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} />
                             <div className="key-position-head">
                               <div>
                                 <span>{highlight}</span>
-                                <h2>{wine.name}</h2>
+                                <h2 className={`key-position-title key-position-title--${keyPositionTitleVariant(wine.name)}`}>{wine.name}</h2>
                                 <p>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</p>
                               </div>
                             </div>
                             <div className="key-position-metrics">
-                              <div className="key-position-metric"><span>{t("ownedValue")}</span><strong>{formatMoney(ownedValue, wine.currency, locale)}</strong></div>
-                              <div className="key-position-metric"><span>{t("totalValue")}</span><strong>{formatMoney(totalValue, wine.currency, locale)}</strong></div>
-                              <div className={`key-position-metric key-position-metric--${priceIncreasePct === null ? "neutral" : priceIncreasePct >= 0 ? "positive" : "negative"}`}>
-                                <span>{t("priceIncrease")}</span>
-                                <strong>{priceIncreasePct !== null ? `${priceIncreasePct > 0 ? "+" : ""}${formatPercentage(priceIncreasePct, locale, 1)}` : "—"}</strong>
-                              </div>
+                              <KeyPositionKpi label={t("ownedValue")} value={formatMoney(ownedValue, wine.currency, locale)} tone="value" />
+                              <KeyPositionKpi label={t("totalValue")} value={formatMoney(totalValue, wine.currency, locale)} tone="total" />
+                              <KeyPositionKpi
+                                label={t("priceIncrease")}
+                                value={priceIncreasePct !== null ? `${priceIncreasePct > 0 ? "+" : ""}${formatPercentage(priceIncreasePct, locale, 1)}` : "—"}
+                                tone={priceIncreasePct === null ? "neutral" : priceIncreasePct >= 0 ? "positive" : "negative"}
+                              />
                             </div>
-                            <div className={`recommendation-badge recommendation-badge--${actionTone}`}>
-                              <span>{t("action")}</span><strong>{action}</strong>
-                            </div>
-                            <div className="key-position-maturity">
-                              <div>
-                                <span>{t("maturityMap")}</span>
-                                <strong>{maturityLabel}</strong>
-                              </div>
-                              <div
-                                className={`key-position-maturity-track${hasMaturityWindow ? " has-window" : ""}`}
-                                role="img"
-                                aria-label={`${t("maturityMap")}: ${maturityLabel}. ${t("currentYear")}: ${currentYear}`}
-                              >
-                                {maturityPeakWidth ? (
-                                  <>
-                                    <span className="key-position-maturity-before" style={{ width: `${maturityPeakLeft}%` }} />
-                                    <span className="key-position-maturity-peak" style={{ left: `${maturityPeakLeft}%`, width: `${maturityPeakWidth}%` }} />
-                                    <span className="key-position-maturity-after" style={{ left: `${Math.min(100, maturityPeakLeft + maturityPeakWidth)}%` }} />
-                                  </>
-                                ) : null}
-                                {hasMaturityWindow ? (
-                                  <span
-                                    className="key-position-maturity-current"
-                                    style={{ left: `${maturityProgress}%` }}
-                                    title={`${t("currentYear")}: ${currentYear}`}
-                                    aria-hidden="true"
-                                  />
-                                ) : null}
-                              </div>
-                            </div>
+                            <KeyPositionActionBadge label={t("action")} value={action} tone={actionTone} />
+                            <KeyPositionMaturityTimeline
+                              label={t("maturityMap")}
+                              rangeLabel={maturityLabel}
+                              currentYearLabel={t("currentYear")}
+                              currentYear={currentYear}
+                              hasWindow={hasMaturityWindow}
+                              peakLeft={maturityPeakLeft}
+                              peakWidth={maturityPeakWidth}
+                              currentProgress={maturityProgress}
+                            />
                           </button>
                         ))}
                       </div>

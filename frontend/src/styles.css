@@ -167,6 +167,8 @@
     --bar-muted: #26352e;
     --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.38);
     --focus: rgba(107, 194, 159, 0.42);
+    --wine-row-aura-radius: 5px;
+    --wine-detail-aura-radius: 12px;
     --hero-bg:
       radial-gradient(circle at top left, rgba(215, 189, 109, 0.18), transparent 38%),
       radial-gradient(circle at bottom right, rgba(107, 194, 159, 0.12), transparent 34%),
@@ -12000,9 +12002,12 @@ textarea {
 :root[data-theme="red-wine"],
 :root[data-theme="bordeaux"],
 :root[data-theme="burgundy"],
+:root[data-theme="piedmont"],
 :root[data-theme="ticino"],
 :root[data-theme="midnight-ledger"] {
   --financial-text: #fff3dc;
+  --wine-row-aura-radius: 5px;
+  --wine-detail-aura-radius: 12px;
 }
 
 :root[data-theme="tuscany"] {
@@ -16241,22 +16246,22 @@ tbody tr:hover {
 /* Guided bottle photography and the two standardized product-photo presentations. */
 .wine-row-bottle-photo {
   position: absolute;
-  top: 9px;
-  left: 18px;
-  width: 44px;
-  height: 78px;
+  top: 6px;
+  left: 16px;
+  width: 48px;
+  height: 84px;
   object-fit: contain;
   filter:
     drop-shadow(0 3px 3px color-mix(in srgb, var(--text) 38%, transparent))
-    drop-shadow(0 0 8px color-mix(in srgb, var(--text) 28%, transparent));
+    drop-shadow(0 0 var(--wine-row-aura-radius, 8px) color-mix(in srgb, var(--text) 28%, transparent));
 }
 
 .wine-row.has-bottle-photo .wine-row-main {
-  padding-left: 52px;
+  padding-left: 58px;
 }
 
 .detail-hero .detail-title:has(.detail-bottle-photo) {
-  grid-template-columns: minmax(108px, 150px) minmax(0, 1fr);
+  grid-template-columns: minmax(116px, 164px) minmax(0, 1fr);
 }
 
 .detail-bottle-photo {
@@ -16265,11 +16270,257 @@ tbody tr:hover {
 
 .detail-bottle-photo img {
   width: 100%;
-  height: 220px;
+  height: 232px;
   object-fit: contain;
+  mix-blend-mode: multiply;
   filter:
     drop-shadow(0 8px 9px color-mix(in srgb, var(--text) 34%, transparent))
-    drop-shadow(0 0 20px color-mix(in srgb, var(--text) 26%, transparent));
+    drop-shadow(0 0 var(--wine-detail-aura-radius, 20px) color-mix(in srgb, var(--text) 26%, transparent));
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) .detail-bottle-photo img { mix-blend-mode: normal; }
+}
+
+:root[data-theme="dark"] .detail-bottle-photo img,
+:root[data-theme="private-cellar"] .detail-bottle-photo img,
+:root[data-theme="red-wine"] .detail-bottle-photo img,
+:root[data-theme="bordeaux"] .detail-bottle-photo img,
+:root[data-theme="burgundy"] .detail-bottle-photo img,
+:root[data-theme="piedmont"] .detail-bottle-photo img,
+:root[data-theme="ticino"] .detail-bottle-photo img,
+:root[data-theme="midnight-ledger"] .detail-bottle-photo img { mix-blend-mode: normal; }
+
+/* Key positions: editorial portfolio card. */
+.key-position-card {
+  --key-card-surface: color-mix(in srgb, var(--surface-raised) 92%, var(--accent));
+  --key-card-border: color-mix(in srgb, var(--border-strong) 68%, var(--accent));
+  --key-card-muted: var(--text-muted);
+  --key-card-positive: var(--drink-ideal);
+  --key-card-negative: var(--danger);
+  border-color: var(--key-card-border);
+  border-radius: 18px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--key-card-surface) 92%, var(--surface)) 0%, var(--key-card-surface) 100%);
+  box-shadow: 0 18px 42px color-mix(in srgb, var(--collector-depth) 42%, transparent);
+  container-type: inline-size;
+  transition: border-color 180ms ease, box-shadow 180ms ease;
+}
+
+.key-position-card::after { display: none; }
+
+.key-position-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--key-card-border));
+  box-shadow: 0 20px 44px color-mix(in srgb, var(--collector-depth) 52%, transparent);
+  transform: none;
+}
+
+.key-position-card-heading {
+  padding: 20px clamp(22px, 3vw, 32px) 0;
+  color: var(--key-card-muted);
+}
+
+.key-position-button {
+  display: grid;
+  grid-template-areas:
+    "bottle head"
+    "metrics metrics"
+    "action action"
+    "maturity maturity";
+  grid-template-columns: minmax(138px, 0.56fr) minmax(0, 1.44fr);
+  gap: clamp(16px, 2vw, 24px);
+  padding: clamp(18px, 2.5vw, 30px) clamp(22px, 3vw, 32px) clamp(22px, 2.8vw, 32px);
+  cursor: pointer;
+}
+
+.key-position-head {
+  grid-area: head;
+  align-self: center;
+  max-width: 100%;
+  min-height: 184px;
+  margin: 0;
+  padding-right: clamp(8px, 7vw, 88px);
+}
+
+.key-position-head span {
+  color: var(--key-card-muted);
+  font-size: clamp(0.67rem, 0.8vw, 0.75rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+}
+
+.key-position-head h2 {
+  max-width: none;
+  margin: 6px 0 8px;
+  font-size: clamp(2.1rem, 7cqi, 4.1rem);
+  font-weight: 650;
+  line-height: 0.92;
+  letter-spacing: -0.035em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-wrap: nowrap;
+  white-space: nowrap;
+}
+
+.key-position-title--medium,
+.key-position-title--long {
+  overflow: visible;
+  max-height: 1.84em;
+  text-overflow: clip;
+  text-wrap: balance;
+  white-space: normal;
+}
+
+.key-position-title--medium {
+  max-width: 18ch;
+  font-size: clamp(1.94rem, 5.25cqi, 3.25rem) !important;
+}
+
+.key-position-title--long {
+  max-width: 21ch;
+  font-size: clamp(1.72rem, 4.2cqi, 2.8rem) !important;
+}
+
+.key-position-head p {
+  color: var(--key-card-muted);
+  font-size: clamp(0.86rem, 1.1vw, 1rem);
+  font-weight: 650;
+}
+
+.key-position-yearmark {
+  top: clamp(26px, 4vw, 48px);
+  right: clamp(24px, 4vw, 48px);
+  z-index: 0;
+  color: color-mix(in srgb, var(--text) 8%, transparent);
+  font-size: clamp(4.4rem, 10vw, 8.2rem);
+  font-weight: 650;
+}
+
+.key-position-metrics {
+  grid-area: metrics;
+  gap: clamp(14px, 3.5vw, 42px);
+  align-items: center;
+  justify-items: center;
+}
+
+.key-position-metric {
+  --metric-tone: var(--primary);
+  display: grid;
+  grid-template-rows: minmax(2.5em, auto) auto;
+  gap: 8px;
+  width: min(100%, 154px);
+  padding: clamp(21px, 2.8vw, 28px) clamp(14px, 2vw, 20px);
+  border: 1px solid color-mix(in srgb, var(--metric-tone) 46%, var(--key-card-border));
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--metric-tone) 12%);
+  box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--surface) 76%, transparent), 0 7px 16px color-mix(in srgb, var(--collector-depth) 22%, transparent);
+}
+
+.key-position-metric::before {
+  inset: 5px;
+  border: 3px solid color-mix(in srgb, var(--metric-tone) 70%, var(--accent));
+  border-right-color: color-mix(in srgb, var(--metric-tone) 36%, var(--accent));
+  border-bottom-color: color-mix(in srgb, var(--metric-tone) 48%, var(--accent));
+  box-shadow: none;
+  opacity: 0.82;
+}
+
+.key-position-metric::after {
+  inset: 14px;
+  border-color: color-mix(in srgb, var(--metric-tone) 26%, var(--key-card-border));
+  box-shadow: none;
+}
+
+.key-position-metric--value { --metric-tone: var(--primary); }
+.key-position-metric--total { --metric-tone: var(--accent); }
+.key-position-metric--positive { --metric-tone: var(--key-card-positive); }
+.key-position-metric--negative { --metric-tone: var(--key-card-negative); }
+
+.key-position-metric--positive,
+.key-position-metric--negative { box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--surface) 76%, transparent), 0 7px 16px color-mix(in srgb, var(--collector-depth) 22%, transparent); }
+.key-position-metric--positive::before { border-width: 3px; }
+
+.key-position-metrics strong {
+  color: var(--financial-text);
+  font-size: clamp(1rem, 1.7vw, 1.3rem);
+  font-variant-numeric: tabular-nums;
+}
+
+.key-position-metric--positive strong { color: color-mix(in srgb, var(--key-card-positive) 72%, var(--financial-text)); font-size: clamp(1.05rem, 1.9vw, 1.42rem); }
+.key-position-metric--negative strong { color: color-mix(in srgb, var(--key-card-negative) 74%, var(--financial-text)); }
+
+.recommendation-badge {
+  grid-area: action;
+  align-self: start;
+  gap: 7px;
+  padding: 6px 10px 6px 8px;
+  border-radius: 999px;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+.recommendation-badge span { font-size: 0.64rem; }
+.recommendation-badge strong { font-size: 0.82rem; font-weight: 750; }
+
+.key-position-maturity {
+  grid-area: maturity;
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.key-position-maturity-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.key-position-maturity-heading strong {
+  color: var(--financial-text);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.key-position-maturity-track {
+  height: 12px;
+  border: 1px solid color-mix(in srgb, var(--key-card-border) 72%, transparent);
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--drink-young));
+}
+
+.key-position-maturity-track::after {
+  background: repeating-linear-gradient(90deg, transparent 0 calc(10% - 1px), color-mix(in srgb, var(--border-strong) 32%, transparent) calc(10% - 1px) 10%);
+}
+
+.key-position-maturity-before { background: color-mix(in srgb, var(--drink-young) 27%, var(--surface-muted)); }
+.key-position-maturity-peak {
+  inset-block: -1px;
+  border-color: color-mix(in srgb, var(--drink-ideal) 58%, var(--key-card-border));
+  background: repeating-linear-gradient(135deg, color-mix(in srgb, var(--drink-ideal) 34%, var(--surface-raised)) 0 4px, color-mix(in srgb, var(--drink-ideal) 12%, var(--surface-raised)) 4px 8px);
+}
+.key-position-maturity-after { background: color-mix(in srgb, var(--drink-past) 21%, var(--surface-muted)); }
+.key-position-maturity-current { height: 24px; box-shadow: 0 0 0 2px var(--key-card-surface); }
+
+@media (max-width: 760px) {
+  .key-position-button {
+    grid-template-columns: 122px minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .key-position-head { min-height: 148px; padding-right: 0; }
+  .key-position-head h2 { font-size: clamp(1.9rem, 8.8vw, 3.25rem); }
+  .key-position-title--medium { font-size: clamp(1.74rem, 7.6vw, 2.65rem) !important; }
+  .key-position-title--long { font-size: clamp(1.56rem, 6.7vw, 2.3rem) !important; }
+  .key-position-yearmark { top: 34px; right: 20px; font-size: clamp(3.6rem, 16vw, 5.7rem); }
+  .key-position-metrics { gap: 9px; }
+  .key-position-metric { width: min(100%, 128px); padding: 18px 8px; }
+}
+
+@media (max-width: 430px) {
+  .key-position-card-heading { padding-inline: 18px; }
+  .key-position-button { grid-template-columns: 92px minmax(0, 1fr); padding-inline: 18px; }
+  .key-position-head h2 { white-space: normal; text-wrap: balance; }
+  .key-position-metric > span { max-width: 9ch; font-size: 0.52rem; letter-spacing: 0.06em; }
+  .key-position-metrics strong { font-size: clamp(0.76rem, 3.1vw, 0.98rem); }
+  .key-position-metric--positive strong { font-size: clamp(0.82rem, 3.3vw, 1.05rem); }
 }
 
 @media print {

@@ -1,76 +1,85 @@
-.key-position-button.has-bottle-photo .key-position-head {
-  max-width: calc(100% - clamp(150px, 18vw, 190px));
-  min-height: 164px;
-  margin-left: clamp(130px, 16vw, 172px);
-  align-content: center;
-}
-
 .key-position-bottle-stage {
-  position: absolute;
-  top: -16px;
-  left: clamp(28px, 4vw, 48px);
-  z-index: 1;
+  align-self: center;
   display: grid;
-  width: clamp(120px, 15vw, 164px);
-  height: 198px;
+  grid-area: bottle;
+  width: min(100%, 170px);
+  height: 202px;
+  min-height: 202px;
   place-items: end center;
-  pointer-events: none;
+  position: relative;
 }
 
-.key-position-bottle-stage::before {
+.key-position-bottle-stage::after {
   content: "";
   position: absolute;
+  bottom: 7px;
   left: 50%;
-  bottom: 5px;
-  width: 74%;
-  height: 18px;
+  width: 58%;
+  height: 10px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--text) 18%, transparent);
-  filter: blur(10px);
-  opacity: 0.7;
+  background: color-mix(in srgb, var(--text) 16%, transparent);
+  filter: blur(7px);
+  opacity: 0.55;
   transform: translateX(-50%);
 }
 
-.key-position-bottle-stage img {
+.key-position-bottle-stage img,
+.key-position-bottle-placeholder {
+  grid-area: 1 / 1;
   width: 100%;
   height: 100%;
-  position: relative;
-  z-index: 1;
   object-fit: contain;
-  filter:
-    drop-shadow(0 9px 10px color-mix(in srgb, var(--text) 36%, transparent))
-    drop-shadow(0 0 22px color-mix(in srgb, var(--text) 28%, transparent));
-  transform: translateY(-3px);
-  transition: filter 0.24s ease, transform 0.24s ease;
 }
 
-.key-position-button.has-bottle-photo:hover .key-position-bottle-stage img,
-.key-position-button.has-bottle-photo:focus-visible .key-position-bottle-stage img {
-  filter:
-    drop-shadow(0 12px 13px color-mix(in srgb, var(--text) 42%, transparent))
-    drop-shadow(0 0 28px color-mix(in srgb, var(--text) 34%, transparent));
-  transform: translateY(-6px) scale(1.015);
+.key-position-bottle-stage img {
+  z-index: 1;
+  filter: drop-shadow(0 7px 8px color-mix(in srgb, var(--text) 28%, transparent));
+  transform: scale(1.035);
 }
 
-@media (min-width: 641px) {
-  .key-position-button.has-bottle-photo .key-position-head { margin-top: -12px; }
+.key-position-bottle-placeholder {
+  align-self: center;
+  display: grid;
+  width: 53px;
+  height: 142px;
+  grid-template-rows: 19px 18px 1fr;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 68%, var(--accent));
+  border-radius: 9px 9px 15px 15px;
+  background: color-mix(in srgb, var(--surface-muted) 82%, var(--accent));
+  box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--surface-raised) 64%, transparent);
 }
+
+.key-position-bottle-placeholder i:first-child {
+  justify-self: center;
+  width: 26px;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 58%, var(--accent));
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  background: color-mix(in srgb, var(--surface-subtle) 78%, var(--primary));
+}
+
+.key-position-bottle-placeholder i:nth-child(2) {
+  border-block: 1px solid color-mix(in srgb, var(--border-strong) 62%, var(--accent));
+  background: color-mix(in srgb, var(--surface-raised) 76%, var(--accent));
+}
+
+.key-position-bottle-placeholder i:last-child {
+  width: 76%;
+  height: 43%;
+  align-self: center;
+  justify-self: center;
+  border: 1px solid color-mix(in srgb, var(--border-strong) 60%, var(--accent));
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--accent));
+}
+
+.key-position-bottle-stage.has-photo .key-position-bottle-placeholder { opacity: 0; }
 
 @media (max-width: 640px) {
-  .key-position-button.has-bottle-photo .key-position-head {
-    max-width: calc(100% - 92px);
-    min-height: 142px;
-    margin-left: 92px;
-  }
-
-  .key-position-button.has-bottle-photo .key-position-head h2 {
-    font-size: clamp(1.6rem, 8.5vw, 2.55rem);
-  }
-
   .key-position-bottle-stage {
-    top: 4px;
-    left: 4px;
-    width: 82px;
-    height: 142px;
+    width: 122px;
+    height: 158px;
+    min-height: 158px;
   }
 }
