@@ -4201,7 +4201,7 @@ export function App() {
             <span>{t("photoUsageDisclaimerConsent")}</span>
           </label>
         ) : null}
-        <button type="submit" disabled={saving}>{saving ? t("working") : authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("sendPasswordReset") : authMode === "reset-password" ? t("saveNewPassword") : t("login")}</button>
+        <button type="submit" disabled={saving || (authMode === "register" && !authDraft.photo_usage_disclaimer_accepted)}>{saving ? t("working") : authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("sendPasswordReset") : authMode === "reset-password" ? t("saveNewPassword") : t("login")}</button>
         {authMode === "login" ? (
           <>
             <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>{t("passkeyLogin")}</button>
