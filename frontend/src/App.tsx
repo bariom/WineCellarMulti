@@ -4047,6 +4047,24 @@ export function App() {
     isMobileViewport &&
     !shouldPrioritizeAuthAction &&
     (authModalOpen || Boolean(acceptToken) || Boolean(emailVerificationToken) || Boolean(passwordResetToken) || emailVerificationConfirmed || canShowOfflineBackupPanel);
+  const onboardingStep = emailVerificationToken || session?.pending_email_verification
+    ? 2
+    : emailVerificationConfirmed
+      ? 2
+      : 1;
+  const onboardingProgress = (activeStep: 1 | 2 | 3, emailComplete = false) => (
+    <ol className="onboarding-progress" aria-label="Onboarding">
+      <li className={activeStep > 1 ? "complete" : activeStep === 1 ? "active" : ""}>
+        <span>1</span><small>{t("onboardingAccountStep")}</small>
+      </li>
+      <li className={emailComplete || activeStep > 2 ? "complete" : activeStep === 2 ? "active" : ""}>
+        <span>2</span><small>{t("onboardingEmailStep")}</small>
+      </li>
+      <li className={activeStep === 3 ? "active" : ""}>
+        <span>3</span><small>{t("onboardingAccessStep")}</small>
+      </li>
+    </ol>
+  );
   const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
     <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
       <div>
@@ -4076,6 +4094,9 @@ export function App() {
   );
   const publicAuthPanel = (
     <section className="auth-panel" id="auth-panel">
+      {(authMode === "register" || onboardingStep === 2 || emailVerificationConfirmed) && authMode !== "forgot-password" && authMode !== "reset-password"
+        ? onboardingProgress(onboardingStep, emailVerificationConfirmed)
+        : null}
       {showInlineAuthError ? (
         <div ref={errorBannerRef} className="error-banner app-error-banner auth-error-banner" role="alert" aria-live="assertive">
           <div className="app-error-copy">
@@ -4107,12 +4128,15 @@ export function App() {
           <strong>{t("emailVerificationSuccess")}</strong>
         </div>
       ) : null}
-      <div className="auth-tabs">
-        <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>{t("login")}</button>
-        <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
-      </div>
-      <form className="wine-form" onSubmit={submitAuth}>
-        <h2>{authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("passwordResetTitle") : authMode === "reset-password" ? t("passwordResetNewPassword") : t("login")}</h2>
+      {!emailVerificationToken && !session?.pending_email_verification ? <>
+        <div className="auth-tabs">
+          <button type="button" className={authMode === "login" ? "" : "secondary"} onClick={() => setAuthMode("login")}>{t("login")}</button>
+          <button type="button" className={authMode === "register" ? "" : "secondary"} onClick={() => setAuthMode("register")}>{t("register")}</button>
+        </div>
+        <form className="wine-form" onSubmit={submitAuth}>
+        <div className="auth-form-heading">
+          <h2>{authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("passwordResetTitle") : authMode === "reset-password" ? t("passwordResetNewPassword") : t("login")}</h2>
+        </div>
         {session?.pending_approval ? (
           <div className="invite-notice">
             <strong>{t("pendingApproval")}</strong>
@@ -4125,34 +4149,34 @@ export function App() {
             <span>{t("pendingEmailVerificationHelp")}</span>
           </div>
         ) : null}
+        {authMode === "register" ? (
+          <label>
+            <span>{t("name")}</span>
+            <input autoComplete="name" value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
+          </label>
+        ) : null}
         {authMode !== "reset-password" ? (
           <label>
             <span>{t("email")}</span>
-            <input type="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} required />
+            <input type="email" inputMode="email" autoComplete="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} placeholder="nome@esempio.com" required />
           </label>
         ) : null}
         {authMode === "register" ? (
-          <>
-            <label>
-              <span>{t("name")}</span>
-              <input value={authDraft.display_name} onChange={(event) => setAuthDraft({ ...authDraft, display_name: event.target.value })} required />
-            </label>
-            <label>
-              <span>{t("cellarName")}</span>
-              <input value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
-            </label>
-          </>
+          <label>
+            <span>{t("cellarName")}</span>
+            <input autoComplete="organization" value={authDraft.household_name} onChange={(event) => setAuthDraft({ ...authDraft, household_name: event.target.value })} required />
+          </label>
         ) : null}
         {authMode !== "forgot-password" ? (
           <label>
             <span>{t("password")}</span>
-            <input type="password" value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "login" ? 1 : 8} required />
+            <input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={authDraft.password} onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })} minLength={authMode === "login" ? 1 : 8} required />
           </label>
         ) : null}
         {authMode === "register" || authMode === "reset-password" ? (
           <label>
             <span>{t("confirmPassword")}</span>
-            <input type="password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
+            <input type="password" autoComplete="new-password" value={authDraft.password_confirm} onChange={(event) => setAuthDraft({ ...authDraft, password_confirm: event.target.value })} minLength={8} required />
           </label>
         ) : null}
         {authMode === "register" ? (
@@ -4173,7 +4197,8 @@ export function App() {
             <button type="button" className="secondary" disabled={saving} onClick={() => setAuthMode("forgot-password")}>{t("forgotPassword")}</button>
           </>
         ) : null}
-      </form>
+        </form>
+      </> : null}
       {canShowOfflineBackupPanel ? (
         <section className="wine-form">
           <h2>{t("offlineBackup")}</h2>
@@ -6279,7 +6304,7 @@ export function App() {
             </button>
           </div>
         ) : (
-          <div className="session-pill" style={isMobileViewport ? { display: "flex", flexWrap: "wrap", gap: "8px", width: "100%", maxWidth: "none", boxSizing: "border-box" } : undefined}>
+          <div className="session-pill public-session-pill" style={isMobileViewport ? { display: "flex", flexWrap: "wrap", gap: "8px", width: "100%", maxWidth: "none", boxSizing: "border-box" } : undefined}>
             <label className="language-switch public-language-switch" style={isMobileViewport ? { flex: "1 1 140px", minWidth: 0 } : undefined}>
               <span>{t("language")}</span>
               <select value={locale} onChange={(event) => changeLocale(event.target.value as Locale)}>
@@ -6323,24 +6348,9 @@ export function App() {
       ) : (
         <>
           <section className="mobile-public-landing" aria-labelledby="mobile-public-title">
-            <div className="mobile-public-brand">
-              <img src="/icons/icon-192.png" alt="Vinaris" width="40" height="40" fetchPriority="high" />
-              <span>Vinaris</span>
-            </div>
-            <p className="eyebrow">{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</p>
-            <h2 id="mobile-public-title">
-              {locale === "it" ? "L'app privata per gestire la tua cantina vini." : "A private app to manage your wine cellar."}
-            </h2>
-            <p>
-              {locale === "it"
-                ? "Tieni insieme bottiglie, valore, finestre di beva, consegne, wishlist e degustazioni."
-                : "Keep bottles, value, drinking windows, deliveries, wishlist, and tastings together."}
-            </p>
-            <div className="mobile-public-signals" aria-label={locale === "it" ? "Funzioni principali" : "Key features"}>
-              <span>{locale === "it" ? "Valore" : "Value"}</span>
-              <span>{locale === "it" ? "Beva" : "Drinking"}</span>
-              <span>Wishlist</span>
-            </div>
+            <p className="eyebrow">Private cellar intelligence</p>
+            <h2 id="mobile-public-title">{landing.headline}</h2>
+            <p>{landing.subheadline}</p>
             <div className="mobile-public-actions">
               <button type="button" onClick={() => openAuthPanel("register")}>
                 {landing.secondaryCta}
@@ -6348,14 +6358,7 @@ export function App() {
               <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
                 {landing.primaryCta}
               </button>
-              <a className="demo-link" href={`/videos/vinaris-demo-app-${locale}.mp4`} target="_blank" rel="noreferrer">
-                {landing.demoDesktopCta}
-              </a>
-              <a className="demo-link demo-link-mobile" href={`/videos/vinaris-demo-app-${locale}-mobile.mp4`} target="_blank" rel="noreferrer">
-                {landing.demoMobileCta}
-              </a>
             </div>
-            <p className="mobile-ai-credit-note">{landing.aiTrialNote}</p>
           </section>
           <section className="public-landing">
             <div className="public-hero">
@@ -6815,11 +6818,13 @@ export function App() {
         ) : null}
         </>
       ) : needsRedeem && activeView !== "settings" ? (
-        <section className="auth-panel">
-          <section className="wine-form">
-            <h2>{t("redeemCode")}</h2>
-            <div className="invite-notice">
-              <strong>{t("redeemRequired")}</strong>
+        <section className="auth-panel redeem-onboarding-panel">
+          {onboardingProgress(3, true)}
+          <section className="wine-form redeem-onboarding-form">
+            <div className="auth-form-heading">
+              <p className="eyebrow">{t("onboardingAccessStep")}</p>
+              <h2>{t("redeemIntroTitle")}</h2>
+              <p>{t("redeemIntroHelp")}</p>
               <span>{session?.user_email}</span>
             </div>
             {trialRedeemCodes.length ? (
@@ -6827,37 +6832,42 @@ export function App() {
                 {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
               </div>
             ) : null}
-            <div className="invite-notice promo-notice">
-              <strong>{t("finalBetaPromo")}</strong>
-              <span>{t("promoMonthlyPrice")}</span>
-              <span>{t("promoAnnualPrice")}</span>
-            </div>
-            <div className="form-actions">
-              <button type="button" onClick={() => startCheckout("monthly")} disabled={saving}>
-                {saving ? t("working") : t("buyMonthly")}
-              </button>
-              <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
-                {saving ? t("working") : t("buyAnnual")}
-              </button>
-              <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
-                {t("manageSubscription")}
-              </button>
-            </div>
-            <p className="empty-state">{t("paymentHelp")}</p>
             {standardRedeemCodes.length ? (
               <div className="member-list">
                 {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
               </div>
             ) : null}
-            <form className="inline-form" onSubmit={redeemCode}>
+            <form className="inline-form redeem-code-form" onSubmit={redeemCode}>
               <label>
                 <span>{t("redeemCode")}</span>
-                <input value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
+                <input autoCapitalize="characters" autoCorrect="off" spellCheck={false} value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
               </label>
               <button type="submit" disabled={saving || !redeemInput.trim()}>
                 {saving ? t("working") : t("redeem")}
               </button>
             </form>
+            <details className="access-alternatives">
+              <summary>{t("accessAlternatives")}</summary>
+              <div className="access-alternatives-body">
+                <div className="invite-notice promo-notice">
+                  <strong>{t("finalBetaPromo")}</strong>
+                  <span>{t("promoMonthlyPrice")}</span>
+                  <span>{t("promoAnnualPrice")}</span>
+                </div>
+                <div className="form-actions">
+                  <button type="button" onClick={() => startCheckout("monthly")} disabled={saving}>
+                    {saving ? t("working") : t("buyMonthly")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
+                    {saving ? t("working") : t("buyAnnual")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
+                    {t("manageSubscription")}
+                  </button>
+                </div>
+                <p className="empty-state">{t("paymentHelp")}</p>
+              </div>
+            </details>
           </section>
           <ContactSupportPanel
             t={t}
