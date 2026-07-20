@@ -966,6 +966,7 @@ export function App() {
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
+  const [pairingWineDetailId, setPairingWineDetailId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [wishlistConversionItem, setWishlistConversionItem] = useState<WishlistItem | null>(null);
   const [wishlistConversionQuantity, setWishlistConversionQuantity] = useState("1");
@@ -998,13 +999,16 @@ export function App() {
   }, [activeView]);
 
   useEffect(() => {
-    if (!wineDetailExpanded) return;
+    if (!wineDetailExpanded && !pairingWineDetailId) return;
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setWineDetailExpanded(false);
+      if (event.key !== "Escape") return;
+      setWineDetailExpanded(false);
+      setPairingWineDetailId(null);
+      if (activeView === "pairing") setSelectedWineId(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [wineDetailExpanded]);
+  }, [wineDetailExpanded, pairingWineDetailId, activeView]);
 
   useEffect(() => {
     if (settingsTab !== "operations" || !session?.is_app_admin) return;
@@ -4266,6 +4270,8 @@ export function App() {
         ? selectedWine
         : null
     : null;
+  const pairingWineDetail = pairingWineDetailId ? wines.find((wine) => wine.id === pairingWineDetailId) || null : null;
+  const wineDetailModalWine = pairingWineDetail || (wineDetailExpanded ? selectedVisibleWine : null);
   const comparedWines = compareWineIds
     .map((wineId) => wines.find((wine) => wine.id === wineId) || null)
     .filter((wine): wine is Wine => Boolean(wine));
@@ -5704,6 +5710,11 @@ export function App() {
     openWineInView(wine, "cellar");
   }
 
+  function openWineFromPairing(wine: Wine) {
+    setSelectedWineId(wine.id);
+    setPairingWineDetailId(wine.id);
+  }
+
   function openWineFromTastingArchive(wine: Wine) {
     openWineInView(wine, "history", "tastings");
   }
@@ -5731,6 +5742,12 @@ export function App() {
 
   function toggleWineDetailFocus() {
     setWineDetailExpanded((expanded) => !expanded);
+  }
+
+  function closeWineDetailModal() {
+    setWineDetailExpanded(false);
+    setPairingWineDetailId(null);
+    if (activeView === "pairing") setSelectedWineId(null);
   }
 
   const activePairingBudget = Number(pairingMaxPrice || 0);
@@ -7614,7 +7631,7 @@ export function App() {
                   isMobileViewport={isMobileViewport}
                   locale={locale}
                   onGeneratePairing={generatePairing}
-                  onOpenWine={openWineFromDashboard}
+                  onOpenWine={openWineFromPairing}
                   onSavePairingPreferences={savePairingPreferences}
                   pairingBudgetPresets={pairingBudgetPresets}
                   pairingBudgetSliderMax={pairingBudgetSliderMax}
@@ -10516,24 +10533,24 @@ export function App() {
           </section>
         </div>
       ) : null}
-      {wineDetailExpanded && selectedVisibleWine ? (
+      {wineDetailModalWine ? (
         <div
           className="wine-detail-modal-layer"
           role="presentation"
           onClick={(event) => {
-            if (event.target === event.currentTarget) setWineDetailExpanded(false);
+            if (event.target === event.currentTarget) closeWineDetailModal();
           }}
         >
           <section className="wine-detail-modal" role="dialog" aria-modal="true" aria-labelledby="wine-detail-modal-title">
             <header className="wine-detail-modal-header">
               <div>
                 <span>{t("wineDetail")}</span>
-                <h2 id="wine-detail-modal-title">{selectedVisibleWine.name}{selectedVisibleWine.vintage ? ` · ${selectedVisibleWine.vintage}` : ""}</h2>
+                <h2 id="wine-detail-modal-title">{wineDetailModalWine.name}{wineDetailModalWine.vintage ? ` · ${wineDetailModalWine.vintage}` : ""}</h2>
               </div>
               <button
                 type="button"
                 className="secondary compact wine-detail-modal-close"
-                onClick={() => setWineDetailExpanded(false)}
+                onClick={closeWineDetailModal}
                 aria-label={t("close")}
                 title={t("close")}
               >
@@ -10541,7 +10558,7 @@ export function App() {
               </button>
             </header>
             <div className="wine-detail-modal-content">
-              {renderWineDetail(selectedVisibleWine)}
+              {renderWineDetail(wineDetailModalWine)}
             </div>
           </section>
         </div>
