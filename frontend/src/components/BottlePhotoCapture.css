@@ -20,14 +20,20 @@
   background: var(--surface-muted);
 }
 
-.bottle-photo-form-card > div {
+.bottle-photo-form-card > div:first-child {
   display: grid;
   gap: 3px;
 }
 
 .bottle-photo-form-card small { color: var(--text-muted); }
 
+.bottle-photo-form-card.reuse-only {
+  align-items: stretch;
+  flex-direction: column;
+}
+
 .wine-photo-suggestion {
+  display: grid;
   grid-template-columns: 72px minmax(0, 1fr);
   align-items: center;
   width: 100%;

@@ -1,6 +1,7 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { KeyPositionActionBadge, KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionIncreaseKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
+import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
@@ -7817,7 +7818,7 @@ export function App() {
                   </div>
                 ) : null}
                 {canReuseWinePhotos ? (
-                  <div className="bottle-photo-form-card">
+                  <div className={`bottle-photo-form-card${canManageWinePhotos ? "" : " reuse-only"}`}>
                     <div>
                       <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
                       <small>

@@ -4,7 +4,6 @@ import { createPortal } from "react-dom";
 import { api, extractApiErrorText } from "../services/api";
 import type { Locale, Wine } from "../types";
 import { AppIcon } from "./AppIcon";
-import "./BottlePhotoCapture.css";
 
 const DETAIL_SIZE = { width: 480, height: 720 };
 const THUMBNAIL_SIZE = { width: 160, height: 240 };
