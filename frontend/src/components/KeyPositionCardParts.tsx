@@ -1,11 +1,85 @@
-type KeyPositionKpiTone = "value" | "total" | "neutral" | "positive" | "negative";
+type KeyPositionKpiTone = "neutral" | "positive" | "negative";
 
-export function KeyPositionKpi({ label, value, tone }: { label: string; value: string; tone: KeyPositionKpiTone }) {
+function KeyPositionWineIllustration() {
   return (
-    <div className={`key-position-metric key-position-metric--${tone}`}>
+    <div className="key-position-wine-illustration" aria-hidden="true">
+      <svg viewBox="0 0 120 190" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M35 30 25 80c-3 20 12 37 34 37s37-17 34-37L84 30" />
+        <path d="M59 117v43M35 173h48M59 160l-24 13M59 160l24 13" />
+        <path d="M31 77c11 1 18 10 28 10 13 0 18-13 28-19" />
+        <path d="M37 88c12 12 30 15 45 4" opacity=".55" />
+        <circle cx="50" cy="20" r="4" /><circle cx="64" cy="10" r="3.5" /><circle cx="72" cy="29" r="5" /><circle cx="46" cy="42" r="3" />
+      </svg>
+    </div>
+  );
+}
+
+export function KeyPositionBottleVisual({ photoUrl }: { photoUrl: string }) {
+  const [imageFailed, setImageFailed] = useState(false);
+  const hasPhoto = Boolean(photoUrl) && !imageFailed;
+
+  return (
+    <div className={`key-position-bottle-visual${hasPhoto ? " has-photo" : ""}`} aria-hidden="true">
+      {hasPhoto ? <img src={photoUrl} alt="" loading="lazy" onError={() => setImageFailed(true)} /> : <KeyPositionWineIllustration />}
+    </div>
+  );
+}
+
+export function KeyPositionIncreaseKpi({ label, value, tone }: { label: string; value: string; tone: KeyPositionKpiTone }) {
+  return (
+    <section className={`key-position-increase key-position-increase--${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
-    </div>
+    </section>
+  );
+}
+
+export function KeyPositionCircularKpi({ label, value, tone = "total" }: { label: string; value: string; tone?: "total" | "count" }) {
+  return (
+    <section className={`key-position-metric key-position-metric--${tone}`}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </section>
+  );
+}
+
+type TrendPoint = { value: number; label: string };
+
+function sparklinePath(points: TrendPoint[]) {
+  const values = points.map((point) => point.value);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = Math.max(max - min, 1);
+  return points.map((point, index) => {
+    const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
+    const y = 34 - ((point.value - min) / range) * 28;
+    return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
+  }).join(" ");
+}
+
+export function KeyPositionTrendKpi({ label, points, cagrLabel, rangeLabel, unavailableLabel }: {
+  label: string;
+  points: TrendPoint[];
+  cagrLabel: string | null;
+  rangeLabel: string | null;
+  unavailableLabel: string;
+}) {
+  const hasTrend = points.length >= 2;
+  const path = hasTrend ? sparklinePath(points) : "";
+  const trendDescription = hasTrend ? `${label}: ${rangeLabel || ""}, ${cagrLabel || ""}` : `${label}: ${unavailableLabel}`;
+
+  return (
+    <section className="key-position-trend" aria-label={trendDescription}>
+      <span>{label}</span>
+      {hasTrend ? (
+        <svg viewBox="0 0 100 42" role="img" aria-label={trendDescription} preserveAspectRatio="none">
+          <path className="key-position-trend-area" d={`${path} L100 42 L0 42 Z`} />
+          <path className="key-position-trend-line" d={path} />
+        </svg>
+      ) : <em>{unavailableLabel}</em>}
+      <strong>{hasTrend ? cagrLabel : "—"}</strong>
+      <small>{hasTrend ? rangeLabel : null}</small>
+    </section>
   );
 }
 
@@ -20,7 +94,9 @@ export function KeyPositionActionBadge({ label, value, tone }: { label: string; 
 
 type KeyPositionMaturityTimelineProps = {
   label: string;
-  rangeLabel: string;
+  startYear: number | null;
+  peakEndYear: number | null;
+  endYear: number | null;
   currentYearLabel: string;
   currentYear: number;
   hasWindow: boolean;
@@ -29,45 +105,21 @@ type KeyPositionMaturityTimelineProps = {
   currentProgress: number;
 };
 
-export function KeyPositionMaturityTimeline({
-  label,
-  rangeLabel,
-  currentYearLabel,
-  currentYear,
-  hasWindow,
-  peakLeft,
-  peakWidth,
-  currentProgress,
-}: KeyPositionMaturityTimelineProps) {
+export function KeyPositionMaturityTimeline({ label, startYear, peakEndYear, endYear, currentYearLabel, currentYear, hasWindow, peakLeft, peakWidth, currentProgress }: KeyPositionMaturityTimelineProps) {
   const peakEnd = Math.min(100, peakLeft + peakWidth);
+  const rangeLabel = endYear ? String(endYear) : "—";
 
   return (
     <section className="key-position-maturity" aria-label={label}>
-      <div className="key-position-maturity-heading">
-        <span>{label}</span>
-        <strong>{rangeLabel}</strong>
+      <div className="key-position-maturity-heading"><span>{label}</span><strong>{rangeLabel}</strong></div>
+      <div className={`key-position-maturity-track${hasWindow ? " has-window" : ""}`} role="img" aria-label={`${label}: ${startYear || "—"}–${endYear || "—"}. ${currentYearLabel}: ${currentYear}`}>
+        {hasWindow ? <><span className="key-position-maturity-before" style={{ width: `${peakLeft}%` }} /><span className="key-position-maturity-peak" style={{ left: `${peakLeft}%`, width: `${peakWidth}%` }} /><span className="key-position-maturity-after" style={{ left: `${peakEnd}%` }} /></> : null}
+        {hasWindow ? <span className="key-position-maturity-current" style={{ left: `${currentProgress}%` }} aria-hidden="true"><i>{currentYear}</i></span> : null}
       </div>
-      <div
-        className={`key-position-maturity-track${hasWindow ? " has-window" : ""}`}
-        role="img"
-        aria-label={`${label}: ${rangeLabel}. ${currentYearLabel}: ${currentYear}`}
-      >
-        {peakWidth ? (
-          <>
-            <span className="key-position-maturity-before" style={{ width: `${peakLeft}%` }} />
-            <span className="key-position-maturity-peak" style={{ left: `${peakLeft}%`, width: `${peakWidth}%` }} />
-            <span className="key-position-maturity-after" style={{ left: `${peakEnd}%` }} />
-          </>
-        ) : null}
-        {hasWindow ? (
-          <span
-            className="key-position-maturity-current"
-            style={{ left: `${currentProgress}%` }}
-            title={`${currentYearLabel}: ${currentYear}`}
-            aria-hidden="true"
-          />
-        ) : null}
+      <div className="key-position-maturity-years" aria-hidden="true">
+        <span>{startYear || ""}</span><span>{peakEndYear || ""}</span><span>{endYear || ""}</span>
       </div>
     </section>
   );
 }
+import { useState } from "react";
