@@ -1,5 +1,3 @@
-type KeyPositionKpiTone = "neutral" | "positive" | "negative";
-
 function KeyPositionWineIllustration() {
   return (
     <div className="key-position-wine-illustration" aria-hidden="true">
@@ -25,15 +23,6 @@ export function KeyPositionBottleVisual({ photoUrl }: { photoUrl: string }) {
   );
 }
 
-export function KeyPositionIncreaseKpi({ label, value, tone }: { label: string; value: string; tone: KeyPositionKpiTone }) {
-  return (
-    <section className={`key-position-increase key-position-increase--${tone}`}>
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </section>
-  );
-}
-
 export function KeyPositionCircularKpi({ label, value, tone = "total" }: { label: string; value: string; tone?: "total" | "count" }) {
   return (
     <section className={`key-position-metric key-position-metric--${tone}`}>
@@ -43,30 +32,51 @@ export function KeyPositionCircularKpi({ label, value, tone = "total" }: { label
   );
 }
 
-type TrendPoint = { value: number; label: string };
+type TrendPoint = { value: number; label: string; timestamp?: number };
 
 function sparklinePath(points: TrendPoint[]) {
   const values = points.map((point) => point.value);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(max - min, 1);
-  return points.map((point, index) => {
-    const x = points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
+  const timestamps = points.map((point) => point.timestamp).filter((timestamp): timestamp is number => Number.isFinite(timestamp));
+  const firstTimestamp = timestamps.length === points.length ? Math.min(...timestamps) : null;
+  const lastTimestamp = timestamps.length === points.length ? Math.max(...timestamps) : null;
+  const timeRange = firstTimestamp !== null && lastTimestamp !== null ? lastTimestamp - firstTimestamp : 0;
+  const coordinates = points.map((point, index) => {
+    const x = timeRange > 0 && point.timestamp !== undefined && firstTimestamp !== null
+      ? ((point.timestamp - firstTimestamp) / timeRange) * 100
+      : points.length === 1 ? 50 : (index / (points.length - 1)) * 100;
     const y = 34 - ((point.value - min) / range) * 28;
-    return `${index === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`;
-  }).join(" ");
+    return { x, y };
+  });
+  if (coordinates.length < 2) return coordinates.length ? `M${coordinates[0].x.toFixed(2)} ${coordinates[0].y.toFixed(2)}` : "";
+  if (coordinates.length === 2) return `M${coordinates[0].x.toFixed(2)} ${coordinates[0].y.toFixed(2)} L${coordinates[1].x.toFixed(2)} ${coordinates[1].y.toFixed(2)}`;
+
+  const clampY = (value: number) => Math.min(36, Math.max(4, value));
+  const segments = coordinates.slice(1).map((current, index) => {
+    const start = coordinates[index];
+    const previous = coordinates[Math.max(0, index - 1)];
+    const next = coordinates[Math.min(coordinates.length - 1, index + 2)];
+    const controlStartX = Math.min(current.x, start.x + (current.x - previous.x) / 6);
+    const controlStartY = clampY(start.y + (current.y - previous.y) / 6);
+    const controlEndX = Math.max(start.x, current.x - (next.x - start.x) / 6);
+    const controlEndY = clampY(current.y - (next.y - start.y) / 6);
+    return `C${controlStartX.toFixed(2)} ${controlStartY.toFixed(2)} ${controlEndX.toFixed(2)} ${controlEndY.toFixed(2)} ${current.x.toFixed(2)} ${current.y.toFixed(2)}`;
+  });
+  return `M${coordinates[0].x.toFixed(2)} ${coordinates[0].y.toFixed(2)} ${segments.join(" ")}`;
 }
 
-export function KeyPositionTrendKpi({ label, points, cagrLabel, rangeLabel, unavailableLabel }: {
+export function KeyPositionTrendKpi({ label, points, changeLabel, rangeLabel, unavailableLabel }: {
   label: string;
   points: TrendPoint[];
-  cagrLabel: string | null;
+  changeLabel: string | null;
   rangeLabel: string | null;
   unavailableLabel: string;
 }) {
   const hasTrend = points.length >= 2;
   const path = hasTrend ? sparklinePath(points) : "";
-  const trendDescription = hasTrend ? `${label}: ${rangeLabel || ""}, ${cagrLabel || ""}` : `${label}: ${unavailableLabel}`;
+  const trendDescription = hasTrend ? `${label}: ${rangeLabel || ""}, ${changeLabel || ""}` : `${label}: ${unavailableLabel}`;
 
   return (
     <section className="key-position-trend" aria-label={trendDescription}>
@@ -77,7 +87,7 @@ export function KeyPositionTrendKpi({ label, points, cagrLabel, rangeLabel, unav
           <path className="key-position-trend-line" d={path} />
         </svg>
       ) : <em>{unavailableLabel}</em>}
-      <strong>{hasTrend ? cagrLabel : "—"}</strong>
+      <strong>{hasTrend ? changeLabel : "—"}</strong>
       <small>{hasTrend ? rangeLabel : null}</small>
     </section>
   );

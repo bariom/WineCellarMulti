@@ -16396,9 +16396,13 @@ tbody tr:hover {
 
 .key-position-metrics {
   grid-area: metrics;
-  gap: clamp(14px, 3.5vw, 42px);
-  align-items: center;
-  justify-items: center;
+  gap: clamp(10px, 1.8vw, 18px);
+  align-items: stretch;
+  justify-items: stretch;
+}
+
+.key-position-metrics.has-value-trend {
+  grid-template-columns: minmax(132px, 0.8fr) minmax(108px, 0.55fr) minmax(210px, 1.35fr);
 }
 
 .key-position-metrics:not(.has-value-trend) {
@@ -16410,29 +16414,26 @@ tbody tr:hover {
 .key-position-metric {
   --metric-tone: var(--primary);
   display: grid;
-  grid-template-rows: minmax(2.5em, auto) auto;
-  gap: 8px;
-  width: min(100%, 154px);
-  padding: clamp(21px, 2.8vw, 28px) clamp(14px, 2vw, 20px);
+  grid-template-rows: auto auto;
+  align-content: center;
+  justify-items: start;
+  gap: 10px;
+  width: 100%;
+  min-height: 118px;
+  aspect-ratio: auto;
+  padding: clamp(16px, 2vw, 21px);
   border: 1px solid color-mix(in srgb, var(--metric-tone) 46%, var(--key-card-border));
+  border-top: 3px solid color-mix(in srgb, var(--metric-tone) 72%, var(--accent));
+  border-radius: 20px;
   background: color-mix(in srgb, var(--surface-raised) 88%, var(--metric-tone) 12%);
-  box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--surface) 76%, transparent), 0 7px 16px color-mix(in srgb, var(--collector-depth) 22%, transparent);
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--collector-depth) 18%, transparent);
+  text-align: left;
 }
 
-.key-position-metric::before {
-  inset: 5px;
-  border: 3px solid color-mix(in srgb, var(--metric-tone) 70%, var(--accent));
-  border-right-color: color-mix(in srgb, var(--metric-tone) 36%, var(--accent));
-  border-bottom-color: color-mix(in srgb, var(--metric-tone) 48%, var(--accent));
-  box-shadow: none;
-  opacity: 0.82;
-}
+.key-position-metric::before,
+.key-position-metric::after { display: none; }
 
-.key-position-metric::after {
-  inset: 14px;
-  border-color: color-mix(in srgb, var(--metric-tone) 26%, var(--key-card-border));
-  box-shadow: none;
-}
+.key-position-metric > span { max-width: none; font-size: clamp(0.6rem, 0.75vw, 0.68rem); }
 
 .key-position-metric--value { --metric-tone: var(--primary); }
 .key-position-metric--total { --metric-tone: var(--accent); }
@@ -16526,8 +16527,8 @@ tbody tr:hover {
   grid-template-areas: "label chart" "value chart" "period chart";
   align-items: center;
   gap: 5px 10px;
-  width: min(100%, 218px);
-  min-height: 142px;
+  width: 100%;
+  min-height: 118px;
   padding: clamp(16px, 2vw, 21px);
   position: relative;
   isolation: isolate;
@@ -16535,7 +16536,7 @@ tbody tr:hover {
   border: 1px solid color-mix(in srgb, var(--trend-tone) 46%, var(--key-card-border));
   border-radius: 24px;
   background: color-mix(in srgb, var(--surface-raised) 88%, var(--trend-tone) 9%);
-  box-shadow: inset 0 0 0 5px color-mix(in srgb, var(--surface) 76%, transparent), 0 7px 16px color-mix(in srgb, var(--collector-depth) 22%, transparent);
+  box-shadow: 0 7px 16px color-mix(in srgb, var(--collector-depth) 18%, transparent);
   text-align: left;
 }
 
@@ -16546,6 +16547,9 @@ tbody tr:hover {
   border-radius: 19px;
   pointer-events: none;
 }
+
+.key-position-trend::before,
+.key-position-trend::after { display: none; }
 
 .key-position-trend::before { inset: 5px; border: 2px solid color-mix(in srgb, var(--trend-tone) 58%, var(--accent)); opacity: 0.62; }
 .key-position-trend::after { inset: 11px; border: 1px solid color-mix(in srgb, var(--trend-tone) 20%, var(--key-card-border)); }
@@ -16649,7 +16653,7 @@ tbody tr:hover {
   .key-position-yearmark { top: 34px; right: 20px; font-size: clamp(3.6rem, 16vw, 5.7rem); }
   .key-position-metrics { gap: 9px; }
   .key-position-metrics.has-value-trend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .key-position-metric { grid-template-rows: minmax(2.15em, auto) auto; gap: 5px; width: min(100%, 118px); padding: 12px 7px 10px; }
+  .key-position-metric { grid-template-rows: auto auto; gap: 5px; width: 100%; min-height: 76px; padding: 11px 13px 10px; border-radius: 15px; }
   .key-position-bottle-visual { width: 96px; height: 142px; }
   .key-position-trend { grid-column: 1 / -1; width: min(100%, 320px); min-height: 82px; padding: 11px 16px; }
   .key-position-trend svg { min-height: 40px; }
@@ -16663,8 +16667,8 @@ tbody tr:hover {
   .key-position-head h2.key-position-title--medium { max-width: none; max-height: none; font-size: clamp(1.25rem, 5.7vw, 1.55rem) !important; }
   .key-position-head h2.key-position-title--long { max-width: none; max-height: none; font-size: clamp(1.1rem, 4.7vw, 1.32rem) !important; }
   .key-position-head p { overflow-wrap: normal; text-wrap: balance; white-space: normal; }
-  .key-position-metric { width: min(100%, 112px); padding: 13px 5px 11px; }
-  .key-position-metric > span { max-width: 9ch; font-size: 0.52rem; letter-spacing: 0.06em; }
+  .key-position-metric { width: 100%; padding: 10px 12px 9px; }
+  .key-position-metric > span { max-width: none; font-size: 0.55rem; letter-spacing: 0.06em; }
   .key-position-metrics strong { font-size: clamp(0.76rem, 3.1vw, 0.98rem); }
   .key-position-metric--positive strong { font-size: clamp(0.82rem, 3.3vw, 1.05rem); }
   .key-position-increase { min-height: 108px; gap: 7px; padding-inline: 2px; }
