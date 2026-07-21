@@ -982,10 +982,16 @@ export function App() {
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
+  const mobileWineDetailHistoryActiveRef = useRef(false);
 
   useEffect(() => {
     if (helpSlug !== null || window.location.pathname === "/help") setActiveView("help");
     const onPopState = () => {
+      if (mobileWineDetailHistoryActiveRef.current) {
+        mobileWineDetailHistoryActiveRef.current = false;
+        setSelectedWineId(null);
+        return;
+      }
       const slug = helpSlugFromLocation();
       if (slug !== null || window.location.pathname === "/help") {
         setHelpSlug(slug);
@@ -5263,10 +5269,28 @@ export function App() {
 
   function toggleSelectedWine(wine: Wine) {
     const tone = wineTone(wine.type);
-    if (selectedWineId !== wine.id) {
-      setOpenWineToneGroups((groups) => ({ ...groups, [tone]: true }));
+    if (selectedWineId === wine.id) {
+      closeMobileWineDetail();
+      return;
     }
-    setSelectedWineId((current) => current === wine.id ? null : wine.id);
+    setOpenWineToneGroups((groups) => ({ ...groups, [tone]: true }));
+    setSelectedWineId(wine.id);
+    if (isMobileViewport) {
+      if (mobileWineDetailHistoryActiveRef.current) {
+        window.history.replaceState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
+      } else {
+        window.history.pushState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
+        mobileWineDetailHistoryActiveRef.current = true;
+      }
+    }
+  }
+
+  function closeMobileWineDetail() {
+    if (mobileWineDetailHistoryActiveRef.current) {
+      window.history.back();
+      return;
+    }
+    setSelectedWineId(null);
   }
 
   function toggleSelectedWishlistItem(item: WishlistItem) {
@@ -9109,14 +9133,14 @@ export function App() {
                   </div>
                 </article>
                 {selectedWineId === wine.id && !wineFormOpen ? (
-                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={wine.name} onClick={() => setSelectedWineId(null)}>
+                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={wine.name} onClick={closeMobileWineDetail}>
                     <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
                       <div className="mobile-detail-sheet-head">
                         <div>
                           <strong>{wine.name}</strong>
                           <span>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</span>
                         </div>
-                        <button type="button" className="mobile-detail-close-button" aria-label={t("close")} title={t("close")} onClick={() => setSelectedWineId(null)}>
+                        <button type="button" className="mobile-detail-close-button" aria-label={t("close")} title={t("close")} onClick={closeMobileWineDetail}>
                           ×
                         </button>
                       </div>
