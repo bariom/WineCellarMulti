@@ -923,18 +923,20 @@ export function WineDetail({
           </div>
       </div>
 
-      <div className="detail-preference-bar">
-        <label className="detail-toggle-row">
-          <input
-            type="checkbox"
-            checked={wine.scores_not_applicable}
-            disabled={!canWrite || saving}
-            onChange={(event) => onToggleScoresAiExclusion(event.target.checked)}
-          />
-          <span>{t("excludeFromAiScores")}</span>
-        </label>
-        {wine.scores_not_applicable ? <small>{t("excludedFromAiScores")}</small> : null}
-      </div>
+      {wine.scores.length === 0 ? (
+        <div className="detail-preference-bar">
+          <label className="detail-toggle-row">
+            <input
+              type="checkbox"
+              checked={wine.scores_not_applicable}
+              disabled={!canWrite || saving}
+              onChange={(event) => onToggleScoresAiExclusion(event.target.checked)}
+            />
+            <span>{t("excludeFromAiScores")}</span>
+          </label>
+          {wine.scores_not_applicable ? <small>{t("excludedFromAiScores")}</small> : null}
+        </div>
+      ) : null}
 
       {(wine.drink_from || wine.drink_to) ? (
           <div className="drink-window detail-hero-window">
