@@ -37,6 +37,25 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
   );
 }
 
+function smoothValueHistoryPath(points: Array<{ x: number; y: number }>) {
+  if (!points.length) return "";
+  if (points.length === 1) return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
+  if (points.length === 2) return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} L${points[1].x.toFixed(2)} ${points[1].y.toFixed(2)}`;
+
+  const clampY = (value: number) => Math.min(84, Math.max(16, value));
+  const segments = points.slice(1).map((current, index) => {
+    const start = points[index];
+    const previous = points[Math.max(0, index - 1)];
+    const next = points[Math.min(points.length - 1, index + 2)];
+    const controlStartX = Math.min(current.x, start.x + (current.x - previous.x) / 6);
+    const controlStartY = clampY(start.y + (current.y - previous.y) / 6);
+    const controlEndX = Math.max(start.x, current.x - (next.x - start.x) / 6);
+    const controlEndY = clampY(current.y - (next.y - start.y) / 6);
+    return `C${controlStartX.toFixed(2)} ${controlStartY.toFixed(2)} ${controlEndX.toFixed(2)} ${controlEndY.toFixed(2)} ${current.x.toFixed(2)} ${current.y.toFixed(2)}`;
+  });
+  return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} ${segments.join(" ")}`;
+}
+
 export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: TranslationKey) => string }) {
   const entries = (wine.value_history || [])
     .filter((entry) => entry.value && entry.recorded_at)
@@ -58,8 +77,8 @@ export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: Translatio
     const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
     return { entry, x, y };
   });
-  const points = chartPoints.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(" ");
-  const areaPoints = `8,82 ${points} 92,82`;
+  const linePath = smoothValueHistoryPath(chartPoints);
+  const areaPath = `${linePath} L${chartPoints[chartPoints.length - 1].x.toFixed(2)} 82 L${chartPoints[0].x.toFixed(2)} 82 Z`;
   const first = entries[0];
   const last = entries[entries.length - 1];
   const deltaValue = last.numericValue - first.numericValue;
@@ -100,8 +119,8 @@ export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: Translatio
         <line className="chart-grid-line" x1="8" y1="50" x2="92" y2="50" />
         <line className="chart-axis-line" x1="8" y1="82" x2="92" y2="82" />
         <line className="chart-axis-line" x1="8" y1="18" x2="8" y2="82" />
-        <polygon className="value-history-area" points={areaPoints} fill={`url(#valueArea-${wine.id})`} />
-        <polyline className="value-history-line" points={points} stroke={`url(#valueLine-${wine.id})`} />
+        <path className="value-history-area" d={areaPath} fill={`url(#valueArea-${wine.id})`} />
+        <path className="value-history-line" d={linePath} fill="none" stroke={`url(#valueLine-${wine.id})`} />
         {chartPoints.map(({ entry, x, y }, index) => (
           <g key={entry.id} className={`value-history-point source-${entry.source}${index === chartPoints.length - 1 ? " latest" : ""}`}>
             <title>{`${sourceLabels[entry.source] || entry.source}: ${entry.currency} ${entry.numericValue.toFixed(0)}`}</title>
