@@ -248,10 +248,15 @@
     border-radius: 0;
   }
   .bottle-capture-stage { width: min(100%, 290px); }
-  .detail-hero .detail-title:has(.detail-bottle-photo) { grid-template-columns: 104px minmax(0, 1fr); }
+  .detail-hero .detail-title:has(.detail-bottle-photo) {
+    grid-template-columns: 104px minmax(0, 1fr);
+    min-height: 184px;
+    padding-bottom: 16px;
+  }
   .detail-bottle-photo,
   .detail-bottle-photo img {
     min-height: 172px;
     height: 172px;
   }
+  .detail-bottle-photo { transform: translateY(-16px); }
 }
