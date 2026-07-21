@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 import os
+import time
+from urllib.error import URLError
 from urllib.request import Request, urlopen
 
 from app.core.config import settings
@@ -25,9 +27,16 @@ def main() -> None:
         },
         method="POST",
     )
-    with urlopen(request, timeout=5) as response:
-        if response.status != 204:
-            raise SystemExit(f"Collector rejected with HTTP {response.status}")
+    for attempt in range(6):
+        try:
+            with urlopen(request, timeout=5) as response:
+                if response.status != 204:
+                    raise SystemExit(f"Collector rejected with HTTP {response.status}")
+            return
+        except URLError:
+            if attempt == 5:
+                raise
+            time.sleep(5)
 
 
 if __name__ == "__main__":
