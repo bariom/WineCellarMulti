@@ -60,10 +60,13 @@ if [[ ! -f "$ROOT_DIR/.env" || ! -f "$BACKEND_DIR/.env" ]]; then
 fi
 
 if [[ "$INSTALL_SERVICES" == "true" ]]; then
-  echo "Installing backend systemd service"
+  echo "Installing systemd services"
   sudo cp "$ROOT_DIR/deploy/systemd/winecellarmulti-backend.service" /etc/systemd/system/
+  sudo cp "$ROOT_DIR/deploy/systemd/vinaris-operations-collector.service" /etc/systemd/system/
+  sudo cp "$ROOT_DIR/deploy/systemd/vinaris-operations-collector.timer" /etc/systemd/system/
   sudo systemctl daemon-reload
   sudo systemctl enable winecellarmulti-backend
+  sudo systemctl enable vinaris-operations-collector.timer
 fi
 
 echo "Starting PostgreSQL"
@@ -105,6 +108,9 @@ fi
 
 echo "Restarting backend and reloading nginx"
 sudo systemctl restart winecellarmulti-backend
+if systemctl list-unit-files vinaris-operations-collector.service --no-legend 2>/dev/null | grep -q "^vinaris-operations-collector.service"; then
+  sudo systemctl start vinaris-operations-collector.service
+fi
 sudo nginx -t
 sudo systemctl reload nginx
 

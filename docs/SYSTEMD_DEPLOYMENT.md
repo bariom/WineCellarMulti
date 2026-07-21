@@ -19,8 +19,11 @@ From the repository root:
 ```bash
 cd /home/administrator/progetti/WineCellarMulti
 sudo cp deploy/systemd/winecellarmulti-backend.service /etc/systemd/system/
+sudo cp deploy/systemd/vinaris-operations-collector.service /etc/systemd/system/
+sudo cp deploy/systemd/vinaris-operations-collector.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable winecellarmulti-backend
+sudo systemctl enable --now vinaris-operations-collector.timer
 ```
 
 ## Make PostgreSQL restart automatically
@@ -66,6 +69,7 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ```bash
 sudo systemctl status winecellarmulti-backend --no-pager
+sudo systemctl status vinaris-operations-collector.timer --no-pager
 sudo systemctl status nginx --no-pager
 ```
 
@@ -73,6 +77,7 @@ sudo systemctl status nginx --no-pager
 
 ```bash
 sudo journalctl -u winecellarmulti-backend -f
+sudo journalctl -u vinaris-operations-collector.service -f
 sudo journalctl -u nginx -f
 ```
 
@@ -86,6 +91,8 @@ After reconnecting:
 
 ```bash
 systemctl is-active winecellarmulti-backend
+systemctl is-enabled vinaris-operations-collector.timer
+systemctl list-timers vinaris-operations-collector.timer
 systemctl is-active nginx
 docker ps --filter name=winecellarmulti-postgres
 ```

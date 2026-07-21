@@ -1,0 +1,11 @@
+[Unit]
+Description=Vinaris operational metrics collector
+Wants=network-online.target winecellarmulti-backend.service
+After=network-online.target winecellarmulti-backend.service
+
+[Service]
+Type=oneshot
+User=administrator
+Group=administrator
+WorkingDirectory=/home/administrator/progetti/WineCellarMulti/backend
+ExecStart=/home/administrator/progetti/WineCellarMulti/backend/.venv/bin/python scripts/collect_operations.py
