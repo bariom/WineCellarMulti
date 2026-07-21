@@ -815,6 +815,7 @@ export function WineDetail({
   generating,
   onGenerate,
   onToggleScoresAiExclusion,
+  onUpdateRating,
   onConsume,
   onUpdateTastingEntry,
   onDeleteTastingEntry,
@@ -835,6 +836,7 @@ export function WineDetail({
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
   onToggleScoresAiExclusion: (excluded: boolean) => void;
+  onUpdateRating: (rating: string) => Promise<void>;
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
   onUpdateTastingEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
   onDeleteTastingEntry: (wine: Wine, entryId: string) => Promise<void>;
@@ -883,7 +885,14 @@ export function WineDetail({
           <div>
             <p className="eyebrow">{t("wineDetail")}</p>
             <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
-            {wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
+            {canWrite ? (
+              <RatingInput
+                value={String(wine.rating || 0)}
+                disabled={saving}
+                label={t("rating")}
+                onChange={(rating) => { void onUpdateRating(rating); }}
+              />
+            ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
             <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
             {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
           </div>

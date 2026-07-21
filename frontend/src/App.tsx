@@ -5712,6 +5712,23 @@ export function App() {
     openWineInView(wine, "cellar");
   }
 
+  async function updateWineRating(wine: Wine, rating: string) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ rating: Number(rating || 0) }),
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update wine rating");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function openWineFromPairing(wine: Wine) {
     setSelectedWineId(wine.id);
     setPairingWineDetailId(wine.id);
@@ -6041,6 +6058,7 @@ export function App() {
         generating={generatingAi}
         onGenerate={(feature) => generateWineAi(wine, feature)}
         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
+        onUpdateRating={(rating) => updateWineRating(wine, rating)}
         onConsume={(payload) => consumeWineBottle(wine, payload)}
         onUpdateTastingEntry={updateWineTastingEntry}
         onDeleteTastingEntry={deleteWineTastingEntry}
@@ -9112,6 +9130,7 @@ export function App() {
                         generating={generatingAi}
                         onGenerate={(feature) => generateWineAi(wine, feature)}
                         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
+                        onUpdateRating={(rating) => updateWineRating(wine, rating)}
                         onConsume={(payload) => consumeWineBottle(wine, payload)}
                         onUpdateTastingEntry={updateWineTastingEntry}
                         onDeleteTastingEntry={deleteWineTastingEntry}
