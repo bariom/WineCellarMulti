@@ -4815,17 +4815,25 @@ export function App() {
         .filter((entry) => Number.isFinite(entry.value) && entry.value > 0 && Number.isFinite(entry.timestamp))
         .sort((first, second) => first.timestamp - second.timestamp);
       const currentValue = Number(wine.current_value || historicalPoints[historicalPoints.length - 1]?.value || 0);
-      const hasHistoricalTrend = historicalPoints.length >= 2;
-      const trendPoints = hasHistoricalTrend
-        ? historicalPoints
-        : increasePct !== null && purchasePrice > 0 && currentValue > 0
-          ? [{ value: purchasePrice, label: t("purchasePrice") }, { value: currentValue, label: t("today") }]
-          : [];
+      const parsedOrderDate = wine.order_date ? new Date(`${wine.order_date.slice(0, 10)}T00:00:00`).getTime() : Number.NaN;
+      const purchaseTimestamp = Number.isFinite(parsedOrderDate)
+        ? parsedOrderDate
+        : historicalPoints.length ? historicalPoints[0].timestamp - 86_400_000 : Date.now() - 86_400_000;
+      const historySincePurchase = historicalPoints.filter((point) => point.timestamp > purchaseTimestamp);
+      const trendPoints = purchasePrice > 0 && currentValue > 0
+        ? [{ value: purchasePrice, timestamp: purchaseTimestamp, label: t("purchasePrice") }, ...historySincePurchase]
+        : historicalPoints;
+      const latestTrendPoint = trendPoints[trendPoints.length - 1];
+      if (purchasePrice > 0 && currentValue > 0 && (!latestTrendPoint || latestTrendPoint.value !== currentValue || trendPoints.length < 2)) {
+        const estimatedAt = wine.ai_value_estimated_at ? new Date(wine.ai_value_estimated_at).getTime() : Number.NaN;
+        const currentTimestamp = Number.isFinite(estimatedAt) && estimatedAt > (latestTrendPoint?.timestamp || purchaseTimestamp)
+          ? estimatedAt
+          : Math.max(Date.now(), (latestTrendPoint?.timestamp || purchaseTimestamp) + 1);
+        trendPoints.push({ value: currentValue, timestamp: currentTimestamp, label: t("today") });
+      }
       const trendStart = trendPoints[0];
       const trendEnd = trendPoints[trendPoints.length - 1];
-      const trendChangePct = trendStart && trendEnd && trendStart.value > 0
-        ? ((trendEnd.value - trendStart.value) / trendStart.value) * 100
-        : null;
+      const trendChangePct = increasePct;
       const drinkStart = wine.drink_from || wine.drink_peak_from || null;
       const drinkEnd = wine.drink_to || wine.drink_peak_to || null;
       const maturityStart = Math.min(Number(wine.vintage) || drinkStart || currentYear, drinkStart || currentYear);
@@ -4855,9 +4863,7 @@ export function App() {
         maturityEnd: hasMaturityWindow ? maturityEnd : null,
         trendPoints,
         trendChangePct,
-        trendRange: hasHistoricalTrend && trendStart && trendEnd
-          ? `${trendStart.label}–${trendEnd.label}`
-          : trendPoints.length >= 2 ? `${t("purchasePrice")}–${t("today")}` : null,
+        trendRange: trendPoints.length >= 2 && trendStart && trendEnd ? `${trendStart.label}–${trendEnd.label}` : null,
         hasMaturityWindow,
       };
     });

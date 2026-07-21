@@ -87,7 +87,7 @@ export function KeyPositionTrendKpi({ label, points, changeLabel, rangeLabel, un
           <path className="key-position-trend-line" d={path} />
         </svg>
       ) : <em>{unavailableLabel}</em>}
-      <strong>{hasTrend ? changeLabel : "—"}</strong>
+      <strong>{hasTrend ? changeLabel || "—" : "—"}</strong>
       <small>{hasTrend ? rangeLabel : null}</small>
     </section>
   );

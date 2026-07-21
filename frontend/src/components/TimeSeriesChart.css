@@ -1,0 +1,22 @@
+.time-series-chart {
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  touch-action: pan-y;
+}
+
+.time-series-chart .uplot {
+  max-width: 100%;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.time-series-chart .u-over {
+  pointer-events: none;
+  touch-action: pan-y;
+}
+
+@media (max-width: 620px) {
+  .time-series-chart { min-height: 176px; }
+}

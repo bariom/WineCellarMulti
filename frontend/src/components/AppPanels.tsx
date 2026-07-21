@@ -1,4 +1,4 @@
-import { Children, useEffect, useRef, useState } from "react";
+import { Children, lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction, UIEvent } from "react";
 import { AppIcon } from "./AppIcon";
 import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
@@ -8,6 +8,7 @@ import type { TranslationKey } from "../i18n";
 import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, recognitionSuggestionLabel, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
+const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 export function DrinkWindowMini({ wine }: { wine: Wine }) {
   if (!wine.drink_from || !wine.drink_to) return null;
   const drinkStart = wine.drink_from;
@@ -37,26 +38,7 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
   );
 }
 
-function smoothValueHistoryPath(points: Array<{ x: number; y: number }>) {
-  if (!points.length) return "";
-  if (points.length === 1) return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)}`;
-  if (points.length === 2) return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} L${points[1].x.toFixed(2)} ${points[1].y.toFixed(2)}`;
-
-  const clampY = (value: number) => Math.min(84, Math.max(16, value));
-  const segments = points.slice(1).map((current, index) => {
-    const start = points[index];
-    const previous = points[Math.max(0, index - 1)];
-    const next = points[Math.min(points.length - 1, index + 2)];
-    const controlStartX = Math.min(current.x, start.x + (current.x - previous.x) / 6);
-    const controlStartY = clampY(start.y + (current.y - previous.y) / 6);
-    const controlEndX = Math.max(start.x, current.x - (next.x - start.x) / 6);
-    const controlEndY = clampY(current.y - (next.y - start.y) / 6);
-    return `C${controlStartX.toFixed(2)} ${controlStartY.toFixed(2)} ${controlEndX.toFixed(2)} ${controlEndY.toFixed(2)} ${current.x.toFixed(2)} ${current.y.toFixed(2)}`;
-  });
-  return `M${points[0].x.toFixed(2)} ${points[0].y.toFixed(2)} ${segments.join(" ")}`;
-}
-
-export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: TranslationKey) => string }) {
+export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: TranslationKey) => string; locale: Locale }) {
   const entries = (wine.value_history || [])
     .filter((entry) => entry.value && entry.recorded_at)
     .map((entry) => ({ ...entry, numericValue: Number(entry.value), dateMs: new Date(entry.recorded_at).getTime() }))
@@ -68,17 +50,6 @@ export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: Translatio
   const values = entries.map((entry) => entry.numericValue);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
-  const startDate = entries[0].dateMs;
-  const endDate = entries[entries.length - 1].dateMs;
-  const dateSpan = Math.max(endDate - startDate, 1);
-  const valueSpan = Math.max(maxValue - minValue, 1);
-  const chartPoints = entries.map((entry) => {
-    const x = entries.length === 1 ? 50 : 8 + ((entry.dateMs - startDate) / dateSpan) * 84;
-    const y = minValue === maxValue ? 50 : 82 - ((entry.numericValue - minValue) / valueSpan) * 64;
-    return { entry, x, y };
-  });
-  const linePath = smoothValueHistoryPath(chartPoints);
-  const areaPath = `${linePath} L${chartPoints[chartPoints.length - 1].x.toFixed(2)} 82 L${chartPoints[0].x.toFixed(2)} 82 Z`;
   const first = entries[0];
   const last = entries[entries.length - 1];
   const deltaValue = last.numericValue - first.numericValue;
@@ -104,31 +75,20 @@ export function ValueHistoryChart({ wine, t }: { wine: Wine; t: (key: Translatio
           {deltaPositive ? "+" : ""}{deltaValue.toFixed(0)} ({deltaPositive ? "+" : ""}{deltaPercent.toFixed(1)}%)
         </strong>
       </div>
-      <svg className="value-history-chart" viewBox="0 0 100 90" role="img" aria-label={t("valueEvolution")}>
-        <defs>
-          <linearGradient id={`valueLine-${wine.id}`} x1="8" y1="18" x2="92" y2="82" gradientUnits="userSpaceOnUse">
-            <stop stopColor="var(--primary)" />
-            <stop offset="1" stopColor="var(--accent)" />
-          </linearGradient>
-          <linearGradient id={`valueArea-${wine.id}`} x1="0" y1="18" x2="0" y2="82" gradientUnits="userSpaceOnUse">
-            <stop stopColor="var(--primary)" stopOpacity="0.24" />
-            <stop offset="1" stopColor="var(--accent)" stopOpacity="0.03" />
-          </linearGradient>
-        </defs>
-        <line className="chart-grid-line" x1="8" y1="18" x2="92" y2="18" />
-        <line className="chart-grid-line" x1="8" y1="50" x2="92" y2="50" />
-        <line className="chart-axis-line" x1="8" y1="82" x2="92" y2="82" />
-        <line className="chart-axis-line" x1="8" y1="18" x2="8" y2="82" />
-        <path className="value-history-area" d={areaPath} fill={`url(#valueArea-${wine.id})`} />
-        <path className="value-history-line" d={linePath} fill="none" stroke={`url(#valueLine-${wine.id})`} />
-        {chartPoints.map(({ entry, x, y }, index) => (
-          <g key={entry.id} className={`value-history-point source-${entry.source}${index === chartPoints.length - 1 ? " latest" : ""}`}>
-            <title>{`${sourceLabels[entry.source] || entry.source}: ${entry.currency} ${entry.numericValue.toFixed(0)}`}</title>
-            <circle className="point-halo" cx={x} cy={y} r="4.6" />
-            <circle className="point-core" cx={x} cy={y} r="2.2" />
-          </g>
-        ))}
-      </svg>
+      <Suspense fallback={<div className="value-history-chart" aria-label={t("valueEvolution")} />}>
+        <div className="value-history-chart">
+          <TimeSeriesChart
+            ariaLabel={t("valueEvolution")}
+            locale={locale}
+            currency={last.currency}
+            points={entries.map((entry) => ({
+              timestampMs: entry.dateMs,
+              value: entry.numericValue,
+              tone: entry.source === "ai" || entry.source === "manual" || entry.source === "imported" || entry.source === "shared" ? entry.source : "default",
+            }))}
+          />
+        </div>
+      </Suspense>
       {hasAiEstimate || hasManualCorrection ? (
         <div className="value-history-legend" aria-label={t("valueEvolution")}>
           {hasAiEstimate ? <span className="source-ai"><i aria-hidden="true" />{t("valueSourceAi")}</span> : null}
@@ -1011,7 +971,7 @@ export function WineDetail({
       </div>
 
       <div className="detail-market-block">
-        <ValueHistoryChart wine={wine} t={t} />
+        <ValueHistoryChart wine={wine} t={t} locale={locale} />
         {marketAuditEntry && hasMarketEvidence ? (
           <div className="market-view-bar">
             <button type="button" className="secondary compact" onClick={() => onOpenMarketView(marketAuditEntry)}>
