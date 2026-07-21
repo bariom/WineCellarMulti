@@ -1,6 +1,6 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
-import { KeyPositionActionBadge, KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionIncreaseKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
+import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionIncreaseKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
@@ -4800,17 +4800,27 @@ export function App() {
     return selected.slice(0, 4).map((wine) => {
       const sharePct = currentUserSharePct(wine, session);
       const totalValue = positionValue(wine);
+      const increasePct = priceIncreasePct(wine);
+      const purchasePrice = Number(wine.price || 0);
       const historicalPoints = wine.value_history
         .map((entry) => ({ value: Number(entry.value || 0), year: new Date(entry.recorded_at).getFullYear() }))
         .filter((entry) => Number.isFinite(entry.value) && entry.value > 0 && Number.isFinite(entry.year))
         .sort((first, second) => first.year - second.year);
-      const trendPoints = historicalPoints.length >= 2 ? historicalPoints.slice(-4) : [];
+      const currentValue = Number(wine.current_value || historicalPoints[historicalPoints.length - 1]?.value || 0);
+      const hasHistoricalTrend = historicalPoints.length >= 2;
+      const trendPoints = hasHistoricalTrend
+        ? historicalPoints.slice(-4).map((point) => ({ value: point.value, label: String(point.year) }))
+        : increasePct !== null && purchasePrice > 0 && currentValue > 0
+          ? [{ value: purchasePrice, label: t("purchasePrice") }, { value: currentValue, label: t("today") }]
+          : [];
       const trendStart = trendPoints[0];
       const trendEnd = trendPoints[trendPoints.length - 1];
-      const trendYears = trendStart && trendEnd ? Math.max(trendEnd.year - trendStart.year, 0) : 0;
-      const trendCagr = trendStart && trendEnd && trendYears > 0
+      const historicalTrendStart = historicalPoints[0];
+      const historicalTrendEnd = historicalPoints[historicalPoints.length - 1];
+      const trendYears = historicalTrendStart && historicalTrendEnd ? Math.max(historicalTrendEnd.year - historicalTrendStart.year, 0) : 0;
+      const trendCagr = hasHistoricalTrend && trendStart && trendEnd && trendYears > 0
         ? (Math.pow(trendEnd.value / trendStart.value, 1 / trendYears) - 1) * 100
-        : null;
+        : increasePct;
       const drinkStart = wine.drink_from || wine.drink_peak_from || null;
       const drinkEnd = wine.drink_to || wine.drink_peak_to || null;
       const maturityStart = Math.min(Number(wine.vintage) || drinkStart || currentYear, drinkStart || currentYear);
@@ -4826,19 +4836,12 @@ export function App() {
         ? Math.max(4, Math.min(100 - maturityPeakLeft, ((drinkEnd - drinkStart) / maturitySpan) * 100))
         : 0;
       const hasMaturityWindow = Boolean(drinkStart && drinkEnd);
-      const actionTone = !wine.drink_from || !wine.drink_to
-        ? "neutral"
-        : wine.drink_to < currentYear
-          ? "monitor"
-          : wine.drink_from <= currentYear && wine.drink_to >= currentYear
-            ? "drink-now"
-            : "wait";
       return {
         wine,
         isLargestPriceIncrease: largestPriceIncrease?.wine.id === wine.id,
         highlight: largestPriceIncrease?.wine.id === wine.id ? t("largestPriceIncrease") : t("keyPosition"),
-        priceIncreasePct: priceIncreasePct(wine),
-        purchasePrice: Number(wine.price || 0),
+        priceIncreasePct: increasePct,
+        purchasePrice,
         sharePct,
         ownedValue: totalValue * (sharePct / 100),
         totalValue,
@@ -4847,18 +4850,12 @@ export function App() {
         maturityPeakWidth,
         maturityStart: hasMaturityWindow ? maturityStart : null,
         maturityEnd: hasMaturityWindow ? maturityEnd : null,
-        trendPoints: trendPoints.map((point) => ({ value: point.value, label: String(point.year) })),
+        trendPoints,
         trendCagr,
-        trendRange: trendStart && trendEnd ? `${trendStart.year}–${trendEnd.year}` : null,
+        trendRange: hasHistoricalTrend && trendStart && trendEnd
+          ? `${trendStart.label}–${trendEnd.label}`
+          : trendPoints.length >= 2 ? `${t("purchasePrice")}–${t("today")}` : null,
         hasMaturityWindow,
-        actionTone,
-        action: !wine.drink_from || !wine.drink_to
-          ? t("completeData")
-          : wine.drink_to < currentYear
-            ? t("monitor")
-            : wine.drink_from <= currentYear && wine.drink_to >= currentYear
-              ? t("drinkNow")
-              : t("hold"),
       };
     });
   })();
@@ -7110,7 +7107,7 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, highlight, priceIncreasePct, totalValue, action, actionTone, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityStart, maturityEnd, trendPoints, trendCagr, trendRange, hasMaturityWindow }) => (
+                        {keyPositionCandidates.map(({ wine, highlight, priceIncreasePct, totalValue, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityStart, maturityEnd, trendPoints, trendCagr, trendRange, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} />
@@ -7138,7 +7135,6 @@ export function App() {
                                 />
                               ) : <KeyPositionCircularKpi label={t("bottles")} value={formatBottleCount(wine.quantity, locale)} tone="count" />}
                             </div>
-                            <KeyPositionActionBadge label={t("action")} value={action} tone={actionTone} />
                             <KeyPositionMaturityTimeline
                               label={t("maturityMap")}
                               startYear={maturityStart}
