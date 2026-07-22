@@ -10,7 +10,7 @@ import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptio
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -4344,7 +4344,7 @@ export function App() {
     tone,
     label: wineToneLabel(tone, locale),
     cells: maturityHeatmapYears.map((year) => {
-      const items = cellarWines.filter((wine) => wineTone(wine.type) === tone && isWineAtMaturityPeak(wine, year));
+      const items = cellarWines.filter((wine) => wineTone(wine.type) === tone && isWineInExplicitIdealWindow(wine, year));
       const bottles = items.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
       const value = items.reduce((sum, wine) => sum + Number(wine.current_value || wine.price || 0) * Math.max(Number(wine.quantity || 0), 0), 0);
       return { year, items, count: items.length, bottles, value };
@@ -4398,7 +4398,7 @@ export function App() {
     .filter((wine) => matchesWineCollectionFilters(wine, wineCollectionFilters))
     .filter((wine) => {
       if (!maturityFilter || activeView !== "cellar") return true;
-      return wineTone(wine.type) === maturityFilter.tone && isWineAtMaturityPeak(wine, maturityFilter.year);
+      return wineTone(wine.type) === maturityFilter.tone && isWineInExplicitIdealWindow(wine, maturityFilter.year);
     })
     .sort(compareWines(sortMode));
   const tastingFilterWineIds = new Set(
@@ -4477,6 +4477,7 @@ export function App() {
       : isWineCollectionView
         ? filteredWines.length
         : filteredWishlist.length;
+  const filteredWineBottleCount = filteredWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
 
   useEffect(() => {
     setCompareWineIds((current) => current.filter((wineId) => wines.some((wine) => wine.id === wineId)));
@@ -9007,13 +9008,15 @@ export function App() {
                     : t("wines")}
               </h2>
               <span>
-                {visibleCount} / {
+                {activeView === "cellar" && maturityFilter
+                  ? <>{formatBottleCount(visibleCount, locale)} {t("winesLabel")} · {formatBottleCount(filteredWineBottleCount, locale)} {t("bottles").toLowerCase()}</>
+                  : <>{visibleCount} / {
                   activeView === "history" && historySection === "tastings"
                     ? tastingArchiveTotalCount
                     : isWineCollectionView
                       ? activeWineCollection.length
                       : wishlist.length
-                } {t("records")}
+                  } {t("records")}</>}
               </span>
             </div>
             {activeView === "cellar" && maturityFilter ? (
@@ -9142,7 +9145,7 @@ export function App() {
                         ) : null}
                       </div>
                     ) : null}
-                    {maturityFilter && isWineAtMaturityPeak(wine, maturityFilter.year) ? (
+                    {maturityFilter && isWineInExplicitIdealWindow(wine, maturityFilter.year) ? (
                       <div className="row-meta-stack">
                         <div className="row-meta-group row-meta-group-secondary">
                           <span className="row-chip row-maturity-chip">{t("peakYear")} {maturityFilter.year}</span>

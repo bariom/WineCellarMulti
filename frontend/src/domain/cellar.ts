@@ -220,6 +220,10 @@ export function isWineAtMaturityPeak(wine: Wine, year: number) {
   return maturityPhaseForYear(wine, year) === "peak";
 }
 
+export function isWineInExplicitIdealWindow(wine: Wine, year: number) {
+  return Boolean(wine.drink_peak_from && wine.drink_peak_to && year >= wine.drink_peak_from && year <= wine.drink_peak_to);
+}
+
 export function daysUntil(value: string) {
   const target = new Date(value).getTime();
   if (Number.isNaN(target)) return null;
