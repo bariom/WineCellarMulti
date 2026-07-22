@@ -10,7 +10,7 @@ import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptio
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -4578,8 +4578,8 @@ export function App() {
     myValue: cellarOwnership.myValue,
     sharedBottles,
     sharedValue,
-    drinkNow: cellarWines.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length,
-    drinkSoon: cellarWines.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length,
+    drinkNow: cellarWines.filter((wine) => isWineReadyToPrioritize(wine, currentYear)).length,
+    drinkSoon: cellarWines.filter((wine) => isWineIdealSoon(wine, currentYear)).length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
     futureDeliveries: cellarWines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
     toCollect: cellarWines.filter(isToCollectWine).length,
@@ -4678,10 +4678,19 @@ export function App() {
     daily: "regionalProfileDaily",
     balanced: "regionalProfileBalanced",
   };
-  const drinkNowWines = cellarWines
-    .filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear)
-    .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
-    .slice(0, 5);
+  const drinkNowCandidates = cellarWines
+    .filter((wine) => isWineReadyToPrioritize(wine, currentYear))
+    .sort((first, second) => (winePriorityDrinkEnd(first) || Number.MAX_SAFE_INTEGER) - (winePriorityDrinkEnd(second) || Number.MAX_SAFE_INTEGER) || (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER));
+  const drinkNowWines = drinkNowCandidates.slice(0, 5);
+  const drinkNowTotalValue = drinkNowCandidates.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
+  const nearestDrinkNowEnd = drinkNowCandidates.reduce<number | null>((nearest, wine) => {
+    const end = winePriorityDrinkEnd(wine);
+    return end && (nearest === null || end < nearest) ? end : nearest;
+  }, null);
+  const priorityDrinkSoonWines = cellarWines
+    .filter((wine) => isWineIdealSoon(wine, currentYear))
+    .sort((first, second) => (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER) || wineUnitValue(second) - wineUnitValue(first))
+    .slice(0, 2);
   const atRiskWines = cellarWines
     .filter((wine) => wine.drink_to && wine.drink_to < currentYear)
     .sort((first, second) => (first.drink_to || 9999) - (second.drink_to || 9999))
@@ -4756,8 +4765,8 @@ export function App() {
     tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
   }
   const drinkSoonWines = cellarWines
-    .filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2)
-    .sort((first, second) => (first.drink_from || 9999) - (second.drink_from || 9999))
+    .filter((wine) => isWineIdealSoon(wine, currentYear))
+    .sort((first, second) => (wineIdealWindowStart(first) || 9999) - (wineIdealWindowStart(second) || 9999))
     .slice(0, 5);
   const topValueWines = [...cellarWines]
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
@@ -7169,14 +7178,44 @@ export function App() {
                     </div>
                     <strong>{cellarStats.drinkNow}</strong>
                   </div>
+                  <div className="priority-summary" aria-label={t("drinkNow")}>
+                    <div>
+                      <span>{t("currentValue")}</span>
+                      <strong>{formatMoney(drinkNowTotalValue, "CHF", locale)}</strong>
+                    </div>
+                    <div>
+                      <span>{t("drinkWindow")}</span>
+                      <strong>{nearestDrinkNowEnd || "—"}</strong>
+                    </div>
+                    <button type="button" onClick={() => openOperationalCellarFilter("drink_soon")}>
+                      <span>{t("drinkIn2Years")}</span>
+                      <strong>{formatBottleCount(cellarStats.drinkSoon, locale)}</strong>
+                    </button>
+                  </div>
                   <div className="action-list">
                     {drinkNowWines.length ? drinkNowWines.map((wine) => (
                       <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                         <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                        <strong>{wine.vintage || wine.drink_from}-{wine.drink_to}</strong>
+                        <strong>{wineIdealWindowStart(wine)}-{winePriorityDrinkEnd(wine)}</strong>
                       </button>
                     )) : <p className="empty-state">{t("noActionItems")}</p>}
                   </div>
+                  {priorityDrinkSoonWines.length ? (
+                    <div className="priority-next-window">
+                      <div className="priority-next-heading">
+                        <span>{t("drinkIn2Years")}</span>
+                        <button type="button" onClick={() => openOperationalCellarFilter("drink_soon")}>{t("openFilteredCellar")}</button>
+                      </div>
+                      <div className="action-list priority-next-list">
+                        {priorityDrinkSoonWines.map((wine) => (
+                          <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                            <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                            <strong>{wineIdealWindowStart(wine)}-{wine.drink_peak_to || winePriorityDrinkEnd(wine)}</strong>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
                 </article>
 
                 <article className="dashboard-card">
@@ -7450,7 +7489,7 @@ export function App() {
                       {drinkSoonWines.length ? drinkSoonWines.map((wine) => (
                         <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{wine.drink_from}</strong>
+                          <strong>{wineIdealWindowStart(wine)}</strong>
                         </button>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>

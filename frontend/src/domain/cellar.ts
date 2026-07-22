@@ -30,6 +30,25 @@ export function hasVintageForDrinkWindow(wine: Wine) {
   return /\d{4}/.test(vintage);
 }
 
+export function wineIdealWindowStart(wine: Wine) {
+  return wine.drink_peak_from || wine.drink_from || null;
+}
+
+export function winePriorityDrinkEnd(wine: Wine) {
+  return wine.drink_to || wine.drink_peak_to || null;
+}
+
+export function isWineReadyToPrioritize(wine: Wine, currentYear: number) {
+  const idealStart = wineIdealWindowStart(wine);
+  const drinkEnd = winePriorityDrinkEnd(wine);
+  return Boolean(idealStart && drinkEnd && idealStart <= currentYear && drinkEnd >= currentYear);
+}
+
+export function isWineIdealSoon(wine: Wine, currentYear: number) {
+  const idealStart = wineIdealWindowStart(wine);
+  return Boolean(idealStart && idealStart > currentYear && idealStart <= currentYear + 2);
+}
+
 export function isFutureDeliveryWine(wine: Wine, now: Date) {
   if (!wine.expected_delivery) return false;
   const deliveryDate = new Date(wine.expected_delivery);
@@ -174,9 +193,9 @@ export function maturityBuckets(items: Wine[], currentYear: number, locale: Loca
       ? { young: "Giovani", soon: "In arrivo", now: "Al picco", past: "Scaduti", unknown: "Sconosciuti" }
       : { young: "Young", soon: "Coming up", now: "At peak", past: "Past", unknown: "Unknown" };
   const buckets = [
-    { key: "young", label: labels.young, value: items.filter((wine) => wine.drink_from && wine.drink_from > currentYear + 2).length },
-    { key: "soon", label: labels.soon, value: items.filter((wine) => wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2).length },
-    { key: "now", label: labels.now, value: items.filter((wine) => wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear).length },
+    { key: "young", label: labels.young, value: items.filter((wine) => (wineIdealWindowStart(wine) || 0) > currentYear + 2).length },
+    { key: "soon", label: labels.soon, value: items.filter((wine) => isWineIdealSoon(wine, currentYear)).length },
+    { key: "now", label: labels.now, value: items.filter((wine) => isWineReadyToPrioritize(wine, currentYear)).length },
     { key: "past", label: labels.past, value: items.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length },
     { key: "unknown", label: labels.unknown, value: items.filter((wine) => !wine.drink_from || !wine.drink_to).length },
   ];
@@ -246,8 +265,8 @@ export function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentY
   const share = currentUserSharePct(wine, session);
   if (quickFilter === "mine") return share > 0;
   if (quickFilter === "shared") return share < 100;
-  if (quickFilter === "drink_now") return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= currentYear && wine.drink_to >= currentYear);
-  if (quickFilter === "drink_soon") return Boolean(wine.drink_from && wine.drink_from > currentYear && wine.drink_from <= currentYear + 2);
+  if (quickFilter === "drink_now") return isWineReadyToPrioritize(wine, currentYear);
+  if (quickFilter === "drink_soon") return isWineIdealSoon(wine, currentYear);
   if (quickFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
   if (quickFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
   if (quickFilter === "to_collect") return isToCollectWine(wine);
