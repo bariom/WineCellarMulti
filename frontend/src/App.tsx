@@ -5226,6 +5226,21 @@ export function App() {
     to_collect: t("winesToCollect"),
     missing_data: t("dataQuality"),
   };
+  const activeCollectionFilterChips: Array<{ key: string; label: string; onRemove: () => void }> = [
+    ...(searchQuery.trim() ? [{ key: "query", label: `“${searchQuery.trim()}”`, onRemove: () => setSearchQuery("") }] : []),
+    ...(typeFilter ? [{ key: "type", label: displayValue(typeFilter, locale, "type"), onRemove: () => setTypeFilter("") }] : []),
+    ...(statusFilter ? [{ key: "status", label: displayValue(statusFilter, locale, "status"), onRemove: () => setStatusFilter("") }] : []),
+    ...(ownershipFilter ? [{ key: "ownership", label: ownershipFilter === "mine" ? t("myBottles") : t("sharedBottles"), onRemove: () => setOwnershipFilter("") }] : []),
+    ...(quickWineFilter ? [{ key: "quick", label: quickWineFilterLabels[quickWineFilter], onRemove: () => setQuickWineFilter("") }] : []),
+    ...(maturityFilter ? [{ key: "maturity", label: `${wineToneLabel(maturityFilter.tone, locale)} ${maturityFilter.year}`, onRemove: () => setMaturityFilter(null) }] : []),
+    ...(hasMinBottlePrice || hasMaxBottlePrice ? [{
+      key: "price",
+      label: `CHF ${hasMinBottlePrice ? minBottlePrice : bottlePriceRangeMin}–${hasMaxBottlePrice ? maxBottlePrice : bottlePriceRangeMax}`,
+      onRemove: () => { setMinBottlePriceFilter(""); setMaxBottlePriceFilter(""); },
+    }] : []),
+    ...(tagFilter.length ? [{ key: "tags", label: `${t("tag")}: ${tagFilter.length}`, onRemove: () => setTagFilter([]) }] : []),
+    ...(grapeFilter.length ? [{ key: "grapes", label: `${t("grapes")}: ${grapeFilter.length}`, onRemove: () => setGrapeFilter([]) }] : []),
+  ];
 
   function startAddWine() {
     clearWineRecognitionState();
@@ -8931,8 +8946,20 @@ export function App() {
               ) : null}
             </details>
             )}
+            <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
             <details ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
-              <summary>{t("search")} / {t("sort")}</summary>
+              <summary>
+                {activeView === "cellar" ? (
+                  <>
+                    <span className="cellar-filter-summary-main">
+                      <AppIcon name="filter" />
+                      <strong>{t("search")} / {t("sort")}</strong>
+                      <small>{activeCollectionFilterChips.length ? `${activeCollectionFilterChips.length} ${locale === "it" ? "attivi" : "active"}` : (locale === "it" ? "Tutti i vini" : "All wines")}</small>
+                    </span>
+                    <span className="cellar-filter-sort-summary"><AppIcon name="sort" /> {t(sortMode === "name" ? "name" : sortMode === "vintage" ? "vintage" : sortMode === "value" ? "value" : "drinkWindow")}</span>
+                  </>
+                ) : <>{t("search")} / {t("sort")}</>}
+              </summary>
               <label>
                 <span>{t("search")}</span>
                 <input
@@ -9106,6 +9133,19 @@ export function App() {
                 {t("clearFilters")}
               </button>
             </details>
+            {activeView === "cellar" && activeCollectionFilterChips.length ? (
+              <div className="active-cellar-filters" aria-label={locale === "it" ? "Filtri attivi" : "Active filters"}>
+                <div className="active-cellar-filter-scroll">
+                  {activeCollectionFilterChips.map((chip) => (
+                    <button type="button" key={chip.key} onClick={chip.onRemove} title={locale === "it" ? `Rimuovi ${chip.label}` : `Remove ${chip.label}`}>
+                      <span>{chip.label}</span><i aria-hidden="true">×</i>
+                    </button>
+                  ))}
+                </div>
+                <button type="button" className="clear-active-cellar-filters" onClick={() => clearFilters(activeView)}>{t("clearFilters")}</button>
+              </div>
+            ) : null}
+            </div>
             <div className="list-header">
               <h2>
                 {activeView === "wishlist"
