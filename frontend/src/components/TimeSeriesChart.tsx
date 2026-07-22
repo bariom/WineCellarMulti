@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import "./TimeSeriesChart.css";
+import { useChartReveal } from "./chartMotion";
 
 export type TimeSeriesPoint = {
   timestampMs: number;
@@ -29,6 +30,7 @@ function resolvedColor(host: HTMLElement, value: string, fallback: string) {
 
 export default function TimeSeriesChart({ points, ariaLabel, locale, currency = "", height = 190 }: TimeSeriesChartProps) {
   const chartHostRef = useRef<HTMLDivElement | null>(null);
+  useChartReveal(chartHostRef);
 
   useEffect(() => {
     const chartHost = chartHostRef.current;
@@ -51,9 +53,17 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     const values = points.map((point) => point.value);
     const dateLocale = locale === "it" ? "it-CH" : "en-GB";
     const dateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short" });
+    const tooltipDateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" });
     const valueFormat = new Intl.NumberFormat(dateLocale, { maximumFractionDigits: 0 });
     const splinePath = uPlot.paths.spline?.();
     const data: uPlot.AlignedData = [timestamps, values];
+    const tooltip = document.createElement("div");
+    tooltip.className = "time-series-tooltip";
+    tooltip.setAttribute("role", "status");
+    tooltip.setAttribute("aria-live", "polite");
+    const tooltipDate = document.createElement("span");
+    const tooltipValue = document.createElement("strong");
+    tooltip.append(tooltipDate, tooltipValue);
     const options: uPlot.Options = {
       width: Math.floor(chartHost.clientWidth) || 520,
       height,
@@ -93,8 +103,25 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
         },
       ],
       legend: { show: false },
-      cursor: { show: false, drag: { x: false, y: false, setScale: false } },
+      cursor: { show: true, drag: { x: false, y: false, setScale: false }, points: { size: 7 } },
       hooks: {
+        init: [(chart) => chart.over.appendChild(tooltip)],
+        setCursor: [
+          (chart) => {
+            const index = chart.cursor.idx;
+            if (index === null || index === undefined || index < 0) {
+              tooltip.classList.remove("visible");
+              return;
+            }
+            tooltipDate.textContent = tooltipDateFormat.format(new Date(timestamps[index] * 1000));
+            tooltipValue.textContent = `${currency} ${valueFormat.format(values[index])}`.trim();
+            const left = chart.valToPos(timestamps[index], "x");
+            const top = chart.valToPos(values[index], "y");
+            tooltip.style.left = `${Math.max(48, Math.min(chart.over.clientWidth - 48, left))}px`;
+            tooltip.style.top = `${Math.max(34, top)}px`;
+            tooltip.classList.add("visible");
+          },
+        ],
         draw: [
           (chart) => {
             const ratio = window.devicePixelRatio || 1;
@@ -123,6 +150,17 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     };
 
     const chart = new uPlot(options, data, chartHost);
+    let keyboardIndex = points.length - 1;
+    const handleKeyboard = (event: KeyboardEvent) => {
+      if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+      event.preventDefault();
+      keyboardIndex = Math.max(0, Math.min(points.length - 1, keyboardIndex + (event.key === "ArrowRight" ? 1 : -1)));
+      chart.setCursor({
+        left: chart.valToPos(timestamps[keyboardIndex], "x"),
+        top: chart.valToPos(values[keyboardIndex], "y"),
+      });
+    };
+    chartHost.addEventListener("keydown", handleKeyboard);
     let resizeFrame = 0;
     const observer = new ResizeObserver(([entry]) => {
       const width = Math.floor(entry.contentRect.width);
@@ -134,9 +172,10 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     return () => {
       observer.disconnect();
       cancelAnimationFrame(resizeFrame);
+      chartHost.removeEventListener("keydown", handleKeyboard);
       chart.destroy();
     };
   }, [ariaLabel, currency, height, locale, points]);
 
-  return <div className="time-series-chart" ref={chartHostRef} role="img" aria-label={ariaLabel} />;
+  return <div className="time-series-chart" ref={chartHostRef} role="img" aria-label={`${ariaLabel}. ${locale === "it" ? "Usa le frecce sinistra e destra per esplorare i valori." : "Use the left and right arrow keys to explore values."}`} tabIndex={0} />;
 }

@@ -1,3 +1,6 @@
+import { useRef, useState } from "react";
+import { useChartReveal } from "./chartMotion";
+
 function KeyPositionWineIllustration() {
   return (
     <div className="key-position-wine-illustration" aria-hidden="true">
@@ -74,6 +77,8 @@ export function KeyPositionTrendKpi({ label, points, changeLabel, rangeLabel, un
   rangeLabel: string | null;
   unavailableLabel: string;
 }) {
+  const chartRef = useRef<SVGSVGElement | null>(null);
+  useChartReveal(chartRef);
   const hasTrend = points.length >= 2;
   const path = hasTrend ? sparklinePath(points) : "";
   const trendDescription = hasTrend ? `${label}: ${rangeLabel || ""}, ${changeLabel || ""}` : `${label}: ${unavailableLabel}`;
@@ -82,7 +87,7 @@ export function KeyPositionTrendKpi({ label, points, changeLabel, rangeLabel, un
     <section className="key-position-trend" aria-label={trendDescription}>
       <span>{label}</span>
       {hasTrend ? (
-        <svg viewBox="0 0 100 42" role="img" aria-label={trendDescription} preserveAspectRatio="none">
+        <svg ref={chartRef} viewBox="0 0 100 42" role="img" aria-label={trendDescription} preserveAspectRatio="none">
           <path className="key-position-trend-area" d={`${path} L100 42 L0 42 Z`} />
           <path className="key-position-trend-line" d={path} />
         </svg>
@@ -132,4 +137,3 @@ export function KeyPositionMaturityTimeline({ label, startYear, peakEndYear, end
     </section>
   );
 }
-import { useState } from "react";

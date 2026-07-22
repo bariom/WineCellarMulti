@@ -3,18 +3,52 @@
   min-width: 0;
   overflow: hidden;
   color: var(--text);
-  touch-action: pan-y;
+  border-radius: 10px;
+  touch-action: pan-x pan-y;
 }
+
+.time-series-chart:focus-visible { outline: 2px solid var(--primary); outline-offset: 3px; }
 
 .time-series-chart .uplot {
   max-width: 100%;
   color: var(--text);
   font-family: inherit;
+  opacity: 0;
 }
 
+.time-series-chart.chart-revealed .uplot { animation: chart-fade-in 0.38s ease-out forwards; }
+
 .time-series-chart .u-over {
+  touch-action: pan-x pan-y;
+}
+
+.time-series-tooltip {
+  position: absolute;
+  z-index: 3;
+  display: grid;
+  gap: 2px;
+  min-width: max-content;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--collector-depth) 28%, transparent);
+  font-size: 0.68rem;
   pointer-events: none;
-  touch-action: pan-y;
+  opacity: 0;
+  transform: translate(-50%, -120%);
+  transition: opacity 0.14s ease;
+}
+
+.time-series-tooltip strong { color: var(--text); font-size: 0.78rem; }
+.time-series-tooltip.visible { opacity: 1; }
+
+@keyframes chart-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .time-series-chart .uplot { opacity: 1; animation: none !important; }
+  .time-series-tooltip { transition: none; }
 }
 
 @media (max-width: 620px) {

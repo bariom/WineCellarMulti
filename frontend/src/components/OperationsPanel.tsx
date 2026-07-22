@@ -5,6 +5,7 @@ import type { Locale, OperationalMetricsHistory, OperationalMetricsOverview } fr
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
 import "./OperationsPanel.css";
+import { useChartReveal } from "./chartMotion";
 
 type OperationsPanelProps = {
   locale: Locale;
@@ -37,6 +38,7 @@ function OperationsChart({ title, lines, timestamps, locale, primaryScale, secon
   secondaryScale?: ChartScale;
 }) {
   const chartHostRef = useRef<HTMLDivElement | null>(null);
+  useChartReveal(chartHostRef);
   const hasData = lines.some((line) => line.values.some((value) => value !== null));
 
   useEffect(() => {

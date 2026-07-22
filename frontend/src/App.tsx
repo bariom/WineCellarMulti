@@ -19,6 +19,7 @@ import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromU
 import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
+import { useChartReveal } from "./components/chartMotion";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -787,6 +788,8 @@ function appActionSvgIcon(kind: "compare" | "edit" | "import" | "export" | "dele
 }
 
 function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_at: string; value: string }>; label: string }) {
+  const chartRef = useRef<SVGSVGElement | null>(null);
+  useChartReveal(chartRef);
   const gradientId = `portfolio-value-area-${useId().replace(/:/g, "")}`;
   const values = points.map((point) => Number(point.value)).filter(Number.isFinite);
   if (values.length < 2) return null;
@@ -800,7 +803,7 @@ function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_a
   const areaPath = `${path} L100 32 L0 32 Z`;
   const latest = coordinates[coordinates.length - 1];
   return (
-    <svg className="portfolio-value-sparkline" viewBox="0 0 100 32" role="img" aria-label={label}>
+    <svg className="portfolio-value-sparkline" ref={chartRef} viewBox="0 0 100 32" role="img" aria-label={label}>
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <stop stopColor="var(--primary)" stopOpacity="0.3" />
@@ -868,6 +871,8 @@ export function App() {
   const [activeKeyPositionIndex, setActiveKeyPositionIndex] = useState(0);
   const keyPositionStripRef = useRef<HTMLDivElement | null>(null);
   const pendingKeyPositionIndexRef = useRef<number | null>(null);
+  const regionalGapChartRef = useRef<HTMLDivElement | null>(null);
+  useChartReveal(regionalGapChartRef);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
@@ -6046,7 +6051,7 @@ export function App() {
           </div>
         ) : null}
         <div className="regional-gap-layout">
-          <div className="regional-radar-wrap">
+          <div className="regional-radar-wrap" ref={regionalGapChartRef}>
             <svg className="regional-radar" viewBox="0 0 100 100" role="img" aria-label={t("regionalGapAnalysis")}>
               {[25, 50, 75, 100].map((level) => (
                 <polygon
@@ -6069,8 +6074,13 @@ export function App() {
               {regionalGapAxisPoints.map((axis) => (
                 <line className="regional-radar-axis" key={axis.region} x1="50" y1="50" x2={axis.linePoint.split(",")[0]} y2={axis.linePoint.split(",")[1]} />
               ))}
-              {regionalGapHasProfileTarget ? <polygon className="regional-radar-target" points={regionalGapTargetPoints} /> : null}
-              <polygon className="regional-radar-current" points={regionalGapCurrentPoints} />
+              {regionalGapHasProfileTarget ? <polygon className="regional-radar-target" key={`target-${regionalGapProfile}-${regionalGapActiveSuggestion?.generated_at || "manual"}`} points={regionalGapTargetPoints} /> : null}
+              <polygon className="regional-radar-current" key={`current-${regionalGapProfile}`} points={regionalGapCurrentPoints} />
+              {regionalGapRows.map((row, index) => {
+                const [x, y] = radarScaledPoint(index, regionalGapRows.length, row.currentPct, regionalGapRadarScaleMax).split(",");
+                const detail = `${regionalTargetLabel(row.region, locale)}: ${t("currentPortfolio")} ${row.currentPct.toFixed(1)}%${regionalGapHasProfileTarget ? `, ${t("targetPortfolio")} ${row.targetPct.toFixed(1)}%` : ""}`;
+                return <circle className="regional-radar-node" key={`node-${row.region}`} cx={x} cy={y} r="1.45" tabIndex={0} role="img" aria-label={detail}><title>{detail}</title></circle>;
+              })}
               {regionalGapAxisPoints.map((axis) => {
                 const [x, y] = axis.point.split(",");
                 return (

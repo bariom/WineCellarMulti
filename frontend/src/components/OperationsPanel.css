@@ -34,10 +34,11 @@
 .operations-chart-heading { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 9px; }
 .operations-chart-heading strong { font-size: 0.82rem; }
 .operations-chart-heading span { color: var(--text-muted); font-size: 0.72rem; }
-.operations-chart { width: 100%; min-width: 0; overflow: hidden; border-radius: 9px; background: color-mix(in srgb, var(--surface) 70%, transparent); touch-action: pan-y; }
-.operations-chart .uplot { max-width: 100%; color: var(--text); font-family: inherit; }
+.operations-chart { width: 100%; min-width: 0; overflow: hidden; border-radius: 9px; background: color-mix(in srgb, var(--surface) 70%, transparent); touch-action: pan-x pan-y; }
+.operations-chart .uplot { max-width: 100%; color: var(--text); font-family: inherit; opacity: 0; }
+.operations-chart.chart-revealed .uplot { animation: operations-chart-in 0.38s ease-out forwards; }
 .operations-chart .u-wrap { border-radius: 9px; }
-.operations-chart .u-over { pointer-events: none; touch-action: pan-y; }
+.operations-chart .u-over { touch-action: pan-x pan-y; }
 .operations-chart .u-legend { margin: 8px 0 0; color: var(--text-muted); font-family: inherit; font-size: 0.74rem; text-align: left; }
 .operations-chart .u-legend .u-series { margin-right: 12px; }
 .operations-chart .u-legend .u-series > * { padding: 2px; }
@@ -46,6 +47,8 @@
 .operations-chart .u-cursor-x, .operations-chart .u-cursor-y { border-color: color-mix(in srgb, var(--text-muted) 55%, transparent); }
 .operations-chart-empty { display: grid; height: 210px; margin: 0; place-items: center; color: var(--text-muted); font-size: 0.78rem; }
 .operations-note { margin: 16px 0 0; line-height: 1.5; }
+@keyframes operations-chart-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .operations-chart .uplot { opacity: 1; animation: none !important; } }
 @media (max-width: 620px) {
   .operations-metrics-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .operations-charts { grid-template-columns: 1fr; }
