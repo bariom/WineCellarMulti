@@ -6861,6 +6861,46 @@ textarea {
   line-height: 1.35;
 }
 
+.regional-profile-switcher {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, var(--collector-edge));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.regional-profile-switcher button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+}
+
+.regional-profile-switcher button.active {
+  border-color: color-mix(in srgb, var(--primary) 72%, var(--accent));
+  background: var(--primary);
+  color: var(--primary-contrast);
+}
+
+.regional-profile-switcher i {
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+}
+
+.regional-profile-switcher i.ready {
+  border-color: transparent;
+  background: var(--accent);
+}
+
+.regional-profile-status {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
 .regional-target-feedback {
   width: fit-content;
   max-width: 100%;
@@ -7233,6 +7273,23 @@ textarea {
   font-weight: 900;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.regional-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  color: var(--text);
+}
+
+.regional-history-row small {
+  color: var(--text-muted);
+  font-weight: 700;
 }
 
 .geographic-map-card {

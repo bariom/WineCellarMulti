@@ -679,11 +679,14 @@ export type RegionalGapAiSuggestion = {
   rationale: string;
   targets: Array<{ region: string; target_pct: string | number }>;
   estimated_cost_usd: string;
+  generated_at?: string;
 };
 
 export type RegionalGapSettings = {
   targets: RegionalGapTarget[];
   last_ai_suggestion: RegionalGapAiSuggestion | null;
+  profile_targets: Partial<Record<RegionalGapProfile, RegionalGapTarget[]>>;
+  ai_suggestions: RegionalGapAiSuggestion[];
   updated_at: string | null;
 };
 

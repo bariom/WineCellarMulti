@@ -19,6 +19,8 @@ class HouseholdRegionalGapSettings(Base):
     )
     targets: Mapped[list[dict]] = mapped_column(JSON, default=list)
     last_ai_suggestion: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    profile_targets: Mapped[dict] = mapped_column(JSON, default=dict)
+    ai_suggestions: Mapped[list[dict]] = mapped_column(JSON, default=list)
     updated_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )

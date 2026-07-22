@@ -54,6 +54,8 @@ def regional_gap_settings_response(settings: HouseholdRegionalGapSettings | None
     return RegionalGapSettingsResponse(
         targets=settings.targets or [],
         last_ai_suggestion=settings.last_ai_suggestion,
+        profile_targets=settings.profile_targets or {},
+        ai_suggestions=settings.ai_suggestions or [],
         updated_at=settings.updated_at,
     )
 
@@ -75,6 +77,11 @@ def save_regional_gap_settings(
         db.add(settings)
     settings.targets = [target.model_dump() for target in payload.targets]
     settings.last_ai_suggestion = payload.last_ai_suggestion
+    settings.profile_targets = {
+        profile: [target.model_dump() for target in targets]
+        for profile, targets in payload.profile_targets.items()
+    }
+    settings.ai_suggestions = payload.ai_suggestions
     settings.updated_by_user_id = context.user.id
     db.commit()
     db.refresh(settings)

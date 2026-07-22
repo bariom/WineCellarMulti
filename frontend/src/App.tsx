@@ -1039,6 +1039,8 @@ export function App() {
   const [regionalGapTargetsOpen, setRegionalGapTargetsOpen] = useState(false);
   const [regionalGapDraft, setRegionalGapDraft] = useState<RegionalGapTargetDraft[]>(() => classicRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
   const [regionalGapProfile, setRegionalGapProfile] = useState<RegionalGapProfile>("balanced");
+  const [regionalGapProfileTargets, setRegionalGapProfileTargets] = useState<Partial<Record<RegionalGapProfile, RegionalGapTarget[]>>>({});
+  const [regionalGapAiSuggestions, setRegionalGapAiSuggestions] = useState<RegionalGapAiSuggestion[]>([]);
   const [regionalGapAiSuggestion, setRegionalGapAiSuggestion] = useState<RegionalGapAiSuggestion | null>(null);
   const [regionalGapFeedback, setRegionalGapFeedback] = useState("");
   const [valueRefreshDays, setValueRefreshDays] = useState("30");
@@ -1056,12 +1058,22 @@ export function App() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const errorBannerRef = useRef<HTMLDivElement | null>(null);
+  const regionalGapProposalRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!notice) return;
     const timeout = window.setTimeout(() => setNotice(""), 5000);
     return () => window.clearTimeout(timeout);
   }, [notice]);
+
+  useEffect(() => {
+    if (!regionalGapAiSuggestion || !regionalGapTargetsOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      regionalGapProposalRef.current?.focus({ preventScroll: true });
+      regionalGapProposalRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [regionalGapAiSuggestion, regionalGapTargetsOpen]);
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
@@ -1820,9 +1832,28 @@ export function App() {
     const settings = await api<RegionalGapSettings>("/api/v1/household/regional-gap-settings");
     if (settings.targets.length) {
       const targets = normalizeRegionalTargets(settings.targets);
+      const profileTargets = Object.fromEntries(
+        Object.entries(settings.profile_targets || {}).map(([profile, profileTargetList]) => [
+          profile,
+          normalizeRegionalTargets(profileTargetList, targets),
+        ]),
+      ) as Partial<Record<RegionalGapProfile, RegionalGapTarget[]>>;
+      const suggestionHistory = settings.ai_suggestions?.length
+        ? settings.ai_suggestions
+        : settings.last_ai_suggestion ? [settings.last_ai_suggestion] : [];
+      const latestSuggestion = suggestionHistory[0] || settings.last_ai_suggestion;
+      if (settings.last_ai_suggestion && !profileTargets[settings.last_ai_suggestion.profile]) {
+        profileTargets[settings.last_ai_suggestion.profile] = normalizeRegionalTargets(
+          settings.last_ai_suggestion.targets.map((target) => ({ region: target.region, targetPct: Number(target.target_pct) })),
+          targets,
+        );
+      }
       setRegionalGapTargets(targets);
       setRegionalGapDraft(targets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-      setRegionalGapAiSuggestion(settings.last_ai_suggestion);
+      setRegionalGapProfileTargets(profileTargets);
+      setRegionalGapAiSuggestions(suggestionHistory);
+      setRegionalGapAiSuggestion(latestSuggestion || null);
+      if (latestSuggestion?.profile) setRegionalGapProfile(latestSuggestion.profile);
       return;
     }
     const targets = readRegionalGapTargets(nextSession.active_household_id);
@@ -4644,7 +4675,12 @@ export function App() {
   const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
   const valueByProducer = topProducerGroups(cellarWines);
   const regionalGapTotalValue = Math.max(sumWineValue(cellarWines), 1);
-  const regionalGapRows = regionalGapTargets.map((target) => {
+  const regionalGapHasProfileTarget = Boolean(regionalGapProfileTargets[regionalGapProfile]?.length);
+  const regionalGapSelectedTargets = regionalGapHasProfileTarget
+    ? regionalGapProfileTargets[regionalGapProfile]!
+    : regionalGapTargets;
+  const regionalGapActiveSuggestion = regionalGapAiSuggestions.find((suggestion) => suggestion.profile === regionalGapProfile) || null;
+  const regionalGapRows = regionalGapSelectedTargets.map((target) => {
     const value = sumWineValue(cellarWines.filter((wine) => regionalGapBucket(wine.region) === target.region));
     const currentPct = (value / regionalGapTotalValue) * 100;
     const targetValue = (regionalGapTotalValue * target.targetPct) / 100;
@@ -4656,12 +4692,12 @@ export function App() {
       deltaPct: target.targetPct - currentPct,
     };
   });
-  const regionalGapSuggestions = regionalGapRows
-    .filter((row) => sumWineValue(cellarWines) > 0 && row.gapValue > 0 && row.region !== "Other")
-    .sort((first, second) => second.deltaPct - first.deltaPct)
+  const regionalGapActionRows = [...regionalGapRows]
+    .filter((row) => row.region !== "Other")
+    .sort((first, second) => Math.abs(second.deltaPct) - Math.abs(first.deltaPct))
     .slice(0, 4);
   const regionalGapRadarMaxPct = Math.max(
-    ...regionalGapRows.flatMap((row) => [row.currentPct, row.targetPct]),
+    ...regionalGapRows.flatMap((row) => regionalGapHasProfileTarget ? [row.currentPct, row.targetPct] : [row.currentPct]),
     1,
   );
   const regionalGapRadarScaleMax = Math.max(10, Math.ceil(regionalGapRadarMaxPct / 5) * 5);
@@ -5534,24 +5570,49 @@ export function App() {
     setMaturityFilter(null);
   }
 
-  function saveRegionalGapTargets(nextDraft: RegionalGapTargetDraft[] = regionalGapDraft, preserveAiSuggestion = false) {
+  function selectRegionalGapProfile(profile: RegionalGapProfile) {
+    setRegionalGapProfile(profile);
+    const targets = regionalGapProfileTargets[profile]?.length ? regionalGapProfileTargets[profile]! : regionalGapTargets;
+    setRegionalGapDraft(targets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
+    setRegionalGapAiSuggestion(regionalGapAiSuggestions.find((suggestion) => suggestion.profile === profile) || null);
+    setRegionalGapFeedback("");
+  }
+
+  function persistRegionalGapSettings(
+    targets: RegionalGapTarget[],
+    profileTargets: Partial<Record<RegionalGapProfile, RegionalGapTarget[]>>,
+    suggestions: RegionalGapAiSuggestion[],
+  ) {
+    const lastSuggestion = suggestions[0] || null;
+    return api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", {
+      method: "PUT",
+      body: JSON.stringify({
+        targets,
+        last_ai_suggestion: lastSuggestion,
+        profile_targets: profileTargets,
+        ai_suggestions: suggestions.slice(0, 24),
+      }),
+    });
+  }
+
+  function saveRegionalGapTargets(nextDraft: RegionalGapTargetDraft[] = regionalGapDraft) {
     const nextTargets = normalizeRegionalTargets(nextDraft.map((target) => ({ region: target.region, targetPct: Number(target.targetPct || 0) })));
+    const nextProfileTargets = { ...regionalGapProfileTargets, [regionalGapProfile]: nextTargets };
     setRegionalGapTargets(nextTargets);
     setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-    void api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: nextTargets, last_ai_suggestion: preserveAiSuggestion ? regionalGapAiSuggestion : null }) });
-    if (!preserveAiSuggestion) {
-      setRegionalGapAiSuggestion(null);
-    }
+    setRegionalGapProfileTargets(nextProfileTargets);
+    void persistRegionalGapSettings(nextTargets, nextProfileTargets, regionalGapAiSuggestions);
     setRegionalGapTargetsOpen(false);
     setRegionalGapFeedback(t("regionalTargetsSaved"));
   }
 
   function resetRegionalGapTargets() {
     const nextTargets = regionalTargetsForCellar(cellarWines);
+    const nextProfileTargets = { ...regionalGapProfileTargets, [regionalGapProfile]: nextTargets };
     setRegionalGapTargets(nextTargets);
     setRegionalGapDraft(nextTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
-    void api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", { method: "PUT", body: JSON.stringify({ targets: nextTargets, last_ai_suggestion: null }) });
-    setRegionalGapAiSuggestion(null);
+    setRegionalGapProfileTargets(nextProfileTargets);
+    void persistRegionalGapSettings(nextTargets, nextProfileTargets, regionalGapAiSuggestions);
     setRegionalGapFeedback("");
   }
 
@@ -5574,11 +5635,18 @@ export function App() {
           model,
         }),
       });
-      setRegionalGapAiSuggestion(result);
-      await api<RegionalGapSettings>("/api/v1/household/regional-gap-settings", {
-        method: "PUT",
-        body: JSON.stringify({ targets: regionalGapTargets, last_ai_suggestion: result }),
-      });
+      const generatedSuggestion = { ...result, generated_at: new Date().toISOString() };
+      const generatedTargets = normalizeRegionalTargets(
+        generatedSuggestion.targets.map((target) => ({ region: target.region, targetPct: Number(target.target_pct) })),
+        regionalGapTargets,
+      );
+      const nextProfileTargets = { ...regionalGapProfileTargets, [regionalGapProfile]: generatedTargets };
+      const nextSuggestions = [generatedSuggestion, ...regionalGapAiSuggestions].slice(0, 24);
+      setRegionalGapProfileTargets(nextProfileTargets);
+      setRegionalGapAiSuggestions(nextSuggestions);
+      setRegionalGapAiSuggestion(generatedSuggestion);
+      setRegionalGapTargetsOpen(true);
+      await persistRegionalGapSettings(regionalGapTargets, nextProfileTargets, nextSuggestions);
       await Promise.all([loadAiAudit(), loadAiUsage()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate regional target");
@@ -5589,11 +5657,11 @@ export function App() {
 
   function applyRegionalGapAiSuggestion() {
     if (!regionalGapAiSuggestion) return;
-    const nextDraft = regionalGapTargets.map((target) => {
+    const nextDraft = regionalGapSelectedTargets.map((target) => {
       const suggestion = regionalGapAiSuggestion.targets.find((item) => item.region === target.region);
       return { region: target.region, targetPct: String(Number(suggestion?.target_pct ?? target.targetPct)) };
     });
-    saveRegionalGapTargets(nextDraft, true);
+    saveRegionalGapTargets(nextDraft);
   }
 
   function snoozeOperationalAction(item: OperationalActionItem) {
@@ -5893,6 +5961,32 @@ export function App() {
           </button>
         </div>
         <p className="regional-gap-help">{t("regionalGapHelp")}</p>
+        <div className="regional-profile-switcher" role="tablist" aria-label={t("regionalProfileCompare")}>
+          {([
+            ["investment", "regionalProfileInvestment"],
+            ["balanced", "regionalProfileBalanced"],
+            ["readiness", "regionalProfileReadiness"],
+            ["daily", "regionalProfileDaily"],
+          ] as Array<[RegionalGapProfile, TranslationKey]>).map(([profile, labelKey]) => (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={regionalGapProfile === profile}
+              key={profile}
+              className={regionalGapProfile === profile ? "active" : "secondary"}
+              onClick={() => selectRegionalGapProfile(profile)}
+            >
+              <i className={regionalGapProfileTargets[profile]?.length ? "ready" : ""} />
+              {t(labelKey)}
+            </button>
+          ))}
+        </div>
+        <div className={`regional-profile-status${regionalGapActiveSuggestion ? " generated" : ""}`}>
+          {regionalGapActiveSuggestion ? t("regionalProfileGenerated") : t("regionalProfileNotGenerated")}
+          {!regionalGapHasProfileTarget ? (
+            <button type="button" className="secondary compact" disabled={!canGenerateAi || generatingAi === "regional-gap-targets"} onClick={generateRegionalGapTargets}>{t("suggestWithAi")}</button>
+          ) : null}
+        </div>
         {regionalGapFeedback ? <div className="regional-target-feedback" role="status">{regionalGapFeedback}</div> : null}
         {regionalGapTargetsOpen ? (
           <div className="regional-target-editor">
@@ -5923,39 +6017,19 @@ export function App() {
               <button type="button" className="regional-ai-submit" disabled={!canGenerateAi || generatingAi === "regional-gap-targets"} onClick={generateRegionalGapTargets}>
                 <ButtonBusyContent busy={generatingAi === "regional-gap-targets"} idleLabel={t("suggestWithAi")} busyLabel={t("generating")} />
               </button>
-              <div className="regional-profile-panel">
-                <span>{t("aiTargetObjective")}</span>
-                <div className="regional-profile-buttons" role="tablist" aria-label={t("aiTargetObjective")}>
-                  {([
-                    ["investment", "regionalProfileInvestment"],
-                    ["readiness", "regionalProfileReadiness"],
-                    ["daily", "regionalProfileDaily"],
-                    ["balanced", "regionalProfileBalanced"],
-                  ] as Array<[RegionalGapProfile, TranslationKey]>).map(([profile, labelKey]) => (
-                    <button
-                      type="button"
-                      key={profile}
-                      className={regionalGapProfile === profile ? "" : "secondary"}
-                      onClick={() => setRegionalGapProfile(profile)}
-                    >
-                      {t(labelKey)}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {regionalGapAiSuggestion ? (
-                <div className="regional-ai-proposal">
+              {regionalGapActiveSuggestion ? (
+                <div className="regional-ai-proposal" ref={regionalGapProposalRef} tabIndex={-1}>
                   <strong>{t("aiTargetProposal")}</strong>
-                  <p>{regionalGapAiCommentary(regionalGapAiSuggestion, locale)}</p>
+                  <p>{regionalGapAiCommentary(regionalGapActiveSuggestion, locale)}</p>
                   <div>
-                    {regionalGapAiSuggestion.targets.map((target) => (
+                    {regionalGapActiveSuggestion.targets.map((target) => (
                       <span key={target.region}>{target.region} {Number(target.target_pct).toFixed(1)}%</span>
                     ))}
                   </div>
                   <div className="regional-ai-cost">
                     <strong>{t("aiRequestCost")}</strong>
-                    <span>{formatAiBudget(regionalGapAiSuggestion.estimated_cost_usd)}</span>
-                    <span>{regionalGapAiSuggestion.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(regionalGapAiSuggestion.reasoning_effort))}</span>
+                    <span>{formatAiBudget(regionalGapActiveSuggestion.estimated_cost_usd)}</span>
+                    <span>{regionalGapActiveSuggestion.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(regionalGapActiveSuggestion.reasoning_effort))}</span>
                   </div>
                   <button type="button" onClick={applyRegionalGapAiSuggestion}>{t("applyAiTarget")}</button>
                 </div>
@@ -5987,7 +6061,7 @@ export function App() {
               {regionalGapAxisPoints.map((axis) => (
                 <line className="regional-radar-axis" key={axis.region} x1="50" y1="50" x2={axis.linePoint.split(",")[0]} y2={axis.linePoint.split(",")[1]} />
               ))}
-              <polygon className="regional-radar-target" points={regionalGapTargetPoints} />
+              {regionalGapHasProfileTarget ? <polygon className="regional-radar-target" points={regionalGapTargetPoints} /> : null}
               <polygon className="regional-radar-current" points={regionalGapCurrentPoints} />
               {regionalGapAxisPoints.map((axis) => {
                 const [x, y] = axis.point.split(",");
@@ -6000,24 +6074,41 @@ export function App() {
             </svg>
             <div className="regional-radar-legend">
               <span><i className="regional-legend-current" />{t("currentPortfolio")}</span>
-              <span><i className="regional-legend-target" />{t("targetPortfolio")} {t(regionalGapProfileLabels[regionalGapProfile]).toLowerCase()}</span>
+              {regionalGapHasProfileTarget ? <span><i className="regional-legend-target" />{t("targetPortfolio")} {t(regionalGapProfileLabels[regionalGapProfile]).toLowerCase()}</span> : null}
             </div>
           </div>
           <details className="regional-gap-suggestions" open={compact ? undefined : !isMobileViewport}>
-            <summary>{t("gapSuggestions")}</summary>
-            {regionalGapSuggestions.length ? regionalGapSuggestions.map((row) => (
+            <summary>{regionalGapActiveSuggestion ? t("regionalAiActions") : t("gapSuggestions")}</summary>
+            {!regionalGapHasProfileTarget ? (
+              <p className="regional-gap-help">{t("regionalProfileNotGenerated")}</p>
+            ) : regionalGapActionRows.length ? regionalGapActionRows.map((row) => {
+              const action = row.deltaPct > 1 ? t("regionalIncreaseExposure") : row.deltaPct < -1 ? t("regionalReduceExposure") : t("regionalMaintainExposure");
+              const amount = Math.abs((regionalGapTotalValue * row.deltaPct) / 100);
+              return (
               <div className="regional-gap-row" key={row.region}>
                 <div>
-                  <span>{row.region}</span>
+                  <span>{action} · {row.region}</span>
                   <small>{t("currentPortfolio")} {Math.round(row.currentPct)}% / {t("targetPortfolio")} {row.targetPct}%</small>
                 </div>
-                <strong><small>{t("missingValueGap")}</small>{formatMoney(row.gapValue, "CHF", locale)}</strong>
+                <strong><small>{Math.abs(row.deltaPct).toFixed(1)}%</small>{formatMoney(amount, "CHF", locale)}</strong>
               </div>
-            )) : <p className="empty-state">{t("balancedPortfolio")}</p>}
-            {regionalGapAiSuggestion ? (
+              );
+            }) : <p className="empty-state">{t("balancedPortfolio")}</p>}
+            {regionalGapActiveSuggestion ? (
               <details className="regional-gap-suggestions">
-                <summary>{locale === "it" ? "Commento dell'analisi AI" : "AI analysis commentary"}</summary>
-                <p className="regional-gap-help">{regionalGapAiCommentary(regionalGapAiSuggestion, locale)}</p>
+                <summary>{t("regionalAiRationale")}</summary>
+                <p className="regional-gap-help">{regionalGapAiCommentary(regionalGapActiveSuggestion, locale)}</p>
+              </details>
+            ) : null}
+            {regionalGapAiSuggestions.length > 1 ? (
+              <details className="regional-gap-suggestions">
+                <summary>{t("regionalAiHistory")} ({regionalGapAiSuggestions.length - 1})</summary>
+                {regionalGapAiSuggestions.filter((suggestion) => suggestion !== regionalGapActiveSuggestion).map((suggestion, index) => (
+                  <button type="button" className="regional-history-row" key={`${suggestion.profile}-${suggestion.generated_at || index}`} onClick={() => selectRegionalGapProfile(suggestion.profile)}>
+                    <span>{t(regionalGapProfileLabels[suggestion.profile])}</span>
+                    <small>{suggestion.generated_at ? new Intl.DateTimeFormat(numberLocale(locale), { dateStyle: "medium" }).format(new Date(suggestion.generated_at)) : suggestion.model}</small>
+                  </button>
+                ))}
               </details>
             ) : null}
           </details>

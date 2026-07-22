@@ -40,11 +40,15 @@ class RegionalGapTargetPayload(BaseModel):
 class RegionalGapSettingsUpdate(BaseModel):
     targets: list[RegionalGapTargetPayload] = Field(default_factory=list, max_length=12)
     last_ai_suggestion: dict | None = None
+    profile_targets: dict[str, list[RegionalGapTargetPayload]] = Field(default_factory=dict)
+    ai_suggestions: list[dict] = Field(default_factory=list, max_length=24)
 
 
 class RegionalGapSettingsResponse(BaseModel):
     targets: list[RegionalGapTargetPayload] = Field(default_factory=list)
     last_ai_suggestion: dict | None = None
+    profile_targets: dict[str, list[RegionalGapTargetPayload]] = Field(default_factory=dict)
+    ai_suggestions: list[dict] = Field(default_factory=list)
     updated_at: datetime | None = None
 
 

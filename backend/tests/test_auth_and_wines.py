@@ -2419,6 +2419,8 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
     assert empty_settings.json() == {
         "targets": [],
         "last_ai_suggestion": None,
+        "profile_targets": {},
+        "ai_suggestions": [],
         "updated_at": None,
     }
 
@@ -2435,6 +2437,8 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
                 {"region": "Burgundy", "targetPct": 25},
             ],
             "last_ai_suggestion": suggestion,
+            "profile_targets": {"balanced": [{"region": "Bordeaux", "targetPct": 40}]},
+            "ai_suggestions": [suggestion],
         },
     )
     assert saved_settings.status_code == 200
@@ -2443,6 +2447,8 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
         {"region": "Burgundy", "targetPct": 25},
     ]
     assert saved_settings.json()["last_ai_suggestion"] == suggestion
+    assert saved_settings.json()["profile_targets"] == {"balanced": [{"region": "Bordeaux", "targetPct": 40}]}
+    assert saved_settings.json()["ai_suggestions"] == [suggestion]
     assert saved_settings.json()["updated_at"] is not None
 
     snooze_payload = {
