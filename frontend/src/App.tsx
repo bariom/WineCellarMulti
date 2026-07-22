@@ -5981,6 +5981,14 @@ export function App() {
             </button>
           ))}
         </div>
+        <select className="regional-profile-mobile-select" value={regionalGapProfile} onChange={(event) => selectRegionalGapProfile(event.target.value as RegionalGapProfile)} aria-label={t("regionalProfileCompare")}>
+          {([
+            ["investment", "regionalProfileInvestment"],
+            ["balanced", "regionalProfileBalanced"],
+            ["readiness", "regionalProfileReadiness"],
+            ["daily", "regionalProfileDaily"],
+          ] as Array<[RegionalGapProfile, TranslationKey]>).map(([profile, labelKey]) => <option key={profile} value={profile}>{t(labelKey)}</option>)}
+        </select>
         <div className={`regional-profile-status${regionalGapActiveSuggestion ? " generated" : ""}`}>
           {regionalGapActiveSuggestion ? t("regionalProfileGenerated") : t("regionalProfileNotGenerated")}
           {!regionalGapHasProfileTarget ? (

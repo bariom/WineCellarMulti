@@ -6871,6 +6871,10 @@ textarea {
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
 }
 
+.regional-profile-mobile-select {
+  display: none;
+}
+
 .regional-profile-switcher button {
   display: inline-flex;
   align-items: center;
@@ -6976,23 +6980,6 @@ textarea {
   opacity: 0.62;
 }
 
-.regional-profile-panel {
-  display: grid;
-  gap: 7px;
-  padding: 10px;
-  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
-  border-radius: 12px;
-  background: color-mix(in srgb, var(--surface) 72%, var(--surface-muted));
-}
-
-.regional-profile-panel > span {
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-weight: 900;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .regional-target-total {
   color: var(--danger-text);
   font-weight: 900;
@@ -7007,17 +6994,6 @@ textarea {
   font-size: 0.72rem;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-}
-
-.regional-profile-buttons {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.regional-profile-buttons button {
-  min-height: 34px;
-  padding: 7px 10px;
 }
 
 .regional-ai-proposal {
@@ -7337,6 +7313,16 @@ textarea {
   .regional-gap-layout,
   .regional-gap-row {
     grid-template-columns: 1fr;
+  }
+
+  .regional-profile-switcher {
+    display: none;
+  }
+
+  .regional-profile-mobile-select {
+    display: block;
+    width: 100%;
+    min-height: 38px;
   }
 
   .regional-target-grid {
