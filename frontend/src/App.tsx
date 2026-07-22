@@ -9235,10 +9235,15 @@ export function App() {
                       {wine.notes ? <span className="note-indicator" title={t("notes")} aria-label={t("notes")}>✎</span> : null}
                     </h3>
                     <p className="row-primary">
-                      <span>{wine.producer || t("noProducer")} - {wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</span>
+                      <span className="wine-producer">{wine.producer || t("noProducer")}</span>
+                      <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
                     </p>
-                    <p className="row-secondary">{[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation].filter(Boolean).join(" - ")}</p>
+                    <p className="row-secondary">
+                      {[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation]
+                        .filter(Boolean)
+                        .map((value, index) => <span key={`${value}-${index}`}>{value}</span>)}
+                    </p>
                     {wine.rating || wine.tags.length || wine.scores.length ? (
                       <div className="row-meta-stack">
                         {wine.rating || wine.tags.length ? (

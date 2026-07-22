@@ -4,7 +4,7 @@ import { gzipSync } from "node:zlib";
 const limits = {
   javascriptBytes: 710_000,
   javascriptGzipBytes: 185_000,
-  cssBytes: 325_000,
+  cssBytes: 330_000,
   cssGzipBytes: 56_000,
 };
 

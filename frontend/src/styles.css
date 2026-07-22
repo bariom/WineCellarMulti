@@ -16365,6 +16365,175 @@ tbody tr:hover {
   padding-left: 58px;
 }
 
+/* Cellar list: editorial rows with a clearer reading order. */
+.operational-workspace .wine-tone-group {
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  overflow: visible;
+}
+
+.operational-workspace .wine-tone-group-toggle {
+  padding-inline: 4px;
+  border-bottom-color: color-mix(in srgb, var(--border) 58%, transparent);
+  background: transparent;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) {
+  min-height: 108px;
+  border-color: color-mix(in srgb, var(--border) 58%, transparent);
+  background: color-mix(in srgb, var(--surface-raised) 94%, var(--surface));
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--collector-depth) 32%, transparent);
+}
+
+.operational-workspace .wine-row:not(.wishlist-row):hover {
+  box-shadow: 0 12px 28px color-mix(in srgb, var(--collector-depth) 46%, transparent);
+  transform: translateY(-1px);
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) h3 {
+  align-items: baseline;
+  font-size: 1.08rem;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .wine-title {
+  line-height: 1.12;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-primary {
+  gap: 6px 10px;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .wine-producer {
+  color: color-mix(in srgb, var(--text) 86%, var(--text-muted));
+  font-weight: 700;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .wine-quantity {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: var(--text-soft);
+  background: color-mix(in srgb, var(--surface-muted) 82%, transparent);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-secondary {
+  display: flex;
+  align-items: center;
+  gap: 5px 9px;
+  flex-wrap: wrap;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-secondary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-secondary span:not(:last-child)::after {
+  content: "";
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--wine-tone) 55%, var(--text-muted));
+}
+
+.operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo {
+  min-height: 118px;
+}
+
+.operational-workspace .wine-row-bottle-photo {
+  top: 7px;
+  left: 17px;
+  width: 62px;
+  height: 104px;
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.operational-workspace .wine-row.has-bottle-photo .wine-row-main {
+  padding-left: 74px;
+}
+
+.operational-workspace .wine-row:hover .wine-row-bottle-photo {
+  transform: scale(1.045) translateY(-1px);
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
+  padding-left: 14px;
+  border-left: 1px solid color-mix(in srgb, var(--border) 62%, transparent);
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) > .row-actions button {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-soft);
+  box-shadow: none;
+}
+
+.operational-workspace .wine-row:not(.wishlist-row) > .row-actions button:hover,
+.operational-workspace .wine-row:not(.wishlist-row) > .row-actions button:focus-visible {
+  border-color: color-mix(in srgb, var(--border) 68%, transparent);
+  background: color-mix(in srgb, var(--surface-muted) 76%, transparent);
+  color: var(--text);
+}
+
+@media (max-width: 820px) {
+  .operational-workspace .wine-tone-group-toggle {
+    min-height: 42px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) {
+    gap: 9px;
+    min-height: 0;
+    padding: 14px;
+    border-color: color-mix(in srgb, var(--border) 56%, transparent);
+    border-radius: 12px;
+    box-shadow: 0 5px 15px color-mix(in srgb, var(--collector-depth) 28%, transparent);
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo {
+    min-height: 110px;
+  }
+
+  .operational-workspace .wine-row-bottle-photo {
+    top: 8px;
+    left: 12px;
+    width: 54px;
+    height: 94px;
+  }
+
+  .operational-workspace .wine-row.has-bottle-photo .wine-row-main {
+    min-height: 88px;
+    padding-left: 59px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) h3 {
+    font-size: 1rem;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
+    grid-template-columns: repeat(2, minmax(0, max-content));
+    gap: 22px;
+    padding: 10px 0 0;
+    border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+    border-left: 0;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) > .row-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) > .row-actions button {
+    min-height: 38px;
+  }
+}
+
 .detail-hero .detail-title:has(.detail-bottle-photo) {
   grid-template-columns: minmax(116px, 164px) minmax(0, 1fr);
 }
