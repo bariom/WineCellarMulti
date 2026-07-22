@@ -9193,11 +9193,36 @@ export function App() {
                 </div>
               </div>
             ) : null}
-            {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} /> : null}
-            {!loading && activeView === "cellar" && filteredWines.length === 0 ? <EmptyState title={t("noWineMatch")} icon="cellar" helpSlug="cellar-filters" /> : null}
-            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? <EmptyState title={t("noHistoryMatch")} icon="calendar" helpSlug="consumption" /> : null}
-            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? <EmptyState title={t("noTastingArchiveMatch")} icon="glass-sparkle" helpSlug="consumption" /> : null}
-            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? <EmptyState title={t("noWishlistMatch")} icon="wishlist" helpSlug="wishlist" /> : null}
+            {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} variant="list" /> : null}
+            {!loading && activeView === "cellar" && filteredWines.length === 0 ? (
+              <EmptyState
+                title={t("noWineMatch")}
+                icon="cellar"
+                helpSlug="cellar-filters"
+                actions={activeCollectionFilterChips.length
+                  ? <button type="button" onClick={() => clearFilters("cellar")}>{t("clearFilters")}</button>
+                  : canWriteWine ? <button type="button" onClick={startAddWine}>{t("addWine")}</button> : null}
+              >
+                {activeCollectionFilterChips.length
+                  ? (locale === "it" ? "Modifica o azzera i filtri per ampliare i risultati." : "Adjust or clear filters to broaden the results.")
+                  : (locale === "it" ? "Inizia aggiungendo la prima bottiglia alla tua cantina." : "Start by adding the first bottle to your cellar.")}
+              </EmptyState>
+            ) : null}
+            {!loading && activeView === "history" && historySection === "wines" && filteredWines.length === 0 ? (
+              <EmptyState title={t("noHistoryMatch")} icon="calendar" helpSlug="consumption" actions={activeCollectionFilterChips.length ? <button type="button" onClick={() => clearFilters("history")}>{t("clearFilters")}</button> : null}>
+                {locale === "it" ? "Le degustazioni archiviate compariranno qui quando saranno disponibili." : "Archived tastings will appear here when available."}
+              </EmptyState>
+            ) : null}
+            {!loading && !tastingArchiveLoading && activeView === "history" && historySection === "tastings" && visibleTastingEntries.length === 0 ? (
+              <EmptyState title={t("noTastingArchiveMatch")} icon="glass-sparkle" helpSlug="consumption" actions={activeCollectionFilterChips.length ? <button type="button" onClick={() => clearFilters("history")}>{t("clearFilters")}</button> : null}>
+                {locale === "it" ? "Registra una degustazione dal dettaglio vino per costruire il tuo archivio." : "Record a tasting from wine details to build your archive."}
+              </EmptyState>
+            ) : null}
+            {!loading && activeView === "wishlist" && filteredWishlist.length === 0 ? (
+              <EmptyState title={t("noWishlistMatch")} icon="wishlist" helpSlug="wishlist" actions={activeCollectionFilterChips.length ? <button type="button" onClick={() => clearFilters("wishlist")}>{t("clearFilters")}</button> : canWriteWine ? <button type="button" onClick={startAddWishlistItem}>{t("addWishlist")}</button> : null}>
+                {locale === "it" ? "Salva qui i vini da valutare o acquistare in futuro." : "Save wines here to evaluate or purchase later."}
+              </EmptyState>
+            ) : null}
             {activeView === "history" && historySection === "tastings" && visibleTastingEntries.length ? (
               <>
                 {usingPagedTastingArchive ? (

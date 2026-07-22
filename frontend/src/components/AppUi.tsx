@@ -102,7 +102,21 @@ export function logoutIcon() {
   );
 }
 
-export function LoadingState({ label, compact = false }: { label: string; compact?: boolean }) {
+export function LoadingState({ label, compact = false, variant = "inline" }: { label: string; compact?: boolean; variant?: "inline" | "list" | "panel" }) {
+  if (variant !== "inline") {
+    return (
+      <div className={`loading-state loading-state-skeleton loading-state-${variant}${compact ? " compact" : ""}`} role="status" aria-live="polite" aria-label={label}>
+        {Array.from({ length: variant === "list" ? 3 : 1 }, (_, index) => (
+          <div className="loading-skeleton-card" key={index} aria-hidden="true">
+            <i />
+            <div><span /><span /><span /></div>
+            <strong />
+          </div>
+        ))}
+        <span className="loading-state-label">{label}</span>
+      </div>
+    );
+  }
   return (
     <div className={`loading-state${compact ? " compact" : ""}`} role="status" aria-live="polite">
       <LoadingSpinner size={compact ? "sm" : "md"} />
@@ -116,12 +130,14 @@ export function EmptyState({
   icon = "bottle",
   compact = false,
   children,
+  actions,
   helpSlug,
 }: {
   title: string;
   icon?: AppIconName;
   compact?: boolean;
   children?: ReactNode;
+  actions?: ReactNode;
   helpSlug?: string;
 }) {
   const help = useHelp();
@@ -130,8 +146,13 @@ export function EmptyState({
       <i aria-hidden="true"><AppIcon name={icon} variant="premium" tone="accent" detailLevel="rich" /></i>
       <div>
         <strong>{title}</strong>
-        {children ? <span>{children}</span> : null}
-        {helpSlug && help ? <button type="button" className="secondary compact" onClick={() => help.openHelp(helpSlug)}>?</button> : null}
+        {children ? <span className="empty-state-description">{children}</span> : null}
+        {actions || (helpSlug && help) ? (
+          <div className="empty-state-actions">
+            {actions}
+            {helpSlug && help ? <button type="button" className="secondary compact empty-state-help" onClick={() => help.openHelp(helpSlug)}>?</button> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -141,9 +162,15 @@ export function GlobalLoadingOverlay({ label }: { label: string }) {
   return (
     <div className="global-loading-overlay" role="status" aria-live="polite" aria-busy="true">
       <div className="global-loading-card">
-        <LoadingSpinner size="md" />
-        <strong>{label}</strong>
-        <span>Vinaris</span>
+        <div className="global-loading-heading">
+          <LoadingSpinner size="md" />
+          <div><strong>{label}</strong><span>Vinaris</span></div>
+        </div>
+        <div className="global-loading-skeleton" aria-hidden="true">
+          <i />
+          <div><span /><span /><span /></div>
+          <div><span /><span /></div>
+        </div>
       </div>
     </div>
   );

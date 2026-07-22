@@ -4,8 +4,8 @@ import { gzipSync } from "node:zlib";
 const limits = {
   javascriptBytes: 710_000,
   javascriptGzipBytes: 185_000,
-  cssBytes: 335_000,
-  cssGzipBytes: 56_000,
+  cssBytes: 340_000,
+  cssGzipBytes: 58_000,
 };
 
 const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");

@@ -1042,11 +1042,22 @@ summary:focus-visible {
 }
 
 .error-banner {
+  position: relative;
+  overflow: hidden;
   padding: 12px 14px;
-  border: 1px solid #e7a2ad;
-  border-radius: 6px;
+  border: 1px solid color-mix(in srgb, #b43b51 34%, var(--border));
+  border-radius: 12px;
   color: #7c1e2c;
-  background: #fff0f2;
+  background: color-mix(in srgb, #fff0f2 84%, var(--surface));
+  box-shadow: 0 8px 22px color-mix(in srgb, #7c1e2c 12%, transparent);
+}
+
+.error-banner::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #a52d43;
+  content: "";
 }
 
 .app-error-banner {
@@ -9269,6 +9280,81 @@ button.stat-card:hover {
   font-size: 0.92rem;
 }
 
+.loading-state-skeleton {
+  position: relative;
+  display: grid;
+  width: 100%;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.loading-state-list { gap: 9px; }
+
+.loading-skeleton-card {
+  display: grid;
+  grid-template-columns: 54px minmax(0, 1fr) minmax(82px, 14%);
+  align-items: center;
+  gap: 15px;
+  min-height: 92px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-raised) 90%, var(--surface));
+}
+
+.loading-skeleton-card i,
+.loading-skeleton-card span,
+.loading-skeleton-card strong,
+.global-loading-skeleton i,
+.global-loading-skeleton span {
+  display: block;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text-muted) 12%, var(--surface-muted));
+}
+
+.loading-skeleton-card i {
+  width: 38px;
+  height: 66px;
+  justify-self: center;
+  border-radius: 12px 12px 16px 16px;
+}
+
+.loading-skeleton-card div { display: grid; gap: 9px; }
+.loading-skeleton-card span { height: 9px; }
+.loading-skeleton-card span:first-child { width: min(72%, 320px); height: 13px; }
+.loading-skeleton-card span:nth-child(2) { width: min(54%, 240px); }
+.loading-skeleton-card span:last-child { width: min(84%, 380px); }
+.loading-skeleton-card strong { width: 100%; height: 30px; border-radius: 9px; }
+
+.loading-skeleton-card > *,
+.global-loading-skeleton > * { position: relative; }
+
+.loading-skeleton-card > *::after,
+.global-loading-skeleton > *::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 22%, color-mix(in srgb, var(--collector-sheen) 72%, transparent) 48%, transparent 74%);
+  content: "";
+  transform: translateX(-110%);
+  animation: loading-skeleton-sheen 1.6s ease-in-out infinite;
+}
+
+.loading-state-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+@keyframes loading-skeleton-sheen {
+  to { transform: translateX(110%); }
+}
+
 .global-loading-overlay {
   position: fixed;
   inset: 0;
@@ -9282,10 +9368,9 @@ button.stat-card:hover {
 
 .global-loading-card {
   display: grid;
-  justify-items: center;
-  gap: 10px;
-  min-width: min(100%, 280px);
-  padding: 22px 24px;
+  gap: 18px;
+  width: min(100%, 620px);
+  padding: 22px;
   border: 1px solid color-mix(in srgb, var(--border) 72%, var(--collector-edge));
   border-radius: 22px;
   background:
@@ -9308,6 +9393,45 @@ button.stat-card:hover {
   font-size: 0.84rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
+}
+
+.global-loading-skeleton {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr) minmax(112px, 0.38fr);
+  align-items: center;
+  gap: 18px;
+  min-height: 116px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 52%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 78%, var(--surface-muted));
+}
+
+.global-loading-skeleton i {
+  width: 45px;
+  height: 82px;
+  justify-self: center;
+  border-radius: 14px 14px 18px 18px;
+}
+
+.global-loading-skeleton div { display: grid; gap: 12px; }
+.global-loading-skeleton span { height: 11px; }
+.global-loading-skeleton div:first-of-type span:first-child { width: 78%; height: 16px; }
+.global-loading-skeleton div:first-of-type span:nth-child(2) { width: 54%; }
+.global-loading-skeleton div:first-of-type span:last-child { width: 88%; }
+.global-loading-skeleton div:last-child span { height: 28px; border-radius: 9px; }
+
+@media (max-width: 640px) {
+  .loading-skeleton-card {
+    grid-template-columns: 44px minmax(0, 1fr);
+    min-height: 82px;
+    padding: 12px;
+  }
+
+  .loading-skeleton-card strong { display: none; }
+  .global-loading-card { padding: 18px; }
+  .global-loading-skeleton { grid-template-columns: 58px minmax(0, 1fr); min-height: 102px; padding: 12px; }
+  .global-loading-skeleton > div:last-child { display: none; }
 }
 
 .ai-generation-overlay {
@@ -13914,6 +14038,12 @@ textarea:hover {
   white-space: nowrap;
 }
 
+.operational-workspace .wine-row:not(.wishlist-row) .row-price-block > div:last-child span {
+  max-width: 14ch;
+  white-space: normal;
+  text-wrap: balance;
+}
+
 .operational-workspace .wine-row:not(.wishlist-row) > .row-actions {
   grid-column: 4;
   grid-row: 1;
@@ -15120,6 +15250,31 @@ label > span,
 .empty-state-panel span {
   color: var(--text-muted);
   font-size: 0.84rem;
+}
+
+.empty-state-panel .empty-state-description {
+  max-width: 58ch;
+  line-height: 1.45;
+}
+
+.empty-state-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 8px;
+}
+
+.empty-state-actions > button {
+  min-height: 34px;
+  padding: 6px 11px;
+  font-size: 0.76rem;
+}
+
+.empty-state-actions .empty-state-help {
+  width: 34px;
+  min-width: 34px;
+  padding: 0;
+  border-radius: 50%;
 }
 
 .empty-state-panel.compact {
@@ -16570,6 +16725,71 @@ tbody tr:hover {
   font-size: 1.08rem;
 }
 
+@media (min-width: 1121px) {
+  .operational-workspace .wine-row:not(.wishlist-row) {
+    grid-template-columns: minmax(420px, 1.75fr) minmax(164px, 0.65fr) minmax(108px, 0.4fr) auto;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo {
+    grid-template-columns: 64px minmax(310px, 1.75fr) minmax(164px, 0.65fr) minmax(108px, 0.4fr) auto;
+  }
+
+  .operational-workspace .wine-row.has-bottle-photo .wine-row-bottle-photo {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: center;
+    justify-self: center;
+  }
+
+  .operational-workspace .wine-row.has-bottle-photo .wine-row-main {
+    grid-column: 2;
+    padding-left: 0;
+  }
+
+  .operational-workspace .wine-row.has-bottle-photo > .mini-drink-window { grid-column: 3; }
+  .operational-workspace .wine-row.has-bottle-photo > .row-price-block { grid-column: 4; }
+  .operational-workspace .wine-row.has-bottle-photo > .row-actions { grid-column: 5; }
+
+  .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo h3 {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo h3 > .wine-dot {
+    display: none;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) h3 {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .wine-title-row {
+    display: flex;
+    flex-wrap: nowrap;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .wine-title {
+    flex: 0 1 auto;
+    overflow-wrap: anywhere;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .vintage-label--small {
+    flex: 0 0 auto;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .note-indicator {
+    margin-left: 0;
+  }
+}
+
+@media (min-width: 821px) and (max-width: 1120px) {
+  .operational-workspace .wine-row:not(.wishlist-row) .wine-title-row {
+    flex-wrap: nowrap;
+  }
+}
+
 .operational-workspace .wine-row:not(.wishlist-row) .wine-title {
   line-height: 1.12;
 }
@@ -16630,6 +16850,12 @@ tbody tr:hover {
 
 .operational-workspace .wine-row.has-bottle-photo .wine-row-main {
   padding-left: 74px;
+}
+
+@media (min-width: 1121px) {
+  .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo .wine-row-main {
+    padding-left: 0;
+  }
 }
 
 .operational-workspace .wine-row:hover .wine-row-bottle-photo {
@@ -17036,8 +17262,15 @@ tbody tr:hover {
   min-width: 0;
   min-height: clamp(142px, 16vw, 170px);
   padding: 18px 10px;
-  text-align: center;
 }
+
+.global-loading-heading {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+}
+
+.global-loading-heading > div { display: grid; gap: 2px; }
 
 .key-position-increase--positive { --increase-tone: var(--key-card-positive); }
 .key-position-increase--negative { --increase-tone: var(--key-card-negative); }
