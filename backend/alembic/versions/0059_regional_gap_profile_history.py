@@ -1,6 +1,6 @@
 """persist regional gap profile targets and AI history
 
-Revision ID: 0059_regional_gap_profile_history
+Revision ID: 0059_regional_gap_profiles
 Revises: 0058_photo_usage_disclaimer
 """
 
@@ -10,7 +10,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision: str = "0059_regional_gap_profile_history"
+revision: str = "0059_regional_gap_profiles"
 down_revision: str | None = "0058_photo_disclaimer"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | None = None
