@@ -11,7 +11,7 @@ import sqlalchemy as sa
 from alembic import op
 
 revision: str = "0059_regional_gap_profile_history"
-down_revision: str | None = "0058_photo_usage_disclaimer"
+down_revision: str | None = "0058_photo_disclaimer"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | None = None
 
