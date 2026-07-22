@@ -16995,6 +16995,24 @@ tbody tr:hover {
   text-wrap: balance;
 }
 
+.wine-detail .detail-title h2.detail-wine-name {
+  display: grid;
+  grid-template-columns: 14px minmax(0, 1fr);
+  align-items: start;
+  gap: 9px;
+}
+
+.detail-wine-name > .wine-dot {
+  margin: 0.42em 0 0;
+}
+
+.detail-wine-name > span {
+  min-width: 0;
+  overflow-wrap: normal;
+  word-break: normal;
+  hyphens: none;
+}
+
 .wine-detail .detail-title > div > span {
   display: block;
   max-width: 54ch;
@@ -17223,12 +17241,46 @@ tbody tr:hover {
   }
 
   .mobile-detail-sheet .wine-detail .detail-hero {
-    padding: 16px;
+    padding: 12px 10px 16px;
+  }
+
+  .mobile-detail-sheet .detail-hero .detail-title:has(.detail-bottle-photo) {
+    grid-template-columns: minmax(96px, 134px) minmax(0, 1fr);
+    column-gap: 10px;
+  }
+
+  .mobile-detail-sheet .detail-bottle-photo {
+    display: grid;
+    width: 100%;
+    justify-self: center;
+    place-items: start center;
+  }
+
+  .mobile-detail-sheet .detail-bottle-photo img {
+    width: min(100%, 124px);
+    height: 220px;
+    margin-inline: auto;
   }
 
   .mobile-detail-sheet .wine-detail .detail-title h2 {
     max-width: none;
-    font-size: clamp(1.6rem, 7.6vw, 2.15rem);
+    font-size: clamp(1.55rem, 6.8vw, 1.95rem);
+    line-height: 1.02;
+    text-wrap: wrap;
+  }
+
+  .mobile-detail-sheet .detail-wine-name > span {
+    overflow-wrap: normal !important;
+    word-break: keep-all !important;
+    hyphens: none !important;
+  }
+
+  .mobile-detail-sheet .wine-detail .detail-title h2.detail-wine-name--medium {
+    font-size: clamp(1.45rem, 6.1vw, 1.78rem);
+  }
+
+  .mobile-detail-sheet .wine-detail .detail-title h2.detail-wine-name--long {
+    font-size: clamp(1.32rem, 5.5vw, 1.62rem);
   }
 
   .wine-editor-form {

@@ -863,7 +863,10 @@ export function WineDetail({
           ) : null}
           <div>
             <p className="eyebrow">{t("wineDetail")}</p>
-            <h2><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</h2>
+            <h2 className={`detail-wine-name ${wine.name.length > 34 ? "detail-wine-name--long" : wine.name.length > 20 ? "detail-wine-name--medium" : "detail-wine-name--short"}`}>
+              <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+              <span>{wine.name}</span>
+            </h2>
             {canWrite ? (
               <RatingInput
                 value={String(wine.rating || 0)}
