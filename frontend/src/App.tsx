@@ -7985,9 +7985,17 @@ export function App() {
               </div>
             )}
             {isWineCollectionView && wineFormOpen ? (
-              <form className="wine-form" onSubmit={submitWine}>
-                <h2>{editingId ? t("editWine") : t("addWine")}</h2>
+              <form className="wine-form wine-editor-form" onSubmit={submitWine}>
+                <header className="wine-editor-heading">
+                  <div>
+                    <span>{locale === "it" ? "Scheda cantina" : "Cellar record"}</span>
+                    <h2>{editingId ? t("editWine") : t("addWine")}</h2>
+                    <p>{locale === "it" ? "Parti dai dati essenziali; potrai completare le informazioni avanzate quando vuoi." : "Start with the essentials; advanced information can be completed at any time."}</p>
+                  </div>
+                  <i aria-hidden="true"><AppIcon name="bottle" variant="premium" tone="accent" /></i>
+                </header>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
+                <section className="wine-editor-assist-grid" aria-label={locale === "it" ? "Assistenti di compilazione" : "Editing assistants"}>
                 {!editingId && canUseLabelRecognition ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wine" ? t("recognizingWine") : t("recognizeWine")}</span>
@@ -8081,6 +8089,12 @@ export function App() {
                     ) : null}
                   </div>
                 ) : null}
+                </section>
+                <section className="wine-editor-section wine-editor-essential">
+                  <div className="wine-editor-section-heading">
+                    <div><span>01</span><strong>{locale === "it" ? "Identità del vino" : "Wine identity"}</strong></div>
+                    <small>{locale === "it" ? "Nome, origine e quantità" : "Name, origin and quantity"}</small>
+                  </div>
                 <label>
                   <span>{t("name")}</span>
                   <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
@@ -8146,6 +8160,13 @@ export function App() {
                   <span>{t("rating")}</span>
                   <RatingInput value={draft.rating} disabled={!canWriteWine} label={t("rating")} onChange={(value) => setDraft({ ...draft, rating: value })} />
                 </label>
+                </section>
+                <details className="wine-editor-section wine-editor-disclosure">
+                  <summary>
+                    <div><span>02</span><strong>{locale === "it" ? "Acquisto e valore" : "Purchase and value"}</strong></div>
+                    <small>{locale === "it" ? "Prezzi, stato e consegna" : "Prices, status and delivery"}</small>
+                  </summary>
+                  <div className="wine-editor-section-body">
                 <div className="form-row">
                   <label>
                     <span>{t("purchasePrice")}</span>
@@ -8186,6 +8207,14 @@ export function App() {
                     <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
+                  </div>
+                </details>
+                <details className="wine-editor-section wine-editor-disclosure">
+                  <summary>
+                    <div><span>03</span><strong>{locale === "it" ? "Profilo del vino" : "Wine profile"}</strong></div>
+                    <small>{locale === "it" ? "Note e uvaggi" : "Notes and grapes"}</small>
+                  </summary>
+                  <div className="wine-editor-section-body">
                 <label>
                   <span>{t("notes")}</span>
                   <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
@@ -8252,6 +8281,14 @@ export function App() {
                     <p className="empty-state">{t("missingGrapes")}</p>
                   )}
                 </div>
+                  </div>
+                </details>
+                <details className="wine-editor-section wine-editor-disclosure">
+                  <summary>
+                    <div><span>04</span><strong>{locale === "it" ? "Punteggi e proprietà" : "Scores and ownership"}</strong></div>
+                    <small>{locale === "it" ? "Critici, quote e comproprietari" : "Critics, shares and co-owners"}</small>
+                  </summary>
+                  <div className="wine-editor-section-body">
                 <div className="ownership-editor">
                   <div className="section-heading">
                     <h3>{t("scores")}</h3>
@@ -8304,6 +8341,14 @@ export function App() {
                     </div>
                   ))}
                 </div>
+                  </div>
+                </details>
+                <details className="wine-editor-section wine-editor-disclosure">
+                  <summary>
+                    <div><span>05</span><strong>{t("tags")}</strong></div>
+                    <small>{locale === "it" ? "Occasioni e organizzazione" : "Occasions and organization"}</small>
+                  </summary>
+                  <div className="wine-editor-section-body">
                 <div className="tag-picker">
                   <span>{t("tags")}</span>
                   {wineFormTagOptions.length ? (
@@ -8331,7 +8376,9 @@ export function App() {
                     </button>
                   </div>
                 </div>
-                <div className="form-actions">
+                  </div>
+                </details>
+                <div className="form-actions wine-editor-actions">
                   <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingId ? t("saveChanges") : t("createWine")}</button>
                   {editingId && selectedWine ? (
                     <button
