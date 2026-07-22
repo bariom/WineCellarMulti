@@ -9328,6 +9328,27 @@ export function App() {
                         t={t}
                         locale={locale}
                       />
+                      <nav className="mobile-wine-actions" aria-label={locale === "it" ? "Azioni vino" : "Wine actions"}>
+                        {canWriteWine && wine.quantity > 0 ? (
+                          <button type="button" onClick={(event) => {
+                            const panel = event.currentTarget.closest(".mobile-detail-sheet")?.querySelector<HTMLDetailsElement>(".consume-panel");
+                            if (!panel) return;
+                            panel.open = true;
+                            window.requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
+                          }}>
+                            <span className="action-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</span>
+                            <span>{t("consumeBottle")}</span>
+                          </button>
+                        ) : null}
+                        <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} aria-pressed={compareWineIds.includes(wine.id)} onClick={() => toggleCompareWine(wine)}>
+                          <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
+                          <span>{t("compare")}</span>
+                        </button>
+                        <button type="button" className="secondary" disabled={!canWriteWine} onClick={() => startEditWine(wine)}>
+                          <AppIcon name="edit" />
+                          <span>{t("edit")}</span>
+                        </button>
+                      </nav>
                     </div>
                   </div>
                 ) : null}
