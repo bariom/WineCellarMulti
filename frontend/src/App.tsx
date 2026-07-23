@@ -4881,7 +4881,7 @@ export function App() {
     .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
     .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
     .sort((first, second) => first.days - second.days)
-    .slice(0, 5);
+    .slice(0, 10);
   const winesToCollect = cellarWines
     .filter(isToCollectWine)
     .sort((first, second) => (
