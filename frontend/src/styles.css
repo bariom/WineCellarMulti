@@ -6157,15 +6157,21 @@ textarea {
     padding-inline: 12px;
   }
 
+  .daily-premium-panel .daily-tone-slideshow .dashboard-bottle-viewport,
+  .daily-premium-panel .dashboard-bottle-tile.daily-tone-slide {
+    height: 184px;
+    min-height: 184px;
+  }
+
   .daily-premium-panel .dashboard-bottle-tile.daily-tone-slide .key-position-bottle-visual {
     width: 58px;
-    height: 106px;
+    height: 116px;
   }
 
   .daily-tone-slideshow .dashboard-bottle-viewport,
   .dashboard-bottle-tile.daily-tone-slide {
-    height: 138px;
-    min-height: 138px;
+    height: 166px;
+    min-height: 166px;
   }
 
   .dashboard-bottle-tile.daily-tone-slide {
@@ -6179,13 +6185,26 @@ textarea {
     height: 106px;
   }
 
-  .daily-slide-copy > strong {
-    font-size: 1.05rem;
+  .daily-slide-copy > strong,
+  .daily-premium-panel .daily-slide-copy > strong {
+    display: -webkit-box;
+    overflow: hidden;
+    font-size: clamp(0.96rem, 4.6vw, 1.06rem);
+    line-height: 1.08;
+    text-wrap: pretty;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
   }
 
   .daily-slide-copy > span:not(.daily-slide-topline),
   .daily-slide-copy > small {
     font-size: 0.74rem;
+  }
+
+  .daily-slide-budget {
+    width: auto;
+    line-height: 1.15;
+    white-space: normal;
   }
 
   .daily-budget-setting {
