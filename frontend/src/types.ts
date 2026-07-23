@@ -10,6 +10,8 @@ export type Session = {
   pending_email_verification: boolean;
   locale: Locale;
   theme_preference: ThemePreference;
+  dashboard_focus: PrimaryDashboardFocus;
+  daily_wine_budget_chf: string | null;
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
   has_active_entitlement: boolean;
@@ -730,7 +732,14 @@ export type AiOverlayProgress = {
 
 export type TastingEnjoyment = "" | "positive" | "negative";
 
-export type DashboardFocus = "collector" | "value" | "readiness" | "timeline" | "data";
+export type PrimaryDashboardFocus = "collector" | "daily" | "balanced";
+
+export type DashboardFocus =
+  | PrimaryDashboardFocus
+  | "value"
+  | "readiness"
+  | "timeline"
+  | "data";
 
 export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
 

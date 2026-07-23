@@ -5,7 +5,7 @@ import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
@@ -80,6 +80,9 @@ function DashboardBottleSlideshow({
   canShowPhotos,
   onOpen,
   meta,
+  variant = "default",
+  autoAdvanceMs = 5000,
+  budgetMeta,
   label,
   previousLabel,
   nextLabel,
@@ -90,6 +93,9 @@ function DashboardBottleSlideshow({
   canShowPhotos: boolean;
   onOpen: (wine: Wine) => void;
   meta: (wine: Wine) => string;
+  variant?: "default" | "daily";
+  autoAdvanceMs?: number;
+  budgetMeta?: (wine: Wine) => { label: string; overBudget: boolean };
   label: string;
   previousLabel: string;
   nextLabel: string;
@@ -118,9 +124,9 @@ function DashboardBottleSlideshow({
     if (!hasMultiple || userPaused || interactionPaused || reduceMotion) return undefined;
     const timer = window.setInterval(() => {
       setActiveIndex((current) => (current + 1) % wines.length);
-    }, 5000);
+    }, autoAdvanceMs);
     return () => window.clearInterval(timer);
-  }, [hasMultiple, interactionPaused, reduceMotion, userPaused, wines.length]);
+  }, [autoAdvanceMs, hasMultiple, interactionPaused, reduceMotion, userPaused, wines.length]);
 
   const goTo = (nextIndex: number) => {
     setActiveIndex((nextIndex + wines.length) % wines.length);
@@ -128,7 +134,7 @@ function DashboardBottleSlideshow({
 
   return (
     <div
-      className="dashboard-bottle-slideshow"
+      className={`dashboard-bottle-slideshow${variant === "daily" ? " daily-tone-slideshow" : ""}`}
       aria-label={label}
       onMouseEnter={() => setInteractionPaused(true)}
       onMouseLeave={() => setInteractionPaused(false)}
@@ -144,7 +150,7 @@ function DashboardBottleSlideshow({
           {wines.map((wine, index) => (
             <button
               type="button"
-              className="dashboard-bottle-tile"
+              className={`dashboard-bottle-tile${variant === "daily" ? " daily-tone-slide" : ""}`}
               aria-hidden={index !== activeIndex}
               tabIndex={index === activeIndex ? 0 : -1}
               key={wine.id}
@@ -152,11 +158,30 @@ function DashboardBottleSlideshow({
               onClick={() => onOpen(wine)}
             >
               <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} />
-              <span className="dashboard-bottle-copy">
-                <strong>{wine.name}</strong>
-                <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
-                <small>{meta(wine)}</small>
-              </span>
+              {variant === "daily" ? (
+                <span className="daily-slide-copy">
+                  <span className="daily-slide-topline">
+                    <span className="daily-pick-window">
+                      <AppIcon name="calendar" variant="feature" tone="muted" size="0.9rem" />
+                      {wineIdealWindowStart(wine)}–{winePriorityDrinkEnd(wine)}
+                    </span>
+                    {budgetMeta ? (
+                      <span className={`daily-slide-budget${budgetMeta(wine).overBudget ? " is-premium" : ""}`}>
+                        {budgetMeta(wine).label}
+                      </span>
+                    ) : null}
+                  </span>
+                  <strong>{wine.name}</strong>
+                  <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+                  <small>{meta(wine)}</small>
+                </span>
+              ) : (
+                <span className="dashboard-bottle-copy">
+                  <strong>{wine.name}</strong>
+                  <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+                  <small>{meta(wine)}</small>
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -483,6 +508,7 @@ function tagColorStyle(tagName: string, userTags: UserTag[]) {
 }
 
 const wineToneOrder: WineTone[] = ["red", "white", "sparkling", "rose", "sweet", "other"];
+const dailyWineToneOrder: WineTone[] = ["sparkling", "white", "rose", "red", "sweet", "other"];
 
 function wineToneLabel(tone: WineTone, locale: Locale) {
   if (tone === "red") return displayValue("Red", locale, "type") || "Red";
@@ -1107,6 +1133,9 @@ export function App() {
   const [helpSlug, setHelpSlug] = useState<string | null>(() => helpSlugFromLocation());
   const helpReturnViewRef = useRef<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
+  const [primaryDashboardFocus, setPrimaryDashboardFocus] =
+    useState<PrimaryDashboardFocus>("collector");
+  const [dailyWineBudgetDraft, setDailyWineBudgetDraft] = useState("");
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
@@ -1508,9 +1537,15 @@ export function App() {
     event.currentTarget.value = "";
   }
 
-  function applySessionPreferences(nextSession: Session) {
+  function applySessionPreferences(nextSession: Session, includeDashboardFocus = false) {
     setLocale(nextSession.locale || "it");
     setThemePreference(nextSession.theme_preference || "system");
+    setDailyWineBudgetDraft(nextSession.daily_wine_budget_chf || "");
+    if (includeDashboardFocus) {
+      const nextFocus = nextSession.dashboard_focus || "collector";
+      setPrimaryDashboardFocus(nextFocus);
+      setDashboardFocus(nextFocus);
+    }
   }
 
   useEffect(() => {
@@ -1569,11 +1604,57 @@ export function App() {
     }
   }
 
+  async function changePrimaryDashboardFocus(nextFocus: PrimaryDashboardFocus) {
+    const previousFocus = primaryDashboardFocus;
+    setPrimaryDashboardFocus(nextFocus);
+    setDashboardFocus(nextFocus);
+    if (!session?.authenticated || offlineMode) return;
+    try {
+      const nextSession = await api<Session>("/api/v1/auth/preferences", {
+        method: "PATCH",
+        body: JSON.stringify({ dashboard_focus: nextFocus }),
+      });
+      setSession(nextSession);
+      setPrimaryDashboardFocus(nextSession.dashboard_focus || nextFocus);
+    } catch (nextError) {
+      setPrimaryDashboardFocus(previousFocus);
+      setDashboardFocus(previousFocus);
+      setError(nextError instanceof Error ? nextError.message : t("dashboardFocusSaveError"));
+    }
+  }
+
+  async function saveDailyWineBudget() {
+    const normalizedBudget = dailyWineBudgetDraft.trim().replace(",", ".");
+    const parsedBudget = Number(normalizedBudget);
+    if (normalizedBudget && (!Number.isFinite(parsedBudget) || parsedBudget <= 0 || parsedBudget > 100000)) {
+      setError(t("dailyWineBudgetInvalid"));
+      return;
+    }
+    if (!session?.authenticated || offlineMode) return;
+    setSaving(true);
+    setError("");
+    try {
+      const nextSession = await api<Session>("/api/v1/auth/preferences", {
+        method: "PATCH",
+        body: JSON.stringify({
+          daily_wine_budget_chf: normalizedBudget ? parsedBudget : null,
+        }),
+      });
+      setSession(nextSession);
+      applySessionPreferences(nextSession);
+      setNotice(t("dailyWineBudgetSaved"));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("dailyWineBudgetSaveError"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function loadSession() {
     const nextSession = await api<Session>("/api/v1/session");
     setSession(nextSession);
     if (nextSession.authenticated) {
-      applySessionPreferences(nextSession);
+      applySessionPreferences(nextSession, true);
     }
     setHouseholdNameDraft(nextSession.active_household_name || "");
     return nextSession;
@@ -2350,7 +2431,7 @@ export function App() {
         setEmailVerificationConfirmed(false);
       }
       if (nextSession.authenticated) {
-        applySessionPreferences(nextSession);
+        applySessionPreferences(nextSession, true);
       }
       setShowOfflineBackupPanel(false);
       setAuthDraft(emptyAuthDraft);
@@ -2412,7 +2493,7 @@ export function App() {
         body: JSON.stringify({ credential: credentialToJson(credential) }),
       });
       setSession(nextSession);
-      applySessionPreferences(nextSession);
+      applySessionPreferences(nextSession, true);
       setAuthDraft(emptyAuthDraft);
       setShowOfflineBackupPanel(false);
       setLoading(true);
@@ -2520,6 +2601,8 @@ export function App() {
       pending_email_verification: false,
       locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en",
       theme_preference: "system",
+      dashboard_focus: "collector",
+      daily_wine_budget_chf: null,
       can_use_label_recognition: false,
       can_manage_wine_photos: false,
       has_active_entitlement: false,
@@ -2528,6 +2611,8 @@ export function App() {
     });
     setLocale(navigator.language.toLowerCase().startsWith("it") ? "it" : "en");
     setThemePreference("system");
+    setPrimaryDashboardFocus("collector");
+    setDashboardFocus("collector");
     setWines([]);
     setWineCatalog([]);
     setWishlist([]);
@@ -3220,6 +3305,8 @@ export function App() {
         pending_email_verification: false,
         locale,
         theme_preference: themePreference,
+        dashboard_focus: primaryDashboardFocus,
+        daily_wine_budget_chf: dailyWineBudgetDraft.trim() || null,
         can_use_label_recognition: false,
         can_manage_wine_photos: false,
         has_active_entitlement: true,
@@ -4972,6 +5059,68 @@ export function App() {
           created_at: item.created_at,
         };
       });
+  const recentlyConsumedWineIds = new Set(
+    latestConsumedEntries.slice(0, 8).map((entry) => entry.wine.id),
+  );
+  const dailyWineBudgetChf = Number(session?.daily_wine_budget_chf || 0);
+  const hasDailyWineBudget = Number.isFinite(dailyWineBudgetChf) && dailyWineBudgetChf > 0;
+  const rankedDailyTonightWines = [...drinkNowCandidates]
+    .sort((first, second) => {
+      const firstRecentlyConsumed = recentlyConsumedWineIds.has(first.id) ? 1 : 0;
+      const secondRecentlyConsumed = recentlyConsumedWineIds.has(second.id) ? 1 : 0;
+      return (
+        firstRecentlyConsumed - secondRecentlyConsumed
+        || (winePriorityDrinkEnd(first) || 9999) - (winePriorityDrinkEnd(second) || 9999)
+        || wineUnitValue(first) - wineUnitValue(second)
+        || first.name.localeCompare(second.name)
+      );
+    });
+  const dailyTonightGroups = dailyWineToneOrder.flatMap((tone) => {
+    const toneCandidates = rankedDailyTonightWines
+      .filter((candidate) => wineTone(candidate.type) === tone);
+    const withinBudgetWines = (
+      hasDailyWineBudget
+        ? toneCandidates.filter((wine) => wineUnitValue(wine) <= dailyWineBudgetChf)
+        : toneCandidates
+    ).slice(0, 3);
+    const premiumWines = hasDailyWineBudget
+      ? toneCandidates
+          .filter((wine) => wineUnitValue(wine) > dailyWineBudgetChf)
+          .slice(0, 2)
+      : [];
+    const winesForTone = [...withinBudgetWines, ...premiumWines];
+    return winesForTone.length
+      ? [{
+          tone,
+          label: wineToneLabel(tone, locale),
+          wines: winesForTone,
+          withinBudgetCount: withinBudgetWines.length,
+          premiumCount: premiumWines.length,
+        }]
+      : [];
+  });
+  const dailyTonightWines = dailyTonightGroups.flatMap(({ wines: groupWines }) => groupWines);
+  const dailyRecommendationReason = (wine: Wine) => {
+    const windowEnd = winePriorityDrinkEnd(wine);
+    if (windowEnd && windowEnd <= currentYear + 2) return t("dailyReasonShortWindow");
+    if (
+      wine.drink_peak_from
+      && wine.drink_peak_to
+      && wine.drink_peak_from <= currentYear
+      && wine.drink_peak_to >= currentYear
+    ) return t("dailyReasonAtPeak");
+    return t("dailyReasonRotation");
+  };
+  const balancedMaturityBuckets = maturityBuckets(cellarWines, currentYear, locale);
+  const balancedToneRows = wineToneOrder
+    .map((tone) => ({
+      tone,
+      label: wineToneLabel(tone, locale),
+      bottles: cellarWines
+        .filter((wine) => wineTone(wine.type) === tone)
+        .reduce((total, wine) => total + Math.max(wine.quantity, 0), 0),
+    }))
+    .sort((first, second) => first.bottles - second.bottles);
   if (offlineMode) {
     tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
   }
@@ -5145,11 +5294,24 @@ export function App() {
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
   const dashboardFocusLabels: Record<DashboardFocus, string> = {
     collector: t("collectorFocus"),
+    daily: t("dailyFocus"),
+    balanced: t("balancedFocus"),
     value: t("valueFocus"),
     readiness: t("drinkingWindow"),
     timeline: t("timeline"),
     data: t("dataFocus"),
   };
+  const dashboardFocusIcons: Record<DashboardFocus, AppIconName> = {
+    collector: "cellar",
+    daily: "glass-sparkle",
+    balanced: "dashboard",
+    value: "chart",
+    readiness: "glass-sparkle",
+    timeline: "calendar",
+    data: "settings",
+  };
+  const dashboardInsightFocuses: DashboardFocus[] = ["value", "readiness", "timeline", "data"];
+  const isDashboardInsightFocus = dashboardInsightFocuses.includes(dashboardFocus);
   const settingsTabLabels: Record<SettingsTab, string> = {
     profile: t("settingsProfile"),
     ai: t("settingsAi"),
@@ -6086,9 +6248,9 @@ export function App() {
   const pairingBudgetSliderValue = hasPairingBudget ? Math.min(activePairingBudget, pairingBudgetSliderMax) : 0;
   const pairingBudgetPresets = [40, 80, 150].filter((value) => value < pairingBudgetSliderMax);
 
-  function renderMaturityHeatmapCard() {
+  function renderMaturityHeatmapCard(fullWidth = false) {
     return (
-      <article className="dashboard-card wide-card maturity-heatmap-card">
+      <article className={`dashboard-card wide-card maturity-heatmap-card${fullWidth ? " maturity-heatmap-card-full" : ""}`}>
         <div className="card-heading">
           <div>
             <span>{t("maturityMap")}</span>
@@ -7280,7 +7442,7 @@ export function App() {
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
         >
-          {!needsRedeem ? (
+          {!needsRedeem && activeView !== "settings" ? (
           <div className="view-tabs">
             {activeView !== "help" ? <div className="view-tabs-navigation">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
@@ -7346,41 +7508,345 @@ export function App() {
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
                 </div>
                 <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
-                  <div className="hero-kpi">
-                    <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
-                    <strong>{formatBottleCount(cellarStats.myBottles, locale)}</strong>
-                    <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
-                  </div>
-                  <div className="hero-kpi">
-                    <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
-                    <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
-                    <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
-                  </div>
-                  <div className="hero-kpi hero-kpi--value">
-                    <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
-                    <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
-                    <div className="hero-kpi-value-trend">
-                      <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
-                      <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
-                    </div>
-                  </div>
+                  {dashboardFocus === "daily" ? (
+                    <>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
+                        <strong>{cellarStats.drinkNow}</strong>
+                        <p>{t("wines")}</p>
+                      </div>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("past_window")}</i>{t("nearestWindowEnd")}</span>
+                        <strong>{nearestDrinkNowEnd || "—"}</strong>
+                        <p>{t("priority")}</p>
+                      </div>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("bottles")}</span>
+                        <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+                        <p>{t("dailyRotation")}</p>
+                      </div>
+                    </>
+                  ) : dashboardFocus === "balanced" ? (
+                    <>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("bottles")}</span>
+                        <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+                        <p>{t("cellar")}</p>
+                      </div>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
+                        <strong>{cellarStats.drinkNow}</strong>
+                        <p>{t("wines")}</p>
+                      </div>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataQuality")}</span>
+                        <strong>{cellarDataCompleteness}%</strong>
+                        <p>{t("balancedFocus")}</p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
+                        <strong>{formatBottleCount(cellarStats.myBottles, locale)}</strong>
+                        <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
+                      </div>
+                      <div className="hero-kpi">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
+                        <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
+                        <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
+                      </div>
+                      <div className="hero-kpi hero-kpi--value">
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
+                        <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
+                        <div className="hero-kpi-value-trend">
+                          <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
+                          <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               </section>
 
-              <div className="focus-switcher" role="tablist" aria-label={t("dashboard")}>
-                {(["collector", "value", "readiness", "timeline", "data"] as DashboardFocus[]).map((focus) => (
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={dashboardFocus === focus}
-                    className={dashboardFocus === focus ? "" : "secondary"}
+              <div className="dashboard-focus-navigation">
+                <div className="focus-switcher focus-switcher-primary" role="tablist" aria-label={t("primaryDashboardFocus")}>
+                  {(["collector", "daily", "balanced"] as PrimaryDashboardFocus[]).map((focus) => (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={dashboardFocus === focus}
+                      className={dashboardFocus === focus ? "" : "secondary"}
                     key={focus}
                     onClick={() => setDashboardFocus(focus)}
                   >
-                    {dashboardFocusLabels[focus]}
-                  </button>
-                ))}
+                      <AppIcon
+                        name={dashboardFocusIcons[focus]}
+                        variant="feature"
+                        tone={dashboardFocus === focus ? "accent" : "muted"}
+                        size="1.05rem"
+                      />
+                      <span className="focus-switcher-label">{dashboardFocusLabels[focus]}</span>
+                      {primaryDashboardFocus === focus ? <i title={t("defaultFocus")}>{t("defaultFocus")}</i> : null}
+                    </button>
+                  ))}
+                </div>
+                <details className="dashboard-analysis-switcher">
+                  <summary>
+                    <AppIcon name="chart" variant="feature" tone="muted" size="1.05rem" />
+                    <span>{t("dashboardInsights")}</span>
+                    {isDashboardInsightFocus ? (
+                      <small>{dashboardFocusLabels[dashboardFocus]}</small>
+                    ) : null}
+                  </summary>
+                  <div className="focus-switcher" role="tablist" aria-label={t("dashboardInsights")}>
+                    {dashboardInsightFocuses.map((focus) => (
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={dashboardFocus === focus}
+                        className={dashboardFocus === focus ? "" : "secondary"}
+                        key={focus}
+                        onClick={(event) => {
+                          setDashboardFocus(focus);
+                          event.currentTarget.closest("details")?.removeAttribute("open");
+                        }}
+                      >
+                        <AppIcon
+                          name={dashboardFocusIcons[focus]}
+                          variant="feature"
+                          tone={dashboardFocus === focus ? "accent" : "muted"}
+                          size="1rem"
+                        />
+                        <span className="focus-switcher-label">{dashboardFocusLabels[focus]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
               </div>
+
+              {dashboardFocus === "daily" ? (
+                <DashboardCarousel label={t("dailyFocus")}>
+                  <article className="dashboard-card wide-card daily-picks-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("dailyTonightEyebrow")}</span>
+                        <h2>{t("whatToDrinkTonight")}</h2>
+                      </div>
+                      <strong>{dailyTonightWines.length}</strong>
+                    </div>
+                    <p className="dashboard-card-intro">{t("dailyTonightHelp")}</p>
+                    {dailyTonightWines.length ? (
+                      <div className="daily-pick-grid">
+                        {dailyTonightGroups.map(({ tone, label, wines: groupWines }, groupIndex) => (
+                          <section className="daily-tone-group" key={tone}>
+                            <div className="daily-tone-heading">
+                              <span>
+                                <i className={`wine-dot tone-${tone}`} />
+                                {label}
+                              </span>
+                              <small>{groupWines.length} {t("wines").toLowerCase()}</small>
+                            </div>
+                            <DashboardBottleSlideshow
+                              variant="daily"
+                              autoAdvanceMs={5200 + groupIndex * 600}
+                              wines={groupWines}
+                              canShowPhotos={canAccessWinePhotos}
+                              onOpen={openWineFromDashboard}
+                              meta={dailyRecommendationReason}
+                              budgetMeta={hasDailyWineBudget ? (wine) => {
+                                const overBudget = wineUnitValue(wine) > dailyWineBudgetChf;
+                                return {
+                                  overBudget,
+                                  label: `${t(overBudget ? "dailyPremiumProposal" : "dailyWithinBudget")} · ${formatMoney(wineUnitValue(wine), "CHF", locale)}`,
+                                };
+                              } : undefined}
+                              label={`${t("whatToDrinkTonight")}: ${label}`}
+                              previousLabel={locale === "it" ? `${label}: vino precedente` : `${label}: previous wine`}
+                              nextLabel={locale === "it" ? `${label}: vino successivo` : `${label}: next wine`}
+                              pauseLabel={locale === "it" ? `Pausa slideshow ${label}` : `Pause ${label} slideshow`}
+                              playLabel={locale === "it" ? `Avvia slideshow ${label}` : `Play ${label} slideshow`}
+                            />
+                          </section>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="empty-state">{t("dailyNoReadyWine")}</p>
+                    )}
+                  </article>
+
+                  <article className="dashboard-card daily-summary-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("dailyRotation")}</span>
+                        <h2>{t("readyToDrink")}</h2>
+                      </div>
+                      <strong>{cellarStats.drinkNow}</strong>
+                    </div>
+                    <div className="daily-summary-kpis">
+                      <div>
+                        <span>{t("dailySuggestedStyles")}</span>
+                        <strong>{dailyTonightGroups.length}</strong>
+                      </div>
+                      <div>
+                        <span>{t("dailySuggestedWines")}</span>
+                        <strong>{dailyTonightWines.length}</strong>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => openOperationalCellarFilter("drink_now")}
+                    >
+                      {t("openFilteredCellar")}
+                    </button>
+                  </article>
+
+                  <article className="dashboard-card daily-pairing-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("pairing")}</span>
+                        <h2>{t("dailyPairingTitle")}</h2>
+                      </div>
+                    </div>
+                    <p>{t("dailyPairingHelp")}</p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveView("pairing");
+                        setWineFormOpen(false);
+                        setWishlistFormOpen(false);
+                      }}
+                    >
+                      {t("openPairing")}
+                    </button>
+                  </article>
+
+                  <article className="dashboard-card daily-expired-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("dailyDrinkSoon")}</span>
+                        <h2>{t("pastWindow")}</h2>
+                      </div>
+                      <strong>{cellarStats.pastWindow}</strong>
+                    </div>
+                    <div className="action-list">
+                      {atRiskWines.length ? atRiskWines.map((wine) => (
+                        <button
+                          type="button"
+                          className="action-row"
+                          key={wine.id}
+                          onClick={() => openWineFromDashboard(wine)}
+                        >
+                          <span>
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                            {wine.name}
+                          </span>
+                          <strong>{wine.drink_to}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+
+                  {renderMaturityHeatmapCard()}
+                </DashboardCarousel>
+              ) : null}
+
+              {dashboardFocus === "balanced" ? (
+                <DashboardCarousel label={t("balancedFocus")}>
+                  <article className="dashboard-card wide-card balance-overview-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("balancedOverviewEyebrow")}</span>
+                        <h2>{t("balancedOverviewTitle")}</h2>
+                      </div>
+                      <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+                    </div>
+                    <div className="balance-tone-grid">
+                      {balancedToneRows.map((row) => (
+                        <button
+                          type="button"
+                          key={row.tone}
+                          onClick={() => {
+                            setMaturityFilter(null);
+                            setTypeFilter("");
+                            setQuickWineFilter("");
+                            setActiveView("cellar");
+                            setOpenWineToneGroups((current) => ({ ...current, [row.tone]: true }));
+                          }}
+                        >
+                          <i className={`wine-dot tone-${row.tone}`} />
+                          <span>{row.label}</span>
+                          <strong>{formatBottleCount(row.bottles, locale)}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("maturityBalance")}</span>
+                        <h2>{t("drinkingWindow")}</h2>
+                      </div>
+                    </div>
+                    <div className="bar-list">
+                      {balancedMaturityBuckets.map((bucket) => (
+                        <div className="bar-row" key={bucket.key}>
+                          <div>
+                            <span>{bucket.label}</span>
+                            <strong>{bucket.value}</strong>
+                          </div>
+                          <div className="bar-track">
+                            <span style={{ width: `${bucket.pct}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("lowestAvailability")}</span>
+                        <h2>{t("balancePriorities")}</h2>
+                      </div>
+                    </div>
+                    <div className="action-list">
+                      {balancedToneRows.slice(0, 4).map((row) => (
+                        <div className="action-row" key={row.tone}>
+                          <span>
+                            <i className={`wine-dot tone-${row.tone}`} />
+                            {row.label}
+                          </span>
+                          <strong>{formatBottleCount(row.bottles, locale)}</strong>
+                        </div>
+                      ))}
+                    </div>
+                  </article>
+
+                  {renderRegionalGapCard(true)}
+                  {renderMaturityHeatmapCard()}
+
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("incompleteData")}</span>
+                        <h2>{t("dataQuality")}</h2>
+                      </div>
+                      <strong>{cellarDataCompleteness}%</strong>
+                    </div>
+                    <p className="dashboard-card-intro">{t("balancedDataHelp")}</p>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => setDashboardFocus("data")}
+                    >
+                      {t("dashboardInsights")}
+                    </button>
+                  </article>
+                </DashboardCarousel>
+              ) : null}
 
               {dashboardFocus === "collector" ? (
               <DashboardCarousel label={t("priorityActions")}>
@@ -7813,7 +8279,7 @@ export function App() {
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
-                  {renderMaturityHeatmapCard()}
+                  {renderMaturityHeatmapCard(true)}
                 </DashboardCarousel>
               ) : null}
 
@@ -9855,6 +10321,43 @@ export function App() {
                       ))}
                     </select>
                   </label>
+                  <label className="dashboard-focus-setting">
+                    <span>{t("primaryDashboardFocus")}</span>
+                    <select
+                      value={primaryDashboardFocus}
+                      onChange={(event) =>
+                        void changePrimaryDashboardFocus(
+                          event.target.value as PrimaryDashboardFocus,
+                        )}
+                    >
+                      <option value="collector">{t("collectorFocus")}</option>
+                      <option value="daily">{t("dailyFocus")}</option>
+                      <option value="balanced">{t("balancedFocus")}</option>
+                    </select>
+                    <small>{t("primaryDashboardFocusHelp")}</small>
+                  </label>
+                  <div className="daily-budget-setting">
+                    <label>
+                      <span>{t("dailyWineBudget")}</span>
+                      <div className="daily-budget-input">
+                        <span>CHF</span>
+                        <input
+                          type="number"
+                          min="1"
+                          max="100000"
+                          step="1"
+                          inputMode="decimal"
+                          value={dailyWineBudgetDraft}
+                          placeholder="40"
+                          onChange={(event) => setDailyWineBudgetDraft(event.target.value)}
+                        />
+                      </div>
+                      <small>{t("dailyWineBudgetHelp")}</small>
+                    </label>
+                    <button type="button" className="secondary" disabled={saving} onClick={() => void saveDailyWineBudget()}>
+                      {saving ? t("working") : t("saveSettings")}
+                    </button>
+                  </div>
                 </div>
               </section>
               ) : null}

@@ -224,11 +224,19 @@ def test_register_login_session_and_logout():
         assert registered_user.photo_usage_disclaimer_accepted_at is not None
 
     preferences = client.patch(
-        "/api/v1/auth/preferences", json={"locale": "en", "theme_preference": "private-cellar"}
+        "/api/v1/auth/preferences",
+        json={
+            "locale": "en",
+            "theme_preference": "private-cellar",
+            "dashboard_focus": "daily",
+            "daily_wine_budget_chf": "45.00",
+        },
     )
     assert preferences.status_code == 200
     assert preferences.json()["locale"] == "en"
     assert preferences.json()["theme_preference"] == "private-cellar"
+    assert preferences.json()["dashboard_focus"] == "daily"
+    assert preferences.json()["daily_wine_budget_chf"] == "45.00"
 
     pending_client = TestClient(app)
     pending = register(pending_client, email="pending@example.com", password="strong-password-2")
@@ -291,6 +299,8 @@ def test_register_login_session_and_logout():
     assert login.json()["authenticated"] is True
     assert login.json()["locale"] == "en"
     assert login.json()["theme_preference"] == "private-cellar"
+    assert login.json()["dashboard_focus"] == "daily"
+    assert login.json()["daily_wine_budget_chf"] == "45.00"
 
 
 def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path, monkeypatch):

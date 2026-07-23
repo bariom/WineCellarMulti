@@ -798,12 +798,22 @@ def update_preferences(
     context: CurrentContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> SessionResponse:
-    if payload.locale is None and payload.theme_preference is None:
+    daily_budget_provided = "daily_wine_budget_chf" in payload.model_fields_set
+    if (
+        payload.locale is None
+        and payload.theme_preference is None
+        and payload.dashboard_focus is None
+        and not daily_budget_provided
+    ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No preferences provided")
     if payload.locale is not None:
         context.user.locale = payload.locale
     if payload.theme_preference is not None:
         context.user.theme_preference = payload.theme_preference
+    if payload.dashboard_focus is not None:
+        context.user.dashboard_focus = payload.dashboard_focus
+    if daily_budget_provided:
+        context.user.daily_wine_budget_chf = payload.daily_wine_budget_chf
     db.commit()
     db.refresh(context.user)
     return SessionResponse(**build_session_response(context))

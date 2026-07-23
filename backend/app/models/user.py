@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, String, Uuid
+from sqlalchemy import Boolean, DateTime, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -38,3 +39,7 @@ class User(Base):
     )
     locale: Mapped[str] = mapped_column(String(8), default="it")
     theme_preference: Mapped[str] = mapped_column(String(32), default="system")
+    dashboard_focus: Mapped[str] = mapped_column(String(32), default="collector")
+    daily_wine_budget_chf: Mapped[Decimal | None] = mapped_column(
+        Numeric(10, 2), nullable=True
+    )

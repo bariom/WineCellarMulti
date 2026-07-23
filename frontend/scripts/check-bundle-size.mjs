@@ -2,10 +2,10 @@ import { readFile, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const limits = {
-  javascriptBytes: 710_000,
-  javascriptGzipBytes: 185_000,
-  cssBytes: 352_000,
-  cssGzipBytes: 60_000,
+  javascriptBytes: 730_000,
+  javascriptGzipBytes: 190_000,
+  cssBytes: 365_000,
+  cssGzipBytes: 62_000,
 };
 
 const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");

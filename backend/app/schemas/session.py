@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from pydantic import BaseModel
 
 
@@ -14,6 +16,8 @@ class SessionResponse(BaseModel):
     pending_email_verification: bool = False
     locale: str = "it"
     theme_preference: str = "system"
+    dashboard_focus: str = "collector"
+    daily_wine_budget_chf: Decimal | None = None
     can_use_label_recognition: bool = False
     can_manage_wine_photos: bool = False
     has_active_entitlement: bool = False
