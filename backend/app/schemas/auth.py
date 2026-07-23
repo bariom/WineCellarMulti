@@ -17,6 +17,11 @@ class LoginRequest(BaseModel):
     password: str = Field(min_length=1, max_length=200)
 
 
+class AccountDeletionRequest(BaseModel):
+    confirmation_email: EmailStr
+    password: str = Field(min_length=1, max_length=200)
+
+
 class EmailVerificationRequest(BaseModel):
     token: str = Field(min_length=16, max_length=512)
 

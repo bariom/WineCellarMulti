@@ -51,7 +51,9 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models import (
     AiAuditLog,
+    CoOwnershipParticipant,
     Household,
+    HouseholdInvite,
     Membership,
     PasskeyChallenge,
     RedeemCode,
@@ -62,6 +64,7 @@ from app.models import (
     Wine,
 )
 from app.schemas.auth import (
+    AccountDeletionRequest,
     EmailVerificationRequest,
     LoginRequest,
     PasskeyLoginVerifyRequest,
@@ -86,6 +89,7 @@ from app.services.ai_credits import (
 )
 from app.services.email import send_email
 from app.services.notifications import create_user_notification
+from app.services.wine_photo_library import archive_wine_photo
 
 router = APIRouter(prefix="/auth")
 logger = logging.getLogger(__name__)
@@ -106,16 +110,79 @@ def request_rp_id(request: Request) -> str:
 
 
 def delete_user_and_orphaned_households(db: Session, user: User) -> None:
-    household_ids = list(db.scalars(select(Membership.household_id).where(Membership.user_id == user.id)))
+    memberships = list(
+        db.scalars(select(Membership).where(Membership.user_id == user.id))
+    )
+    household_ids = [membership.household_id for membership in memberships]
+    orphaned_household_ids: set[UUID] = set()
+
+    for membership in memberships:
+        remaining_memberships = list(
+            db.scalars(
+                select(Membership).where(
+                    Membership.household_id == membership.household_id,
+                    Membership.user_id != user.id,
+                )
+            )
+        )
+        if not remaining_memberships:
+            orphaned_household_ids.add(membership.household_id)
+            for wine in db.scalars(
+                select(Wine).where(Wine.household_id == membership.household_id)
+            ):
+                archive_wine_photo(db, wine)
+        elif membership.role == "owner":
+            replacement = min(
+                remaining_memberships,
+                key=lambda candidate: (
+                    0 if candidate.role == "admin" else 1,
+                    str(candidate.id),
+                ),
+            )
+            replacement.role = "owner"
+
+    normalized_email = user.email.strip().lower()
+    for wine in db.scalars(
+        select(Wine).where(Wine.household_id.in_(household_ids))
+    ):
+        filtered_owners = [
+            owner
+            for owner in (wine.owners or [])
+            if str(owner.get("email", "")).strip().lower() != normalized_email
+        ]
+        if filtered_owners != (wine.owners or []):
+            wine.owners = filtered_owners
+
+    for participant in db.scalars(
+        select(CoOwnershipParticipant).where(
+            (CoOwnershipParticipant.user_id == user.id)
+            | (func.lower(CoOwnershipParticipant.email) == normalized_email)
+        )
+    ):
+        participant.user_id = None
+        participant.name = "Utente eliminato"
+        participant.email = f"deleted-{participant.id}@invalid.local"
+        participant.invite_token_hash = f"deleted-{participant.id}"
+        participant.invite_token_encrypted = ""
+        participant.acceptance_name = ""
+
+    for redeem_code in db.scalars(
+        select(RedeemCode).where(func.lower(RedeemCode.email) == normalized_email)
+    ):
+        redeem_code.email = None
+    db.query(HouseholdInvite).filter(
+        func.lower(HouseholdInvite.email) == normalized_email
+    ).delete(synchronize_session=False)
+
     db.query(Membership).filter(Membership.user_id == user.id).delete(synchronize_session=False)
     db.delete(user)
     db.flush()
 
-    if not household_ids:
+    if not orphaned_household_ids:
         return
     orphaned_households = db.scalars(
         select(Household)
-        .where(Household.id.in_(household_ids))
+        .where(Household.id.in_(orphaned_household_ids))
         .where(~select(Membership.id).where(Membership.household_id == Household.id).exists())
     )
     for household in orphaned_households:
@@ -1049,6 +1116,60 @@ def delete_user_admin(
     delete_user_and_orphaned_households(db, user)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.delete("/account", status_code=status.HTTP_204_NO_CONTENT)
+def delete_own_account(
+    payload: AccountDeletionRequest,
+    response: Response,
+    context: CurrentContext = Depends(get_authenticated_context),
+    db: Session = Depends(get_db),
+) -> Response:
+    user = context.user
+    if payload.confirmation_email.lower() != user.email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Confirmation email does not match the current account",
+        )
+    if not verify_password(payload.password, user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is not valid",
+        )
+    if user.is_app_admin:
+        other_admin = db.scalar(
+            select(User).where(
+                User.is_app_admin.is_(True),
+                User.id != user.id,
+                User.is_blocked.is_(False),
+            )
+        )
+        if other_admin is None:
+            replacement_admin = db.scalar(
+                select(User)
+                .where(
+                    User.id != user.id,
+                    User.is_approved.is_(True),
+                    User.is_blocked.is_(False),
+                )
+                .order_by(User.email.asc())
+            )
+            if replacement_admin is not None:
+                replacement_admin.is_app_admin = True
+            elif db.scalar(select(User.id).where(User.id != user.id)) is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=(
+                        "Approve an active replacement administrator before deleting "
+                        "this account"
+                    ),
+                )
+
+    delete_user_and_orphaned_households(db, user)
+    db.commit()
+    response.delete_cookie(settings.session_cookie_name)
+    response.status_code = status.HTTP_204_NO_CONTENT
+    return response
 
 
 @router.delete("/passkeys/{passkey_id}", status_code=status.HTTP_204_NO_CONTENT)

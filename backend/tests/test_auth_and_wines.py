@@ -31,7 +31,10 @@ from app.models import (
     UserEntitlement,
     UserNotification,
     Wine,
+    WineCatalogEntry,
+    WinePhotoLibraryEntry,
 )
+from app.services.wine_photo_library import library_photo_path
 from app.services.openai_client import OpenAIResponse, TokenUsage
 
 engine = create_engine(
@@ -106,6 +109,96 @@ def test_registration_requires_photo_usage_disclaimer_acceptance():
     assert declined.status_code == 422
     with TestingSessionLocal() as db:
         assert db.scalar(select(User).where(User.email == "owner@example.com")) is None
+
+
+def test_user_can_delete_account_while_catalog_and_reference_photo_are_preserved(
+    tmp_path,
+):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Archived Contribution",
+            "producer": "Community Estate",
+            "region": "Ticino",
+            "vintage": "2022",
+            "quantity": 1,
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+
+    def transparent_png_header(width: int, height: int) -> bytes:
+        return (
+            b"\x89PNG\r\n\x1a\n"
+            + struct.pack(">I", 13)
+            + b"IHDR"
+            + struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)
+            + b"\x00\x00\x00\x00"
+        )
+
+    previous_storage_dir = settings.wine_photo_storage_dir
+    settings.wine_photo_storage_dir = str(tmp_path)
+    try:
+        uploaded = client.put(
+            f"/api/v1/wines/{wine_id}/photo",
+            files={
+                "thumbnail_image": (
+                    "thumbnail.png",
+                    transparent_png_header(160, 240),
+                    "image/png",
+                ),
+                "detail_image": (
+                    "detail.png",
+                    transparent_png_header(480, 720),
+                    "image/png",
+                ),
+            },
+        )
+        assert uploaded.status_code == 200
+
+        wrong_password = client.request(
+            "DELETE",
+            "/api/v1/auth/account",
+            json={
+                "confirmation_email": "owner@example.com",
+                "password": "not-the-current-password",
+            },
+        )
+        assert wrong_password.status_code == 400
+        deleted = client.request(
+            "DELETE",
+            "/api/v1/auth/account",
+            json={
+                "confirmation_email": "owner@example.com",
+                "password": "strong-password-1",
+            },
+        )
+        assert deleted.status_code == 204
+        assert client.get("/api/v1/session").json()["authenticated"] is False
+
+        with TestingSessionLocal() as db:
+            assert db.scalar(select(User).where(User.email == "owner@example.com")) is None
+            assert db.scalar(
+                select(WineCatalogEntry).where(
+                    WineCatalogEntry.name == "Archived Contribution",
+                    WineCatalogEntry.producer == "Community Estate",
+                )
+            ) is not None
+            photo = db.scalar(
+                select(WinePhotoLibraryEntry).where(
+                    WinePhotoLibraryEntry.normalized_name
+                    == "archived contribution",
+                    WinePhotoLibraryEntry.normalized_producer
+                    == "community estate",
+                )
+            )
+            assert photo is not None
+            assert library_photo_path(photo, "thumbnail").is_file()
+            assert library_photo_path(photo, "detail").is_file()
+    finally:
+        settings.wine_photo_storage_dir = previous_storage_dir
 
 
 def test_register_login_session_and_logout():

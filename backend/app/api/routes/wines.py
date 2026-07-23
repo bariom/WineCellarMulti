@@ -33,6 +33,7 @@ from app.models import (
     UserTag,
     UserWineTag,
     Wine,
+    WinePhotoLibraryEntry,
     WineShareOffer,
     WineTastingEntry,
     WineValueHistory,
@@ -56,6 +57,12 @@ from app.services.bottle_photo_ai import (
     process_bottle_photo,
 )
 from app.services.notifications import create_user_notification
+from app.services.wine_photo_library import (
+    archive_wine_photo,
+    copy_library_photo,
+    library_photo_path,
+    normalize_photo_identity,
+)
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -1111,10 +1118,31 @@ def suggest_wine_photo(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_write_context),
 ) -> dict[str, str] | None:
-    normalized_name = name.strip().lower()
-    normalized_producer = producer.strip().lower()
+    normalized_name = normalize_photo_identity(name)
+    normalized_producer = normalize_photo_identity(producer)
     if not normalized_name or not normalized_producer:
         return None
+    library_photo = db.scalar(
+        select(WinePhotoLibraryEntry).where(
+            WinePhotoLibraryEntry.normalized_name == normalized_name,
+            WinePhotoLibraryEntry.normalized_producer == normalized_producer,
+        )
+    )
+    if library_photo is not None and all(
+        library_photo_path(library_photo, size).is_file() for size in PHOTO_SIZES
+    ):
+        source_id = library_photo.source_wine_id or library_photo.id
+        return {
+            "source_wine_id": str(source_id),
+            "thumbnail_url": (
+                f"/api/v1/wines/photo/library/{source_id}/thumbnail"
+                f"?v={library_photo.photo_version}"
+            ),
+            "detail_url": (
+                f"/api/v1/wines/photo/library/{source_id}/detail"
+                f"?v={library_photo.photo_version}"
+            ),
+        }
     wine = db.scalar(
         select(Wine)
         .where(
@@ -1142,10 +1170,22 @@ def get_library_wine_photo(
 ) -> FileResponse:
     if size not in PHOTO_SIZES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
-    source = db.get(Wine, source_wine_id)
-    if source is None or not source.photo_version:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
-    path = wine_photo_path(source, size)
+    library_photo = db.get(WinePhotoLibraryEntry, source_wine_id)
+    if library_photo is None:
+        library_photo = db.scalar(
+            select(WinePhotoLibraryEntry).where(
+                WinePhotoLibraryEntry.source_wine_id == source_wine_id
+            )
+        )
+    if library_photo is not None:
+        path = library_photo_path(library_photo, size)
+    else:
+        source = db.get(Wine, source_wine_id)
+        if source is None or not source.photo_version:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found"
+            )
+        path = wine_photo_path(source, size)
     if not path.is_file():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
     return FileResponse(
@@ -1185,6 +1225,7 @@ async def upload_wine_photo(
             temporary.unlink(missing_ok=True)
 
     wine.photo_version = uuid.uuid4().hex
+    archive_wine_photo(db, wine)
     db.commit()
     db.refresh(wine)
     return wine_response(
@@ -1202,10 +1243,29 @@ def reuse_wine_photo(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
-    source = db.get(Wine, source_wine_id)
-    if source is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
-    copy_wine_photo(source, wine)
+    library_photo = db.get(WinePhotoLibraryEntry, source_wine_id)
+    if library_photo is None:
+        library_photo = db.scalar(
+            select(WinePhotoLibraryEntry).where(
+                WinePhotoLibraryEntry.source_wine_id == source_wine_id
+            )
+        )
+    if library_photo is not None:
+        try:
+            copy_library_photo(library_photo, wine)
+        except FileNotFoundError as error:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found"
+            ) from error
+    else:
+        source = db.get(Wine, source_wine_id)
+        if source is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found"
+            )
+        copy_wine_photo(source, wine)
+        archive_wine_photo(db, source)
+    archive_wine_photo(db, wine)
     db.commit()
     db.refresh(wine)
     return wine_response(
@@ -1430,6 +1490,7 @@ def delete_wine(
     context: CurrentContext = Depends(require_admin_context),
 ) -> Response:
     wine = get_household_wine(db, context, wine_id)
+    archive_wine_photo(db, wine)
     for size in PHOTO_SIZES:
         wine_photo_path(wine, size).unlink(missing_ok=True)
     db.delete(wine)

@@ -1237,6 +1237,35 @@ summary:focus-visible {
   align-self: start;
 }
 
+.account-danger-zone {
+  border-color: color-mix(in srgb, var(--danger) 42%, var(--border));
+  background: color-mix(in srgb, var(--danger-surface) 38%, var(--surface));
+}
+
+.account-danger-zone > p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.account-deletion-preserved {
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.account-deletion-preserved span {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.account-deletion-form {
+  align-items: end;
+}
+
 .settings-card-heading {
   display: flex;
   justify-content: space-between;

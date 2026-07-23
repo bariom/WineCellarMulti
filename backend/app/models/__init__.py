@@ -23,7 +23,12 @@ from app.models.tags import UserTag, UserWineTag
 from app.models.user import User
 from app.models.user_ai_settings import UserAiSettings
 from app.models.wine import Wine, WineTastingEntry, WineValueHistory
-from app.models.wine_catalog import WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
+from app.models.wine_catalog import (
+    WineCatalogAlias,
+    WineCatalogEntry,
+    WinePhotoLibraryEntry,
+    WineRecognitionLog,
+)
 from app.models.wine_share import WineShareOffer
 from app.models.wishlist import WishlistItem, WishlistList
 
@@ -57,6 +62,7 @@ __all__ = [
     "WineTastingEntry",
     "WineCatalogAlias",
     "WineCatalogEntry",
+    "WinePhotoLibraryEntry",
     "WineRecognitionLog",
     "WineValueHistory",
     "WineShareOffer",

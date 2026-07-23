@@ -1071,6 +1071,8 @@ export function App() {
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [passkeyHelpOpen, setPasskeyHelpOpen] = useState(false);
+  const [accountDeletionEmail, setAccountDeletionEmail] = useState("");
+  const [accountDeletionPassword, setAccountDeletionPassword] = useState("");
   const [aiSettingsHelpOpen, setAiSettingsHelpOpen] = useState(false);
   const [aiModelsHelpOpen, setAiModelsHelpOpen] = useState(false);
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
@@ -2467,6 +2469,33 @@ export function App() {
       setPasskeys((current) => current.filter((item) => item.id !== passkey.id));
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to delete passkey");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteOwnAccount() {
+    const currentEmail = session?.user_email || "";
+    if (
+      accountDeletionEmail.trim().toLowerCase() !== currentEmail.toLowerCase()
+      || !accountDeletionPassword
+    ) return;
+    if (!window.confirm(t("deleteAccountFinalConfirmation"))) return;
+
+    setSaving(true);
+    setError("");
+    try {
+      await api<void>("/api/v1/auth/account", {
+        method: "DELETE",
+        body: JSON.stringify({
+          confirmation_email: accountDeletionEmail.trim(),
+          password: accountDeletionPassword,
+        }),
+      });
+      window.location.assign("/");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : t("deleteAccountError"));
+      setAccountDeletionPassword("");
     } finally {
       setSaving(false);
     }
@@ -9950,6 +9979,55 @@ export function App() {
                       <small>{t("aiBudgetUsage")}</small>
                     </div>
                   ) : null}
+              </section>
+              ) : null}
+
+              {settingsTab === "profile" ? (
+              <section className="settings-card settings-card-wide account-danger-zone">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{t("dangerZone")}</span>
+                    <h3>{t("deleteAccount")}</h3>
+                  </div>
+                </div>
+                <p>{t("deleteAccountHelp")}</p>
+                <div className="account-deletion-preserved">
+                  <strong>{t("deleteAccountPreservedTitle")}</strong>
+                  <span>{t("deleteAccountPreservedHelp")}</span>
+                </div>
+                <div className="inline-form account-deletion-form">
+                  <label>
+                    <span>{t("confirmEmail")}: {session?.user_email}</span>
+                    <input
+                      type="email"
+                      autoComplete="off"
+                      value={accountDeletionEmail}
+                      onChange={(event) => setAccountDeletionEmail(event.target.value)}
+                    />
+                  </label>
+                  <label>
+                    <span>{t("currentPassword")}</span>
+                    <input
+                      type="password"
+                      autoComplete="current-password"
+                      value={accountDeletionPassword}
+                      onChange={(event) => setAccountDeletionPassword(event.target.value)}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="danger"
+                    disabled={
+                      saving
+                      || !accountDeletionPassword
+                      || accountDeletionEmail.trim().toLowerCase()
+                        !== (session?.user_email || "").toLowerCase()
+                    }
+                    onClick={() => void deleteOwnAccount()}
+                  >
+                    {t("deleteAccountPermanently")}
+                  </button>
+                </div>
               </section>
               ) : null}
 
