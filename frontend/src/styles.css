@@ -6201,6 +6201,31 @@ textarea {
   }
 }
 
+@media (max-width: 720px) {
+  .daily-dashboard-carousel > .dashboard-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    overflow: visible;
+    padding: 0;
+    scroll-snap-type: none;
+  }
+
+  .daily-dashboard-carousel > .dashboard-grid > .dashboard-card,
+  .daily-dashboard-carousel > .dashboard-grid > .wide-card,
+  .daily-dashboard-carousel > .dashboard-grid > .timeline-card {
+    grid-column: 1;
+    width: 100%;
+    min-width: 0;
+    flex: none;
+    scroll-snap-align: none;
+  }
+
+  .daily-dashboard-carousel > .dashboard-dots {
+    display: none;
+  }
+}
+
 .dashboard-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));

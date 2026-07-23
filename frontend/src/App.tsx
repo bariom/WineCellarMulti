@@ -7702,7 +7702,7 @@ export function App() {
               </div>
 
               {dashboardFocus === "daily" ? (
-                <DashboardCarousel label={t("dailyFocus")}>
+                <DashboardCarousel label={t("dailyFocus")} className="daily-dashboard-carousel">
                   <article className="dashboard-card wide-card daily-picks-card">
                     <div className="card-heading">
                       <div>

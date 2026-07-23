@@ -1389,7 +1389,15 @@ export function ContactSupportPanel({
   );
 }
 
-export function DashboardCarousel({ label, children }: { label: string; children: ReactNode }) {
+export function DashboardCarousel({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
   const cards = Children.toArray(children);
   const [activeIndex, setActiveIndex] = useState(0);
   const carouselRef = useRef<HTMLElement | null>(null);
@@ -1420,7 +1428,7 @@ export function DashboardCarousel({ label, children }: { label: string; children
   }
 
   return (
-    <div className="dashboard-carousel-shell">
+    <div className={["dashboard-carousel-shell", className].filter(Boolean).join(" ")}>
       <section className="dashboard-grid" aria-label={label} onScroll={updateActiveIndex} ref={carouselRef}>
         {children}
       </section>
