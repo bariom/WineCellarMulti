@@ -61,6 +61,7 @@ const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
+const DRINK_NOW_SLIDESHOW_LIMIT = 10;
 
 function helpSlugFromLocation() {
   const match = window.location.pathname.match(/^\/help(?:\/([^/]+))?\/?$/);
@@ -4853,7 +4854,7 @@ export function App() {
   const drinkNowCandidates = cellarWines
     .filter((wine) => isWineReadyToPrioritize(wine, currentYear))
     .sort((first, second) => (winePriorityDrinkEnd(first) || Number.MAX_SAFE_INTEGER) - (winePriorityDrinkEnd(second) || Number.MAX_SAFE_INTEGER) || (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER));
-  const drinkNowWines = drinkNowCandidates.slice(0, 5);
+  const drinkNowWines = drinkNowCandidates.slice(0, DRINK_NOW_SLIDESHOW_LIMIT);
   const recentCellarWines = [...cellarWines]
     .sort((first, second) => {
       const firstCreatedAt = Date.parse(first.created_at || first.order_date || "") || 0;
