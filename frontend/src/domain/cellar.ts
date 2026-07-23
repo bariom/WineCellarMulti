@@ -44,6 +44,11 @@ export function isWineReadyToPrioritize(wine: Wine, currentYear: number) {
   return Boolean(idealStart && drinkEnd && idealStart <= currentYear && drinkEnd >= currentYear);
 }
 
+export function isWinePhysicallyInCellar(wine: Wine) {
+  const status = wine.status.trim().toLowerCase();
+  return ["delivered", "consegnato", "in cellar", "in cantina"].includes(status);
+}
+
 export function isWineIdealSoon(wine: Wine, currentYear: number) {
   const idealStart = wineIdealWindowStart(wine);
   return Boolean(idealStart && idealStart > currentYear && idealStart <= currentYear + 2);
@@ -269,7 +274,11 @@ export function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentY
   const share = currentUserSharePct(wine, session);
   if (quickFilter === "mine") return share > 0;
   if (quickFilter === "shared") return share < 100;
-  if (quickFilter === "drink_now") return isWineReadyToPrioritize(wine, currentYear);
+  if (quickFilter === "drink_now") {
+    return ownedBottleCount(wine, session) > 0
+      && isWinePhysicallyInCellar(wine)
+      && isWineReadyToPrioritize(wine, currentYear);
+  }
   if (quickFilter === "drink_soon") return isWineIdealSoon(wine, currentYear);
   if (quickFilter === "past_window") return Boolean(wine.drink_to && wine.drink_to < currentYear);
   if (quickFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);

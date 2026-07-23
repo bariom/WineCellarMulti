@@ -10,7 +10,7 @@ import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptio
 import type { TranslationKey } from "./i18n";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -3711,7 +3711,7 @@ export function App() {
   async function emptyCellar() {
     const firstConfirm = window.confirm("Questa operazione cancella tutti i vini e tutta la wishlist della cantina attiva. Continuare?");
     if (!firstConfirm) return;
-    const secondConfirm = window.confirm("Conferma definitiva: svuotare la cantina? L'operazione non e reversibile senza backup/export.");
+    const secondConfirm = window.confirm("Conferma definitiva: svuotare la cantina? L'operazione non è reversibile senza backup/export.");
     if (!secondConfirm) return;
     setSaving(true);
     setError("");
@@ -4860,6 +4860,15 @@ export function App() {
   const valueRefreshDaysNumber = Number.isFinite(parsedValueRefreshDays) ? Math.max(parsedValueRefreshDays, 0) : 0;
   const sharedBottles = Math.max(cellarOwnership.totalBottles - cellarOwnership.myBottles, 0);
   const sharedValue = Math.max(cellarOwnership.totalValue - cellarOwnership.myValue, 0);
+  const readyInCellarWines = cellarWines.filter(
+    (wine) => ownedBottleCount(wine, session) > 0
+      && isWinePhysicallyInCellar(wine)
+      && isWineReadyToPrioritize(wine, currentYear),
+  );
+  const readyInCellarBottleCount = readyInCellarWines.reduce(
+    (total, wine) => total + ownedBottleCount(wine, session),
+    0,
+  );
   const cellarStats = {
     bottles: cellarOwnership.totalBottles,
     totalValue: cellarOwnership.totalValue,
@@ -4867,7 +4876,7 @@ export function App() {
     myValue: cellarOwnership.myValue,
     sharedBottles,
     sharedValue,
-    drinkNow: cellarWines.filter((wine) => isWineReadyToPrioritize(wine, currentYear)).length,
+    drinkNow: readyInCellarBottleCount,
     drinkSoon: cellarWines.filter((wine) => isWineIdealSoon(wine, currentYear)).length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
     futureDeliveries: cellarWines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
@@ -4972,8 +4981,7 @@ export function App() {
     daily: "regionalProfileDaily",
     balanced: "regionalProfileBalanced",
   };
-  const drinkNowCandidates = cellarWines
-    .filter((wine) => isWineReadyToPrioritize(wine, currentYear))
+  const drinkNowCandidates = [...readyInCellarWines]
     .sort((first, second) => (winePriorityDrinkEnd(first) || Number.MAX_SAFE_INTEGER) - (winePriorityDrinkEnd(second) || Number.MAX_SAFE_INTEGER) || (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER));
   const drinkNowWines = drinkNowCandidates.slice(0, DRINK_NOW_SLIDESHOW_LIMIT);
   const recentCellarWines = [...cellarWines]
@@ -4985,7 +4993,10 @@ export function App() {
       return secondCreatedAt - firstCreatedAt || secondOrderDate - firstOrderDate || first.name.localeCompare(second.name);
     })
     .slice(0, 5);
-  const drinkNowTotalValue = drinkNowCandidates.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
+  const drinkNowTotalValue = drinkNowCandidates.reduce(
+    (total, wine) => total + wineUnitValue(wine) * ownedBottleCount(wine, session),
+    0,
+  );
   const nearestDrinkNowEnd = drinkNowCandidates.reduce<number | null>((nearest, wine) => {
     const end = winePriorityDrinkEnd(wine);
     return end && (nearest === null || end < nearest) ? end : nearest;
@@ -7120,7 +7131,7 @@ export function App() {
                   </h3>
                   <span>
                     {locale === "it"
-                      ? "Vinaris mette in ordine il lavoro quotidiano del collezionista: priorita, valore, maturita, wishlist e memoria degustativa."
+                      ? "Vinaris mette in ordine il lavoro quotidiano del collezionista: priorità, valore, maturità, wishlist e memoria degustativa."
                       : "Vinaris keeps the collector's daily work organized: priorities, value, maturity, wishlist, and tasting memory."}
                   </span>
                 </div>
@@ -7128,12 +7139,12 @@ export function App() {
                   <article>
                     <span>01</span>
                     <strong>{locale === "it" ? "Decidi cosa fare" : "Decide what to do"}</strong>
-                    <p>{locale === "it" ? "Dashboard, finestre di beva e priorita operative in apertura." : "Dashboard, drinking windows, and operational priorities at a glance."}</p>
+                    <p>{locale === "it" ? "Dashboard, finestre di beva e priorità operative in apertura." : "Dashboard, drinking windows, and operational priorities at a glance."}</p>
                   </article>
                   <article>
                     <span>02</span>
                     <strong>{locale === "it" ? "Controlla la cantina" : "Inspect the cellar"}</strong>
-                    <p>{locale === "it" ? "Statistiche, qualita dati, valore e consegne future in una lettura unica." : "Stats, data quality, value, and future deliveries in one reading."}</p>
+                    <p>{locale === "it" ? "Statistiche, qualità dati, valore e consegne future in una lettura unica." : "Stats, data quality, value, and future deliveries in one reading."}</p>
                   </article>
                   <article>
                     <span>03</span>
@@ -7205,7 +7216,7 @@ export function App() {
                   <div className="showcase-window showcase-stats-window">
                     <div className="showcase-stats-head">
                       <strong>{locale === "it" ? "Statistiche cantina" : "Cellar stats"}</strong>
-                      <span>{locale === "it" ? "Qualita dati, valore e finestre di beva" : "Data quality, value, and drinking windows"}</span>
+                        <span>{locale === "it" ? "Qualità dati, valore e finestre di beva" : "Data quality, value, and drinking windows"}</span>
                     </div>
                     <div className="showcase-stats-board">
                       <div className="showcase-stat-tile showcase-stat-tile-highlight">
@@ -7241,7 +7252,7 @@ export function App() {
                         <small>Le C des Carmes Haut-Brion · 12d</small>
                       </div>
                       <div className="showcase-stat-tile showcase-stat-quality">
-                        <span>{locale === "it" ? "Qualita dati" : "Data quality"}</span>
+                        <span>{locale === "it" ? "Qualità dati" : "Data quality"}</span>
                         <small>{locale === "it" ? "Valore mancante" : "Missing value"}: <strong>4</strong></small>
                         <small>{locale === "it" ? "Finestra mancante" : "Missing drink window"}: <strong>7</strong></small>
                         <small>{locale === "it" ? "Uvaggi mancanti" : "Missing grapes"}: <strong>4</strong></small>
