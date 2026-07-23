@@ -224,6 +224,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         },
     )
     assert created.status_code == 201
+    assert created.json()["created_at"]
     wine_id = created.json()["id"]
     assert created.json()["photo_thumbnail_url"] == ""
     assert created.json()["photo_detail_url"] == ""
@@ -2245,6 +2246,7 @@ def test_wine_crud_requires_auth_and_is_scoped_to_active_household():
     assert listed.status_code == 200
     assert [wine["name"] for wine in listed.json()] == ["Testamatta"]
     assert listed.json()[0]["rating"] == 4
+    assert listed.json()[0]["created_at"] == created.json()["created_at"]
 
     invalid_rating = client.patch(f"/api/v1/wines/{wine_id}", json={"rating": 7})
     assert invalid_rating.status_code == 422

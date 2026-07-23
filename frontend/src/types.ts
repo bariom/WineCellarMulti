@@ -57,6 +57,7 @@ export type Wine = {
   scores_not_applicable: boolean;
   photo_thumbnail_url: string;
   photo_detail_url: string;
+  created_at?: string;
   tasting_history: Array<{
     id: string;
     consumed_at: string;

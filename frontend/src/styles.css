@@ -6422,10 +6422,198 @@ textarea {
 
 .priority-next-list { gap: 4px; }
 
+.dashboard-photo-card-help {
+  margin: -6px 0 0;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.recent-wines-card {
+  border-top: 5px solid color-mix(in srgb, var(--accent) 78%, var(--border));
+}
+
+.dashboard-bottle-slideshow {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+}
+
+.dashboard-bottle-viewport {
+  height: 104px;
+  min-height: 104px;
+  position: relative;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.dashboard-bottle-track {
+  height: 100%;
+  position: relative;
+}
+
+.dashboard-bottle-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+}
+
+.dashboard-bottle-tile {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  height: 104px;
+  min-width: 0;
+  padding: 9px;
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  border-radius: 12px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 92%, transparent), color-mix(in srgb, var(--surface-muted) 78%, transparent));
+  color: var(--text);
+  text-align: left;
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), opacity 220ms ease;
+  will-change: transform;
+}
+
+.dashboard-bottle-list .dashboard-bottle-tile {
+  position: relative;
+  inset: auto;
+  height: 82px;
+  min-height: 82px;
+  padding-block: 6px;
+  opacity: 1;
+  pointer-events: auto;
+  transform: none !important;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 180ms ease;
+  will-change: auto;
+}
+
+.dashboard-bottle-list .key-position-bottle-visual {
+  width: 42px;
+  height: 68px;
+}
+
+.dashboard-bottle-tile[aria-hidden="false"] {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.dashboard-bottle-track.reduce-motion .dashboard-bottle-tile {
+  transition: none;
+}
+
+.dashboard-bottle-tile:hover,
+.dashboard-bottle-tile:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 58%, var(--border));
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--accent) 6%);
+}
+
+.dashboard-bottle-tile .key-position-bottle-visual {
+  grid-area: auto;
+  width: 48px;
+  height: 84px;
+}
+
+.dashboard-bottle-tile .key-position-bottle-visual::after {
+  bottom: 3px;
+  height: 6px;
+  filter: blur(4px);
+}
+
+.dashboard-bottle-tile .key-position-wine-illustration {
+  width: 42px;
+}
+
+.dashboard-bottle-copy {
+  display: grid;
+  align-content: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.dashboard-bottle-copy strong,
+.dashboard-bottle-copy span,
+.dashboard-bottle-copy small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dashboard-bottle-copy strong {
+  display: -webkit-box;
+  color: var(--text);
+  font-size: 0.82rem;
+  line-height: 1.17;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.dashboard-bottle-copy span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  line-height: 1.25;
+  white-space: nowrap;
+}
+
+.dashboard-bottle-copy small {
+  color: var(--accent-strong);
+  font-size: 0.66rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.dashboard-bottle-controls {
+  display: grid;
+  grid-template-columns: 30px minmax(44px, 1fr) 30px 30px;
+  align-items: center;
+  gap: 6px;
+}
+
+.dashboard-bottle-controls > button {
+  display: grid;
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.dashboard-bottle-controls > button svg {
+  width: 14px;
+  height: 14px;
+}
+
+.dashboard-bottle-controls > span {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+  text-align: center;
+}
+
+.dashboard-bottle-controls .dashboard-slideshow-pause {
+  font-size: 0.68rem;
+  letter-spacing: -0.08em;
+}
+
 @media (max-width: 620px) {
   .priority-summary { gap: 3px; }
   .priority-summary > * { padding-inline: 6px; }
   .priority-summary strong { font-size: 0.82rem; }
+  .dashboard-bottle-viewport,
+  .dashboard-bottle-tile { height: 96px; min-height: 96px; }
+  .dashboard-bottle-tile { padding: 7px; }
+  .dashboard-bottle-tile .key-position-bottle-visual { width: 43px; height: 76px; }
+  .dashboard-bottle-list { gap: 6px; }
+  .dashboard-bottle-list .dashboard-bottle-tile { height: 76px; min-height: 76px; }
+  .dashboard-bottle-list .key-position-bottle-visual { width: 39px; height: 64px; }
 }
 
 .wide-card {

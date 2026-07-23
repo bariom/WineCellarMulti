@@ -74,6 +74,135 @@ function keyPositionTitleVariant(name: string) {
   return "short";
 }
 
+function DashboardBottleSlideshow({
+  wines,
+  canShowPhotos,
+  onOpen,
+  meta,
+  label,
+  previousLabel,
+  nextLabel,
+  pauseLabel,
+  playLabel,
+}: {
+  wines: Wine[];
+  canShowPhotos: boolean;
+  onOpen: (wine: Wine) => void;
+  meta: (wine: Wine) => string;
+  label: string;
+  previousLabel: string;
+  nextLabel: string;
+  pauseLabel: string;
+  playLabel: string;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [userPaused, setUserPaused] = useState(false);
+  const [interactionPaused, setInteractionPaused] = useState(false);
+  const [reduceMotion, setReduceMotion] = useState(() => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches || false);
+  const hasMultiple = wines.length > 1;
+
+  useEffect(() => {
+    setActiveIndex((current) => Math.min(current, Math.max(wines.length - 1, 0)));
+  }, [wines.length]);
+
+  useEffect(() => {
+    const media = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+    if (!media) return undefined;
+    const updatePreference = () => setReduceMotion(media.matches);
+    media.addEventListener("change", updatePreference);
+    return () => media.removeEventListener("change", updatePreference);
+  }, []);
+
+  useEffect(() => {
+    if (!hasMultiple || userPaused || interactionPaused || reduceMotion) return undefined;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % wines.length);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [hasMultiple, interactionPaused, reduceMotion, userPaused, wines.length]);
+
+  const goTo = (nextIndex: number) => {
+    setActiveIndex((nextIndex + wines.length) % wines.length);
+  };
+
+  return (
+    <div
+      className="dashboard-bottle-slideshow"
+      aria-label={label}
+      onMouseEnter={() => setInteractionPaused(true)}
+      onMouseLeave={() => setInteractionPaused(false)}
+      onFocusCapture={() => setInteractionPaused(true)}
+      onBlurCapture={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setInteractionPaused(false);
+      }}
+      onPointerDown={() => setInteractionPaused(true)}
+      onPointerUp={() => setInteractionPaused(false)}
+    >
+      <div className="dashboard-bottle-viewport">
+        <div className={`dashboard-bottle-track${reduceMotion ? " reduce-motion" : ""}`}>
+          {wines.map((wine, index) => (
+            <button
+              type="button"
+              className="dashboard-bottle-tile"
+              aria-hidden={index !== activeIndex}
+              tabIndex={index === activeIndex ? 0 : -1}
+              key={wine.id}
+              style={{ transform: `translate3d(0, ${(index - activeIndex) * 106}%, 0)` }}
+              onClick={() => onOpen(wine)}
+            >
+              <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} />
+              <span className="dashboard-bottle-copy">
+                <strong>{wine.name}</strong>
+                <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+                <small>{meta(wine)}</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+      {hasMultiple ? (
+        <div className="dashboard-bottle-controls">
+          <button type="button" className="secondary" aria-label={previousLabel} onClick={() => goTo(activeIndex - 1)}><AppIcon name="chevron-left" /></button>
+          <span aria-live="polite">{activeIndex + 1} / {wines.length}</span>
+          <button type="button" className="secondary dashboard-slideshow-pause" aria-label={userPaused ? playLabel : pauseLabel} onClick={() => setUserPaused((current) => !current)}>
+            {userPaused ? "▶" : "Ⅱ"}
+          </button>
+          <button type="button" className="secondary" aria-label={nextLabel} onClick={() => goTo(activeIndex + 1)}><AppIcon name="chevron-right" /></button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function DashboardBottleList({
+  wines,
+  canShowPhotos,
+  onOpen,
+  meta,
+  label,
+}: {
+  wines: Wine[];
+  canShowPhotos: boolean;
+  onOpen: (wine: Wine) => void;
+  meta: (wine: Wine) => string;
+  label: string;
+}) {
+  return (
+    <div className="dashboard-bottle-list" role="list" aria-label={label}>
+      {wines.map((wine) => (
+        <button type="button" className="dashboard-bottle-tile" role="listitem" key={wine.id} onClick={() => onOpen(wine)}>
+          <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} />
+          <span className="dashboard-bottle-copy">
+            <strong>{wine.name}</strong>
+            <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+            <small>{meta(wine)}</small>
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
@@ -4731,6 +4860,15 @@ export function App() {
     .filter((wine) => isWineReadyToPrioritize(wine, currentYear))
     .sort((first, second) => (winePriorityDrinkEnd(first) || Number.MAX_SAFE_INTEGER) - (winePriorityDrinkEnd(second) || Number.MAX_SAFE_INTEGER) || (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER));
   const drinkNowWines = drinkNowCandidates.slice(0, 5);
+  const recentCellarWines = [...cellarWines]
+    .sort((first, second) => {
+      const firstCreatedAt = Date.parse(first.created_at || first.order_date || "") || 0;
+      const secondCreatedAt = Date.parse(second.created_at || second.order_date || "") || 0;
+      const firstOrderDate = Date.parse(first.order_date || "") || 0;
+      const secondOrderDate = Date.parse(second.order_date || "") || 0;
+      return secondCreatedAt - firstCreatedAt || secondOrderDate - firstOrderDate || first.name.localeCompare(second.name);
+    })
+    .slice(0, 5);
   const drinkNowTotalValue = drinkNowCandidates.reduce((total, wine) => total + wineUnitValue(wine) * wine.quantity, 0);
   const nearestDrinkNowEnd = drinkNowCandidates.reduce<number | null>((nearest, wine) => {
     const end = winePriorityDrinkEnd(wine);
@@ -7335,14 +7473,19 @@ export function App() {
                       <strong>{formatBottleCount(cellarStats.drinkSoon, locale)}</strong>
                     </button>
                   </div>
-                  <div className="action-list">
-                    {drinkNowWines.length ? drinkNowWines.map((wine) => (
-                      <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                        <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                        <strong>{wineIdealWindowStart(wine)}-{winePriorityDrinkEnd(wine)}</strong>
-                      </button>
-                    )) : <p className="empty-state">{t("noActionItems")}</p>}
-                  </div>
+                  {drinkNowWines.length ? (
+                    <DashboardBottleSlideshow
+                      wines={drinkNowWines}
+                      canShowPhotos={canAccessWinePhotos}
+                      onOpen={openWineFromDashboard}
+                      label={t("drinkNow")}
+                      meta={(wine) => `${wineIdealWindowStart(wine)}–${winePriorityDrinkEnd(wine)}`}
+                      previousLabel={locale === "it" ? "Bottiglia precedente" : "Previous bottle"}
+                      nextLabel={locale === "it" ? "Bottiglia successiva" : "Next bottle"}
+                      pauseLabel={locale === "it" ? "Pausa slideshow" : "Pause slideshow"}
+                      playLabel={locale === "it" ? "Avvia slideshow" : "Play slideshow"}
+                    />
+                  ) : <p className="empty-state">{t("noActionItems")}</p>}
                   {priorityDrinkSoonWines.length ? (
                     <div className="priority-next-window">
                       <div className="priority-next-heading">
@@ -7359,6 +7502,28 @@ export function App() {
                       </div>
                     </div>
                   ) : null}
+                </article>
+
+                <article className="dashboard-card recent-wines-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{locale === "it" ? "Nuovi ingressi" : "New entries"}</span>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="bottle" /></i>{locale === "it" ? "Ultimi vini aggiunti" : "Recently added wines"}</h2>
+                    </div>
+                    <strong>{recentCellarWines.length}</strong>
+                  </div>
+                  <p className="dashboard-photo-card-help">
+                    {locale === "it" ? "Le aggiunte più recenti alla tua cantina." : "The latest additions to your cellar."}
+                  </p>
+                  {recentCellarWines.length ? (
+                    <DashboardBottleList
+                      wines={recentCellarWines}
+                      canShowPhotos={canAccessWinePhotos}
+                      onOpen={openWineFromDashboard}
+                      label={locale === "it" ? "Ultimi vini aggiunti" : "Recently added wines"}
+                      meta={(wine) => wine.created_at ? formatDisplayDate(wine.created_at) : `${formatBottleCount(wine.quantity, locale)} ${t("bottles").toLowerCase()}`}
+                    />
+                  ) : <p className="empty-state">{t("noActionItems")}</p>}
                 </article>
 
                 <article className="dashboard-card">
@@ -7412,27 +7577,6 @@ export function App() {
                         <strong>{wine.merchant || formatDisplayDate(wine.expected_delivery) || wine.status}</strong>
                       </button>
                     )) : <p className="empty-state">{t("noActionItems")}</p>}
-                  </div>
-                </article>
-
-                <article className="dashboard-card operational-summary-card">
-                  <button type="button" className="card-heading card-heading-button" onClick={() => { setActiveView("history"); setHistorySection("tastings"); clearFilters("history"); }}>
-                    <div>
-                      <span>{t("tastingEntries")}</span>
-                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</i>{t("latestConsumedBottles")}</h2>
-                    </div>
-                    <strong>{formatBottleCount(tastingStats.count, locale)}</strong>
-                  </button>
-                  <div className="action-list">
-                    {latestConsumedEntries.length ? latestConsumedEntries.map((entry) => (
-                      <button type="button" className="action-row tasting-action-row" key={entry.id} onClick={() => openWineFromTastingArchive(entry.wine)}>
-                        <div className="tasting-action-copy">
-                          <span><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} />{entry.wine.name}</span>
-                          <small>{formatDisplayDate(entry.consumed_at)}</small>
-                        </div>
-                        <strong>{entry.rating ? `${entry.rating}/6` : entry.occasion || entry.pairing || "-"}</strong>
-                      </button>
-                    )) : <p className="empty-state">{t("noTastingHistory")}</p>}
                   </div>
                 </article>
 

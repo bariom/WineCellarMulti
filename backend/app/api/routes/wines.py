@@ -262,6 +262,7 @@ def wine_response(
         grapes_verified_at=wine.grapes_verified_at,
         scores=wine.scores or [],
         scores_not_applicable=wine.scores_not_applicable,
+        created_at=wine.created_at,
         **photo_urls(wine),
         tasting_history=[],
         value_history=[],
