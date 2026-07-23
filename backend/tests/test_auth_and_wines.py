@@ -1393,6 +1393,46 @@ def test_create_catalog_entry_ignores_duplicate_aliases_in_same_request():
     assert repeated.json()["id"] == response.json()["id"]
 
 
+def test_catalog_keeps_same_wine_name_separate_when_producers_differ():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    common_name = "Shared Appellation Identity Test"
+
+    first = client.post(
+        "/api/v1/wines/catalog",
+        json={
+            "name": common_name,
+            "producer": "First Estate",
+            "region": "Tuscany",
+            "type": "Red",
+        },
+    )
+    assert first.status_code == 201
+    approved = client.post(f"/api/v1/wines/catalog/{first.json()['id']}/approve")
+    assert approved.status_code == 200
+
+    second = client.post(
+        "/api/v1/wines/catalog",
+        json={
+            "name": common_name,
+            "producer": "Second Estate",
+            "region": "Tuscany",
+            "type": "Red",
+        },
+    )
+    assert second.status_code == 201
+    assert second.json()["id"] != first.json()["id"]
+    assert second.json()["producer"] == "Second Estate"
+
+    first_after = client.get(
+        "/api/v1/wines/catalog/admin",
+        params={"q": f"First Estate {common_name}"},
+    )
+    assert first_after.status_code == 200
+    assert first_after.json()[0]["id"] == first.json()["id"]
+    assert first_after.json()[0]["is_active"] is True
+
+
 def test_create_catalog_entry_requires_complementary_data():
     client = TestClient(app)
     assert register(client).status_code == 201

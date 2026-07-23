@@ -4,7 +4,7 @@ import json
 import mimetypes
 import re
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from html import unescape
 from pathlib import Path
 from urllib.error import HTTPError, URLError
@@ -19,8 +19,12 @@ from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
-from app.schemas.catalog import CatalogRecognitionResponse, CatalogRecognitionSuggestion, CatalogWineCreate, CatalogWineResponse
-
+from app.schemas.catalog import (
+    CatalogRecognitionResponse,
+    CatalogRecognitionSuggestion,
+    CatalogWineCreate,
+    CatalogWineResponse,
+)
 
 router = APIRouter()
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "wine_catalog.json"
@@ -72,7 +76,7 @@ def add_catalog_alias_if_missing(db: Session, entry: WineCatalogEntry, alias: st
         return
     if db.scalar(select(WineCatalogAlias.id).where(WineCatalogAlias.normalized_alias == normalized)) is not None:
         return
-    db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source=source, created_at=datetime.now(timezone.utc)))
+    db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source=source, created_at=datetime.now(UTC)))
 
 
 def catalog_response(entry: WineCatalogEntry) -> CatalogWineResponse:
@@ -118,8 +122,8 @@ def ensure_catalog_seeded(db: Session) -> None:
             format=bottle_format,
             source="json_seed",
             search_text=build_search_text(name, producer, region, appellation, wine_type),
-            created_at=datetime.now(timezone.utc),
-            updated_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
         )
         db.add(entry)
         db.flush()
@@ -128,7 +132,7 @@ def ensure_catalog_seeded(db: Session) -> None:
             if not normalized or normalized in seen_aliases:
                 continue
             seen_aliases.add(normalized)
-            db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source="json_seed", created_at=datetime.now(timezone.utc)))
+            db.add(WineCatalogAlias(catalog_entry_id=entry.id, alias=alias, normalized_alias=normalized, source="json_seed", created_at=datetime.now(UTC)))
     db.commit()
 
 
@@ -186,7 +190,8 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         return None
     producer = str(data.get("producer") or "").strip()
     aliases = {name, f"{producer} {name}".strip()}
-    for alias in aliases:
+    identity_aliases = [f"{producer} {name}".strip()] if producer else [name]
+    for alias in identity_aliases:
         normalized = normalize_catalog_text(alias)
         if not normalized:
             continue
@@ -206,7 +211,7 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
                     changed = True
             if changed:
                 existing.search_text = build_search_text(existing.name, existing.producer, existing.region, existing.appellation, existing.type, existing.country, existing.grapes_text)
-                existing.updated_at = datetime.now(timezone.utc)
+                existing.updated_at = datetime.now(UTC)
             return existing
 
     entry = WineCatalogEntry(
@@ -219,8 +224,8 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         source=source,
         is_active=False,
         search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), normalize_wine_type(str(data.get("type") or ""))),
-        created_at=datetime.now(timezone.utc),
-        updated_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
+        updated_at=datetime.now(UTC),
     )
     db.add(entry)
     db.flush()
@@ -292,7 +297,7 @@ def call_api4ai_wine_recognition(filename: str, content_type: str, content: byte
         f"--{boundary}\r\n"
         f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
         f"Content-Type: {mime_type}\r\n\r\n"
-    ).encode("utf-8") + content + f"\r\n--{boundary}--\r\n".encode("utf-8")
+    ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
     request = Request(
         settings.api4ai_wine_recognition_url,
         data=body,
@@ -383,7 +388,7 @@ def create_wine_catalog_entry(
                 existing.country,
                 existing.grapes_text,
             )
-            existing.updated_at = datetime.now(timezone.utc)
+            existing.updated_at = datetime.now(UTC)
             db.commit()
             db.refresh(existing)
         return catalog_response(existing)
@@ -430,7 +435,7 @@ def approve_wine_catalog_entry(
     if entry is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
     entry.is_active = True
-    entry.updated_at = datetime.now(timezone.utc)
+    entry.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(entry)
     return catalog_response(entry)
@@ -468,7 +473,7 @@ async def recognize_wine_label(
             confidence=best.confidence if best else None,
             matched_catalog_entry_id=next(iter(unique_matches.values())).id if unique_matches else None,
             response_payload=payload,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
         ),
     )
     db.commit()

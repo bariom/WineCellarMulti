@@ -1234,7 +1234,12 @@ export function App() {
   ] as const;
   const hasSelectedExportBlock = exportBlocks.some(({ key }) => exportSelection[key]);
   const wineTemplateSuggestions = [...wines, ...wineCatalog]
-    .filter((wine, index, items) => wine.name.trim() && items.findIndex((item) => item.name.trim().toLowerCase() === wine.name.trim().toLowerCase()) === index)
+    .filter((wine, index, items) => {
+      const identity = [wine.name, wine.producer, wine.region].map((value) => value.trim().toLowerCase()).join("|");
+      return wine.name.trim() && items.findIndex((item) => (
+        [item.name, item.producer, item.region].map((value) => value.trim().toLowerCase()).join("|") === identity
+      )) === index;
+    })
     .sort((first, second) => first.name.localeCompare(second.name));
 
   useEffect(() => {
@@ -1251,16 +1256,6 @@ export function App() {
     return () => window.clearTimeout(timeoutId);
   }, [aiOverlayMode, aiOverlayRenderMode]);
 
-  function matchingWineTemplate(name: string): Wine | CatalogWine | null {
-    const normalized = name.trim().toLowerCase();
-    if (!normalized) return null;
-    return (
-      wines.find((wine) => wine.name.trim().toLowerCase() === normalized) ||
-      wineCatalog.find((wine) => wine.name.trim().toLowerCase() === normalized) ||
-      null
-    );
-  }
-
   function wineDraftWithTemplate(baseDraft: WineDraft, template: Wine | CatalogWine): WineDraft {
     return {
       ...baseDraft,
@@ -1276,39 +1271,28 @@ export function App() {
   }
 
   function updateWineDraftName(name: string) {
-    const baseDraft = { ...draft, name };
-    if (editingId) {
-      setDraft(baseDraft);
-      return;
-    }
-    const template = matchingWineTemplate(name);
-    if (!template) {
-      setDraft(baseDraft);
-      return;
-    }
-    setDraft(wineDraftWithTemplate(baseDraft, template));
+    setDraft({ ...draft, name });
   }
 
   function updateWishlistDraftName(name: string) {
-    const baseDraft = { ...wishlistDraft, name };
-    if (editingWishlistId) {
-      setWishlistDraft(baseDraft);
+    setWishlistDraft({ ...wishlistDraft, name });
+  }
+
+  function selectWineTemplate(template: Wine | CatalogWine, target: "wine" | "wishlist") {
+    if (target === "wine") {
+      setDraft((current) => wineDraftWithTemplate({ ...current, name: template.name }, template));
       return;
     }
-    const template = matchingWineTemplate(name);
-    if (!template) {
-      setWishlistDraft(baseDraft);
-      return;
-    }
-    setWishlistDraft({
-      ...baseDraft,
-      producer: template.producer || baseDraft.producer,
-      region: template.region || baseDraft.region,
-      appellation: template.appellation || baseDraft.appellation,
-      format: template.format || baseDraft.format,
-      type: normalizeWineType(template.type || baseDraft.type),
-      currency: "currency" in template ? template.currency || baseDraft.currency : baseDraft.currency,
-    });
+    setWishlistDraft((current) => ({
+      ...current,
+      name: template.name,
+      producer: template.producer || current.producer,
+      region: template.region || current.region,
+      appellation: template.appellation || current.appellation,
+      format: template.format || current.format,
+      type: normalizeWineType(template.type || current.type),
+      currency: "currency" in template ? template.currency || current.currency : current.currency,
+    }));
   }
 
   function applyCatalogWineToDraft(item: CatalogWine, target: "wine" | "wishlist") {
@@ -1551,13 +1535,6 @@ export function App() {
       abortController.abort();
     };
   }, [draft.name, wishlistDraft.name, wineFormOpen, wishlistFormOpen, session?.authenticated]);
-
-  useEffect(() => {
-    if (!wineFormOpen || editingId || !draft.name.trim()) return;
-    const template = matchingWineTemplate(draft.name);
-    if (!template) return;
-    setDraft((current) => wineDraftWithTemplate(current, template));
-  }, [draft.name, editingId, wineCatalog, wineFormOpen]);
 
   async function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
@@ -4181,20 +4158,37 @@ export function App() {
     setHelpSlug(slug);
     updateHelpLocation(slug);
   }
+  function matchingTemplateSuggestions(query: string) {
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return [];
+    return wineTemplateSuggestions.filter((wine) => {
+      const searchable = [wine.name, wine.producer, wine.region, wine.appellation]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return words.every((word) => searchable.includes(word));
+    }).slice(0, 6);
+  }
+  const wineDraftTemplateSuggestions =
+    wineFormOpen && !editingId && draft.name.trim().length >= 2 && !draft.producer.trim()
+      ? matchingTemplateSuggestions(draft.name)
+      : [];
+  const wishlistDraftTemplateSuggestions =
+    wishlistFormOpen && !editingWishlistId && wishlistDraft.name.trim().length >= 2 && !wishlistDraft.producer.trim()
+      ? matchingTemplateSuggestions(wishlistDraft.name)
+      : [];
   const showManualWineAiSearch =
     (activeView === "cellar" || activeView === "history") &&
     wineFormOpen &&
     !editingId &&
     canUseIncludedWineSearch &&
-    draft.name.trim().length >= 2 &&
-    !matchingWineTemplate(draft.name);
+    draft.name.trim().length >= 2;
   const showManualWishlistAiSearch =
     activeView === "wishlist" &&
     wishlistFormOpen &&
     !editingWishlistId &&
     canUseIncludedWineSearch &&
-    wishlistDraft.name.trim().length >= 2 &&
-    !matchingWineTemplate(wishlistDraft.name);
+    wishlistDraft.name.trim().length >= 2;
   const hasAiDraftChanges = Boolean(
     aiSettings &&
     (
@@ -6406,15 +6400,6 @@ export function App() {
   return (
     <HelpContext.Provider value={{ openHelp }}>
     <main className="app-shell">
-      <datalist id="wine-catalog-suggestions">
-        {wineTemplateSuggestions.map((wine) => (
-          <option
-            key={`${wine.producer}-${wine.name}`}
-            value={wine.name}
-            label={[wine.name, wine.producer, wine.region].filter(Boolean).join(" - ")}
-          />
-        ))}
-      </datalist>
       <header className="topbar" style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         <div className="topbar-brand">
           {authenticated ? (
@@ -8260,8 +8245,26 @@ export function App() {
                   </div>
                 <label>
                   <span>{t("name")}</span>
-                  <input list="wine-catalog-suggestions" value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} />
+                  <input value={draft.name} onChange={(event) => updateWineDraftName(event.target.value)} required disabled={!canWriteWine} autoComplete="off" />
                 </label>
+                {wineDraftTemplateSuggestions.length ? (
+                  <div className="catalog-template-choices" aria-label={locale === "it" ? "Vini trovati nel catalogo" : "Wines found in the catalog"}>
+                    <small>{locale === "it" ? "Vini trovati — seleziona quello corretto per compilare i dati" : "Wines found — select the correct one to fill in the details"}</small>
+                    <div>
+                      {wineDraftTemplateSuggestions.map((wine) => (
+                        <button
+                          key={wine.id || `${wine.producer}-${wine.name}-${wine.region}`}
+                          type="button"
+                          className="catalog-template-choice"
+                          onClick={() => selectWineTemplate(wine, "wine")}
+                        >
+                          <strong>{wine.name}</strong>
+                          <span>{[wine.producer, wine.region].filter(Boolean).join(" · ")}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {showManualWineAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wine")}>
@@ -8617,8 +8620,26 @@ export function App() {
                 </label>
                 <label>
                   <span>{t("name")}</span>
-                  <input list="wine-catalog-suggestions" value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} />
+                  <input value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} autoComplete="off" />
                 </label>
+                {wishlistDraftTemplateSuggestions.length ? (
+                  <div className="catalog-template-choices" aria-label={locale === "it" ? "Vini trovati nel catalogo" : "Wines found in the catalog"}>
+                    <small>{locale === "it" ? "Vini trovati — seleziona quello corretto per compilare i dati" : "Wines found — select the correct one to fill in the details"}</small>
+                    <div>
+                      {wishlistDraftTemplateSuggestions.map((wine) => (
+                        <button
+                          key={wine.id || `${wine.producer}-${wine.name}-${wine.region}`}
+                          type="button"
+                          className="catalog-template-choice"
+                          onClick={() => selectWineTemplate(wine, "wishlist")}
+                        >
+                          <strong>{wine.name}</strong>
+                          <span>{[wine.producer, wine.region].filter(Boolean).join(" · ")}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
                 {showManualWishlistAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wishlist")}>
