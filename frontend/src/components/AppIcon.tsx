@@ -3,6 +3,7 @@ import { BellRinging } from "@phosphor-icons/react/dist/csr/BellRinging";
 import { BeerBottle } from "@phosphor-icons/react/dist/csr/BeerBottle";
 import { CalendarBlank } from "@phosphor-icons/react/dist/csr/CalendarBlank";
 import { Camera } from "@phosphor-icons/react/dist/csr/Camera";
+import { CardsThree } from "@phosphor-icons/react/dist/csr/CardsThree";
 import { CaretLeft } from "@phosphor-icons/react/dist/csr/CaretLeft";
 import { CaretRight } from "@phosphor-icons/react/dist/csr/CaretRight";
 import { ChartDonut } from "@phosphor-icons/react/dist/csr/ChartDonut";
@@ -32,7 +33,7 @@ import { Wine } from "@phosphor-icons/react/dist/csr/Wine";
 import { ComponentProps } from "react";
 
 export type AppIconName =
-  | "bottle" | "cellar" | "dashboard" | "wishlist" | "search" | "filter" | "sort"
+  | "bottle" | "cellar" | "dashboard" | "dashboard-cards" | "wishlist" | "search" | "filter" | "sort"
   | "edit" | "delete" | "import" | "export" | "compare" | "camera" | "chevron-left" | "chevron-right"
   | "sentiment-positive" | "sentiment-negative" | "status-delivered" | "status-pickup" | "status-shipped" | "status-ordered"
   | "glass-sparkle" | "calendar" | "chart" | "users" | "settings" | "logout" | "bell" | "location" | "grapes";
@@ -51,7 +52,7 @@ type AppIconProps = Omit<ComponentProps<typeof Wine>, "weight" | "size"> & {
 };
 
 const icons: Record<AppIconName, typeof Wine> = {
-  bottle: BeerBottle, cellar: Warehouse, dashboard: ChartDonut, wishlist: HeartStraight,
+  bottle: BeerBottle, cellar: Warehouse, dashboard: ChartDonut, "dashboard-cards": CardsThree, wishlist: HeartStraight,
   search: MagnifyingGlass, filter: Funnel, sort: ArrowsDownUp, edit: PencilSimple, delete: Trash,
   import: DownloadSimple, export: UploadSimple, compare: ChartLineUp, camera: Camera,
   "chevron-left": CaretLeft, "chevron-right": CaretRight, "sentiment-positive": Smiley,

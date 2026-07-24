@@ -5505,16 +5505,65 @@ textarea {
 }
 
 .dashboard-focus-navigation {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px;
+  overflow: visible;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: 18px;
+  background:
+    linear-gradient(120deg, color-mix(in srgb, var(--accent) 8%, var(--surface-raised)), var(--surface-muted));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent),
+    0 10px 24px color-mix(in srgb, var(--collector-depth) 72%, transparent);
+}
+
+.dashboard-focus-navigation::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: 22px;
+  left: 22px;
+  height: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 72%, var(--primary)), transparent);
+}
+
+.dashboard-focus-lead {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
+  min-width: 168px;
+  padding-inline: 4px 6px;
+}
+
+.dashboard-focus-lead > strong {
+  max-width: 190px;
+  color: var(--accent-strong);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.065em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.focus-switcher-primary {
+  width: 100%;
+  flex-wrap: nowrap;
+  background: color-mix(in srgb, var(--surface-raised) 82%, var(--surface-muted));
 }
 
 .focus-switcher-primary button {
   display: inline-flex;
+  flex: 1 1 0;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  min-height: 44px;
+  min-width: 0;
   line-height: 1.15;
 }
 
@@ -6166,6 +6215,18 @@ button.balance-indicator:focus-visible {
 @media (max-width: 720px) {
   .dashboard-focus-navigation {
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 9px;
+  }
+
+  .dashboard-focus-lead {
+    min-width: 0;
+    padding: 2px 4px 4px;
+  }
+
+  .dashboard-focus-lead > strong {
+    max-width: none;
   }
 
   .focus-switcher-primary {

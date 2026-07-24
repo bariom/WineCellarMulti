@@ -7623,6 +7623,66 @@ export function App() {
           ) : null}
           {activeView === "home" ? (
             <section className="home-dashboard">
+              <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
+                <div className="dashboard-focus-lead">
+                  <AppIcon name="dashboard-cards" variant="feature" tone="accent" size="1.15rem" />
+                  <strong>{t("dashboardStartHere")}</strong>
+                </div>
+                <div className="focus-switcher focus-switcher-primary" role="tablist" aria-label={t("primaryDashboardFocus")}>
+                  {(["collector", "daily", "balanced"] as PrimaryDashboardFocus[]).map((focus) => (
+                    <button
+                      type="button"
+                      role="tab"
+                      aria-selected={dashboardFocus === focus}
+                      className={dashboardFocus === focus ? "" : "secondary"}
+                      key={focus}
+                      onClick={() => setDashboardFocus(focus)}
+                    >
+                      <AppIcon
+                        name={dashboardFocusIcons[focus]}
+                        variant="feature"
+                        tone={dashboardFocus === focus ? "accent" : "muted"}
+                        size="1.05rem"
+                      />
+                      <span className="focus-switcher-label">{dashboardFocusLabels[focus]}</span>
+                      {primaryDashboardFocus === focus ? <i title={t("defaultFocus")}>{t("defaultFocus")}</i> : null}
+                    </button>
+                  ))}
+                </div>
+                <details className="dashboard-analysis-switcher">
+                  <summary>
+                    <AppIcon name="chart" variant="feature" tone="muted" size="1.05rem" />
+                    <span>{t("dashboardInsights")}</span>
+                    {isDashboardInsightFocus ? (
+                      <small>{dashboardFocusLabels[dashboardFocus]}</small>
+                    ) : null}
+                  </summary>
+                  <div className="focus-switcher" role="tablist" aria-label={t("dashboardInsights")}>
+                    {dashboardInsightFocuses.map((focus) => (
+                      <button
+                        type="button"
+                        role="tab"
+                        aria-selected={dashboardFocus === focus}
+                        className={dashboardFocus === focus ? "" : "secondary"}
+                        key={focus}
+                        onClick={(event) => {
+                          setDashboardFocus(focus);
+                          event.currentTarget.closest("details")?.removeAttribute("open");
+                        }}
+                      >
+                        <AppIcon
+                          name={dashboardFocusIcons[focus]}
+                          variant="feature"
+                          tone={dashboardFocus === focus ? "accent" : "muted"}
+                          size="1rem"
+                        />
+                        <span className="focus-switcher-label">{dashboardFocusLabels[focus]}</span>
+                      </button>
+                    ))}
+                  </div>
+                </details>
+              </section>
+
               <section className="hero-panel">
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
@@ -7689,62 +7749,6 @@ export function App() {
                   )}
                 </div>
               </section>
-
-              <div className="dashboard-focus-navigation">
-                <div className="focus-switcher focus-switcher-primary" role="tablist" aria-label={t("primaryDashboardFocus")}>
-                  {(["collector", "daily", "balanced"] as PrimaryDashboardFocus[]).map((focus) => (
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={dashboardFocus === focus}
-                      className={dashboardFocus === focus ? "" : "secondary"}
-                    key={focus}
-                    onClick={() => setDashboardFocus(focus)}
-                  >
-                      <AppIcon
-                        name={dashboardFocusIcons[focus]}
-                        variant="feature"
-                        tone={dashboardFocus === focus ? "accent" : "muted"}
-                        size="1.05rem"
-                      />
-                      <span className="focus-switcher-label">{dashboardFocusLabels[focus]}</span>
-                      {primaryDashboardFocus === focus ? <i title={t("defaultFocus")}>{t("defaultFocus")}</i> : null}
-                    </button>
-                  ))}
-                </div>
-                <details className="dashboard-analysis-switcher">
-                  <summary>
-                    <AppIcon name="chart" variant="feature" tone="muted" size="1.05rem" />
-                    <span>{t("dashboardInsights")}</span>
-                    {isDashboardInsightFocus ? (
-                      <small>{dashboardFocusLabels[dashboardFocus]}</small>
-                    ) : null}
-                  </summary>
-                  <div className="focus-switcher" role="tablist" aria-label={t("dashboardInsights")}>
-                    {dashboardInsightFocuses.map((focus) => (
-                      <button
-                        type="button"
-                        role="tab"
-                        aria-selected={dashboardFocus === focus}
-                        className={dashboardFocus === focus ? "" : "secondary"}
-                        key={focus}
-                        onClick={(event) => {
-                          setDashboardFocus(focus);
-                          event.currentTarget.closest("details")?.removeAttribute("open");
-                        }}
-                      >
-                        <AppIcon
-                          name={dashboardFocusIcons[focus]}
-                          variant="feature"
-                          tone={dashboardFocus === focus ? "accent" : "muted"}
-                          size="1rem"
-                        />
-                        <span className="focus-switcher-label">{dashboardFocusLabels[focus]}</span>
-                      </button>
-                    ))}
-                  </div>
-                </details>
-              </div>
 
               {dashboardFocus === "daily" ? (
                 <DashboardCarousel label={t("dailyFocus")} className="daily-dashboard-carousel">

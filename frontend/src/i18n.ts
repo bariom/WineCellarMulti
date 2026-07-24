@@ -380,6 +380,7 @@ export const translations = {
     balancedFocus: "Balanced cellar",
     primaryDashboardFocus: "Main dashboard focus",
     primaryDashboardFocusHelp: "This determines which dashboard opens by default. You can still switch view at any time.",
+    dashboardStartHere: "Choose your dashboard",
     dashboardFocusSaveError: "Unable to save the dashboard focus",
     dailyWineBudget: "Everyday wine budget",
     dailyWineBudgetHelp: "Maximum price per bottle for everyday recommendations. Leave empty for no limit; premium alternatives remain visible.",
@@ -1106,6 +1107,7 @@ export const translations = {
     balancedFocus: "Cantina equilibrata",
     primaryDashboardFocus: "Focus principale della dashboard",
     primaryDashboardFocusHelp: "Determina quale dashboard si apre normalmente. Potrai comunque cambiare vista in qualsiasi momento.",
+    dashboardStartHere: "Scegli la tua dashboard",
     dashboardFocusSaveError: "Impossibile salvare il focus della dashboard",
     dailyWineBudget: "Budget vino quotidiano",
     dailyWineBudgetHelp: "Prezzo massimo per bottiglia nelle proposte quotidiane. Lascia vuoto per non applicare limiti; le alternative premium restano visibili.",
@@ -1795,7 +1797,7 @@ export const helpGuideContent: Record<
         title: "2. Use the dashboard to decide what matters now",
         body: "Home is not just a summary. It is your operational screen for drinking decisions, upcoming deliveries, and data cleanup.",
         bullets: [
-          "Collector focus shows priority actions, risky wines, key position, deliveries, and missing data.",
+          "Start from the focus bar at the top: Collector focus, Drink well today, and Balanced cellar reorganize the summary and the cards around your current goal.",
           "Timeline helps you track futures and expected arrivals over time.",
           "Value and data views help you spot concentration, missing fields, and stale pricing faster.",
         ],
@@ -1900,7 +1902,7 @@ export const helpGuideContent: Record<
         title: "2. Usa la dashboard per capire cosa conta adesso",
         body: "La Home non è solo un riepilogo. È la schermata operativa per decidere cosa bere, cosa arriverà e quali dati completare.",
         bullets: [
-          "Collector focus mostra azioni prioritarie, bottiglie a rischio, posizione chiave, consegne e dati mancanti.",
+          "Parti dalla barra dei focus in alto: Focus collezionista, Bere bene oggi e Cantina equilibrata riorganizzano il riepilogo e le schede in base al tuo obiettivo del momento.",
           "Timeline ti aiuta a seguire futures ed arrivi attesi nel tempo.",
           "Le viste valore e qualità dati ti aiutano a vedere più rapidamente concentrazione, campi mancanti e prezzi da aggiornare.",
         ],
