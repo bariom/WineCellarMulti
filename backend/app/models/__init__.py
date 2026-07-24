@@ -16,7 +16,7 @@ from app.models.household_preferences import (
 from app.models.invite import HouseholdInvite
 from app.models.membership import Membership
 from app.models.notification import UserNotification, UserNotificationDismissal
-from app.models.operational_metrics import OperationalMetricSample
+from app.models.operational_metrics import OperationalAlertState, OperationalMetricSample
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.session import UserSession
 from app.models.tags import UserTag, UserWineTag
@@ -42,6 +42,7 @@ __all__ = [
     "HouseholdInvite",
     "Membership",
     "OperationalMetricSample",
+    "OperationalAlertState",
     "PasskeyChallenge",
     "RedeemCode",
     "RedeemRedemption",

@@ -36,6 +36,18 @@ class Settings(BaseSettings):
     rate_limit_support_window_seconds: int = 3600
     monitoring_api_token: str = ""
     operations_collector_token: str = ""
+    operations_alerts_enabled: bool = True
+    operations_alert_reminder_minutes: int = 60
+    operations_alert_cpu_warning_percent: float = 80
+    operations_alert_cpu_critical_percent: float = 90
+    operations_alert_memory_warning_percent: float = 80
+    operations_alert_memory_critical_percent: float = 90
+    operations_alert_disk_warning_percent: float = 80
+    operations_alert_disk_critical_percent: float = 90
+    operations_alert_conntrack_warning_percent: float = 80
+    operations_alert_conntrack_critical_percent: float = 90
+    operations_alert_latency_warning_ms: float = 750
+    operations_alert_latency_critical_ms: float = 1500
     openai_api_key: str = ""
     # Organization Admin key used exclusively for the app-admin operational cost summary.
     # It is never returned to the browser and is distinct from the application AI key.

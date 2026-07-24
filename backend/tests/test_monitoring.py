@@ -7,7 +7,7 @@ from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app, is_application_request
-from app.services import operational_metrics
+from app.services import operational_alerts, operational_metrics
 from app.services.request_metrics import request_metrics
 
 engine = create_engine(
@@ -41,6 +41,52 @@ def test_technical_operations_requests_are_excluded_from_application_latency():
     assert is_application_request("/api/v1/admin/operations/collect") is False
     assert is_application_request("/api/v1/admin/operations/overview") is False
     assert is_application_request("/api/v1/monitoring/application") is False
+
+
+def test_operational_alerts_notify_once_and_send_a_recovery(monkeypatch):
+    deliveries: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        operational_alerts,
+        "send_email",
+        lambda **kwargs: deliveries.append(kwargs) or True,
+    )
+    db = TestingSessionLocal()
+    try:
+        from app.models import User
+
+        db.add(
+            User(
+                email="admin@example.com",
+                display_name="Admin",
+                password_hash="not-used",
+                is_approved=True,
+                is_app_admin=True,
+                is_blocked=False,
+            )
+        )
+        db.commit()
+        high_system = {
+            "host": {"cpu_percent": 91, "memory": {"percent": 20}, "disk": {"percent": 30}},
+            "conntrack": {"count": 10, "max": 100},
+        }
+        normal_system = {
+            "host": {"cpu_percent": 20, "memory": {"percent": 20}, "disk": {"percent": 30}},
+            "conntrack": {"count": 10, "max": 100},
+        }
+
+        operational_alerts.evaluate_operational_alerts(db, system=high_system, application={})
+        db.commit()
+        operational_alerts.evaluate_operational_alerts(db, system=high_system, application={})
+        db.commit()
+        operational_alerts.evaluate_operational_alerts(db, system=normal_system, application={})
+        db.commit()
+
+        assert len(deliveries) == 2
+        assert deliveries[0]["recipients"] == ["admin@example.com"]
+        assert "CPU: 91% (CRITICA)" in str(deliveries[0]["body"])
+        assert "Rientro operativo" in str(deliveries[1]["subject"])
+    finally:
+        db.close()
 
 
 def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):

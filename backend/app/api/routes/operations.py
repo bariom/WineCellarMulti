@@ -25,6 +25,7 @@ from app.models import (
     WishlistItem,
 )
 from app.services.openai_costs import organization_cost_summary, unavailable_summary
+from app.services.operational_alerts import evaluate_operational_alerts
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
 
@@ -155,11 +156,12 @@ def sample_response(sample: OperationalMetricSample) -> dict[str, object]:
 
 
 def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
+    application = request_metrics.snapshot()
     db.add(
         OperationalMetricSample(
             collected_at=now,
             system=system,
-            application=request_metrics.snapshot(),
+            application=application,
             business=business_snapshot(db),
             openai=organization_cost_summary(),
         )
@@ -169,6 +171,7 @@ def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
             OperationalMetricSample.collected_at < now - SAMPLE_RETENTION
         )
     )
+    evaluate_operational_alerts(db, system=system, application=application, now=now)
     db.commit()
 
 
