@@ -3094,6 +3094,12 @@ export function App() {
     setError("");
     try {
       await api<void>(`/api/v1/notifications/${notification.id}/read`, { method: "POST" });
+      if (!notification.read_at) {
+        setNotificationActiveCounts((current) => ({
+          ...current,
+          unread: Math.max(current.unread - 1, 0),
+        }));
+      }
       await loadNotifications(true);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update notification");
@@ -3374,6 +3380,7 @@ export function App() {
     setError("");
     try {
       await api<void>("/api/v1/notifications/read-all", { method: "POST" });
+      setNotificationActiveCounts((current) => ({ ...current, unread: 0 }));
       await loadNotifications(true);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update notifications");
