@@ -7,6 +7,8 @@ Il collector salva un campione host ogni cinque minuti anche quando nessun ammin
 ```env
 OPERATIONS_COLLECTOR_TOKEN=<token-lungo-e-casuale>
 OPERATIONS_COLLECTOR_URL=http://127.0.0.1:8000/api/v1/admin/operations/collect
+# Facoltativo: 35 secondi Ã¨ il valore predefinito.
+OPERATIONS_COLLECTOR_TIMEOUT_SECONDS=35
 ```
 
 2. Installa le unità distribuite dal repository:
