@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import "./TimeSeriesChart.css";
@@ -16,6 +16,7 @@ type TimeSeriesChartProps = {
   locale: "it" | "en";
   currency?: string;
   height?: number;
+  mobileHeight?: number;
 };
 
 function resolvedColor(host: HTMLElement, value: string, fallback: string) {
@@ -28,9 +29,19 @@ function resolvedColor(host: HTMLElement, value: string, fallback: string) {
   return color;
 }
 
-export default function TimeSeriesChart({ points, ariaLabel, locale, currency = "", height = 190 }: TimeSeriesChartProps) {
+export default function TimeSeriesChart({ points, ariaLabel, locale, currency = "", height = 190, mobileHeight }: TimeSeriesChartProps) {
   const chartHostRef = useRef<HTMLDivElement | null>(null);
   useChartReveal(chartHostRef);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 640px)").matches);
+  const chartHeight = isMobileViewport && mobileHeight ? mobileHeight : height;
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 640px)");
+    const updateViewport = () => setIsMobileViewport(media.matches);
+    updateViewport();
+    media.addEventListener("change", updateViewport);
+    return () => media.removeEventListener("change", updateViewport);
+  }, []);
 
   useEffect(() => {
     const chartHost = chartHostRef.current;
@@ -66,7 +77,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     tooltip.append(tooltipDate, tooltipValue);
     const options: uPlot.Options = {
       width: Math.floor(chartHost.clientWidth) || 520,
-      height,
+      height: chartHeight,
       padding: [12, 8, 2, 4],
       scales: { x: { time: true }, y: { auto: true } },
       axes: [
@@ -166,7 +177,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       const width = Math.floor(entry.contentRect.width);
       if (!width || width === chart.width) return;
       cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => chart.setSize({ width, height }));
+      resizeFrame = requestAnimationFrame(() => chart.setSize({ width, height: chartHeight }));
     });
     observer.observe(chartHost);
     return () => {
@@ -175,7 +186,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       chartHost.removeEventListener("keydown", handleKeyboard);
       chart.destroy();
     };
-  }, [ariaLabel, currency, height, locale, points]);
+  }, [ariaLabel, chartHeight, currency, locale, points]);
 
   return <div className="time-series-chart" ref={chartHostRef} role="img" aria-label={`${ariaLabel}. ${locale === "it" ? "Usa le frecce sinistra e destra per esplorare i valori." : "Use the left and right arrow keys to explore values."}`} tabIndex={0} />;
 }

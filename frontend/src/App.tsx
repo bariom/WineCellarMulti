@@ -806,6 +806,24 @@ function WineValueConstellation({
           </button>
         ))}
       </div>
+      <div className="wine-value-constellation-density">
+        <span>{locale === "it" ? "Densità di valore" : "Value density"}</span>
+        <small>{locale === "it" ? "Valore medio per bottiglia, per tipologia" : "Average value per bottle, by type"}</small>
+        <div>
+          {segments.map((segment) => (
+            <button
+              type="button"
+              className={segment.index === activeIndex ? "active" : ""}
+              key={segment.label}
+              onClick={() => select(segment.index)}
+            >
+              <i style={{ backgroundColor: segment.color }} aria-hidden="true" />
+              <span>{typeLabel(segment)}</span>
+              <strong>{formatMoney(segment.bottles ? segment.value / segment.bottles : 0, "CHF", locale)}</strong>
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -8451,7 +8469,7 @@ export function App() {
                         </strong>
                         <small>{paidBottleCount ? (locale === "it" ? `Su ${formatBottleCount(paidBottleCount, locale)} bottiglie con prezzo d'acquisto` : `Across ${formatBottleCount(paidBottleCount, locale)} bottles with a purchase price`) : (locale === "it" ? "Nessun prezzo d'acquisto disponibile" : "No purchase price available")}</small>
                       </div>
-                      <div>
+                      <div className="portfolio-value-explorer-period">
                         <span>{locale === "it" ? "Intervallo registrato" : "Recorded range"}</span>
                         <strong>{portfolioValueFirst && portfolioValueLast ? `${formatDisplayDate(portfolioValueFirst.recorded_at)} – ${formatDisplayDate(portfolioValueLast.recorded_at)}` : "—"}</strong>
                       </div>
@@ -8464,6 +8482,7 @@ export function App() {
                             locale={locale}
                             currency="CHF"
                             height={282}
+                            mobileHeight={206}
                             points={portfolioValuePoints.map((point) => ({ timestampMs: point.timestampMs, value: point.numericValue }))}
                           />
                         </div>
