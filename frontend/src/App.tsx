@@ -5196,16 +5196,43 @@ export function App() {
     </section>
     );
   };
-  const balancedMaturityBuckets = maturityBuckets(cellarWines, currentYear, locale);
+  const balancedAvailableWines = cellarWines.filter(
+    (wine) => isWinePhysicallyInCellar(wine) && ownedBottleCount(wine, session) > 0,
+  );
+  const balancedAvailableBottleCount = balancedAvailableWines.reduce(
+    (total, wine) => total + ownedBottleCount(wine, session),
+    0,
+  );
+  const balancedMaturityBuckets = maturityBuckets(balancedAvailableWines, currentYear, locale);
   const balancedToneRows = wineToneOrder
     .map((tone) => ({
       tone,
       label: wineToneLabel(tone, locale),
-      bottles: cellarWines
+      bottles: balancedAvailableWines
         .filter((wine) => wineTone(wine.type) === tone)
-        .reduce((total, wine) => total + Math.max(wine.quantity, 0), 0),
+        .reduce((total, wine) => total + ownedBottleCount(wine, session), 0),
     }))
     .sort((first, second) => first.bottles - second.bottles);
+  const balancedCoreToneRows = (["red", "white", "sparkling", "rose"] as WineTone[])
+    .map((tone) => balancedToneRows.find((row) => row.tone === tone))
+    .filter((row): row is (typeof balancedToneRows)[number] => Boolean(row));
+  const balancedCoreBottleCount = balancedCoreToneRows.reduce((total, row) => total + row.bottles, 0);
+  const balancedCoreStyleCoverage = balancedCoreToneRows.filter((row) => row.bottles > 0).length;
+  const balancedStyleConcentration = balancedCoreBottleCount
+    ? balancedCoreToneRows.reduce((total, row) => total + (row.bottles / balancedCoreBottleCount) ** 2, 0)
+    : 1;
+  const balancedStyleScore = balancedCoreBottleCount
+    ? Math.round(Math.max(0, Math.min(100, ((1 - balancedStyleConcentration) / 0.75) * 100)))
+    : 0;
+  const balancedLeadingTone = balancedCoreBottleCount
+    ? [...balancedCoreToneRows].sort((first, second) => second.bottles - first.bottles)[0]
+    : undefined;
+  const balancedLeadingTonePct = balancedLeadingTone && balancedCoreBottleCount
+    ? Math.round((balancedLeadingTone.bottles / balancedCoreBottleCount) * 100)
+    : 0;
+  const balancedReadyPct = balancedAvailableBottleCount
+    ? Math.round((readyInCellarBottleCount / balancedAvailableBottleCount) * 100)
+    : 0;
   if (offlineMode) {
     tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
   }
@@ -7877,7 +7904,33 @@ export function App() {
                         <span>{t("balancedOverviewEyebrow")}</span>
                         <h2>{t("balancedOverviewTitle")}</h2>
                       </div>
-                      <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+                      <strong>{formatBottleCount(balancedAvailableBottleCount, locale)}</strong>
+                    </div>
+                    <div className="balance-indicator-grid">
+                      <div className="balance-indicator balance-indicator-score">
+                        <span>{t("balanceStyleIndex")}</span>
+                        <strong>{balancedStyleScore}<small>/100</small></strong>
+                        <p>{t("balanceStyleIndexHelp")}</p>
+                      </div>
+                      <div className="balance-indicator">
+                        <span>{t("balanceStyleCoverage")}</span>
+                        <strong>{balancedCoreStyleCoverage}<small>/4</small></strong>
+                        <p>{t("balanceStyleCoverageHelp")}</p>
+                      </div>
+                      <button
+                        type="button"
+                        className="balance-indicator"
+                        onClick={() => openOperationalCellarFilter("drink_now")}
+                      >
+                        <span>{t("balanceReadyRotation")}</span>
+                        <strong>{formatBottleCount(readyInCellarBottleCount, locale)}</strong>
+                        <p>{formatPercentage(balancedReadyPct, locale)} {t("balanceOfAvailable")}</p>
+                      </button>
+                      <div className="balance-indicator">
+                        <span>{t("balanceMainConcentration")}</span>
+                        <strong>{formatPercentage(balancedLeadingTonePct, locale)}</strong>
+                        <p>{balancedLeadingTone?.label || t("balanceNoData")}</p>
+                      </div>
                     </div>
                     <div className="balance-tone-grid">
                       {balancedToneRows.map((row) => (

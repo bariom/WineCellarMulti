@@ -5999,6 +5999,77 @@ textarea {
   gap: 9px;
 }
 
+.balance-indicator-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.balance-indicator {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+  min-height: 116px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--collector-edge));
+  border-radius: 14px;
+  background:
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 92%, transparent), transparent),
+    color-mix(in srgb, var(--surface-muted) 82%, var(--collector-glow) 6%);
+  color: var(--text);
+  text-align: left;
+}
+
+button.balance-indicator {
+  width: 100%;
+  box-shadow: none;
+}
+
+button.balance-indicator:hover,
+button.balance-indicator:focus-visible {
+  border-color: color-mix(in srgb, var(--primary) 52%, var(--border));
+  background: color-mix(in srgb, var(--surface-muted) 88%, var(--primary) 6%);
+}
+
+.balance-indicator-score {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+  background:
+    radial-gradient(circle at 88% 18%, color-mix(in srgb, var(--primary) 13%, transparent), transparent 42%),
+    color-mix(in srgb, var(--surface-muted) 86%, var(--primary) 5%);
+}
+
+.balance-indicator > span {
+  color: var(--text-muted);
+  font-size: 0.69rem;
+  font-weight: 850;
+  letter-spacing: 0.055em;
+  line-height: 1.2;
+  text-transform: uppercase;
+}
+
+.balance-indicator > strong {
+  color: var(--text);
+  font-family: var(--font-display);
+  font-size: clamp(1.45rem, 2.2vw, 2rem);
+  line-height: 1;
+}
+
+.balance-indicator > strong small {
+  margin-left: 3px;
+  color: var(--text-muted);
+  font-family: var(--font-body);
+  font-size: 0.68rem;
+}
+
+.balance-indicator > p {
+  margin: auto 0 0;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.3;
+}
+
 .balance-tone-grid button {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr);
@@ -6216,6 +6287,10 @@ textarea {
   }
 
   .balance-tone-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .balance-indicator-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
