@@ -39,9 +39,26 @@ app.add_middleware(
 app.include_router(api_router, prefix="/api/v1")
 
 
+TECHNICAL_METRICS_PATH_PREFIXES = (
+    "/api/v1/monitoring",
+    "/api/v1/admin/operations",
+)
+
+
+def is_application_request(path: str) -> bool:
+    """Return whether a request represents normal Vinaris application traffic.
+
+    Operations collection can wait for external services such as the OpenAI
+    costs API.  Including it in this average would turn an infrastructure
+    collection delay into an apparent user-facing application slowdown.
+    """
+
+    return not path.startswith(TECHNICAL_METRICS_PATH_PREFIXES)
+
+
 @app.middleware("http")
 async def collect_request_metrics(request: Request, call_next):
-    if request.url.path.startswith("/api/v1/monitoring"):
+    if not is_application_request(request.url.path):
         return await call_next(request)
     started_at = time.perf_counter()
     response = await call_next(request)

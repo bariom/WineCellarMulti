@@ -6,7 +6,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
-from app.main import app
+from app.main import app, is_application_request
 from app.services import operational_metrics
 from app.services.request_metrics import request_metrics
 
@@ -34,6 +34,13 @@ def setup_function():
 
 def teardown_function():
     app.dependency_overrides.clear()
+
+
+def test_technical_operations_requests_are_excluded_from_application_latency():
+    assert is_application_request("/api/v1/wines") is True
+    assert is_application_request("/api/v1/admin/operations/collect") is False
+    assert is_application_request("/api/v1/admin/operations/overview") is False
+    assert is_application_request("/api/v1/monitoring/application") is False
 
 
 def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
