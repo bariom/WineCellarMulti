@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import operations as operations_route
 from app.api.routes import wines as wines_route
 from app.core.config import settings
 from app.core.rate_limit import rate_limiter
@@ -34,8 +35,8 @@ from app.models import (
     WineCatalogEntry,
     WinePhotoLibraryEntry,
 )
-from app.services.wine_photo_library import library_photo_path
 from app.services.openai_client import OpenAIResponse, TokenUsage
+from app.services.wine_photo_library import library_photo_path
 
 engine = create_engine(
     "sqlite+pysqlite:///:memory:",
@@ -2684,6 +2685,19 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert payload["business"]["coownership_pending"] == 0
     assert payload["openai"]["available"] is False
     assert payload["history_retention_days"] == 14
+
+    # Once a collector sample exists, opening the dashboard must not run the
+    # aggregate business queries again.
+    original_business_snapshot = operations_route.business_snapshot
+
+    def unexpected_business_snapshot(_db):
+        raise AssertionError("overview must use the persisted metric sample")
+
+    monkeypatch.setattr(operations_route, "business_snapshot", unexpected_business_snapshot)
+    persisted_overview = client.get("/api/v1/admin/operations/overview")
+    assert persisted_overview.status_code == 200
+    assert persisted_overview.json()["business"]["users_total"] == 1
+    monkeypatch.setattr(operations_route, "business_snapshot", original_business_snapshot)
 
     history = client.get("/api/v1/admin/operations/history?hours=24")
     assert history.status_code == 200

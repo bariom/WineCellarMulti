@@ -24,13 +24,12 @@ from app.models import (
     WineTastingEntry,
     WishlistItem,
 )
-from app.services.openai_costs import organization_cost_summary
+from app.services.openai_costs import organization_cost_summary, unavailable_summary
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
 
 router = APIRouter(prefix="/admin/operations")
 
-SAMPLE_INTERVAL = timedelta(minutes=5)
 SAMPLE_RETENTION = timedelta(days=14)
 
 
@@ -151,6 +150,7 @@ def sample_response(sample: OperationalMetricSample) -> dict[str, object]:
         "system": sample.system,
         "application": sample.application,
         "business": sample.business,
+        "openai": sample.openai or unavailable_summary(),
     }
 
 
@@ -161,6 +161,7 @@ def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
             system=system,
             application=request_metrics.snapshot(),
             business=business_snapshot(db),
+            openai=organization_cost_summary(),
         )
     )
     db.execute(
@@ -176,23 +177,28 @@ def operations_overview(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    now = datetime.now(UTC)
-    system = system_snapshot()
-    application = request_metrics.snapshot()
-    business = business_snapshot(db)
     latest = db.scalar(
         select(OperationalMetricSample)
         .order_by(OperationalMetricSample.collected_at.desc())
         .limit(1)
     )
-    if latest is None or latest.collected_at.replace(tzinfo=UTC) <= now - SAMPLE_INTERVAL:
-        save_sample(db, system, now)
+    # The collector already refreshes this data every five minutes.  Reusing the
+    # latest aggregate keeps this endpoint a single indexed lookup instead of
+    # recalculating statistics across all operational tables on every opening.
+    # A first install still gets a usable initial sample without waiting for the
+    # first systemd timer run.
+    if latest is None:
+        now = datetime.now(UTC)
+        save_sample(db, system_snapshot(), now)
+        latest = db.scalar(
+            select(OperationalMetricSample)
+            .order_by(OperationalMetricSample.collected_at.desc())
+            .limit(1)
+        )
+
+    assert latest is not None
     return {
-        "collected_at": system["collected_at"],
-        "system": system,
-        "application": application,
-        "business": business,
-        "openai": organization_cost_summary(),
+        **sample_response(latest),
         "history_retention_days": SAMPLE_RETENTION.days,
     }
 

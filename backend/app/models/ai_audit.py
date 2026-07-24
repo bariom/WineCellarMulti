@@ -21,6 +21,13 @@ class AiAuditLog(Base):
             "feature",
             "created_at",
         ),
+        Index("ix_ai_audit_created_at", "created_at"),
+        Index(
+            "ix_ai_audit_feature_outcome_created",
+            "feature",
+            "outcome",
+            "created_at",
+        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)

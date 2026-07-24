@@ -17,3 +17,7 @@ class OperationalMetricSample(Base):
     system: Mapped[dict] = mapped_column(JSON, default=dict)
     application: Mapped[dict] = mapped_column(JSON, default=dict)
     business: Mapped[dict] = mapped_column(JSON, default=dict)
+    # The cost portal is external and can take seconds to answer.  Persist its
+    # result with the sample so opening the operations dashboard never waits on
+    # an upstream network call.
+    openai: Mapped[dict] = mapped_column(JSON, default=dict)
