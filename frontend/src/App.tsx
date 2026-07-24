@@ -56,6 +56,7 @@ const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
+const TimeSeriesChart = lazy(() => import("./components/TimeSeriesChart"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
@@ -723,6 +724,88 @@ function BreakdownDonut({
           <span>{translate(locale, mode === "type" ? "typesLabel" : "regionsLabel")}</span>
         </div>
       </button>
+    </div>
+  );
+}
+
+type WineValueConstellationItem = ValueBreakdownItem & { bottles: number };
+
+function WineValueConstellation({
+  items,
+  locale,
+  onOpen,
+}: {
+  items: WineValueConstellationItem[];
+  locale: Locale;
+  onOpen: (item: WineValueConstellationItem) => void;
+}) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  if (!total) return null;
+
+  const active = items[Math.min(activeIndex, items.length - 1)];
+  const circumference = 2 * Math.PI * 76;
+  let offset = 0;
+  const segments = items.map((item, index) => {
+    const share = item.value / total;
+    const dash = Math.max(circumference * share - 4, 2);
+    const segment = { ...item, index, share, dash, offset, color: breakdownColor(item.label, index, "type") };
+    offset += circumference * share;
+    return segment;
+  });
+  const typeLabel = (item: WineValueConstellationItem) => displayValue(item.label, locale, "type");
+  const select = (index: number) => setActiveIndex(index);
+
+  return (
+    <div className="wine-value-constellation">
+      <div className="wine-value-constellation-plot" role="group" aria-label={locale === "it" ? "Composizione del valore per tipologia" : "Value composition by wine type"}>
+        <svg viewBox="0 0 200 200" aria-hidden="true">
+          <circle className="wine-value-constellation-track" cx="100" cy="100" r="76" />
+          {segments.map((segment) => (
+            <circle
+              key={segment.label}
+              className={segment.index === activeIndex ? "active" : ""}
+              cx="100"
+              cy="100"
+              r="76"
+              stroke={segment.color}
+              strokeDasharray={`${segment.dash} ${circumference}`}
+              strokeDashoffset={-segment.offset}
+              transform="rotate(-90 100 100)"
+              onMouseEnter={() => select(segment.index)}
+              onClick={() => select(segment.index)}
+            />
+          ))}
+        </svg>
+        <div className="wine-value-constellation-core">
+          <span>{locale === "it" ? "Valore tipologie" : "Type value"}</span>
+          <strong>{formatMoney(total, "CHF", locale)}</strong>
+          <small>{items.length} {locale === "it" ? "tipologie" : "types"}</small>
+        </div>
+      </div>
+      <div className="wine-value-constellation-detail">
+        <i style={{ backgroundColor: breakdownColor(active.label, activeIndex, "type") }} aria-hidden="true" />
+        <span>{typeLabel(active)}</span>
+        <strong>{formatMoney(active.value, "CHF", locale)}</strong>
+        <small>{formatPercentage((active.value / total) * 100, locale, 1)} · {formatBottleCount(active.bottles, locale)} {locale === "it" ? "bottiglie" : "bottles"}</small>
+        <button type="button" className="secondary compact" onClick={() => onOpen(active)}>
+          {locale === "it" ? "Apri in cantina" : "Open in cellar"}
+        </button>
+      </div>
+      <div className="wine-value-constellation-legend">
+        {segments.map((segment) => (
+          <button
+            type="button"
+            className={segment.index === activeIndex ? "active" : ""}
+            key={segment.label}
+            onClick={() => select(segment.index)}
+          >
+            <i style={{ backgroundColor: segment.color }} aria-hidden="true" />
+            <span>{typeLabel(segment)}</span>
+            <strong>{formatPercentage(segment.share * 100, locale, 0)}</strong>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -4898,6 +4981,36 @@ export function App() {
     missingScores: cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable).length,
     aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
+  const portfolioValuePoints = portfolioValueHistory
+    .map((point) => ({
+      ...point,
+      timestampMs: new Date(point.recorded_at).getTime(),
+      numericValue: Number(point.value),
+    }))
+    .filter((point) => Number.isFinite(point.timestampMs) && Number.isFinite(point.numericValue))
+    .sort((first, second) => first.timestampMs - second.timestampMs);
+  const portfolioValueFirst = portfolioValuePoints[0];
+  const portfolioValueLast = portfolioValuePoints[portfolioValuePoints.length - 1];
+  const paidValueWines = cellarWines.filter((wine) => Number(wine.price || 0) > 0 && wine.quantity > 0);
+  const paidBottleCount = paidValueWines.reduce((total, wine) => total + wine.quantity, 0);
+  const purchaseValue = paidValueWines.reduce(
+    (total, wine) => total + Number(wine.price || 0) * wine.quantity,
+    0,
+  );
+  const currentPaidValue = paidValueWines.reduce(
+    (total, wine) => total + wineUnitValue(wine) * wine.quantity,
+    0,
+  );
+  const purchaseValueDelta = purchaseValue > 0 ? currentPaidValue - purchaseValue : null;
+  const purchaseValueDeltaPct = purchaseValueDelta !== null && purchaseValue > 0
+    ? (purchaseValueDelta / purchaseValue) * 100
+    : null;
+  const portfolioValueLow = portfolioValuePoints.length
+    ? Math.min(...portfolioValuePoints.map((point) => point.numericValue))
+    : null;
+  const portfolioValueHigh = portfolioValuePoints.length
+    ? Math.max(...portfolioValuePoints.map((point) => point.numericValue))
+    : null;
   const wishlistStats = {
     count: wishlist.length,
     targetValue: wishlist.reduce((total, item) => total + Number(item.target_price || 0), 0),
@@ -4918,6 +5031,16 @@ export function App() {
     latest: offlineMode ? "" : tastingArchiveOverview?.latest_consumed_at || "",
   };
   const valueByType = topWineValueGroups(cellarWines, "type");
+  const valueByCanonicalType = canonicalWineTypes
+    .map((type) => {
+      const typeWines = cellarWines.filter((wine) => normalizeWineType(wine.type) === type);
+      return {
+        label: type,
+        value: sumWineValue(typeWines),
+        bottles: typeWines.reduce((total, wine) => total + wine.quantity, 0),
+      };
+    })
+    .filter((item) => item.value > 0);
   const valueByRegion = topWineValueGroups(cellarWines, "region");
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
   const winesByRegion = topWineCountGroups(cellarWines, "region");
@@ -8312,7 +8435,7 @@ export function App() {
 
               {dashboardFocus === "value" ? (
                 <DashboardCarousel label={t("valueFocus")}>
-                  <article className="dashboard-card priority-card">
+                  <article className="dashboard-card wide-card portfolio-value-explorer">
                     <div className="card-heading">
                       <div>
                         <span>{t("totalValue")}</span>
@@ -8320,25 +8443,69 @@ export function App() {
                       </div>
                       <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
                     </div>
-                    <div className="bar-list">
-                      <div className="bar-row">
-                        <div><span>{t("myBottles")}</span><strong>{formatMoney(cellarStats.myValue, "CHF", locale)}</strong></div>
-                        <div className="bar-track"><span style={{ width: `${cellarStats.totalValue ? (cellarStats.myValue / cellarStats.totalValue) * 100 : 0}%` }} /></div>
+                    <div className="portfolio-value-explorer-summary">
+                      <div>
+                        <span>{locale === "it" ? "Rendimento vs acquisto" : "Return vs purchase"}</span>
+                        <strong className={purchaseValueDelta !== null && purchaseValueDelta < 0 ? "negative" : "positive"}>
+                          {purchaseValueDelta === null ? "—" : `${purchaseValueDelta >= 0 ? "+" : ""}${formatMoney(purchaseValueDelta, "CHF", locale)}${purchaseValueDeltaPct === null ? "" : ` · ${purchaseValueDeltaPct >= 0 ? "+" : ""}${purchaseValueDeltaPct.toFixed(1)}%`}`}
+                        </strong>
+                        <small>{paidBottleCount ? (locale === "it" ? `Su ${formatBottleCount(paidBottleCount, locale)} bottiglie con prezzo d'acquisto` : `Across ${formatBottleCount(paidBottleCount, locale)} bottles with a purchase price`) : (locale === "it" ? "Nessun prezzo d'acquisto disponibile" : "No purchase price available")}</small>
                       </div>
-                      <div className="bar-row">
-                        <div><span>{t("sharedBottles")}</span><strong>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</strong></div>
-                        <div className="bar-track"><span style={{ width: `${cellarStats.totalValue ? (cellarStats.sharedValue / cellarStats.totalValue) * 100 : 0}%` }} /></div>
-                      </div>
-                      <div className="bar-row">
-                        <div><span>{t("averageBottleValue")}</span><strong>{formatMoney(cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0, "CHF", locale)}</strong></div>
-                        <div className="bar-track"><span style={{ width: `${cellarStats.bottles ? 100 : 0}%` }} /></div>
+                      <div>
+                        <span>{locale === "it" ? "Intervallo registrato" : "Recorded range"}</span>
+                        <strong>{portfolioValueFirst && portfolioValueLast ? `${formatDisplayDate(portfolioValueFirst.recorded_at)} – ${formatDisplayDate(portfolioValueLast.recorded_at)}` : "—"}</strong>
                       </div>
                     </div>
-                    <div className="card-heading">
-                      <span>{t("valueEvolution")}</span>
-                      <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
+                    {portfolioValuePoints.length >= 2 ? (
+                      <Suspense fallback={<div className="portfolio-value-chart-loading" aria-label={t("valueEvolution")} />}>
+                        <div className="portfolio-value-chart">
+                          <TimeSeriesChart
+                            ariaLabel={t("valueEvolution")}
+                            locale={locale}
+                            currency="CHF"
+                            height={282}
+                            points={portfolioValuePoints.map((point) => ({ timestampMs: point.timestampMs, value: point.numericValue }))}
+                          />
+                        </div>
+                      </Suspense>
+                    ) : (
+                      <p className="portfolio-value-chart-empty">{locale === "it" ? "Servono almeno due rilevazioni per mostrare l'evoluzione del portafoglio." : "At least two records are needed to show the portfolio trend."}</p>
+                    )}
+                    <div className="portfolio-value-insights">
+                      <button type="button" onClick={() => applyQuickWineFilter("mine")}>
+                        <span>{t("myBottles")}</span>
+                        <strong>{formatMoney(cellarStats.myValue, "CHF", locale)}</strong>
+                        <small>{formatBottleCount(cellarStats.myBottles, locale)} {t("bottles").toLowerCase()}</small>
+                      </button>
+                      <button type="button" onClick={() => applyQuickWineFilter("shared")}>
+                        <span>{t("sharedBottles")}</span>
+                        <strong>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</strong>
+                        <small>{formatBottleCount(cellarStats.sharedBottles, locale)} {t("bottles").toLowerCase()}</small>
+                      </button>
+                      <div>
+                        <span>{locale === "it" ? "Minimo / massimo" : "Low / high"}</span>
+                        <strong>{portfolioValueLow === null || portfolioValueHigh === null ? "—" : `${formatMoney(portfolioValueLow, "CHF", locale)} – ${formatMoney(portfolioValueHigh, "CHF", locale)}`}</strong>
+                        <small>{t("averageBottleValue")}: {formatMoney(cellarStats.bottles ? cellarStats.totalValue / cellarStats.bottles : 0, "CHF", locale)}</small>
+                      </div>
                     </div>
                   </article>
+                  {valueByCanonicalType.length ? (
+                    <article className="dashboard-card wide-card wine-value-constellation-card">
+                      <div className="card-heading">
+                        <div>
+                          <span>{locale === "it" ? "Composizione del portafoglio" : "Portfolio composition"}</span>
+                          <h2>{locale === "it" ? "Valore per tipologia" : "Value by type"}</h2>
+                        </div>
+                        <strong>{formatMoney(valueByCanonicalType.reduce((total, item) => total + item.value, 0), "CHF", locale)}</strong>
+                      </div>
+                      <p className="dashboard-card-intro">{locale === "it" ? "Esplora la costellazione: ogni fascia rappresenta il peso economico di una tipologia nella tua cantina." : "Explore the constellation: each band represents a wine type's economic weight in your cellar."}</p>
+                      <WineValueConstellation
+                        items={valueByCanonicalType}
+                        locale={locale}
+                        onOpen={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)}
+                      />
+                    </article>
+                  ) : null}
                   <article className="dashboard-card">
                     <div className="card-heading">
                       <div>
