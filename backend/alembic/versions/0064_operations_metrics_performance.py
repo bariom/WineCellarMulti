@@ -1,6 +1,6 @@
 """speed up operational metric collection and dashboard reads
 
-Revision ID: 0064_operations_metrics_performance
+Revision ID: 0064_ops_metrics_perf
 Revises: 0063_user_daily_wine_budget
 """
 
@@ -8,7 +8,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0064_operations_metrics_performance"
+revision = "0064_ops_metrics_perf"
 down_revision = "0063_user_daily_wine_budget"
 branch_labels = None
 depends_on = None
