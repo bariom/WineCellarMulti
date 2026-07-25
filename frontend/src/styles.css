@@ -7464,6 +7464,7 @@ button.balance-indicator:focus-visible {
   height: 82px;
   min-height: 82px;
   padding-block: 6px;
+  overflow: hidden;
   opacity: 1;
   pointer-events: auto;
   transform: none !important;
@@ -7474,6 +7475,8 @@ button.balance-indicator:focus-visible {
 .dashboard-bottle-list .key-position-bottle-visual {
   width: 42px;
   height: 68px;
+  position: relative;
+  top: -3px;
 }
 
 .dashboard-bottle-tile[aria-hidden="false"] {
@@ -7497,6 +7500,12 @@ button.balance-indicator:focus-visible {
   height: 84px;
 }
 
+.dashboard-bottle-list .dashboard-bottle-tile .key-position-bottle-visual {
+  width: 42px;
+  height: 68px;
+  top: -7px;
+}
+
 .dashboard-bottle-tile .key-position-bottle-visual::after {
   bottom: 3px;
   height: 6px;
@@ -7512,6 +7521,8 @@ button.balance-indicator:focus-visible {
   align-content: center;
   gap: 4px;
   min-width: 0;
+  position: relative;
+  top: -3px;
 }
 
 .dashboard-bottle-copy strong,
