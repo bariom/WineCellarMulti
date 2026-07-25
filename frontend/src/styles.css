@@ -28,6 +28,10 @@
   --drink-young: #d9b64b;
   --drink-ideal: #2f8f64;
   --drink-past: #c95866;
+  --wine-row-shadow-y: 3px;
+  --wine-row-shadow-blur: 3px;
+  --wine-detail-shadow-y: 8px;
+  --wine-detail-shadow-blur: 9px;
   --bar-muted: #e8ede8;
   --chart-bar-start: #245142;
   --chart-bar-end: #c2ac66;
@@ -167,8 +171,12 @@
     --bar-muted: #26352e;
     --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.38);
     --focus: rgba(107, 194, 159, 0.42);
-    --wine-row-aura-radius: 5px;
-    --wine-detail-aura-radius: 12px;
+    --wine-row-aura-radius: 3px;
+    --wine-detail-aura-radius: 8px;
+    --wine-row-shadow-y: 2px;
+    --wine-row-shadow-blur: 2px;
+    --wine-detail-shadow-y: 4px;
+    --wine-detail-shadow-blur: 5px;
     --hero-bg:
       radial-gradient(circle at top left, rgba(215, 189, 109, 0.18), transparent 38%),
       radial-gradient(circle at bottom right, rgba(107, 194, 159, 0.12), transparent 34%),
@@ -249,7 +257,7 @@
   --success-surface: #23161a;
   --accent: #b4274c;
   --drink-young: #d0a64e;
-  --drink-ideal: #e0b05c;
+  --drink-ideal: #6f9f63;
   --drink-past: #bd3959;
   --bar-muted: #3a202a;
   --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.42);
@@ -277,7 +285,7 @@
   --secondary: #f1dfdc;
   --accent: #e0808f;
   --drink-young: #e5b457;
-  --drink-ideal: #c45d75;
+  --drink-ideal: #4f9a68;
   --drink-past: #8f3448;
   --bar-muted: #f0dedc;
   --focus: rgba(166, 66, 88, 0.32);
@@ -335,7 +343,7 @@
   --danger-surface: #3a141e;
   --accent: #7d102c;
   --drink-young: #c9a15d;
-  --drink-ideal: #d0b27a;
+  --drink-ideal: #6f9b63;
   --drink-past: #9e3149;
   --bar-muted: #39242a;
   --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.44);
@@ -366,7 +374,7 @@
   --danger-surface: #3b1722;
   --accent: #8e3f55;
   --drink-young: #d7b988;
-  --drink-ideal: #b8667b;
+  --drink-ideal: #5d9a70;
   --drink-past: #8e3f55;
   --bar-muted: #38262d;
   --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.42);
@@ -440,7 +448,7 @@
   --danger-surface: #35161d;
   --accent: #9d6f25;
   --drink-young: #c7a553;
-  --drink-ideal: #b78138;
+  --drink-ideal: #6f9b5c;
   --drink-past: #88474f;
   --bar-muted: #332f22;
   --shadow-soft: 0 16px 36px rgba(0, 0, 0, 0.42);
@@ -13568,8 +13576,12 @@ textarea {
 :root[data-theme="ticino"],
 :root[data-theme="midnight-ledger"] {
   --financial-text: #fff3dc;
-  --wine-row-aura-radius: 5px;
-  --wine-detail-aura-radius: 12px;
+  --wine-row-aura-radius: 3px;
+  --wine-detail-aura-radius: 8px;
+  --wine-row-shadow-y: 2px;
+  --wine-row-shadow-blur: 2px;
+  --wine-detail-shadow-y: 4px;
+  --wine-detail-shadow-blur: 5px;
 }
 
 :root[data-theme="tuscany"] {
@@ -17876,7 +17888,7 @@ tbody tr:hover {
   height: 84px;
   object-fit: contain;
   filter:
-    drop-shadow(0 3px 3px color-mix(in srgb, var(--text) 38%, transparent))
+    drop-shadow(0 var(--wine-row-shadow-y, 3px) var(--wine-row-shadow-blur, 3px) color-mix(in srgb, var(--text) 38%, transparent))
     drop-shadow(0 0 var(--wine-row-aura-radius, 8px) color-mix(in srgb, var(--text) 28%, transparent));
 }
 
@@ -18138,7 +18150,7 @@ tbody tr:hover {
   object-fit: contain;
   mix-blend-mode: multiply;
   filter:
-    drop-shadow(0 8px 9px color-mix(in srgb, var(--text) 34%, transparent))
+    drop-shadow(0 var(--wine-detail-shadow-y, 8px) var(--wine-detail-shadow-blur, 9px) color-mix(in srgb, var(--text) 34%, transparent))
     drop-shadow(0 0 var(--wine-detail-aura-radius, 20px) color-mix(in srgb, var(--text) 26%, transparent));
 }
 
