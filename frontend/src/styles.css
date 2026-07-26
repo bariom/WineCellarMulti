@@ -3605,6 +3605,15 @@ summary:focus-visible {
   gap: 6px;
 }
 
+.manual-ai-search .loading-state {
+  margin: 2px 0 0;
+  padding: 8px 10px;
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-raised));
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
 .manual-ai-search .form-hint {
   max-width: 62ch;
 }

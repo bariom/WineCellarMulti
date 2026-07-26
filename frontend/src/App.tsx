@@ -9131,8 +9131,9 @@ export function App() {
                 {showManualWineAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wine")}>
-                      {wineEnrichmentLoading ? t("generating") : t("searchWineDataWithAi")}
+                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} />
                     </button>
+                    {wineEnrichmentLoading ? <LoadingState label={t("aiWineSearchWaiting")} compact /> : null}
                     <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
                   </div>
                 ) : null}
@@ -9506,8 +9507,9 @@ export function App() {
                 {showManualWishlistAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wishlist")}>
-                      {wineEnrichmentLoading ? t("generating") : t("searchWineDataWithAi")}
+                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} />
                     </button>
+                    {wineEnrichmentLoading ? <LoadingState label={t("aiWineSearchWaiting")} compact /> : null}
                     <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
                   </div>
                 ) : null}
