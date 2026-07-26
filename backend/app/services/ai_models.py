@@ -7,7 +7,6 @@ from fastapi import HTTPException, status
 
 from app.core.config import settings
 
-
 LEGACY_MODEL = "gpt-5.5"
 COMPATIBILITY_MODELS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"}
 DEFAULT_MAX_OUTPUT_TOKENS = 32768
@@ -37,6 +36,7 @@ TASK_REASONING_EFFORT = {
     "wine_value": "low",
     "wishlist_value": "low",
     # Interpretation and decisions that benefit from a moderate reasoning budget.
+    "wine_full_enrichment": "medium",
     "drink_window": "medium",
     "wine_comparison": "medium",
     "pairing": "medium",
@@ -127,7 +127,9 @@ def select_ai_model(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Unsupported OpenAI model",
             )
-        return ModelSelection(requested_model=requested, model=requested, role=role_for_model(requested))
+        return ModelSelection(
+            requested_model=requested, model=requested, role=role_for_model(requested)
+        )
 
     if not settings.openai_enable_model_routing:
         model = model_by_role()["legacy"] or LEGACY_MODEL
@@ -135,7 +137,10 @@ def select_ai_model(
 
     normalized_complexity = (complexity or "").strip().lower()
     normalized_task = task_type.strip().lower()
-    if normalized_complexity in {"advanced", "complex", "high"} or normalized_task in ADVANCED_TASKS:
+    if (
+        normalized_complexity in {"advanced", "complex", "high"}
+        or normalized_task in ADVANCED_TASKS
+    ):
         role: ModelRole = "advanced"
     elif normalized_complexity in {"economy", "simple", "low"} or normalized_task in SIMPLE_TASKS:
         role = "economy"
@@ -197,7 +202,11 @@ def reasoning_effort_for_request(
     """
     if explicit_effort is not None:
         explicit = explicit_effort.strip().lower()
-        return explicit if explicit in VALID_REASONING_EFFORTS else parameters_for_model(model).reasoning_effort
+        return (
+            explicit
+            if explicit in VALID_REASONING_EFFORTS
+            else parameters_for_model(model).reasoning_effort
+        )
 
     normalized_complexity = (complexity or "").strip().lower()
     if normalized_complexity in COMPLEXITY_REASONING_EFFORT:

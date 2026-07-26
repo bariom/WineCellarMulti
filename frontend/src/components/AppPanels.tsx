@@ -884,6 +884,10 @@ export function WineDetail({
         <details className="wine-ai-tools">
           <summary>{locale === "it" ? "Strumenti AI" : "AI tools"}</summary>
           <div className="ai-actions detail-ai-actions">
+            <button type="button" className="secondary compact wine-ai-all-button" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("all")}>
+              <ButtonBusyContent busy={generating === "all"} idleLabel={t("runAllWineAi")} busyLabel={t("generating")} />
+            </button>
+            <small className="wine-ai-all-help">{t("runAllWineAiHelp")}</small>
             <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("notes")}>
               <ButtonBusyContent busy={generating === "notes"} idleLabel={t("aiNotes")} busyLabel={t("generating")} />
             </button>

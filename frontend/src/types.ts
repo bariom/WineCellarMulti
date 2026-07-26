@@ -836,7 +836,7 @@ export type OperationalActionItem = {
   onOpen: () => void;
 };
 
-export type WineAiFeature = "notes" | "drink-window" | "value" | "grapes" | "scores";
+export type WineAiFeature = "all" | "notes" | "drink-window" | "value" | "grapes" | "scores";
 
 export type ThemePreference =
   | "system"

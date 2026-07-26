@@ -38,6 +38,7 @@ from app.prompts import (
     ai_notes_prompt,
     drink_window_prompt,
     grape_composition_prompt,
+    wine_full_enrichment_prompt,
     wine_scores_prompt,
     wine_value_prompt,
     wishlist_advice_prompt,
@@ -1535,6 +1536,217 @@ def generate_wine_notes(
     notes = response.text
     wine.ai_notes = notes[:4000]
     record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=effective_response_model(response, user_settings.ai_notes_model), summary=notes, reasoning_effort=response.reasoning_effort or "", usage=response.usage, provider_source=provider_source)
+    db.commit()
+    db.refresh(wine)
+    return ai_wine_response(db, context, wine)
+
+
+@router.post("/wines/{wine_id}/all", response_model=WineResponse)
+def generate_all_wine_ai(
+    wine_id: UUID,
+    payload: AiGenerationRequest = AiGenerationRequest(),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineResponse:
+    wine = get_household_wine(db, context, wine_id)
+    user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = wine_full_enrichment_prompt(
+        locale=payload.locale,
+        currency_instruction=value_currency_instruction(wine.currency),
+        currency=wine.currency,
+        wine_context=wine_market_context(wine),
+    )
+    schema = {
+        "name": "wine_full_enrichment",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "ai_notes": {"type": "string"},
+                "drink_window": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "drink_from": {"type": "integer"},
+                        "drink_peak_from": {"type": "integer"},
+                        "drink_peak_to": {"type": "integer"},
+                        "drink_to": {"type": "integer"},
+                        "notes": {"type": "string"},
+                    },
+                    "required": ["drink_from", "drink_peak_from", "drink_peak_to", "drink_to", "notes"],
+                },
+                "value": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "current_value": {"type": "number"},
+                        "currency": {"type": "string"},
+                        "notes": {"type": "string"},
+                        "market_note": {"type": "string"},
+                        "market_sources": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "merchant": {"type": "string"},
+                                    "country": {"type": "string"},
+                                    "price": {"type": "number"},
+                                    "currency": {"type": "string"},
+                                    "url": {"type": "string"},
+                                    "note": {"type": "string"},
+                                },
+                                "required": ["merchant", "country", "price", "currency", "url", "note"],
+                            },
+                        },
+                    },
+                    "required": ["current_value", "currency", "notes", "market_note", "market_sources"],
+                },
+                "grape_composition": {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "properties": {
+                        "grapes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "additionalProperties": False,
+                                "properties": {
+                                    "name": {"type": "string"},
+                                    "percentage_from": {"type": "integer"},
+                                    "percentage_to": {"type": "integer"},
+                                },
+                                "required": ["name", "percentage_from", "percentage_to"],
+                            },
+                        },
+                        "notes": {"type": "string"},
+                        "source_url": {"type": "string"},
+                        "source_title": {"type": "string"},
+                    },
+                    "required": ["grapes", "notes", "source_url", "source_title"],
+                },
+            },
+            "required": ["ai_notes", "drink_window", "value", "grape_composition"],
+        },
+    }
+    # The combined route is cost-first: reuse the value model (Luna by default)
+    # and raise reasoning to medium through the task policy for the drink window.
+    selected_model = request_model(payload, user_settings.value_model)
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=selected_model,
+        task_type="wine_full_enrichment",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+        json_schema=schema,
+        web_search=True,
+        web_search_context_size="medium",
+        max_output_tokens=6000,
+        max_tool_calls=6,
+    )
+    result = parse_json_response(response.text)
+    drink_window = result.get("drink_window")
+    value_result = result.get("value")
+    grape_result = result.get("grape_composition")
+    if not isinstance(drink_window, dict) or not isinstance(value_result, dict) or not isinstance(grape_result, dict):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid wine enrichment")
+
+    try:
+        current_value = Decimal(str(value_result["current_value"])).quantize(Decimal("0.01"))
+        drink_from = int(drink_window["drink_from"])
+        drink_peak_from = int(drink_window["drink_peak_from"])
+        drink_peak_to = int(drink_window["drink_peak_to"])
+        drink_to = int(drink_window["drink_to"])
+    except (InvalidOperation, KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid wine enrichment") from exc
+    if not (drink_from <= drink_peak_from <= drink_peak_to <= drink_to):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an invalid drinking window")
+
+    result_currency = str(value_result.get("currency") or wine.currency)[:8]
+    market_sources = normalize_market_sources(
+        value_result.get("market_sources"),
+        default_currency=result_currency,
+        require_url=True,
+    )
+    if not market_sources:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
+
+    grapes = grape_result.get("grapes", [])
+    if not isinstance(grapes, list):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes")
+    grape_source_url = str(grape_result.get("source_url") or "").strip()
+    verified_grape_source = next(
+        (
+            source
+            for source in response.web_sources
+            if str(source.get("url") or "").strip().rstrip("/") == grape_source_url.rstrip("/")
+        ),
+        {},
+    )
+    saved_verified_grapes = bool(grapes and grape_source_url and verified_grape_source)
+
+    ai_notes = str(result.get("ai_notes") or "").strip()
+    grape_note = str(grape_result.get("notes") or "").strip()
+    if grape_note and saved_verified_grapes:
+        grape_label = "Uve" if payload.locale == "it" else "Grapes"
+        ai_notes = f"{ai_notes}\n\n{grape_label}: {grape_note}".strip()
+    wine.ai_notes = ai_notes[:4000]
+    wine.drink_from = drink_from
+    wine.drink_peak_from = drink_peak_from
+    wine.drink_peak_to = drink_peak_to
+    wine.drink_to = drink_to
+    wine.drink_window_notes = str(drink_window.get("notes") or "")[:2000]
+    wine.current_value = max(current_value, Decimal("0"))
+    wine.currency = result_currency
+    wine.ai_value_notes = str(value_result.get("notes") or "")[:2000]
+    wine.ai_value_estimated_at = datetime.now(UTC)
+    if saved_verified_grapes:
+        wine.grapes = grapes
+        wine.grapes_source_url = grape_source_url[:500]
+        wine.grapes_source_title = str(
+            verified_grape_source.get("title") or grape_result.get("source_title") or ""
+        )[:200]
+        wine.grapes_verified_at = datetime.now(UTC)
+
+    record_wine_value_history(db, wine, source="ai")
+    extra_cost = web_search_tool_cost_usd(response.web_search_calls)
+    note_entry = market_note_source(value_result.get("market_note") or value_result.get("notes"))
+    grape_source_entry = (
+        {
+            "kind": "grape_source",
+            "url": wine.grapes_source_url,
+            "title": wine.grapes_source_title,
+        }
+        if saved_verified_grapes
+        else None
+    )
+    audit_sources = (
+        market_sources
+        + web_search_source_entries(response.web_sources)
+        + ([note_entry] if note_entry else [])
+        + ([grape_source_entry] if grape_source_entry else [])
+    )
+    effective_model = effective_response_model(response, selected_model)
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="wine_full_enrichment",
+        model=effective_model,
+        reasoning_effort=response.reasoning_effort or "",
+        summary=(
+            f"{wine.currency} {wine.current_value}; "
+            f"drink {wine.drink_from}-{wine.drink_to}; "
+            f"{len(wine.grapes)} grapes; {wine.ai_notes}"
+        ),
+        sources=audit_sources,
+        usage=response.usage,
+        provider_source=provider_source,
+        extra_cost_usd=extra_cost,
+    )
     db.commit()
     db.refresh(wine)
     return ai_wine_response(db, context, wine)

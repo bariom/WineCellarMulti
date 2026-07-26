@@ -179,6 +179,8 @@ export function GlobalLoadingOverlay({ label }: { label: string }) {
 export function aiOverlayMessage(mode: string, t: (key: TranslationKey) => string) {
   if (mode.startsWith("batch-")) return t("aiMagicBatch");
   switch (mode) {
+    case "all":
+      return t("aiMagicAll");
     case "value":
       return t("aiMagicValue");
     case "drink-window":
@@ -209,6 +211,8 @@ export function aiOverlayMessage(mode: string, t: (key: TranslationKey) => strin
 export function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string) {
   if (mode.startsWith("batch-")) return t("aiMagicLabelBatch");
   switch (mode) {
+    case "all":
+      return t("aiMagicLabelAll");
     case "value":
       return t("aiMagicLabelValue");
     case "drink-window":

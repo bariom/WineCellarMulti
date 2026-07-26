@@ -91,6 +91,37 @@ def grape_composition_prompt(*, locale: str, wine_context: str) -> Prompt:
     )
 
 
+def wine_full_enrichment_prompt(
+    *,
+    locale: str,
+    currency_instruction: str,
+    currency: str,
+    wine_context: str,
+) -> Prompt:
+    return Prompt(
+        id="wine.full_enrichment",
+        version="1",
+        system=(
+            "You enrich one cellar wine in a single pass and return JSON only. "
+            "Complete practical cellar notes, a conservative drinking window, current market value, and exact grape composition. "
+            "Use live web search for current market listings and grape composition. "
+            "Never infer an exact blend from appellation rules or a typical regional blend: return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
+            "For value, use concrete listings for the exact wine and provide 3-8 verified market sources when possible. "
+            "Keep the drinking window realistic and internally ordered. "
+            "Write cellar notes in 3-5 practical sentences and do not invent exact facts. "
+            f"{currency_instruction} {language_instruction(locale)}"
+        ),
+        user=(
+            "Enrich this wine in one response.\n"
+            f"- Final current_value and value currency must be {currency}.\n"
+            "- Market sources must identify concrete merchants or marketplaces and exact product URLs.\n"
+            "- The grape source URL must support the exact producer and vintage; otherwise leave the grape composition empty.\n"
+            "- Keep all prose concise and useful to a cellar owner.\n\n"
+            f"{wine_context}"
+        ),
+    )
+
+
 def wine_scores_prompt(*, locale: str, wine_context: str) -> Prompt:
     return Prompt(
         id="wine.critic_scores",

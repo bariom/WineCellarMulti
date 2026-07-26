@@ -124,6 +124,7 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
 
 def test_reasoning_effort_follows_task_instead_of_model_role():
     assert reasoning_effort_for_request("gpt-5.6-luna", "drink_window") == "medium"
+    assert reasoning_effort_for_request("gpt-5.6-terra", "wine_full_enrichment") == "medium"
     assert reasoning_effort_for_request("gpt-5.6-sol", "grape_inference") == "low"
     assert reasoning_effort_for_request("gpt-5.6-sol", "pairing") == "medium"
     assert reasoning_effort_for_request("gpt-5.6-terra", "portfolio_strategy") == "high"

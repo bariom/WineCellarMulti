@@ -3811,6 +3811,97 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
     )
 
 
+def test_all_wine_ai_features_use_one_cost_optimized_request(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert (
+        client.patch(
+            "/api/v1/ai/settings",
+            json={"openai_api_key": "sk-test", "value_model": "gpt-5.5"},
+        ).status_code
+        == 200
+    )
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Tignanello",
+            "producer": "Antinori",
+            "vintage": "2021",
+            "quantity": 2,
+            "price": 120,
+            "currency": "CHF",
+            "region": "Tuscany",
+            "appellation": "Toscana IGT",
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    provider_calls = 0
+
+    def fake_create_response(*args, **kwargs):
+        nonlocal provider_calls
+        provider_calls += 1
+        assert args[0] == "gpt-5.5"
+        assert kwargs["task_type"] == "wine_full_enrichment"
+        assert kwargs["json_schema"]["name"] == "wine_full_enrichment"
+        assert kwargs["web_search"] is True
+        assert kwargs["web_search_context_size"] == "medium"
+        assert kwargs["max_tool_calls"] == 6
+        return OpenAIResponse(
+            text=(
+                '{"ai_notes":"Rosso strutturato e gastronomico, adatto alla cantina.",'
+                '"drink_window":{"drink_from":2026,"drink_peak_from":2028,"drink_peak_to":2038,"drink_to":2043,"notes":"Attendere ancora per il picco."},'
+                '"value":{"current_value":138,"currency":"CHF","notes":"Stima prudente su offerte correnti.",'
+                '"market_note":"Disponibilita discreta in Svizzera.",'
+                '"market_sources":[{"merchant":"Example Wine","country":"Switzerland","price":138,"currency":"CHF","url":"https://example.com/tignanello-market","note":"In stock"}]},'
+                '"grape_composition":{"grapes":[{"name":"Sangiovese","percentage_from":80,"percentage_to":80},'
+                '{"name":"Cabernet Sauvignon","percentage_from":15,"percentage_to":15},'
+                '{"name":"Cabernet Franc","percentage_from":5,"percentage_to":5}],'
+                '"notes":"Composizione verificata per il 2021.",'
+                '"source_url":"https://example.com/tignanello-2021-tech","source_title":"Tignanello 2021 technical sheet"}}'
+            ),
+            usage=TokenUsage(input_tokens=300, output_tokens=180, total_tokens=480),
+            web_sources=(
+                {"url": "https://example.com/tignanello-market", "title": "Tignanello market"},
+                {
+                    "url": "https://example.com/tignanello-2021-tech",
+                    "title": "Tignanello 2021 technical sheet",
+                },
+            ),
+            web_search_calls=2,
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+
+    generated = client.post(f"/api/v1/ai/wines/{wine_id}/all")
+    assert generated.status_code == 200
+    payload = generated.json()
+    assert provider_calls == 1
+    assert payload["current_value"] == "138.00"
+    assert payload["drink_from"] == 2026
+    assert payload["drink_peak_to"] == 2038
+    assert payload["ai_notes"].startswith("Rosso strutturato")
+    assert payload["grapes"][0]["name"] == "Sangiovese"
+    assert payload["grapes_source_url"] == "https://example.com/tignanello-2021-tech"
+
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    assert len(audit.json()) == 1
+    entry = audit.json()[0]
+    assert entry["feature"] == "wine_full_enrichment"
+    assert entry["model"] == "gpt-5.5"
+    assert entry["input_tokens"] == 300
+    assert any(source.get("kind") == "market_source" for source in entry["sources"])
+    assert any(source.get("kind") == "grape_source" for source in entry["sources"])
+
+    usage = client.get("/api/v1/ai/usage")
+    assert usage.status_code == 200
+    assert usage.json()["all_time"]["requests"] == 1
+    assert usage.json()["all_time"]["total_tokens"] == 480
+
+
 def test_ai_scores_respects_wine_exclusion_flag():
     client = TestClient(app)
     assert register(client).status_code == 201

@@ -342,6 +342,7 @@ hostname -I
 - `DELETE /api/v1/wishlist/{item_id}`
 - `POST /api/v1/imports/legacy-json`
 - `POST /api/v1/ai/wines/{wine_id}/notes`
+- `POST /api/v1/ai/wines/{wine_id}/all`
 - `POST /api/v1/ai/wines/{wine_id}/drink-window`
 - `POST /api/v1/ai/wines/{wine_id}/value`
 - `POST /api/v1/ai/wines/{wine_id}/grapes`
