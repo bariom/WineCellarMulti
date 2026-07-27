@@ -838,6 +838,17 @@ export function WineDetail({
   const currentYear = new Date().getFullYear();
   const currentYearInWindow = currentYear >= drinkStart && currentYear <= drinkEnd;
   const currentYearLeft = Math.min(Math.max(((currentYear - drinkStart) / span) * 100, 0), 100);
+  const peakCenter = Math.min(Math.max(peakLeft + Math.min(peakWidth, peakRightBound) / 2, 0), 100);
+  const arcHeightAt = (progress: number) => 122 - 88 * Math.sin((progress / 100) * Math.PI);
+  const currentArcTop = arcHeightAt(currentYearLeft);
+  const peakArcTop = arcHeightAt(peakCenter);
+  const maturityPhaseLabel = currentYear < drinkStart
+    ? t("youngWine")
+    : currentYear > drinkEnd
+      ? t("pastWindow")
+      : currentYear >= peakStart && currentYear <= peakEnd
+        ? t("idealWindow")
+        : t("youngWine");
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
@@ -939,27 +950,44 @@ export function WineDetail({
               <h3>{t("drinkingWindow")}</h3>
               <span>{drinkStart}-{drinkEnd}</span>
             </div>
-            <div className="window-track">
-              <span className="window-peak" style={{ left: `${peakLeft}%`, width: `${Math.min(peakWidth, peakRightBound)}%` }} />
-              {currentYearInWindow ? (
-                <span
-                  className="window-current-year"
-                  style={{ left: `${currentYearLeft}%` }}
-                  aria-label={`${t("currentYear")}: ${currentYear}`}
-                >
-                  <span>{currentYear}</span>
-                </span>
-              ) : null}
-            </div>
-            <div className="window-legend">
-              <span className="legend-young">{t("youngWine")}</span>
-              <span className="legend-ideal">{t("idealWindow")}</span>
-              <span className="legend-past">{t("pastWindow")}</span>
-            </div>
-            <div className="window-labels">
-              <span>{drinkStart}</span>
-              <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
-              <span>{drinkEnd}</span>
+            <div
+              className={`maturity-horizon${currentYearInWindow ? " is-active" : ""}`}
+              role="img"
+              aria-label={`${t("drinkingWindow")}: ${drinkStart}–${drinkEnd}. ${t("peakLabel")}: ${peakStart}–${peakEnd}. ${t("currentYear")}: ${currentYear}, ${maturityPhaseLabel}.`}
+              style={{
+                "--peak-left": `${peakLeft}%`,
+                "--peak-width": `${Math.min(peakWidth, peakRightBound)}%`,
+                "--current-left": `${currentYearLeft}%`,
+                "--current-top": `${(currentArcTop / 170) * 100}%`,
+                "--peak-center": `${peakCenter}%`,
+                "--peak-top": `${(peakArcTop / 170) * 100}%`,
+              } as CSSProperties}
+            >
+              <div className="maturity-horizon-status">
+                <span>{maturityPhaseLabel}</span>
+                <strong>{currentYear}</strong>
+              </div>
+              <div className="maturity-horizon-peak-zone" aria-hidden="true" />
+              <svg className="maturity-horizon-curve" viewBox="0 0 520 170" preserveAspectRatio="none" aria-hidden="true">
+                <defs>
+                  <linearGradient id={`maturity-curve-${wine.id}`} x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="var(--drink-young)" />
+                    <stop offset={`${peakLeft}%`} stopColor="var(--drink-young)" />
+                    <stop offset={`${Math.min(peakLeft + Math.min(peakWidth, peakRightBound) / 2, 100)}%`} stopColor="var(--drink-ideal)" />
+                    <stop offset={`${Math.min(peakLeft + Math.min(peakWidth, peakRightBound), 100)}%`} stopColor="var(--drink-ideal)" />
+                    <stop offset="100%" stopColor="var(--drink-past)" />
+                  </linearGradient>
+                </defs>
+                <path className="maturity-horizon-shadow" d="M18 122 C100 116 136 28 260 25 C384 28 420 116 502 122" />
+                <path className="maturity-horizon-line" d="M18 122 C100 116 136 28 260 25 C384 28 420 116 502 122" stroke={`url(#maturity-curve-${wine.id})`} />
+              </svg>
+              <span className="maturity-horizon-peak" aria-hidden="true"><i /></span>
+              <span className="maturity-horizon-current" aria-hidden="true"><i /></span>
+              <div className="maturity-horizon-years" aria-hidden="true">
+                <span>{drinkStart}</span>
+                <span>{t("peakLabel")} {peakStart}-{peakEnd}</span>
+                <span>{drinkEnd}</span>
+              </div>
             </div>
             {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
           </div>

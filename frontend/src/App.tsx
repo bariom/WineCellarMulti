@@ -1,6 +1,7 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
+import { MaturityPanorama } from "./components/MaturityPanorama";
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
@@ -4748,6 +4749,35 @@ export function App() {
     }),
   })).filter((row) => row.cells.some((cell) => cell.count > 0));
   const maxMaturityHeatmapBottles = Math.max(...maturityHeatmapRows.flatMap((row) => row.cells.map((cell) => cell.bottles)), 1);
+  const maturityPanoramaYears = Array.from({ length: 13 }, (_, index) => currentYear - 2 + index);
+  const maturityPanoramaWines = cellarWines.filter((wine) => Boolean(wine.drink_from && wine.drink_to));
+  const maturityPanoramaPoints = maturityPanoramaYears.map((year) => {
+    const phases = { past: 0, peak: 0, ready: 0, approaching: 0, young: 0 };
+    maturityPanoramaWines.forEach((wine) => {
+      const bottles = Math.max(Number(wine.quantity || 0), 0);
+      const drinkStart = wine.drink_from || 0;
+      const drinkEnd = wine.drink_to || drinkStart;
+      const peakStart = wine.drink_peak_from || drinkStart;
+      const peakEnd = wine.drink_peak_to || drinkEnd;
+      if (year < drinkStart) phases.young += bottles;
+      else if (year < peakStart) phases.approaching += bottles;
+      else if (year <= peakEnd) phases.peak += bottles;
+      else if (year <= drinkEnd) phases.ready += bottles;
+      else phases.past += bottles;
+    });
+    return { year, ...phases };
+  });
+  const maturityPanoramaCurrent = maturityPanoramaPoints.find((point) => point.year === currentYear) || maturityPanoramaPoints[0];
+  const maturityPanoramaSummary = {
+    mapped: maturityPanoramaWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0),
+    readyNow: (maturityPanoramaCurrent?.ready || 0) + (maturityPanoramaCurrent?.peak || 0),
+    peakSoon: maturityPanoramaWines.filter((wine) => {
+      const peakStart = wine.drink_peak_from || wine.drink_from || 0;
+      return peakStart > currentYear && peakStart <= currentYear + 2;
+    }).reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0),
+    waiting: (maturityPanoramaCurrent?.young || 0) + (maturityPanoramaCurrent?.approaching || 0),
+    past: maturityPanoramaCurrent?.past || 0,
+  };
   const bottlePriceSamples = activeWineCollection
     .map((wine) => Number(wine.price || 0))
     .filter((price) => Number.isFinite(price) && price > 0);
@@ -6526,6 +6556,13 @@ export function App() {
           ) : null}
         </div>
         <p className="maturity-heatmap-help">{t("maturityHeatmapHelp")}</p>
+        <MaturityPanorama
+          points={maturityPanoramaPoints}
+          currentYear={currentYear}
+          summary={maturityPanoramaSummary}
+          t={t}
+          locale={locale}
+        />
         {maturityFilter ? (
           <div className="maturity-filter-pill">
             <span>{t("maturityFilter")}</span>

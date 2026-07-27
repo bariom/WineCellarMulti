@@ -9904,7 +9904,6 @@ button.stat-card:hover {
 }
 
 .detail-title span,
-.window-labels,
 .drink-window p,
 .detail-section li span,
 .detail-note p {
@@ -11744,110 +11743,130 @@ button.stat-card:hover {
   margin-bottom: 10px;
 }
 
-.window-track {
+.maturity-horizon {
   position: relative;
-  height: 18px;
-  overflow: visible;
-  border-radius: 999px;
+  min-height: 184px;
+  margin-top: 8px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  border-radius: 16px;
   background:
-    linear-gradient(
-      90deg,
-      color-mix(in srgb, var(--drink-young) 78%, var(--surface)) 0%,
-      color-mix(in srgb, var(--drink-young) 48%, var(--surface)) 45%,
-      color-mix(in srgb, var(--drink-past) 42%, var(--surface)) 100%
-    );
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 75%, transparent);
-  margin-top: 18px;
-}
-
-.window-peak {
-  position: absolute;
-  top: -2px;
-  bottom: -2px;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--drink-ideal), color-mix(in srgb, var(--drink-ideal) 66%, var(--accent)));
+    radial-gradient(circle at var(--peak-center) 36%, color-mix(in srgb, var(--drink-ideal) 23%, transparent) 0 4%, transparent 18%),
+    linear-gradient(145deg, color-mix(in srgb, var(--surface-raised) 92%, var(--drink-young) 8%), var(--surface) 58%, color-mix(in srgb, var(--surface-muted) 86%, var(--drink-past) 14%));
   box-shadow:
-    0 0 0 3px var(--surface),
-    0 8px 20px color-mix(in srgb, var(--drink-ideal) 28%, transparent);
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 72%, transparent),
+    0 14px 30px color-mix(in srgb, var(--collector-depth) 22%, transparent);
 }
 
-.window-current-year {
+.maturity-horizon-status {
   position: absolute;
-  top: -10px;
-  bottom: -5px;
-  z-index: 2;
-  width: 2px;
-  border-radius: 999px;
-  background: var(--text);
-  box-shadow: 0 0 0 3px var(--surface);
-  transform: translateX(-50%);
+  z-index: 3;
+  top: 14px;
+  left: 16px;
+  display: grid;
+  gap: 1px;
 }
 
-.window-current-year::after {
-  position: absolute;
-  left: 50%;
-  top: 8px;
-  width: 8px;
-  height: 8px;
-  border: 2px solid var(--surface);
-  border-radius: 999px;
-  background: var(--text);
-  content: "";
-  transform: translateX(-50%);
-}
-
-.window-current-year span {
-  position: absolute;
-  left: 50%;
-  top: -21px;
-  color: var(--text);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.03em;
-  line-height: 1;
-  transform: translateX(-50%);
-  white-space: nowrap;
-}
-
-.window-labels {
-  display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  font-size: 0.8rem;
-}
-
-.window-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.window-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.maturity-horizon-status span {
   color: var(--text-muted);
-  font-size: 0.76rem;
-  font-weight: 800;
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
-.window-legend span::before {
-  width: 10px;
-  height: 10px;
+.maturity-horizon-status strong {
+  color: var(--text);
+  font-size: clamp(1.45rem, 3vw, 2.2rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.06em;
+  line-height: 0.9;
+}
+
+.maturity-horizon-peak-zone {
+  position: absolute;
+  z-index: 1;
+  top: 22px;
+  bottom: 28px;
+  left: var(--peak-left);
+  width: var(--peak-width);
+  min-width: 14px;
+  border-right: 1px solid color-mix(in srgb, var(--drink-ideal) 72%, transparent);
+  border-left: 1px solid color-mix(in srgb, var(--drink-ideal) 72%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--drink-ideal) 8%, transparent), color-mix(in srgb, var(--drink-ideal) 28%, transparent), color-mix(in srgb, var(--drink-ideal) 8%, transparent));
+  box-shadow: 0 0 26px color-mix(in srgb, var(--drink-ideal) 32%, transparent);
+}
+
+.maturity-horizon-curve {
+  position: absolute;
+  z-index: 2;
+  inset: 18px 8px 20px;
+  width: calc(100% - 16px);
+  height: calc(100% - 38px);
+  overflow: visible;
+}
+
+.maturity-horizon-shadow {
+  fill: none;
+  stroke: color-mix(in srgb, var(--collector-depth) 34%, transparent);
+  stroke-linecap: round;
+  stroke-width: 12;
+}
+
+.maturity-horizon-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-width: 5;
+  filter: drop-shadow(0 5px 7px color-mix(in srgb, var(--collector-depth) 34%, transparent));
+}
+
+.maturity-horizon-peak,
+.maturity-horizon-current {
+  position: absolute;
+  z-index: 4;
+  display: grid;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
-  content: "";
+  place-items: center;
+  transform: translate(-50%, -50%);
 }
 
-.legend-young::before {
-  background: var(--drink-young);
-}
-
-.legend-ideal::before {
+.maturity-horizon-peak {
+  top: var(--peak-top);
+  left: var(--peak-center);
+  border: 3px solid var(--surface);
   background: var(--drink-ideal);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--drink-ideal) 20%, transparent), 0 0 24px color-mix(in srgb, var(--drink-ideal) 78%, transparent);
 }
 
-.legend-past::before {
-  background: var(--drink-past);
+.maturity-horizon-current {
+  top: var(--current-top);
+  left: var(--current-left);
+  border: 3px solid var(--surface);
+  background: var(--text);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--surface) 52%, transparent), 0 6px 14px color-mix(in srgb, var(--collector-depth) 46%, transparent);
+}
+
+.maturity-horizon-years {
+  position: absolute;
+  z-index: 3;
+  right: 14px;
+  bottom: 9px;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+}
+
+.maturity-horizon-years span:nth-child(2) {
+  color: color-mix(in srgb, var(--drink-ideal) 76%, var(--text));
+  text-align: center;
 }
 
 .detail-section ul {
@@ -11940,7 +11959,6 @@ button.stat-card:hover {
 .wine-row p,
 .empty-state,
 .detail-title span,
-.window-labels,
 .drink-window p,
 .detail-section li span,
 .detail-note p,
@@ -14101,13 +14119,6 @@ button:hover {
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--surface-raised) 78%, transparent), color-mix(in srgb, var(--surface-muted) 88%, transparent));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 65%, transparent);
-}
-
-.mini-track,
-.window-track {
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--border-strong) 78%, transparent),
-    inset 0 5px 10px rgba(0, 0, 0, 0.14);
 }
 
 .wine-detail {
