@@ -922,6 +922,38 @@ export function WineDetail({
             </button>
           </div>
           {generating ? <LoadingState label={t("generating")} compact /> : null}
+          <div className="detail-preference-bar detail-ai-preference-bar">
+            <label className="detail-toggle-row">
+              <input
+                type="checkbox"
+                checked={wine.value_not_found}
+                disabled={!canWrite || saving}
+                onChange={(event) => onToggleValueAiExclusion(event.target.checked)}
+              />
+              <span>{t("excludeFromAiValue")}</span>
+            </label>
+            <label className="detail-toggle-row">
+              <input
+                type="checkbox"
+                checked={wine.grapes_not_applicable}
+                disabled={!canWrite || saving}
+                onChange={(event) => onToggleGrapesAiExclusion(event.target.checked)}
+              />
+              <span>{t("excludeFromAiGrapes")}</span>
+            </label>
+            <label className="detail-toggle-row">
+              <input
+                type="checkbox"
+                checked={wine.scores_not_applicable}
+                disabled={!canWrite || saving}
+                onChange={(event) => onToggleScoresAiExclusion(event.target.checked)}
+              />
+              <span>{t("excludeFromAiScores")}</span>
+            </label>
+            {wine.value_not_found ? <small>{t("excludedFromAiValue")}</small> : null}
+            {wine.grapes_not_applicable ? <small>{t("excludedFromAiGrapes")}</small> : null}
+            {wine.scores_not_applicable ? <small>{t("excludedFromAiScores")}</small> : null}
+          </div>
         </details>
 
         <div className="detail-hero-metrics">
@@ -934,47 +966,6 @@ export function WineDetail({
             <strong>{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</strong>
           </div>
       </div>
-
-      {wine.value_not_found || !wine.current_value || wine.grapes_not_applicable || wine.grapes.length === 0 || wine.scores.length === 0 ? (
-        <div className="detail-preference-bar">
-          {wine.value_not_found || !wine.current_value ? (
-            <label className="detail-toggle-row">
-              <input
-                type="checkbox"
-                checked={wine.value_not_found}
-                disabled={!canWrite || saving}
-                onChange={(event) => onToggleValueAiExclusion(event.target.checked)}
-              />
-              <span>{t("excludeFromAiValue")}</span>
-            </label>
-          ) : null}
-          {wine.grapes_not_applicable || wine.grapes.length === 0 ? (
-            <label className="detail-toggle-row">
-              <input
-                type="checkbox"
-                checked={wine.grapes_not_applicable}
-                disabled={!canWrite || saving}
-                onChange={(event) => onToggleGrapesAiExclusion(event.target.checked)}
-              />
-              <span>{t("excludeFromAiGrapes")}</span>
-            </label>
-          ) : null}
-          {wine.scores.length === 0 ? (
-            <label className="detail-toggle-row">
-              <input
-                type="checkbox"
-                checked={wine.scores_not_applicable}
-                disabled={!canWrite || saving}
-                onChange={(event) => onToggleScoresAiExclusion(event.target.checked)}
-              />
-              <span>{t("excludeFromAiScores")}</span>
-            </label>
-          ) : null}
-          {wine.value_not_found ? <small>{t("excludedFromAiValue")}</small> : null}
-          {wine.grapes_not_applicable ? <small>{t("excludedFromAiGrapes")}</small> : null}
-          {wine.scores_not_applicable ? <small>{t("excludedFromAiScores")}</small> : null}
-        </div>
-      ) : null}
 
       {(wine.drink_from || wine.drink_to) ? (
           <div className="drink-window detail-hero-window">

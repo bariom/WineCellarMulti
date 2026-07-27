@@ -4398,6 +4398,10 @@ textarea {
   color: var(--text-muted);
 }
 
+.detail-ai-preference-bar {
+  margin-top: 12px;
+}
+
 .ownership-edit-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
