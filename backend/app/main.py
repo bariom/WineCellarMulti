@@ -10,7 +10,7 @@ from sqlalchemy import select
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.security import hash_session_token
-from app.db.session import SessionLocal
+from app.db.session import SessionLocal, get_db
 from app.models import UserActivityLog, UserSession
 from app.services.bottle_photo_ai import BottlePhotoAiUnavailable, warm_bottle_photo_model
 from app.services.request_metrics import request_metrics
@@ -88,7 +88,9 @@ def save_user_activity(request: Request, action: str) -> None:
     session_token = request.cookies.get(settings.session_cookie_name)
     if not session_token:
         return
-    db = SessionLocal()
+    override = request.app.dependency_overrides.get(get_db)
+    db_generator = override() if override is not None else None
+    db = next(db_generator) if db_generator is not None else SessionLocal()
     try:
         user_session = db.scalar(
             select(UserSession).where(UserSession.token_hash == hash_session_token(session_token))
@@ -104,7 +106,10 @@ def save_user_activity(request: Request, action: str) -> None:
         )
         db.commit()
     finally:
-        db.close()
+        if db_generator is not None:
+            db_generator.close()
+        else:
+            db.close()
 
 
 @app.middleware("http")
