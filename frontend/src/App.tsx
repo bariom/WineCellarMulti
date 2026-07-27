@@ -40,6 +40,13 @@ type AiModelAdviceState = {
   resolve: (model: string | null) => void;
 };
 
+type BatchAiRunSummary = {
+  feature: WineAiFeature;
+  total: number;
+  succeeded: number;
+  failures: Array<{ wine: Wine; reason: string }>;
+};
+
 function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentModel: string) {
   const roleHints: Record<AiModelAdviceRole, string[]> = {
     economy: ["luna", "5.4-mini", "5.4-nano"],
@@ -1133,6 +1140,7 @@ export function App() {
   const regionalGapChartRef = useRef<HTMLDivElement | null>(null);
   useChartReveal(regionalGapChartRef);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
+  const [batchAiRunSummary, setBatchAiRunSummary] = useState<BatchAiRunSummary | null>(null);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
   const [aiAuditDateTo, setAiAuditDateTo] = useState("");
@@ -4165,17 +4173,27 @@ export function App() {
     if (!model) return;
     setGeneratingAi(`batch-${feature}`);
     setError("");
-      try {
-        for (const [index, wine] of generationItems.entries()) {
-          setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: generationItems.length });
+    setBatchAiRunSummary(null);
+    const failures: BatchAiRunSummary["failures"] = [];
+    let succeeded = 0;
+    try {
+      for (const [index, wine] of generationItems.entries()) {
+        setAiOverlayProgress({ itemName: wineProgressName(wine), current: index + 1, total: generationItems.length });
+        try {
           const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
-          method: "POST",
-          body: JSON.stringify({ locale, model }),
-        });
-        setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
-        setSelectedWineId(updated.id);
+            method: "POST",
+            body: JSON.stringify({ locale, model }),
+          });
+          setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+          setSelectedWineId(updated.id);
+          succeeded += 1;
+        } catch (nextError) {
+          const message = nextError instanceof Error ? extractApiErrorText(nextError.message) : "";
+          failures.push({ wine, reason: message || t("unknownError") });
         }
-        await Promise.all([loadAiAudit(), loadAiUsage()]);
+      }
+      await Promise.all([loadAiAudit(), loadAiUsage()]).catch(() => undefined);
+      setBatchAiRunSummary({ feature, total: generationItems.length, succeeded, failures });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
@@ -12126,6 +12144,42 @@ export function App() {
             <div className="ai-model-advisor-actions">
               <button type="button" onClick={() => closeAiModelAdvice(aiModelAdvice.selectedModel)}>{t("continue")}</button>
             </div>
+          </section>
+        </div>
+      ) : null}
+      {batchAiRunSummary ? (
+        <div className="auth-modal-overlay batch-ai-summary-overlay" onClick={() => setBatchAiRunSummary(null)}>
+          <section className="auth-modal-card batch-ai-summary-modal" role="dialog" aria-modal="true" aria-labelledby="batch-ai-summary-title" onClick={(event) => event.stopPropagation()}>
+            <div className="auth-modal-head">
+              <div>
+                <span>{t("batchAiCompleted")}</span>
+                <h2 id="batch-ai-summary-title">{wineFeatureModelAdvice(batchAiRunSummary.feature).label}</h2>
+              </div>
+              <button type="button" className="secondary compact" onClick={() => setBatchAiRunSummary(null)}>{t("close")}</button>
+            </div>
+            <div className="batch-ai-summary-stats">
+              <div>
+                <span>{t("batchAiSucceeded")}</span>
+                <strong>{batchAiRunSummary.succeeded}/{batchAiRunSummary.total}</strong>
+              </div>
+              <div className={batchAiRunSummary.failures.length ? "has-failures" : ""}>
+                <span>{t("batchAiFailed")}</span>
+                <strong>{batchAiRunSummary.failures.length}</strong>
+              </div>
+            </div>
+            {batchAiRunSummary.failures.length ? (
+              <div className="batch-ai-failure-list">
+                {batchAiRunSummary.failures.map(({ wine, reason }) => (
+                  <article key={wine.id}>
+                    <div>
+                      <strong>{wine.name}</strong>
+                      <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+                    </div>
+                    <p>{reason}</p>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="batch-ai-summary-success">{t("batchAiNoFailures")}</p>}
           </section>
         </div>
       ) : null}

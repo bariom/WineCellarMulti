@@ -16858,6 +16858,90 @@ tbody tr:hover {
   padding-bottom: 22px;
 }
 
+.batch-ai-summary-overlay {
+  z-index: 1250;
+}
+
+.batch-ai-summary-modal {
+  --modal-max-width: 620px;
+  gap: 18px;
+  overflow: hidden;
+}
+
+.batch-ai-summary-modal > :not(.auth-modal-head) {
+  margin-inline: 22px;
+}
+
+.batch-ai-summary-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.batch-ai-summary-stats > div {
+  display: grid;
+  gap: 4px;
+  padding: 14px;
+  border: 1px solid var(--vinaris-hairline);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.batch-ai-summary-stats > div.has-failures {
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--border));
+  background: color-mix(in srgb, var(--danger) 8%, var(--surface));
+}
+
+.batch-ai-summary-stats span,
+.batch-ai-failure-list span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+}
+
+.batch-ai-summary-stats strong {
+  color: var(--text);
+  font-size: 1.35rem;
+}
+
+.batch-ai-failure-list {
+  display: grid;
+  gap: 8px;
+  max-height: min(46vh, 360px);
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.batch-ai-failure-list article {
+  display: grid;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--danger) 30%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
+}
+
+.batch-ai-failure-list article > div {
+  display: grid;
+  gap: 2px;
+}
+
+.batch-ai-failure-list strong,
+.batch-ai-failure-list p {
+  margin: 0;
+}
+
+.batch-ai-failure-list p,
+.batch-ai-summary-success {
+  color: var(--text-soft);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
+.batch-ai-summary-success {
+  margin-block: 0 22px;
+}
+
 @media (max-width: 820px) {
   body {
     font-size: 14px;
@@ -16890,6 +16974,10 @@ tbody tr:hover {
   }
 
   .ai-model-advisor-modal > :not(.auth-modal-head) {
+    margin-inline: 16px;
+  }
+
+  .batch-ai-summary-modal > :not(.auth-modal-head) {
     margin-inline: 16px;
   }
 
