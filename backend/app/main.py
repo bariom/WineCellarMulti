@@ -65,11 +65,52 @@ def user_activity_action(method: str, path: str) -> str | None:
         return None
     if path.startswith("/api/v1/admin/") or path.startswith("/api/v1/monitoring"):
         return None
+    if path.startswith("/api/v1/ai/wines/"):
+        if path.endswith("/all"):
+            return "ai_wine_complete"
+        if path.endswith("/value"):
+            return "ai_wine_value"
+        if path.endswith("/grapes"):
+            return "ai_wine_grapes"
+        if path.endswith("/notes"):
+            return "ai_wine_notes"
+        if path.endswith("/drink-window"):
+            return "ai_wine_drink_window"
+        if path.endswith("/scores"):
+            return "ai_wine_scores"
+    if path == "/api/v1/ai/compare-wines":
+        return "ai_wine_comparison"
+    if path == "/api/v1/ai/pairing":
+        return "ai_pairing"
+    if path == "/api/v1/ai/buying-advice":
+        return "ai_buying_advice"
+    if path == "/api/v1/ai/wine-label/enrich":
+        return "ai_label_enrichment"
     if path.startswith("/api/v1/ai/"):
         return "ai_generation"
     if path.startswith("/api/v1/wines"):
-        return "wine_updated" if method in {"PUT", "PATCH"} else "wine_action"
+        if path.endswith("/consume"):
+            return "wine_consumed"
+        if "/tastings/" in path:
+            return "tasting_updated" if method == "PATCH" else "tasting_deleted"
+        if "/photo" in path:
+            return "wine_photo_removed" if method == "DELETE" else "wine_photo_updated"
+        if path == "/api/v1/wines" and method == "POST":
+            return "wine_created"
+        if method == "DELETE":
+            return "wine_deleted"
+        if method in {"PUT", "PATCH"}:
+            return "wine_updated"
+        return "wine_action"
     if path.startswith("/api/v1/wishlist"):
+        if path.endswith("/convert"):
+            return "wishlist_item_converted"
+        if path == "/api/v1/wishlist" and method == "POST":
+            return "wishlist_item_created"
+        if method == "DELETE":
+            return "wishlist_item_deleted"
+        if method == "PATCH":
+            return "wishlist_item_updated"
         return "wishlist_action"
     if path.startswith("/api/v1/household"):
         return "household_action"
