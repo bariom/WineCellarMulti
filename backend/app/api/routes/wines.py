@@ -242,6 +242,7 @@ def wine_response(
         currency=wine.currency,
         price=wine.price,
         current_value=wine.current_value,
+        value_not_found=wine.value_not_found,
         status=wine.status,
         format=wine.format,
         type=wine.type,
@@ -437,6 +438,7 @@ def wine_copy_for_recipient(
         currency=source.currency,
         price=source.price,
         current_value=source.current_value,
+        value_not_found=source.value_not_found,
         status=source.status,
         format=source.format,
         type=source.type,
@@ -1031,6 +1033,8 @@ def create_wine(
     data["type"] = normalize_wine_type(data.get("type"))
     if data.get("scores"):
         data["scores_not_applicable"] = False
+    if data.get("current_value") is not None:
+        data["value_not_found"] = False
     wine = Wine(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -1328,6 +1332,8 @@ def update_wine(
         data["type"] = normalize_wine_type(data.get("type"))
     if data.get("scores"):
         data["scores_not_applicable"] = False
+    if data.get("current_value") is not None:
+        data["value_not_found"] = False
     old_value = wine.current_value
     old_currency = wine.currency
     for field, value in data.items():

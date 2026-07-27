@@ -16892,6 +16892,11 @@ tbody tr:hover {
   background: color-mix(in srgb, var(--danger) 8%, var(--surface));
 }
 
+.batch-ai-summary-stats > div.has-no-results {
+  border-color: color-mix(in srgb, var(--vinaris-ai) 40%, var(--border));
+  background: color-mix(in srgb, var(--vinaris-ai-surface) 72%, var(--surface));
+}
+
 .batch-ai-summary-stats span,
 .batch-ai-failure-list span {
   color: var(--text-muted);
@@ -16910,6 +16915,33 @@ tbody tr:hover {
   max-height: min(46vh, 360px);
   overflow: auto;
   padding-right: 4px;
+}
+
+.batch-ai-no-result-list {
+  display: grid;
+  gap: 8px;
+}
+
+.batch-ai-no-result-list > p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.batch-ai-no-result-list article {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--vinaris-ai) 28%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--vinaris-ai-surface) 48%, var(--surface));
+}
+
+.batch-ai-no-result-list span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
 }
 
 .batch-ai-failure-list article {

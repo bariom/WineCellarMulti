@@ -41,6 +41,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     currency: rawString(raw.currency, "CHF"),
     price: rawString(raw.price, "0"),
     current_value: raw.current_value === null || raw.current_value === undefined ? null : rawString(raw.current_value),
+    value_not_found: Boolean(raw.value_not_found),
     status: rawString(raw.status, "Delivered"),
     format: rawString(raw.format),
     type: normalizeWineType(rawString(raw.type)),

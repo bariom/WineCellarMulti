@@ -44,6 +44,7 @@ type BatchAiRunSummary = {
   feature: WineAiFeature;
   total: number;
   succeeded: number;
+  noResults: Wine[];
   failures: Array<{ wine: Wine; reason: string }>;
 };
 
@@ -4031,7 +4032,11 @@ export function App() {
         }
       }
     } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
+      const message = nextError instanceof Error ? extractApiErrorText(nextError.message) : "";
+      if (feature === "value" && message.toLowerCase().includes("no verified live market price sources found")) {
+        setWines((current) => current.map((item) => (item.id === wine.id ? { ...item, value_not_found: true } : item)));
+      }
+      setError(message || "Unable to generate AI content");
     } finally {
       setGeneratingAi("");
       setAiOverlayProgress(null);
@@ -4178,6 +4183,7 @@ export function App() {
     setError("");
     setBatchAiRunSummary(null);
     const failures: BatchAiRunSummary["failures"] = [];
+    const noResults: Wine[] = [];
     let succeeded = 0;
     try {
       for (const [index, wine] of generationItems.entries()) {
@@ -4192,11 +4198,16 @@ export function App() {
           succeeded += 1;
         } catch (nextError) {
           const message = nextError instanceof Error ? extractApiErrorText(nextError.message) : "";
-          failures.push({ wine, reason: message || t("unknownError") });
+          if (feature === "value" && message.toLowerCase().includes("no verified live market price sources found")) {
+            noResults.push(wine);
+            setWines((current) => current.map((item) => (item.id === wine.id ? { ...item, value_not_found: true } : item)));
+          } else {
+            failures.push({ wine, reason: message || t("unknownError") });
+          }
         }
       }
       await Promise.all([loadAiAudit(), loadAiUsage()]).catch(() => undefined);
-      setBatchAiRunSummary({ feature, total: generationItems.length, succeeded, failures });
+      setBatchAiRunSummary({ feature, total: generationItems.length, succeeded, noResults, failures });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate AI content");
     } finally {
@@ -5045,7 +5056,7 @@ export function App() {
       .map((wine) => (isFutureDeliveryWine(wine, now) ? { wine, days: daysUntil(wine.expected_delivery || "") } : null))
       .filter((item): item is { wine: Wine; days: number } => Boolean(item && item.days !== null && item.days >= 0))
       .sort((first, second) => first.days - second.days)[0],
-    missingValue: cellarWines.filter((wine) => !wine.current_value).length,
+    missingValue: cellarWines.filter((wine) => !wine.current_value && !wine.value_not_found).length,
     missingDrinkWindow: cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to)).length,
     missingGrapes: cellarWines.filter((wine) => wine.grapes.length === 0).length,
     missingScores: cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable).length,
@@ -5592,8 +5603,8 @@ export function App() {
     setActiveKeyPositionIndex(nextIndex);
   }
 
-  const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value);
-  const allValueRefreshWines = cellarWines.filter((wine) => needsValueRefresh(wine, valueRefreshDaysNumber, now));
+  const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value && !wine.value_not_found);
+  const allValueRefreshWines = cellarWines.filter((wine) => !wine.value_not_found && needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
   const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0);
   const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable);
@@ -12165,11 +12176,26 @@ export function App() {
                 <span>{t("batchAiSucceeded")}</span>
                 <strong>{batchAiRunSummary.succeeded}/{batchAiRunSummary.total}</strong>
               </div>
+              <div className={batchAiRunSummary.noResults.length ? "has-no-results" : ""}>
+                <span>{t("batchAiNoResult")}</span>
+                <strong>{batchAiRunSummary.noResults.length}</strong>
+              </div>
               <div className={batchAiRunSummary.failures.length ? "has-failures" : ""}>
                 <span>{t("batchAiFailed")}</span>
                 <strong>{batchAiRunSummary.failures.length}</strong>
               </div>
             </div>
+            {batchAiRunSummary.noResults.length ? (
+              <div className="batch-ai-no-result-list">
+                <p>{t("batchAiNoResultHint")}</p>
+                {batchAiRunSummary.noResults.map((wine) => (
+                  <article key={wine.id}>
+                    <strong>{wine.name}</strong>
+                    <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
+                  </article>
+                ))}
+              </div>
+            ) : null}
             {batchAiRunSummary.failures.length ? (
               <div className="batch-ai-failure-list">
                 {batchAiRunSummary.failures.map(({ wine, reason }) => (
@@ -12182,7 +12208,7 @@ export function App() {
                   </article>
                 ))}
               </div>
-            ) : <p className="batch-ai-summary-success">{t("batchAiNoFailures")}</p>}
+            ) : batchAiRunSummary.noResults.length ? null : <p className="batch-ai-summary-success">{t("batchAiNoFailures")}</p>}
           </section>
         </div>
       ) : null}

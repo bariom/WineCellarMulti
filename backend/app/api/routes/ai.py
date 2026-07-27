@@ -1671,6 +1671,8 @@ def generate_all_wine_ai(
         require_url=True,
     )
     if not market_sources:
+        wine.value_not_found = True
+        db.commit()
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
 
     grapes = grape_result.get("grapes", [])
@@ -1699,6 +1701,7 @@ def generate_all_wine_ai(
     wine.drink_to = drink_to
     wine.drink_window_notes = str(drink_window.get("notes") or "")[:2000]
     wine.current_value = max(current_value, Decimal("0"))
+    wine.value_not_found = False
     wine.currency = result_currency
     wine.ai_value_notes = str(value_result.get("notes") or "")[:2000]
     wine.ai_value_estimated_at = datetime.now(UTC)
@@ -1961,8 +1964,11 @@ def generate_wine_value(
     result_currency = str(result.get("currency") or wine.currency)[:8]
     market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
     if not market_sources:
+        wine.value_not_found = True
+        db.commit()
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
     wine.current_value = max(value, Decimal("0"))
+    wine.value_not_found = False
     wine.currency = result_currency
     wine.ai_value_notes = str(result["notes"])[:2000]
     wine.ai_value_estimated_at = datetime.now(UTC)

@@ -28,6 +28,7 @@ class Wine(Base):
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
     current_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    value_not_found: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(32), default="Ordered")
     format: Mapped[str] = mapped_column(String(80), default="")
     type: Mapped[str] = mapped_column(String(80), default="")

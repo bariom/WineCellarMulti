@@ -30,6 +30,7 @@ export type Wine = {
   currency: string;
   price: string;
   current_value: string | null;
+  value_not_found: boolean;
   status: string;
   format: string;
   type: string;

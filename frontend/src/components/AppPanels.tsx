@@ -750,6 +750,7 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     currency: "CHF",
     price: "0",
     current_value: null,
+    value_not_found: false,
     status: item.wine_status,
     format: item.wine_format,
     type: item.wine_type,
