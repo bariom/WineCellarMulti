@@ -1,7 +1,6 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
-import { MaturityPanorama } from "./components/MaturityPanorama";
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
@@ -69,6 +68,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
@@ -285,6 +285,7 @@ function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: Transl
 }
 
 const TASTING_ARCHIVE_PAGE_SIZE = 50;
+const WINE_TONE_PAGE_SIZE = 40;
 const OPERATIONAL_ACTION_SNOOZE_DAYS = 14;
 const OPERATIONAL_ACTION_SNOOZE_STORAGE_KEY = "vinaris.operationalActionSnoozes.v1";
 
@@ -1248,6 +1249,14 @@ export function App() {
     rose: false,
     sweet: false,
     other: false,
+  });
+  const [wineToneRenderLimits, setWineToneRenderLimits] = useState<Record<WineTone, number>>({
+    red: WINE_TONE_PAGE_SIZE,
+    white: WINE_TONE_PAGE_SIZE,
+    sparkling: WINE_TONE_PAGE_SIZE,
+    rose: WINE_TONE_PAGE_SIZE,
+    sweet: WINE_TONE_PAGE_SIZE,
+    other: WINE_TONE_PAGE_SIZE,
   });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [activeView, setActiveView] = useState<ViewName>("home");
@@ -4986,6 +4995,29 @@ export function App() {
   const filteredWineBottleCount = filteredWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
 
   useEffect(() => {
+    setWineToneRenderLimits({
+      red: WINE_TONE_PAGE_SIZE,
+      white: WINE_TONE_PAGE_SIZE,
+      sparkling: WINE_TONE_PAGE_SIZE,
+      rose: WINE_TONE_PAGE_SIZE,
+      sweet: WINE_TONE_PAGE_SIZE,
+      other: WINE_TONE_PAGE_SIZE,
+    });
+  }, [activeView, historySection, searchQuery, typeFilter, statusFilter, ownershipFilter, quickWineFilter, maturityFilter, tagFilter, grapeFilter, sortMode]);
+
+  useEffect(() => {
+    if (!selectedWineId || !isWineCollectionView) return;
+    const selectedIndex = filteredWines.findIndex((wine) => wine.id === selectedWineId);
+    if (selectedIndex < 0) return;
+    const tone = wineTone(filteredWines[selectedIndex].type);
+    const toneIndex = groupedFilteredWines.find((group) => group.tone === tone)?.items.findIndex((wine) => wine.id === selectedWineId) ?? -1;
+    if (toneIndex < 0) return;
+    setWineToneRenderLimits((current) => current[tone] > toneIndex
+      ? current
+      : { ...current, [tone]: Math.ceil((toneIndex + 1) / WINE_TONE_PAGE_SIZE) * WINE_TONE_PAGE_SIZE });
+  }, [filteredWines, groupedFilteredWines, isWineCollectionView, selectedWineId]);
+
+  useEffect(() => {
     setCompareWineIds((current) => current.filter((wineId) => wines.some((wine) => wine.id === wineId)));
   }, [wines]);
 
@@ -6635,13 +6667,15 @@ export function App() {
           ) : null}
         </div>
         <p className="maturity-heatmap-help">{t("maturityHeatmapHelp")}</p>
-        <MaturityPanorama
-          points={maturityPanoramaPoints}
-          currentYear={currentYear}
-          summary={maturityPanoramaSummary}
-          t={t}
-          locale={locale}
-        />
+        <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+          <MaturityPanorama
+            points={maturityPanoramaPoints}
+            currentYear={currentYear}
+            summary={maturityPanoramaSummary}
+            t={t}
+            locale={locale}
+          />
+        </Suspense>
         {maturityFilter ? (
           <div className="maturity-filter-pill">
             <span>{t("maturityFilter")}</span>
@@ -10511,7 +10545,7 @@ export function App() {
                       </span>
                       <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
                     </button>
-                    {openWineToneGroups[group.tone] ? group.items.map((wine) => (
+                    {openWineToneGroups[group.tone] ? group.items.slice(0, wineToneRenderLimits[group.tone]).map((wine) => (
               <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${canAccessWinePhotos && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   {canAccessWinePhotos && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
@@ -10651,6 +10685,20 @@ export function App() {
                 ) : null}
               </div>
                     )) : null}
+                    {openWineToneGroups[group.tone] && group.items.length > wineToneRenderLimits[group.tone] ? (
+                      <button
+                        type="button"
+                        className="secondary wine-tone-load-more"
+                        onClick={() => setWineToneRenderLimits((current) => ({
+                          ...current,
+                          [group.tone]: current[group.tone] + WINE_TONE_PAGE_SIZE,
+                        }))}
+                      >
+                        {locale === "it"
+                          ? `Mostra altri ${Math.min(WINE_TONE_PAGE_SIZE, group.items.length - wineToneRenderLimits[group.tone])} vini`
+                          : `Show ${Math.min(WINE_TONE_PAGE_SIZE, group.items.length - wineToneRenderLimits[group.tone])} more wines`}
+                      </button>
+                    ) : null}
                   </section>
                 ))}
               </div>

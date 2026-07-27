@@ -3847,9 +3847,16 @@ textarea {
   transform: rotate(90deg);
 }
 
+.wine-tone-load-more {
+  justify-self: start;
+  margin-top: 2px;
+}
+
 .list-item-block {
   display: grid;
   gap: 10px;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 190px;
 }
 
 .mobile-inline-detail {
