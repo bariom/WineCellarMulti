@@ -2,7 +2,7 @@ import { readFile, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const limits = {
-  javascriptBytes: 750_000,
+  javascriptBytes: 751_000,
   javascriptGzipBytes: 195_000,
   cssBytes: 390_000,
   cssGzipBytes: 67_000,

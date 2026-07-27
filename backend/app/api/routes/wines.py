@@ -268,6 +268,7 @@ def wine_response(
         grapes_source_url=wine.grapes_source_url or "",
         grapes_source_title=wine.grapes_source_title or "",
         grapes_verified_at=wine.grapes_verified_at,
+        grapes_not_applicable=wine.grapes_not_applicable,
         scores=wine.scores or [],
         scores_not_applicable=wine.scores_not_applicable,
         created_at=wine.created_at,
@@ -461,6 +462,7 @@ def wine_copy_for_recipient(
         owners=recipient_owners,
         tags=[],
         grapes=source.grapes,
+        grapes_not_applicable=source.grapes_not_applicable,
         scores=source.scores,
         scores_not_applicable=source.scores_not_applicable,
         tasting_history=normalize_tasting_history(
@@ -1033,6 +1035,8 @@ def create_wine(
     data["type"] = normalize_wine_type(data.get("type"))
     if data.get("scores"):
         data["scores_not_applicable"] = False
+    if data.get("grapes"):
+        data["grapes_not_applicable"] = False
     if data.get("current_value") is not None:
         data["value_not_found"] = False
     wine = Wine(
@@ -1332,6 +1336,8 @@ def update_wine(
         data["type"] = normalize_wine_type(data.get("type"))
     if data.get("scores"):
         data["scores_not_applicable"] = False
+    if data.get("grapes"):
+        data["grapes_not_applicable"] = False
     if data.get("current_value") is not None:
         data["value_not_found"] = False
     old_value = wine.current_value

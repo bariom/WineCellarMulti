@@ -58,6 +58,7 @@ class Wine(Base):
     grapes_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    grapes_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
     photo_version: Mapped[str] = mapped_column(String(32), default="")

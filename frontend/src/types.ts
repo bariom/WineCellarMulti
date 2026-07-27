@@ -56,6 +56,7 @@ export type Wine = {
   grapes_source_url: string;
   grapes_source_title: string;
   grapes_verified_at: string | null;
+  grapes_not_applicable: boolean;
   scores: Array<{ critic: string; score: string; note: string }>;
   scores_not_applicable: boolean;
   photo_thumbnail_url: string;

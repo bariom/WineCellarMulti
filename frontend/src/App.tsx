@@ -48,6 +48,15 @@ type BatchAiRunSummary = {
   failures: Array<{ wine: Wine; reason: string }>;
 };
 
+function hasUsefulBatchAiResult(feature: WineAiFeature, wine: Wine) {
+  if (feature === "value") return wine.current_value !== null && !wine.value_not_found;
+  if (feature === "grapes") return wine.grapes.length > 0 && !wine.grapes_not_applicable;
+  if (feature === "drink-window") return Boolean(wine.drink_from && wine.drink_to);
+  if (feature === "scores") return wine.scores.length > 0;
+  if (feature === "notes") return Boolean(wine.ai_notes.trim());
+  return Boolean(wine.current_value && wine.drink_from && wine.drink_to && wine.grapes.length);
+}
+
 function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentModel: string) {
   const roleHints: Record<AiModelAdviceRole, string[]> = {
     economy: ["luna", "5.4-mini", "5.4-nano"],
@@ -4195,7 +4204,11 @@ export function App() {
           });
           setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
           setSelectedWineId(updated.id);
-          succeeded += 1;
+          if (hasUsefulBatchAiResult(feature, updated)) {
+            succeeded += 1;
+          } else {
+            noResults.push(updated);
+          }
         } catch (nextError) {
           const message = nextError instanceof Error ? extractApiErrorText(nextError.message) : "";
           if (feature === "value" && message.toLowerCase().includes("no verified live market price sources found")) {
@@ -4421,6 +4434,40 @@ export function App() {
   function changeHelpArticle(slug: string | null) {
     setHelpSlug(slug);
     updateHelpLocation(slug);
+  }
+
+  async function setWineValueAiExclusion(wine: Wine, excluded: boolean) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ value_not_found: excluded }),
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update wine");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function setWineGrapesAiExclusion(wine: Wine, excluded: boolean) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ grapes_not_applicable: excluded }),
+      });
+      setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update wine");
+    } finally {
+      setSaving(false);
+    }
   }
   function matchingTemplateSuggestions(query: string) {
     const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
@@ -5058,7 +5105,7 @@ export function App() {
       .sort((first, second) => first.days - second.days)[0],
     missingValue: cellarWines.filter((wine) => !wine.current_value && !wine.value_not_found).length,
     missingDrinkWindow: cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to)).length,
-    missingGrapes: cellarWines.filter((wine) => wine.grapes.length === 0).length,
+    missingGrapes: cellarWines.filter((wine) => wine.grapes.length === 0 && !wine.grapes_not_applicable).length,
     missingScores: cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable).length,
     aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
@@ -5256,10 +5303,10 @@ export function App() {
     total: deliveryTimelineItems.length,
   };
   const incompleteWines = cellarWines
-    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || wine.grapes.length === 0)
+    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || (wine.grapes.length === 0 && !wine.grapes_not_applicable))
     .sort((first, second) => {
-      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0 && !first.scores_not_applicable) + Number(first.grapes.length === 0);
-      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0 && !second.scores_not_applicable) + Number(second.grapes.length === 0);
+      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0 && !first.scores_not_applicable) + Number(first.grapes.length === 0 && !first.grapes_not_applicable);
+      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0 && !second.scores_not_applicable) + Number(second.grapes.length === 0 && !second.grapes_not_applicable);
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
@@ -5606,7 +5653,7 @@ export function App() {
   const allMissingValueWines = cellarWines.filter((wine) => !wine.current_value && !wine.value_not_found);
   const allValueRefreshWines = cellarWines.filter((wine) => !wine.value_not_found && needsValueRefresh(wine, valueRefreshDaysNumber, now));
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
-  const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0);
+  const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0 && !wine.grapes_not_applicable);
   const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable);
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
@@ -6895,6 +6942,8 @@ export function App() {
         saving={saving}
         generating={generatingAi}
         onGenerate={(feature) => generateWineAi(wine, feature)}
+        onToggleValueAiExclusion={(excluded) => setWineValueAiExclusion(wine, excluded)}
+        onToggleGrapesAiExclusion={(excluded) => setWineGrapesAiExclusion(wine, excluded)}
         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
         onUpdateRating={(rating) => updateWineRating(wine, rating)}
         onConsume={(payload) => consumeWineBottle(wine, payload)}
@@ -10551,6 +10600,8 @@ export function App() {
                         saving={saving}
                         generating={generatingAi}
                         onGenerate={(feature) => generateWineAi(wine, feature)}
+                        onToggleValueAiExclusion={(excluded) => setWineValueAiExclusion(wine, excluded)}
+                        onToggleGrapesAiExclusion={(excluded) => setWineGrapesAiExclusion(wine, excluded)}
                         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
                         onUpdateRating={(rating) => updateWineRating(wine, rating)}
                         onConsume={(payload) => consumeWineBottle(wine, payload)}
@@ -12187,7 +12238,7 @@ export function App() {
             </div>
             {batchAiRunSummary.noResults.length ? (
               <div className="batch-ai-no-result-list">
-                <p>{t("batchAiNoResultHint")}</p>
+                <p>{t(batchAiRunSummary.feature === "value" ? "batchAiNoResultHint" : "batchAiNoResultHintGeneric")}</p>
                 {batchAiRunSummary.noResults.map((wine) => (
                   <article key={wine.id}>
                     <strong>{wine.name}</strong>

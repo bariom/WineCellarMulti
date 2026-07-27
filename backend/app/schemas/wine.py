@@ -40,6 +40,7 @@ class WineCreate(BaseModel):
     grapes_source_url: str = ""
     grapes_source_title: str = ""
     grapes_verified_at: datetime | None = None
+    grapes_not_applicable: bool = False
     scores: list[dict] = Field(default_factory=list)
     scores_not_applicable: bool = False
 
@@ -78,6 +79,7 @@ class WineUpdate(BaseModel):
     grapes_source_url: str | None = None
     grapes_source_title: str | None = None
     grapes_verified_at: datetime | None = None
+    grapes_not_applicable: bool | None = None
     scores: list[dict] | None = None
     scores_not_applicable: bool | None = None
 
@@ -194,6 +196,7 @@ class WineResponse(BaseModel):
     grapes_source_url: str = ""
     grapes_source_title: str = ""
     grapes_verified_at: datetime | None = None
+    grapes_not_applicable: bool = False
     scores: list[dict]
     scores_not_applicable: bool = False
     photo_thumbnail_url: str = ""

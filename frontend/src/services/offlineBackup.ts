@@ -71,6 +71,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     grapes_source_url: rawString(raw.grapes_source_url),
     grapes_source_title: rawString(raw.grapes_source_title),
     grapes_verified_at: rawNullableString(raw.grapes_verified_at),
+    grapes_not_applicable: Boolean(raw.grapes_not_applicable),
     scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
     scores_not_applicable: Boolean(raw.scores_not_applicable),
     tasting_history: rawArray(raw.tasting_history).map((entry, entryIndex) => ({

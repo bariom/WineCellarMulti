@@ -1712,6 +1712,9 @@ def generate_all_wine_ai(
             verified_grape_source.get("title") or grape_result.get("source_title") or ""
         )[:200]
         wine.grapes_verified_at = datetime.now(UTC)
+        wine.grapes_not_applicable = False
+    else:
+        wine.grapes_not_applicable = True
 
     record_wine_value_history(db, wine, source="ai")
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
@@ -2054,6 +2057,9 @@ def generate_grapes(
         wine.grapes_source_url = str(verified_source.get("url") or "")[:500]
         wine.grapes_source_title = str(verified_source.get("title") or "")[:200]
         wine.grapes_verified_at = datetime.now(UTC)
+        wine.grapes_not_applicable = False
+    else:
+        wine.grapes_not_applicable = True
     note = str(result.get("notes") or "").strip()
     if note and saved_verified_grapes:
         wine.ai_notes = f"{wine.ai_notes}\n\nUve: {note}".strip()[:4000]
@@ -2151,6 +2157,8 @@ def generate_scores(
     wine.scores = [*existing_scores, *additional_scores]
     if wine.scores:
         wine.scores_not_applicable = False
+    else:
+        wine.scores_not_applicable = True
     record_ai_audit(
         db,
         context,

@@ -3978,6 +3978,35 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
     ]
 
 
+def test_ai_scores_excludes_wine_when_no_scores_are_found(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert (
+        client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    )
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Unrated Wine", "producer": "Example", "vintage": "2013", "quantity": 1},
+    )
+    assert created.status_code == 201
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_response",
+        lambda *args, **kwargs: OpenAIResponse(
+            text='{"scores":[]}',
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+        ),
+    )
+
+    generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores")
+    assert generated.status_code == 200
+    assert generated.json()["scores"] == []
+    assert generated.json()["scores_not_applicable"] is True
+
+
 def test_ai_grapes_cache_verified_web_result(monkeypatch):
     from app.api.routes import ai as ai_routes
 
