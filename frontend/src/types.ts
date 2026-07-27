@@ -743,6 +743,14 @@ export type DashboardFocus =
 
 export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
 
+export type UserActivityLogEntry = {
+  id: string;
+  action: string;
+  created_at: string;
+  user_display_name: string;
+  user_email: string;
+};
+
 export type OperationalMetricsOverview = {
   collected_at: string;
   system: {

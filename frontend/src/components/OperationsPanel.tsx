@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
-import type { Locale, OperationalMetricsHistory, OperationalMetricsOverview } from "../types";
+import type { Locale, OperationalMetricsHistory, OperationalMetricsOverview, UserActivityLogEntry } from "../types";
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
 import "./OperationsPanel.css";
@@ -11,6 +11,7 @@ type OperationsPanelProps = {
   locale: Locale;
   overview: OperationalMetricsOverview | null;
   history: OperationalMetricsHistory | null;
+  activity: UserActivityLogEntry[];
   onRefresh: () => void;
 };
 
@@ -155,7 +156,23 @@ function successRate(successes: number, total: number) {
   return total > 0 ? `${Math.round((successes / total) * 100)}%` : "—";
 }
 
-export function OperationsPanel({ locale, overview, history, onRefresh }: OperationsPanelProps) {
+function activityLabel(action: string, italian: boolean) {
+  const labels: Record<string, [string, string]> = {
+    ai_generation: ["Generazione AI", "AI generation"],
+    wine_updated: ["Vino aggiornato", "Wine updated"],
+    wine_action: ["Azione su un vino", "Wine action"],
+    wishlist_action: ["Azione sulla wishlist", "Wishlist action"],
+    household_action: ["Gestione cantina", "Cellar management"],
+    account_action: ["Impostazioni account", "Account settings"],
+    data_import: ["Importazione dati", "Data import"],
+    coownership_action: ["Gestione comproprietà", "Co-ownership management"],
+    tag_action: ["Gestione tag", "Tag management"],
+    app_action: ["Azione nell'app", "App action"],
+  };
+  return (labels[action] || labels.app_action)[italian ? 0 : 1];
+}
+
+export function OperationsPanel({ locale, overview, history, activity, onRefresh }: OperationsPanelProps) {
   const isItalian = locale === "it";
   const [selectedHours, setSelectedHours] = useState(1);
   const [selectedHistory, setSelectedHistory] = useState(history);
@@ -335,6 +352,28 @@ export function OperationsPanel({ locale, overview, history, onRefresh }: Operat
                 {overview.openai.change_percent !== null && <small className={overview.openai.change_percent > 0 ? "warning" : "healthy"}>{overview.openai.change_percent > 0 ? "+" : ""}{overview.openai.change_percent.toFixed(0)}%</small>}
               </div>
             ) : <p>{isItalian ? "Configura OPENAI_ADMIN_KEY sul server per visualizzare i costi." : "Configure OPENAI_ADMIN_KEY on the server to view costs."}</p>}
+          </section>
+          <section className="operations-section operations-activity-section" aria-labelledby="operations-activity-heading">
+            <div className="operations-activity-heading">
+              <div>
+                <h4 id="operations-activity-heading">{isItalian ? "Attività recente degli utenti" : "Recent user activity"}</h4>
+                <p>{isItalian ? "Solo azioni che modificano dati e completate con successo." : "Successful actions that modify data only."}</p>
+              </div>
+              <span>{activity.length}</span>
+            </div>
+            {activity.length ? (
+              <div className="operations-activity-list">
+                {activity.map((entry) => (
+                  <article key={entry.id}>
+                    <div>
+                      <strong>{entry.user_display_name || entry.user_email}</strong>
+                      <span>{activityLabel(entry.action, isItalian)}</span>
+                    </div>
+                    <time dateTime={entry.created_at}>{new Intl.DateTimeFormat(isItalian ? "it-CH" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(entry.created_at))}</time>
+                  </article>
+                ))}
+              </div>
+            ) : <p className="operations-activity-empty">{isItalian ? "Nessuna attività registrata per ora." : "No activity recorded yet."}</p>}
           </section>
           <p className="operations-note">
             {isItalian ? `${samples.length} campioni nell'intervallo selezionato. ` : `${samples.length} samples in the selected range. `}

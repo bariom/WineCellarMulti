@@ -27,6 +27,17 @@
 .operations-openai-comparison > strong { font-size: 0.95rem !important; }
 .operations-openai-comparison small.healthy { color: #3f7751; }
 .operations-openai-comparison small.warning { color: #99631f; }
+.operations-activity-section { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--border); }
+.operations-activity-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.operations-activity-heading h4 { margin: 0; }
+.operations-activity-heading p, .operations-activity-empty { margin: 4px 0 0; color: var(--text-muted); font-size: 0.78rem; }
+.operations-activity-heading > span { min-width: 26px; padding: 3px 7px; border-radius: 999px; background: var(--surface-muted); color: var(--text-muted); font-size: 0.74rem; font-weight: 750; text-align: center; }
+.operations-activity-list { display: grid; gap: 1px; max-height: 350px; margin-top: 10px; overflow: auto; border: 1px solid var(--border); border-radius: 10px; background: var(--border); }
+.operations-activity-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: var(--surface); }
+.operations-activity-list article > div { display: grid; gap: 2px; min-width: 0; }
+.operations-activity-list strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.82rem; }
+.operations-activity-list span, .operations-activity-list time { color: var(--text-muted); font-size: 0.74rem; }
+.operations-activity-list time { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 .operations-history-controls { display: flex; gap: 8px; margin-top: 20px; }
 .operations-history-controls button { padding: 7px 11px; font-size: 0.78rem; }
 .operations-charts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }

@@ -19,6 +19,7 @@ from app.models import (
     Household,
     OperationalMetricSample,
     User,
+    UserActivityLog,
     Wine,
     WineRecognitionLog,
     WineTastingEntry,
@@ -32,6 +33,30 @@ from app.services.request_metrics import request_metrics
 router = APIRouter(prefix="/admin/operations")
 
 SAMPLE_RETENTION = timedelta(days=14)
+
+
+@router.get("/activity")
+def recent_user_activity(
+    limit: int = Query(default=40, ge=1, le=100),
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> list[dict[str, str]]:
+    entries = db.execute(
+        select(UserActivityLog, User)
+        .join(User, User.id == UserActivityLog.user_id)
+        .order_by(UserActivityLog.created_at.desc())
+        .limit(limit)
+    ).all()
+    return [
+        {
+            "id": str(entry.id),
+            "action": entry.action,
+            "created_at": entry.created_at.isoformat(),
+            "user_display_name": user.display_name,
+            "user_email": user.email,
+        }
+        for entry, user in entries
+    ]
 
 
 def business_snapshot(db: Session) -> dict[str, int | float]:
