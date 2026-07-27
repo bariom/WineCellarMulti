@@ -524,11 +524,17 @@ def portfolio_value_history(
         .order_by(WineValueHistory.recorded_at.asc(), WineValueHistory.id.asc())
     )
     values: dict[UUID, Decimal] = {}
-    points: list[dict] = []
+    daily_points: dict[date, dict] = {}
     for row in rows:
         wine = wines[row.wine_id]
         values[wine.id] = row.value * max(wine.quantity, 0)
-        points.append({"recorded_at": row.recorded_at, "value": sum(values.values(), Decimal("0"))})
+        # Several wines are often updated by one AI batch. Keeping only the
+        # last value of that day turns those technical events into a useful
+        # portfolio timeline instead of exhausting the chart with one batch.
+        daily_points[row.recorded_at.date()] = {
+            "recorded_at": row.recorded_at,
+            "value": sum(values.values(), Decimal("0")),
+        }
     current = sum(
         (
             Decimal(str(wine.current_value or wine.price or 0)) * max(wine.quantity, 0)
@@ -536,9 +542,12 @@ def portfolio_value_history(
         ),
         Decimal("0"),
     )
-    if not points or points[-1]["value"] != current:
-        points.append({"recorded_at": datetime.now(UTC), "value": current})
-    return points[-30:]
+    today = datetime.now(UTC)
+    if not daily_points or daily_points[max(daily_points)]["value"] != current:
+        daily_points[today.date()] = {"recorded_at": today, "value": current}
+    # A calendar-based retention window is resilient to mass updates and
+    # gives the chart up to one year of actual portfolio evolution.
+    return [daily_points[day] for day in sorted(daily_points)][-365:]
 
 
 @router.get("/tasting-archive", response_model=TastingArchivePageResponse)

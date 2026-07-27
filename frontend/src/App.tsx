@@ -8678,21 +8678,35 @@ export function App() {
                       />
                     </article>
                   ) : null}
-                  <article className="dashboard-card">
+                  <article className="dashboard-card wide-card top-value-showcase">
                     <div className="card-heading">
                       <div>
-                        <span>{t("missingValue")}</span>
-                        <h2>{t("dataQuality")}</h2>
+                        <span>{t("valueFocus")}</span>
+                        <h2>{locale === "it" ? "Le 5 bottiglie più preziose" : "The 5 most valuable bottles"}</h2>
                       </div>
-                      <strong>{cellarStats.missingValue}</strong>
+                      <strong>{formatMoney(topValueWines.reduce((total, wine) => total + wineUnitValue(wine), 0), "CHF", locale)}</strong>
                     </div>
-                    <div className="action-list">
-                      {missingValueWines.length ? missingValueWines.map((wine) => (
-                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
-                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{t("value")}</strong>
+                    <p className="top-value-showcase-intro">
+                      {locale === "it" ? "I pezzi che definiscono il vertice economico della tua cantina." : "The bottles that define the financial peak of your cellar."}
+                    </p>
+                    <div className="top-value-showcase-grid">
+                      {topValueWines.map((wine, index) => (
+                        <button type="button" className={`top-value-showcase-item tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span className="top-value-showcase-rank">{String(index + 1).padStart(2, "0")}</span>
+                          <span className="top-value-showcase-photo" aria-hidden="true">
+                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url : ""} />
+                          </span>
+                          <span className="top-value-showcase-copy">
+                            <strong>{wine.name}</strong>
+                            <small>{[wine.producer, wine.vintage].filter(Boolean).join(" · ") || displayValue(wine.type, locale, "type")}</small>
+                            <em>{[wine.region, wine.appellation].filter(Boolean).join(" · ")}</em>
+                          </span>
+                          <span className="top-value-showcase-value">
+                            <strong>{formatMoney(wineUnitValue(wine), wine.currency, locale)}</strong>
+                            <small>{formatBottleCount(wine.quantity, locale)} {t("bottles").toLowerCase()} · {formatMoney(wineUnitValue(wine) * wine.quantity, wine.currency, locale)}</small>
+                          </span>
                         </button>
-                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                      ))}
                     </div>
                   </article>
                   <article className="dashboard-card wide-card">
@@ -8727,7 +8741,7 @@ export function App() {
                       ))}
                     </div>
                   </article>
-                  <article className="dashboard-card">
+                  <article className="dashboard-card top-value-list-mobile">
                     <div className="card-heading">
                       <div>
                         <span>{t("valueFocus")}</span>
@@ -8741,6 +8755,23 @@ export function App() {
                           <strong>{formatMoney(wineUnitValue(wine), "CHF", locale)}</strong>
                         </button>
                       ))}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingValue")}</span>
+                        <h2>{t("dataQuality")}</h2>
+                      </div>
+                      <strong>{cellarStats.missingValue}</strong>
+                    </div>
+                    <div className="action-list">
+                      {missingValueWines.length ? missingValueWines.map((wine) => (
+                        <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
+                          <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
+                          <strong>{t("value")}</strong>
+                        </button>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
                 </DashboardCarousel>
