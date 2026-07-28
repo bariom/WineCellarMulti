@@ -14391,6 +14391,8 @@ textarea:hover {
 }
 
 .list-item-block:has(.mobile-inline-detail) {
+  content-visibility: visible;
+  contain: none;
   animation: none;
   transform: none;
 }
