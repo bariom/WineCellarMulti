@@ -760,7 +760,17 @@ export type OperationalMetricsOverview = {
     network: { tcp_established: number | null; tcp_time_wait: number | null; tcp_total: number | null };
     conntrack: { count: number | null; max: number | null };
   };
-  application: { requests_total: number; errors_total: number; average_duration_ms: number | null; uptime_seconds: number };
+  application: {
+    requests_total: number;
+    errors_total: number;
+    average_duration_ms: number | null;
+    interactive_window_seconds?: number;
+    interactive_requests_recent?: number;
+    interactive_p50_duration_ms?: number | null;
+    interactive_p95_duration_ms?: number | null;
+    slow_requests_recent?: number;
+    uptime_seconds: number;
+  };
   business: {
     users_total: number;
     users_approved: number;

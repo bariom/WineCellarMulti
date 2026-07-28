@@ -213,16 +213,19 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const conntrackPercent = overview?.system.conntrack.count !== null && overview?.system.conntrack.max
     ? (overview.system.conntrack.count / overview.system.conntrack.max) * 100
     : null;
+  const interactiveP95 = overview?.application.interactive_p95_duration_ms ?? null;
+  const interactiveP50 = overview?.application.interactive_p50_duration_ms ?? null;
+  const interactiveWindowMinutes = Math.round((overview?.application.interactive_window_seconds || 900) / 60);
   const alerts = overview ? [
     ["CPU", overview.system.host.cpu_percent, "%"],
     ["RAM", overview.system.host.memory.percent, "%"],
     [isItalian ? "Disco" : "Disk", overview.system.host.disk.percent, "%"],
     ["Conntrack", conntrackPercent, "%"],
-    [isItalian ? "Latenza" : "Latency", overview.application.average_duration_ms, " ms"],
+    [isItalian ? "P95 API interattive" : "Interactive API p95", interactiveP95, " ms"],
   ].flatMap(([label, rawValue, suffix]) => {
     const value = Number(rawValue);
     if (!Number.isFinite(value)) return [];
-    const status = label === (isItalian ? "Latenza" : "Latency") ? level(value, 750, 1500) : level(value, 80, 90);
+    const status = label === (isItalian ? "P95 API interattive" : "Interactive API p95") ? level(value, 750, 1500) : level(value, 80, 90);
     return status === "healthy" ? [] : [{ label, value, suffix, status }];
   }) : [];
   const samples = selectedHistory?.samples || [];
@@ -231,7 +234,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const stale = latestPersistedSample ? Date.now() - new Date(latestPersistedSample.collected_at).getTime() > 180000 : false;
   const hostScale: ChartScale = { min: 0, max: 100, suffix: "%" };
   const tcpScale = roundedScale(samples.map((sample) => sample.system.network.tcp_established), "");
-  const latencyScale = roundedScale(samples.map((sample) => sample.application.average_duration_ms), " ms");
+  const latencyScale = roundedScale(samples.map((sample) => sample.application.interactive_p95_duration_ms ?? sample.application.average_duration_ms), " ms");
 
   return (
     <section className="settings-card operations-card">
@@ -260,7 +263,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
             </div>
           </section>
           <div className="operations-history-controls" role="group" aria-label={isItalian ? "Intervallo storico" : "History range"}>
-            {[1, 24, 168].map((option) => <button type="button" key={option} className={selectedHours === option ? "" : "secondary"} onClick={() => void selectHours(option)}>{option === 168 ? (isItalian ? "7 giorni" : "7 days") : `${option}h`}</button>)}
+            {[1, 6, 24, 168].map((option) => <button type="button" key={option} className={selectedHours === option ? "" : "secondary"} onClick={() => void selectHours(option)}>{option === 168 ? (isItalian ? "7 giorni" : "7 days") : `${option}h`}</button>)}
           </div>
           <div className="operations-charts">
             <OperationsChart locale={locale} title={isItalian ? "Risorse host" : "Host resources"} timestamps={timestamps} lines={[
@@ -268,9 +271,9 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
               { label: "RAM", color: "#ad7c3c", values: samples.map((sample) => sample.system.host.memory.percent), suffix: "%" },
               { label: isItalian ? "Disco" : "Disk", color: "#4a7ca6", values: samples.map((sample) => sample.system.host.disk.percent), suffix: "%" },
             ]} primaryScale={hostScale} />
-            <OperationsChart locale={locale} title={isItalian ? "Rete e latenza" : "Network and latency"} timestamps={timestamps} lines={[
+            <OperationsChart locale={locale} title={isItalian ? "Rete e reattivitÃ  API" : "Network and API responsiveness"} timestamps={timestamps} lines={[
               { label: "TCP", color: "#7b4b44", values: samples.map((sample) => sample.system.network.tcp_established), suffix: "" },
-              { label: isItalian ? "Latenza" : "Latency", color: "#755487", values: samples.map((sample) => sample.application.average_duration_ms), suffix: " ms", axis: "secondary" },
+              { label: isItalian ? "P95 interattive" : "Interactive p95", color: "#755487", values: samples.map((sample) => sample.application.interactive_p95_duration_ms ?? sample.application.average_duration_ms), suffix: " ms", axis: "secondary" },
             ]} primaryScale={tcpScale} secondaryScale={latencyScale} />
           </div>
           <section className="operations-section operations-network-section" aria-labelledby="operations-network-heading">
@@ -278,12 +281,18 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
             <div className="operations-metrics-grid operations-network-metrics">
               <div><span>TCP</span><strong>{overview.system.network.tcp_established ?? "—"}</strong><small>{isItalian ? "stabilite" : "established"}</small></div>
               <div className={conntrackPercent === null ? "" : level(conntrackPercent, 70, 85)}><span>Conntrack</span><strong>{overview.system.conntrack.count ?? "—"}{overview.system.conntrack.max ? ` / ${overview.system.conntrack.max}` : ""}</strong></div>
-              <div className={overview.application.average_duration_ms === null ? "" : level(overview.application.average_duration_ms, 750, 1500)}><span>{isItalian ? "Latenza media" : "Average latency"}</span><strong>{overview.application.average_duration_ms === null ? "—" : `${overview.application.average_duration_ms.toFixed(0)} ms`}</strong></div>
+              <div className={interactiveP95 === null ? "" : level(interactiveP95, 750, 1500)}>
+                <span>{isItalian ? `API interattive P95 · ${interactiveWindowMinutes} min` : `Interactive API p95 · ${interactiveWindowMinutes} min`}</span>
+                <strong>{interactiveP95 === null ? "—" : `${interactiveP95.toFixed(0)} ms`}</strong>
+                <small>{interactiveP50 === null ? (isItalian ? "In attesa di richieste recenti" : "Waiting for recent requests") : `${isItalian ? "Mediana" : "Median"} ${interactiveP50.toFixed(0)} ms · ${overview.application.interactive_requests_recent || 0} req.`}</small>
+              </div>
             </div>
             <div className="operations-summary">
               <span>{isItalian ? "Richieste" : "Requests"} <strong>{overview.application.requests_total}</strong></span>
               <span>{isItalian ? "Errori 5xx" : "5xx errors"} <strong>{overview.application.errors_total}</strong></span>
+              <span>{isItalian ? "Operazioni lunghe escluse" : "Long operations excluded"} <strong>{overview.application.slow_requests_recent || 0}</strong></span>
             </div>
+            <p className="operations-metric-note">{isItalian ? "La reattività considera solo API normali degli ultimi 15 minuti; AI, import ed elaborazione foto sono escluse per non falsare l'esperienza percepita." : "Responsiveness includes only normal APIs from the last 15 minutes; AI, imports and photo processing are excluded so they do not distort perceived performance."}</p>
           </section>
           <section className="operations-section operations-business-section" aria-labelledby="operations-business-heading">
             <h4 id="operations-business-heading">{isItalian ? "Dati Vinaris" : "Vinaris data"}</h4>

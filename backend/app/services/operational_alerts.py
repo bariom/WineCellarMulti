@@ -56,6 +56,7 @@ def detected_alerts(system: dict[str, object], application: dict[str, object]) -
         if conntrack_count is not None and conntrack_max
         else None
     )
+    interactive_p95 = _value(application, "interactive_p95_duration_ms")
     metrics = (
         (
             "cpu",
@@ -91,8 +92,8 @@ def detected_alerts(system: dict[str, object], application: dict[str, object]) -
         ),
         (
             "latency",
-            "Latenza applicativa",
-            _value(application, "average_duration_ms"),
+            "P95 API interattive",
+            interactive_p95,
             "ms",
             settings.operations_alert_latency_warning_ms,
             settings.operations_alert_latency_critical_ms,

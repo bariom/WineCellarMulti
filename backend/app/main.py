@@ -48,6 +48,12 @@ TECHNICAL_METRICS_PATH_PREFIXES = (
     "/api/v1/admin/operations",
 )
 
+SLOW_APPLICATION_PATH_PREFIXES = (
+    "/api/v1/ai/",
+    "/api/v1/imports/",
+    "/api/v1/wines/photo/process",
+)
+
 
 def is_application_request(path: str) -> bool:
     """Return whether a request represents normal Vinaris application traffic.
@@ -58,6 +64,12 @@ def is_application_request(path: str) -> bool:
     """
 
     return not path.startswith(TECHNICAL_METRICS_PATH_PREFIXES)
+
+
+def is_interactive_application_request(path: str) -> bool:
+    """Keep AI, imports and photo processing out of perceived API responsiveness."""
+
+    return is_application_request(path) and not path.startswith(SLOW_APPLICATION_PATH_PREFIXES)
 
 
 def user_activity_action(method: str, path: str) -> str | None:
@@ -159,7 +171,11 @@ async def collect_request_metrics(request: Request, call_next):
         return await call_next(request)
     started_at = time.perf_counter()
     response = await call_next(request)
-    request_metrics.record(response.status_code, (time.perf_counter() - started_at) * 1000)
+    request_metrics.record(
+        response.status_code,
+        (time.perf_counter() - started_at) * 1000,
+        interactive=is_interactive_application_request(request.url.path),
+    )
     return response
 
 
