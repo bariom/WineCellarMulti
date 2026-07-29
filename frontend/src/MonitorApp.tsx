@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import "uplot/dist/uPlot.min.css";
 import type { OperationalMetricsHistory, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
 import "./monitor.css";
 
@@ -20,25 +21,45 @@ function activityLabel(action: string) {
 }
 
 function MonitorChart({ title, subtitle, color, points, formatter }: { title: string; subtitle: string; color: string; points: Array<{ timestamp: string; value: number | null }>; formatter: (value: number | null) => string }) {
+  const hostRef = useRef<HTMLDivElement | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const usable = points.filter((point) => point.value !== null && Number.isFinite(point.value));
-  const activeIndex = selected ?? Math.max(points.length - 1, 0);
-  const active = points[activeIndex];
-  const coordinates = useMemo(() => {
-    const values = usable.map((point) => point.value as number);
-    const min = Math.min(...values, 0);
-    const max = Math.max(...values, 1);
-    const span = Math.max(max - min, 1);
-    return points.map((point, index) => ({ x: points.length < 2 ? 50 : (index / (points.length - 1)) * 100, y: point.value === null ? null : 92 - ((point.value - min) / span) * 78 }));
-  }, [points, usable]);
-  const path = coordinates.filter((point) => point.y !== null).map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ");
+  const active = points[selected ?? points.length - 1] || null;
+
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host || !usable.length) return;
+    let chart: { width: number; destroy: () => void; setSize: (size: { width: number; height: number }) => void; setCursor: (cursor: { left: number; top: number }) => void; valToPos: (value: number, scale: string) => number } | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let cancelled = false;
+    const timestamps = points.map((point) => new Date(point.timestamp).getTime() / 1000);
+    const values = points.map((point) => point.value);
+    void import("uplot").then(({ default: Uplot }) => {
+      if (cancelled) return;
+      const width = Math.max(280, Math.floor(host.clientWidth));
+      const dateFormat = new Intl.DateTimeFormat("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+      chart = new Uplot({
+        width, height: 190, padding: [12, 8, 0, 8],
+        scales: { x: { time: true }, y: { auto: true } },
+        axes: [{ stroke: "#9da69b", grid: { show: false }, size: 30, values: (_chart, values) => values.map((item) => new Intl.DateTimeFormat("it-CH", { hour: "2-digit", minute: "2-digit" }).format(new Date(item * 1000))) }, { stroke: "#9da69b", grid: { stroke: "#3b423b", width: 1 }, size: 42, values: (_chart, values) => values.map((item) => formatter(item)) }],
+        series: [{ label: "Ora", value: (_chart, item) => item === null ? "â€”" : dateFormat.format(new Date(Number(item) * 1000)) }, { label: title, stroke: color, width: 2.5, points: { show: false }, value: (_chart, item) => formatter(item === null ? null : Number(item)) }],
+        cursor: { drag: { x: false, y: false, setScale: false }, points: { size: 8 } },
+        hooks: { setCursor: [(instance) => { if (typeof instance.cursor.idx === "number") setSelected(instance.cursor.idx); }] },
+      }, [timestamps, values], host);
+      const lastIndex = timestamps.length - 1;
+      chart.setCursor({ left: chart.valToPos(timestamps[lastIndex], "x"), top: 0 });
+      resizeObserver = new ResizeObserver(([entry]) => {
+        const nextWidth = Math.floor(entry.contentRect.width);
+        if (nextWidth && chart && nextWidth !== chart.width) chart.setSize({ width: nextWidth, height: 190 });
+      });
+      resizeObserver.observe(host);
+    });
+    return () => { cancelled = true; resizeObserver?.disconnect(); chart?.destroy(); };
+  }, [color, points, title, usable.length]);
+
   return <section className="monitor-card monitor-chart-card">
     <div className="monitor-section-head"><div><span>{subtitle}</span><strong>{title}</strong></div><b>{formatter(active?.value ?? null)}</b></div>
-    {usable.length ? <><svg className="monitor-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${title}. Tocca un punto per visualizzarne il valore`} onMouseLeave={() => setSelected(null)}>
-      <path d={`${path} L100 100 L0 100 Z`} fill={color} fillOpacity=".14" /><path d={path} fill="none" stroke={color} strokeWidth="2.3" vectorEffect="non-scaling-stroke" />
-      {coordinates.map((point, index) => point.y === null ? null : <rect key={`touch-${points[index].timestamp}`} className="monitor-chart-hitarea" x={Math.max(0, point.x - (points.length < 2 ? 50 : 50 / (points.length - 1)))} y="0" width={points.length < 2 ? 100 : 100 / (points.length - 1)} height="100" onPointerDown={() => setSelected(index)} onMouseEnter={() => setSelected(index)} />)}
-      {coordinates.map((point, index) => point.y === null ? null : <circle key={points[index].timestamp} cx={point.x} cy={point.y} r={selected === index ? "5" : "3"} fill={color} className={selected === index ? "selected" : ""} />)}
-    </svg><small>{active ? `${new Date(active.timestamp).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · tocca il grafico per esplorare` : ""}</small></> : <p className="monitor-empty">In attesa di campioni</p>}
+    {usable.length ? <><div className="monitor-uplot" ref={hostRef} aria-label={`${title}. Tocca il grafico per esplorare`} /><small>{active ? `${new Date(active.timestamp).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · scorri o tocca il grafico per esplorare` : ""}</small></> : <p className="monitor-empty">In attesa di campioni</p>}
   </section>;
 }
 
@@ -72,9 +93,9 @@ export function MonitorApp() {
   if (!token) return <main className="monitor-shell monitor-onboarding"><div className="monitor-brand"><span>V</span><strong>Vinaris Monitor</strong></div><section className="monitor-card"><p>ACCESSO AMMINISTRATORE</p><h1>La tua cantina, sotto controllo.</h1><span>Incolla il token dispositivo creato in Vinaris per consultare le metriche in sola lettura.</span><input value={draftToken} onChange={(event) => setDraftToken(event.target.value)} placeholder="Token Vinaris Monitor" autoCapitalize="none" autoCorrect="off" /><button type="button" onClick={connect}>Collega Monitor</button></section></main>;
 
   const app = overview?.application; const system = overview?.system; const business = overview?.business; const samples = history?.samples || [];
-  const latencyPoints = samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.application.interactive_p95_duration_ms ?? sample.application.average_duration_ms }));
-  const cpuPoints = samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.system.host.cpu_percent }));
-  const memoryPoints = samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.system.host.memory.percent }));
+  const latencyPoints = useMemo(() => samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.application.interactive_p95_duration_ms ?? sample.application.average_duration_ms })), [samples]);
+  const cpuPoints = useMemo(() => samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.system.host.cpu_percent })), [samples]);
+  const memoryPoints = useMemo(() => samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.system.host.memory.percent })), [samples]);
 
   return <main className="monitor-shell">
     <header className="monitor-header"><div className="monitor-brand"><span>V</span><strong>Vinaris Monitor</strong></div><button type="button" className="monitor-refresh" onClick={() => void refresh()} disabled={loading}>{loading ? "Aggiorno…" : "Aggiorna"}</button></header>
