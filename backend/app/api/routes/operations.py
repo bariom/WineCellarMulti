@@ -4,12 +4,13 @@ import hmac
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, require_app_admin_context
+from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
+from app.core.security import hash_session_token, new_session_token
 from app.api.routes.wines import PHOTO_SIZES, wine_photo_path
 from app.core.config import settings
 from app.db.session import get_db
@@ -20,6 +21,7 @@ from app.models import (
     OperationalMetricSample,
     User,
     UserActivityLog,
+    UserMonitorDeviceToken,
     Wine,
     WineRecognitionLog,
     WineTastingEntry,
@@ -35,11 +37,88 @@ router = APIRouter(prefix="/admin/operations")
 SAMPLE_RETENTION = timedelta(days=14)
 
 
+def require_operations_read_access(
+    request: Request,
+    db: Session = Depends(get_db),
+    context: CurrentContext | None = Depends(get_optional_context),
+) -> User:
+    """Allow app-admin sessions or a revocable, read-only Monitor device token."""
+
+    if context is not None and context.user.is_app_admin:
+        return context.user
+    authorization = request.headers.get("Authorization", "")
+    token = authorization.removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Monitor authentication required")
+    device_token = db.scalar(
+        select(UserMonitorDeviceToken).where(
+            UserMonitorDeviceToken.token_hash == hash_session_token(token),
+            UserMonitorDeviceToken.revoked_at.is_(None),
+        )
+    )
+    if device_token is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid monitor token")
+    user = db.get(User, device_token.user_id)
+    if user is None or not user.is_app_admin or user.is_blocked or not user.is_approved:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Monitor token is no longer authorised")
+    return user
+
+
+@router.get("/device-tokens")
+def list_monitor_device_tokens(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> list[dict[str, object]]:
+    tokens = db.scalars(
+        select(UserMonitorDeviceToken)
+        .where(UserMonitorDeviceToken.user_id == context.user.id)
+        .order_by(UserMonitorDeviceToken.created_at.desc())
+    ).all()
+    return [{
+        "id": str(token.id), "label": token.label, "created_at": token.created_at.isoformat(),
+        "last_used_at": token.last_used_at.isoformat() if token.last_used_at else None,
+        "revoked_at": token.revoked_at.isoformat() if token.revoked_at else None,
+    } for token in tokens]
+
+
+@router.post("/device-tokens", status_code=status.HTTP_201_CREATED)
+def create_monitor_device_token(
+    label: str = Query(default="Vinaris Monitor", min_length=1, max_length=80),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    raw_token = new_session_token()
+    token = UserMonitorDeviceToken(
+        user_id=context.user.id,
+        token_hash=hash_session_token(raw_token),
+        label=" ".join(label.split()) or "Vinaris Monitor",
+    )
+    db.add(token)
+    db.commit()
+    return {"id": str(token.id), "label": token.label, "token": raw_token}
+
+
+@router.delete("/device-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_monitor_device_token(
+    token_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> Response:
+    token = db.scalar(select(UserMonitorDeviceToken).where(
+        UserMonitorDeviceToken.id == token_id, UserMonitorDeviceToken.user_id == context.user.id
+    ))
+    if token is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Monitor token not found")
+    token.revoked_at = datetime.now(UTC)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.get("/activity")
 def recent_user_activity(
     limit: int = Query(default=40, ge=1, le=100),
     db: Session = Depends(get_db),
-    _: CurrentContext = Depends(require_app_admin_context),
+    _: User = Depends(require_operations_read_access),
 ) -> list[dict[str, str]]:
     entries = db.execute(
         select(UserActivityLog, User)
@@ -203,7 +282,7 @@ def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
 @router.get("/overview")
 def operations_overview(
     db: Session = Depends(get_db),
-    _: CurrentContext = Depends(require_app_admin_context),
+    _: User = Depends(require_operations_read_access),
 ) -> dict[str, object]:
     latest = db.scalar(
         select(OperationalMetricSample)
@@ -235,7 +314,7 @@ def operations_overview(
 def operations_history(
     hours: int = Query(default=1, ge=1, le=168),
     db: Session = Depends(get_db),
-    _: CurrentContext = Depends(require_app_admin_context),
+    _: User = Depends(require_operations_read_access),
 ) -> dict[str, object]:
     cutoff = datetime.now(UTC) - timedelta(hours=hours)
     samples = db.scalars(

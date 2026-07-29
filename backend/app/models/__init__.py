@@ -20,7 +20,7 @@ from app.models.operational_metrics import OperationalAlertState, OperationalMet
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.session import UserSession
 from app.models.tags import UserTag, UserWineTag
-from app.models.user import User
+from app.models.user import User, UserMonitorDeviceToken
 from app.models.user_activity import UserActivityLog
 from app.models.user_ai_settings import UserAiSettings
 from app.models.wine import Wine, WineTastingEntry, WineValueHistory
@@ -51,6 +51,7 @@ __all__ = [
     "StripeWebhookEvent",
     "UserAiCreditTransaction",
     "User",
+    "UserMonitorDeviceToken",
     "UserActivityLog",
     "UserAiSettings",
     "UserEntitlement",

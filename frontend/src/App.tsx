@@ -20,6 +20,7 @@ import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import { useChartReveal } from "./components/chartMotion";
+import "./styles.css";
 
 type BreakdownDrilldown = {
   title: TranslationKey;

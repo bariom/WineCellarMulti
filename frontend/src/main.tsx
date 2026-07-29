@@ -1,11 +1,16 @@
-import React from "react";
+import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
+import "./monitor.css";
 import { App } from "./App";
-import "./styles.css";
+
+const MonitorApp = lazy(() => import("./MonitorApp").then((module) => ({ default: module.MonitorApp })));
+const monitorOnly = import.meta.env.VITE_VINARIS_MONITOR === "true";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <App />
+    <Suspense fallback={null}>
+      {monitorOnly || window.location.pathname.startsWith("/monitor") ? <MonitorApp /> : <App />}
+    </Suspense>
   </React.StrictMode>,
 );
 

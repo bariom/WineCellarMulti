@@ -4,6 +4,7 @@ dist/
 build/
 .env
 .env.*
+!frontend/.env.monitor
 !.env.example
 __pycache__/
 *.pyc
