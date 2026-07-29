@@ -108,6 +108,7 @@ export function offlineWishlistItem(raw: Record<string, unknown>, index: number)
     region: rawString(raw.region),
     appellation: rawString(raw.appellation),
     target_price: rawString(raw.target_price, "0"),
+    offer_price: raw.offer_price === null || raw.offer_price === undefined ? null : rawString(raw.offer_price),
     ai_market_price: rawString(raw.ai_market_price),
     ai_market_price_currency: rawString(raw.ai_market_price_currency),
     currency: rawString(raw.currency, "CHF"),

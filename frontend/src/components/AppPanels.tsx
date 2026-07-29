@@ -1232,6 +1232,7 @@ export function WishlistDetail({
   locale: Locale;
 }) {
   const aiMarketPrice = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
+  const offerPrice = item.offer_price ? formatMoney(item.offer_price, item.currency, locale) : "";
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const latestStrategyAudit = auditEntries
     .filter((entry) => entry.feature === "wishlist_strategy")
@@ -1252,8 +1253,8 @@ export function WishlistDetail({
           <span>{[item.producer, item.vintage, item.region, item.appellation].filter(Boolean).join(" - ")}</span>
         </div>
         <div className="wishlist-price-block">
-          <span>{t("targetPrice")}</span>
-          <strong className="wishlist-price">{formatMoney(item.target_price, item.currency, locale)}</strong>
+          <span>{offerPrice ? (locale === "it" ? "PREZZO OFFERTO" : "OFFER PRICE") : (locale === "it" ? "PREZZO MASSIMO" : "MAXIMUM PRICE")}</span>
+          <strong className="wishlist-price">{offerPrice || formatMoney(item.target_price, item.currency, locale)}</strong>
         </div>
       </div>
       <div className="ai-actions">
@@ -1264,7 +1265,7 @@ export function WishlistDetail({
           <ButtonBusyContent busy={generating === "purpose"} idleLabel={t("aiPurpose")} busyLabel={t("generating")} />
         </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("target-price")}>
-          <ButtonBusyContent busy={generating === "target-price"} idleLabel={t("aiTargetPrice")} busyLabel={t("generating")} />
+          <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} />
         </button>
       </div>
       {generating ? <LoadingState label={t("generating")} compact /> : null}
@@ -1280,7 +1281,8 @@ export function WishlistDetail({
         <DetailField label={t("priority")} value={displayValue(item.priority, locale, "priority")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("purpose")} value={displayValue(item.purpose, locale, "purpose")} emptyLabel={t("notSpecified")} />
         <DetailField label={t("status")} value={displayValue(item.status, locale, "status")} emptyLabel={t("notSpecified")} />
-        <DetailField label={t("targetPrice")} value={formatMoney(item.target_price, item.currency, locale)} emptyLabel={t("notSpecified")} />
+        <DetailField label={locale === "it" ? "Prezzo offerto" : "Offer price"} value={offerPrice} emptyLabel={t("notSpecified")} />
+        <DetailField label={locale === "it" ? "Prezzo massimo" : "Maximum price"} value={formatMoney(item.target_price, item.currency, locale)} emptyLabel={t("notSpecified")} />
         <DetailField label={t("aiMarketPrice")} value={aiMarketPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>

@@ -798,6 +798,7 @@ def wishlist_advice_context(item: WishlistItem) -> str:
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
             f"Target price: {item.currency} {item.target_price}",
+            f"Offer price: {item.currency} {item.offer_price}" if item.offer_price is not None else "Offer price: not provided",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
             f"Status: {item.status}",
@@ -861,7 +862,8 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
             [
                 (
                     f"{index}. {item.name} | Producer: {item.producer or 'Unknown'} | Vintage: {item.vintage or 'n/d'} | "
-                    f"Target: {item.currency} {Decimal(str(item.target_price or 0)).quantize(Decimal('0.01'))} | "
+                    f"Target ceiling: {item.currency} {Decimal(str(item.target_price or 0)).quantize(Decimal('0.01'))} | "
+                    f"Offer: {item.currency} {item.offer_price if item.offer_price is not None else 'unknown'} | "
                     f"Priority: {item.priority or 'Unknown'} | Purpose: {item.purpose or 'Unknown'} | Status: {item.status or 'Unknown'}"
                 ),
                 f"   Region/Appellation: {item.region or 'n/d'} / {item.appellation or 'n/d'}",

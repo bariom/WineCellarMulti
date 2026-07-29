@@ -262,6 +262,7 @@ export type WishlistItem = {
   region: string;
   appellation: string;
   target_price: string;
+  offer_price: string | null;
   ai_market_price: string;
   ai_market_price_currency: string;
   currency: string;
@@ -359,6 +360,7 @@ export type WishlistDraft = {
   region: string;
   appellation: string;
   target_price: string;
+  offer_price: string;
   currency: string;
   merchant: string;
   priority: string;

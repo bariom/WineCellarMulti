@@ -466,6 +466,7 @@ const emptyWishlistDraft: WishlistDraft = {
   region: "",
   appellation: "",
   target_price: "0",
+  offer_price: "",
   currency: "CHF",
   merchant: "",
   priority: "Medium",
@@ -9708,7 +9709,13 @@ export function App() {
                     <input value={wishlistDraft.vintage} onChange={(event) => setWishlistDraft({ ...wishlistDraft, vintage: event.target.value })} disabled={!canWriteWine} />
                   </label>
                   <label>
-                    <span>{t("targetPrice")}</span>
+                    <span>{locale === "it" ? "Prezzo offerto" : "Offer price"}</span>
+                    <input type="number" min="0" step="0.01" value={wishlistDraft.offer_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, offer_price: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                </div>
+                <div className="form-row">
+                  <label>
+                    <span>{locale === "it" ? "Prezzo massimo" : "Maximum price"}</span>
                     <input type="number" min="0" step="0.01" value={wishlistDraft.target_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, target_price: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>

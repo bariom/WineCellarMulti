@@ -55,6 +55,7 @@ class WishlistItem(Base):
     region: Mapped[str] = mapped_column(String(120), default="")
     appellation: Mapped[str] = mapped_column(String(120), default="")
     target_price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    offer_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     ai_market_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     ai_market_price_currency: Mapped[str] = mapped_column(String(8), default="")
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
