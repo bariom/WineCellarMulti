@@ -798,7 +798,7 @@ def wishlist_advice_context(item: WishlistItem) -> str:
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
             f"Target price: {item.currency} {item.target_price}",
-            f"Offer price: {item.currency} {item.offer_price}" if item.offer_price is not None else "Offer price: not provided",
+            f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}" if getattr(item, "offer_price", None) is not None else "Offer price: not provided",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
             f"Status: {item.status}",
