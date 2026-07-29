@@ -188,10 +188,11 @@ def wishlist_value_prompt(
         ),
         user=(
             f"Estimate the current market price for this exact wishlist item. Final market_price and market_price_currency must be {currency}. "
-            f"The user target price is {currency} {target_price}; treat it as the maximum acceptable price and use it only to evaluate opportunity after estimating market price independently. "
-            "If an offer price is supplied, price_advice must give a direct verdict: Opportunity, Fair price, Too expensive, or Insufficient data, and compare the offer with both market estimate and maximum price. "
-            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
-            "Use market_note for a short availability or confidence comment.\n\n"
-            f"{wishlist_context}"
+            + ((f"The user target price is {currency} {target_price}" if target_price is not None else "The user did not set a maximum acceptable price")
+               + "; use a maximum price only as a secondary constraint after estimating market price independently. "
+               + "If an offer price is supplied, price_advice must give a direct verdict: Opportunity, Fair price, Too expensive, or Insufficient data. When no maximum is set, compare the offer only with the market estimate and do not recommend against buying merely because the maximum is missing. ")
+            + "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
+            + "Use market_note for a short availability or confidence comment.\n\n"
+            + wishlist_context
         ),
     )

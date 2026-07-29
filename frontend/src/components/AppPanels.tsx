@@ -1242,7 +1242,8 @@ export function WishlistDetail({
     .sort((first, second) => second.created_at.localeCompare(first.created_at))[0];
   const strategyGeneratedAt = item.ai_strategy_generated_at || latestStrategyAudit?.created_at || "";
   const purposeGeneratedAt = item.ai_purpose_generated_at || latestPurposeAudit?.created_at || "";
-  const strategyTitle = strategyGeneratedAt ? `${t("aiStrategy")} - ${t("generatedAt")} ${formatDisplayDate(strategyGeneratedAt)}` : t("aiStrategy");
+  const strategyLabel = marketAuditEntry ? (locale === "it" ? "Valutazione offerta AI" : "AI offer evaluation") : t("aiStrategy");
+  const strategyTitle = strategyGeneratedAt ? `${strategyLabel} - ${t("generatedAt")} ${formatDisplayDate(strategyGeneratedAt)}` : strategyLabel;
   const purposeTitle = purposeGeneratedAt ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(purposeGeneratedAt)}` : t("aiPurpose");
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>

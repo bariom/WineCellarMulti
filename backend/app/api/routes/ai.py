@@ -797,7 +797,7 @@ def wishlist_advice_context(item: WishlistItem) -> str:
             f"Type: {item.type}",
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
-            f"Target price: {item.currency} {item.target_price}",
+            f"Target price: {item.currency} {item.target_price} (maximum)" if item.target_price and item.target_price > 0 else "Target price: not provided",
             f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}" if getattr(item, "offer_price", None) is not None else "Offer price: not provided",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
@@ -818,7 +818,8 @@ def wishlist_market_context(item: WishlistItem, *, include_ai_context: bool = Fa
             f"Format: {item.format}",
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
-            f"Target price: {item.currency} {item.target_price}",
+            f"Target price: {item.currency} {item.target_price} (maximum)" if item.target_price and item.target_price > 0 else "Target price: not provided",
+            f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}" if getattr(item, "offer_price", None) is not None else "Offer price: not provided",
             *([f"AI context note: {item.ai_context_note}"] if include_ai_context else []),
         ],
     )
@@ -858,12 +859,13 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
         "Wishlist portfolio:",
     ]
     for index, item in enumerate(sorted_items[:40], start=1):
+        target_ceiling = f"{item.currency} {Decimal(str(item.target_price)).quantize(Decimal('0.01'))}" if item.target_price and item.target_price > 0 else "not provided"
+        offer_price = f"{item.currency} {item.offer_price}" if item.offer_price is not None else "unknown"
         lines.extend(
             [
                 (
                     f"{index}. {item.name} | Producer: {item.producer or 'Unknown'} | Vintage: {item.vintage or 'n/d'} | "
-                    f"Target ceiling: {item.currency} {Decimal(str(item.target_price or 0)).quantize(Decimal('0.01'))} | "
-                    f"Offer: {item.currency} {item.offer_price if item.offer_price is not None else 'unknown'} | "
+                    f"Target ceiling: {target_ceiling} | Offer: {offer_price} | "
                     f"Priority: {item.priority or 'Unknown'} | Purpose: {item.purpose or 'Unknown'} | Status: {item.status or 'Unknown'}"
                 ),
                 f"   Region/Appellation: {item.region or 'n/d'} / {item.appellation or 'n/d'}",
@@ -2300,7 +2302,7 @@ def generate_wishlist_target_price(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wishlist_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(item.currency), currency=item.currency, target_price=item.target_price, wishlist_context=wishlist_market_context(item, include_ai_context=True))
+    prompt = wishlist_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(item.currency), currency=item.currency, target_price=item.target_price if item.target_price and item.target_price > 0 else None, wishlist_context=wishlist_market_context(item, include_ai_context=True))
     schema = {
         "name": "wishlist_market_price",
         "schema": {
