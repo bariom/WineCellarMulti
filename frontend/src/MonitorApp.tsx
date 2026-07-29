@@ -34,10 +34,11 @@ function MonitorChart({ title, subtitle, color, points, formatter }: { title: st
   const path = coordinates.filter((point) => point.y !== null).map((point, index) => `${index ? "L" : "M"}${point.x} ${point.y}`).join(" ");
   return <section className="monitor-card monitor-chart-card">
     <div className="monitor-section-head"><div><span>{subtitle}</span><strong>{title}</strong></div><b>{formatter(active?.value ?? null)}</b></div>
-    {usable.length ? <><svg className="monitor-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={title} onMouseLeave={() => setSelected(null)}>
+    {usable.length ? <><svg className="monitor-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label={`${title}. Tocca un punto per visualizzarne il valore`} onMouseLeave={() => setSelected(null)}>
       <path d={`${path} L100 100 L0 100 Z`} fill={color} fillOpacity=".14" /><path d={path} fill="none" stroke={color} strokeWidth="2.3" vectorEffect="non-scaling-stroke" />
-      {coordinates.map((point, index) => point.y === null ? null : <circle key={points[index].timestamp} cx={point.x} cy={point.y} r="3" fill={color} onMouseEnter={() => setSelected(index)} onClick={() => setSelected(index)} />)}
-    </svg><small>{active ? `${new Date(active.timestamp).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · tocca un punto per esplorare` : ""}</small></> : <p className="monitor-empty">In attesa di campioni</p>}
+      {coordinates.map((point, index) => point.y === null ? null : <rect key={`touch-${points[index].timestamp}`} className="monitor-chart-hitarea" x={Math.max(0, point.x - (points.length < 2 ? 50 : 50 / (points.length - 1)))} y="0" width={points.length < 2 ? 100 : 100 / (points.length - 1)} height="100" onPointerDown={() => setSelected(index)} onMouseEnter={() => setSelected(index)} />)}
+      {coordinates.map((point, index) => point.y === null ? null : <circle key={points[index].timestamp} cx={point.x} cy={point.y} r={selected === index ? "5" : "3"} fill={color} className={selected === index ? "selected" : ""} />)}
+    </svg><small>{active ? `${new Date(active.timestamp).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })} · tocca il grafico per esplorare` : ""}</small></> : <p className="monitor-empty">In attesa di campioni</p>}
   </section>;
 }
 
