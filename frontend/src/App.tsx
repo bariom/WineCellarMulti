@@ -10744,6 +10744,7 @@ export function App() {
             ) : null}
             {!isWineCollectionView ? filteredWishlist.map((item) => {
               const targetPriceValue = formatMoney(item.target_price, item.currency, locale);
+              const offerPriceValue = item.offer_price ? formatMoney(item.offer_price, item.currency, locale) : "";
               const aiMarketPriceValue = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
               const readyToBuy = isWishlistReadyToBuy(item.status);
               return (
@@ -10791,8 +10792,14 @@ export function App() {
                     ) : null}
                   </div>
                   <div className="wishlist-price-block">
+                    {offerPriceValue ? (
+                      <div className="wishlist-target-price">
+                        <span>{locale === "it" ? "Prezzo offerto" : "Offer price"}</span>
+                        <strong className="wishlist-price">{offerPriceValue}</strong>
+                      </div>
+                    ) : null}
                     <div className="wishlist-target-price">
-                      <span>{t("targetPrice")}</span>
+                      <span>{locale === "it" ? "Prezzo massimo" : "Maximum price"}</span>
                       <strong className="wishlist-price">{targetPriceValue}</strong>
                     </div>
                     {aiMarketPriceValue ? (
