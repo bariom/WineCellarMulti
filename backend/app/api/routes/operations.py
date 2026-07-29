@@ -95,7 +95,10 @@ def create_monitor_device_token(
     )
     db.add(token)
     db.commit()
-    return {"id": str(token.id), "label": token.label, "token": raw_token}
+    return {
+        "id": str(token.id), "label": token.label, "token": raw_token,
+        "created_at": token.created_at.isoformat(), "last_used_at": None, "revoked_at": None,
+    }
 
 
 @router.delete("/device-tokens/{token_id}", status_code=status.HTTP_204_NO_CONTENT)

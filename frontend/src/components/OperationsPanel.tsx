@@ -17,6 +17,7 @@ type OperationsPanelProps = {
 
 type ChartScale = { min: number; max: number; suffix: string };
 type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string; axis?: "primary" | "secondary" };
+type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
 
 function roundedScale(values: Array<number | null>, suffix: string): ChartScale {
   const maximum = Math.max(...values.filter((value): value is number => value !== null && Number.isFinite(value)), 0);
@@ -199,10 +200,21 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const [selectedHistory, setSelectedHistory] = useState(history);
   const [monitorToken, setMonitorToken] = useState("");
   const [monitorTokenError, setMonitorTokenError] = useState("");
+  const [monitorTokens, setMonitorTokens] = useState<MonitorDeviceToken[]>([]);
 
   useEffect(() => {
     if (selectedHours === 1) setSelectedHistory(history);
   }, [history, selectedHours]);
+
+  async function refreshMonitorTokens() {
+    try {
+      setMonitorTokens(await api<MonitorDeviceToken[]>("/api/v1/admin/operations/device-tokens"));
+    } catch {
+      setMonitorTokenError(isItalian ? "Impossibile caricare i token Monitor." : "Unable to load Monitor tokens.");
+    }
+  }
+
+  useEffect(() => { void refreshMonitorTokens(); }, []);
 
   async function selectHours(hours: number) {
     setSelectedHours(hours);
@@ -215,11 +227,24 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
 
   async function createMonitorToken() {
     try {
-      const created = await api<{ token: string }>("/api/v1/admin/operations/device-tokens?label=Vinaris%20Monitor", { method: "POST" });
+      const created = await api<MonitorDeviceToken & { token: string }>("/api/v1/admin/operations/device-tokens?label=Vinaris%20Monitor", { method: "POST" });
       setMonitorToken(created.token);
+      setMonitorTokens((tokens) => [created, ...tokens]);
       setMonitorTokenError("");
     } catch {
       setMonitorTokenError(isItalian ? "Impossibile creare il token Monitor." : "Unable to create the Monitor token.");
+    }
+  }
+
+  async function revokeMonitorToken(deviceToken: MonitorDeviceToken) {
+    const confirmed = window.confirm(isItalian ? `Revocare il token “${deviceToken.label}”? Il dispositivo perderà subito accesso a Monitor.` : `Revoke the “${deviceToken.label}” token? The device will lose Monitor access immediately.`);
+    if (!confirmed) return;
+    try {
+      await api<void>(`/api/v1/admin/operations/device-tokens/${deviceToken.id}`, { method: "DELETE" });
+      setMonitorTokens((tokens) => tokens.map((token) => token.id === deviceToken.id ? { ...token, revoked_at: new Date().toISOString() } : token));
+      setMonitorTokenError("");
+    } catch {
+      setMonitorTokenError(isItalian ? "Impossibile revocare il token Monitor." : "Unable to revoke the Monitor token.");
     }
   }
   const conntrackPercent = overview?.system.conntrack.count !== null && overview?.system.conntrack.max
@@ -266,6 +291,13 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
         {monitorToken ? <code>{monitorToken}</code> : null}
         {monitorToken ? <small className="operations-monitor-token-warning">{isItalian ? "Copialo ora: non sarà mostrato di nuovo." : "Copy it now: it will not be shown again."}</small> : null}
         {monitorTokenError ? <small className="operations-monitor-token-error">{monitorTokenError}</small> : null}
+        {monitorTokens.length ? <div className="operations-monitor-token-list">
+          <strong>{isItalian ? "Dispositivi autorizzati" : "Authorised devices"}</strong>
+          {monitorTokens.map((deviceToken) => <div className={deviceToken.revoked_at ? "revoked" : ""} key={deviceToken.id}>
+            <span><b>{deviceToken.label}</b><small>{deviceToken.revoked_at ? (isItalian ? "Revocato" : "Revoked") : (deviceToken.last_used_at ? `${isItalian ? "Ultimo utilizzo" : "Last used"}: ${new Date(deviceToken.last_used_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}` : (isItalian ? "Mai utilizzato" : "Never used"))}</small></span>
+            {!deviceToken.revoked_at ? <button type="button" className="secondary compact" onClick={() => void revokeMonitorToken(deviceToken)}>{isItalian ? "Revoca" : "Revoke"}</button> : null}
+          </div>)}
+        </div> : null}
       </section>
       {overview ? (
         <>
