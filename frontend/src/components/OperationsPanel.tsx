@@ -197,6 +197,8 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const isItalian = locale === "it";
   const [selectedHours, setSelectedHours] = useState(1);
   const [selectedHistory, setSelectedHistory] = useState(history);
+  const [monitorToken, setMonitorToken] = useState("");
+  const [monitorTokenError, setMonitorTokenError] = useState("");
 
   useEffect(() => {
     if (selectedHours === 1) setSelectedHistory(history);
@@ -209,6 +211,16 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
       return;
     }
     setSelectedHistory(await api<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${hours}`));
+  }
+
+  async function createMonitorToken() {
+    try {
+      const created = await api<{ token: string }>("/api/v1/admin/operations/device-tokens?label=Vinaris%20Monitor", { method: "POST" });
+      setMonitorToken(created.token);
+      setMonitorTokenError("");
+    } catch {
+      setMonitorTokenError(isItalian ? "Impossibile creare il token Monitor." : "Unable to create the Monitor token.");
+    }
   }
   const conntrackPercent = overview?.system.conntrack.count !== null && overview?.system.conntrack.max
     ? (overview.system.conntrack.count / overview.system.conntrack.max) * 100
@@ -248,6 +260,13 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
       <p className="settings-help-copy">
         {isItalian ? "Metriche aggregate riservate all'app-admin. L'aggiornamento avviene solo quando questa scheda è aperta." : "Aggregated metrics restricted to the app admin. Refreshing occurs only while this tab is open."}
       </p>
+      <section className="operations-monitor-token" aria-label="Vinaris Monitor">
+        <div><strong>Vinaris Monitor</strong><small>{isItalian ? "Crea un token revocabile per l'app Android in sola lettura." : "Create a revocable read-only token for the Android app."}</small></div>
+        <button type="button" className="secondary compact" onClick={() => void createMonitorToken()}>{isItalian ? "Crea token" : "Create token"}</button>
+        {monitorToken ? <code>{monitorToken}</code> : null}
+        {monitorToken ? <small className="operations-monitor-token-warning">{isItalian ? "Copialo ora: non sarà mostrato di nuovo." : "Copy it now: it will not be shown again."}</small> : null}
+        {monitorTokenError ? <small className="operations-monitor-token-error">{monitorTokenError}</small> : null}
+      </section>
       {overview ? (
         <>
           <div className={`operations-health ${stale ? "warning" : alerts.some((alert) => alert.status === "critical") ? "critical" : alerts.length ? "warning" : "healthy"}`} role="status">
