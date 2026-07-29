@@ -85,6 +85,7 @@ def wishlist_response(item: WishlistItem, ai_dates: dict[str, datetime] | None =
         "region": item.region,
         "appellation": item.appellation,
         "target_price": item.target_price,
+        "offer_price": item.offer_price,
         "ai_market_price": item.ai_market_price,
         "ai_market_price_currency": item.ai_market_price_currency,
         "currency": item.currency,
