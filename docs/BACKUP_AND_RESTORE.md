@@ -30,6 +30,9 @@ del repository. Docker Compose lo monta nel backend come `/data/wine-photos`,
 quindi backend e backup usano necessariamente la stessa directory. Per
 installazioni precedenti che usano il volume Docker `wine-photo-data`, eseguire
 prima `bash scripts/migrate-photo-storage.sh` e solo dopo ricreare il backend.
+Lo script trova anche il volume se il vecchio container non esiste più; se il
+progetto Docker ha un nome non standard, indicarlo con
+`LEGACY_PHOTO_VOLUME=nome-volume bash scripts/migrate-photo-storage.sh`.
 Il backup confronta i record fotografici del database con i file
 `thumbnail.png` e `detail.png` e fallisce se lo storage risulta incompleto.
 

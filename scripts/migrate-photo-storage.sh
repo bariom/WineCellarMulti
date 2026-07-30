@@ -2,8 +2,8 @@
 set -euo pipefail
 
 # One-time migration from the legacy Docker named volume to the host directory
-# consumed by backup-db.sh. Run this after pulling the release, but before
-# recreating the backend with the new bind mount.
+# consumed by backup-db.sh. It can read either the running legacy backend or
+# its remaining named volume after a failed/replaced container recreation.
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="$ROOT_DIR/.env"
@@ -39,15 +39,26 @@ require_command find
 require_command realpath
 
 cd "$ROOT_DIR"
-backend_id="$(docker compose ps -q backend)"
-if [[ -z "$backend_id" ]]; then
-  echo "The legacy backend container is not running. Start it with the old named-volume configuration before migrating." >&2
+source_volume="${LEGACY_PHOTO_VOLUME:-}"
+if [[ -z "$source_volume" ]]; then
+  backend_id="$(docker compose ps -aq backend | head -n 1 || true)"
+  if [[ -n "$backend_id" ]]; then
+    source_volume="$(docker inspect --format '{{range .Mounts}}{{if and (eq .Type "volume") (eq .Destination "/data/wine-photos")}}{{.Name}}{{end}}{{end}}' "$backend_id")"
+  fi
+fi
+if [[ -z "$source_volume" ]]; then
+  compose_project="${COMPOSE_PROJECT_NAME:-$(basename "$ROOT_DIR" | tr '[:upper:]' '[:lower:]')}"
+  source_volume="$(docker volume ls -q \
+    --filter "label=com.docker.compose.project=$compose_project" \
+    --filter "label=com.docker.compose.volume=wine-photo-data" \
+    | head -n 1 || true)"
+fi
+if [[ -z "$source_volume" ]]; then
+  echo "Legacy photo volume not found. Set LEGACY_PHOTO_VOLUME to its exact Docker volume name." >&2
   exit 1
 fi
-
-source_volume="$(docker inspect --format '{{range .Mounts}}{{if and (eq .Type "volume") (eq .Destination "/data/wine-photos")}}{{.Name}}{{end}}{{end}}' "$backend_id")"
-if [[ -z "$source_volume" ]]; then
-  echo "No legacy named photo volume is attached to the running backend; migration is not required." >&2
+if ! docker volume inspect "$source_volume" >/dev/null 2>&1; then
+  echo "Legacy photo volume does not exist: $source_volume" >&2
   exit 1
 fi
 
