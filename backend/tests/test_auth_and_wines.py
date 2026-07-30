@@ -406,7 +406,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
     client = TestClient(app)
     assert register(client).status_code == 201
     ai_png = b"\x89PNG\r\n\x1a\nAI bottle result"
-    monkeypatch.setattr(wines_route, "process_bottle_photo", lambda content, model: ai_png)
+    monkeypatch.setattr(wines_route, "process_bottle_photo", lambda content, model, timeout: ai_png)
     monkeypatch.setattr(settings, "wine_photo_ai_enabled", True)
     processed = client.post(
         "/api/v1/wines/photo/process",

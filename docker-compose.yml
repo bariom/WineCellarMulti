@@ -74,6 +74,7 @@ services:
       WINE_PHOTO_STORAGE_DIR: /data/wine-photos
       WINE_PHOTO_AI_ENABLED: ${WINE_PHOTO_AI_ENABLED:-true}
       WINE_PHOTO_AI_MODEL: ${WINE_PHOTO_AI_MODEL:-birefnet-general-lite}
+      WINE_PHOTO_AI_TIMEOUT_SECONDS: ${WINE_PHOTO_AI_TIMEOUT_SECONDS:-90}
       U2NET_HOME: /data/photo-ai-models
     ports:
       - "127.0.0.1:8000:8000"

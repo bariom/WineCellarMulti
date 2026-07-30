@@ -93,6 +93,7 @@ class Settings(BaseSettings):
     wine_photo_ai_enabled: bool = True
     wine_photo_ai_model: str = "birefnet-general-lite"
     wine_photo_ai_max_input_bytes: int = 12_000_000
+    wine_photo_ai_timeout_seconds: int = 90
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"

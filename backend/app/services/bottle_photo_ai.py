@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from collections import deque
-from functools import lru_cache
 from importlib import import_module
 from io import BytesIO
+from multiprocessing import get_context
+from queue import Empty
 from threading import Lock
-from typing import Any
+from typing import Any, NoReturn
 
 DETAIL_SIZE = (480, 720)
-_session_lock = Lock()
+_photo_processing_lock = Lock()
+DEFAULT_PROCESS_TIMEOUT_SECONDS = 90
 
 
 class BottlePhotoAiError(RuntimeError):
@@ -38,23 +40,12 @@ def _vision_modules() -> tuple[Any, Any, Any, Any]:
     return numpy, image_module, image_ops, rembg
 
 
-@lru_cache(maxsize=2)
-def _cached_model_session(model_name: str) -> Any:
+def _model_session(model_name: str) -> Any:
     _, _, _, rembg = _vision_modules()
     try:
         return rembg.new_session(model_name)
     except Exception as error:
         raise BottlePhotoAiUnavailable("AI bottle segmentation model is unavailable") from error
-
-
-def _model_session(model_name: str) -> Any:
-    with _session_lock:
-        return _cached_model_session(model_name)
-
-
-def warm_bottle_photo_model(model_name: str) -> None:
-    _model_session(model_name)
-
 
 def _guide_half_width(width: int, height: int, y: int) -> float:
     guide_y = (y / height - 0.05) / 0.9
@@ -153,7 +144,7 @@ def _center_crop(image: Any) -> Any:
     return image.crop(box)
 
 
-def process_bottle_photo(content: bytes, model_name: str) -> bytes:
+def _process_bottle_photo_in_worker(content: bytes, model_name: str) -> bytes:
     numpy, image_module, image_ops, rembg = _vision_modules()
     try:
         source = image_module.open(BytesIO(content))
@@ -225,3 +216,62 @@ def process_bottle_photo(content: bytes, model_name: str) -> bytes:
     buffer = BytesIO()
     output.save(buffer, format="PNG", optimize=True)
     return buffer.getvalue()
+
+
+def _photo_processing_worker(content: bytes, model_name: str, result_queue: Any) -> None:
+    """Run ONNX in a disposable interpreter so its allocator cannot grow the API process."""
+    try:
+        result_queue.put(("ok", _process_bottle_photo_in_worker(content, model_name)))
+    except (BottlePhotoAiError, InvalidBottlePhoto) as error:
+        result_queue.put(("error", type(error).__name__, str(error)))
+    except Exception:
+        result_queue.put(
+            ("error", BottlePhotoAiUnavailable.__name__, "AI bottle segmentation failed")
+        )
+
+
+def _raise_worker_error(error_type: str, message: str) -> NoReturn:
+    error_classes: dict[str, type[BottlePhotoAiError]] = {
+        BottlePhotoAiUnavailable.__name__: BottlePhotoAiUnavailable,
+        BottlePhotoNotDetected.__name__: BottlePhotoNotDetected,
+        InvalidBottlePhoto.__name__: InvalidBottlePhoto,
+    }
+    raise error_classes.get(error_type, BottlePhotoAiUnavailable)(message)
+
+
+def process_bottle_photo(
+    content: bytes, model_name: str, timeout_seconds: int = DEFAULT_PROCESS_TIMEOUT_SECONDS
+) -> bytes:
+    """Process a photo without retaining ONNX Runtime allocations in the web server.
+
+    BiRefNet/ONNX Runtime may retain a multi-gigabyte CPU arena for the lifetime
+    of an inference session.  A spawned worker confines that memory to one
+    upload and is deliberately serialized to protect modest production hosts.
+    """
+    context = get_context("spawn")
+    with _photo_processing_lock:
+        result_queue = context.Queue(maxsize=1)
+        worker = context.Process(
+            target=_photo_processing_worker,
+            args=(content, model_name, result_queue),
+            name="vinaris-photo-ai",
+        )
+        worker.start()
+        try:
+            result = result_queue.get(timeout=timeout_seconds)
+        except Empty as error:
+            worker.terminate()
+            worker.join()
+            raise BottlePhotoAiUnavailable("AI bottle segmentation timed out") from error
+        finally:
+            if worker.is_alive():
+                worker.join(timeout=1)
+            if worker.is_alive():
+                worker.terminate()
+                worker.join()
+            result_queue.close()
+            result_queue.join_thread()
+
+    if result[0] == "ok":
+        return result[1]
+    _raise_worker_error(result[1], result[2])
