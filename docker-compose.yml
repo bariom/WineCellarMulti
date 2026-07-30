@@ -17,6 +17,9 @@ services:
       retries: 10
 
   backend:
+    # Production runs this service through systemd. Enable explicitly only for
+    # the all-container development stack: docker compose --profile container-app up --build
+    profiles: ["container-app"]
     build:
       context: ./backend
     environment:
@@ -85,6 +88,7 @@ services:
         condition: service_healthy
 
   frontend:
+    profiles: ["container-app"]
     build:
       context: ./frontend
     environment:

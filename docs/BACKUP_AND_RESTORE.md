@@ -33,6 +33,8 @@ prima `bash scripts/migrate-photo-storage.sh` e solo dopo ricreare il backend.
 Lo script trova anche il volume se il vecchio container non esiste più; se il
 progetto Docker ha un nome non standard, indicarlo con
 `LEGACY_PHOTO_VOLUME=nome-volume bash scripts/migrate-photo-storage.sh`.
+Questa migrazione riguarda solo lo stack Docker completo avviato con il profilo
+`container-app`; il deploy systemd usa direttamente `backend/data/wine-photos`.
 Il backup confronta i record fotografici del database con i file
 `thumbnail.png` e `detail.png` e fallisce se lo storage risulta incompleto.
 

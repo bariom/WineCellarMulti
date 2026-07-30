@@ -53,10 +53,11 @@ docker compose up -d
 To run the full development stack with Docker:
 
 ```bash
-docker compose up --build
+docker compose --profile container-app up --build
 ```
 
-This starts PostgreSQL, runs backend migrations, exposes the API on `:8000`, and exposes the frontend on `:5173`.
+This explicitly starts PostgreSQL, runs backend migrations, exposes the API on `:8000`, and exposes the frontend on `:5173`.
+Without the `container-app` profile Docker Compose starts only PostgreSQL; this is the production-safe default because production runs the API through systemd.
 The first AI bottle-photo request downloads the approximately 214 MB
 `birefnet-general-lite` model into the persistent `wine-photo-model-data` volume.
 Set `WINE_PHOTO_AI_ENABLED=false` to use only the on-device fallback.

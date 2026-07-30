@@ -84,5 +84,5 @@ if [[ "$source_count" != "$target_count" ]]; then
 fi
 
 echo "Photo migration complete: $target_count files copied."
-echo "Next: docker compose up -d --build --force-recreate backend"
+echo "Next: docker compose --profile container-app up -d --build --force-recreate backend"
 echo "Do not remove Docker volume '$source_volume' until a backup and restore verification both succeed."

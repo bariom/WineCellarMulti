@@ -12,6 +12,11 @@ Assumptions:
 - Frontend build: `/home/administrator/progetti/WineCellarMulti/frontend/dist`
 - PostgreSQL runs via Docker Compose.
 
+The backend and frontend services in `docker-compose.yml` are disabled by
+default behind the `container-app` profile. This prevents an accidental second
+API from binding port 8000 on a systemd deployment. Use `update.sh` for normal
+production updates; Compose is used there only for PostgreSQL.
+
 ## Install or update services
 
 From the repository root:
