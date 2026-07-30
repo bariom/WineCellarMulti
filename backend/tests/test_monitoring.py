@@ -4,6 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
+from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app, is_application_request, is_interactive_application_request
@@ -107,6 +108,10 @@ def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
             "display_name": "Cellar Owner",
             "password": "strong-password-1",
             "household_name": "Main Cellar",
+            "locale": "it",
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
             "photo_usage_disclaimer_accepted": True,
         },
     )

@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.legal import LEGAL_DOCUMENT_VERSION, legal_acceptance_is_current
 from app.core.security import hash_session_token
 from app.db.session import get_db
 from app.models import Household, Membership, RedeemCode, User, UserEntitlement, UserSession
@@ -66,6 +67,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "is_app_admin": False,
             "pending_approval": False,
             "pending_email_verification": False,
+            "requires_legal_acceptance": False,
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
             "locale": "it",
             "theme_preference": "system",
             "dashboard_focus": "collector",
@@ -92,6 +95,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "is_app_admin": context.user.is_app_admin,
         "pending_approval": False,
         "pending_email_verification": False,
+        "requires_legal_acceptance": not legal_acceptance_is_current(context.user),
+        "legal_document_version": LEGAL_DOCUMENT_VERSION,
         "locale": context.user.locale,
         "theme_preference": context.user.theme_preference,
         "dashboard_focus": context.user.dashboard_focus,
@@ -172,6 +177,11 @@ def get_authenticated_context(
 def get_current_context(
     context: CurrentContext = Depends(get_authenticated_context),
 ) -> CurrentContext:
+    if not legal_acceptance_is_current(context.user):
+        raise HTTPException(
+            status_code=status.HTTP_428_PRECONDITION_REQUIRED,
+            detail="Current privacy policy and terms must be accepted",
+        )
     if not context.user.is_app_admin and not context.has_active_entitlement:
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Redeem code required"

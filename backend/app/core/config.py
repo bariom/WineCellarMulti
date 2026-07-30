@@ -16,6 +16,9 @@ class Settings(BaseSettings):
     password_reset_ttl_minutes: int = 30
     coownership_invite_ttl_days: int = 30
     registration_requires_approval: bool = True
+    legal_operator_name: str = ""
+    legal_operator_address: str = ""
+    legal_contact_email: str = ""
     cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
     rate_limit_enabled: bool = True
     rate_limit_login_ip_attempts: int = 20

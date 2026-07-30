@@ -36,6 +36,7 @@ from app.api.deps import (
 )
 from app.core.config import settings
 from app.core.crypto import encrypt_secret
+from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.core.rate_limit import enforce_rate_limit
 from app.core.security import (
     hash_email_verification_token,
@@ -66,6 +67,7 @@ from app.models import (
 from app.schemas.auth import (
     AccountDeletionRequest,
     EmailVerificationRequest,
+    LegalAcceptanceRequest,
     LoginRequest,
     PasskeyLoginVerifyRequest,
     PasskeyRegistrationOptionsRequest,
@@ -604,6 +606,11 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     existing = db.scalar(select(User).where(User.email == email))
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    if payload.legal_document_version != LEGAL_DOCUMENT_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Legal documents have changed. Review and accept the current version.",
+        )
 
     first_user = db.scalar(select(User)) is None
     is_approved = user_is_preapproved(db, email)
@@ -624,11 +631,18 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     if requires_email_verification and not settings.email_enabled:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email verification requires email delivery configuration")
     email_verification_token = new_email_verification_token() if requires_email_verification else ""
+    accepted_at = datetime.now(UTC)
     user = User(
         email=email,
         display_name=payload.display_name.strip(),
         password_hash=hash_password(payload.password),
-        photo_usage_disclaimer_accepted_at=datetime.now(UTC),
+        locale=payload.locale,
+        photo_usage_disclaimer_accepted_at=accepted_at,
+        privacy_policy_accepted_at=accepted_at,
+        privacy_policy_version=LEGAL_DOCUMENT_VERSION,
+        terms_accepted_at=accepted_at,
+        terms_version=LEGAL_DOCUMENT_VERSION,
+        legal_acceptance_locale=payload.locale,
         is_approved=is_approved,
         is_app_admin=first_user,
         approved_at=datetime.now(UTC) if is_approved else None,
@@ -682,6 +696,38 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     db.refresh(user_session)
     set_session_cookie(response, token)
     return session_response_for(db, user, household, membership, user_session)
+
+
+@router.get("/legal-config")
+def legal_config() -> dict[str, str]:
+    return {
+        "version": LEGAL_DOCUMENT_VERSION,
+        "operator_name": settings.legal_operator_name.strip(),
+        "operator_address": settings.legal_operator_address.strip(),
+        "contact_email": settings.legal_contact_email.strip(),
+    }
+
+
+@router.post("/legal-acceptance", response_model=SessionResponse)
+def accept_legal_documents(
+    payload: LegalAcceptanceRequest,
+    context: CurrentContext = Depends(get_authenticated_context),
+    db: Session = Depends(get_db),
+) -> SessionResponse:
+    if payload.legal_document_version != LEGAL_DOCUMENT_VERSION:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Legal documents have changed. Review and accept the current version.",
+        )
+    accepted_at = datetime.now(UTC)
+    context.user.privacy_policy_accepted_at = accepted_at
+    context.user.privacy_policy_version = LEGAL_DOCUMENT_VERSION
+    context.user.terms_accepted_at = accepted_at
+    context.user.terms_version = LEGAL_DOCUMENT_VERSION
+    context.user.legal_acceptance_locale = payload.locale
+    db.commit()
+    db.refresh(context.user)
+    return SessionResponse(**build_session_response(context))
 
 
 @router.get("/verify-email")

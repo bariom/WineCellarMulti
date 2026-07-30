@@ -6643,6 +6643,27 @@ button.balance-indicator:focus-visible {
   line-height: 1.5;
 }
 
+.wine-form .legal-consent a,
+.legal-links a {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  margin-top: 14px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.legal-acceptance-panel {
+  width: min(620px, calc(100% - 24px));
+  margin: 32px auto;
+}
+
 .key-position-head span,
 .key-position-metrics span,
 .key-position-maturity span {

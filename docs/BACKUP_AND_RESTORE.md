@@ -1,73 +1,80 @@
-# Backup and restore
+# Backup e ripristino
 
-WineCellarMulti stores production data in PostgreSQL, running through Docker Compose with the `postgres-data` volume. The volume is not a backup. The production policy is:
+Vinaris conserva dati in PostgreSQL e fotografie nel percorso host configurato
+da `WINE_PHOTO_BACKUP_PATH`. Un volume Docker o la directory delle foto non
+costituiscono da soli un backup.
 
-- nightly local PostgreSQL dump
-- local retention: 14 days
-- remote retention: 30 days
-- optional remote copy to pCloud via rclone
-- restore procedure documented and periodically tested
+La politica di produzione è:
 
-The remote copy uses `rclone copyto`, not `rclone sync`, so an accidental local deletion is not propagated as a remote deletion. Remote retention is handled separately with `rclone delete --min-age`.
+- bundle notturno con database e fotografie;
+- checksum SHA-256 di ogni file;
+- verifica del catalogo PostgreSQL prima e dopo la creazione;
+- conservazione locale predefinita di 14 giorni;
+- copia remota predefinita di 30 giorni;
+- prova di restore in un database temporaneo;
+- prova periodica completa su un ambiente non di produzione.
 
-## Configure pCloud
+## Configurazione
 
-Install rclone on the server:
+Nel `.env` della root:
 
-```bash
-sudo apt-get update
-sudo apt-get install -y rclone
-```
-
-Create a pCloud remote. The rclone pCloud backend uses browser authorization; `rclone config` walks through the token setup.
-
-```bash
-rclone config
-```
-
-Recommended remote name:
-
-```text
-pcloud
-```
-
-For an EU pCloud account, rclone documents the pCloud hostname as `eapi.pcloud.com`; for the original/US region it is `api.pcloud.com`.
-
-Create and test the backup folder:
-
-```bash
-rclone mkdir pcloud:VinarisBackups/postgres
-rclone lsd pcloud:
-```
-
-Then add the remote backup path to the repository root `.env` on the server:
-
-```bash
-BACKUP_REMOTE_PATH=pcloud:VinarisBackups/postgres
+```env
+WINE_PHOTO_BACKUP_PATH=backend/data/wine-photos
+BACKUP_REMOTE_PATH=pcloud:VinarisBackups/vinaris
 LOCAL_BACKUP_RETENTION_DAYS=14
 REMOTE_BACKUP_RETENTION_DAYS=30
 ```
 
-## Manual backup
+`WINE_PHOTO_BACKUP_PATH` è un percorso host, assoluto oppure relativo alla root
+del repository. Deve indicare la stessa directory usata dal backend di
+produzione. Il backup confronta i record fotografici del database con i file
+`thumbnail.png` e `detail.png` e fallisce se lo storage risulta incompleto.
 
-From the repository root:
+Per cifrare i backup remoti è raccomandato configurare un remote `rclone crypt`
+sopra il provider scelto e usare quel remote in `BACKUP_REMOTE_PATH`.
+
+## Creazione manuale
 
 ```bash
-chmod +x scripts/backup-db.sh scripts/restore-db.sh
+chmod +x scripts/backup-db.sh scripts/restore-db.sh scripts/verify-backup.sh
 ./scripts/backup-db.sh
 ```
 
-Local backups are written to:
+Il risultato è:
 
 ```text
-backups/postgres/
+backups/vinaris/vinaris_YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
-The script creates a compressed PostgreSQL custom-format dump and verifies the dump catalog before marking it complete.
+Il bundle contiene:
 
-## Install the nightly timer
+```text
+backup.meta
+manifest.sha256
+database.dump
+wine-photos/
+```
 
-From the repository root on the production server:
+Il file definitivo viene pubblicato soltanto dopo la verifica dei checksum e
+del catalogo del dump. I file temporanei vengono rimossi anche in caso di
+errore.
+
+## Copia remota pCloud
+
+Installare e configurare `rclone`, preferibilmente con un remote cifrato:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y rclone
+rclone config
+rclone mkdir pcloud:VinarisBackups/vinaris
+```
+
+Il comando di backup usa `rclone copyto --checksum`; non usa `sync`, quindi
+un'eliminazione locale accidentale non viene propagata come eliminazione
+remota. La scadenza remota è gestita separatamente.
+
+## Timer notturno
 
 ```bash
 sudo cp deploy/systemd/winecellarmulti-backup.service /etc/systemd/system/
@@ -76,170 +83,92 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now winecellarmulti-backup.timer
 ```
 
-Check timer status:
+Verifica:
 
 ```bash
 systemctl list-timers winecellarmulti-backup.timer
-sudo systemctl status winecellarmulti-backup.timer --no-pager
-```
-
-Run a backup immediately:
-
-```bash
 sudo systemctl start winecellarmulti-backup.service
-```
-
-Read backup logs:
-
-```bash
 sudo journalctl -u winecellarmulti-backup.service --since "24 hours ago" --no-pager
 ```
 
-## Restore step by step
+## Prova di restore non distruttiva
 
-Use this procedure during a maintenance window. The restore script recreates the PostgreSQL database, so every write made after the selected backup timestamp will be lost.
-
-### 1. Open the project directory
-
-```bash
-cd /home/administrator/progetti/WineCellarMulti
-```
-
-### 2. Choose the backup to restore
-
-List local backups:
+Il comando seguente estrae e verifica il bundle, crea un database temporaneo
+con nome `vinaris_restore_verify_*`, ripristina il dump, legge la versione
+Alembic e alcuni conteggi, quindi elimina sempre il database temporaneo:
 
 ```bash
-ls -lh backups/postgres/
+./scripts/verify-backup.sh backups/vinaris/vinaris_YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
-List remote pCloud backups:
+Non modifica il database Vinaris né lo storage fotografico attivo. Va eseguito
+almeno una volta al mese e dopo ogni modifica a backup, PostgreSQL o storage.
 
-```bash
-rclone lsf pcloud:VinarisBackups/postgres
-```
+## Ripristino completo
 
-Backup filenames use UTC timestamps:
+Usare una finestra di manutenzione: tutte le scritture successive al backup
+scelto andranno perse.
 
-```text
-winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
-```
+1. Scaricare il bundle, se necessario:
 
-Example: `winecellarmulti_20260707T011500Z.dump.gz` was created on July 7, 2026 at 01:15 UTC.
+   ```bash
+   rclone copyto \
+     pcloud:VinarisBackups/vinaris/vinaris_YYYYMMDDTHHMMSSZ.tar.gz \
+     backups/vinaris/vinaris_YYYYMMDDTHHMMSSZ.tar.gz
+   ```
 
-### 3. Download the backup if it is only on pCloud
+2. Verificarlo senza modificare la produzione:
 
-Create the local backup directory if needed:
+   ```bash
+   ./scripts/verify-backup.sh backups/vinaris/vinaris_YYYYMMDDTHHMMSSZ.tar.gz
+   ```
 
-```bash
-mkdir -p backups/postgres
-```
+3. Fermare il backend lasciando PostgreSQL attivo:
 
-Download the selected backup:
+   ```bash
+   sudo systemctl stop winecellarmulti-backend
+   ```
 
-```bash
-rclone copyto \
-  pcloud:VinarisBackups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz \
-  backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
-```
+4. Eseguire il restore:
 
-Confirm it exists locally:
+   ```bash
+   ./scripts/restore-db.sh backups/vinaris/vinaris_YYYYMMDDTHHMMSSZ.tar.gz
+   ```
 
-```bash
-ls -lh backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
-```
+5. Confermare digitando esattamente:
 
-### 4. Make the restore script executable
+   ```text
+   RESTORE winecellarmulti WITH PHOTOS
+   ```
 
-```bash
-chmod +x scripts/restore-db.sh
-```
+6. Riavviare e controllare:
 
-### 5. Stop the application
+   ```bash
+   sudo systemctl start winecellarmulti-backend
+   sudo systemctl status winecellarmulti-backend --no-pager
+   curl --fail https://vinaris.app/health
+   ```
 
-Stop the backend so users cannot write while the database is being restored.
-Nginx can continue serving the static frontend while the API is unavailable:
+7. Verificare login, vini, wishlist, degustazioni e fotografie in lista e
+   dettaglio.
 
-```bash
-sudo systemctl stop winecellarmulti-backend
-```
+Il restore conserva la precedente directory fotografica accanto a quella
+ripristinata con suffisso `.pre-restore.<timestamp>`. Rimuoverla soltanto dopo
+la verifica applicativa.
 
-Keep PostgreSQL running. The restore script uses the Docker Compose `postgres` service.
+## Backup storici
 
-### 6. Run the restore
+`restore-db.sh` riconosce ancora i vecchi file `*.dump.gz`. Questi possono
+ripristinare soltanto PostgreSQL e non modificano le fotografie. Il comando
+richiede la conferma separata `RESTORE LEGACY winecellarmulti`.
 
-```bash
-./scripts/restore-db.sh backups/postgres/winecellarmulti_YYYYMMDDTHHMMSSZ.dump.gz
-```
+## Prova completa periodica
 
-The script first verifies the backup catalog. Then it asks for an explicit confirmation:
+Almeno una volta al trimestre, su una macchina non di produzione:
 
-```text
-Type RESTORE winecellarmulti to continue:
-```
-
-Type exactly:
-
-```text
-RESTORE winecellarmulti
-```
-
-The script will:
-
-- terminate active database connections
-- drop and recreate the `winecellarmulti` database
-- restore the compressed PostgreSQL dump
-
-### 7. Restart the application
-
-```bash
-sudo systemctl start winecellarmulti-backend
-```
-
-### 8. Check service health
-
-```bash
-sudo systemctl status winecellarmulti-backend --no-pager
-sudo systemctl status nginx --no-pager
-```
-
-Check recent logs if something is not active:
-
-```bash
-sudo journalctl -u winecellarmulti-backend --since "15 minutes ago" --no-pager
-sudo journalctl -u nginx --since "15 minutes ago" --no-pager
-```
-
-### 9. Verify the restored application
-
-Open the app and confirm:
-
-- login works
-- the cellar list loads
-- recent wines are present
-- wishlist data is present
-- tasting history is present
-- user/household access looks correct
-
-### 10. Run a fresh backup after restore
-
-After confirming the restored app is healthy, create a new backup from the restored state:
-
-```bash
-./scripts/backup-db.sh
-```
-
-## Periodic restore test
-
-At least once per month:
-
-1. run `./scripts/backup-db.sh`
-2. download/list the newest pCloud backup with `rclone lsf pcloud:VinarisBackups/postgres`
-3. restore on a non-production machine or maintenance window
-4. confirm login, cellar list, wishlist, and tasting history load correctly
-
-## References
-
-- rclone pCloud backend: https://rclone.org/pcloud/
-- rclone copy command: https://rclone.org/commands/rclone_copy/
-- rclone delete command: https://rclone.org/commands/rclone_delete/
+1. ripristinare database e fotografie;
+2. avviare backend e frontend;
+3. verificare autenticazione e isolamento tra cantine;
+4. aprire fotografie normali e di libreria;
+5. verificare export, wishlist e storico degustazioni;
+6. documentare data, bundle verificato, durata e risultato.

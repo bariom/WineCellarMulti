@@ -308,6 +308,18 @@ Emails are sent best-effort. If email delivery is not configured or a delivery f
 
 Co-ownership agreements support both registered Vinaris users and external participants. Registered users receive an in-app notification and can optionally receive email; external participants receive a private response link by email. If delivery fails, the agreement creator can copy the participant-specific link from the wine detail. Each new agreement is versioned, snapshots the wine and ownership terms, and becomes final only after every participant accepts it.
 
+## Privacy, terms, and complete backups
+
+Privacy and terms are available before registration at `/privacy` and `/terms`.
+Registration records separate, versioned acceptance of both documents. Existing
+users must accept the current version before accessing business APIs. Configure
+the public controller details described in
+[docs/LEGAL_DOCUMENTS.md](docs/LEGAL_DOCUMENTS.md) before deployment.
+
+Nightly backups now package PostgreSQL and the complete wine-photo store in one
+checksummed bundle. Use `scripts/verify-backup.sh` for a disposable restore test
+and follow [docs/BACKUP_AND_RESTORE.md](docs/BACKUP_AND_RESTORE.md) for recovery.
+
 Find the Linux machine IP with:
 
 ```bash

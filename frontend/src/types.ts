@@ -8,6 +8,8 @@ export type Session = {
   is_app_admin: boolean;
   pending_approval: boolean;
   pending_email_verification: boolean;
+  requires_legal_acceptance?: boolean;
+  legal_document_version?: string;
   locale: Locale;
   theme_preference: ThemePreference;
   dashboard_focus: PrimaryDashboardFocus;
@@ -703,6 +705,8 @@ export type AuthDraft = {
   household_name: string;
   password: string;
   password_confirm: string;
+  privacy_policy_accepted: boolean;
+  terms_accepted: boolean;
   photo_usage_disclaimer_accepted: boolean;
 };
 

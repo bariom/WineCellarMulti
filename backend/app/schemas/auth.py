@@ -9,12 +9,23 @@ class RegisterRequest(BaseModel):
     display_name: str = Field(min_length=1, max_length=120)
     password: str = Field(min_length=8, max_length=200)
     household_name: str = Field(min_length=1, max_length=160)
+    locale: Literal["it", "en"] = "it"
+    legal_document_version: str = Field(min_length=1, max_length=32)
+    privacy_policy_accepted: Literal[True]
+    terms_accepted: Literal[True]
     photo_usage_disclaimer_accepted: Literal[True]
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
     password: str = Field(min_length=1, max_length=200)
+
+
+class LegalAcceptanceRequest(BaseModel):
+    locale: Literal["it", "en"]
+    legal_document_version: str = Field(min_length=1, max_length=32)
+    privacy_policy_accepted: Literal[True]
+    terms_accepted: Literal[True]
 
 
 class AccountDeletionRequest(BaseModel):

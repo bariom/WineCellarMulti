@@ -17,6 +17,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.routes import operations as operations_route
 from app.api.routes import wines as wines_route
 from app.core.config import settings
+from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.core.rate_limit import rate_limiter
 from app.db.base import Base
 from app.db.session import get_db
@@ -75,6 +76,10 @@ def register(
             "display_name": "Cellar Owner",
             "password": password,
             "household_name": "Main Cellar",
+            "locale": "it",
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
             "photo_usage_disclaimer_accepted": True,
         },
     )
@@ -98,6 +103,10 @@ def test_registration_requires_photo_usage_disclaimer_acceptance():
         "display_name": "Cellar Owner",
         "password": "strong-password-1",
         "household_name": "Main Cellar",
+        "locale": "it",
+        "legal_document_version": LEGAL_DOCUMENT_VERSION,
+        "privacy_policy_accepted": True,
+        "terms_accepted": True,
     }
 
     missing = client.post("/api/v1/auth/register", json=registration)
@@ -110,6 +119,90 @@ def test_registration_requires_photo_usage_disclaimer_acceptance():
     assert declined.status_code == 422
     with TestingSessionLocal() as db:
         assert db.scalar(select(User).where(User.email == "owner@example.com")) is None
+
+
+def test_registration_requires_current_privacy_and_terms_acceptance():
+    client = TestClient(app)
+    registration = {
+        "email": "owner@example.com",
+        "display_name": "Cellar Owner",
+        "password": "strong-password-1",
+        "household_name": "Main Cellar",
+        "locale": "en",
+        "legal_document_version": LEGAL_DOCUMENT_VERSION,
+        "privacy_policy_accepted": True,
+        "terms_accepted": True,
+        "photo_usage_disclaimer_accepted": True,
+    }
+
+    assert client.post(
+        "/api/v1/auth/register",
+        json={**registration, "privacy_policy_accepted": False},
+    ).status_code == 422
+    assert client.post(
+        "/api/v1/auth/register",
+        json={**registration, "terms_accepted": False},
+    ).status_code == 422
+    outdated = client.post(
+        "/api/v1/auth/register",
+        json={**registration, "legal_document_version": "2025-01-01"},
+    )
+    assert outdated.status_code == 409
+
+    registered = client.post("/api/v1/auth/register", json=registration)
+    assert registered.status_code == 201
+    assert registered.json()["requires_legal_acceptance"] is False
+    assert registered.json()["legal_document_version"] == LEGAL_DOCUMENT_VERSION
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        assert user.locale == "en"
+        assert user.legal_acceptance_locale == "en"
+
+
+def test_existing_user_can_accept_current_legal_documents():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.privacy_policy_accepted_at = None
+        user.privacy_policy_version = ""
+        user.terms_accepted_at = None
+        user.terms_version = ""
+        db.commit()
+
+    session = client.get("/api/v1/session")
+    assert session.status_code == 200
+    assert session.json()["requires_legal_acceptance"] is True
+
+    outdated = client.post(
+        "/api/v1/auth/legal-acceptance",
+        json={
+            "locale": "it",
+            "legal_document_version": "2025-01-01",
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
+        },
+    )
+    assert outdated.status_code == 409
+    accepted = client.post(
+        "/api/v1/auth/legal-acceptance",
+        json={
+            "locale": "it",
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
+        },
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["requires_legal_acceptance"] is False
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        assert user.privacy_policy_accepted_at is not None
+        assert user.terms_accepted_at is not None
+        assert user.legal_acceptance_locale == "it"
 
 
 def test_user_can_delete_account_while_catalog_and_reference_photo_are_preserved(
@@ -223,6 +316,11 @@ def test_register_login_session_and_logout():
         registered_user = db.scalar(select(User).where(User.email == "owner@example.com"))
         assert registered_user is not None
         assert registered_user.photo_usage_disclaimer_accepted_at is not None
+        assert registered_user.privacy_policy_accepted_at is not None
+        assert registered_user.privacy_policy_version == LEGAL_DOCUMENT_VERSION
+        assert registered_user.terms_accepted_at is not None
+        assert registered_user.terms_version == LEGAL_DOCUMENT_VERSION
+        assert registered_user.legal_acceptance_locale == "it"
 
     preferences = client.patch(
         "/api/v1/auth/preferences",
@@ -534,6 +632,10 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
             "display_name": "First",
             "password": "strong-password-1",
             "household_name": "First Cellar",
+            "locale": "it",
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
             "photo_usage_disclaimer_accepted": True,
         },
     )
@@ -545,6 +647,10 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
             "display_name": "Second",
             "password": "strong-password-2",
             "household_name": "Second Cellar",
+            "locale": "it",
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
             "photo_usage_disclaimer_accepted": True,
         },
     )
@@ -556,6 +662,10 @@ def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
             "display_name": "Third",
             "password": "strong-password-3",
             "household_name": "Third Cellar",
+            "locale": "it",
+            "legal_document_version": LEGAL_DOCUMENT_VERSION,
+            "privacy_policy_accepted": True,
+            "terms_accepted": True,
             "photo_usage_disclaimer_accepted": True,
         },
     )

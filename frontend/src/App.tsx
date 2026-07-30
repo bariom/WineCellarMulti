@@ -20,6 +20,7 @@ import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import { useChartReveal } from "./components/chartMotion";
+import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import "./styles.css";
 
 type BreakdownDrilldown = {
@@ -81,6 +82,8 @@ const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
+const LegalAcceptancePanel = lazy(() => import("./legal/LegalAcceptancePanel"));
+const RegistrationConsents = lazy(() => import("./legal/RegistrationConsents"));
 const DRINK_NOW_SLIDESHOW_LIMIT = 10;
 
 function helpSlugFromLocation() {
@@ -441,6 +444,8 @@ const emptyAuthDraft: AuthDraft = {
   household_name: "Main Cellar",
   password: "",
   password_confirm: "",
+  privacy_policy_accepted: false,
+  terms_accepted: false,
   photo_usage_disclaimer_accepted: false,
 };
 
@@ -2294,7 +2299,16 @@ export function App() {
     try {
       const nextSession = await loadSession();
       if (nextSession.authenticated) {
-        if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
+        if (nextSession.requires_legal_acceptance) {
+          setWines([]);
+          setWineCatalog([]);
+          setWishlist([]);
+          setWishlistLists([]);
+          setShareOffers([]);
+          setReceivedInvites([]);
+          setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
+          setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
+        } else if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
           setWines([]);
           setWineCatalog([]);
           setWishlist([]);
@@ -2365,7 +2379,7 @@ export function App() {
     const previousAiBalance = Number(window.sessionStorage.getItem(STRIPE_CHECKOUT_BALANCE_KEY) || "0");
     for (let attempt = 0; attempt < 8; attempt += 1) {
       const nextSession = await loadSession();
-      if (nextSession.authenticated) {
+      if (nextSession.authenticated && !nextSession.requires_legal_acceptance) {
         const nextStatus = await api<BillingStatus>("/api/v1/billing/status");
         setBillingStatus(nextStatus);
         const nextAiBalance = Number(nextStatus.ai_credit_balance_usd || 0);
@@ -2561,6 +2575,10 @@ export function App() {
               display_name: authDraft.display_name,
               household_name: authDraft.household_name,
               password: authDraft.password,
+              locale,
+              legal_document_version: LEGAL_DOCUMENT_VERSION,
+              privacy_policy_accepted: authDraft.privacy_policy_accepted,
+              terms_accepted: authDraft.terms_accepted,
               photo_usage_disclaimer_accepted: authDraft.photo_usage_disclaimer_accepted,
             }
           : { email: authDraft.email, password: authDraft.password };
@@ -2574,7 +2592,7 @@ export function App() {
       }
       setShowOfflineBackupPanel(false);
       setAuthDraft(emptyAuthDraft);
-      if (nextSession.authenticated) {
+      if (nextSession.authenticated && !nextSession.requires_legal_acceptance) {
         setLoading(true);
         try {
           await loadAuthenticatedSessionData(nextSession);
@@ -2635,11 +2653,13 @@ export function App() {
       applySessionPreferences(nextSession, true);
       setAuthDraft(emptyAuthDraft);
       setShowOfflineBackupPanel(false);
-      setLoading(true);
-      try {
-        await loadAuthenticatedSessionData(nextSession);
-      } finally {
-        setLoading(false);
+      if (!nextSession.requires_legal_acceptance) {
+        setLoading(true);
+        try {
+          await loadAuthenticatedSessionData(nextSession);
+        } finally {
+          setLoading(false);
+        }
       }
     } catch (nextError) {
       const nextMessage = nextError instanceof Error ? nextError.message : "Unable to login with passkey";
@@ -4687,17 +4707,28 @@ export function App() {
           </label>
         ) : null}
         {authMode === "register" ? (
-          <label className="photo-disclaimer-consent">
-            <input
-              type="checkbox"
-              checked={authDraft.photo_usage_disclaimer_accepted}
-              onChange={(event) => setAuthDraft({ ...authDraft, photo_usage_disclaimer_accepted: event.target.checked })}
-              required
+          <Suspense fallback={null}>
+            <RegistrationConsents
+              locale={locale}
+              draft={authDraft}
+              photoText={t("photoUsageDisclaimerConsent")}
+              onChange={setAuthDraft}
             />
-            <span>{t("photoUsageDisclaimerConsent")}</span>
-          </label>
+          </Suspense>
         ) : null}
-        <button type="submit" disabled={saving || (authMode === "register" && !authDraft.photo_usage_disclaimer_accepted)}>{saving ? t("working") : authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("sendPasswordReset") : authMode === "reset-password" ? t("saveNewPassword") : t("login")}</button>
+        <button
+          type="submit"
+          disabled={saving || (
+            authMode === "register"
+            && (
+              !authDraft.privacy_policy_accepted
+              || !authDraft.terms_accepted
+              || !authDraft.photo_usage_disclaimer_accepted
+            )
+          )}
+        >
+          {saving ? t("working") : authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("sendPasswordReset") : authMode === "reset-password" ? t("saveNewPassword") : t("login")}
+        </button>
         {authMode === "login" ? (
           <>
             <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>{t("passkeyLogin")}</button>
@@ -4705,6 +4736,10 @@ export function App() {
           </>
         ) : null}
         </form>
+        <nav className="legal-links">
+          <a href={`/privacy?lang=${locale}`}>Privacy</a>
+          <a href={`/terms?lang=${locale}`}>{locale === "it" ? "Condizioni d’uso" : "Terms"}</a>
+        </nav>
       </> : null}
       {canShowOfflineBackupPanel ? (
         <section className="wine-form">
@@ -7789,6 +7824,17 @@ export function App() {
           </div>
         ) : null}
         </>
+      ) : session?.requires_legal_acceptance ? (
+        <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+          <LegalAcceptancePanel
+            locale={locale}
+            onAccepted={async (nextSession) => {
+              setSession(nextSession);
+              await loadAuthenticatedSessionData(nextSession);
+            }}
+            onLogout={logout}
+          />
+        </Suspense>
       ) : needsRedeem && activeView !== "settings" ? (
         <section className="auth-panel redeem-onboarding-panel">
           {onboardingProgress(3, true)}

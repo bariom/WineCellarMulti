@@ -25,6 +25,15 @@ class User(Base):
     photo_usage_disclaimer_accepted_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    privacy_policy_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    privacy_policy_version: Mapped[str] = mapped_column(String(32), default="")
+    terms_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    terms_version: Mapped[str] = mapped_column(String(32), default="")
+    legal_acceptance_locale: Mapped[str] = mapped_column(String(8), default="")
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     email_verified_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
@@ -40,9 +49,7 @@ class User(Base):
     locale: Mapped[str] = mapped_column(String(8), default="it")
     theme_preference: Mapped[str] = mapped_column(String(32), default="system")
     dashboard_focus: Mapped[str] = mapped_column(String(32), default="collector")
-    daily_wine_budget_chf: Mapped[Decimal | None] = mapped_column(
-        Numeric(10, 2), nullable=True
-    )
+    daily_wine_budget_chf: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
 
 
 class UserMonitorDeviceToken(Base):

@@ -14,6 +14,8 @@ class SessionResponse(BaseModel):
     is_app_admin: bool = False
     pending_approval: bool = False
     pending_email_verification: bool = False
+    requires_legal_acceptance: bool = False
+    legal_document_version: str = ""
     locale: str = "it"
     theme_preference: str = "system"
     dashboard_focus: str = "collector"

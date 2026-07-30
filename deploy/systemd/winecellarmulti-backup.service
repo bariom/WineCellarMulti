@@ -6,6 +6,6 @@ After=docker.service
 [Service]
 Type=oneshot
 WorkingDirectory=/home/administrator/progetti/WineCellarMulti
-ExecStart=/home/administrator/progetti/WineCellarMulti/scripts/backup-db.sh
+ExecStart=/usr/bin/env bash /home/administrator/progetti/WineCellarMulti/scripts/backup-db.sh
 User=administrator
 Group=administrator
