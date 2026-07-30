@@ -19,7 +19,7 @@ La politica di produzione è:
 Nel `.env` della root:
 
 ```env
-WINE_PHOTO_BACKUP_PATH=backend/data/wine-photos
+WINE_PHOTO_BACKUP_PATH=./backend/data/wine-photos
 BACKUP_REMOTE_PATH=pcloud:VinarisBackups/vinaris
 LOCAL_BACKUP_RETENTION_DAYS=14
 REMOTE_BACKUP_RETENTION_DAYS=30
