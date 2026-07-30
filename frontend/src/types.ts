@@ -242,6 +242,16 @@ export type TastingArchiveApiItem = {
   created_at: string;
 };
 
+export type TastingArchiveProfile = {
+  wine_type: string;
+  currency: string;
+  count: number;
+  purchase_total: number;
+  comparable_purchase_total: number;
+  market_value_total: number;
+  comparable_count: number;
+};
+
 export type TastingArchivePage = {
   total: number;
   limit: number;
@@ -249,6 +259,7 @@ export type TastingArchivePage = {
   rated_count: number;
   notes_count: number;
   latest_consumed_at: string | null;
+  profile: TastingArchiveProfile[];
   items: TastingArchiveApiItem[];
 };
 

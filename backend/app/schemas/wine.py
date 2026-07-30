@@ -117,6 +117,16 @@ class TastingArchiveItemResponse(BaseModel):
     tasting_id: UUID
 
 
+class TastingArchiveProfileResponse(BaseModel):
+    wine_type: str = "Other"
+    currency: str = "CHF"
+    count: int = 0
+    purchase_total: float = 0
+    comparable_purchase_total: float = 0
+    market_value_total: float = 0
+    comparable_count: int = 0
+
+
 class TastingArchivePageResponse(BaseModel):
     total: int
     limit: int
@@ -124,6 +134,7 @@ class TastingArchivePageResponse(BaseModel):
     rated_count: int
     notes_count: int
     latest_consumed_at: date | None = None
+    profile: list[TastingArchiveProfileResponse] = Field(default_factory=list)
     items: list[TastingArchiveItemResponse] = Field(default_factory=list)
 
 

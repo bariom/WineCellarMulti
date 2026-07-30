@@ -5,6 +5,7 @@ import uuid
 from datetime import UTC, date, datetime
 from decimal import Decimal
 from pathlib import Path
+from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
@@ -41,6 +42,7 @@ from app.models import (
 from app.schemas.wine import (
     TastingArchiveItemResponse,
     TastingArchivePageResponse,
+    TastingArchiveProfileResponse,
     WineConsume,
     WineCreate,
     WineResponse,
@@ -381,7 +383,7 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
         consumed_at=entry.consumed_at,
         note=entry.note,
         rating=entry.rating,
-        enjoyment=entry.enjoyment,
+        enjoyment=cast(Literal["", "positive", "negative"], entry.enjoyment),
         occasion=entry.occasion,
         pairing=entry.pairing,
         companions=entry.companions,
@@ -599,6 +601,10 @@ def list_tasting_archive(
         .join(Wine, Wine.id == WineTastingEntry.wine_id)
         .where(*filters)
     ).one()
+    archive_rows = db.execute(base).all()
+    visible_archive_rows = [
+        (entry, wine) for entry, wine in archive_rows if user_can_see_wine(context, wine)
+    ]
     rows = db.execute(
         base.order_by(
             WineTastingEntry.consumed_at.desc(),
@@ -621,6 +627,7 @@ def list_tasting_archive(
         rated_count=int(stats[1] or 0),
         notes_count=int(stats[2] or 0),
         latest_consumed_at=stats[3],
+        profile=tasting_archive_profile(db, visible_archive_rows),
         items=visible_items,
     )
 
@@ -1128,6 +1135,63 @@ async def process_wine_photo(
     )
 
 
+def tasting_archive_profile(
+    db: Session, rows: list[tuple[WineTastingEntry, Wine]]
+) -> list[TastingArchiveProfileResponse]:
+    histories = wine_value_history_by_wine(db, [wine.id for _, wine in rows])
+    grouped: dict[tuple[str, str], dict[str, float | int]] = {}
+    for entry, wine in rows:
+        wine_type = normalize_wine_type(wine.type) or "Other"
+        currency = (entry.currency_at_consumption or wine.currency or "CHF").upper()
+        summary = grouped.setdefault(
+            (wine_type, currency),
+            {
+                "count": 0,
+                "purchase_total": 0.0,
+                "comparable_purchase_total": 0.0,
+                "market_value_total": 0.0,
+                "comparable_count": 0,
+            },
+        )
+        purchase = float(
+            entry.purchase_price_at_consumption
+            if entry.purchase_price_at_consumption is not None
+            else wine.price or 0
+        )
+        market_value = entry.market_value_at_consumption
+        if market_value is None:
+            historical_values = [
+                item
+                for item in histories.get(wine.id, [])
+                if item.recorded_at.date() <= entry.consumed_at
+            ]
+            if historical_values:
+                market_value = historical_values[-1].value
+        summary["count"] = int(summary["count"]) + 1
+        summary["purchase_total"] = float(summary["purchase_total"]) + purchase
+        if market_value is not None:
+            summary["comparable_count"] = int(summary["comparable_count"]) + 1
+            summary["comparable_purchase_total"] = (
+                float(summary["comparable_purchase_total"]) + purchase
+            )
+            summary["market_value_total"] = float(summary["market_value_total"]) + float(
+                market_value
+            )
+
+    return [
+        TastingArchiveProfileResponse(
+            wine_type=wine_type,
+            currency=currency,
+            count=int(summary["count"]),
+            purchase_total=round(float(summary["purchase_total"]), 2),
+            comparable_purchase_total=round(float(summary["comparable_purchase_total"]), 2),
+            market_value_total=round(float(summary["market_value_total"]), 2),
+            comparable_count=int(summary["comparable_count"]),
+        )
+        for (wine_type, currency), summary in sorted(grouped.items())
+    ]
+
+
 @router.get("/photo/suggestion")
 def suggest_wine_photo(
     name: str = Query(min_length=2, max_length=200),
@@ -1411,6 +1475,9 @@ def consume_wine_bottle(
             occasion=tasting_entry["occasion"],
             pairing=tasting_entry["pairing"],
             companions=tasting_entry["companions"],
+            purchase_price_at_consumption=wine.price,
+            market_value_at_consumption=wine.current_value,
+            currency_at_consumption=wine.currency,
             created_at=datetime.fromisoformat(tasting_entry["created_at"]),
         )
     )

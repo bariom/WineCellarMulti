@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppIcon, AppIconName } from "../components/AppIcon";
+import TastingArchiveInsights from "./TastingArchiveInsights";
 
 type TastingEnjoyment = "" | "positive" | "negative";
 
@@ -253,8 +254,10 @@ export default function TastingArchiveSection({
   }, [entries, editingId]);
 
   return (
-    <div className="tasting-archive-list">
-      {entries.map((entry) => (
+    <>
+      <TastingArchiveInsights locale={locale} />
+      <div className="tasting-archive-list">
+        {entries.map((entry) => (
         <article className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
           <div className="tasting-archive-head">
             <div className="tasting-archive-title">
@@ -323,7 +326,8 @@ export default function TastingArchiveSection({
             </>
           )}
         </article>
-      ))}
-    </div>
+        ))}
+      </div>
+    </>
   );
 }

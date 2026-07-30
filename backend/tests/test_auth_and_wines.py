@@ -2578,7 +2578,15 @@ def test_tasting_archive_reads_paginated_normalized_entries():
     assert register(client).status_code == 201
     created = client.post(
         "/api/v1/wines",
-        json={"name": "Archive Search Wine", "quantity": 2, "price": 25, "status": "Delivered"},
+        json={
+            "name": "Archive Search Wine",
+            "quantity": 2,
+            "price": 25,
+            "current_value": 40,
+            "currency": "CHF",
+            "type": "Red",
+            "status": "Delivered",
+        },
     )
     wine_id = created.json()["id"]
     assert (
@@ -2601,6 +2609,17 @@ def test_tasting_archive_reads_paginated_normalized_entries():
     assert page.json()["total"] == 1
     assert page.json()["rated_count"] == 1
     assert page.json()["items"][0]["note"] == "Second archive note"
+    assert page.json()["profile"] == [
+        {
+            "wine_type": "Red",
+            "currency": "CHF",
+            "count": 1,
+            "purchase_total": 25.0,
+            "comparable_purchase_total": 25.0,
+            "market_value_total": 40.0,
+            "comparable_count": 1,
+        }
+    ]
 
 
 def test_user_can_create_and_switch_to_second_household():

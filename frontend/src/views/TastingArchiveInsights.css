@@ -1,0 +1,9 @@
+.tasting-archive-insights { display: grid; gap: .9rem; margin: 0 0 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, var(--accent) 12%); }
+.tasting-archive-insights > header, .tasting-profile-title, .tasting-profile-card dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.tasting-archive-insights h3 { margin: .15rem 0 0; font-size: 1rem; }
+.tasting-archive-insights > header > span, .tasting-profile-title span, .tasting-profile-card dt, .tasting-profile-note, .tasting-profile-unavailable { color: var(--muted); font-size: .82rem; }
+.tasting-profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .7rem; }
+.tasting-profile-card { padding: .8rem; border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; background: var(--panel); }
+.tasting-profile-card.tone-red { border-left-color: #9c2938; } .tasting-profile-card.tone-white { border-left-color: #c7a230; } .tasting-profile-card.tone-rose { border-left-color: #c75d78; } .tasting-profile-card.tone-sparkling { border-left-color: #468a8a; } .tasting-profile-card.tone-sweet { border-left-color: #b46f25; } .tasting-profile-card.tone-fortified { border-left-color: #74462f; }
+.tasting-profile-card dl { display: grid; gap: .4rem; margin: .8rem 0 0; } .tasting-profile-card dt, .tasting-profile-card dd { margin: 0; } .tasting-profile-card dd { font-weight: 700; } .tasting-profile-card dd.positive { color: #20844b; } .tasting-profile-card dd.negative { color: #bd3548; }
+.tasting-profile-unavailable { padding-top: .1rem; } .tasting-profile-note { margin: 0; }
