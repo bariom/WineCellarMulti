@@ -26,8 +26,11 @@ REMOTE_BACKUP_RETENTION_DAYS=30
 ```
 
 `WINE_PHOTO_BACKUP_PATH` è un percorso host, assoluto oppure relativo alla root
-del repository. Deve indicare la stessa directory usata dal backend di
-produzione. Il backup confronta i record fotografici del database con i file
+del repository. Docker Compose lo monta nel backend come `/data/wine-photos`,
+quindi backend e backup usano necessariamente la stessa directory. Per
+installazioni precedenti che usano il volume Docker `wine-photo-data`, eseguire
+prima `bash scripts/migrate-photo-storage.sh` e solo dopo ricreare il backend.
+Il backup confronta i record fotografici del database con i file
 `thumbnail.png` e `detail.png` e fallisce se lo storage risulta incompleto.
 
 Per cifrare i backup remoti è raccomandato configurare un remote `rclone crypt`
@@ -36,8 +39,7 @@ sopra il provider scelto e usare quel remote in `BACKUP_REMOTE_PATH`.
 ## Creazione manuale
 
 ```bash
-chmod +x scripts/backup-db.sh scripts/restore-db.sh scripts/verify-backup.sh
-./scripts/backup-db.sh
+bash scripts/backup-db.sh
 ```
 
 Il risultato è:

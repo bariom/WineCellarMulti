@@ -75,7 +75,10 @@ services:
     ports:
       - "127.0.0.1:8000:8000"
     volumes:
-      - wine-photo-data:/data/wine-photos
+      # Keep photo storage on the host so backup-db.sh can include it atomically
+      # with PostgreSQL. Run scripts/migrate-photo-storage.sh before recreating
+      # an existing backend that still uses the former named volume.
+      - ${WINE_PHOTO_BACKUP_PATH:-./backend/data/wine-photos}:/data/wine-photos
       - wine-photo-model-data:/data/photo-ai-models
     depends_on:
       postgres:
@@ -93,5 +96,4 @@ services:
 
 volumes:
   postgres-data:
-  wine-photo-data:
   wine-photo-model-data:
