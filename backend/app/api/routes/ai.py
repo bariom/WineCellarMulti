@@ -101,8 +101,8 @@ MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
     "gpt-5.4": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
     "gpt-5.5": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
-    "gpt-5.6-luna": {"input": Decimal("1.00"), "cached_input": Decimal("0.10"), "output": Decimal("6.00")},
-    "gpt-5.6-terra": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
+    "gpt-5.6-luna": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.20")},
+    "gpt-5.6-terra": {"input": Decimal("2.00"), "cached_input": Decimal("0.20"), "output": Decimal("12.00")},
     "gpt-5.6-sol": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
 }
 

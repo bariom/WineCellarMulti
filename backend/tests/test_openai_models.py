@@ -183,6 +183,18 @@ def test_gpt55_snapshot_cost_uses_official_base_model_pricing():
     assert estimate_cost_usd("gpt-5.5-2026-04-23", usage) == Decimal("3.886740")
 
 
+@pytest.mark.parametrize(
+    ("model", "expected_cost"),
+    [
+        ("gpt-5.6-luna", Decimal("0.000404")),
+        ("gpt-5.6-terra", Decimal("0.004040")),
+    ],
+)
+def test_gpt56_cost_uses_current_official_pricing(model: str, expected_cost: Decimal):
+    usage = TokenUsage(input_tokens=1000, cached_input_tokens=200, output_tokens=200, total_tokens=1200)
+    assert estimate_cost_usd(model, usage) == expected_cost
+
+
 def test_unknown_model_cost_fails_closed():
     with pytest.raises(HTTPException) as exc_info:
         estimate_cost_usd("gpt-future-unpriced", TokenUsage(input_tokens=1000, output_tokens=1000, total_tokens=2000))
