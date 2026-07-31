@@ -2,8 +2,8 @@ from app.services import bottle_photo_ai
 
 
 class _FakeQueue:
-    def __init__(self):
-        self.items = []
+    def __init__(self, items=None):
+        self.items = list(items or [])
 
     def put(self, item):
         self.items.append(item)
@@ -19,41 +19,49 @@ class _FakeQueue:
         pass
 
 
-class _FakeProcess:
-    def __init__(self, target, args, name):
-        self.target = target
-        self.args = args
-        self.name = name
-
-    def start(self):
-        self.target(*self.args)
-
-    def is_alive(self):
-        return False
-
-    def join(self, timeout=None):
-        del timeout
-
-    def terminate(self):
-        raise AssertionError("a successful worker must not be terminated")
-
-
-class _FakeContext:
-    def Queue(self, maxsize):
-        assert maxsize == 1
-        return _FakeQueue()
-
-    def Process(self, *, target, args, name):
-        return _FakeProcess(target, args, name)
-
-
-def test_photo_ai_uses_disposable_worker(monkeypatch):
-    monkeypatch.setattr(bottle_photo_ai, "get_context", lambda method: _FakeContext())
+def test_photo_ai_reuses_isolated_worker(monkeypatch):
+    commands = _FakeQueue()
+    results = _FakeQueue([("ok", b"processed")])
     monkeypatch.setattr(
         bottle_photo_ai,
-        "_process_bottle_photo_in_worker",
-        lambda content, model: b"processed:" + content + model.encode(),
+        "_ensure_photo_worker",
+        lambda model, idle: (commands, results),
     )
 
-    processed = bottle_photo_ai.process_bottle_photo(b"image", "test-model", 12)
-    assert processed == b"processed:imagetest-model"
+    processed = bottle_photo_ai.process_bottle_photo(b"image", "test-model", 12, 75)
+
+    assert processed == b"processed"
+    assert commands.items == [("process", b"image")]
+
+
+def test_photo_ai_worker_loads_model_once_for_capture_session(monkeypatch):
+    commands = _FakeQueue(
+        [
+            ("warm", None),
+            ("process", b"first"),
+            ("process", b"second"),
+            ("stop", None),
+        ]
+    )
+    results = _FakeQueue()
+    session = object()
+    sessions = []
+
+    def load_session(model):
+        sessions.append(model)
+        return session
+
+    monkeypatch.setattr(bottle_photo_ai, "_model_session", load_session)
+    monkeypatch.setattr(
+        bottle_photo_ai,
+        "_process_bottle_photo_with_session",
+        lambda content, active_session: (content, active_session is session),
+    )
+
+    bottle_photo_ai._photo_worker_loop("test-model", 75, commands, results)
+
+    assert sessions == ["test-model"]
+    assert results.items == [
+        ("ok", (b"first", True)),
+        ("ok", (b"second", True)),
+    ]

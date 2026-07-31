@@ -62,7 +62,8 @@ The first AI bottle-photo request downloads the approximately 214 MB
 `birefnet-general-lite` model into the persistent `wine-photo-model-data` volume.
 Set `WINE_PHOTO_AI_ENABLED=false` to use only the on-device fallback. When enabled, each
 server-side segmentation runs in a disposable worker so ONNX Runtime memory is released after
-the photo is processed; `WINE_PHOTO_AI_TIMEOUT_SECONDS` defaults to 90.
+the capture session. The browser starts warming the model while the camera is open, and the
+worker exits after 75 idle seconds. `WINE_PHOTO_AI_TIMEOUT_SECONDS` defaults to 90.
 
 Run the backend:
 

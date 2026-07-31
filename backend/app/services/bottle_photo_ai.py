@@ -11,6 +11,11 @@ from typing import Any, NoReturn
 DETAIL_SIZE = (480, 720)
 _photo_processing_lock = Lock()
 DEFAULT_PROCESS_TIMEOUT_SECONDS = 90
+DEFAULT_WORKER_IDLE_SECONDS = 75
+_worker_process: Any | None = None
+_worker_commands: Any | None = None
+_worker_results: Any | None = None
+_worker_model: str | None = None
 
 
 class BottlePhotoAiError(RuntimeError):
@@ -144,7 +149,7 @@ def _center_crop(image: Any) -> Any:
     return image.crop(box)
 
 
-def _process_bottle_photo_in_worker(content: bytes, model_name: str) -> bytes:
+def _process_bottle_photo_with_session(content: bytes, session: Any) -> bytes:
     numpy, image_module, image_ops, rembg = _vision_modules()
     try:
         source = image_module.open(BytesIO(content))
@@ -159,7 +164,7 @@ def _process_bottle_photo_in_worker(content: bytes, model_name: str) -> bytes:
     try:
         mask_result = rembg.remove(
             source,
-            session=_model_session(model_name),
+            session=session,
             only_mask=True,
             post_process_mask=True,
         )
@@ -218,16 +223,90 @@ def _process_bottle_photo_in_worker(content: bytes, model_name: str) -> bytes:
     return buffer.getvalue()
 
 
-def _photo_processing_worker(content: bytes, model_name: str, result_queue: Any) -> None:
-    """Run ONNX in a disposable interpreter so its allocator cannot grow the API process."""
+def _photo_worker_loop(
+    model_name: str,
+    idle_seconds: int,
+    command_queue: Any,
+    result_queue: Any,
+) -> None:
+    """Keep ONNX outside the API process and release it after a short idle period."""
     try:
-        result_queue.put(("ok", _process_bottle_photo_in_worker(content, model_name)))
-    except (BottlePhotoAiError, InvalidBottlePhoto) as error:
+        session = _model_session(model_name)
+    except BottlePhotoAiError as error:
         result_queue.put(("error", type(error).__name__, str(error)))
+        return
     except Exception:
         result_queue.put(
-            ("error", BottlePhotoAiUnavailable.__name__, "AI bottle segmentation failed")
+            ("error", BottlePhotoAiUnavailable.__name__, "AI bottle model initialization failed")
         )
+        return
+
+    while True:
+        try:
+            command, content = command_queue.get(timeout=idle_seconds)
+        except Empty:
+            return
+        if command == "stop":
+            return
+        if command == "warm":
+            continue
+        try:
+            result_queue.put(("ok", _process_bottle_photo_with_session(content, session)))
+        except BottlePhotoAiError as error:
+            result_queue.put(("error", type(error).__name__, str(error)))
+        except Exception:
+            result_queue.put(
+                ("error", BottlePhotoAiUnavailable.__name__, "AI bottle segmentation failed")
+            )
+
+
+def _close_photo_worker() -> None:
+    global _worker_commands, _worker_model, _worker_process, _worker_results
+    if _worker_process is not None:
+        if _worker_process.is_alive():
+            _worker_process.terminate()
+        _worker_process.join()
+    for worker_queue in (_worker_commands, _worker_results):
+        if worker_queue is not None:
+            worker_queue.close()
+            worker_queue.join_thread()
+    _worker_process = None
+    _worker_commands = None
+    _worker_results = None
+    _worker_model = None
+
+
+def _ensure_photo_worker(model_name: str, idle_seconds: int) -> tuple[Any, Any]:
+    global _worker_commands, _worker_model, _worker_process, _worker_results
+    if (
+        _worker_process is not None
+        and _worker_process.is_alive()
+        and _worker_model == model_name
+    ):
+        return _worker_commands, _worker_results
+
+    _close_photo_worker()
+    context = get_context("spawn")
+    _worker_commands = context.Queue(maxsize=4)
+    _worker_results = context.Queue(maxsize=1)
+    _worker_process = context.Process(
+        target=_photo_worker_loop,
+        args=(model_name, idle_seconds, _worker_commands, _worker_results),
+        name="vinaris-photo-ai",
+    )
+    _worker_process.daemon = True
+    _worker_process.start()
+    _worker_model = model_name
+    return _worker_commands, _worker_results
+
+
+def warm_bottle_photo_worker(
+    model_name: str, idle_seconds: int = DEFAULT_WORKER_IDLE_SECONDS
+) -> None:
+    """Start or keep alive the isolated model while the camera dialog is open."""
+    with _photo_processing_lock:
+        command_queue, _ = _ensure_photo_worker(model_name, idle_seconds)
+        command_queue.put(("warm", None))
 
 
 def _raise_worker_error(error_type: str, message: str) -> NoReturn:
@@ -240,37 +319,25 @@ def _raise_worker_error(error_type: str, message: str) -> NoReturn:
 
 
 def process_bottle_photo(
-    content: bytes, model_name: str, timeout_seconds: int = DEFAULT_PROCESS_TIMEOUT_SECONDS
+    content: bytes,
+    model_name: str,
+    timeout_seconds: int = DEFAULT_PROCESS_TIMEOUT_SECONDS,
+    idle_seconds: int = DEFAULT_WORKER_IDLE_SECONDS,
 ) -> bytes:
-    """Process a photo without retaining ONNX Runtime allocations in the web server.
+    """Process a photo in a short-lived reusable worker.
 
     BiRefNet/ONNX Runtime may retain a multi-gigabyte CPU arena for the lifetime
-    of an inference session.  A spawned worker confines that memory to one
-    upload and is deliberately serialized to protect modest production hosts.
+    of an inference session. The worker confines that memory outside the API,
+    reuses the expensive session during photo capture, and exits after idle.
     """
-    context = get_context("spawn")
     with _photo_processing_lock:
-        result_queue = context.Queue(maxsize=1)
-        worker = context.Process(
-            target=_photo_processing_worker,
-            args=(content, model_name, result_queue),
-            name="vinaris-photo-ai",
-        )
-        worker.start()
+        command_queue, result_queue = _ensure_photo_worker(model_name, idle_seconds)
+        command_queue.put(("process", content))
         try:
             result = result_queue.get(timeout=timeout_seconds)
         except Empty as error:
-            worker.terminate()
-            worker.join()
+            _close_photo_worker()
             raise BottlePhotoAiUnavailable("AI bottle segmentation timed out") from error
-        finally:
-            if worker.is_alive():
-                worker.join(timeout=1)
-            if worker.is_alive():
-                worker.terminate()
-                worker.join()
-            result_queue.close()
-            result_queue.join_thread()
 
     if result[0] == "ok":
         return result[1]

@@ -107,6 +107,13 @@ async function processBottlePhotoWithAi(source: Blob): Promise<ProcessedBottlePh
   return processedAiPhoto(await response.blob());
 }
 
+function keepBottlePhotoAiWarm() {
+  void fetch("/api/v1/wines/photo/warmup", {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => undefined);
+}
+
 function clamp(value: number, minimum: number, maximum: number) {
   return Math.max(minimum, Math.min(maximum, value));
 }
@@ -493,6 +500,13 @@ export function BottlePhotoCapture({
   useEffect(() => () => {
     streamRef.current?.getTracks().forEach((track) => track.stop());
   }, []);
+
+  useEffect(() => {
+    if (!open || processed) return;
+    keepBottlePhotoAiWarm();
+    const keepAlive = window.setInterval(keepBottlePhotoAiWarm, 30_000);
+    return () => window.clearInterval(keepAlive);
+  }, [open, processed]);
 
   useEffect(() => {
     const video = videoRef.current;

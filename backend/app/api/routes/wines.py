@@ -57,6 +57,7 @@ from app.services.bottle_photo_ai import (
     BottlePhotoNotDetected,
     InvalidBottlePhoto,
     process_bottle_photo,
+    warm_bottle_photo_worker,
 )
 from app.services.notifications import create_user_notification
 from app.services.wine_photo_library import (
@@ -1084,6 +1085,23 @@ def get_wine(
     )
 
 
+@router.post("/photo/warmup", status_code=status.HTTP_204_NO_CONTENT)
+def warm_wine_photo_ai(
+    context: CurrentContext = Depends(require_wine_photo_write_context),
+) -> Response:
+    del context
+    if not settings.wine_photo_ai_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI bottle photo processing is disabled",
+        )
+    warm_bottle_photo_worker(
+        settings.wine_photo_ai_model,
+        settings.wine_photo_ai_worker_idle_seconds,
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post("/photo/process", response_class=Response)
 async def process_wine_photo(
     source_image: UploadFile = File(...),
@@ -1112,6 +1130,7 @@ async def process_wine_photo(
             content,
             settings.wine_photo_ai_model,
             settings.wine_photo_ai_timeout_seconds,
+            settings.wine_photo_ai_worker_idle_seconds,
         )
     except InvalidBottlePhoto as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
