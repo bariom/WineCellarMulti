@@ -34,6 +34,18 @@ def test_photo_ai_reuses_isolated_worker(monkeypatch):
     assert commands.items == [("process", b"image")]
 
 
+def test_photo_ai_reaper_waits_for_worker_exit():
+    joins = []
+
+    class Worker:
+        def join(self):
+            joins.append(True)
+
+    bottle_photo_ai._reap_photo_worker(Worker())
+
+    assert joins == [True]
+
+
 def test_photo_ai_worker_loads_model_once_for_capture_session(monkeypatch):
     commands = _FakeQueue(
         [

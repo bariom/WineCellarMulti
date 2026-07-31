@@ -5,7 +5,7 @@ from importlib import import_module
 from io import BytesIO
 from multiprocessing import get_context
 from queue import Empty
-from threading import Lock
+from threading import Lock, Thread
 from typing import Any, NoReturn
 
 DETAIL_SIZE = (480, 720)
@@ -276,6 +276,11 @@ def _close_photo_worker() -> None:
     _worker_model = None
 
 
+def _reap_photo_worker(worker: Any) -> None:
+    """Wait for the idle worker in the background so Linux never leaves a zombie."""
+    worker.join()
+
+
 def _ensure_photo_worker(model_name: str, idle_seconds: int) -> tuple[Any, Any]:
     global _worker_commands, _worker_model, _worker_process, _worker_results
     if (
@@ -296,6 +301,12 @@ def _ensure_photo_worker(model_name: str, idle_seconds: int) -> tuple[Any, Any]:
     )
     _worker_process.daemon = True
     _worker_process.start()
+    Thread(
+        target=_reap_photo_worker,
+        args=(_worker_process,),
+        name="vinaris-photo-ai-reaper",
+        daemon=True,
+    ).start()
     _worker_model = model_name
     return _worker_commands, _worker_results
 
