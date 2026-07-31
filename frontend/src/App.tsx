@@ -11954,7 +11954,7 @@ export function App() {
 
               {settingsTab === "operations" && canAppAdmin ? (
                 <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
-                  <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} activity={userActivity} onRefresh={() => void loadOperationsMetrics()} />
+                  <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} activity={userActivity} onRefresh={loadOperationsMetrics} />
                 </Suspense>
               ) : null}
 

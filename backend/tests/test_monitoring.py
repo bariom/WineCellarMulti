@@ -7,7 +7,12 @@ from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
 from app.db.session import get_db
-from app.main import app, is_application_request, is_interactive_application_request
+from app.main import (
+    app,
+    is_application_request,
+    is_interactive_application_request,
+    user_activity_action,
+)
 from app.services import operational_alerts, operational_metrics
 from app.services.request_metrics import request_metrics
 
@@ -46,6 +51,21 @@ def test_technical_operations_requests_are_excluded_from_application_latency():
     assert is_interactive_application_request("/api/v1/ai/wines/test/value") is False
     assert is_interactive_application_request("/api/v1/imports/json") is False
     assert is_interactive_application_request("/api/v1/wines/photo/process") is False
+
+
+def test_user_activity_actions_identify_specific_features():
+    assert user_activity_action("POST", "/api/v1/wines/photo/process") == "wine_photo_ai_cutout"
+    assert user_activity_action("POST", "/api/v1/wines/photo/warmup") is None
+    assert (
+        user_activity_action("POST", "/api/v1/wines/catalog/recognize")
+        == "wine_label_recognition"
+    )
+    assert (
+        user_activity_action("POST", "/api/v1/ai/wishlist/portfolio-strategy")
+        == "ai_wishlist_analysis"
+    )
+    assert user_activity_action("POST", "/api/v1/billing/checkout") == "billing_checkout_started"
+    assert user_activity_action("POST", "/api/v1/notifications/item/read") == "notification_read"
 
 
 def test_operational_alerts_notify_once_and_send_a_recovery(monkeypatch):

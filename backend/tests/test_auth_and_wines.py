@@ -2769,6 +2769,7 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
 def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeypatch):
     client = TestClient(app)
     assert client.get("/api/v1/admin/operations/overview").status_code == 401
+    assert client.post("/api/v1/admin/operations/collect-now").status_code == 401
     assert register(client).status_code == 201
 
     with TestingSessionLocal() as db:
@@ -2844,6 +2845,13 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert default_history.status_code == 200
     assert default_history.json()["hours"] == 1
 
+    fresh_system = {"host": {"cpu_percent": 33.0}}
+    monkeypatch.setattr(operations_route, "system_snapshot", lambda: fresh_system)
+    manual_collection = client.post("/api/v1/admin/operations/collect-now")
+    assert manual_collection.status_code == 204
+    refreshed_overview = client.get("/api/v1/admin/operations/overview")
+    assert refreshed_overview.json()["system"] == fresh_system
+
     monkeypatch.setattr(settings, "operations_collector_token", "collector-test-token")
     rejected_collector = client.post("/api/v1/admin/operations/collect", json={"host": {}})
     assert rejected_collector.status_code == 401
@@ -2853,7 +2861,25 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
         json={"collected_at": "2026-07-17T00:00:00Z", "host": {"cpu_percent": 12.5}},
     )
     assert accepted_collector.status_code == 204
-    assert len(client.get("/api/v1/admin/operations/history?hours=24").json()["samples"]) == 2
+    assert len(client.get("/api/v1/admin/operations/history?hours=24").json()["samples"]) == 3
+
+
+def test_monitor_device_token_can_trigger_a_fresh_sample(monkeypatch):
+    admin = TestClient(app)
+    assert register(admin).status_code == 201
+    created_token = admin.post("/api/v1/admin/operations/device-tokens")
+    assert created_token.status_code == 201
+
+    fresh_system = {"host": {"cpu_percent": 21.0}}
+    monkeypatch.setattr(operations_route, "system_snapshot", lambda: fresh_system)
+    monitor = TestClient(app)
+    headers = {"Authorization": f"Bearer {created_token.json()['token']}"}
+
+    collected = monitor.post("/api/v1/admin/operations/collect-now", headers=headers)
+    assert collected.status_code == 204
+    overview = monitor.get("/api/v1/admin/operations/overview", headers=headers)
+    assert overview.status_code == 200
+    assert overview.json()["system"] == fresh_system
 
 
 def test_user_tags_can_be_defined_and_assigned_to_wines():

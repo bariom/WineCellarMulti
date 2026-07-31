@@ -1,23 +1,23 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "uplot/dist/uPlot.min.css";
+import { activityLabel } from "./domain/activity";
 import type { OperationalMetricsHistory, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
 import "./monitor.css";
 
 const TOKEN_STORAGE_KEY = "vinaris.monitor.device-token";
 
-async function monitorApi<T>(path: string, token: string): Promise<T> {
-  const response = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+async function monitorApi<T>(path: string, token: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(path, {
+    ...init,
+    headers: { Authorization: `Bearer ${token}`, ...init?.headers },
+  });
   if (!response.ok) throw new Error(response.status === 401 ? "Token non valido o revocato." : "Impossibile aggiornare le metriche.");
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
 
 function value(nextValue: number | null | undefined, suffix = "") {
   return nextValue === null || nextValue === undefined ? "—" : `${nextValue.toFixed(0)}${suffix}`;
-}
-
-function activityLabel(action: string) {
-  const labels: Record<string, string> = { ai_generation: "Generazione AI", ai_wine_complete: "Analisi AI completa", wine_created: "Vino aggiunto", wine_updated: "Vino aggiornato", wine_consumed: "Vino degustato", data_import: "Importazione dati", app_action: "Azione nell'app" };
-  return labels[action] || labels.app_action;
 }
 
 function MonitorChart({ title, subtitle, color, points, formatter }: { title: string; subtitle: string; color: string; points: Array<{ timestamp: string; value: number | null }>; formatter: (value: number | null) => string }) {
@@ -73,10 +73,13 @@ export function MonitorApp() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function refresh(activeToken = token, activeHours = hours) {
+  async function refresh(activeToken = token, activeHours = hours, collect = false) {
     if (!activeToken) return;
     setLoading(true);
     try {
+      if (collect) {
+        await monitorApi<void>("/api/v1/admin/operations/collect-now", activeToken, { method: "POST" });
+      }
       const [nextOverview, nextHistory, nextActivity] = await Promise.all([
         monitorApi<OperationalMetricsOverview>("/api/v1/admin/operations/overview", activeToken),
         monitorApi<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${activeHours}`, activeToken),
@@ -98,7 +101,7 @@ export function MonitorApp() {
   const memoryPoints = useMemo(() => samples.map((sample) => ({ timestamp: sample.collected_at, value: sample.system.host.memory.percent })), [samples]);
 
   return <main className="monitor-shell">
-    <header className="monitor-header"><div className="monitor-brand"><span>V</span><strong>Vinaris Monitor</strong></div><button type="button" className="monitor-refresh" onClick={() => void refresh()} disabled={loading}>{loading ? "Aggiorno…" : "Aggiorna"}</button></header>
+    <header className="monitor-header"><div className="monitor-brand"><span>V</span><strong>Vinaris Monitor</strong></div><button type="button" className="monitor-refresh" onClick={() => void refresh(token, hours, true)} disabled={loading}>{loading ? "Raccolgo…" : "Aggiorna"}</button></header>
     {error ? <p className="monitor-error">{error}</p> : null}
     <section className="monitor-hero"><p>REATTIVITÀ API</p><strong>{value(app?.interactive_p95_duration_ms, " ms")}</strong><span>P95 API interattive · ultimi 15 minuti</span><small>{app?.interactive_p50_duration_ms !== null && app?.interactive_p50_duration_ms !== undefined ? `Mediana ${value(app.interactive_p50_duration_ms, " ms")} · ${app.interactive_requests_recent || 0} richieste` : "In attesa di traffico recente"}</small></section>
     <div className="monitor-status-row"><span className={app?.errors_total ? "alert" : "healthy"}>{app?.errors_total ? `${app.errors_total} errori 5xx` : "Nessun errore 5xx"}</span><span>{app?.slow_requests_recent ?? "—"} operazioni lente escluse</span></div>
@@ -107,7 +110,7 @@ export function MonitorApp() {
     <div className="monitor-charts"><MonitorChart title="Reattività API" subtitle="P95 INTERATTIVE" color="#e0b84f" points={latencyPoints} formatter={(nextValue) => value(nextValue, " ms")} /><MonitorChart title="CPU" subtitle="RISORSE HOST" color="#79bd83" points={cpuPoints} formatter={(nextValue) => value(nextValue, "%")} /><MonitorChart title="Memoria" subtitle="RISORSE HOST" color="#84aee3" points={memoryPoints} formatter={(nextValue) => value(nextValue, "%")} /></div>
     <section className="monitor-card monitor-kpi-section"><div className="monitor-section-head"><div><span>CANTINA</span><strong>Inventario e attività</strong></div><b>{business?.bottles_total ?? "—"}</b></div><div className="monitor-kpi-grid"><div><span>Vini</span><strong>{business?.wines_total ?? "—"}</strong></div><div><span>Degustazioni 30g</span><strong>{business?.tastings_30d ?? "—"}</strong></div><div><span>Da ritirare</span><strong>{business?.bottles_to_collect ?? "—"}</strong></div><div><span>Consegne</span><strong>{business?.bottles_in_future_deliveries ?? "—"}</strong></div></div></section>
     <section className="monitor-card monitor-kpi-section"><div className="monitor-section-head"><div><span>AI</span><strong>Uso e costi</strong></div><b>{overview?.openai.current_month_usd === null || overview?.openai.current_month_usd === undefined ? "—" : `$${overview.openai.current_month_usd.toFixed(2)}`}</b></div><div className="monitor-kpi-grid"><div><span>Azioni 30g</span><strong>{business?.ai_requests_30d ?? "—"}</strong></div><div><span>Successi</span><strong>{business?.ai_requests_30d ? `${Math.round(((business.ai_successes_30d || 0) / business.ai_requests_30d) * 100)}%` : "—"}</strong></div><div><span>Ricerche nome</span><strong>{business?.wine_name_searches_30d ?? "—"}</strong></div><div><span>Foto bottiglie</span><strong>{business?.wine_photos_total ?? "—"}</strong></div></div></section>
-    <section className="monitor-card monitor-activity"><div className="monitor-section-head"><div><span>ATTIVITÀ</span><strong>Ultime azioni</strong></div></div>{activity.length ? activity.map((item) => <article key={item.id}><div><strong>{activityLabel(item.action)}</strong><small>{item.user_display_name}</small></div><time>{new Date(item.created_at).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time></article>) : <p className="monitor-empty">Nessuna attività recente</p>}</section>
+    <section className="monitor-card monitor-activity"><div className="monitor-section-head"><div><span>ATTIVITÀ</span><strong>Ultime azioni</strong></div></div>{activity.length ? activity.map((item) => <article key={item.id}><div><strong>{activityLabel(item.action, "it")}</strong><small>{item.user_display_name}</small></div><time>{new Date(item.created_at).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time></article>) : <p className="monitor-empty">Nessuna attività recente</p>}</section>
     <button type="button" className="monitor-disconnect" onClick={() => { window.localStorage.removeItem(TOKEN_STORAGE_KEY); setToken(""); setOverview(null); }}>Disconnetti questo dispositivo</button>
   </main>;
 }

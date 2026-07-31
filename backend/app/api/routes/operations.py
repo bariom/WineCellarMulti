@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hmac
 from datetime import UTC, datetime, timedelta
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
@@ -10,9 +11,9 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
-from app.core.security import hash_session_token, new_session_token
 from app.api.routes.wines import PHOTO_SIZES, wine_photo_path
 from app.core.config import settings
+from app.core.security import hash_session_token, new_session_token
 from app.db.session import get_db
 from app.models import (
     AiAuditLog,
@@ -263,7 +264,7 @@ def sample_response(sample: OperationalMetricSample) -> dict[str, object]:
 
 
 def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
-    application = request_metrics.snapshot()
+    application = cast(dict[str, object], request_metrics.snapshot())
     db.add(
         OperationalMetricSample(
             collected_at=now,
@@ -327,6 +328,16 @@ def operations_history(
         .limit(2048)
     ).all()
     return {"hours": hours, "samples": [sample_response(sample) for sample in samples]}
+
+
+@router.post("/collect-now", status_code=status.HTTP_204_NO_CONTENT)
+def collect_operations_sample_now(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_operations_read_access),
+) -> Response:
+    """Collect a fresh sample when an authorised Monitor user explicitly refreshes."""
+    save_sample(db, system_snapshot(), datetime.now(UTC))
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/photos")

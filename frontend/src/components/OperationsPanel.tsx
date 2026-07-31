@@ -12,7 +12,7 @@ type OperationsPanelProps = {
   overview: OperationalMetricsOverview | null;
   history: OperationalMetricsHistory | null;
   activity: UserActivityLogEntry[];
-  onRefresh: () => void;
+  onRefresh: () => void | Promise<void>;
 };
 
 type ChartScale = { min: number; max: number; suffix: string };
@@ -157,7 +157,7 @@ function successRate(successes: number, total: number) {
   return total > 0 ? `${Math.round((successes / total) * 100)}%` : "—";
 }
 
-function activityLabel(action: string, italian: boolean) {
+function activityLabel(action: string, locale: Locale) {
   const labels: Record<string, [string, string]> = {
     ai_generation: ["Generazione AI", "AI generation"],
     ai_wine_complete: ["Analisi AI completa", "Full AI analysis"],
@@ -168,14 +168,25 @@ function activityLabel(action: string, italian: boolean) {
     ai_wine_scores: ["Ricerca punteggi AI", "AI score lookup"],
     ai_wine_comparison: ["Confronto vini con AI", "AI wine comparison"],
     ai_pairing: ["Abbinamento con AI", "AI pairing"],
-    ai_buying_advice: ["Consiglio d'acquisto AI", "AI buying advice"],
+    ai_buying_advice: ["Consiglio d’acquisto AI", "AI buying advice"],
     ai_label_enrichment: ["Lettura etichetta con AI", "AI label enrichment"],
+    ai_wishlist_analysis: ["Analisi AI della wishlist", "AI wishlist analysis"],
+    ai_regional_gap_analysis: ["Analisi AI della copertura regionale", "AI regional coverage analysis"],
     wine_created: ["Vino aggiunto", "Wine added"],
     wine_updated: ["Vino aggiornato", "Wine updated"],
     wine_deleted: ["Vino eliminato", "Wine deleted"],
     wine_consumed: ["Vino registrato come bevuto", "Wine recorded as consumed"],
+    wine_photo_ai_cutout: ["Scontorno foto con AI", "AI photo cutout"],
     wine_photo_updated: ["Foto bottiglia aggiornata", "Bottle photo updated"],
     wine_photo_removed: ["Foto bottiglia rimossa", "Bottle photo removed"],
+    wine_photo_reused: ["Foto bottiglia riutilizzata", "Bottle photo reused"],
+    wine_label_recognition: ["Riconoscimento etichetta", "Label recognition"],
+    wine_catalog_approved: ["Vino catalogo approvato", "Catalog wine approved"],
+    wine_share_offer_created: ["Condivisione vino proposta", "Wine sharing offered"],
+    wine_share_offer_accepted: ["Condivisione vino accettata", "Wine sharing accepted"],
+    wine_share_offer_rejected: ["Condivisione vino rifiutata", "Wine sharing rejected"],
+    wine_share_offer_revoked: ["Condivisione vino revocata", "Wine sharing revoked"],
+    wine_share_offer_removed: ["Condivisione vino rimossa", "Wine sharing removed"],
     tasting_updated: ["Degustazione aggiornata", "Tasting updated"],
     tasting_deleted: ["Degustazione eliminata", "Tasting deleted"],
     wine_action: ["Azione su un vino", "Wine action"],
@@ -183,15 +194,40 @@ function activityLabel(action: string, italian: boolean) {
     wishlist_item_updated: ["Voce wishlist aggiornata", "Wishlist item updated"],
     wishlist_item_deleted: ["Voce wishlist eliminata", "Wishlist item deleted"],
     wishlist_item_converted: ["Wishlist convertita in vino", "Wishlist converted to wine"],
+    wishlist_list_created: ["Lista wishlist creata", "Wishlist list created"],
+    wishlist_list_updated: ["Lista wishlist aggiornata", "Wishlist list updated"],
+    wishlist_list_deleted: ["Lista wishlist eliminata", "Wishlist list deleted"],
     wishlist_action: ["Azione sulla wishlist", "Wishlist action"],
+    household_switched: ["Cambio cantina attiva", "Active cellar changed"],
+    household_invite_sent: ["Invito cantina inviato", "Cellar invitation sent"],
+    household_invite_accepted: ["Invito cantina accettato", "Cellar invitation accepted"],
+    household_invite_revoked: ["Invito cantina revocato", "Cellar invitation revoked"],
+    household_member_updated: ["Membro cantina aggiornato", "Cellar member updated"],
+    household_member_removed: ["Membro cantina rimosso", "Cellar member removed"],
     household_action: ["Gestione cantina", "Cellar management"],
+    account_preferences_updated: ["Preferenze account aggiornate", "Account preferences updated"],
+    passkey_configured: ["Passkey configurata", "Passkey configured"],
+    passkey_removed: ["Passkey rimossa", "Passkey removed"],
     account_action: ["Impostazioni account", "Account settings"],
     data_import: ["Importazione dati", "Data import"],
     coownership_action: ["Gestione comproprietà", "Co-ownership management"],
+    tag_created: ["Tag creato", "Tag created"],
+    tag_updated: ["Tag aggiornato", "Tag updated"],
+    tag_deleted: ["Tag eliminato", "Tag deleted"],
     tag_action: ["Gestione tag", "Tag management"],
-    app_action: ["Azione nell'app", "App action"],
+    notification_read: ["Notifica letta", "Notification read"],
+    notification_archived: ["Notifica archiviata", "Notification archived"],
+    notification_restored: ["Notifica ripristinata", "Notification restored"],
+    notification_deleted: ["Notifica eliminata", "Notification deleted"],
+    notification_action: ["Gestione notifiche", "Notification action"],
+    billing_checkout_started: ["Checkout avviato", "Checkout started"],
+    billing_portal_opened: ["Portale pagamenti aperto", "Billing portal opened"],
+    billing_code_redeemed: ["Codice riscattato", "Code redeemed"],
+    billing_action: ["Gestione abbonamento", "Billing action"],
+    support_request_sent: ["Richiesta di assistenza inviata", "Support request sent"],
+    app_action: ["Azione nell’app", "App action"],
   };
-  return (labels[action] || labels.app_action)[italian ? 0 : 1];
+  return (labels[action] || labels.app_action)[locale === "it" ? 0 : 1];
 }
 
 export function OperationsPanel({ locale, overview, history, activity, onRefresh }: OperationsPanelProps) {
@@ -201,6 +237,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const [monitorToken, setMonitorToken] = useState("");
   const [monitorTokenError, setMonitorTokenError] = useState("");
   const [monitorTokens, setMonitorTokens] = useState<MonitorDeviceToken[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     if (selectedHours === 1) setSelectedHistory(history);
@@ -211,6 +248,16 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
       setMonitorTokens(await api<MonitorDeviceToken[]>("/api/v1/admin/operations/device-tokens"));
     } catch {
       setMonitorTokenError(isItalian ? "Impossibile caricare i token Monitor." : "Unable to load Monitor tokens.");
+    }
+  }
+
+  async function collectAndRefresh() {
+    setRefreshing(true);
+    try {
+      await api<void>("/api/v1/admin/operations/collect-now", { method: "POST" });
+      await onRefresh();
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -280,7 +327,9 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
           <span>{isItalian ? "Amministrazione applicazione" : "Application administration"}</span>
           <h3>{isItalian ? "Stato operativo" : "Operational status"}</h3>
         </div>
-        <button type="button" className="secondary compact" onClick={onRefresh}>{isItalian ? "Aggiorna" : "Refresh"}</button>
+        <button type="button" className="secondary compact" disabled={refreshing} onClick={() => void collectAndRefresh()}>
+          {refreshing ? (isItalian ? "Raccolgo…" : "Collecting…") : (isItalian ? "Aggiorna" : "Refresh")}
+        </button>
       </div>
       <p className="settings-help-copy">
         {isItalian ? "Metriche aggregate riservate all'app-admin. L'aggiornamento avviene solo quando questa scheda è aperta." : "Aggregated metrics restricted to the app admin. Refreshing occurs only while this tab is open."}
@@ -448,7 +497,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
                   <article key={entry.id}>
                     <div>
                       <strong>{entry.user_display_name || entry.user_email}</strong>
-                      <span>{activityLabel(entry.action, isItalian)}</span>
+                      <span>{activityLabel(entry.action, locale)}</span>
                     </div>
                     <time dateTime={entry.created_at}>{new Intl.DateTimeFormat(isItalian ? "it-CH" : "en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }).format(new Date(entry.created_at))}</time>
                   </article>

@@ -80,9 +80,31 @@ def user_activity_action(method: str, path: str) -> str | None:
         return "ai_buying_advice"
     if path == "/api/v1/ai/wine-label/enrich":
         return "ai_label_enrichment"
+    if path.startswith("/api/v1/ai/wishlist/"):
+        return "ai_wishlist_analysis"
+    if path == "/api/v1/ai/regional-gap-targets":
+        return "ai_regional_gap_analysis"
     if path.startswith("/api/v1/ai/"):
         return "ai_generation"
     if path.startswith("/api/v1/wines"):
+        if path == "/api/v1/wines/photo/warmup":
+            return None
+        if path == "/api/v1/wines/photo/process":
+            return "wine_photo_ai_cutout"
+        if path == "/api/v1/wines/catalog/recognize":
+            return "wine_label_recognition"
+        if "/photo/reuse/" in path:
+            return "wine_photo_reused"
+        if "/share-offers" in path:
+            if path.endswith("/accept"):
+                return "wine_share_offer_accepted"
+            if path.endswith("/reject"):
+                return "wine_share_offer_rejected"
+            if path.endswith("/revoke"):
+                return "wine_share_offer_revoked"
+            return "wine_share_offer_created" if method == "POST" else "wine_share_offer_removed"
+        if path.endswith("/approve") and "/catalog/" in path:
+            return "wine_catalog_approved"
         if path.endswith("/consume"):
             return "wine_consumed"
         if "/tastings/" in path:
@@ -99,6 +121,13 @@ def user_activity_action(method: str, path: str) -> str | None:
     if path.startswith("/api/v1/wishlist"):
         if path.endswith("/convert"):
             return "wishlist_item_converted"
+        if "/lists" in path:
+            if method == "POST":
+                return "wishlist_list_created"
+            if method == "PATCH":
+                return "wishlist_list_updated"
+            if method == "DELETE":
+                return "wishlist_list_deleted"
         if path == "/api/v1/wishlist" and method == "POST":
             return "wishlist_item_created"
         if method == "DELETE":
@@ -107,15 +136,49 @@ def user_activity_action(method: str, path: str) -> str | None:
             return "wishlist_item_updated"
         return "wishlist_action"
     if path.startswith("/api/v1/household"):
+        if path == "/api/v1/household/switch":
+            return "household_switched"
+        if "/invites" in path:
+            if path.endswith("/accept"):
+                return "household_invite_accepted"
+            return "household_invite_sent" if method == "POST" else "household_invite_revoked"
+        if "/members/" in path:
+            return "household_member_removed" if method == "DELETE" else "household_member_updated"
         return "household_action"
     if path.startswith("/api/v1/auth"):
+        if path == "/api/v1/auth/preferences":
+            return "account_preferences_updated"
+        if "/passkeys/" in path:
+            return "passkey_removed" if method == "DELETE" else "passkey_configured"
         return "account_action"
     if path.startswith("/api/v1/import"):
         return "data_import"
     if path.startswith("/api/v1/co-ownership"):
         return "coownership_action"
     if path.startswith("/api/v1/tags"):
-        return "tag_action"
+        if method == "POST":
+            return "tag_created"
+        if method == "PATCH":
+            return "tag_updated"
+        return "tag_deleted"
+    if path.startswith("/api/v1/notifications"):
+        if path.endswith("/read") or path.endswith("/read-all"):
+            return "notification_read"
+        if path.endswith("/archive"):
+            return "notification_archived"
+        if path.endswith("/restore"):
+            return "notification_restored"
+        return "notification_deleted" if method == "DELETE" else "notification_action"
+    if path.startswith("/api/v1/billing"):
+        if path.endswith("/checkout"):
+            return "billing_checkout_started"
+        if path.endswith("/portal"):
+            return "billing_portal_opened"
+        if path.endswith("/redeem"):
+            return "billing_code_redeemed"
+        return "billing_action"
+    if path == "/api/v1/support/contact":
+        return "support_request_sent"
     return "app_action"
 
 
