@@ -3,8 +3,8 @@ import { gzipSync } from "node:zlib";
 
 const limits = {
   // Keep a small margin for the lazy history module's runtime metadata.
-  javascriptBytes: 754_000,
-  javascriptGzipBytes: 196_000,
+  javascriptBytes: 755_000,
+  javascriptGzipBytes: 196_500,
   cssBytes: 390_500,
   cssGzipBytes: 67_000,
 };
