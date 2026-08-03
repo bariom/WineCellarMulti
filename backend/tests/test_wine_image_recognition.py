@@ -74,6 +74,8 @@ def test_image_optimization_outputs_jpeg_and_label_crop():
     full, crop = optimized_wine_images(source.getvalue())
     assert full.startswith(b"\xff\xd8")
     assert crop is not None and crop.startswith(b"\xff\xd8")
+    with Image.open(BytesIO(crop)) as crop_image:
+        assert crop_image.height > crop_image.width
 
 
 def test_invalid_image_is_rejected():

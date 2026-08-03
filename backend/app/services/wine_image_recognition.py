@@ -67,7 +67,7 @@ def optimized_wine_images(content: bytes) -> tuple[bytes, bytes | None]:
                 round(width * 0.08),
                 round(height * 0.28),
                 round(width * 0.92),
-                round(height * 0.72),
+                round(height * 0.94),
             )
         )
         label.thumbnail((maximum, maximum), Image.Resampling.LANCZOS)
