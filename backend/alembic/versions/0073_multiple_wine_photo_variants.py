@@ -1,6 +1,6 @@
 """allow multiple bottle-photo variants for the same wine identity
 
-Revision ID: 0073_multiple_wine_photo_variants
+Revision ID: 0073_multi_photo_variants
 Revises: 0072_tasting_value_snapshots
 """
 
@@ -8,7 +8,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0073_multiple_wine_photo_variants"
+revision = "0073_multi_photo_variants"
 down_revision = "0072_tasting_value_snapshots"
 branch_labels = None
 depends_on = None
@@ -33,8 +33,14 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    op.drop_index("ix_wine_photo_library_identity_created", table_name="wine_photo_library_entries")
-    op.drop_index("ix_wine_photo_library_entries_content_hash", table_name="wine_photo_library_entries")
+    op.drop_index(
+        "ix_wine_photo_library_identity_created",
+        table_name="wine_photo_library_entries",
+    )
+    op.drop_index(
+        "ix_wine_photo_library_entries_content_hash",
+        table_name="wine_photo_library_entries",
+    )
     op.drop_column("wine_photo_library_entries", "content_hash")
     op.create_index(
         "uq_wine_photo_library_identity",
