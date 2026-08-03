@@ -9290,7 +9290,7 @@ export function App() {
                   </div>
                 ) : null}
                 {canReuseWinePhotos ? (
-                  <div className={`bottle-photo-form-card${canManageWinePhotos ? "" : " reuse-only"}`}>
+                  <div className={`bottle-photo-form-card${canManageWinePhotos ? "" : " reuse-only"}${!editingId && winePhotoSuggestion ? " has-suggestion" : ""}`}>
                     <div>
                       <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
                       <small>
