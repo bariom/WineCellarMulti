@@ -498,6 +498,21 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert reused.status_code == 200
         assert reused.json()["photo_detail_url"]
         assert client.get(reused.json()["photo_detail_url"]).content == detail.content
+        alternate = client.put(
+            f"/api/v1/wines/{target_id}/photo",
+            files={
+                "thumbnail_image": ("thumbnail.png", transparent_png_header(160, 240) + b"alternate", "image/png"),
+                "detail_image": ("detail.png", transparent_png_header(480, 720) + b"alternate", "image/png"),
+            },
+        )
+        assert alternate.status_code == 200
+        suggestions = client.get(
+            "/api/v1/wines/photo/suggestions",
+            params={"name": "Photo Bottle", "producer": "Photo Estate"},
+        )
+        assert suggestions.status_code == 200
+        assert len(suggestions.json()) == 2
+        assert all(client.get(item["thumbnail_url"]).status_code == 200 for item in suggestions.json())
         assert client.delete(f"/api/v1/wines/{target_id}/photo").status_code == 200
         assert (
             client.post(

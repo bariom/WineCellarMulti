@@ -64,6 +64,14 @@
   gap: 7px;
 }
 
+.wine-photo-suggestion-navigation {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wine-photo-suggestion-navigation small { min-width: 32px; text-align: center; }
+
 .bottle-capture-modal {
   display: grid;
   width: min(520px, 100%);

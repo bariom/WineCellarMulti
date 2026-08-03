@@ -834,6 +834,8 @@ export type WinePhotoSuggestion = {
   detail_url: string;
 };
 
+export type WinePhotoSuggestions = WinePhotoSuggestion[];
+
 export type OperationalWinePhoto = {
   wine_id: string;
   name: string;

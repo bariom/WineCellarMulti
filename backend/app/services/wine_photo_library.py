@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import shutil
 import uuid
+from hashlib import sha256
 from pathlib import Path
 
 from sqlalchemy import select
@@ -45,10 +46,12 @@ def archive_wine_photo(
 
     normalized_name = normalize_photo_identity(wine.name)
     normalized_producer = normalize_photo_identity(wine.producer)
+    content_hash = sha256(source_paths["detail"].read_bytes()).hexdigest()
     photo = db.scalar(
         select(WinePhotoLibraryEntry).where(
             WinePhotoLibraryEntry.normalized_name == normalized_name,
             WinePhotoLibraryEntry.normalized_producer == normalized_producer,
+            WinePhotoLibraryEntry.content_hash == content_hash,
         )
     )
     if photo is not None and all(
@@ -64,14 +67,10 @@ def archive_wine_photo(
             normalized_producer=normalized_producer,
             source_wine_id=wine.id,
             photo_version=uuid.uuid4().hex,
+            content_hash=content_hash,
         )
         db.add(photo)
         db.flush()
-    else:
-        if photo.source_wine_id is None:
-            photo.source_wine_id = wine.id
-        photo.photo_version = uuid.uuid4().hex
-
     target_dir = library_photo_path(photo, "detail").parent
     target_dir.mkdir(parents=True, exist_ok=True)
     temporary_paths: list[Path] = []

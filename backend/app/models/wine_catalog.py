@@ -51,10 +51,10 @@ class WinePhotoLibraryEntry(Base):
     __tablename__ = "wine_photo_library_entries"
     __table_args__ = (
         Index(
-            "uq_wine_photo_library_identity",
+            "ix_wine_photo_library_identity_created",
             "normalized_name",
             "normalized_producer",
-            unique=True,
+            "created_at",
         ),
     )
 
@@ -72,6 +72,7 @@ class WinePhotoLibraryEntry(Base):
         index=True,
     )
     photo_version: Mapped[str] = mapped_column(String(32))
+    content_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow
     )

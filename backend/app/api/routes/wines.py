@@ -1212,38 +1212,38 @@ def tasting_archive_profile(
     ]
 
 
-@router.get("/photo/suggestion")
-def suggest_wine_photo(
+def photo_suggestion_response(photo: WinePhotoLibraryEntry) -> dict[str, str]:
+    return {
+        "source_wine_id": str(photo.id),
+        "thumbnail_url": f"/api/v1/wines/photo/library/{photo.id}/thumbnail?v={photo.photo_version}",
+        "detail_url": f"/api/v1/wines/photo/library/{photo.id}/detail?v={photo.photo_version}",
+    }
+
+
+@router.get("/photo/suggestions")
+def suggest_wine_photos(
     name: str = Query(min_length=2, max_length=200),
     producer: str = Query(min_length=1, max_length=200),
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_write_context),
-) -> dict[str, str] | None:
+) -> list[dict[str, str]]:
     normalized_name = normalize_photo_identity(name)
     normalized_producer = normalize_photo_identity(producer)
     if not normalized_name or not normalized_producer:
-        return None
-    library_photo = db.scalar(
+        return []
+    library_photos = list(db.scalars(
         select(WinePhotoLibraryEntry).where(
             WinePhotoLibraryEntry.normalized_name == normalized_name,
             WinePhotoLibraryEntry.normalized_producer == normalized_producer,
-        )
-    )
-    if library_photo is not None and all(
-        library_photo_path(library_photo, size).is_file() for size in PHOTO_SIZES
-    ):
-        source_id = library_photo.source_wine_id or library_photo.id
-        return {
-            "source_wine_id": str(source_id),
-            "thumbnail_url": (
-                f"/api/v1/wines/photo/library/{source_id}/thumbnail"
-                f"?v={library_photo.photo_version}"
-            ),
-            "detail_url": (
-                f"/api/v1/wines/photo/library/{source_id}/detail"
-                f"?v={library_photo.photo_version}"
-            ),
-        }
+        ).order_by(WinePhotoLibraryEntry.created_at.desc())
+    ))
+    suggestions = [
+        photo_suggestion_response(photo)
+        for photo in library_photos
+        if all(library_photo_path(photo, size).is_file() for size in PHOTO_SIZES)
+    ]
+    if suggestions:
+        return suggestions
     wine = db.scalar(
         select(Wine)
         .where(
@@ -1254,11 +1254,35 @@ def suggest_wine_photo(
         .limit(1)
     )
     if wine is None or not all(wine_photo_path(wine, size).is_file() for size in PHOTO_SIZES):
-        return None
-    return {
+        return []
+    return [{
         "source_wine_id": str(wine.id),
         "thumbnail_url": f"/api/v1/wines/photo/library/{wine.id}/thumbnail?v={wine.photo_version}",
         "detail_url": f"/api/v1/wines/photo/library/{wine.id}/detail?v={wine.photo_version}",
+    }]
+
+
+@router.get("/photo/suggestion")
+def suggest_wine_photo(
+    name: str = Query(min_length=2, max_length=200),
+    producer: str = Query(min_length=1, max_length=200),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> dict[str, str] | None:
+    """Backward-compatible single-photo endpoint for older clients."""
+    suggestions = suggest_wine_photos(name, producer, db, context)
+    if not suggestions:
+        return None
+    # Older clients identify a library photo by its originating wine UUID.
+    # Keep that contract while new clients use the immutable library entry UUID.
+    library_photo = db.get(WinePhotoLibraryEntry, UUID(suggestions[0]["source_wine_id"]))
+    if library_photo is None or library_photo.source_wine_id is None:
+        return suggestions[0]
+    source_id = str(library_photo.source_wine_id)
+    return {
+        "source_wine_id": source_id,
+        "thumbnail_url": f"/api/v1/wines/photo/library/{source_id}/thumbnail?v={library_photo.photo_version}",
+        "detail_url": f"/api/v1/wines/photo/library/{source_id}/detail?v={library_photo.photo_version}",
     }
 
 

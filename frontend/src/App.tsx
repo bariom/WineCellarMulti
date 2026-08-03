@@ -1288,7 +1288,8 @@ export function App() {
   const [editingWishlistId, setEditingWishlistId] = useState<string | null>(null);
   const [wineFormOpen, setWineFormOpen] = useState(false);
   const [pendingBottlePhoto, setPendingBottlePhoto] = useState<PreparedBottlePhoto | null>(null);
-  const [winePhotoSuggestion, setWinePhotoSuggestion] = useState<WinePhotoSuggestion | null>(null);
+  const [winePhotoSuggestions, setWinePhotoSuggestions] = useState<WinePhotoSuggestion[]>([]);
+  const [winePhotoSuggestionIndex, setWinePhotoSuggestionIndex] = useState(0);
   const [selectedSuggestedPhotoId, setSelectedSuggestedPhotoId] = useState<string | null>(null);
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -3779,7 +3780,8 @@ export function App() {
       }
       setDraft(emptyDraft);
       setPendingBottlePhoto(null);
-      setWinePhotoSuggestion(null);
+      setWinePhotoSuggestions([]);
+      setWinePhotoSuggestionIndex(0);
       setSelectedSuggestedPhotoId(null);
       setEditingId(null);
       setSelectedWineId(null);
@@ -4399,7 +4401,8 @@ export function App() {
   const canUseLabelRecognition = canWriteWine && Boolean(session?.can_use_label_recognition);
 
   useEffect(() => {
-    setWinePhotoSuggestion(null);
+    setWinePhotoSuggestions([]);
+    setWinePhotoSuggestionIndex(0);
     setSelectedSuggestedPhotoId(null);
     const name = draft.name.trim();
     const producer = draft.producer.trim();
@@ -4408,10 +4411,16 @@ export function App() {
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       const query = new URLSearchParams({ name, producer });
-      api<WinePhotoSuggestion | null>(`/api/v1/wines/photo/suggestion?${query.toString()}`, { signal: controller.signal })
-        .then((suggestion) => setWinePhotoSuggestion(suggestion))
+      api<WinePhotoSuggestion[]>(`/api/v1/wines/photo/suggestions?${query.toString()}`, { signal: controller.signal })
+        .then((suggestions) => {
+          setWinePhotoSuggestions(suggestions);
+          setWinePhotoSuggestionIndex(0);
+        })
         .catch(() => {
-          if (!controller.signal.aborted) setWinePhotoSuggestion(null);
+          if (!controller.signal.aborted) {
+            setWinePhotoSuggestions([]);
+            setWinePhotoSuggestionIndex(0);
+          }
         });
     }, 350);
     return () => {
@@ -4419,6 +4428,8 @@ export function App() {
       controller.abort();
     };
   }, [canReuseWinePhotos, draft.name, draft.producer, editingId, pendingBottlePhoto, wineFormOpen]);
+
+  const winePhotoSuggestion = winePhotoSuggestions[winePhotoSuggestionIndex] || null;
 
   const canGenerateAi =
     canWriteWine &&
@@ -6018,7 +6029,8 @@ export function App() {
     setDraft(emptyDraft);
     setOpenWineEditorSections({});
     setPendingBottlePhoto(null);
-    setWinePhotoSuggestion(null);
+    setWinePhotoSuggestions([]);
+    setWinePhotoSuggestionIndex(0);
     setSelectedSuggestedPhotoId(null);
     setEditingId(null);
     setWineFormOpen(true);
@@ -6094,7 +6106,8 @@ export function App() {
     setDraft(wineToDraft(wine));
     setOpenWineEditorSections({});
     setPendingBottlePhoto(null);
-    setWinePhotoSuggestion(null);
+    setWinePhotoSuggestions([]);
+    setWinePhotoSuggestionIndex(0);
     setSelectedSuggestedPhotoId(null);
     setWineFormOpen(true);
   }
@@ -6257,7 +6270,8 @@ export function App() {
     setEditingId(null);
     setDraft(emptyDraft);
     setPendingBottlePhoto(null);
-    setWinePhotoSuggestion(null);
+    setWinePhotoSuggestions([]);
+    setWinePhotoSuggestionIndex(0);
     setSelectedSuggestedPhotoId(null);
     setWineFormOpen(false);
   }
@@ -9315,6 +9329,17 @@ export function App() {
                               ? "Trovata per lo stesso vino in un'altra cantina, indipendentemente dall'annata."
                               : "Found for the same wine in another cellar, regardless of vintage."}
                           </small>
+                          {winePhotoSuggestions.length > 1 ? (
+                            <div className="wine-photo-suggestion-navigation">
+                              <button type="button" className="secondary compact" onClick={() => setWinePhotoSuggestionIndex((current) => (current - 1 + winePhotoSuggestions.length) % winePhotoSuggestions.length)}>
+                                {locale === "it" ? "Precedente" : "Previous"}
+                              </button>
+                              <small>{winePhotoSuggestionIndex + 1} / {winePhotoSuggestions.length}</small>
+                              <button type="button" className="secondary compact" onClick={() => setWinePhotoSuggestionIndex((current) => (current + 1) % winePhotoSuggestions.length)}>
+                                {locale === "it" ? "Successiva" : "Next"}
+                              </button>
+                            </div>
+                          ) : null}
                           <button
                             type="button"
                             className={selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id ? "compact" : "secondary compact"}
