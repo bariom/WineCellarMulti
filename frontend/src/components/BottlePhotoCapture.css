@@ -33,11 +33,13 @@
 }
 
 .bottle-photo-form-card.has-suggestion {
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .bottle-photo-form-card.has-suggestion .wine-photo-suggestion {
-  flex: 1 1 100%;
+  grid-column: 1 / -1;
+  min-width: 0;
   width: auto;
 }
 
