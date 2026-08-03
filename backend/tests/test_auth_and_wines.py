@@ -1873,16 +1873,16 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
         return OpenAIResponse(
             text=json.dumps(
                 {
-                    "name": "Dogaia",
-                    "producer": "Guido Brivio",
+                    "name": "Ribolla Gialla",
+                    "producer": "Astoria Wines",
                     "vintage": "2023",
-                    "type": "Red",
-                    "region": "Ticino",
-                    "appellation": "Ticino DOC",
-                    "country": "Switzerland",
-                    "grapes_text": "Merlot",
+                    "type": "Sparkling",
+                    "region": "Veneto",
+                    "appellation": "Prosecco DOC",
+                    "country": "Italy",
+                    "grapes_text": "Glera",
                     "confidence": "high",
-                    "notes": "Ticino wine found.",
+                    "notes": "Found a similarly named wine from another producer.",
                 }
             ),
             usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
@@ -1895,9 +1895,25 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
     )
     response = client.post(
         "/api/v1/ai/wine-label/enrich",
-        json={"label": "Guido Brivio Dogaia 2023", "source": "photo"},
+        json={
+            "label": "Conte Marani Ribolla Gialla Vino Spumante 2023",
+            "source": "photo",
+            "confirmed_name": "Ribolla Gialla Vino Spumante",
+            "confirmed_producer": "Conte Marani",
+            "confirmed_vintage": "2023",
+            "confirmed_appellation": "Vino Spumante",
+        },
     )
     assert response.status_code == 200
+    assert response.json()["name"] == "Ribolla Gialla Vino Spumante"
+    assert response.json()["producer"] == "Conte Marani"
+    assert response.json()["vintage"] == "2023"
+    assert response.json()["appellation"] == "Vino Spumante"
+    assert response.json()["type"] == ""
+    assert response.json()["region"] == ""
+    assert response.json()["country"] == ""
+    assert response.json()["grapes_text"] == ""
+    assert response.json()["confidence"] == "low"
     ending_balance = Decimal(
         client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
     )

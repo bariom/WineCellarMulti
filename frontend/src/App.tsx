@@ -1608,14 +1608,25 @@ export function App() {
     try {
       const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
         method: "POST",
-        body: JSON.stringify({ label, locale, source, model }),
+        body: JSON.stringify({
+          label,
+          locale,
+          source,
+          model,
+          ...(source === "photo" ? {
+            confirmed_name: targetDraft.name.trim(),
+            confirmed_producer: targetDraft.producer.trim(),
+            confirmed_vintage: targetDraft.vintage.trim(),
+            confirmed_appellation: targetDraft.appellation.trim(),
+          } : {}),
+        }),
       });
       const catalogItem: CatalogWine = {
-        name: safeEnrichedWineName(label, enrichment.name),
-        producer: enrichment.producer,
-        region: enrichment.region,
-        appellation: enrichment.appellation,
-        type: normalizeWineType(enrichment.type),
+        name: source === "photo" ? targetDraft.name || enrichment.name : safeEnrichedWineName(label, enrichment.name),
+        producer: source === "photo" ? targetDraft.producer || enrichment.producer : enrichment.producer,
+        region: source === "photo" ? targetDraft.region || enrichment.region : enrichment.region,
+        appellation: source === "photo" ? targetDraft.appellation || enrichment.appellation : enrichment.appellation,
+        type: normalizeWineType(source === "photo" ? targetDraft.type || enrichment.type : enrichment.type),
         country: enrichment.country,
         grapes_text: enrichment.grapes_text,
         format: targetDraft.format || "Bottle (750ml)",

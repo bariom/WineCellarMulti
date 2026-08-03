@@ -1782,6 +1782,25 @@ def enrich_wine_label(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
     user_settings = get_or_create_user_ai_settings(db, context)
     model = request_model(payload, user_settings.grape_model or settings.openai_grape_model)
+    confirmed_identity = "\n".join(
+        value
+        for value in (
+            f"Confirmed wine name: {payload.confirmed_name}" if payload.confirmed_name else "",
+            f"Confirmed producer: {payload.confirmed_producer}" if payload.confirmed_producer else "",
+            f"Confirmed vintage: {payload.confirmed_vintage}" if payload.confirmed_vintage else "",
+            f"Confirmed appellation: {payload.confirmed_appellation}" if payload.confirmed_appellation else "",
+        )
+        if value
+    )
+    photo_identity_rules = (
+        "The identity below was confirmed by the user from a bottle photo. Treat wine name, producer, "
+        "vintage, and appellation as constraints, never as suggestions. Do not substitute a similarly "
+        "named wine from another producer. If the exact identity cannot be verified, preserve the confirmed "
+        "identity and leave unsupported complementary fields empty.\n"
+        f"{confirmed_identity}\n"
+        if payload.source == "photo"
+        else ""
+    )
     schema = {
         "name": "wine_label_enrichment",
         "schema": {
@@ -1819,6 +1838,7 @@ def enrich_wine_label(
             "Extract structured wine data from this input.\n\n"
             f"Input: {payload.label}\n"
             f"Input source: {payload.source}\n\n"
+            f"{photo_identity_rules}"
             "Guidelines:\n"
             "- name should be the cuvee/wine name without vintage or producer when possible.\n"
             "- Preserve apostrophes inside names. Do not truncate Italian or French names at apostrophes, e.g. keep \"Torre dell'anima\" complete.\n"
@@ -1835,17 +1855,46 @@ def enrich_wine_label(
         app_funded=payload.source == "manual",
     )
     result = parse_json_response(response.text)
+    result_producer = str(result.get("producer") or "").strip()
+    result_vintage = str(result.get("vintage") or "").strip()
+
+    def normalize_identity(value: str) -> str:
+        return re.sub(r"[^a-z0-9]+", "", value.casefold())
+
+    identity_conflict = payload.source == "photo" and (
+        bool(
+            payload.confirmed_producer
+            and result_producer
+            and normalize_identity(payload.confirmed_producer) != normalize_identity(result_producer)
+        )
+        or bool(
+            payload.confirmed_vintage
+            and result_vintage
+            and payload.confirmed_vintage.casefold() != result_vintage.casefold()
+        )
+    )
     cleaned = WineLabelEnrichmentResponse(
-        name=str(result.get("name") or payload.label).strip(),
-        producer=str(result.get("producer") or "").strip(),
-        vintage=str(result.get("vintage") or "").strip(),
-        type=normalize_wine_type(str(result.get("type") or "").strip()),
-        region=str(result.get("region") or "").strip(),
-        appellation=str(result.get("appellation") or "").strip(),
-        country=str(result.get("country") or "").strip(),
-        grapes_text=str(result.get("grapes_text") or "").strip(),
-        confidence=str(result.get("confidence") or "low").strip() or "low",
-        notes=str(result.get("notes") or "").strip(),
+        name=payload.confirmed_name or str(result.get("name") or payload.label).strip(),
+        producer=payload.confirmed_producer or result_producer,
+        vintage=payload.confirmed_vintage or result_vintage,
+        type=(
+            "" if identity_conflict else normalize_wine_type(str(result.get("type") or "").strip())
+        ),
+        region="" if identity_conflict else str(result.get("region") or "").strip(),
+        appellation=(
+            payload.confirmed_appellation
+            or ("" if identity_conflict else str(result.get("appellation") or "").strip())
+        ),
+        country="" if identity_conflict else str(result.get("country") or "").strip(),
+        grapes_text="" if identity_conflict else str(result.get("grapes_text") or "").strip(),
+        confidence=(
+            "low" if identity_conflict else str(result.get("confidence") or "low").strip() or "low"
+        ),
+        notes=(
+            "Discarded complementary data because it referred to a different producer or vintage."
+            if identity_conflict
+            else str(result.get("notes") or "").strip()
+        ),
     )
     record_ai_audit(
         db,

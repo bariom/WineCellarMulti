@@ -88,6 +88,10 @@ class AiGenerationRequest(BaseModel):
 class WineLabelEnrichmentRequest(AiGenerationRequest):
     label: str = Field(min_length=2, max_length=260)
     source: str = Field(default="label", pattern="^(label|manual|photo)$")
+    confirmed_name: str = Field(default="", max_length=160)
+    confirmed_producer: str = Field(default="", max_length=160)
+    confirmed_vintage: str = Field(default="", max_length=4)
+    confirmed_appellation: str = Field(default="", max_length=160)
 
 
 class WineLabelEnrichmentResponse(BaseModel):
