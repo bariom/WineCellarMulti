@@ -333,6 +333,8 @@ def test_register_login_session_and_logout():
     assert registered.json()["active_household_name"] == "Main Cellar"
     assert registered.json()["locale"] == "it"
     assert registered.json()["theme_preference"] == "system"
+    assert registered.json()["can_use_label_recognition"] is True
+    assert registered.json()["can_manage_wine_photos"] is True
     assert client.get("/api/v1/auth/passkeys").json() == []
     with TestingSessionLocal() as db:
         registered_user = db.scalar(select(User).where(User.email == "owner@example.com"))
@@ -556,6 +558,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
             user = db.scalar(select(User).where(User.email == "owner@example.com"))
             assert user is not None
             user.is_app_admin = False
+            user.can_manage_wine_photos = False
             now = datetime.now(UTC)
             db.add(
                 UserEntitlement(
@@ -1753,6 +1756,7 @@ def test_manual_wine_data_enrichment_is_funded_by_application(monkeypatch):
     with TestingSessionLocal() as db:
         current_user = db.get(User, uuid.UUID(session["user_id"]))
         assert current_user is not None
+        current_user.can_use_label_recognition = False
         assert current_user.can_use_label_recognition is False
         current_user.is_app_admin = False
         db.add(
@@ -2050,7 +2054,7 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
     assert "trial" in second_trial.json()["detail"].lower()
 
 
-def test_app_admin_can_enable_beta_features_for_user():
+def test_new_users_receive_photo_permissions_and_admin_can_disable_them():
     admin_client = TestClient(app)
     assert register(admin_client).status_code == 201
 
@@ -2072,41 +2076,40 @@ def test_app_admin_can_enable_beta_features_for_user():
         json={"email": "label-beta@example.com", "password": "strong-password-2"},
     )
     assert login.status_code == 200
-    assert login.json()["can_use_label_recognition"] is False
-    assert login.json()["can_manage_wine_photos"] is False
+    assert login.json()["can_use_label_recognition"] is True
+    assert login.json()["can_manage_wine_photos"] is True
     trial_code = user_client.get("/api/v1/billing/status").json()["available_redeem_codes"][0][
         "code"
     ]
     assert user_client.post("/api/v1/billing/redeem", json={"code": trial_code}).status_code == 200
-
-    blocked = user_client.post(
-        "/api/v1/wines/catalog/recognize-bottle",
-        files={"image": ("label.jpg", b"fake-image", "image/jpeg")},
-    )
-    assert blocked.status_code == 403
 
     app_user = next(
         user
         for user in admin_client.get("/api/v1/auth/users").json()
         if user["email"] == "label-beta@example.com"
     )
-    assert app_user["can_use_label_recognition"] is False
-    assert app_user["can_manage_wine_photos"] is False
-    enabled = admin_client.patch(
+    assert app_user["can_use_label_recognition"] is True
+    assert app_user["can_manage_wine_photos"] is True
+    disabled = admin_client.patch(
         f"/api/v1/auth/users/{app_user['id']}",
-        json={"can_use_label_recognition": True, "can_manage_wine_photos": True},
+        json={"can_use_label_recognition": False, "can_manage_wine_photos": False},
     )
-    assert enabled.status_code == 200
-    assert enabled.json()["can_use_label_recognition"] is True
-    assert enabled.json()["can_manage_wine_photos"] is True
+    assert disabled.status_code == 200
+    assert disabled.json()["can_use_label_recognition"] is False
+    assert disabled.json()["can_manage_wine_photos"] is False
 
     refreshed_login = user_client.post(
         "/api/v1/auth/login",
         json={"email": "label-beta@example.com", "password": "strong-password-2"},
     )
     assert refreshed_login.status_code == 200
-    assert refreshed_login.json()["can_use_label_recognition"] is True
-    assert refreshed_login.json()["can_manage_wine_photos"] is True
+    assert refreshed_login.json()["can_use_label_recognition"] is False
+    assert refreshed_login.json()["can_manage_wine_photos"] is False
+    blocked = user_client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        files={"image": ("label.jpg", b"fake-image", "image/jpeg")},
+    )
+    assert blocked.status_code == 403
 
 
 def stripe_signature(payload: bytes, secret: str) -> str:

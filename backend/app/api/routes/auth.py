@@ -645,6 +645,8 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
         legal_acceptance_locale=payload.locale,
         is_approved=is_approved,
         is_app_admin=first_user,
+        can_use_label_recognition=True,
+        can_manage_wine_photos=True,
         approved_at=datetime.now(UTC) if is_approved else None,
         email_verified_at=None if requires_email_verification else datetime.now(UTC),
         email_verification_token_hash=hash_email_verification_token(email_verification_token) if email_verification_token else "",
