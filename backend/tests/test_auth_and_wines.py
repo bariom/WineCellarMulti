@@ -1537,36 +1537,6 @@ def test_authenticated_user_can_read_wine_catalog():
     assert {"id", "name", "producer", "region", "appellation", "type", "format"} <= set(catalog[0])
 
 
-def test_wine_recognition_parser_uses_api4ai_classes():
-    from app.api.routes.catalog import extract_recognition_suggestions
-
-    suggestions = extract_recognition_suggestions(
-        {
-            "results": [
-                {
-                    "status": {"code": "ok", "message": "Success"},
-                    "entities": [
-                        {
-                            "kind": "classes",
-                            "name": "wine-image-classes",
-                            "classes": {
-                                "buitenverwachting 1769 vintage 2000": 0.8465678215026855,
-                                "raventos i blanc cava reserva brut l'hereu 2012": 0.821323823928833,
-                            },
-                        },
-                    ],
-                },
-            ],
-        },
-    )
-
-    assert [suggestion.label for suggestion in suggestions] == [
-        "buitenverwachting 1769 vintage 2000",
-        "raventos i blanc cava reserva brut l'hereu 2012",
-    ]
-    assert suggestions[0].confidence == 0.8465678215026855
-
-
 def test_create_wine_adds_pending_entry_to_catalog_for_admin_approval():
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -2110,7 +2080,7 @@ def test_app_admin_can_enable_beta_features_for_user():
     assert user_client.post("/api/v1/billing/redeem", json={"code": trial_code}).status_code == 200
 
     blocked = user_client.post(
-        "/api/v1/wines/catalog/recognize",
+        "/api/v1/wines/catalog/recognize-bottle",
         files={"image": ("label.jpg", b"fake-image", "image/jpeg")},
     )
     assert blocked.status_code == 403
@@ -4674,7 +4644,6 @@ def test_luna_bottle_recognition_requires_confirmation(monkeypatch):
         user.can_use_label_recognition = True
         db.commit()
 
-    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
     monkeypatch.setattr(
         catalog_route,
         "recognize_wine_from_image",
@@ -4714,7 +4683,6 @@ def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
         user.can_use_label_recognition = True
         db.commit()
 
-    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
     monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
 
     def fake_create_response(*_args, **kwargs):
@@ -4785,7 +4753,6 @@ def test_luna_bottle_recognition_returns_ambiguous_candidates(monkeypatch):
             recognized_bottle_payload(producer="Other Estate", vintage="2020")
         ],
     )
-    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
     monkeypatch.setattr(
         catalog_route,
         "recognize_wine_from_image",
@@ -4800,34 +4767,6 @@ def test_luna_bottle_recognition_returns_ambiguous_candidates(monkeypatch):
     assert len(response.json()["alternative_candidates"]) == 1
 
 
-def test_luna_failure_can_fallback_to_api4ai(monkeypatch):
-    client = TestClient(app)
-    assert register(client).status_code == 201
-    with TestingSessionLocal() as db:
-        user = db.scalar(select(User).where(User.email == "owner@example.com"))
-        assert user is not None
-        user.can_use_label_recognition = True
-        db.commit()
-    monkeypatch.setattr(settings, "wine_recognition_provider", "luna_with_api4ai_fallback")
-
-    def fail_luna(*_args, **_kwargs):
-        raise HTTPException(status_code=502, detail="OpenAI request failed")
-
-    monkeypatch.setattr(catalog_route, "recognize_wine_from_image", fail_luna)
-    monkeypatch.setattr(
-        catalog_route,
-        "call_api4ai_wine_recognition",
-        lambda *_args, **_kwargs: {"classes": {"Testamatta": 0.96}},
-    )
-    response = client.post(
-        "/api/v1/wines/catalog/recognize-bottle",
-        files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
-    )
-    assert response.status_code == 200
-    assert response.json()["provider"] == "api4ai"
-    assert response.json()["fallback_used"] is True
-
-
 def test_luna_provider_error_is_non_blocking(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -4836,8 +4775,6 @@ def test_luna_provider_error_is_non_blocking(monkeypatch):
         assert user is not None
         user.can_use_label_recognition = True
         db.commit()
-    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
-
     def timeout_luna(*_args, **_kwargs):
         raise HTTPException(status_code=502, detail="OpenAI request failed")
 

@@ -135,7 +135,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
         </section>
         <section>
           <h2>5. Service providers and international transfers</h2>
-          <p>Depending on the enabled features, data may be processed by hosting and backup providers, Stripe for payments, OpenAI for AI requests, API4AI for label recognition, transactional email providers, and mapping or network providers. Some providers may process data outside Switzerland. Appropriate contractual and technical safeguards are used where required.</p>
+          <p>Depending on the enabled features, data may be processed by hosting and backup providers, Stripe for payments, OpenAI for AI requests and label recognition, transactional email providers, and mapping or network providers. Some providers may process data outside Switzerland. Appropriate contractual and technical safeguards are used where required.</p>
         </section>
         <section>
           <h2>6. Cookies and local storage</h2>
@@ -183,7 +183,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
       </section>
       <section>
         <h2>5. Fornitori e trasferimenti internazionali</h2>
-        <p>In base alle funzioni abilitate, i dati possono essere trattati da fornitori di hosting e backup, Stripe per i pagamenti, OpenAI per le richieste AI, API4AI per il riconoscimento, fornitori email transazionali e fornitori cartografici o di rete. Alcuni fornitori possono trattare dati fuori dalla Svizzera. Quando richiesto vengono adottate garanzie contrattuali e tecniche adeguate.</p>
+        <p>In base alle funzioni abilitate, i dati possono essere trattati da fornitori di hosting e backup, Stripe per i pagamenti, OpenAI per le richieste AI e il riconoscimento delle etichette, fornitori email transazionali e fornitori cartografici o di rete. Alcuni fornitori possono trattare dati fuori dalla Svizzera. Quando richiesto vengono adottate garanzie contrattuali e tecniche adeguate.</p>
       </section>
       <section>
         <h2>6. Cookie e memoria locale</h2>

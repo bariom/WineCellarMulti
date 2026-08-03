@@ -87,14 +87,10 @@ class Settings(BaseSettings):
     openai_timeout_seconds: float = 60.0
     openai_max_retries: int = 0
     openai_web_search_tool_cost_usd: str = "0.01"
-    api4ai_wine_recognition_url: str = "https://api4ai.cloud/wine-rec/v1/results"
-    api4ai_api_key: str = ""
-    wine_recognition_provider: str = "luna"
     wine_recognition_max_input_bytes: int = 16_000_000
     wine_recognition_max_dimension: int = 1600
     wine_recognition_jpeg_quality: int = 88
     wine_recognition_timeout_seconds: int = 45
-    wine_recognition_min_confidence_percent: float = 75.0
     wine_photo_storage_dir: str = "data/wine-photos"
     wine_photo_ai_enabled: bool = True
     wine_photo_ai_model: str = "birefnet-general-lite"

@@ -6,7 +6,7 @@ import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, format
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
 import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
-import { formatBottleCount, formatPercentage, numberLocale, recognitionSuggestionLabel, wineQuantityLabel } from "../domain/cellar";
+import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 export function DrinkWindowMini({ wine }: { wine: Wine }) {

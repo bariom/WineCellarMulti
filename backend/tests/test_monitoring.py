@@ -57,10 +57,6 @@ def test_user_activity_actions_identify_specific_features():
     assert user_activity_action("POST", "/api/v1/wines/photo/process") == "wine_photo_ai_cutout"
     assert user_activity_action("POST", "/api/v1/wines/photo/warmup") is None
     assert (
-        user_activity_action("POST", "/api/v1/wines/catalog/recognize")
-        == "wine_label_recognition"
-    )
-    assert (
         user_activity_action("POST", "/api/v1/wines/catalog/recognize-bottle")
         == "wine_label_recognition"
     )

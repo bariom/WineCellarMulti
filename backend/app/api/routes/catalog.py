@@ -2,15 +2,11 @@ from __future__ import annotations
 
 import json
 import logging
-import mimetypes
 import re
 import time
 import uuid
 from datetime import UTC, datetime
-from html import unescape
 from pathlib import Path
-from urllib.error import HTTPError, URLError
-from urllib.request import Request, urlopen
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import delete, func, or_, select
@@ -22,8 +18,6 @@ from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
 from app.schemas.catalog import (
-    CatalogRecognitionResponse,
-    CatalogRecognitionSuggestion,
     CatalogWineCreate,
     CatalogWineResponse,
     WineImageRecognitionCandidate,
@@ -40,24 +34,6 @@ CATALOG_PATH = Path(__file__).resolve().parents[2] / "wine_catalog.json"
 
 def normalize_catalog_text(value: str) -> str:
     return re.sub(r"\s+", " ", value.strip().lower())
-
-
-def clean_recognition_text(value: object) -> str:
-    return re.sub(r"\s+", " ", unescape(str(value or "")).strip())
-
-
-def recognition_confidence_percent(value: float | None) -> float | None:
-    if value is None:
-        return None
-    return value * 100 if value <= 1 else value
-
-
-def recognition_confidence_is_acceptable(value: float | None) -> bool:
-    confidence_percent = recognition_confidence_percent(value)
-    return (
-        confidence_percent is None
-        or confidence_percent >= settings.wine_recognition_min_confidence_percent
-    )
 
 
 def build_search_text(*parts: str) -> str:
@@ -244,90 +220,6 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
     return entry
 
 
-def extract_recognition_suggestions(payload: object) -> list[CatalogRecognitionSuggestion]:
-    suggestions: list[CatalogRecognitionSuggestion] = []
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            classes = value.get("classes")
-            if isinstance(classes, dict):
-                for label, confidence in classes.items():
-                    clean_label = clean_recognition_text(label)
-                    if not clean_label:
-                        continue
-                    try:
-                        confidence_value = float(confidence) if confidence is not None else None
-                    except (TypeError, ValueError):
-                        confidence_value = None
-                    suggestions.append(CatalogRecognitionSuggestion(label=clean_label, confidence=confidence_value))
-                return
-            label = value.get("label") or value.get("class") or value.get("wine")
-            clean_label = clean_recognition_text(label)
-            if clean_label:
-                confidence = value.get("confidence") or value.get("score") or value.get("probability")
-                try:
-                    confidence_value = float(confidence) if confidence is not None else None
-                except (TypeError, ValueError):
-                    confidence_value = None
-                suggestions.append(
-                    CatalogRecognitionSuggestion(
-                        label=clean_label,
-                        confidence=confidence_value,
-                        vintage=clean_recognition_text(value.get("vintage")),
-                        producer=clean_recognition_text(value.get("producer") or value.get("winery")),
-                        region=clean_recognition_text(value.get("region")),
-                        appellation=clean_recognition_text(value.get("appellation") or value.get("denomination") or value.get("appellation_name")),
-                        type=normalize_wine_type(clean_recognition_text(value.get("type"))),
-                    ),
-                )
-            for child in value.values():
-                visit(child)
-        elif isinstance(value, list):
-            for child in value:
-                visit(child)
-
-    visit(payload)
-    unique: dict[str, CatalogRecognitionSuggestion] = {}
-    for suggestion in suggestions:
-        if not recognition_confidence_is_acceptable(suggestion.confidence):
-            continue
-        key = normalize_catalog_text(suggestion.label)
-        if key and key not in unique:
-            unique[key] = suggestion
-    return list(unique.values())[:5]
-
-
-def call_api4ai_wine_recognition(filename: str, content_type: str, content: bytes) -> dict:
-    if not settings.api4ai_api_key:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Wine recognition is not configured")
-    boundary = f"----vinaris-{uuid.uuid4().hex}"
-    field_name = "image"
-    mime_type = content_type or mimetypes.guess_type(filename)[0] or "application/octet-stream"
-    body = (
-        f"--{boundary}\r\n"
-        f'Content-Disposition: form-data; name="{field_name}"; filename="{filename}"\r\n'
-        f"Content-Type: {mime_type}\r\n\r\n"
-    ).encode() + content + f"\r\n--{boundary}--\r\n".encode()
-    request = Request(
-        settings.api4ai_wine_recognition_url,
-        data=body,
-        method="POST",
-        headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary}",
-            "Content-Length": str(len(body)),
-            "X-API-KEY": settings.api4ai_api_key,
-        },
-    )
-    try:
-        with urlopen(request, timeout=settings.wine_recognition_timeout_seconds) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except HTTPError as exc:
-        detail = exc.read().decode("utf-8", errors="replace")
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Wine recognition failed: {detail}") from exc
-    except (URLError, TimeoutError, json.JSONDecodeError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=f"Wine recognition failed: {exc}") from exc
-
-
 @router.get("/catalog", response_model=list[CatalogWineResponse])
 def list_wine_catalog(
     q: str = Query(default="", max_length=120),
@@ -451,60 +343,15 @@ def approve_wine_catalog_entry(
     return catalog_response(entry)
 
 
-@router.post("/catalog/recognize", response_model=CatalogRecognitionResponse)
-async def recognize_wine_label(
-    image: UploadFile = File(...),
-    db: Session = Depends(get_db),
-    context: CurrentContext = Depends(require_write_context),
-) -> CatalogRecognitionResponse:
-    if not context.user.can_use_label_recognition:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
-    content = await image.read()
-    if not content:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is empty")
-    if len(content) > 16 * 1024 * 1024:
-        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Image is too large")
-    payload = call_api4ai_wine_recognition(image.filename or "wine.jpg", image.content_type or "image/jpeg", content)
-    suggestions = extract_recognition_suggestions(payload)
-    matches: list[WineCatalogEntry] = []
-    for suggestion in suggestions:
-        matches.extend(search_catalog_entries(db, " ".join([suggestion.producer, suggestion.label, suggestion.vintage]).strip(), 5))
-    unique_matches: dict[uuid.UUID, WineCatalogEntry] = {}
-    for match in matches:
-        unique_matches.setdefault(match.id, match)
-    best = suggestions[0] if suggestions else None
-    db.add(
-        WineRecognitionLog(
-            household_id=context.household.id,
-            user_id=context.user.id,
-            status="success" if suggestions else "no_result",
-            image_filename=image.filename or "",
-            best_label=best.label if best else "",
-            confidence=best.confidence if best else None,
-            matched_catalog_entry_id=next(iter(unique_matches.values())).id if unique_matches else None,
-            response_payload=payload,
-            created_at=datetime.now(UTC),
-        ),
-    )
-    db.commit()
-    return CatalogRecognitionResponse(
-        suggestions=suggestions,
-        matches=[catalog_response(entry) for entry in list(unique_matches.values())[:5]],
-        raw_best_label=best.label if best else "",
-    )
-
-
-def image_candidate_from_api4ai(
-    suggestion: CatalogRecognitionSuggestion,
-) -> dict[str, str]:
+def empty_image_candidate() -> dict[str, str]:
     return {
-        "producer": suggestion.producer,
+        "producer": "",
         "estate": "",
-        "wine_name": suggestion.label,
+        "wine_name": "",
         "cuvee": "",
-        "vintage": suggestion.vintage,
-        "appellation": suggestion.appellation,
-        "region": suggestion.region,
+        "vintage": "",
+        "appellation": "",
+        "region": "",
         "country": "",
     }
 
@@ -550,19 +397,9 @@ async def recognize_wine_bottle(
             detail="Unsupported image format",
         )
 
-    configured_provider = settings.wine_recognition_provider.strip().lower()
-    if configured_provider not in {"luna", "api4ai", "luna_with_api4ai_fallback"}:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Wine recognition provider is not configured",
-        )
-
     result: dict[str, object]
-    provider = "luna"
     ai_provider_source = ""
     luna_response: OpenAIResponse | None = None
-    fallback_used = False
-    confidence: float | None = None
     error_code = ""
 
     def create_billed_luna_response(
@@ -594,8 +431,6 @@ async def recognize_wine_bottle(
         return response
 
     try:
-        if configured_provider == "api4ai":
-            raise LookupError("use_api4ai")
         result, luna_request_id = recognize_wine_from_image(
             content,
             locale=locale,
@@ -603,79 +438,18 @@ async def recognize_wine_bottle(
             response_factory=create_billed_luna_response,
         )
         request_id = luna_request_id or request_id
-    except LookupError:
-        provider = "api4ai"
-        payload = call_api4ai_wine_recognition(
-            image.filename or "wine.jpg",
-            image.content_type or "image/jpeg",
-            content,
-        )
-        suggestions = extract_recognition_suggestions(payload)
-        best = suggestions[0] if suggestions else None
-        confidence = best.confidence if best else None
-        result = {
-            "status": "recognized" if best else "not_recognized",
-            **(
-                image_candidate_from_api4ai(best)
-                if best
-                else image_candidate_from_api4ai(CatalogRecognitionSuggestion(label=""))
-            ),
-            "label_text": [best.label] if best else [],
-            "alternative_candidates": [
-                image_candidate_from_api4ai(item) for item in suggestions[1:4]
-            ],
-            "needs_user_confirmation": True,
-            "recognition_notes": [],
-        }
     except HTTPException as exc:
         if exc.status_code == status.HTTP_402_PAYMENT_REQUIRED:
             raise
-        if configured_provider == "luna_with_api4ai_fallback" and exc.status_code >= 500:
-            fallback_used = True
-            provider = "api4ai"
-            try:
-                payload = call_api4ai_wine_recognition(
-                    image.filename or "wine.jpg",
-                    image.content_type or "image/jpeg",
-                    content,
-                )
-                suggestions = extract_recognition_suggestions(payload)
-                best = suggestions[0] if suggestions else None
-                confidence = best.confidence if best else None
-                result = {
-                    "status": "recognized" if best else "not_recognized",
-                    **(
-                        image_candidate_from_api4ai(best)
-                        if best
-                        else image_candidate_from_api4ai(CatalogRecognitionSuggestion(label=""))
-                    ),
-                    "label_text": [best.label] if best else [],
-                    "alternative_candidates": [
-                        image_candidate_from_api4ai(item) for item in suggestions[1:4]
-                    ],
-                    "needs_user_confirmation": True,
-                    "recognition_notes": [],
-                }
-            except HTTPException:
-                error_code = "provider_error"
-                result = {
-                    "status": "error",
-                    **image_candidate_from_api4ai(CatalogRecognitionSuggestion(label="")),
-                    "label_text": [],
-                    "alternative_candidates": [],
-                    "needs_user_confirmation": True,
-                    "recognition_notes": [],
-                }
-        else:
-            error_code = "invalid_image" if exc.status_code in {415, 422} else "provider_error"
-            result = {
-                "status": "invalid_image" if error_code == "invalid_image" else "error",
-                **image_candidate_from_api4ai(CatalogRecognitionSuggestion(label="")),
-                "label_text": [],
-                "alternative_candidates": [],
-                "needs_user_confirmation": True,
-                "recognition_notes": [],
-            }
+        error_code = "invalid_image" if exc.status_code in {415, 422} else "provider_error"
+        result = {
+            "status": "invalid_image" if error_code == "invalid_image" else "error",
+            **empty_image_candidate(),
+            "label_text": [],
+            "alternative_candidates": [],
+            "needs_user_confirmation": True,
+            "recognition_notes": [],
+        }
 
     candidate = WineImageRecognitionCandidate.model_validate(result)
     query = " ".join(
@@ -696,18 +470,17 @@ async def recognize_wine_bottle(
         id=recognition_id,
         household_id=context.household.id,
         user_id=context.user.id,
-        provider=provider,
+        provider="luna",
         status=str(result["status"]),
         image_filename=image.filename or "",
         best_label=" ".join(
             value for value in (candidate.producer, candidate.wine_name) if value
         ),
-        confidence=confidence,
+        confidence=None,
         matched_catalog_entry_id=matches[0].id if matches else None,
         response_payload={
             "request_id": request_id,
-            "provider": provider,
-            "fallback_used": fallback_used,
+            "provider": "luna",
             "status": result["status"],
             "ai_provider_source": ai_provider_source,
             "charged_cost_usd": (
@@ -734,20 +507,17 @@ async def recognize_wine_bottle(
         )
     db.commit()
     logger.info(
-        "wine_image_recognition request_id=%s provider=%s duration_ms=%s status=%s error_code=%s fallback=%s",
+        "wine_image_recognition request_id=%s provider=luna duration_ms=%s status=%s error_code=%s",
         request_id,
-        provider,
         round((time.monotonic() - started_at) * 1000),
         result["status"],
         error_code or None,
-        fallback_used,
     )
     return WineImageRecognitionResponse.model_validate(
         {
             **result,
             "recognition_id": recognition_log.id,
-            "provider": provider,
-            "fallback_used": fallback_used,
+            "provider": "luna",
             "matches": [catalog_response(entry) for entry in matches],
         }
     )

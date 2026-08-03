@@ -102,12 +102,6 @@ export type CatalogWine = {
   is_active?: boolean;
 };
 
-export type WineRecognitionResult = {
-  suggestions: Array<{ label: string; confidence: number | null; vintage: string; producer: string; region: string; appellation: string; type: string }>;
-  matches: CatalogWine[];
-  raw_best_label: string;
-};
-
 export type WineLabelEnrichment = {
   name: string;
   producer: string;
@@ -852,8 +846,7 @@ export type WineImageRecognitionResult = WineImageRecognitionCandidate & {
   alternative_candidates: WineImageRecognitionCandidate[];
   needs_user_confirmation: boolean;
   recognition_notes: string[];
-  provider: "luna" | "api4ai";
-  fallback_used: boolean;
+  provider: "luna";
   matches: CatalogWine[];
 };
 

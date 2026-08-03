@@ -5,13 +5,13 @@ import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineRecognitionResult, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory, UserActivityLogEntry } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory, UserActivityLogEntry } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, formatRecognitionConfidence, recognitionSuggestionLabel, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -1106,7 +1106,6 @@ export function App() {
   const [wines, setWines] = useState<Wine[]>([]);
   const [portfolioValueHistory, setPortfolioValueHistory] = useState<Array<{ recorded_at: string; value: string }>>([]);
   const [wineCatalog, setWineCatalog] = useState<CatalogWine[]>([]);
-  const [wineRecognitionResult, setWineRecognitionResult] = useState<WineRecognitionResult | null>(null);
   const [wineImageRecognitionResult, setWineImageRecognitionResult] = useState<WineImageRecognitionResult | null>(null);
   const [selectedWineImageCandidate, setSelectedWineImageCandidate] = useState<WineImageRecognitionCandidate | null>(null);
   const [wineRecognitionTarget, setWineRecognitionTarget] = useState<"wine" | "wishlist">("wine");
@@ -1498,10 +1497,6 @@ export function App() {
     }));
   }
 
-  function needsWineLabelEnrichment(item: CatalogWine) {
-    return !item.producer?.trim() || !item.type?.trim() || !item.region?.trim() || !item.appellation?.trim();
-  }
-
   function hasCatalogComplementaryData(item: CatalogWine) {
     return Boolean(item.producer?.trim() || item.type?.trim() || item.region?.trim() || item.appellation?.trim() || item.country?.trim() || item.grapes_text?.trim());
   }
@@ -1519,80 +1514,9 @@ export function App() {
   }
 
   function clearWineRecognitionState() {
-    setWineRecognitionResult(null);
     setWineImageRecognitionResult(null);
     setSelectedWineImageCandidate(null);
     setWineEnrichmentLoading(false);
-  }
-
-  async function enrichCatalogSuggestionIfNeeded(catalogItem: CatalogWine, label: string, target: "wine" | "wishlist") {
-    if (!needsWineLabelEnrichment(catalogItem)) return catalogItem;
-    const model = await requestAiModelAdvice(t("searchWineDataWithAi"), "economy", aiSettings?.grape_model || aiSettingsDraft.grape_model);
-    if (!model) return catalogItem;
-    setWineEnrichmentLoading(true);
-    try {
-      const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
-        method: "POST",
-        body: JSON.stringify({ label, locale, model }),
-      });
-      if (target === "wine" && enrichment.vintage) {
-        setDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
-      }
-      if (target === "wishlist" && enrichment.vintage) {
-        setWishlistDraft((current) => ({ ...current, vintage: current.vintage || enrichment.vintage }));
-      }
-      return {
-        ...catalogItem,
-        name: safeEnrichedWineName(label, enrichment.name || catalogItem.name),
-        producer: enrichment.producer || catalogItem.producer,
-        region: enrichment.region || catalogItem.region,
-        appellation: enrichment.appellation || catalogItem.appellation,
-        type: normalizeWineType(enrichment.type || catalogItem.type),
-        country: enrichment.country || catalogItem.country,
-        grapes_text: enrichment.grapes_text || catalogItem.grapes_text,
-      };
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to enrich recognized wine");
-      return catalogItem;
-    } finally {
-      setWineEnrichmentLoading(false);
-    }
-  }
-
-  async function applyRecognizedCatalogItem(item: CatalogWine, label: string, target: "wine" | "wishlist") {
-    const catalogItem = await enrichCatalogSuggestionIfNeeded(item, label, target);
-    applyCatalogWineToDraft(catalogItem, target);
-    if (!hasCatalogComplementaryData(catalogItem)) {
-      clearWineRecognitionState();
-      return;
-    }
-    try {
-      const created = await api<CatalogWine>("/api/v1/wines/catalog", {
-        method: "POST",
-        body: JSON.stringify({ ...catalogItem, aliases: [label] }),
-      });
-      if (created.is_active) {
-        setWineCatalog((current) => [created, ...current.filter((currentItem) => currentItem.id !== created.id)]);
-      } else if (session?.is_app_admin) {
-        await loadPendingCatalogEntries(true);
-      }
-    } catch {
-      // The draft is still useful even if catalog enrichment is denied or already exists.
-    } finally {
-      clearWineRecognitionState();
-    }
-  }
-
-  async function applyRecognitionSuggestion(suggestion: WineRecognitionResult["suggestions"][number], target: "wine" | "wishlist") {
-    const catalogItem: CatalogWine = {
-      name: suggestion.label,
-      producer: suggestion.producer,
-      region: suggestion.region,
-      appellation: suggestion.appellation,
-      type: normalizeWineType(suggestion.type),
-      format: "Bottle (750ml)",
-    };
-    await applyRecognizedCatalogItem(catalogItem, suggestion.label, target);
   }
 
   async function enrichManualWineDraft(target: "wine" | "wishlist", source: "manual" | "photo" = "manual") {
@@ -1670,31 +1594,6 @@ export function App() {
     }
   }
 
-  async function recognizeWineImage(file: File, target: "wine" | "wishlist") {
-    const formData = new FormData();
-    formData.append("image", file);
-    setWineRecognitionLoading(true);
-    setWineRecognitionTarget(target);
-    setWineRecognitionResult(null);
-    try {
-      const result = await api<WineRecognitionResult>("/api/v1/wines/catalog/recognize", {
-        method: "POST",
-        body: formData,
-      });
-      setWineRecognitionResult(result);
-      const resultCount = result.matches.length || result.suggestions.length;
-      if (result.matches.length === 1 && resultCount === 1) {
-        await applyRecognizedCatalogItem(result.matches[0], result.raw_best_label || result.matches[0].name, target);
-      } else if (!result.matches.length && result.suggestions.length === 1) {
-        await applyRecognitionSuggestion(result.suggestions[0], target);
-      }
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to recognize wine");
-    } finally {
-      setWineRecognitionLoading(false);
-    }
-  }
-
   function wineImageCandidateName(candidate: WineImageRecognitionCandidate) {
     const cuveeAlreadyIncluded = candidate.wine_name.toLocaleLowerCase().includes(candidate.cuvee.toLocaleLowerCase());
     return [candidate.wine_name, cuveeAlreadyIncluded ? "" : candidate.cuvee]
@@ -1702,30 +1601,41 @@ export function App() {
       .join(" ") || candidate.appellation;
   }
 
-  function applyWineImageCandidate(candidate: WineImageRecognitionCandidate) {
+  function applyWineImageCandidate(candidate: WineImageRecognitionCandidate, target: "wine" | "wishlist" = "wine") {
     const name = wineImageCandidateName(candidate);
-    setSelectedWineImageCandidate(candidate);
-    setDraft((current) => ({
-      ...current,
-      name: name || current.name,
-      producer: candidate.producer || candidate.estate || current.producer,
-      vintage: candidate.vintage || current.vintage,
-      appellation: candidate.appellation || current.appellation,
-      region: candidate.region || current.region,
-      format: current.format || "Bottle (750ml)",
-    }));
+    if (target === "wine") {
+      setSelectedWineImageCandidate(candidate);
+      setDraft((current) => ({
+        ...current,
+        name: name || current.name,
+        producer: candidate.producer || candidate.estate || current.producer,
+        vintage: candidate.vintage || current.vintage,
+        appellation: candidate.appellation || current.appellation,
+        region: candidate.region || current.region,
+        format: current.format || "Bottle (750ml)",
+      }));
+    } else {
+      setWishlistDraft((current) => ({
+        ...current,
+        name: name || current.name,
+        producer: candidate.producer || candidate.estate || current.producer,
+        vintage: candidate.vintage || current.vintage,
+        appellation: candidate.appellation || current.appellation,
+        region: candidate.region || current.region,
+        format: current.format || "Bottle (750ml)",
+      }));
+    }
   }
 
-  async function recognizeBottleImage(source: Blob) {
+  async function recognizeBottleImage(source: Blob, target: "wine" | "wishlist" = "wine") {
     if (wineRecognitionLoading) return;
     const formData = new FormData();
     const extension = source.type === "image/png" ? "png" : source.type === "image/webp" ? "webp" : "jpg";
     formData.append("image", source, `wine-bottle.${extension}`);
     formData.append("locale", locale);
-    formData.append("known_text", draft.name.trim());
+    formData.append("known_text", (target === "wine" ? draft.name : wishlistDraft.name).trim());
     setWineRecognitionLoading(true);
-    setWineRecognitionTarget("wine");
-    setWineRecognitionResult(null);
+    setWineRecognitionTarget(target);
     setWineImageRecognitionResult(null);
     try {
       const result = await api<WineImageRecognitionResult>("/api/v1/wines/catalog/recognize-bottle", {
@@ -1734,7 +1644,7 @@ export function App() {
       });
       setWineImageRecognitionResult(result);
       if (result.status === "recognized" || result.status === "ambiguous") {
-        applyWineImageCandidate(result);
+        applyWineImageCandidate(result, target);
       }
       await Promise.all([loadAiAudit(), loadAiSettings(), loadAiUsage(), loadBilling()]).catch(() => undefined);
     } catch (nextError) {
@@ -1775,7 +1685,7 @@ export function App() {
 
   function handleWineRecognitionInput(event: ChangeEvent<HTMLInputElement>, target: "wine" | "wishlist") {
     const file = event.target.files?.[0];
-    if (file) void recognizeWineImage(file, target);
+    if (file) void recognizeBottleImage(file, target);
     event.currentTarget.value = "";
   }
 
@@ -9353,7 +9263,7 @@ export function App() {
                 </header>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 <section className="wine-editor-assist-grid" aria-label={locale === "it" ? "Assistenti di compilazione" : "Editing assistants"}>
-                {!editingId && canUseLabelRecognition && (wineRecognitionLoading || wineImageRecognitionResult) ? (
+                {!editingId && canUseLabelRecognition && wineRecognitionTarget === "wine" && (wineRecognitionLoading || wineImageRecognitionResult) ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading ? t("recognitionInProgress") : t("recognizedWineProposal")}</span>
                     {wineRecognitionLoading ? <LoadingState label={t("recognitionInProgress")} compact /> : null}
@@ -9815,24 +9725,21 @@ export function App() {
                         <input type="file" accept="image/*" capture="environment" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
                     </div>
-                    {wineRecognitionResult && wineRecognitionTarget === "wishlist" ? (
+                    {wineImageRecognitionResult && wineRecognitionTarget === "wishlist" ? (
                       <div className="recognition-results">
                         <strong>{t("recognitionSuggestions")}</strong>
-                        {wineEnrichmentLoading ? <span>{t("generating")}</span> : null}
-                        {wineRecognitionResult.matches.length ? wineRecognitionResult.matches.map((match) => (
-                          <button key={match.id || `${match.producer}-${match.name}`} type="button" className="secondary compact" onClick={() => void applyRecognizedCatalogItem(match, wineRecognitionResult.raw_best_label || match.name, "wishlist")}>
-                            {recognitionSuggestionLabel([match.name, match.producer, match.region].filter(Boolean).join(" - "), wineRecognitionResult.suggestions[0]?.confidence ?? null, locale)}
-                          </button>
-                        )) : (
+                        {wineImageRecognitionResult.status === "recognized" || wineImageRecognitionResult.status === "ambiguous" ? (
                           <>
-                            <span>{t("recognitionNoMatch")}</span>
-                            {wineRecognitionResult.suggestions.map((suggestion) => (
-                              <button key={suggestion.label} type="button" className="secondary compact" onClick={() => void applyRecognitionSuggestion(suggestion, "wishlist")}>
-                                {t("useSuggestion")}: {recognitionSuggestionLabel(suggestion.label, suggestion.confidence, locale)}
+                            <button type="button" className="secondary compact" onClick={() => applyWineImageCandidate(wineImageRecognitionResult, "wishlist")}>
+                              {[wineImageRecognitionResult.producer || wineImageRecognitionResult.estate, wineImageCandidateName(wineImageRecognitionResult), wineImageRecognitionResult.vintage].filter(Boolean).join(" · ")}
+                            </button>
+                            {wineImageRecognitionResult.alternative_candidates.map((candidate, index) => (
+                              <button key={`${candidate.producer}-${candidate.wine_name}-${candidate.vintage}-${index}`} type="button" className="secondary compact" onClick={() => applyWineImageCandidate(candidate, "wishlist")}>
+                                {[candidate.producer || candidate.estate, wineImageCandidateName(candidate), candidate.vintage].filter(Boolean).join(" · ")}
                               </button>
                             ))}
                           </>
-                        )}
+                        ) : <span>{t("recognitionCouldNotIdentify")}</span>}
                       </div>
                     ) : null}
                   </div>

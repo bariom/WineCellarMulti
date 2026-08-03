@@ -179,19 +179,6 @@ export function formatPercentage(value: number, locale: Locale, maximumFractionD
   }).format(value)}%`;
 }
 
-export function formatRecognitionConfidence(value: number | null, locale: Locale) {
-  if (typeof value !== "number" || Number.isNaN(value)) return "";
-  const percentage = value <= 1 ? value * 100 : value;
-  return `${new Intl.NumberFormat(numberLocale(locale), {
-    maximumFractionDigits: 1,
-  }).format(percentage)}%`;
-}
-
-export function recognitionSuggestionLabel(label: string, confidence: number | null, locale: Locale) {
-  const confidenceLabel = formatRecognitionConfidence(confidence, locale);
-  return confidenceLabel ? `${label} · ${confidenceLabel}` : label;
-}
-
 export function maturityBuckets(items: Wine[], currentYear: number, locale: Locale) {
   const labels =
     locale === "it"

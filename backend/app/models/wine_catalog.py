@@ -93,7 +93,7 @@ class WineRecognitionLog(Base):
         nullable=True,
         index=True,
     )
-    provider: Mapped[str] = mapped_column(String(40), default="api4ai")
+    provider: Mapped[str] = mapped_column(String(40), default="luna")
     status: Mapped[str] = mapped_column(String(40), default="success", index=True)
     image_filename: Mapped[str] = mapped_column(String(240), default="")
     best_label: Mapped[str] = mapped_column(String(260), default="")
