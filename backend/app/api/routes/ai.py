@@ -324,6 +324,7 @@ def reserve_ai_credits(
     max_output_tokens: int,
     web_search: bool,
     max_tool_calls: int,
+    input_image_count: int = 0,
 ) -> tuple[UUID, Decimal, int]:
     # Lock the user as the synchronization point for this append-only ledger.
     # Every AI reservation is committed before contacting the provider, so two
@@ -339,6 +340,10 @@ def reserve_ai_credits(
         # Search result context is provider-controlled. Keep a conservative
         # allowance in addition to the separately billed tool calls.
         prompt_token_budget += 32768
+    # Vision tokenization varies with image size and model. Reserve a
+    # conservative allowance per image, then refund the unused amount from the
+    # provider's actual usage after the response completes.
+    prompt_token_budget += max(input_image_count, 0) * 32768
 
     desired_cost = maximum_billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
@@ -490,6 +495,8 @@ def create_ai_response(
     task_type: str = "sommelier",
     complexity: str | None = None,
     app_funded: bool = False,
+    input_images: list[tuple[str, bytes]] | None = None,
+    timeout_seconds: float | None = None,
 ) -> tuple[Any, str]:
     if app_funded:
         api_key = settings.openai_api_key.strip()
@@ -523,6 +530,7 @@ def create_ai_response(
             max_output_tokens=effective_output_limit,
             web_search=web_search,
             max_tool_calls=effective_tool_limit,
+            input_image_count=len(input_images or []),
         )
     try:
         response = create_response(
@@ -539,6 +547,8 @@ def create_ai_response(
             max_tool_calls=effective_tool_limit or None,
             task_type=task_type,
             complexity=complexity,
+            input_images=input_images,
+            timeout_seconds=timeout_seconds,
         )
         actual_cost = billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,
@@ -1768,7 +1778,7 @@ def enrich_wine_label(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WineLabelEnrichmentResponse:
-    if payload.source == "label" and not context.user.can_use_label_recognition:
+    if payload.source in {"label", "photo"} and not context.user.can_use_label_recognition:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
     user_settings = get_or_create_user_ai_settings(db, context)
     model = request_model(payload, user_settings.grape_model or settings.openai_grape_model)
@@ -1842,12 +1852,19 @@ def enrich_wine_label(
         context,
         entity_type="catalog",
         entity_id=context.household.id,
-        feature="wine_name_search" if payload.source == "manual" else "wine_label_enrichment",
+        feature=(
+            "wine_name_search"
+            if payload.source == "manual"
+            else "wine_photo_enrichment"
+            if payload.source == "photo"
+            else "wine_label_enrichment"
+        ),
         model=effective_response_model(response, model),
         reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.label}: {cleaned.producer} {cleaned.name} {cleaned.vintage}".strip(),
         usage=response.usage,
         provider_source=provider_source,
+        extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
     )
     db.commit()
     return cleaned

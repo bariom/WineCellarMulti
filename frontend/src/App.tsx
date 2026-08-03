@@ -1595,7 +1595,7 @@ export function App() {
     await applyRecognizedCatalogItem(catalogItem, suggestion.label, target);
   }
 
-  async function enrichManualWineDraft(target: "wine" | "wishlist") {
+  async function enrichManualWineDraft(target: "wine" | "wishlist", source: "manual" | "photo" = "manual") {
     const targetDraft = target === "wine" ? draft : wishlistDraft;
     const label = [targetDraft.producer, targetDraft.name, targetDraft.vintage, targetDraft.appellation]
       .map((value) => value.trim())
@@ -1608,7 +1608,7 @@ export function App() {
     try {
       const enrichment = await api<WineLabelEnrichment>("/api/v1/ai/wine-label/enrich", {
         method: "POST",
-        body: JSON.stringify({ label, locale, source: "manual", model }),
+        body: JSON.stringify({ label, locale, source, model }),
       });
       const catalogItem: CatalogWine = {
         name: safeEnrichedWineName(label, enrichment.name),
@@ -1725,6 +1725,7 @@ export function App() {
       if (result.status === "recognized" || result.status === "ambiguous") {
         applyWineImageCandidate(result);
       }
+      await Promise.all([loadAiSettings(), loadAiUsage(), loadBilling()]).catch(() => undefined);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t("recognitionCouldNotIdentify"));
     } finally {
@@ -1734,7 +1735,7 @@ export function App() {
 
   async function confirmWineImageRecognition() {
     if (wineEnrichmentLoading || wineRecognitionLoading) return;
-    if (await enrichManualWineDraft("wine")) {
+    if (await enrichManualWineDraft("wine", "photo")) {
       const candidate = selectedWineImageCandidate;
       const normalize = (value: string) => value.trim().toLocaleLowerCase();
       const corrected = Boolean(candidate && (
@@ -4528,6 +4529,7 @@ export function App() {
         (aiSettings.provider_mode === "credits" && aiSettings.can_use_app_credits)
       ),
     );
+  const canRecognizeBottlePhoto = canUseLabelRecognition && canGenerateAi;
   const canUseIncludedWineSearch = canWriteWine && Boolean(aiSettings?.can_use_included_wine_search);
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
     ? session.membership_role
@@ -9348,13 +9350,24 @@ export function App() {
                       <div className="recognition-results">
                         {wineImageRecognitionResult.status === "recognized" || wineImageRecognitionResult.status === "ambiguous" ? (
                           <>
-                            <strong>{[wineImageRecognitionResult.producer || wineImageRecognitionResult.estate, wineImageRecognitionResult.wine_name, wineImageRecognitionResult.cuvee, wineImageRecognitionResult.vintage].filter(Boolean).join(" · ")}</strong>
+                            <strong>{[wineImageRecognitionResult.producer || wineImageRecognitionResult.estate, wineImageRecognitionResult.wine_name, wineImageRecognitionResult.cuvee].filter(Boolean).join(" · ")}</strong>
                             {wineImageRecognitionResult.status === "ambiguous" ? <span>{t("recognitionChooseCandidate")}</span> : null}
                             {wineImageRecognitionResult.alternative_candidates.map((candidate, index) => (
                               <button key={`${candidate.producer}-${candidate.wine_name}-${candidate.vintage}-${index}`} type="button" className="secondary compact" onClick={() => applyWineImageCandidate(candidate)}>
                                 {[candidate.producer || candidate.estate, candidate.wine_name, candidate.cuvee || (!candidate.wine_name ? candidate.appellation : ""), candidate.vintage].filter(Boolean).join(" · ")}
                               </button>
                             ))}
+                            <label className="recognition-vintage-field">
+                              <span>{t("vintage")}</span>
+                              <input
+                                value={draft.vintage}
+                                onChange={(event) => setDraft((current) => ({ ...current, vintage: event.target.value }))}
+                                inputMode="text"
+                                autoComplete="off"
+                                disabled={!canWriteWine || wineEnrichmentLoading}
+                              />
+                              <small>{t("recognitionVintageHelp")}</small>
+                            </label>
                             <button type="button" className="compact" disabled={wineEnrichmentLoading || wineRecognitionLoading} onClick={() => void confirmWineImageRecognition()}>
                               <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("confirmRecognitionAndSearch")} busyLabel={t("generating")} />
                             </button>
@@ -9378,6 +9391,9 @@ export function App() {
                           : (locale === "it" ? "Scatta la foto prodotto con sagoma e sfondo trasparente." : "Take the guided product photo with a transparent background."))
                           : (locale === "it" ? "Se disponibile, puoi associare una foto già presente nell'archivio." : "When available, you can associate a photo already in the library.")}
                       </small>
+                      {!editingId && !canRecognizeBottlePhoto ? (
+                        <small className="form-hint">{t("bottlePhotoWithoutAiHelp")}</small>
+                      ) : null}
                     </div>
                     {canManageWinePhotos ? <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
                       <BottlePhotoCapture
@@ -9386,11 +9402,11 @@ export function App() {
                         prepared={!editingId && Boolean(pendingBottlePhoto || selectedSuggestedPhotoId)}
                         canWrite={canWriteWine}
                         locale={locale}
-                        buttonLabel={!editingId && canUseLabelRecognition ? t("addWineFromPhoto") : undefined}
+                        buttonLabel={!editingId && canRecognizeBottlePhoto ? t("addWineFromPhoto") : undefined}
                         onPrepared={editingId ? undefined : (photo) => {
                           setSelectedSuggestedPhotoId(null);
                           setPendingBottlePhoto(photo);
-                          if (canUseLabelRecognition && photo.recognitionSource) {
+                          if (canRecognizeBottlePhoto && photo.recognitionSource) {
                             void recognizeBottleImage(photo.recognitionSource);
                           }
                         }}

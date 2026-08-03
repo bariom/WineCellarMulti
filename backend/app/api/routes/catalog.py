@@ -30,6 +30,7 @@ from app.schemas.catalog import (
     WineImageRecognitionConfirmation,
     WineImageRecognitionResponse,
 )
+from app.services.openai_client import OpenAIResponse
 from app.services.wine_image_recognition import recognize_wine_from_image
 
 router = APIRouter()
@@ -516,6 +517,13 @@ async def recognize_wine_bottle(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> WineImageRecognitionResponse:
+    from app.api.routes.ai import (
+        create_ai_response,
+        effective_response_model,
+        get_or_create_user_ai_settings,
+        record_ai_audit,
+    )
+
     if not context.user.can_use_label_recognition:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -551,9 +559,40 @@ async def recognize_wine_bottle(
 
     result: dict[str, object]
     provider = "luna"
+    ai_provider_source = ""
+    luna_response: OpenAIResponse | None = None
     fallback_used = False
     confidence: float | None = None
     error_code = ""
+
+    def create_billed_luna_response(
+        *,
+        system_prompt: str,
+        user_prompt: str,
+        json_schema: dict,
+        input_images: list[tuple[str, bytes]],
+        max_output_tokens: int,
+        timeout_seconds: float,
+    ) -> OpenAIResponse:
+        nonlocal ai_provider_source, luna_response
+        user_settings = get_or_create_user_ai_settings(db, context)
+        response, provider_source = create_ai_response(
+            db,
+            context,
+            user_settings,
+            model=settings.openai_economy_model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            json_schema=json_schema,
+            max_output_tokens=max_output_tokens,
+            task_type="structured_extraction",
+            input_images=input_images,
+            timeout_seconds=timeout_seconds,
+        )
+        luna_response = response
+        ai_provider_source = provider_source
+        return response
+
     try:
         if configured_provider == "api4ai":
             raise LookupError("use_api4ai")
@@ -561,6 +600,7 @@ async def recognize_wine_bottle(
             content,
             locale=locale,
             known_text=known_text,
+            response_factory=create_billed_luna_response,
         )
         request_id = luna_request_id or request_id
     except LookupError:
@@ -588,6 +628,8 @@ async def recognize_wine_bottle(
             "recognition_notes": [],
         }
     except HTTPException as exc:
+        if exc.status_code == status.HTTP_402_PAYMENT_REQUIRED:
+            raise
         if configured_provider == "luna_with_api4ai_fallback" and exc.status_code >= 500:
             fallback_used = True
             provider = "api4ai"
@@ -649,7 +691,9 @@ async def recognize_wine_bottle(
         if value
     )
     matches = search_catalog_entries(db, query, 5) if query else []
+    recognition_id = uuid.uuid4()
     recognition_log = WineRecognitionLog(
+        id=recognition_id,
         household_id=context.household.id,
         user_id=context.user.id,
         provider=provider,
@@ -665,10 +709,29 @@ async def recognize_wine_bottle(
             "provider": provider,
             "fallback_used": fallback_used,
             "status": result["status"],
+            "ai_provider_source": ai_provider_source,
+            "charged_cost_usd": (
+                str(luna_response.charged_cost_usd) if luna_response else "0.000000"
+            ),
         },
         created_at=datetime.now(UTC),
     )
     db.add(recognition_log)
+    if luna_response is not None:
+        record_ai_audit(
+            db,
+            context,
+            entity_type="catalog",
+            entity_id=recognition_id,
+            feature="wine_image_recognition",
+            model=effective_response_model(luna_response, settings.openai_economy_model),
+            summary=(
+                f"Bottle photo recognition: {candidate.producer} "
+                f"{candidate.wine_name} {candidate.vintage}"
+            ).strip(),
+            usage=luna_response.usage,
+            provider_source=ai_provider_source,
+        )
     db.commit()
     logger.info(
         "wine_image_recognition request_id=%s provider=%s duration_ms=%s status=%s error_code=%s fallback=%s",

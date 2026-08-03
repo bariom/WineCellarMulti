@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from io import BytesIO
 from typing import Any
 
@@ -8,7 +9,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import settings
 from app.prompts import wine_image_recognition_prompt
-from app.services.openai_client import create_response, parse_json_response
+from app.services.openai_client import OpenAIResponse, create_response, parse_json_response
 
 ALLOWED_IMAGE_FORMATS = {"JPEG", "PNG", "WEBP"}
 ALLOWED_RECOGNITION_STATUSES = {
@@ -195,6 +196,7 @@ def recognize_wine_from_image(
     locale: str,
     known_text: str = "",
     known_context: str = "",
+    response_factory: Callable[..., OpenAIResponse] | None = None,
 ) -> tuple[dict[str, Any], str]:
     full_image, label_crop = optimized_wine_images(content)
     prompt = wine_image_recognition_prompt(
@@ -205,15 +207,26 @@ def recognize_wine_from_image(
     images = [("image/jpeg", full_image)]
     if label_crop:
         images.append(("image/jpeg", label_crop))
-    response = create_response(
-        settings.openai_economy_model,
-        prompt.system,
-        prompt.user,
-        api_key=settings.openai_api_key,
-        json_schema=recognition_json_schema(),
-        max_output_tokens=1800,
-        task_type="structured_extraction",
-        input_images=images,
-        timeout_seconds=settings.wine_recognition_timeout_seconds,
+    response = (
+        response_factory(
+            system_prompt=prompt.system,
+            user_prompt=prompt.user,
+            json_schema=recognition_json_schema(),
+            input_images=images,
+            max_output_tokens=1800,
+            timeout_seconds=settings.wine_recognition_timeout_seconds,
+        )
+        if response_factory
+        else create_response(
+            settings.openai_economy_model,
+            prompt.system,
+            prompt.user,
+            api_key=settings.openai_api_key,
+            json_schema=recognition_json_schema(),
+            max_output_tokens=1800,
+            task_type="structured_extraction",
+            input_images=images,
+            timeout_seconds=settings.wine_recognition_timeout_seconds,
+        )
     )
     return normalize_luna_result(parse_json_response(response.text)), response.request_id

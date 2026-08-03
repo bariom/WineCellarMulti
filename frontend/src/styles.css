@@ -3564,6 +3564,20 @@ summary:focus-visible {
   color: var(--text-muted);
 }
 
+.recognition-vintage-field {
+  width: min(100%, 240px);
+}
+
+.recognition-vintage-field input {
+  width: 100%;
+}
+
+.recognition-vintage-field small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
 .app-notice-toast {
   position: fixed;
   z-index: 1400;

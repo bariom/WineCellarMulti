@@ -1856,6 +1856,62 @@ def test_manual_wine_data_enrichment_is_funded_by_application(monkeypatch):
         assert audit.sources[-1]["funded_by"] == "application"
 
 
+def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_label_recognition = True
+        db.commit()
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+
+    def fake_create_response(*_args, **_kwargs):
+        return OpenAIResponse(
+            text=json.dumps(
+                {
+                    "name": "Dogaia",
+                    "producer": "Guido Brivio",
+                    "vintage": "2023",
+                    "type": "Red",
+                    "region": "Ticino",
+                    "appellation": "Ticino DOC",
+                    "country": "Switzerland",
+                    "grapes_text": "Merlot",
+                    "confidence": "high",
+                    "notes": "Ticino wine found.",
+                }
+            ),
+            usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
+            web_search_calls=1,
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    starting_balance = Decimal(
+        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
+    )
+    response = client.post(
+        "/api/v1/ai/wine-label/enrich",
+        json={"label": "Guido Brivio Dogaia 2023", "source": "photo"},
+    )
+    assert response.status_code == 200
+    ending_balance = Decimal(
+        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
+    )
+    assert ending_balance < starting_balance
+
+    with TestingSessionLocal() as db:
+        audit = db.scalar(
+            select(AiAuditLog).where(AiAuditLog.feature == "wine_photo_enrichment")
+        )
+        assert audit is not None
+        assert audit.estimated_cost_usd == starting_balance - ending_balance
+        assert audit.sources[-1]["provider_source"] == "credits"
+
+
 def test_app_admin_can_create_and_user_can_redeem_code():
     admin_client = TestClient(app)
     registered = register(admin_client)
@@ -4621,6 +4677,66 @@ def test_luna_bottle_recognition_requires_confirmation(monkeypatch):
         assert log is not None
         assert log.response_payload["confirmed"] is True
         assert log.response_payload["corrected"] is False
+
+
+def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_label_recognition = True
+        db.commit()
+
+    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+
+    def fake_create_response(*_args, **kwargs):
+        assert len(kwargs["input_images"]) == 1
+        return OpenAIResponse(
+            text=json.dumps(recognized_bottle_payload()),
+            usage=TokenUsage(input_tokens=2000, output_tokens=400, total_tokens=2400),
+            request_id="req_billed_luna",
+        )
+
+    def fake_recognize(_content, **kwargs):
+        response = kwargs["response_factory"](
+            system_prompt="Recognize the wine bottle.",
+            user_prompt="Extract the visible label.",
+            json_schema={"type": "object"},
+            input_images=[("image/jpeg", b"optimized image")],
+            max_output_tokens=1800,
+            timeout_seconds=30,
+        )
+        return recognized_bottle_payload(), response.request_id
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    monkeypatch.setattr(catalog_route, "recognize_wine_from_image", fake_recognize)
+    starting_balance = Decimal(
+        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
+    )
+    response = client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    ending_balance = Decimal(
+        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
+    )
+    assert ending_balance < starting_balance
+
+    with TestingSessionLocal() as db:
+        audit = db.scalar(
+            select(AiAuditLog).where(AiAuditLog.feature == "wine_image_recognition")
+        )
+        assert audit is not None
+        assert audit.estimated_cost_usd == starting_balance - ending_balance
+        assert audit.sources[-1]["provider_source"] == "credits"
+        log = db.get(WineRecognitionLog, uuid.UUID(response.json()["recognition_id"]))
+        assert log is not None
+        assert Decimal(log.response_payload["charged_cost_usd"]) == audit.estimated_cost_usd
 
 
 def test_luna_bottle_recognition_returns_ambiguous_candidates(monkeypatch):
