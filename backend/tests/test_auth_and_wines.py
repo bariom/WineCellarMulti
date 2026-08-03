@@ -14,6 +14,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import catalog as catalog_route
 from app.api.routes import operations as operations_route
 from app.api.routes import wines as wines_route
 from app.core.config import settings
@@ -35,9 +36,30 @@ from app.models import (
     Wine,
     WineCatalogEntry,
     WinePhotoLibraryEntry,
+    WineRecognitionLog,
 )
 from app.services.openai_client import OpenAIResponse, TokenUsage
 from app.services.wine_photo_library import library_photo_path
+
+
+def recognized_bottle_payload(**updates):
+    payload = {
+        "status": "recognized",
+        "producer": "Fontanafredda",
+        "estate": "",
+        "wine_name": "Barolo",
+        "cuvee": "",
+        "vintage": "2019",
+        "appellation": "Barolo DOCG",
+        "region": "Piemonte",
+        "country": "Italia",
+        "label_text": ["Fontanafredda", "Barolo", "2019"],
+        "alternative_candidates": [],
+        "needs_user_confirmation": True,
+        "recognition_notes": [],
+    }
+    payload.update(updates)
+    return payload
 
 engine = create_engine(
     "sqlite+pysqlite:///:memory:",
@@ -4561,3 +4583,120 @@ def test_deleting_user_removes_only_households_without_remaining_members():
     with TestingSessionLocal() as db:
         assert db.get(Household, member_household_id) is None
         assert db.get(Household, admin_household_id) is not None
+
+
+def test_luna_bottle_recognition_requires_confirmation(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_label_recognition = True
+        db.commit()
+
+    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
+    monkeypatch.setattr(
+        catalog_route,
+        "recognize_wine_from_image",
+        lambda *_args, **_kwargs: (recognized_bottle_payload(), "req_luna_test"),
+    )
+    response = client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        data={"locale": "it"},
+        files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "recognized"
+    assert payload["producer"] == "Fontanafredda"
+    assert payload["needs_user_confirmation"] is True
+    confirmed = client.post(
+        "/api/v1/wines/catalog/recognition/confirm",
+        json={"recognition_id": payload["recognition_id"], "corrected": False},
+    )
+    assert confirmed.status_code == 204
+    with TestingSessionLocal() as db:
+        assert db.scalar(select(Wine)) is None
+        log = db.get(WineRecognitionLog, uuid.UUID(payload["recognition_id"]))
+        assert log is not None
+        assert log.response_payload["confirmed"] is True
+        assert log.response_payload["corrected"] is False
+
+
+def test_luna_bottle_recognition_returns_ambiguous_candidates(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_label_recognition = True
+        db.commit()
+    ambiguous = recognized_bottle_payload(
+        status="ambiguous",
+        alternative_candidates=[
+            recognized_bottle_payload(producer="Other Estate", vintage="2020")
+        ],
+    )
+    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
+    monkeypatch.setattr(
+        catalog_route,
+        "recognize_wine_from_image",
+        lambda *_args, **_kwargs: (ambiguous, "req_ambiguous"),
+    )
+    response = client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "ambiguous"
+    assert len(response.json()["alternative_candidates"]) == 1
+
+
+def test_luna_failure_can_fallback_to_api4ai(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_label_recognition = True
+        db.commit()
+    monkeypatch.setattr(settings, "wine_recognition_provider", "luna_with_api4ai_fallback")
+
+    def fail_luna(*_args, **_kwargs):
+        raise HTTPException(status_code=502, detail="OpenAI request failed")
+
+    monkeypatch.setattr(catalog_route, "recognize_wine_from_image", fail_luna)
+    monkeypatch.setattr(
+        catalog_route,
+        "call_api4ai_wine_recognition",
+        lambda *_args, **_kwargs: {"classes": {"Testamatta": 0.96}},
+    )
+    response = client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert response.json()["provider"] == "api4ai"
+    assert response.json()["fallback_used"] is True
+
+
+def test_luna_provider_error_is_non_blocking(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_label_recognition = True
+        db.commit()
+    monkeypatch.setattr(settings, "wine_recognition_provider", "luna")
+
+    def timeout_luna(*_args, **_kwargs):
+        raise HTTPException(status_code=502, detail="OpenAI request failed")
+
+    monkeypatch.setattr(catalog_route, "recognize_wine_from_image", timeout_luna)
+    response = client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "error"

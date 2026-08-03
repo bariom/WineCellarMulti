@@ -12,9 +12,10 @@ type ProcessedBottlePhoto = {
   detail: Blob;
   thumbnail: Blob;
   previewUrl: string;
+  recognitionSource?: Blob;
 };
 
-export type PreparedBottlePhoto = Pick<ProcessedBottlePhoto, "detail" | "thumbnail">;
+export type PreparedBottlePhoto = Pick<ProcessedBottlePhoto, "detail" | "thumbnail" | "recognitionSource">;
 
 function canvasPng(canvas: HTMLCanvasElement) {
   return new Promise<Blob>((resolve, reject) => {
@@ -458,6 +459,7 @@ export function BottlePhotoCapture({
   onSaved,
   onPrepared,
   onError,
+  buttonLabel,
 }: {
   wine?: Wine;
   draftName?: string;
@@ -467,6 +469,7 @@ export function BottlePhotoCapture({
   onSaved?: (wine: Wine) => void;
   onPrepared?: (photo: PreparedBottlePhoto) => void;
   onError: (message: string) => void;
+  buttonLabel?: string;
 }) {
   const isItalian = locale === "it";
   const [open, setOpen] = useState(false);
@@ -596,7 +599,7 @@ export function BottlePhotoCapture({
         mode = "local";
       }
       if (processed) URL.revokeObjectURL(processed.previewUrl);
-      setProcessed(result);
+      setProcessed({ ...result, recognitionSource: source });
       setProcessingMode(mode);
       stopCamera();
     } catch (error) {
@@ -632,7 +635,11 @@ export function BottlePhotoCapture({
   async function save() {
     if (!processed) return;
     if (!wine) {
-      onPrepared?.({ detail: processed.detail, thumbnail: processed.thumbnail });
+      onPrepared?.({
+        detail: processed.detail,
+        thumbnail: processed.thumbnail,
+        recognitionSource: processed.recognitionSource,
+      });
       close();
       return;
     }
@@ -677,11 +684,11 @@ export function BottlePhotoCapture({
     <>
       <button type="button" className="secondary compact bottle-photo-button" disabled={!canWrite} onClick={startCamera}>
         <AppIcon name="camera" />
-        {wine?.photo_detail_url || prepared
+        {buttonLabel || (wine?.photo_detail_url || prepared
           ? (isItalian ? "Sostituisci foto" : "Replace photo")
           : wine
             ? (isItalian ? "Aggiungi foto" : "Add photo")
-            : (isItalian ? "Fotografa bottiglia" : "Photograph bottle")}
+            : (isItalian ? "Fotografa bottiglia" : "Photograph bottle"))}
       </button>
       {open ? createPortal((
         <div className="bottle-capture-layer" role="dialog" aria-modal="true" aria-label={isItalian ? "Fotografa bottiglia" : "Photograph bottle"}>

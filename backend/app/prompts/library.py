@@ -26,6 +26,31 @@ def language_instruction(locale: str) -> str:
     )
 
 
+def wine_image_recognition_prompt(
+    *, locale: str, known_text: str = "", known_context: str = ""
+) -> Prompt:
+    return Prompt(
+        id="wine.image_recognition",
+        version="1",
+        system=(
+            "You identify a wine only from visible bottle-label evidence and return the required "
+            "JSON schema. Do not invent missing facts. Distinguish producer or estate, wine/cuvee "
+            "name, appellation, region and country. Accept a vintage only when a four-digit year, "
+            "NV or MV is clearly visible and plausibly denotes the wine vintage. If equally plausible "
+            "incompatible identities remain, use status ambiguous and return at most three candidates. "
+            f"{language_instruction(locale)}"
+        ),
+        user=(
+            "Read the full-bottle image and the optional central label crop. Return visible label text "
+            "in reading order. A usable recognition normally needs producer plus wine name, or producer "
+            "plus appellation. Use not_recognized for insufficient evidence and invalid_image only when "
+            "the image itself cannot be inspected. Always require user confirmation.\n\n"
+            f"Optional user text: {known_text.strip() or '(none)'}\n"
+            f"Already known context: {known_context.strip() or '(none)'}"
+        ),
+    )
+
+
 def ai_notes_prompt(*, locale: str, wine_context: str) -> Prompt:
     return Prompt(
         id="wine.ai_notes",
@@ -188,9 +213,15 @@ def wishlist_value_prompt(
         ),
         user=(
             f"Estimate the current market price for this exact wishlist item. Final market_price and market_price_currency must be {currency}. "
-            + ((f"The user target price is {currency} {target_price}" if target_price is not None else "The user did not set a maximum acceptable price")
-               + "; use a maximum price only as a secondary constraint after estimating market price independently. "
-               + "If an offer price is supplied, price_advice must give a direct verdict: Opportunity, Fair price, Too expensive, or Insufficient data. When no maximum is set, compare the offer only with the market estimate and do not recommend against buying merely because the maximum is missing. ")
+            + (
+                (
+                    f"The user target price is {currency} {target_price}"
+                    if target_price is not None
+                    else "The user did not set a maximum acceptable price"
+                )
+                + "; use a maximum price only as a secondary constraint after estimating market price independently. "
+                + "If an offer price is supplied, price_advice must give a direct verdict: Opportunity, Fair price, Too expensive, or Insufficient data. When no maximum is set, compare the offer only with the market estimate and do not recommend against buying merely because the maximum is missing. "
+            )
             + "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
             + "Use market_note for a short availability or confidence comment.\n\n"
             + wishlist_context

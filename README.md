@@ -225,6 +225,25 @@ OPENAI_PAIRING_MODEL=gpt-5.4
 
 Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, food pairing, and source-backed buying advice. Buying advice supports drink-now, cellaring, and food-pairing goals, plus today/tomorrow/flexible delivery deadlines and a buyer location. Urgent searches favor local pickup; flexible searches can include online retailers.
 
+Bottle recognition can use Luna, API4AI, or Luna with API4AI fallback. The same
+client-side capture is retained for the product photo while an in-memory,
+EXIF-corrected JPEG copy and optional label crop are sent by the backend to the
+configured provider. No temporary image is persisted before the wine is saved.
+
+```env
+WINE_RECOGNITION_PROVIDER=luna
+WINE_RECOGNITION_MAX_INPUT_BYTES=16000000
+WINE_RECOGNITION_MAX_DIMENSION=1600
+WINE_RECOGNITION_JPEG_QUALITY=88
+WINE_RECOGNITION_TIMEOUT_SECONDS=45
+WINE_RECOGNITION_MIN_CONFIDENCE_PERCENT=75
+```
+
+Supported provider values are `luna`, `api4ai`, and
+`luna_with_api4ai_fallback`. API4AI also requires `API4AI_API_KEY`.
+Luna uses the configured economy model and requires the GPT-5.6 rollout flag
+when that model is `gpt-5.6-luna` (`OPENAI_ENABLE_GPT56=true`).
+
 Users can choose the AI source in the application settings:
 
 - `Automatic`: prefer personal key, otherwise use Vinaris AI Pack

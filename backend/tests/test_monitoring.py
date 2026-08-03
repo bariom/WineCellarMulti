@@ -61,6 +61,10 @@ def test_user_activity_actions_identify_specific_features():
         == "wine_label_recognition"
     )
     assert (
+        user_activity_action("POST", "/api/v1/wines/catalog/recognize-bottle")
+        == "wine_label_recognition"
+    )
+    assert (
         user_activity_action("POST", "/api/v1/ai/wishlist/portfolio-strategy")
         == "ai_wishlist_analysis"
     )

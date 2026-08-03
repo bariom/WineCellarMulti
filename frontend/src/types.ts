@@ -834,6 +834,29 @@ export type WinePhotoSuggestion = {
   detail_url: string;
 };
 
+export type WineImageRecognitionCandidate = {
+  producer: string;
+  estate: string;
+  wine_name: string;
+  cuvee: string;
+  vintage: string;
+  appellation: string;
+  region: string;
+  country: string;
+};
+
+export type WineImageRecognitionResult = WineImageRecognitionCandidate & {
+  recognition_id: string;
+  status: "recognized" | "ambiguous" | "not_recognized" | "invalid_image" | "error";
+  label_text: string[];
+  alternative_candidates: WineImageRecognitionCandidate[];
+  needs_user_confirmation: boolean;
+  recognition_notes: string[];
+  provider: "luna" | "api4ai";
+  fallback_used: boolean;
+  matches: CatalogWine[];
+};
+
 export type WinePhotoSuggestions = WinePhotoSuggestion[];
 
 export type OperationalWinePhoto = {

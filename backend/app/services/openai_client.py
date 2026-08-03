@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from decimal import Decimal
+import base64
 import json
 import logging
 import time
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException, status
@@ -20,7 +21,6 @@ from app.services.ai_models import (
     safe_fallback_model,
     select_ai_model,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -154,12 +154,24 @@ def response_body(
     reasoning_effort: str | None = None,
     max_output_tokens: int | None = None,
     max_tool_calls: int | None = None,
+    input_images: list[tuple[str, bytes]] | None = None,
 ) -> dict[str, Any]:
+    user_content: str | list[dict[str, Any]] = user_prompt
+    if input_images:
+        user_content = [{"type": "input_text", "text": user_prompt}]
+        user_content.extend(
+            {
+                "type": "input_image",
+                "image_url": f"data:{mime_type};base64,{base64.b64encode(content).decode('ascii')}",
+                "detail": "high",
+            }
+            for mime_type, content in input_images
+        )
     body: dict[str, Any] = {
         "model": model,
         "input": [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
+            {"role": "user", "content": user_content},
         ],
     }
     parameters = parameters_for_model(model)
@@ -232,7 +244,9 @@ def error_metadata(exc: urllib.error.HTTPError) -> tuple[str, bool]:
     return "non_fallback_api_error", False
 
 
-def send_response_request(body: dict[str, Any], api_key: str) -> tuple[dict[str, Any], str]:
+def send_response_request(
+    body: dict[str, Any], api_key: str, *, timeout_seconds: float | None = None
+) -> tuple[dict[str, Any], str]:
     parameters = parameters_for_model(str(body["model"]))
 
     request = urllib.request.Request(
@@ -245,7 +259,10 @@ def send_response_request(body: dict[str, Any], api_key: str) -> tuple[dict[str,
         method="POST",
     )
     try:
-        with urllib.request.urlopen(request, timeout=parameters.timeout_seconds) as response:
+        with urllib.request.urlopen(
+            request,
+            timeout=timeout_seconds or parameters.timeout_seconds,
+        ) as response:
             payload = json.loads(response.read().decode("utf-8"))
             request_id = str(response.headers.get("x-request-id") or "")
     except urllib.error.HTTPError as exc:
@@ -311,6 +328,8 @@ def create_response(
     max_tool_calls: int | None = None,
     task_type: str = "sommelier",
     complexity: str | None = None,
+    input_images: list[tuple[str, bytes]] | None = None,
+    timeout_seconds: float | None = None,
 ) -> OpenAIResponse:
     active_api_key = settings.openai_api_key if api_key is None else api_key.strip()
     if not active_api_key:
@@ -346,8 +365,10 @@ def create_response(
                     reasoning_effort=effective_reasoning_effort,
                     max_output_tokens=max_output_tokens,
                     max_tool_calls=max_tool_calls,
+                    input_images=input_images,
                 ),
                 active_api_key,
+                timeout_seconds=timeout_seconds,
             )
             break
         except OpenAITransportError as exc:

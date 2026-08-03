@@ -91,7 +91,7 @@ def user_activity_action(method: str, path: str) -> str | None:
             return None
         if path == "/api/v1/wines/photo/process":
             return "wine_photo_ai_cutout"
-        if path == "/api/v1/wines/catalog/recognize":
+        if path in {"/api/v1/wines/catalog/recognize", "/api/v1/wines/catalog/recognize-bottle"}:
             return "wine_label_recognition"
         if "/photo/reuse/" in path:
             return "wine_photo_reused"

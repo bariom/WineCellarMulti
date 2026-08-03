@@ -211,7 +211,15 @@ def business_snapshot(db: Session) -> dict[str, int | float]:
     recognitions = db.execute(
         select(
             func.count(WineRecognitionLog.id),
-            func.coalesce(func.sum(case((WineRecognitionLog.status == "success", 1), else_=0)), 0),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (WineRecognitionLog.status.in_({"success", "recognized"}), 1),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
         ).where(WineRecognitionLog.created_at >= thirty_days_ago)
     ).one()
     agreements = db.execute(
