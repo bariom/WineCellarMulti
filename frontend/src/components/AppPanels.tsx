@@ -39,11 +39,33 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
 }
 
 export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: TranslationKey) => string; locale: Locale }) {
-  const entries = (wine.value_history || [])
+  const historyEntries = (wine.value_history || [])
     .filter((entry) => entry.value && entry.recorded_at)
     .map((entry) => ({ ...entry, numericValue: Number(entry.value), dateMs: new Date(entry.recorded_at).getTime() }))
     .filter((entry) => Number.isFinite(entry.numericValue) && Number.isFinite(entry.dateMs))
     .sort((first, second) => first.dateMs - second.dateMs);
+  const purchasePrice = Number(wine.price || 0);
+  const parsedOrderDate = wine.order_date
+    ? new Date(`${wine.order_date.slice(0, 10)}T00:00:00`).getTime()
+    : Number.NaN;
+  const purchaseDateMs = Number.isFinite(parsedOrderDate)
+    ? parsedOrderDate
+    : historyEntries.length
+      ? historyEntries[0].dateMs - 86_400_000
+      : Date.now();
+  const purchaseEntry = Number.isFinite(purchasePrice) && purchasePrice > 0
+    ? {
+        id: `purchase-${wine.id}`,
+        value: String(purchasePrice),
+        currency: wine.currency,
+        source: "purchase",
+        recorded_at: new Date(purchaseDateMs).toISOString(),
+        numericValue: purchasePrice,
+        dateMs: purchaseDateMs,
+      }
+    : null;
+  const entries = [...(purchaseEntry ? [purchaseEntry] : []), ...historyEntries]
+    .sort((first, second) => first.dateMs - second.dateMs || (first.source === "purchase" ? -1 : 1));
 
   if (entries.length === 0) return null;
 
@@ -60,9 +82,11 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
     imported: "Import",
     manual: t("valueSourceManual"),
     shared: "Share",
+    purchase: t("purchasePrice"),
   };
   const hasAiEstimate = entries.some((entry) => entry.source === "ai");
   const hasManualCorrection = entries.some((entry) => entry.source === "manual");
+  const hasPurchasePrice = entries.some((entry) => entry.source === "purchase");
 
   return (
     <div className="value-history-card">
@@ -84,13 +108,14 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
             points={entries.map((entry) => ({
               timestampMs: entry.dateMs,
               value: entry.numericValue,
-              tone: entry.source === "ai" || entry.source === "manual" || entry.source === "imported" || entry.source === "shared" ? entry.source : "default",
+              tone: entry.source === "ai" || entry.source === "manual" || entry.source === "imported" || entry.source === "shared" || entry.source === "purchase" ? entry.source : "default",
             }))}
           />
         </div>
       </Suspense>
-      {hasAiEstimate || hasManualCorrection ? (
+      {hasAiEstimate || hasManualCorrection || hasPurchasePrice ? (
         <div className="value-history-legend" aria-label={t("valueEvolution")}>
+          {hasPurchasePrice ? <span className="source-purchase"><i aria-hidden="true" />{t("purchasePrice")}</span> : null}
           {hasAiEstimate ? <span className="source-ai"><i aria-hidden="true" />{t("valueSourceAi")}</span> : null}
           {hasManualCorrection ? <span className="source-manual"><i aria-hidden="true" />{t("valueSourceManual")}</span> : null}
         </div>

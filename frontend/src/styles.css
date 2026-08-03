@@ -11485,6 +11485,10 @@ button.stat-card:hover {
   background: var(--drink-ideal);
 }
 
+.value-history-legend .source-purchase i {
+  background: var(--primary);
+}
+
 .value-history-meta {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);

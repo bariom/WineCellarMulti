@@ -7,7 +7,7 @@ import { useChartReveal } from "./chartMotion";
 export type TimeSeriesPoint = {
   timestampMs: number;
   value: number;
-  tone?: "default" | "ai" | "manual" | "imported" | "shared";
+  tone?: "default" | "ai" | "manual" | "imported" | "shared" | "purchase";
 };
 
 type TimeSeriesChartProps = {
@@ -59,6 +59,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       manual: resolvedColor(chartHost, "var(--drink-ideal)", "#3f8d72"),
       imported: resolvedColor(chartHost, "var(--primary)", "#386d5a"),
       shared: resolvedColor(chartHost, "var(--accent)", "#a88538"),
+      purchase: resolvedColor(chartHost, "var(--primary)", "#386d5a"),
     };
     const timestamps = points.map((point) => point.timestampMs / 1000);
     const values = points.map((point) => point.value);
