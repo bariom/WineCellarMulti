@@ -1649,7 +1649,7 @@ export function App() {
           // The AI-filled draft is still useful even if catalog creation is denied or duplicated.
         }
       }
-      await Promise.all([loadAiSettings(), loadAiUsage(), loadBilling()]);
+      await Promise.all([loadAiAudit(), loadAiSettings(), loadAiUsage(), loadBilling()]);
       return true;
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to search wine data with AI");
@@ -1725,7 +1725,7 @@ export function App() {
       if (result.status === "recognized" || result.status === "ambiguous") {
         applyWineImageCandidate(result);
       }
-      await Promise.all([loadAiSettings(), loadAiUsage(), loadBilling()]).catch(() => undefined);
+      await Promise.all([loadAiAudit(), loadAiSettings(), loadAiUsage(), loadBilling()]).catch(() => undefined);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t("recognitionCouldNotIdentify"));
     } finally {

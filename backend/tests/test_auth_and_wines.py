@@ -1902,6 +1902,14 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
         client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
     )
     assert ending_balance < starting_balance
+    audit_payload = client.get("/api/v1/ai/audit")
+    assert audit_payload.status_code == 200
+    photo_audit = next(
+        entry
+        for entry in audit_payload.json()
+        if entry["feature"] == "wine_photo_enrichment"
+    )
+    assert Decimal(photo_audit["estimated_cost_usd"]) == starting_balance - ending_balance
 
     with TestingSessionLocal() as db:
         audit = db.scalar(
@@ -4726,6 +4734,14 @@ def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
         client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
     )
     assert ending_balance < starting_balance
+    audit_payload = client.get("/api/v1/ai/audit")
+    assert audit_payload.status_code == 200
+    recognition_audit = next(
+        entry
+        for entry in audit_payload.json()
+        if entry["feature"] == "wine_image_recognition"
+    )
+    assert Decimal(recognition_audit["estimated_cost_usd"]) == starting_balance - ending_balance
 
     with TestingSessionLocal() as db:
         audit = db.scalar(
