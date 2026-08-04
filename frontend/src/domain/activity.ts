@@ -48,6 +48,7 @@ const ACTIVITY_LABELS: Record<string, [string, string]> = {
   household_member_removed: ["Membro cantina rimosso", "Cellar member removed"],
   household_action: ["Gestione cantina", "Cellar management"],
   account_preferences_updated: ["Preferenze account aggiornate", "Account preferences updated"],
+  demo_cellar_visited: ["Cantina demo visitata", "Demo cellar visited"],
   passkey_configured: ["Passkey configurata", "Passkey configured"],
   passkey_removed: ["Passkey rimossa", "Passkey removed"],
   account_action: ["Impostazioni account", "Account settings"],

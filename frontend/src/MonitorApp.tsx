@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "uplot/dist/uPlot.min.css";
 import { activityLabel } from "./domain/activity";
-import type { OperationalMetricsHistory, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
+import type { DemoActivitySummary, OperationalMetricsHistory, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
 import "./monitor.css";
 
 const TOKEN_STORAGE_KEY = "vinaris.monitor.device-token";
@@ -69,6 +69,7 @@ export function MonitorApp() {
   const [overview, setOverview] = useState<OperationalMetricsOverview | null>(null);
   const [history, setHistory] = useState<OperationalMetricsHistory | null>(null);
   const [activity, setActivity] = useState<UserActivityLogEntry[]>([]);
+  const [demoActivity, setDemoActivity] = useState<DemoActivitySummary | null>(null);
   const [hours, setHours] = useState(6);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -80,12 +81,13 @@ export function MonitorApp() {
       if (collect) {
         await monitorApi<void>("/api/v1/admin/operations/collect-now", activeToken, { method: "POST" });
       }
-      const [nextOverview, nextHistory, nextActivity] = await Promise.all([
+      const [nextOverview, nextHistory, nextActivity, nextDemoActivity] = await Promise.all([
         monitorApi<OperationalMetricsOverview>("/api/v1/admin/operations/overview", activeToken),
         monitorApi<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${activeHours}`, activeToken),
         monitorApi<UserActivityLogEntry[]>("/api/v1/admin/operations/activity?limit=6", activeToken),
+        monitorApi<DemoActivitySummary>("/api/v1/admin/operations/demo-activity", activeToken),
       ]);
-      setOverview(nextOverview); setHistory(nextHistory); setActivity(nextActivity); setError("");
+      setOverview(nextOverview); setHistory(nextHistory); setActivity(nextActivity); setDemoActivity(nextDemoActivity); setError("");
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : "Impossibile aggiornare le metriche."); }
     finally { setLoading(false); }
   }
@@ -110,6 +112,7 @@ export function MonitorApp() {
     <div className="monitor-charts"><MonitorChart title="Reattività API" subtitle="P95 INTERATTIVE" color="#e0b84f" points={latencyPoints} formatter={(nextValue) => value(nextValue, " ms")} /><MonitorChart title="CPU" subtitle="RISORSE HOST" color="#79bd83" points={cpuPoints} formatter={(nextValue) => value(nextValue, "%")} /><MonitorChart title="Memoria" subtitle="RISORSE HOST" color="#84aee3" points={memoryPoints} formatter={(nextValue) => value(nextValue, "%")} /></div>
     <section className="monitor-card monitor-kpi-section"><div className="monitor-section-head"><div><span>CANTINA</span><strong>Inventario e attività</strong></div><b>{business?.bottles_total ?? "—"}</b></div><div className="monitor-kpi-grid"><div><span>Vini</span><strong>{business?.wines_total ?? "—"}</strong></div><div><span>Degustazioni 30g</span><strong>{business?.tastings_30d ?? "—"}</strong></div><div><span>Da ritirare</span><strong>{business?.bottles_to_collect ?? "—"}</strong></div><div><span>Consegne</span><strong>{business?.bottles_in_future_deliveries ?? "—"}</strong></div></div></section>
     <section className="monitor-card monitor-kpi-section"><div className="monitor-section-head"><div><span>AI</span><strong>Uso e costi</strong></div><b>{overview?.openai.current_month_usd === null || overview?.openai.current_month_usd === undefined ? "—" : `$${overview.openai.current_month_usd.toFixed(2)}`}</b></div><div className="monitor-kpi-grid"><div><span>Azioni 30g</span><strong>{business?.ai_requests_30d ?? "—"}</strong></div><div><span>Successi</span><strong>{business?.ai_requests_30d ? `${Math.round(((business.ai_successes_30d || 0) / business.ai_requests_30d) * 100)}%` : "—"}</strong></div><div><span>Ricerche nome</span><strong>{business?.wine_name_searches_30d ?? "—"}</strong></div><div><span>Foto bottiglie</span><strong>{business?.wine_photos_total ?? "—"}</strong></div></div></section>
+    <section className="monitor-card monitor-kpi-section"><div className="monitor-section-head"><div><span>CANTINA DEMO</span><strong>Visite alla demo</strong></div><b>{demoActivity?.total_visits ?? "—"}</b></div><div className="monitor-kpi-grid"><div><span>Visite totali</span><strong>{demoActivity?.total_visits ?? "—"}</strong></div><div><span>Ultime 24 ore</span><strong>{demoActivity?.visits_24h ?? "—"}</strong></div><div><span>Ultima visita</span><strong>{demoActivity?.last_visit_at ? new Date(demoActivity.last_visit_at).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "Mai"}</strong></div></div></section>
     <section className="monitor-card monitor-activity"><div className="monitor-section-head"><div><span>ATTIVITÀ</span><strong>Ultime azioni</strong></div></div>{activity.length ? activity.map((item) => <article key={item.id}><div><strong>{activityLabel(item.action, "it")}</strong><small>{item.user_display_name}</small></div><time>{new Date(item.created_at).toLocaleString("it-CH", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}</time></article>) : <p className="monitor-empty">Nessuna attività recente</p>}</section>
     <button type="button" className="monitor-disconnect" onClick={() => { window.localStorage.removeItem(TOKEN_STORAGE_KEY); setToken(""); setOverview(null); }}>Disconnetti questo dispositivo</button>
   </main>;

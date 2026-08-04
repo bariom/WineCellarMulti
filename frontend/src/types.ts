@@ -765,6 +765,12 @@ export type UserActivityLogEntry = {
   user_email: string;
 };
 
+export type DemoActivitySummary = {
+  total_visits: number;
+  visits_24h: number;
+  last_visit_at: string | null;
+};
+
 export type OperationalMetricsOverview = {
   collected_at: string;
   system: {

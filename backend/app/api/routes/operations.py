@@ -223,6 +223,25 @@ def recent_user_activity(
     ]
 
 
+@router.get("/demo-activity")
+def demo_activity_summary(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_operations_read_access),
+) -> dict[str, int | str | None]:
+    now = datetime.now(UTC)
+    demo_visit = UserActivityLog.action == "demo_cellar_visited"
+    last_visit_at = db.scalar(select(func.max(UserActivityLog.created_at)).where(demo_visit))
+    return {
+        "total_visits": db.scalar(select(func.count()).select_from(UserActivityLog).where(demo_visit)) or 0,
+        "visits_24h": db.scalar(
+            select(func.count()).select_from(UserActivityLog).where(
+                demo_visit, UserActivityLog.created_at >= now - timedelta(hours=24)
+            )
+        ) or 0,
+        "last_visit_at": last_visit_at.isoformat() if last_visit_at else None,
+    }
+
+
 def business_snapshot(db: Session) -> dict[str, int | float]:
     now = datetime.now(UTC)
     today = now.date()

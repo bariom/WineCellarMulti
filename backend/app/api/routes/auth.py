@@ -59,6 +59,7 @@ from app.models import (
     PasskeyChallenge,
     RedeemCode,
     User,
+    UserActivityLog,
     UserEntitlement,
     UserPasskey,
     UserSession,
@@ -879,6 +880,7 @@ def enter_demo(
     )
     user_session, token = create_session(db, user, household)
     user_session.expires_at = datetime.now(UTC) + timedelta(hours=2)
+    db.add(UserActivityLog(user_id=user.id, household_id=household.id, action="demo_cellar_visited"))
     db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)

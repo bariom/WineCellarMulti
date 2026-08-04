@@ -719,6 +719,12 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
         assert entered.json()["membership_role"] == "viewer"
         assert entered.json()["has_active_entitlement"] is True
 
+        demo_activity = admin.get("/api/v1/admin/operations/demo-activity")
+        assert demo_activity.status_code == 200
+        assert demo_activity.json()["total_visits"] == 1
+        assert demo_activity.json()["visits_24h"] == 1
+        assert demo_activity.json()["last_visit_at"] is not None
+
         wines = visitor.get("/api/v1/wines")
         assert wines.status_code == 200
         demo_wine = wines.json()[0]
