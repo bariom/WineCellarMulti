@@ -486,7 +486,7 @@ def ensure_demo_principals(db: Session) -> Household:
                 approved_at=now,
                 email_verified_at=now,
                 locale=locale,
-                theme_preference="private-cellar",
+                theme_preference="atelier",
                 dashboard_focus="collector",
                 privacy_policy_accepted_at=now,
                 privacy_policy_version=LEGAL_DOCUMENT_VERSION,
@@ -496,6 +496,8 @@ def ensure_demo_principals(db: Session) -> Household:
             )
             db.add(user)
             db.flush()
+        else:
+            user.theme_preference = "atelier"
         membership = db.scalar(
             select(Membership).where(
                 Membership.user_id == user.id,
