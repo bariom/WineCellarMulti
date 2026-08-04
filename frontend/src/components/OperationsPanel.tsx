@@ -18,6 +18,7 @@ type OperationsPanelProps = {
 type ChartScale = { min: number; max: number; suffix: string };
 type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string; axis?: "primary" | "secondary" };
 type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
+type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
 
 function roundedScale(values: Array<number | null>, suffix: string): ChartScale {
   const maximum = Math.max(...values.filter((value): value is number => value !== null && Number.isFinite(value)), 0);
@@ -238,6 +239,10 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const [monitorTokenError, setMonitorTokenError] = useState("");
   const [monitorTokens, setMonitorTokens] = useState<MonitorDeviceToken[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [aiPricingDraft, setAiPricingDraft] = useState("");
+  const [aiPricingUpdatedAt, setAiPricingUpdatedAt] = useState<string | null>(null);
+  const [aiPricingBusy, setAiPricingBusy] = useState<"ask" | "save" | "" >("");
+  const [aiPricingError, setAiPricingError] = useState("");
 
   useEffect(() => {
     if (selectedHours === 1) setSelectedHistory(history);
@@ -262,6 +267,48 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   }
 
   useEffect(() => { void refreshMonitorTokens(); }, []);
+
+  async function loadAiPricing() {
+    try {
+      const pricing = await api<AiPricing>("/api/v1/admin/operations/ai-pricing");
+      setAiPricingDraft(pricing.custom_price_book_json || JSON.stringify(pricing.price_book, null, 2));
+      setAiPricingUpdatedAt(pricing.updated_at);
+    } catch {
+      setAiPricingError(isItalian ? "Impossibile caricare il listino AI." : "Unable to load the AI price book.");
+    }
+  }
+
+  useEffect(() => { void loadAiPricing(); }, []);
+
+  async function askAiForPricing() {
+    setAiPricingBusy("ask");
+    try {
+      const result = await api<{ price_book_json: string }>("/api/v1/admin/operations/ai-pricing/ask-ai", { method: "POST" });
+      setAiPricingDraft(JSON.stringify(JSON.parse(result.price_book_json), null, 2));
+      setAiPricingError("");
+    } catch (error) {
+      setAiPricingError(error instanceof Error ? error.message : (isItalian ? "Impossibile chiedere i prezzi all'AI." : "Unable to ask AI for prices."));
+    } finally {
+      setAiPricingBusy("");
+    }
+  }
+
+  async function saveAiPricing() {
+    setAiPricingBusy("save");
+    try {
+      const saved = await api<AiPricing>("/api/v1/admin/operations/ai-pricing", {
+        method: "PUT",
+        body: JSON.stringify({ price_book_json: aiPricingDraft }),
+      });
+      setAiPricingDraft(saved.custom_price_book_json || JSON.stringify(saved.price_book, null, 2));
+      setAiPricingUpdatedAt(saved.updated_at);
+      setAiPricingError("");
+    } catch (error) {
+      setAiPricingError(error instanceof Error ? error.message : (isItalian ? "Impossibile salvare il listino AI." : "Unable to save the AI price book."));
+    } finally {
+      setAiPricingBusy("");
+    }
+  }
 
   async function selectHours(hours: number) {
     setSelectedHours(hours);
@@ -347,6 +394,25 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
             {!deviceToken.revoked_at ? <button type="button" className="secondary compact" onClick={() => void revokeMonitorToken(deviceToken)}>{isItalian ? "Revoca" : "Revoke"}</button> : null}
           </div>)}
         </div> : null}
+      </section>
+      <section className="operations-ai-pricing" aria-label={isItalian ? "Listino modelli AI" : "AI model price book"}>
+        <div className="operations-ai-pricing-heading">
+          <div>
+            <strong>{isItalian ? "Listino modelli AI" : "AI model price book"}</strong>
+            <small>{isItalian ? "USD per un milione di token, elaborazione standard. Verifica la proposta AI prima di salvarla." : "USD per one million tokens, standard processing. Review the AI proposal before saving."}</small>
+          </div>
+          <div>
+            <button type="button" className="secondary compact" disabled={Boolean(aiPricingBusy)} onClick={() => void askAiForPricing()}>
+              {aiPricingBusy === "ask" ? (isItalian ? "Consulto AI…" : "Asking AI…") : (isItalian ? "Chiedi all'AI" : "Ask AI")}
+            </button>
+            <button type="button" className="compact" disabled={Boolean(aiPricingBusy)} onClick={() => void saveAiPricing()}>
+              {aiPricingBusy === "save" ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva listino" : "Save price book")}
+            </button>
+          </div>
+        </div>
+        <textarea value={aiPricingDraft} onChange={(event) => setAiPricingDraft(event.target.value)} spellCheck={false} aria-label={isItalian ? "JSON listino modelli AI" : "AI model price book JSON"} />
+        {aiPricingUpdatedAt ? <small>{isItalian ? "Ultimo salvataggio" : "Last saved"}: {new Date(aiPricingUpdatedAt).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
+        {aiPricingError ? <p role="alert">{aiPricingError}</p> : null}
       </section>
       {overview ? (
         <>

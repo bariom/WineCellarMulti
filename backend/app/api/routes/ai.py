@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import math
 import re
 from dataclasses import replace
@@ -33,7 +34,15 @@ from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import AiAuditLog, User, UserAiCreditTransaction, UserAiSettings, Wine, WishlistItem
+from app.models import (
+    AiAuditLog,
+    AppAiPricing,
+    User,
+    UserAiCreditTransaction,
+    UserAiSettings,
+    Wine,
+    WishlistItem,
+)
 from app.prompts import (
     ai_notes_prompt,
     drink_window_prompt,
@@ -96,7 +105,7 @@ GPT56_DEFAULT_ROLE_BY_FIELD = {
     "pairing_model": "balanced",
 }
 PAIRING_MAX_CANDIDATES = 25
-MODEL_PRICING_USD_PER_MILLION_TOKENS = {
+DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
     "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
     "gpt-5.4": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
@@ -105,6 +114,48 @@ MODEL_PRICING_USD_PER_MILLION_TOKENS = {
     "gpt-5.6-terra": {"input": Decimal("2.00"), "cached_input": Decimal("0.20"), "output": Decimal("12.00")},
     "gpt-5.6-sol": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
 }
+
+
+def model_pricing_usd_per_million_tokens(db: Session | None = None) -> dict[str, dict[str, Decimal]]:
+    """Return the default price book extended by operator-supplied JSON rates.
+
+    The optional OPENAI_MODEL_PRICING_USD_PER_MILLION_TOKENS value accepts a
+    JSON object keyed by model name. Each rate must contain non-negative
+    ``input``, ``cached_input``, and ``output`` USD-per-million-token values.
+    It can update an existing model or add a newly released one.
+    """
+    pricing = {model: dict(rates) for model, rates in DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS.items()}
+    raw_overrides = str(settings.openai_model_pricing_usd_per_million_tokens or "").strip()
+    if db is not None:
+        app_pricing = db.get(AppAiPricing, 1)
+        if app_pricing is not None and app_pricing.price_book_json.strip():
+            raw_overrides = app_pricing.price_book_json.strip()
+    if not raw_overrides:
+        return pricing
+    try:
+        overrides = json.loads(raw_overrides)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI pricing configuration is invalid",
+        ) from exc
+    if not isinstance(overrides, dict):
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI pricing configuration is invalid")
+
+    for model, rates in overrides.items():
+        if not isinstance(model, str) or not model.strip() or not isinstance(rates, dict):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI pricing configuration is invalid")
+        try:
+            normalized_rates = {field: Decimal(str(rates[field])) for field in ("input", "cached_input", "output")}
+        except (KeyError, InvalidOperation, TypeError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI pricing configuration is invalid",
+            ) from exc
+        if any(rate < Decimal("0") or not rate.is_finite() for rate in normalized_rates.values()):
+            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI pricing configuration is invalid")
+        pricing[model.strip()] = normalized_rates
+    return pricing
 
 
 def ai_pack_markup_percent() -> Decimal:
@@ -240,15 +291,16 @@ def clip_summary(value: str, limit: int = 900) -> str:
     return text[:limit]
 
 
-def pricing_for_model(model: str) -> dict[str, Decimal]:
+def pricing_for_model(model: str, db: Session | None = None) -> dict[str, Decimal]:
     # The Responses API/dashboard may expose a dated snapshot even when the
     # request used an alias (for example gpt-5.5-2026-04-23). Price snapshots
     # with the same published base-model rate instead of silently returning 0.
-    pricing = MODEL_PRICING_USD_PER_MILLION_TOKENS.get(model)
+    price_book = model_pricing_usd_per_million_tokens(db)
+    pricing = price_book.get(model)
     if pricing is None:
-        matching_models = [name for name in MODEL_PRICING_USD_PER_MILLION_TOKENS if model.startswith(f"{name}-")]
+        matching_models = [name for name in price_book if model.startswith(f"{name}-")]
         if matching_models:
-            pricing = MODEL_PRICING_USD_PER_MILLION_TOKENS[max(matching_models, key=len)]
+            pricing = price_book[max(matching_models, key=len)]
     if pricing is None:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -257,16 +309,16 @@ def pricing_for_model(model: str) -> dict[str, Decimal]:
     return pricing
 
 
-def reservation_pricing_model(model: str) -> str:
+def reservation_pricing_model(model: str, db: Session | None = None) -> str:
     candidates = [model]
     if model.startswith("gpt-5.6"):
         candidates.append(settings.openai_fallback_model)
-    priced_candidates = [(candidate, pricing_for_model(candidate)) for candidate in candidates]
+    priced_candidates = [(candidate, pricing_for_model(candidate, db)) for candidate in candidates]
     return max(priced_candidates, key=lambda item: item[1]["input"] + item[1]["output"])[0]
 
 
-def estimate_cost_usd(model: str, usage: TokenUsage) -> Decimal:
-    pricing = pricing_for_model(model)
+def estimate_cost_usd(model: str, usage: TokenUsage, db: Session | None = None) -> Decimal:
+    pricing = pricing_for_model(model, db)
     uncached_input_tokens = max(usage.input_tokens - usage.cached_input_tokens, 0)
     cost = (
         Decimal(uncached_input_tokens) * pricing["input"]
@@ -298,6 +350,7 @@ def maximum_billable_cost_usd(
     input_tokens: int,
     output_tokens: int,
     web_search_calls: int,
+    db: Session | None = None,
 ) -> Decimal:
     usage = TokenUsage(
         input_tokens=max(input_tokens, 0),
@@ -309,7 +362,7 @@ def maximum_billable_cost_usd(
         provider_source=provider_source,
         model=model,
         usage=usage,
-        extra_cost_usd=web_search_tool_cost_usd(web_search_calls),
+        extra_cost_usd=web_search_tool_cost_usd(web_search_calls), db=db,
     )
 
 
@@ -352,12 +405,13 @@ def reserve_ai_credits(
         input_tokens=prompt_token_budget,
         output_tokens=max_output_tokens,
         web_search_calls=max_tool_calls if web_search else 0,
+        db=db,
     )
     effective_max_output_tokens = max_output_tokens
     reserved_cost = desired_cost
 
     if desired_cost > balance:
-        pricing = pricing_for_model(model)
+        pricing = pricing_for_model(model, db)
         markup_multiplier = Decimal("1") if context.user.is_app_admin else Decimal("1") + (ai_pack_markup_percent() / Decimal("100"))
         fixed_cost = maximum_billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,
@@ -366,6 +420,7 @@ def reserve_ai_credits(
             input_tokens=prompt_token_budget,
             output_tokens=0,
             web_search_calls=max_tool_calls if web_search else 0,
+            db=db,
         )
         available_for_output = balance - fixed_cost
         if available_for_output <= ZERO_USD:
@@ -383,6 +438,7 @@ def reserve_ai_credits(
             input_tokens=prompt_token_budget,
             output_tokens=effective_max_output_tokens,
             web_search_calls=max_tool_calls if web_search else 0,
+            db=db,
         )
 
     reservation_id = uuid4()
@@ -437,8 +493,8 @@ def cancel_ai_credit_reservation(db: Session, context: CurrentContext, *, reserv
     db.commit()
 
 
-def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage, extra_cost_usd: Decimal = Decimal("0")) -> Decimal:
-    base_cost = quantize_usd(estimate_cost_usd(model, usage) + extra_cost_usd)
+def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage, extra_cost_usd: Decimal = Decimal("0"), db: Session | None = None) -> Decimal:
+    base_cost = quantize_usd(estimate_cost_usd(model, usage, db) + extra_cost_usd)
     if provider_source != "credits" or user_is_app_admin:
         return base_cost
     markup = ai_pack_markup_percent()
@@ -519,7 +575,7 @@ def create_ai_response(
     reservation_id: UUID | None = None
     reserved_cost = ZERO_USD
     if provider_source == "credits":
-        reservation_model = reservation_pricing_model(requested_model or model)
+        reservation_model = reservation_pricing_model(requested_model or model, db)
         reservation_id, reserved_cost, effective_output_limit = reserve_ai_credits(
             db,
             context,
@@ -556,6 +612,7 @@ def create_ai_response(
             model=response.model or model,
             usage=response.usage,
             extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
+            db=db,
         )
         if reservation_id is not None:
             reconcile_ai_credit_reservation(
@@ -599,13 +656,14 @@ def record_ai_audit(
     extra_cost_usd: Decimal = Decimal("0"),
 ) -> None:
     token_usage = usage or TokenUsage()
-    base_cost = quantize_usd(estimate_cost_usd(model, token_usage) + extra_cost_usd)
+    base_cost = quantize_usd(estimate_cost_usd(model, token_usage, db) + extra_cost_usd)
     billed_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
         model=model,
         usage=token_usage,
         extra_cost_usd=extra_cost_usd,
+        db=db,
     )
     source_metadata: dict[str, str] = {"provider_source": provider_source}
     if provider_source == "application":
@@ -1225,6 +1283,7 @@ def compare_wines(
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.pairing_model),
         usage=response.usage,
+        db=db,
     )
     compare_response = WineCompareResponse(
         model=effective_response_model(response, user_settings.pairing_model),
@@ -1370,6 +1429,7 @@ def suggest_pairing(
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.pairing_model),
         usage=response.usage,
+        db=db,
     )
     cleaned.estimated_cost_usd = charged_cost
     record_ai_audit(
@@ -2560,6 +2620,7 @@ def suggest_regional_gap_targets(
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,
+        db=db,
     )
     rationale = str(result.get("rationale") or "").strip()[:1200]
     if not rationale:
@@ -2666,6 +2727,7 @@ def generate_wishlist_portfolio_strategy(
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,
+        db=db,
     )
     strategy_response = WishlistPortfolioStrategyResponse(
         model=effective_response_model(response, user_settings.wishlist_model),

@@ -86,6 +86,10 @@ class Settings(BaseSettings):
     openai_advanced_max_output_tokens: int = 32768
     openai_timeout_seconds: float = 60.0
     openai_max_retries: int = 0
+    # Optional JSON overrides/additions for the token price book. Keeping it in
+    # the environment lets operators update published model prices without a
+    # code deployment; invalid entries are rejected when a price is requested.
+    openai_model_pricing_usd_per_million_tokens: str = ""
     openai_web_search_tool_cost_usd: str = "0.01"
     wine_recognition_max_input_bytes: int = 16_000_000
     wine_recognition_max_dimension: int = 1600

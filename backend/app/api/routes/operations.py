@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hmac
+import json
 from datetime import UTC, datetime, timedelta
 from typing import cast
 from uuid import UUID
@@ -11,12 +12,14 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
+from app.api.routes.ai import model_pricing_usd_per_million_tokens
 from app.api.routes.wines import PHOTO_SIZES, wine_photo_path
 from app.core.config import settings
 from app.core.security import hash_session_token, new_session_token
 from app.db.session import get_db
 from app.models import (
     AiAuditLog,
+    AppAiPricing,
     CoOwnershipAgreement,
     Household,
     OperationalMetricSample,
@@ -28,6 +31,7 @@ from app.models import (
     WineTastingEntry,
     WishlistItem,
 )
+from app.services.openai_client import create_response, parse_json_response
 from app.services.openai_costs import organization_cost_summary, unavailable_summary
 from app.services.operational_alerts import evaluate_operational_alerts
 from app.services.operational_metrics import system_snapshot
@@ -36,6 +40,87 @@ from app.services.request_metrics import request_metrics
 router = APIRouter(prefix="/admin/operations")
 
 SAMPLE_RETENTION = timedelta(days=14)
+
+
+def app_ai_pricing(db: Session) -> AppAiPricing | None:
+    return db.get(AppAiPricing, 1)
+
+
+@router.get("/ai-pricing")
+def get_ai_pricing(
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    stored = app_ai_pricing(db)
+    return {
+        "price_book": {
+            model: {field: str(amount) for field, amount in rates.items()}
+            for model, rates in model_pricing_usd_per_million_tokens(db).items()
+        },
+        "custom_price_book_json": stored.price_book_json if stored else "",
+        "updated_at": stored.updated_at.isoformat() if stored else None,
+    }
+
+
+@router.put("/ai-pricing")
+def save_ai_pricing(
+    payload: dict[str, object],
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    raw_price_book = str(payload.get("price_book_json") or "").strip()
+    stored = app_ai_pricing(db)
+    if stored is None:
+        stored = AppAiPricing(id=1)
+        db.add(stored)
+    previous_value = stored.price_book_json
+    stored.price_book_json = raw_price_book
+    try:
+        db.flush()
+        price_book = model_pricing_usd_per_million_tokens(db)
+    except HTTPException:
+        stored.price_book_json = previous_value
+        db.rollback()
+        raise
+    db.commit()
+    db.refresh(stored)
+    return {
+        "price_book": {model: {field: str(amount) for field, amount in rates.items()} for model, rates in price_book.items()},
+        "custom_price_book_json": stored.price_book_json,
+        "updated_at": stored.updated_at.isoformat(),
+    }
+
+
+@router.post("/ai-pricing/ask-ai")
+def ask_ai_for_pricing(
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    current_models = ", ".join(model_pricing_usd_per_million_tokens(db).keys())
+    response = create_response(
+        settings.openai_default_model,
+        "You maintain an AI provider price book. Use web search and return JSON only.",
+        (
+            "Find the current official OpenAI API token prices in USD per one million tokens for these models: "
+            f"{current_models}. Return exactly {{\"price_book\":{{model:{{\"input\":number,\"cached_input\":number,\"output\":number}}}}}}. "
+            "Use standard processing prices only: do not use Fast mode or legacy Priority Processing prices. "
+            "Include only models whose prices you can verify from official OpenAI sources. Do not estimate prices."
+        ),
+        web_search=True,
+        web_search_context_size="low",
+        max_tool_calls=4,
+        max_output_tokens=3000,
+        task_type="pricing_lookup",
+    )
+    result = parse_json_response(response.text)
+    price_book = result.get("price_book")
+    if not isinstance(price_book, dict):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned no usable price book")
+    return {
+        "price_book_json": json.dumps(price_book, separators=(",", ":")),
+        "model": response.model,
+        "web_search_calls": response.web_search_calls,
+    }
 
 
 def require_operations_read_access(

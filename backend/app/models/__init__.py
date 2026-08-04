@@ -1,4 +1,5 @@
 from app.models.ai_audit import AiAuditLog
+from app.models.app_ai_pricing import AppAiPricing
 from app.models.billing import (
     RedeemCode,
     RedeemRedemption,
@@ -35,6 +36,7 @@ from app.models.wishlist import WishlistItem, WishlistList
 
 __all__ = [
     "AiAuditLog",
+    "AppAiPricing",
     "CoOwnershipAgreement",
     "CoOwnershipParticipant",
     "CoOwnershipPayment",

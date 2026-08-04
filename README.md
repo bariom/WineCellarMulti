@@ -294,6 +294,18 @@ customer.subscription.deleted
 
 `AI_PACK_MARKUP_PERCENT` adds a configurable spread on AI Pack consumption for end users only. App admins continue to consume AI budget at the base estimated OpenAI cost.
 
+### Updating AI model prices
+
+Token costs are not hard-coded operationally. The built-in price book is used by default, while `OPENAI_MODEL_PRICING_USD_PER_MILLION_TOKENS` can override an existing model or add a new one without changing application code. The value is a JSON object of USD prices per one million tokens:
+
+```env
+OPENAI_MODEL_PRICING_USD_PER_MILLION_TOKENS={"gpt-new":{"input":"1.25","cached_input":"0.125","output":"10"}}
+```
+
+All three fields are required and must be non-negative. Update the variable and restart the backend; an invalid price book makes AI requests fail safely instead of recording an unreliable cost.
+
+An app administrator can instead maintain the same JSON from **Settings → Operations → AI model price book**. Console values are persisted in the database and take precedence immediately; the **Ask AI** button uses server-side web search to prepare a reviewable draft and never saves it automatically.
+
 The webhook creates redeem codes, renewal notifications, and subscription status notifications. A browser redirect alone is not trusted. Enable Stripe Customer Portal in the Stripe dashboard so users can manage or cancel subscriptions from the app.
 
 ## Email Notifications

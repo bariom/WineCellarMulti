@@ -203,6 +203,41 @@ def test_unknown_model_cost_fails_closed():
     assert "pricing is not configured" in exc_info.value.detail
 
 
+def test_model_price_book_can_add_new_models_and_override_existing_rates(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        settings,
+        "openai_model_pricing_usd_per_million_tokens",
+        '{"gpt-future":{"input":"1.25","cached_input":"0.125","output":"10"},"gpt-5.5":{"input":"1","cached_input":"0.1","output":"2"}}',
+    )
+    usage = TokenUsage(input_tokens=1000, cached_input_tokens=200, output_tokens=200, total_tokens=1200)
+
+    assert estimate_cost_usd("gpt-future-2026-08-04", usage) == Decimal("0.003025")
+    assert estimate_cost_usd("gpt-5.5", usage) == Decimal("0.001220")
+
+
+def test_invalid_model_price_book_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(settings, "openai_model_pricing_usd_per_million_tokens", '{"gpt-future":{"input":"1"}}')
+
+    with pytest.raises(HTTPException) as exc_info:
+        estimate_cost_usd("gpt-5.5", TokenUsage(input_tokens=1000, output_tokens=1000, total_tokens=2000))
+
+    assert exc_info.value.status_code == 503
+    assert "pricing configuration is invalid" in exc_info.value.detail
+
+
+def test_database_price_book_takes_precedence_over_environment(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(
+        settings,
+        "openai_model_pricing_usd_per_million_tokens",
+        '{"gpt-5.5":{"input":"1","cached_input":"0.1","output":"2"}}',
+    )
+    db = SimpleNamespace(get=lambda *_args: SimpleNamespace(
+        price_book_json='{"gpt-5.5":{"input":"2","cached_input":"0.2","output":"4"}}'
+    ))
+
+    assert estimate_cost_usd("gpt-5.5", TokenUsage(input_tokens=1000, output_tokens=1000, total_tokens=2000), db) == Decimal("0.006000")
+
+
 def test_web_search_has_non_zero_default_cost(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "openai_web_search_tool_cost_usd", "0.01")
     assert web_search_tool_cost_usd(3) == Decimal("0.030000")
