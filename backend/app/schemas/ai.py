@@ -141,6 +141,7 @@ class PairingRequest(AiGenerationRequest):
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     include_market: bool = False
     market_only: bool = False
+    only_ideal_drink_window: bool = False
     ignore_preferences: bool = False
     prefer_local_wines: bool = False
     local_origin: str = Field(default="", max_length=160)

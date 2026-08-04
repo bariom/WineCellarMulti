@@ -1206,6 +1206,7 @@ export function App() {
   const [pairingMaxPrice, setPairingMaxPrice] = useState("");
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
+  const [pairingOnlyIdealDrinkWindow, setPairingOnlyIdealDrinkWindow] = useState(true);
   const [pairingIgnorePreferences, setPairingIgnorePreferences] = useState(false);
   const [pairingPreferLocal, setPairingPreferLocal] = useState(false);
   const [pairingLocalOrigin, setPairingLocalOrigin] = useState("");
@@ -4364,6 +4365,7 @@ export function App() {
           max_price_chf: pairingMaxPrice.trim() ? Number(pairingMaxPrice.trim()) : null,
           include_market: pairingIncludeMarket,
           market_only: pairingMarketOnly,
+          only_ideal_drink_window: pairingOnlyIdealDrinkWindow,
           ignore_preferences: pairingIgnorePreferences,
           prefer_local_wines: pairingMarketOnly && pairingPreferLocal,
           local_origin: pairingMarketOnly ? pairingLocalOrigin.trim() : "",
@@ -9148,6 +9150,7 @@ export function App() {
                   pairingIncludeMarket={pairingIncludeMarket}
                   pairingLocalOrigin={pairingLocalOrigin}
                   pairingMarketOnly={pairingMarketOnly}
+                  pairingOnlyIdealDrinkWindow={pairingOnlyIdealDrinkWindow}
                   pairingMaxPrice={pairingMaxPrice}
                   pairingPreferLocal={pairingPreferLocal}
                   pairingResult={pairingResult}
@@ -9159,6 +9162,7 @@ export function App() {
                   setPairingIncludeMarket={setPairingIncludeMarket}
                   setPairingLocalOrigin={setPairingLocalOrigin}
                   setPairingMarketOnly={setPairingMarketOnly}
+                  setPairingOnlyIdealDrinkWindow={setPairingOnlyIdealDrinkWindow}
                   setPairingMaxPrice={setPairingMaxPrice}
                   setPairingPreferLocal={setPairingPreferLocal}
                   t={t}

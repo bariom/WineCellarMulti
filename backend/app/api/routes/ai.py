@@ -996,6 +996,10 @@ def pairing_candidate_sort_key(wine: Wine, current_year: int) -> tuple[int, int,
     return (readiness, wine.drink_to or 9999, wine.type or "", wine.name or "")
 
 
+def pairing_wine_is_in_ideal_window(wine: Wine, current_year: int) -> bool:
+    return bool(wine.drink_peak_from and wine.drink_peak_to and wine.drink_peak_from <= current_year <= wine.drink_peak_to)
+
+
 def select_pairing_candidates(wines: list[Wine], limit: int = PAIRING_MAX_CANDIDATES) -> list[Wine]:
     if len(wines) <= limit:
         return wines
@@ -1272,6 +1276,9 @@ def suggest_pairing(
     cellar_wines = [wine for wine in cellar_wines if user_can_see_wine(context, wine)]
     if max_price_chf is not None:
         cellar_wines = [wine for wine in cellar_wines if pairing_budget_value_chf(wine) <= max_price_chf]
+    if payload.only_ideal_drink_window:
+        current_year = datetime.now(UTC).year
+        cellar_wines = [wine for wine in cellar_wines if pairing_wine_is_in_ideal_window(wine, current_year)]
     cellar_wines = select_pairing_candidates(cellar_wines, limit=user_settings.pairing_candidate_limit)
     wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
     schema = {

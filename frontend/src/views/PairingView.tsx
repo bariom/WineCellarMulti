@@ -9,6 +9,7 @@ type WineLike = {
   producer: string;
   current_value: string | null;
   price: string;
+  photo_thumbnail_url: string;
 };
 
 type PairingResult = {
@@ -41,6 +42,7 @@ type PairingViewProps = {
   pairingIncludeMarket: boolean;
   pairingLocalOrigin: string;
   pairingMarketOnly: boolean;
+  pairingOnlyIdealDrinkWindow: boolean;
   pairingMaxPrice: string;
   pairingPreferLocal: boolean;
   pairingResult: PairingResult | null;
@@ -57,6 +59,7 @@ type PairingViewProps = {
   setPairingIncludeMarket: (value: boolean) => void;
   setPairingLocalOrigin: (value: string) => void;
   setPairingMarketOnly: (value: boolean) => void;
+  setPairingOnlyIdealDrinkWindow: (value: boolean) => void;
   setPairingMaxPrice: (value: string) => void;
   setPairingPreferLocal: (value: boolean) => void;
   t: (key: any) => string;
@@ -118,6 +121,7 @@ export default function PairingView({
   pairingIncludeMarket,
   pairingLocalOrigin,
   pairingMarketOnly,
+  pairingOnlyIdealDrinkWindow,
   pairingMaxPrice,
   pairingPreferLocal,
   pairingResult,
@@ -129,6 +133,7 @@ export default function PairingView({
   setPairingIncludeMarket,
   setPairingLocalOrigin,
   setPairingMarketOnly,
+  setPairingOnlyIdealDrinkWindow,
   setPairingMaxPrice,
   setPairingPreferLocal,
   t,
@@ -278,6 +283,10 @@ export default function PairingView({
               <span>{t("pairingIgnorePreferences")}</span>
             </label>
             <label className="pairing-option">
+              <input type="checkbox" checked={pairingOnlyIdealDrinkWindow} onChange={(event) => setPairingOnlyIdealDrinkWindow(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
+              <span>{t("pairingOnlyIdealDrinkWindow")}</span>
+            </label>
+            <label className="pairing-option">
               <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
               <span>{t("pairingIncludeMarket")}</span>
             </label>
@@ -338,15 +347,19 @@ export default function PairingView({
                 <section>
                   <h3>{t("pairingCellarMatches")}</h3>
                   <div className="pairing-match-list">
-                    {pairingResult.cellar_matches.map((match) => (
-                      <button type="button" className="pairing-match" key={match.wine_id} onClick={() => {
+                    {pairingResult.cellar_matches.map((match) => {
+                      const wine = wines.find((item) => item.id === match.wine_id);
+                      const photoUrl = wine?.photo_thumbnail_url;
+                      return (
+                      <button type="button" className="pairing-match" key={match.wine_id} style={photoUrl ? { gridTemplateColumns: "58px minmax(0, 1fr)", columnGap: "10px", alignItems: "center" } : undefined} onClick={() => {
                         const wine = wines.find((item) => item.id === match.wine_id);
                         if (wine) onOpenWine(wine);
                       }}>
-                        <strong>{match.wine_name}</strong>
-                        <span>{match.producer}</span>
-                        {(() => {
-                          const wine = wines.find((item) => item.id === match.wine_id);
+                        {photoUrl ? <img src={photoUrl} alt="" loading="lazy" style={{ width: "58px", maxHeight: "108px", objectFit: "contain", justifySelf: "center", filter: "drop-shadow(0 2px 6px color-mix(in srgb, var(--accent) 34%, transparent))" }} /> : null}
+                        <div style={{ display: "grid", gap: "5px", minWidth: 0 }}>
+                          <strong>{match.wine_name}</strong>
+                          <span>{match.producer}</span>
+                          {(() => {
                           const referenceValue = Number(wine?.current_value || wine?.price || 0);
                           const withinBudget = hasPairingBudget && Number.isFinite(referenceValue) && referenceValue > 0 && referenceValue <= activePairingBudget;
                           const bestValue = hasPairingBudget && withinBudget && cheapestCellarMatch !== null && Math.abs(referenceValue - cheapestCellarMatch) < 0.0001;
@@ -357,11 +370,13 @@ export default function PairingView({
                               {bestValue ? <span className="pairing-budget-badge value">{t("pairingBestValue")}</span> : null}
                             </div>
                           );
-                        })()}
-                        <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
-                        {match.serving_note ? <span>{match.serving_note}</span> : null}
+                          })()}
+                          <span><b>{t("pairingWhy")}:</b> {match.reason}</span>
+                          {match.serving_note ? <span>{match.serving_note}</span> : null}
+                        </div>
                       </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </section>
               ) : <p className="pairing-summary">{t("pairingNoCellarMatch")}</p>}

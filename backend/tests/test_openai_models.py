@@ -12,7 +12,7 @@ from fastapi import HTTPException
 import pytest
 
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, select_pairing_candidates, web_search_tool_cost_usd, wine_market_context, wishlist_advice_context, wishlist_market_context
+from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, pairing_wine_is_in_ideal_window, select_pairing_candidates, web_search_tool_cost_usd, wine_market_context, wishlist_advice_context, wishlist_market_context
 from app.services.ai_models import parameters_for_model, reasoning_effort_for_request, select_ai_model
 from app.services.openai_client import TokenUsage, create_response, response_body
 
@@ -229,6 +229,13 @@ def test_pairing_candidates_are_compact_diverse_and_limited_to_25():
     assert compact["grapes"] == ["Chardonnay", "Pinot Noir", "Extra grape"]
     assert compact["tags"] == ["Dinner", "Ready", "Extra"]
     assert "scores" not in compact
+
+
+def test_pairing_ideal_window_requires_the_current_year_to_be_in_the_peak_window():
+    current_year = 2026
+    assert pairing_wine_is_in_ideal_window(SimpleNamespace(drink_peak_from=2024, drink_peak_to=2028), current_year)
+    assert not pairing_wine_is_in_ideal_window(SimpleNamespace(drink_peak_from=2027, drink_peak_to=2030), current_year)
+    assert not pairing_wine_is_in_ideal_window(SimpleNamespace(drink_peak_from=None, drink_peak_to=None), current_year)
 
 
 def test_task_contexts_exclude_unrelated_cellar_and_generated_data():
