@@ -410,9 +410,20 @@ export function TastingEnjoymentInput({
 export function TastingEnjoymentBadge({ value, t }: { value: TastingEnjoyment; t: (key: TranslationKey) => string }) {
   if (!value) return null;
   const positive = value === "positive";
+  const iconStyle = {
+    display: "inline-grid",
+    placeItems: "center",
+    width: "1.7em",
+    height: "1.7em",
+    borderRadius: "50%",
+    color: positive ? "var(--drink-ideal)" : "var(--drink-past)",
+    background: positive
+      ? "color-mix(in srgb, var(--drink-ideal) 22%, var(--surface))"
+      : "color-mix(in srgb, var(--drink-past) 22%, var(--surface))",
+  };
   return (
     <span className={`tasting-enjoyment-badge ${positive ? "positive" : "negative"}`} aria-label={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")} title={t(positive ? "tastingEnjoymentPositive" : "tastingEnjoymentNegative")}>
-      <span aria-hidden="true"><AppIcon name={positive ? "sentiment-positive" : "sentiment-negative"} /></span>
+      <span aria-hidden="true" style={iconStyle}><AppIcon name={positive ? "sentiment-positive" : "sentiment-negative"} /></span>
     </span>
   );
 }
