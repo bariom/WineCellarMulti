@@ -23,38 +23,6 @@ export function wineUnitValue(wine: Wine) {
   return Number(wine.current_value || wine.price || 0);
 }
 
-export type PastWindowFinancialRisk = {
-  bottles: number;
-  exposedValue: number;
-  expectedLoss: number;
-  averageRisk: number;
-};
-
-const PAST_WINDOW_ANNUAL_SURVIVAL_RATE = 0.85;
-
-export function pastWindowLossProbability(drinkTo: number | null, year: number) {
-  if (!drinkTo || year <= drinkTo) return 0;
-  return 1 - PAST_WINDOW_ANNUAL_SURVIVAL_RATE ** (year - drinkTo);
-}
-
-export function estimatePastWindowFinancialRisk(wines: Wine[], year: number): PastWindowFinancialRisk {
-  const estimate = wines.reduce((total, wine) => {
-    const probability = pastWindowLossProbability(wine.drink_to, year);
-    const quantity = Math.max(Number(wine.quantity || 0), 0);
-    const value = Math.max(wineUnitValue(wine), 0) * quantity;
-    if (!probability || !quantity || !value) return total;
-    return {
-      bottles: total.bottles + quantity,
-      exposedValue: total.exposedValue + value,
-      expectedLoss: total.expectedLoss + value * probability,
-    };
-  }, { bottles: 0, exposedValue: 0, expectedLoss: 0 });
-  return {
-    ...estimate,
-    averageRisk: estimate.exposedValue ? estimate.expectedLoss / estimate.exposedValue : 0,
-  };
-}
-
 export function hasVintageForDrinkWindow(wine: Wine) {
   const vintage = wine.vintage.trim().toLowerCase();
   if (!vintage) return false;

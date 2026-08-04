@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { TranslationKey } from "../i18n";
-import type { Locale } from "../types";
+import type { Locale, Wine } from "../types";
 import { formatBottleCount } from "../domain/cellar";
 import "./MaturityPanorama.css";
 
@@ -9,6 +9,56 @@ export type MaturityPanoramaPoint = { year: number; past: number; peak: number; 
 export type MaturityPanoramaSummary = { readyNow: number; peakSoon: number; waiting: number; past: number; mapped: number };
 
 const phaseOrder: MaturityPhase[] = ["past", "peak", "ready", "approaching", "young"];
+const PAST_WINDOW_ANNUAL_SURVIVAL_RATE = 0.85;
+
+function financialRiskForYear(wines: Wine[], year: number) {
+  const estimate = wines.reduce((total, wine) => {
+    if (!wine.drink_to || year <= wine.drink_to) return total;
+    const probability = 1 - PAST_WINDOW_ANNUAL_SURVIVAL_RATE ** (year - wine.drink_to);
+    const quantity = Math.max(Number(wine.quantity || 0), 0);
+    const value = Math.max(Number(wine.current_value || wine.price || 0), 0) * quantity;
+    if (!quantity || !value) return total;
+    return {
+      exposedValue: total.exposedValue + value,
+      expectedLoss: total.expectedLoss + value * probability,
+    };
+  }, { exposedValue: 0, expectedLoss: 0 });
+  return { ...estimate, averageRisk: estimate.exposedValue ? estimate.expectedLoss / estimate.exposedValue : 0 };
+}
+
+function financialNumberLocale(locale: Locale) {
+  return locale === "it" ? "it-CH" : "en-CH";
+}
+
+function financialMoney(value: number, locale: Locale) {
+  return `CHF ${new Intl.NumberFormat(financialNumberLocale(locale), { maximumFractionDigits: 0 }).format(value)}`;
+}
+
+function financialPercentage(value: number, locale: Locale) {
+  return `${new Intl.NumberFormat(financialNumberLocale(locale), { maximumFractionDigits: 0 }).format(value)}%`;
+}
+
+function financialRiskLabels(locale: Locale) {
+  return locale === "it" ? {
+    title: "Rischio finanziario se le bottiglie restano in cantina",
+    expectedLoss: "Perdita stimata",
+    exposedValue: "Valore oltre finestra massima",
+    averageRisk: "Rischio medio di deterioramento",
+    help: "Scenario gestionale ipotizzando che le bottiglie restino in cantina e che una bottiglia deteriorata perda tutto il suo valore: il rischio parte dopo l'anno massimo di beva al 15% e cresce in modo cumulativo ogni anno successivo. Conservazione e singola bottiglia possono cambiare l'esito; non è una perizia.",
+  } : {
+    title: "Financial risk if bottles remain in the cellar",
+    expectedLoss: "Estimated loss",
+    exposedValue: "Value past maximum window",
+    averageRisk: "Average deterioration risk",
+    help: "Management scenario assuming the bottles remain in the cellar and a deteriorated bottle loses its full value: risk starts after the maximum drinking year at 15% and increases cumulatively each additional year. Storage conditions and the individual bottle may change the outcome; this is not an appraisal.",
+  };
+}
+
+function panoramaLabels(locale: Locale) {
+  return locale === "it"
+    ? { approaching: "In avvicinamento", potentialCaption: "in una fase di massima espressione." }
+    : { approaching: "Approaching peak", potentialCaption: "in a phase of maximum expression." };
+}
 
 function bandPath(points: MaturityPanoramaPoint[], phase: MaturityPhase, before: MaturityPhase[]) {
   const left = 28;
@@ -26,7 +76,7 @@ function bandPath(points: MaturityPanoramaPoint[], phase: MaturityPhase, before:
   return `${upper} ${lower} Z`;
 }
 
-export function MaturityPanorama({ points, currentYear, summary, t, locale }: { points: MaturityPanoramaPoint[]; currentYear: number; summary: MaturityPanoramaSummary; t: (key: TranslationKey) => string; locale: Locale }) {
+export function MaturityPanorama({ points, currentYear, summary, riskWines, riskYears, t, locale }: { points: MaturityPanoramaPoint[]; currentYear: number; summary: MaturityPanoramaSummary; riskWines: Wine[]; riskYears: number[]; t: (key: TranslationKey) => string; locale: Locale }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const currentIndex = Math.max(points.findIndex((point) => point.year === currentYear), 0);
   const currentPoint = points[currentIndex];
@@ -45,7 +95,12 @@ export function MaturityPanorama({ points, currentYear, summary, t, locale }: { 
     { label: t("youngWine"), value: summary.waiting, tone: "young" },
     { label: t("pastWindow"), value: summary.past, tone: "past" },
   ];
-  const phaseLabels: Record<MaturityPhase, string> = { past: t("pastWindow"), peak: t("peakNow"), ready: t("readyToDrink"), approaching: t("maturityApproaching"), young: t("youngWine") };
+  const localLabels = panoramaLabels(locale);
+  const phaseLabels: Record<MaturityPhase, string> = { past: t("pastWindow"), peak: t("peakNow"), ready: t("readyToDrink"), approaching: localLabels.approaching, young: t("youngWine") };
+  const financialRisk = riskYears.map((year) => ({ year, ...financialRiskForYear(riskWines, year) }));
+  const currentFinancialRisk = financialRisk.find((point) => point.year === currentYear) || financialRisk[0];
+  const maxExpectedLoss = Math.max(...financialRisk.map((point) => point.expectedLoss), 1);
+  const riskLabels = financialRiskLabels(locale);
 
   return (
     <section className="maturity-panorama" aria-label={t("drinkingWindow")}>
@@ -89,7 +144,26 @@ export function MaturityPanorama({ points, currentYear, summary, t, locale }: { 
           {[...phaseOrder].reverse().map((phase) => <span className={`tone-${phase}`} key={phase}>{phaseLabels[phase]}</span>)}
         </div>
       </div>
-      <p className="maturity-panorama-callout"><strong>{t("peakLabel")} {potentialStart}—{potentialEnd}</strong><span>{formatBottleCount(activeAt(points[bestIndex]), locale)} {t("bottles").toLowerCase()} {t("maturityPotentialCaption")}</span></p>
+      <p className="maturity-panorama-callout"><strong>{t("peakLabel")} {potentialStart}—{potentialEnd}</strong><span>{formatBottleCount(activeAt(points[bestIndex]), locale)} {t("bottles").toLowerCase()} {localLabels.potentialCaption}</span></p>
+      <section className="maturity-financial-risk" aria-label={riskLabels.title}>
+        <div className="maturity-financial-risk-heading"><span>{riskLabels.title}</span><strong>{currentYear}</strong></div>
+        <div className="maturity-financial-risk-timeline" style={{ "--maturity-risk-year-count": riskYears.length } as CSSProperties}>
+          <div className="maturity-financial-risk-years" aria-hidden="true"><span />{riskYears.map((year) => <span key={year}>{year}</span>)}</div>
+          <div className="maturity-financial-risk-row">
+            <span className="maturity-financial-risk-label">{riskLabels.expectedLoss}</span>
+            {financialRisk.map((point) => {
+              const label = `${point.year}: ${riskLabels.expectedLoss} ${financialMoney(point.expectedLoss, locale)}; ${riskLabels.exposedValue} ${financialMoney(point.exposedValue, locale)}; ${riskLabels.averageRisk} ${financialPercentage(point.averageRisk * 100, locale)}`;
+              return <span className="maturity-financial-risk-cell" key={point.year} style={{ "--financial-risk-weight": `${Math.round((point.expectedLoss / maxExpectedLoss) * 72)}%` } as CSSProperties} title={label} aria-label={label}>{point.expectedLoss ? new Intl.NumberFormat(financialNumberLocale(locale), { notation: "compact", maximumFractionDigits: 1 }).format(point.expectedLoss) : "—"}</span>;
+            })}
+          </div>
+        </div>
+        <div className="maturity-financial-risk-summary">
+          <div><span>{riskLabels.exposedValue}</span><strong>{financialMoney(currentFinancialRisk.exposedValue, locale)}</strong></div>
+          <div><span>{riskLabels.expectedLoss}</span><strong>{financialMoney(currentFinancialRisk.expectedLoss, locale)}</strong></div>
+          <div><span>{riskLabels.averageRisk}</span><strong>{financialPercentage(currentFinancialRisk.averageRisk * 100, locale)}</strong></div>
+        </div>
+        <p className="maturity-financial-risk-help">{riskLabels.help}</p>
+      </section>
     </section>
   );
 }
