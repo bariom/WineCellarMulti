@@ -9005,7 +9005,7 @@ button.balance-indicator:focus-visible {
 .delivery-event {
   position: relative;
   display: grid;
-  grid-template-columns: 110px minmax(0, 1.2fr) minmax(0, 0.9fr) auto;
+  grid-template-columns: 110px minmax(0, 1fr) auto;
   gap: 12px;
   align-items: center;
   width: 100%;
@@ -9036,6 +9036,13 @@ button.balance-indicator:focus-visible {
 
 .delivery-name {
   font-weight: 800;
+}
+
+.delivery-identity {
+  display: grid;
+  gap: 2px;
+  overflow: visible !important;
+  white-space: normal !important;
 }
 
 .delivery-event-position {

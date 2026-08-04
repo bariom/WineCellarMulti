@@ -561,6 +561,28 @@ function prioritySortValue(priority: string) {
   return 2;
 }
 
+function appUserEntitlementStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } | null {
+  if (user.is_app_admin) return null;
+  const days = user.entitlement_days_remaining ?? 0;
+  const dayLabel = locale === "it" ? (days === 1 ? "giorno residuo" : "giorni residui") : (days === 1 ? "day remaining" : "days remaining");
+  if (days <= 0) {
+    return {
+      label: locale === "it" ? "Inattivo · nessun giorno residuo" : "Inactive · no days remaining",
+      style: { color: "var(--danger-text)", borderColor: "var(--danger)", background: "var(--danger-surface)" },
+    };
+  }
+  if (days <= 7) {
+    return {
+      label: `${locale === "it" ? "In scadenza" : "Expiring"} · ${days} ${dayLabel}`,
+      style: { color: "var(--accent)", borderColor: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, var(--surface-raised))" },
+    };
+  }
+  return {
+    label: `${locale === "it" ? "Attivo" : "Active"} · ${days} ${dayLabel}`,
+    style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
+  };
+}
+
 const classicRegionalGapTargets: RegionalGapTarget[] = [
   { region: "Bordeaux", targetPct: 22 },
   { region: "Toscana", targetPct: 16 },
@@ -8962,8 +8984,10 @@ export function App() {
                           {deliveryTimelineItems.map(({ wine, days, dateMs }) => (
                             <button type="button" className="delivery-event" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                               <span className="delivery-date">{formatDisplayDate(wine.expected_delivery)}</span>
-                              <span className="delivery-name"><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                              <span>{wine.producer || t("noProducer")}</span>
+                              <span className="delivery-identity">
+                                <span className="delivery-name"><i className={`wine-dot tone-${wineTone(wine.type)}`} />{[wine.name, wine.vintage].filter(Boolean).join(" · ")}</span>
+                                <span className="delivery-date" style={{ fontSize: "0.76rem" }}>{wine.producer || t("noProducer")}</span>
+                              </span>
                               <strong>{days}d</strong>
                               <span className="delivery-event-position" style={{ left: `${Math.min(Math.max(((dateMs - deliveryTimelineStart) / deliveryTimelineRange) * 100, 0), 100)}%` }} />
                             </button>
@@ -11756,8 +11780,10 @@ export function App() {
                     </div>
                     {adminUsersSorted.length ? (
                       <div className="member-list settings-admin-list">
-                        {adminUsersSorted.map((user) => (
-                          <details className="settings-admin-row settings-admin-detail-row user-admin-card" key={user.id} open={!user.is_approved}>
+                        {adminUsersSorted.map((user) => {
+                          const entitlementStatus = appUserEntitlementStatus(user, locale);
+                          return (
+                            <details className="settings-admin-row settings-admin-detail-row user-admin-card" key={user.id} open={!user.is_approved}>
                             <summary className="settings-admin-row-summary">
                               <div>
                                 <strong>{user.display_name}</strong>
@@ -11770,7 +11796,7 @@ export function App() {
                                 {user.can_use_label_recognition ? <span className="status-pill">{t("labelRecognitionEnabled")}</span> : null}
                                 {user.can_manage_wine_photos ? <span className="status-pill">{locale === "it" ? "Caricamento foto abilitato" : "Photo uploads enabled"}</span> : null}
                                 <span className="status-pill">{formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
-                                {user.entitlement_days_remaining !== null ? <span className="status-pill">{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
+                                {entitlementStatus ? <span className="status-pill" style={entitlementStatus.style}>{entitlementStatus.label}</span> : null}
                               </div>
                             </summary>
                             <div className="settings-admin-row-body">
@@ -11848,8 +11874,9 @@ export function App() {
                                 </div>
                               </details>
                             </div>
-                          </details>
-                        ))}
+                            </details>
+                          );
+                        })}
                       </div>
                     ) : (
                       <p className="empty-state">{t("noActionItems")}</p>
