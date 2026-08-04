@@ -1418,6 +1418,7 @@ export function App() {
     return () => window.cancelAnimationFrame(frame);
   }, [regionalGapAiSuggestion, regionalGapTargetsOpen]);
   const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
+  const demoCtaLabel = locale === "it" ? "Esplora la cantina demo" : "Explore the demo cellar";
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
   const visibleError = formatUserErrorMessage(error, locale);
@@ -4803,7 +4804,7 @@ export function App() {
         </button>
         {authMode === "login" ? (
           <>
-            <button type="button" className="secondary" disabled={saving} onClick={() => void enterDemo()}>{locale === "it" ? "Esplora la cantina demo" : "Explore the demo cellar"}</button>
+            <button type="button" className="secondary" disabled={saving} onClick={() => void enterDemo()}>{demoCtaLabel}</button>
             <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>{t("passkeyLogin")}</button>
             <button type="button" className="secondary" disabled={saving} onClick={() => setAuthMode("forgot-password")}>{t("forgotPassword")}</button>
           </>
@@ -7466,6 +7467,9 @@ export function App() {
             <h2 id="mobile-public-title">{landing.headline}</h2>
             <p>{landing.subheadline}</p>
             <div className="mobile-public-actions">
+              <button type="button" onClick={() => void enterDemo()} disabled={saving}>
+                {saving ? (locale === "it" ? "Apertura…" : "Opening…") : demoCtaLabel}
+              </button>
               <button type="button" onClick={() => openAuthPanel("register")}>
                 {landing.secondaryCta}
               </button>
@@ -12093,9 +12097,14 @@ export function App() {
               ) : null}
 
               {settingsTab === "operations" && canAppAdmin ? (
-                <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
-                  <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} activity={userActivity} onRefresh={loadOperationsMetrics} />
-                </Suspense>
+                <>
+                  <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
+                    <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} activity={userActivity} onRefresh={loadOperationsMetrics} />
+                  </Suspense>
+                  <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento cantina demo…" : "Loading demo cellar…"} />}>
+                    <AdminPhotosPanel locale={locale} />
+                  </Suspense>
+                </>
               ) : null}
 
               {settingsTab === "photos" && canAppAdmin ? (
