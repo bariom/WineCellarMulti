@@ -8267,6 +8267,14 @@ export function App() {
                         </button>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
+                    <button
+                      type="button"
+                      className="secondary"
+                      onClick={() => openOperationalCellarFilter("past_window")}
+                      disabled={!cellarStats.pastWindow}
+                    >
+                      {t("openFilteredCellar")}
+                    </button>
                   </article>
 
                   {renderMaturityHeatmapCard()}
