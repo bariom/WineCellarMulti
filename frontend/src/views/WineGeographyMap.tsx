@@ -7,7 +7,7 @@ import type { TranslationKey } from "../i18n";
 import type { Wine } from "../types";
 
 type WineRegionLocation = { latitude: number; longitude: number };
-type WineMapPoint = { label: string; location: WineRegionLocation; wines: number; bottles: number };
+type WineMapPoint = { label: string; region: string; location: WineRegionLocation; wines: number; bottles: number };
 
 const DENSITY_RADIUS_KM = 1800;
 
@@ -88,14 +88,15 @@ function wineRegionLocation(wine: Wine) {
   }).find(Boolean) || null;
 }
 
-export default function WineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
+export default function WineGeographyMap({ wines, t, onSelectRegion }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void }) {
   const markers = new Map<string, WineMapPoint>();
   wines.forEach((wine) => {
     const location = wineRegionLocation(wine);
-    const label = wine.region.trim() || wine.appellation.trim();
+    const region = wine.region.trim();
+    const label = region || wine.appellation.trim();
     if (!location || !label) return;
     const key = `${label}:${location.latitude}:${location.longitude}`;
-    const current = markers.get(key) || { label, location, wines: 0, bottles: 0 };
+    const current = markers.get(key) || { label, region, location, wines: 0, bottles: 0 };
     current.wines += 1;
     current.bottles += Math.max(Number(wine.quantity || 0), 0);
     markers.set(key, current);
@@ -109,7 +110,7 @@ export default function WineGeographyMap({ wines, t }: { wines: Wine[]; t: (key:
         <DensityViewport points={points} />
         <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         {points.map((point) => (
-          <CircleMarker key={`${point.label}:${point.location.latitude}:${point.location.longitude}`} center={[point.location.latitude, point.location.longitude]} radius={Math.min(22, 7 + Math.sqrt(Math.max(point.bottles, 1)) * 2.25)} pathOptions={{ color: "#fff7ef", weight: 2, fillColor: "#9b3123", fillOpacity: 0.84 }}>
+          <CircleMarker key={`${point.label}:${point.location.latitude}:${point.location.longitude}`} center={[point.location.latitude, point.location.longitude]} radius={Math.min(22, 7 + Math.sqrt(Math.max(point.bottles, 1)) * 2.25)} pathOptions={{ color: "#fff7ef", weight: 2, fillColor: "#9b3123", fillOpacity: 0.84 }} eventHandlers={point.region ? { click: () => onSelectRegion(point.region) } : undefined}>
             <Tooltip direction="top" offset={[0, -8]} opacity={0.96}>
               <strong>{point.label}</strong><br />
               {point.wines} {t("wines").toLowerCase()} · {point.bottles} {t("bottles").toLowerCase()}

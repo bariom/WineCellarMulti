@@ -930,6 +930,7 @@ export type BreakdownMetric = "value" | "bottles" | "wines";
 
 export type WineCollectionFilters = {
   query: string;
+  region: string;
   type: string;
   status: string;
   minPrice: number | null;

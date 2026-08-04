@@ -253,7 +253,7 @@ function DashboardBottleList({
   );
 }
 
-function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: TranslationKey) => string }) {
+function DeferredWineGeographyMap({ wines, t, onSelectRegion }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
 
@@ -280,7 +280,7 @@ function DeferredWineGeographyMap({ wines, t }: { wines: Wine[]; t: (key: Transl
     <div ref={containerRef} className="deferred-map-placeholder">
       {shouldLoad ? (
         <Suspense fallback={<LoadingState label={t("loadingData")} />}>
-          <WineGeographyMap wines={wines} t={t} />
+          <WineGeographyMap wines={wines} t={t} onSelectRegion={onSelectRegion} />
         </Suspense>
       ) : (
         <LoadingState label={t("loadingData")} />
@@ -1318,6 +1318,7 @@ export function App() {
   const [selectedSuggestedPhotoId, setSelectedSuggestedPhotoId] = useState<string | null>(null);
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [regionFilter, setRegionFilter] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
   const mobileWineDetailHistoryActiveRef = useRef(false);
 
@@ -4979,6 +4980,7 @@ export function App() {
   const maxHistogramCount = Math.max(...priceHistogram, 1);
   const wineCollectionFilters: WineCollectionFilters = {
     query: normalizedQuery,
+    region: regionFilter,
     type: typeFilter,
     status: statusFilter,
     minPrice: hasMinBottlePrice ? minBottlePrice : null,
@@ -6043,6 +6045,7 @@ export function App() {
   };
   const activeCollectionFilterChips: Array<{ key: string; label: string; onRemove: () => void }> = [
     ...(searchQuery.trim() ? [{ key: "query", label: `“${searchQuery.trim()}”`, onRemove: () => setSearchQuery("") }] : []),
+    ...(regionFilter ? [{ key: "region", label: `${locale === "it" ? "Regione" : "Region"}: ${regionFilter}`, onRemove: () => setRegionFilter("") }] : []),
     ...(typeFilter ? [{ key: "type", label: displayValue(typeFilter, locale, "type"), onRemove: () => setTypeFilter("") }] : []),
     ...(statusFilter ? [{ key: "status", label: displayValue(statusFilter, locale, "status"), onRemove: () => setStatusFilter("") }] : []),
     ...(ownershipFilter ? [{ key: "ownership", label: ownershipFilter === "mine" ? t("myBottles") : t("sharedBottles"), onRemove: () => setOwnershipFilter("") }] : []),
@@ -6319,6 +6322,7 @@ export function App() {
 
   function clearFilters(nextView: ViewName = activeView) {
     setSearchQuery("");
+    setRegionFilter("");
     setTypeFilter("");
     setStatusFilter("");
     setOwnershipFilter("");
@@ -6392,6 +6396,31 @@ export function App() {
     setWineFormOpen(false);
     setWishlistFormOpen(false);
     setNotificationsOpen(false);
+  }
+
+  function openCellarForRegion(region: string) {
+    const normalizedRegion = region.trim();
+    if (!normalizedRegion) return;
+    setActiveView("cellar");
+    setSearchQuery("");
+    setRegionFilter(normalizedRegion);
+    setTypeFilter("");
+    setStatusFilter("");
+    setOwnershipFilter("");
+    setQuickWineFilter("");
+    setMaturityFilter(null);
+    setTagFilter([]);
+    setGrapeFilter([]);
+    setMinBottlePriceFilter("");
+    setMaxBottlePriceFilter("");
+    setTagOptionQuery("");
+    setGrapeOptionQuery("");
+    setSortMode("name");
+    setSelectedWineId(null);
+    setWineFormOpen(false);
+    setWishlistFormOpen(false);
+    setNotificationsOpen(false);
+    filterPanelRef.current?.removeAttribute("open");
   }
 
   function applyMaturityHeatmapFilter(year: number, tone: WineTone) {
@@ -8667,7 +8696,7 @@ export function App() {
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("wineOrigins")}</h2>
                     </div>
                   </div>
-                  <DeferredWineGeographyMap wines={cellarWines} t={t} />
+                  <DeferredWineGeographyMap wines={cellarWines} t={t} onSelectRegion={openCellarForRegion} />
                 </article>
 
                 {renderMaturityHeatmapCard()}

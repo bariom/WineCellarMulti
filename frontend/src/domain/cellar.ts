@@ -276,6 +276,7 @@ export function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentY
 
 export function matchesWineCollectionFilters(wine: Wine, filters: WineCollectionFilters) {
   if (filters.query && !wineSearchText(wine).includes(filters.query)) return false;
+  if (filters.region && wine.region.trim().toLocaleLowerCase() !== filters.region.toLocaleLowerCase()) return false;
   if (filters.type && normalizeWineType(wine.type) !== filters.type) return false;
   if (filters.status && wine.status !== filters.status) return false;
   const bottlePrice = Number(wine.price || 0);
