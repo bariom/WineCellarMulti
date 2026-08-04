@@ -12,6 +12,7 @@ class SessionResponse(BaseModel):
     active_household_name: str | None = None
     membership_role: str | None = None
     is_app_admin: bool = False
+    is_demo: bool = False
     pending_approval: bool = False
     pending_email_verification: bool = False
     requires_legal_acceptance: bool = False

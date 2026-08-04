@@ -13,15 +13,18 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
 from app.api.routes.ai import available_model_options, model_pricing_usd_per_million_tokens
-from app.api.routes.wines import PHOTO_SIZES, wine_photo_path
+from app.api.routes.wines import PHOTO_SIZES, copy_wine_photo, wine_photo_path
 from app.core.config import settings
-from app.core.security import hash_session_token, new_session_token
+from app.core.legal import LEGAL_DOCUMENT_VERSION
+from app.core.security import hash_password, hash_session_token, new_session_token
 from app.db.session import get_db
 from app.models import (
     AiAuditLog,
     AppAiPricing,
     CoOwnershipAgreement,
+    DemoWineSelection,
     Household,
+    Membership,
     OperationalMetricSample,
     User,
     UserActivityLog,
@@ -29,6 +32,7 @@ from app.models import (
     Wine,
     WineRecognitionLog,
     WineTastingEntry,
+    WineValueHistory,
     WishlistItem,
 )
 from app.services.openai_costs import organization_cost_summary, unavailable_summary
@@ -457,6 +461,196 @@ def list_wine_photos(
             for wine, household_name in rows
         ],
     }
+
+
+def demo_household(db: Session) -> Household | None:
+    return db.scalar(select(Household).where(Household.is_demo.is_(True)))
+
+
+def ensure_demo_principals(db: Session) -> Household:
+    household = demo_household(db)
+    if household is None:
+        household = Household(name="Vinaris Demo · Collector Cellar", is_demo=True)
+        db.add(household)
+        db.flush()
+    now = datetime.now(UTC)
+    for locale in ("it", "en"):
+        email = f"demo-{locale}@internal.vinaris.app"
+        user = db.scalar(select(User).where(User.email == email))
+        if user is None:
+            user = User(
+                email=email,
+                display_name="Ospite demo" if locale == "it" else "Demo guest",
+                password_hash=hash_password(new_session_token()),
+                is_approved=True,
+                approved_at=now,
+                email_verified_at=now,
+                locale=locale,
+                theme_preference="private-cellar",
+                dashboard_focus="collector",
+                privacy_policy_accepted_at=now,
+                privacy_policy_version=LEGAL_DOCUMENT_VERSION,
+                terms_accepted_at=now,
+                terms_version=LEGAL_DOCUMENT_VERSION,
+                legal_acceptance_locale=locale,
+            )
+            db.add(user)
+            db.flush()
+        membership = db.scalar(
+            select(Membership).where(
+                Membership.user_id == user.id,
+                Membership.household_id == household.id,
+            )
+        )
+        if membership is None:
+            db.add(Membership(user_id=user.id, household_id=household.id, role="viewer", visibility_scope="all"))
+    db.flush()
+    return household
+
+
+@router.get("/demo-cellar")
+def get_demo_cellar(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    candidates = list(db.scalars(
+        select(Wine)
+        .where(Wine.household_id == context.household.id, Wine.photo_version != "")
+        .order_by(Wine.name, Wine.vintage.desc())
+        .limit(250)
+    ))
+    selected_ids = set(db.scalars(
+        select(DemoWineSelection.source_wine_id)
+        .join(Wine, Wine.id == DemoWineSelection.source_wine_id)
+        .where(Wine.household_id == context.household.id)
+    ))
+    household = demo_household(db)
+    published_count = 0
+    if household is not None:
+        published_count = db.scalar(
+            select(func.count()).select_from(Wine).where(Wine.household_id == household.id)
+        ) or 0
+    return {
+        "published_count": published_count,
+        "selected_wine_ids": [str(wine.id) for wine in candidates if wine.id in selected_ids],
+        "candidates": [
+            {
+                "wine_id": str(wine.id),
+                "name": wine.name,
+                "producer": wine.producer,
+                "vintage": wine.vintage,
+                "quantity": wine.quantity,
+                "type": wine.type,
+                "thumbnail_url": f"/api/v1/admin/operations/photos/{wine.id}/thumbnail?v={wine.photo_version}",
+            }
+            for wine in candidates
+        ],
+    }
+
+
+@router.put("/demo-cellar")
+def publish_demo_cellar(
+    payload: dict[str, object],
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    raw_ids = payload.get("wine_ids")
+    if not isinstance(raw_ids, list) or not 1 <= len(raw_ids) <= 75:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Select between 1 and 75 demo wines")
+    try:
+        requested_ids = list(dict.fromkeys(UUID(str(value)) for value in raw_ids))
+    except (TypeError, ValueError) as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid demo wine selection") from error
+    sources = list(db.scalars(
+        select(Wine).where(
+            Wine.id.in_(requested_ids),
+            Wine.household_id == context.household.id,
+            Wine.photo_version != "",
+        )
+    ))
+    source_by_id = {wine.id: wine for wine in sources}
+    if len(source_by_id) != len(requested_ids):
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Every demo wine must belong to the active cellar and have a photograph")
+    for source in sources:
+        if not all(wine_photo_path(source, size).is_file() for size in PHOTO_SIZES):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail=f"Bottle photo files are missing for {source.name}")
+
+    household = ensure_demo_principals(db)
+    old_demo_wines = list(db.scalars(select(Wine).where(Wine.household_id == household.id)))
+    db.execute(delete(DemoWineSelection))
+    for wine in old_demo_wines:
+        for size in PHOTO_SIZES:
+            wine_photo_path(wine, size).unlink(missing_ok=True)
+        db.delete(wine)
+    db.flush()
+
+    demo_user = db.scalar(
+        select(User)
+        .join(Membership, Membership.user_id == User.id)
+        .where(Membership.household_id == household.id, User.email == "demo-it@internal.vinaris.app")
+    )
+    if demo_user is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Unable to prepare demo cellar")
+
+    for source_id in requested_ids:
+        source = source_by_id[source_id]
+        demo_wine = Wine(
+            household_id=household.id,
+            created_by_user_id=demo_user.id,
+            name=source.name,
+            producer=source.producer,
+            vintage=source.vintage,
+            quantity=source.quantity,
+            currency=source.currency,
+            price=source.price,
+            current_value=source.current_value,
+            value_not_found=source.value_not_found,
+            status=source.status,
+            format=source.format,
+            type=source.type,
+            region=source.region,
+            appellation=source.appellation,
+            order_date=source.order_date,
+            expected_delivery=source.expected_delivery,
+            owner_share_pct=100,
+            drink_from=source.drink_from,
+            drink_peak_from=source.drink_peak_from,
+            drink_peak_to=source.drink_peak_to,
+            drink_to=source.drink_to,
+            rating=source.rating,
+            grapes=source.grapes,
+            grapes_source_url=source.grapes_source_url,
+            grapes_source_title=source.grapes_source_title,
+            grapes_verified_at=source.grapes_verified_at,
+            grapes_not_applicable=source.grapes_not_applicable,
+            scores=source.scores,
+            scores_not_applicable=source.scores_not_applicable,
+            owners=[],
+            tags=[],
+            notes="",
+            ai_notes="",
+            drink_window_notes="",
+            ai_value_notes="",
+            tasting_history=[],
+            created_at=source.created_at,
+        )
+        db.add(demo_wine)
+        db.flush()
+        copy_wine_photo(source, demo_wine)
+        db.add(DemoWineSelection(source_wine_id=source.id, demo_wine_id=demo_wine.id))
+        histories = db.scalars(
+            select(WineValueHistory).where(WineValueHistory.wine_id == source.id).order_by(WineValueHistory.recorded_at)
+        )
+        for history in histories:
+            db.add(WineValueHistory(
+                wine_id=demo_wine.id,
+                value=history.value,
+                currency=history.currency,
+                source="demo",
+                recorded_at=history.recorded_at,
+            ))
+    db.commit()
+    return {"published_count": len(requested_ids), "selected_wine_ids": [str(value) for value in requested_ids]}
 
 
 @router.get("/photos/{wine_id}/{size}", response_class=FileResponse)

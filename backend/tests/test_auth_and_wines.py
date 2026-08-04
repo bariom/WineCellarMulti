@@ -666,6 +666,78 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         settings.wine_photo_storage_dir = previous_storage_dir
 
 
+def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
+    admin = TestClient(app)
+    assert register(admin).status_code == 201
+    created = admin.post(
+        "/api/v1/wines",
+        json={
+            "name": "Demo Barolo",
+            "producer": "Demo Estate",
+            "vintage": "2018",
+            "quantity": 6,
+            "price": 72,
+            "current_value": 110,
+            "region": "Piemonte",
+            "type": "Red",
+            "notes": "Private cellar note",
+            "owners": [{"name": "Private owner", "share_pct": 100}],
+            "drink_from": 2024,
+            "drink_to": 2034,
+        },
+    )
+    assert created.status_code == 201
+    wine_id = uuid.UUID(created.json()["id"])
+    previous_storage_dir = settings.wine_photo_storage_dir
+    settings.wine_photo_storage_dir = str(tmp_path)
+    try:
+        with TestingSessionLocal() as db:
+            wine = db.get(Wine, wine_id)
+            assert wine is not None
+            wine.photo_version = "demo-photo"
+            for size in wines_route.PHOTO_SIZES:
+                path = wines_route.wine_photo_path(wine, size)
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"demo png")
+            db.commit()
+
+        state = admin.get("/api/v1/admin/operations/demo-cellar")
+        assert state.status_code == 200
+        assert state.json()["candidates"][0]["wine_id"] == str(wine_id)
+
+        published = admin.put(
+            "/api/v1/admin/operations/demo-cellar",
+            json={"wine_ids": [str(wine_id)]},
+        )
+        assert published.status_code == 200
+        assert published.json()["published_count"] == 1
+
+        visitor = TestClient(app)
+        entered = visitor.post("/api/v1/auth/demo", params={"locale": "en"})
+        assert entered.status_code == 200
+        assert entered.json()["is_demo"] is True
+        assert entered.json()["membership_role"] == "viewer"
+        assert entered.json()["has_active_entitlement"] is True
+
+        wines = visitor.get("/api/v1/wines")
+        assert wines.status_code == 200
+        demo_wine = wines.json()[0]
+        assert demo_wine["name"] == "Demo Barolo"
+        assert demo_wine["notes"] == ""
+        assert demo_wine["owners"] == []
+        assert visitor.get(demo_wine["photo_thumbnail_url"]).status_code == 200
+
+        blocked = visitor.patch(
+            f"/api/v1/wines/{demo_wine['id']}",
+            json={"quantity": 99},
+        )
+        assert blocked.status_code == 403
+        assert blocked.json()["detail"] == "Demo cellar is read-only"
+        assert visitor.post("/api/v1/auth/logout").status_code == 204
+    finally:
+        settings.wine_photo_storage_dir = previous_storage_dir
+
+
 def test_registration_rate_limit_ignores_spoofed_forwarded_ip(monkeypatch):
     monkeypatch.setattr(settings, "rate_limit_register_attempts", 2)
     monkeypatch.setattr(settings, "rate_limit_register_window_seconds", 60)

@@ -9,6 +9,7 @@ from app.models.billing import (
     UserEntitlement,
 )
 from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant, CoOwnershipPayment
+from app.models.demo import DemoWineSelection
 from app.models.household import Household
 from app.models.household_preferences import (
     HouseholdRegionalGapSettings,
@@ -40,6 +41,7 @@ __all__ = [
     "CoOwnershipAgreement",
     "CoOwnershipParticipant",
     "CoOwnershipPayment",
+    "DemoWineSelection",
     "Household",
     "HouseholdRegionalGapSettings",
     "HouseholdInvite",

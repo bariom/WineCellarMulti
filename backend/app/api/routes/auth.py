@@ -7,9 +7,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.orm import Session
 from webauthn import (
     generate_authentication_options,
@@ -834,6 +834,50 @@ def login(payload: LoginRequest, request: Request, response: Response, db: Sessi
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Household unavailable")
 
     user_session, token = create_session(db, user, household)
+    db.commit()
+    db.refresh(user_session)
+    set_session_cookie(response, token)
+    return session_response_for(db, user, household, membership, user_session)
+
+
+@router.post("/demo", response_model=SessionResponse)
+def enter_demo(
+    request: Request,
+    response: Response,
+    locale: str = Query(default="it", pattern="^(it|en)$"),
+    db: Session = Depends(get_db),
+) -> SessionResponse:
+    enforce_rate_limit(
+        request,
+        scope="auth:demo:ip",
+        limit=settings.rate_limit_login_ip_attempts,
+        window_seconds=settings.rate_limit_login_window_seconds,
+    )
+    household = db.scalar(select(Household).where(Household.is_demo.is_(True)))
+    if household is None or db.scalar(select(func.count()).select_from(Wine).where(Wine.household_id == household.id)) == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo cellar is not available yet")
+    membership = db.scalar(
+        select(Membership)
+        .join(User, User.id == Membership.user_id)
+        .where(
+            Membership.household_id == household.id,
+            Membership.role == "viewer",
+            User.email == f"demo-{locale}@internal.vinaris.app",
+        )
+    )
+    if membership is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo cellar is not available yet")
+    user = db.get(User, membership.user_id)
+    if user is None or user.is_blocked:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo cellar is not available yet")
+    db.execute(
+        delete(UserSession).where(
+            UserSession.user_id == user.id,
+            UserSession.expires_at <= datetime.now(UTC),
+        )
+    )
+    user_session, token = create_session(db, user, household)
+    user_session.expires_at = datetime.now(UTC) + timedelta(hours=2)
     db.commit()
     db.refresh(user_session)
     set_session_cookie(response, token)

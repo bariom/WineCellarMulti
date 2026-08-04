@@ -6,6 +6,7 @@ export type Session = {
   active_household_name: string | null;
   membership_role: string | null;
   is_app_admin: boolean;
+  is_demo: boolean;
   pending_approval: boolean;
   pending_email_verification: boolean;
   requires_legal_acceptance?: boolean;

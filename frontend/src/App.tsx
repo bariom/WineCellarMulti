@@ -71,6 +71,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const PublicLanding = lazy(() => import("./views/PublicLanding"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
@@ -2706,6 +2707,29 @@ export function App() {
     }
   }
 
+  async function enterDemo() {
+    setSaving(true);
+    setError("");
+    try {
+      const nextSession = await api<Session>(`/api/v1/auth/demo?locale=${locale}`, { method: "POST" });
+      setSession(nextSession);
+      applySessionPreferences(nextSession, true);
+      setAuthModalOpen(false);
+      setShowOfflineBackupPanel(false);
+      setLoading(true);
+      try {
+        await loadAuthenticatedSessionData(nextSession);
+      } finally {
+        setLoading(false);
+      }
+      setActiveView("home");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Cantina demo non disponibile" : "Demo cellar unavailable"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function registerPasskey() {
     if (!window.PublicKeyCredential) {
       setError("Passkey not supported by this browser");
@@ -2790,6 +2814,7 @@ export function App() {
       active_household_name: null,
       membership_role: null,
       is_app_admin: false,
+      is_demo: false,
       pending_approval: false,
       pending_email_verification: false,
       locale: navigator.language.toLowerCase().startsWith("it") ? "it" : "en",
@@ -3500,6 +3525,7 @@ export function App() {
         active_household_name: rawString(household.name, file.name.replace(/\.json$/i, "")),
         membership_role: "offline",
         is_app_admin: false,
+        is_demo: false,
         pending_approval: false,
         pending_email_verification: false,
         locale,
@@ -4777,6 +4803,7 @@ export function App() {
         </button>
         {authMode === "login" ? (
           <>
+            <button type="button" className="secondary" disabled={saving} onClick={() => void enterDemo()}>{locale === "it" ? "Esplora la cantina demo" : "Explore the demo cellar"}</button>
             <button type="button" className="secondary" disabled={saving} onClick={() => loginWithPasskey()}>{t("passkeyLogin")}</button>
             <button type="button" className="secondary" disabled={saving} onClick={() => setAuthMode("forgot-password")}>{t("forgotPassword")}</button>
           </>
@@ -7157,6 +7184,7 @@ export function App() {
               </label>
             ) : null}
             <span>{session?.membership_role}</span>
+            {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Modalità demo · sola lettura" : "Demo mode · read-only"}</span> : null}
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
             {!offlineMode ? <div className="notification-wrap">
               <button
@@ -7446,7 +7474,7 @@ export function App() {
               </button>
             </div>
           </section>
-          <section className="public-landing">
+          {false ? <section className="public-landing">
             <div className="public-hero">
               <div className="public-hero-copy">
                 <p className="eyebrow">{locale === "it" ? "Collector edition" : "Collector edition"}</p>
@@ -7481,12 +7509,6 @@ export function App() {
                   <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
                     {landing.primaryCta}
                   </button>
-                  <a className="public-demo-link" href={`/videos/vinaris-demo-app-${locale}.mp4`} target="_blank" rel="noreferrer">
-                    {landing.demoDesktopCta}
-                  </a>
-                  <a className="public-demo-link public-demo-link-mobile" href={`/videos/vinaris-demo-app-${locale}-mobile.mp4`} target="_blank" rel="noreferrer">
-                    {landing.demoMobileCta}
-                  </a>
                 </div>
               </div>
               <aside className="public-pricing-card">
@@ -7886,7 +7908,17 @@ export function App() {
                   </article>
                 </div>
               </section>
-            </section>
+            </section> : (
+              <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                <PublicLanding
+                  locale={locale}
+                  onRegister={() => openAuthPanel("register")}
+                  onLogin={() => openAuthPanel("login")}
+                  onDemo={() => void enterDemo()}
+                  demoLoading={saving}
+                />
+              </Suspense>
+            )}
 
         {showMobileAuthPanel ? publicAuthPanel : null}
         {!isMobileViewport && authModalOpen ? (

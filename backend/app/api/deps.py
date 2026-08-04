@@ -65,6 +65,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "active_household_name": None,
             "membership_role": None,
             "is_app_admin": False,
+            "is_demo": False,
             "pending_approval": False,
             "pending_email_verification": False,
             "requires_legal_acceptance": False,
@@ -93,6 +94,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_name": context.household.name,
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
+        "is_demo": context.household.is_demo,
         "pending_approval": False,
         "pending_email_verification": False,
         "requires_legal_acceptance": not legal_acceptance_is_current(context.user),
@@ -103,7 +105,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "daily_wine_budget_chf": context.user.daily_wine_budget_chf,
         "can_use_label_recognition": context.user.can_use_label_recognition,
         "can_manage_wine_photos": context.user.can_manage_wine_photos,
-        "has_active_entitlement": context.has_active_entitlement,
+        "has_active_entitlement": context.household.is_demo or context.has_active_entitlement,
         "entitlement_valid_until": context.entitlement_valid_until.isoformat()
         if context.entitlement_valid_until
         else None,
@@ -136,7 +138,8 @@ def get_optional_context(
         db.commit()
         return None
     email_verification_required = (
-        not settings.registration_requires_approval
+        not household.is_demo
+        and not settings.registration_requires_approval
         and getattr(user, "email_verified_at", None) is None
     )
     if not user.is_approved or user.is_blocked or email_verification_required:
@@ -177,12 +180,16 @@ def get_authenticated_context(
 def get_current_context(
     context: CurrentContext = Depends(get_authenticated_context),
 ) -> CurrentContext:
-    if not legal_acceptance_is_current(context.user):
+    if not context.household.is_demo and not legal_acceptance_is_current(context.user):
         raise HTTPException(
             status_code=status.HTTP_428_PRECONDITION_REQUIRED,
             detail="Current privacy policy and terms must be accepted",
         )
-    if not context.user.is_app_admin and not context.has_active_entitlement:
+    if (
+        not context.household.is_demo
+        and not context.user.is_app_admin
+        and not context.has_active_entitlement
+    ):
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Redeem code required"
         )

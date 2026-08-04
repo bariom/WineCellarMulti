@@ -1,4 +1,5 @@
 .admin-photos-card { grid-column: 1 / -1; }
+.admin-demo-card { grid-column: 1 / -1; }
 .admin-photos-heading { align-items: end; }
 .admin-photos-heading > div:first-child { display: grid; gap: 3px; }
 .admin-photos-heading small, .admin-photo-card span, .admin-photo-card small { color: var(--text-muted); font-size: 0.74rem; }
@@ -13,12 +14,25 @@
 .admin-photo-card > button { align-self: end; justify-self: start; }
 .admin-photos-error { margin: 12px 0 0; color: var(--danger-text); font-size: 0.78rem; }
 .admin-photos-empty { margin: 16px 0 0; color: var(--text-muted); font-size: 0.8rem; }
+.admin-demo-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.admin-demo-toolbar span { color: var(--text-muted); font-size: .8rem; font-weight: 750; }
+.admin-demo-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; max-height: 520px; margin-top: 12px; overflow: auto; }
+.admin-demo-wine { position: relative; display: grid; grid-template-columns: 18px 52px minmax(0,1fr); align-items: center; gap: 8px; min-width: 0; padding: 9px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-muted); cursor: pointer; }
+.admin-demo-wine.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 36%, transparent); }
+.admin-demo-wine img { width: 46px; height: 72px; object-fit: contain; }
+.admin-demo-wine > span { display: grid; gap: 2px; min-width: 0; }
+.admin-demo-wine strong, .admin-demo-wine small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-demo-wine strong { font-size: .76rem; }
+.admin-demo-wine small { color: var(--text-muted); font-size: .66rem; }
 
 @media (max-width: 620px) {
   .admin-photos-heading { align-items: start; }
   .admin-photos-grid { grid-template-columns: 1fr; }
+  .admin-demo-grid { grid-template-columns: 1fr; }
+  .admin-demo-toolbar { align-items: stretch; flex-direction: column; }
 }
 
 @media (min-width: 621px) and (max-width: 900px) {
   .admin-photos-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-demo-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }

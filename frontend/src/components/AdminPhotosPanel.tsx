@@ -5,11 +5,30 @@ import type { Locale, OperationalWinePhotos } from "../types";
 import { LoadingState } from "./AppUi";
 import "./AdminPhotosPanel.css";
 
+type DemoCandidate = {
+  wine_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  quantity: number;
+  type: string;
+  thumbnail_url: string;
+};
+
+type DemoCellarState = {
+  published_count: number;
+  selected_wine_ids: string[];
+  candidates: DemoCandidate[];
+};
+
 export function AdminPhotosPanel({ locale }: { locale: Locale }) {
   const isItalian = locale === "it";
   const [winePhotos, setWinePhotos] = useState<OperationalWinePhotos | null>(null);
   const [photoError, setPhotoError] = useState("");
   const [deletingPhotoId, setDeletingPhotoId] = useState("");
+  const [demoCellar, setDemoCellar] = useState<DemoCellarState | null>(null);
+  const [demoSelection, setDemoSelection] = useState<string[]>([]);
+  const [publishingDemo, setPublishingDemo] = useState(false);
 
   async function loadWinePhotos() {
     try {
@@ -20,9 +39,51 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
     }
   }
 
+  async function loadDemoCellar() {
+    try {
+      setPhotoError("");
+      const nextDemo = await api<DemoCellarState>("/api/v1/admin/operations/demo-cellar");
+      setDemoCellar(nextDemo);
+      setDemoSelection(nextDemo.selected_wine_ids);
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to load demo cellar");
+    }
+  }
+
   useEffect(() => {
-    void loadWinePhotos();
+    void Promise.all([loadWinePhotos(), loadDemoCellar()]);
   }, []);
+
+  function toggleDemoWine(wineId: string) {
+    setDemoSelection((current) => current.includes(wineId)
+      ? current.filter((value) => value !== wineId)
+      : current.length < 75 ? [...current, wineId] : current);
+  }
+
+  async function publishDemoCellar() {
+    if (!demoSelection.length) return;
+    const confirmed = window.confirm(isItalian
+      ? `Pubblicare ${demoSelection.length} vini nella cantina demo? La versione precedente sarà sostituita.`
+      : `Publish ${demoSelection.length} wines to the demo cellar? The previous version will be replaced.`);
+    if (!confirmed) return;
+    setPublishingDemo(true);
+    setPhotoError("");
+    try {
+      const published = await api<{ published_count: number; selected_wine_ids: string[] }>("/api/v1/admin/operations/demo-cellar", {
+        method: "PUT",
+        body: JSON.stringify({ wine_ids: demoSelection }),
+      });
+      setDemoCellar((current) => current ? {
+        ...current,
+        published_count: published.published_count,
+        selected_wine_ids: published.selected_wine_ids,
+      } : current);
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to publish demo cellar");
+    } finally {
+      setPublishingDemo(false);
+    }
+  }
 
   async function deleteWinePhoto(wineId: string, label: string) {
     const confirmed = window.confirm(isItalian
@@ -44,6 +105,47 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
   }
 
   return (
+    <>
+    <section className="settings-card settings-card-wide admin-demo-card">
+      <div className="settings-card-heading admin-photos-heading">
+        <div>
+          <span>{isItalian ? "Presentazione pubblica" : "Public presentation"}</span>
+          <h3>{isItalian ? "Cantina demo" : "Demo cellar"}</h3>
+          <small>{isItalian
+            ? "Scegli dalla cantina attiva i vini con fotografia. La pubblicazione crea una copia sanitizzata e in sola lettura."
+            : "Choose photographed wines from the active cellar. Publishing creates a sanitized, read-only copy."}</small>
+        </div>
+        <div className="admin-photos-heading-actions">
+          <strong>{demoCellar?.published_count ?? "—"}</strong>
+          <button type="button" className="secondary compact" onClick={() => void loadDemoCellar()}>{isItalian ? "Aggiorna" : "Refresh"}</button>
+        </div>
+      </div>
+      {demoCellar ? (
+        demoCellar.candidates.length ? (
+          <>
+            <div className="admin-demo-toolbar">
+              <span>{isItalian ? `${demoSelection.length} vini selezionati · massimo 75` : `${demoSelection.length} wines selected · 75 maximum`}</span>
+              <button type="button" disabled={!demoSelection.length || publishingDemo} onClick={() => void publishDemoCellar()}>
+                {publishingDemo ? (isItalian ? "Pubblicazione…" : "Publishing…") : (isItalian ? "Pubblica cantina demo" : "Publish demo cellar")}
+              </button>
+            </div>
+            <div className="admin-demo-grid">
+              {demoCellar.candidates.map((wine) => {
+                const selected = demoSelection.includes(wine.wine_id);
+                const label = [wine.name, wine.vintage].filter(Boolean).join(" ");
+                return (
+                  <label className={`admin-demo-wine${selected ? " selected" : ""}`} key={wine.wine_id}>
+                    <input type="checkbox" checked={selected} disabled={!selected && demoSelection.length >= 75} onChange={() => toggleDemoWine(wine.wine_id)} />
+                    <img src={wine.thumbnail_url} alt="" loading="lazy" />
+                    <span><strong>{label}</strong><small>{wine.producer}</small><small>{wine.quantity} × {wine.type || (isItalian ? "vino" : "wine")}</small></span>
+                  </label>
+                );
+              })}
+            </div>
+          </>
+        ) : <p className="admin-photos-empty">{isItalian ? "Nella cantina attiva non ci sono ancora vini con fotografia." : "The active cellar has no photographed wines yet."}</p>
+      ) : <LoadingState label={isItalian ? "Caricamento cantina demo…" : "Loading demo cellar…"} compact />}
+    </section>
     <section className="settings-card settings-card-wide admin-photos-card">
       <div className="settings-card-heading admin-photos-heading">
         <div>
@@ -90,6 +192,7 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
         ) : <p className="admin-photos-empty">{isItalian ? "Nessuna fotografia archiviata." : "No photographs stored."}</p>
       ) : <LoadingState label={isItalian ? "Caricamento fotografie…" : "Loading photographs…"} compact />}
     </section>
+    </>
   );
 }
 

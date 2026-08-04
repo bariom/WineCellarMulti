@@ -1,15 +1,16 @@
 import logging
 import time
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
 from app.api.router import api_router
 from app.core.config import settings
 from app.core.security import hash_session_token
 from app.db.session import SessionLocal, get_db
-from app.models import UserActivityLog, UserSession
+from app.models import Household, UserActivityLog, UserSession
 from app.services.request_metrics import request_metrics
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router, prefix="/api/v1")
+
+DEMO_MUTATION_EXCEPTIONS = {
+    "/api/v1/auth/demo",
+    "/api/v1/auth/logout",
+}
 
 
 TECHNICAL_METRICS_PATH_PREFIXES = (
@@ -208,6 +214,42 @@ def save_user_activity(request: Request, action: str) -> None:
             db_generator.close()
         else:
             db.close()
+
+
+def request_uses_demo_session(request: Request) -> bool:
+    session_token = request.cookies.get(settings.session_cookie_name)
+    if not session_token:
+        return False
+    override = request.app.dependency_overrides.get(get_db)
+    db_generator = override() if override is not None else None
+    db = next(db_generator) if db_generator is not None else SessionLocal()
+    try:
+        user_session = db.scalar(
+            select(UserSession).where(UserSession.token_hash == hash_session_token(session_token))
+        )
+        if user_session is None:
+            return False
+        household = db.get(Household, user_session.active_household_id)
+        return bool(household and household.is_demo)
+    finally:
+        if db_generator is not None:
+            db_generator.close()
+        else:
+            db.close()
+
+
+@app.middleware("http")
+async def enforce_demo_read_only(request: Request, call_next):
+    if (
+        request.method not in {"GET", "HEAD", "OPTIONS"}
+        and request.url.path not in DEMO_MUTATION_EXCEPTIONS
+        and request_uses_demo_session(request)
+    ):
+        return JSONResponse(
+            status_code=status.HTTP_403_FORBIDDEN,
+            content={"detail": "Demo cellar is read-only"},
+        )
+    return await call_next(request)
 
 
 @app.middleware("http")
