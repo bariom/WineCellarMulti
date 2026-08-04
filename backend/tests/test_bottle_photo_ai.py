@@ -1,3 +1,5 @@
+import pytest
+
 from app.services import bottle_photo_ai
 
 
@@ -21,7 +23,21 @@ class _FakeQueue:
 
 def test_photo_ai_reuses_isolated_worker(monkeypatch):
     commands = _FakeQueue()
-    results = _FakeQueue([("ok", b"processed")])
+    results = _FakeQueue(
+        [
+            (
+                "ok",
+                b"processed",
+                {
+                    "prepare_ms": 1,
+                    "inference_ms": 2,
+                    "postprocess_ms": 3,
+                    "total_ms": 6,
+                    "model_load_ms": 0,
+                },
+            )
+        ]
+    )
     monkeypatch.setattr(
         bottle_photo_ai,
         "_ensure_photo_worker",
@@ -67,13 +83,39 @@ def test_photo_ai_worker_loads_model_once_for_capture_session(monkeypatch):
     monkeypatch.setattr(
         bottle_photo_ai,
         "_process_bottle_photo_with_session",
-        lambda content, active_session: (content, active_session is session),
+        lambda content, active_session: (
+            content,
+            {
+                "prepare_ms": 1,
+                "inference_ms": 2,
+                "postprocess_ms": 3,
+                "total_ms": 6,
+                "session_matches": active_session is session,
+            },
+        ),
     )
 
     bottle_photo_ai._photo_worker_loop("test-model", 75, commands, results)
 
     assert sessions == ["test-model"]
-    assert results.items == [
-        ("ok", (b"first", True)),
-        ("ok", (b"second", True)),
+    assert [result[:2] for result in results.items] == [
+        ("ok", b"first"),
+        ("ok", b"second"),
     ]
+    assert all(result[2]["session_matches"] for result in results.items)
+    assert results.items[0][2]["model_load_ms"] >= 0
+    assert results.items[1][2]["model_load_ms"] == 0
+
+
+def test_central_component_keeps_the_same_four_connected_scoring():
+    numpy = pytest.importorskip("numpy")
+    scipy_ndimage = pytest.importorskip("scipy.ndimage")
+    binary = numpy.zeros((8, 10), dtype=numpy.bool_)
+    binary[1:4, 0:3] = True
+    binary[2:6, 5:7] = True
+
+    selected = bottle_photo_ai._central_component(numpy, scipy_ndimage, binary)
+
+    assert selected.sum() == 8
+    assert selected[3, 5]
+    assert not selected[2, 1]

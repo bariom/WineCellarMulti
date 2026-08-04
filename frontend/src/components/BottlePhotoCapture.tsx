@@ -73,8 +73,8 @@ async function processedAiPhoto(detail: Blob): Promise<ProcessedBottlePhoto> {
 async function processBottlePhotoWithAi(source: Blob): Promise<ProcessedBottlePhoto> {
   const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   const uploadCanvas = document.createElement("canvas");
-  uploadCanvas.width = 960;
-  uploadCanvas.height = 1440;
+  uploadCanvas.width = DETAIL_SIZE.width;
+  uploadCanvas.height = DETAIL_SIZE.height;
   const uploadContext = uploadCanvas.getContext("2d");
   if (!uploadContext) throw new Error("Canvas is not available");
   const targetRatio = uploadCanvas.width / uploadCanvas.height;
