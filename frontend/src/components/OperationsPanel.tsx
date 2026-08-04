@@ -271,7 +271,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   async function loadAiPricing() {
     try {
       const pricing = await api<AiPricing>("/api/v1/admin/operations/ai-pricing");
-      setAiPricingDraft(pricing.custom_price_book_json || JSON.stringify(pricing.price_book, null, 2));
+      setAiPricingDraft(JSON.stringify(pricing.price_book, null, 2));
       setAiPricingUpdatedAt(pricing.updated_at);
     } catch {
       setAiPricingError(isItalian ? "Impossibile caricare il listino AI." : "Unable to load the AI price book.");
@@ -300,7 +300,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
         method: "PUT",
         body: JSON.stringify({ price_book_json: aiPricingDraft }),
       });
-      setAiPricingDraft(saved.custom_price_book_json || JSON.stringify(saved.price_book, null, 2));
+      setAiPricingDraft(JSON.stringify(saved.price_book, null, 2));
       setAiPricingUpdatedAt(saved.updated_at);
       setAiPricingError("");
     } catch (error) {

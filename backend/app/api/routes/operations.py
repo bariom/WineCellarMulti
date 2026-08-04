@@ -12,7 +12,7 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
-from app.api.routes.ai import model_pricing_usd_per_million_tokens
+from app.api.routes.ai import available_model_options, model_pricing_usd_per_million_tokens
 from app.api.routes.wines import PHOTO_SIZES, wine_photo_path
 from app.core.config import settings
 from app.core.security import hash_session_token, new_session_token
@@ -46,6 +46,21 @@ def app_ai_pricing(db: Session) -> AppAiPricing | None:
     return db.get(AppAiPricing, 1)
 
 
+def admin_price_book(db: Session) -> dict[str, dict[str, str]]:
+    """Expose prices only for models selectable in the current deployment.
+
+    Legacy prices can remain in the server-side fallback accounting table, but
+    app admins should not need to maintain them while the GPT-5.6 family is
+    enabled.
+    """
+    price_book = model_pricing_usd_per_million_tokens(db)
+    return {
+        model: {field: str(amount) for field, amount in price_book[model].items()}
+        for model in available_model_options()
+        if model in price_book
+    }
+
+
 @router.get("/ai-pricing")
 def get_ai_pricing(
     db: Session = Depends(get_db),
@@ -53,10 +68,7 @@ def get_ai_pricing(
 ) -> dict[str, object]:
     stored = app_ai_pricing(db)
     return {
-        "price_book": {
-            model: {field: str(amount) for field, amount in rates.items()}
-            for model, rates in model_pricing_usd_per_million_tokens(db).items()
-        },
+        "price_book": admin_price_book(db),
         "custom_price_book_json": stored.price_book_json if stored else "",
         "updated_at": stored.updated_at.isoformat() if stored else None,
     }
@@ -77,7 +89,7 @@ def save_ai_pricing(
     stored.price_book_json = raw_price_book
     try:
         db.flush()
-        price_book = model_pricing_usd_per_million_tokens(db)
+        model_pricing_usd_per_million_tokens(db)
     except HTTPException:
         stored.price_book_json = previous_value
         db.rollback()
@@ -85,7 +97,7 @@ def save_ai_pricing(
     db.commit()
     db.refresh(stored)
     return {
-        "price_book": {model: {field: str(amount) for field, amount in rates.items()} for model, rates in price_book.items()},
+        "price_book": admin_price_book(db),
         "custom_price_book_json": stored.price_book_json,
         "updated_at": stored.updated_at.isoformat(),
     }
@@ -96,9 +108,10 @@ def ask_ai_for_pricing(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    current_models = ", ".join(model_pricing_usd_per_million_tokens(db).keys())
+    current_models = ", ".join(admin_price_book(db).keys())
+    lookup_model = settings.openai_balanced_model if settings.openai_enable_gpt56 else settings.openai_default_model
     response = create_response(
-        settings.openai_default_model,
+        lookup_model,
         "You maintain an AI provider price book. Use web search and return JSON only.",
         (
             "Find the current official OpenAI API token prices in USD per one million tokens for these models: "
