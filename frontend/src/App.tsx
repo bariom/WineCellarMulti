@@ -11,7 +11,7 @@ import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, estimatePastWindowFinancialRisk, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -4920,6 +4920,13 @@ export function App() {
     }),
   })).filter((row) => row.cells.some((cell) => cell.count > 0));
   const maxMaturityHeatmapBottles = Math.max(...maturityHeatmapRows.flatMap((row) => row.cells.map((cell) => cell.bottles)), 1);
+  const maturityFinancialRisk = maturityHeatmapYears.map((year) => ({
+    year,
+    ...estimatePastWindowFinancialRisk(cellarWines, year),
+  }));
+  const hasMaturityFinancialRisk = maturityFinancialRisk.some((point) => point.exposedValue > 0);
+  const maxMaturityExpectedLoss = Math.max(...maturityFinancialRisk.map((point) => point.expectedLoss), 1);
+  const currentMaturityFinancialRisk = maturityFinancialRisk[0];
   const maturityPanoramaYears = Array.from({ length: 13 }, (_, index) => currentYear - 2 + index);
   const maturityPanoramaWines = cellarWines.filter((wine) => Boolean(wine.drink_from && wine.drink_to));
   const maturityPanoramaPoints = maturityPanoramaYears.map((year) => {
@@ -6796,7 +6803,7 @@ export function App() {
             <strong>{wineToneLabel(maturityFilter.tone, locale)} {maturityFilter.year}</strong>
           </div>
         ) : null}
-        {maturityHeatmapRows.length ? (
+        {maturityHeatmapRows.length || hasMaturityFinancialRisk ? (
           <div className="maturity-heatmap" style={{ "--maturity-year-count": maturityHeatmapYears.length } as CSSProperties}>
             <div className="maturity-heatmap-years" aria-hidden="true">
               <span />
@@ -6829,10 +6836,47 @@ export function App() {
                 })}
               </div>
             ))}
+            <div className="maturity-heatmap-row maturity-financial-risk-row">
+              <span className="maturity-heatmap-label maturity-financial-risk-label">{t("maturityExpectedLoss")}</span>
+              {maturityFinancialRisk.map((point) => {
+                const intensity = point.expectedLoss / maxMaturityExpectedLoss;
+                const label = `${point.year}: ${t("maturityExpectedLoss")} ${formatMoney(point.expectedLoss, "CHF", locale)}; ${t("maturityValueExposed")} ${formatMoney(point.exposedValue, "CHF", locale)}; ${t("maturityAverageRisk")} ${formatPercentage(point.averageRisk * 100, locale)}`;
+                return (
+                  <span
+                    className="maturity-financial-risk-cell"
+                    key={`financial-risk-${point.year}`}
+                    style={{ "--financial-risk-weight": `${Math.round(intensity * 72)}%` } as CSSProperties}
+                    title={label}
+                    aria-label={label}
+                  >
+                    {point.expectedLoss ? new Intl.NumberFormat(numberLocale(locale), { notation: "compact", maximumFractionDigits: 1 }).format(point.expectedLoss) : "—"}
+                  </span>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <p className="empty-state">{t("maturityHeatmapEmpty")}</p>
         )}
+        <div className="maturity-financial-risk-heading">
+          <span>{t("maturityFinancialRisk")}</span>
+          <strong>{currentYear}</strong>
+        </div>
+        <div className="maturity-financial-risk-summary">
+          <div>
+            <span>{t("maturityValueExposed")}</span>
+            <strong>{formatMoney(currentMaturityFinancialRisk.exposedValue, "CHF", locale)}</strong>
+          </div>
+          <div>
+            <span>{t("maturityExpectedLoss")}</span>
+            <strong>{formatMoney(currentMaturityFinancialRisk.expectedLoss, "CHF", locale)}</strong>
+          </div>
+          <div>
+            <span>{t("maturityAverageRisk")}</span>
+            <strong>{formatPercentage(currentMaturityFinancialRisk.averageRisk * 100, locale)}</strong>
+          </div>
+        </div>
+        <p className="maturity-financial-risk-help">{t("maturityFinancialRiskHelp")}</p>
       </article>
     );
   }
