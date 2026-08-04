@@ -8461,7 +8461,7 @@ export function App() {
                             <KeyPositionMaturityTimeline
                               label={t("maturityMap")}
                               startYear={maturityStart}
-                              peakEndYear={wine.drink_to || null}
+                              peakEndYear={wine.drink_peak_to || null}
                               endYear={maturityEnd}
                               currentYearLabel={t("currentYear")}
                               currentYear={currentYear}

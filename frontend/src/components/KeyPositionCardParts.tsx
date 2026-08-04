@@ -123,6 +123,9 @@ type KeyPositionMaturityTimelineProps = {
 export function KeyPositionMaturityTimeline({ label, startYear, peakEndYear, endYear, currentYearLabel, currentYear, hasWindow, peakLeft, peakWidth, currentProgress }: KeyPositionMaturityTimelineProps) {
   const peakEnd = Math.min(100, peakLeft + peakWidth);
   const rangeLabel = endYear ? String(endYear) : "—";
+  const peakEndProgress = startYear && peakEndYear && endYear && endYear > startYear
+    ? Math.max(0, Math.min(100, ((peakEndYear - startYear) / (endYear - startYear)) * 100))
+    : null;
 
   return (
     <section className="key-position-maturity" aria-label={label}>
@@ -132,7 +135,11 @@ export function KeyPositionMaturityTimeline({ label, startYear, peakEndYear, end
         {hasWindow ? <span className="key-position-maturity-current" style={{ left: `${currentProgress}%` }} aria-hidden="true"><i>{currentYear}</i></span> : null}
       </div>
       <div className="key-position-maturity-years" aria-hidden="true">
-        <span>{startYear || ""}</span><span>{peakEndYear || ""}</span><span>{endYear || ""}</span>
+        <span className="key-position-maturity-year-start">{startYear || ""}</span>
+        {peakEndProgress !== null ? (
+          <span className="key-position-maturity-year-peak-end" style={{ left: `${peakEndProgress}%` }}>{peakEndYear}</span>
+        ) : null}
+        <span className="key-position-maturity-year-end">{endYear || ""}</span>
       </div>
     </section>
   );

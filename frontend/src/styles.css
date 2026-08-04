@@ -19202,8 +19202,7 @@ tbody tr:hover {
 }
 
 .key-position-maturity-years {
-  display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
+  position: relative;
   min-height: 1.2em;
   padding-top: 18px;
   color: var(--key-card-muted);
@@ -19212,8 +19211,10 @@ tbody tr:hover {
   font-variant-numeric: tabular-nums;
 }
 
-.key-position-maturity-years span:nth-child(2) { text-align: center; }
-.key-position-maturity-years span:last-child { text-align: right; }
+.key-position-maturity-years span { position: absolute; top: 18px; }
+.key-position-maturity-year-start { left: 0; }
+.key-position-maturity-year-peak-end { transform: translateX(-50%); }
+.key-position-maturity-year-end { right: 0; }
 
 @media (max-width: 760px) {
   .key-position-button {
