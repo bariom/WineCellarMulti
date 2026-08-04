@@ -241,7 +241,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const [refreshing, setRefreshing] = useState(false);
   const [aiPricingDraft, setAiPricingDraft] = useState("");
   const [aiPricingUpdatedAt, setAiPricingUpdatedAt] = useState<string | null>(null);
-  const [aiPricingBusy, setAiPricingBusy] = useState<"ask" | "save" | "" >("");
+  const [aiPricingBusy, setAiPricingBusy] = useState<"refresh" | "save" | "" >("");
   const [aiPricingError, setAiPricingError] = useState("");
 
   useEffect(() => {
@@ -280,14 +280,14 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
 
   useEffect(() => { void loadAiPricing(); }, []);
 
-  async function askAiForPricing() {
-    setAiPricingBusy("ask");
+  async function refreshOfficialPricing() {
+    setAiPricingBusy("refresh");
     try {
-      const result = await api<{ price_book_json: string }>("/api/v1/admin/operations/ai-pricing/ask-ai", { method: "POST" });
+      const result = await api<{ price_book_json: string }>("/api/v1/admin/operations/ai-pricing/refresh-official", { method: "POST" });
       setAiPricingDraft(JSON.stringify(JSON.parse(result.price_book_json), null, 2));
       setAiPricingError("");
     } catch (error) {
-      setAiPricingError(error instanceof Error ? error.message : (isItalian ? "Impossibile chiedere i prezzi all'AI." : "Unable to ask AI for prices."));
+      setAiPricingError(error instanceof Error ? error.message : (isItalian ? "Impossibile aggiornare dal listino ufficiale." : "Unable to refresh from the official price list."));
     } finally {
       setAiPricingBusy("");
     }
@@ -399,11 +399,11 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
         <div className="operations-ai-pricing-heading">
           <div>
             <strong>{isItalian ? "Listino modelli AI" : "AI model price book"}</strong>
-            <small>{isItalian ? "USD per un milione di token, elaborazione standard. Verifica la proposta AI prima di salvarla." : "USD per one million tokens, standard processing. Review the AI proposal before saving."}</small>
+            <small>{isItalian ? "USD per un milione di token, elaborazione standard. I valori arrivano dal listino ufficiale e richiedono comunque il tuo salvataggio." : "USD per one million tokens, standard processing. Values come from the official price list and still require your save."}</small>
           </div>
           <div>
-            <button type="button" className="secondary compact" disabled={Boolean(aiPricingBusy)} onClick={() => void askAiForPricing()}>
-              {aiPricingBusy === "ask" ? (isItalian ? "Consulto AI…" : "Asking AI…") : (isItalian ? "Chiedi all'AI" : "Ask AI")}
+            <button type="button" className="secondary compact" disabled={Boolean(aiPricingBusy)} onClick={() => void refreshOfficialPricing()}>
+              {aiPricingBusy === "refresh" ? (isItalian ? "Aggiorno…" : "Refreshing…") : (isItalian ? "Aggiorna dal listino ufficiale" : "Refresh from official price list")}
             </button>
             <button type="button" className="compact" disabled={Boolean(aiPricingBusy)} onClick={() => void saveAiPricing()}>
               {aiPricingBusy === "save" ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva listino" : "Save price book")}

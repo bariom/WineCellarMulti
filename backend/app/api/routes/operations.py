@@ -31,8 +31,8 @@ from app.models import (
     WineTastingEntry,
     WishlistItem,
 )
-from app.services.openai_client import create_response, parse_json_response
 from app.services.openai_costs import organization_cost_summary, unavailable_summary
+from app.services.openai_pricing import official_standard_pricing
 from app.services.operational_alerts import evaluate_operational_alerts
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
@@ -103,36 +103,15 @@ def save_ai_pricing(
     }
 
 
-@router.post("/ai-pricing/ask-ai")
-def ask_ai_for_pricing(
+@router.post("/ai-pricing/refresh-official")
+def refresh_official_ai_pricing(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    current_models = ", ".join(admin_price_book(db).keys())
-    lookup_model = settings.openai_balanced_model if settings.openai_enable_gpt56 else settings.openai_default_model
-    response = create_response(
-        lookup_model,
-        "You maintain an AI provider price book. Use web search and return JSON only.",
-        (
-            "Find the current official OpenAI API token prices in USD per one million tokens for these models: "
-            f"{current_models}. Return exactly {{\"price_book\":{{model:{{\"input\":number,\"cached_input\":number,\"output\":number}}}}}}. "
-            "Use standard processing prices only: do not use Fast mode or legacy Priority Processing prices. "
-            "Include only models whose prices you can verify from official OpenAI sources. Do not estimate prices."
-        ),
-        web_search=True,
-        web_search_context_size="low",
-        max_tool_calls=4,
-        max_output_tokens=3000,
-        task_type="pricing_lookup",
-    )
-    result = parse_json_response(response.text)
-    price_book = result.get("price_book")
-    if not isinstance(price_book, dict):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned no usable price book")
+    price_book = official_standard_pricing(list(admin_price_book(db)))
     return {
         "price_book_json": json.dumps(price_book, separators=(",", ":")),
-        "model": response.model,
-        "web_search_calls": response.web_search_calls,
+        "source": "https://developers.openai.com/api/docs/pricing",
     }
 
 
