@@ -870,6 +870,7 @@ def enter_demo(
     user = db.get(User, membership.user_id)
     if user is None or user.is_blocked:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Demo cellar is not available yet")
+    user.theme_preference = "atelier"
     db.execute(
         delete(UserSession).where(
             UserSession.user_id == user.id,
@@ -890,6 +891,10 @@ def update_preferences(
     context: CurrentContext = Depends(get_current_context),
     db: Session = Depends(get_db),
 ) -> SessionResponse:
+    if context.household.is_demo and (
+        payload.dashboard_focus is not None or "daily_wine_budget_chf" in payload.model_fields_set
+    ):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo preferences are limited to language and theme")
     daily_budget_provided = "daily_wine_budget_chf" in payload.model_fields_set
     if (
         payload.locale is None

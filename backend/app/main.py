@@ -28,6 +28,7 @@ app.include_router(api_router, prefix="/api/v1")
 DEMO_MUTATION_EXCEPTIONS = {
     "/api/v1/auth/demo",
     "/api/v1/auth/logout",
+    "/api/v1/auth/preferences",
 }
 
 

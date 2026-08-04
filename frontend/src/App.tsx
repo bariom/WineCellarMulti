@@ -1717,7 +1717,7 @@ export function App() {
 
   function applySessionPreferences(nextSession: Session, includeDashboardFocus = false) {
     setLocale(nextSession.locale || "it");
-    setThemePreference(nextSession.theme_preference || "system");
+    setThemePreference(nextSession.is_demo ? "atelier" : (nextSession.theme_preference || "system"));
     setDailyWineBudgetDraft(nextSession.daily_wine_budget_chf || "");
     if (includeDashboardFocus) {
       const nextFocus = nextSession.dashboard_focus || "collector";
@@ -7166,8 +7166,20 @@ export function App() {
           )}
         </div>
         {authenticated ? (
-          <div className="session-pill">
-            <strong>{session?.user_display_name || session?.user_email}</strong>
+          <div
+            className={`session-pill${session?.is_demo ? " demo-session-pill" : ""}`}
+            style={session?.is_demo && isMobileViewport ? {
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              flexWrap: "wrap",
+              gap: "6px",
+              width: "100%",
+              maxWidth: "none",
+              boxSizing: "border-box",
+            } : undefined}
+          >
+            {!session?.is_demo ? <strong>{session?.user_display_name || session?.user_email}</strong> : null}
             {householdMemberships.length > 1 ? (
               <label className="household-switch" title={locale === "it" ? "Cambia cantina" : "Switch cellar"}>
                 <AppIcon name="cellar" variant="action" tone="muted" size="0.95rem" />
@@ -7184,10 +7196,10 @@ export function App() {
                 </select>
               </label>
             ) : null}
-            <span>{session?.membership_role}</span>
-            {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Modalità demo · sola lettura" : "Demo mode · read-only"}</span> : null}
+            {!session?.is_demo ? <span>{session?.membership_role}</span> : null}
+            {session?.is_demo ? <span className="status-pill">{locale === "it" ? "Demo · sola lettura" : "Demo · read-only"}</span> : null}
             {offlineMode ? <span>{t("offlineMode")}: {offlineFileName}</span> : null}
-            {!offlineMode ? <div className="notification-wrap">
+            {!offlineMode && !session?.is_demo ? <div className="notification-wrap">
               <button
                 type="button"
                 className="secondary compact notification-button"
