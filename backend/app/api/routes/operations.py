@@ -251,7 +251,7 @@ def research_wine_vineyard(
         complexity="medium",
         app_funded=True,
     )
-    result = parse_json_response(response.output_text)
+    result = parse_json_response(response.text)
     identity = vineyard_identity(wine)
     matches = [candidate for candidate in db.scalars(select(Wine)) if vineyard_identity(candidate) == identity]
     source_url = str(result.get("source_url") or "").strip()

@@ -3037,6 +3037,78 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert len(client.get("/api/v1/admin/operations/history?hours=24").json()["samples"]) == 3
 
 
+def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        household = db.scalar(select(Household).where(Household.name == "Main Cellar"))
+        assert user is not None
+        assert household is not None
+        wine = Wine(
+            household_id=household.id,
+            created_by_user_id=user.id,
+            name="Ferrari Perlè",
+            producer="Ferrari",
+            vintage="2018",
+            appellation="Trento DOC",
+            region="Trentino-Alto Adige",
+        )
+        db.add(wine)
+        db.commit()
+        wine_id = wine.id
+
+    source_url = "https://example.com/ferrari-vineyards"
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "status": "found",
+                        "vineyard_name": "Tenuta Lunelli",
+                        "locality": "Trento",
+                        "country": "Italia",
+                        "latitude": 46.0664,
+                        "longitude": 11.1258,
+                        "precision": "estate",
+                        "source_url": source_url,
+                        "source_title": "Ferrari vineyards",
+                        "notes": "Verified producer estate.",
+                    }
+                ),
+                usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+                web_sources=({"url": source_url, "title": "Ferrari vineyards"},),
+                web_search_calls=1,
+                requested_model="gpt-5.6-terra",
+                model="gpt-5.6-terra",
+                model_role="balanced",
+            ),
+            "application",
+        )
+
+    monkeypatch.setattr(operations_route, "create_ai_response", fake_create_ai_response)
+
+    response = client.post(f"/api/v1/admin/operations/vineyards/{wine_id}/research?locale=it")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "status": "found",
+        "updated_wines": 1,
+        "wine_id": str(wine_id),
+        "vineyard_name": "Tenuta Lunelli",
+        "precision": "estate",
+    }
+    with TestingSessionLocal() as db:
+        saved = db.get(Wine, wine_id)
+        assert saved is not None
+        assert saved.vineyard_latitude == 46.0664
+        assert saved.vineyard_longitude == 11.1258
+        assert saved.vineyard_source_url == source_url
+        assert saved.vineyard_verified_at is not None
+
+
 def test_monitor_device_token_can_trigger_a_fresh_sample(monkeypatch):
     admin = TestClient(app)
     assert register(admin).status_code == 201
