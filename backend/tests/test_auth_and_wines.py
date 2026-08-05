@@ -712,6 +712,11 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
         assert published.status_code == 200
         assert published.json()["published_count"] == 1
 
+        synced = admin.post("/api/v1/admin/operations/photos/sync-library")
+        assert synced.status_code == 200
+        assert synced.json()["processed"] == 1
+        assert synced.json()["added"] == 1
+
         visitor = TestClient(app)
         entered = visitor.post("/api/v1/auth/demo", params={"locale": "en"})
         assert entered.status_code == 200

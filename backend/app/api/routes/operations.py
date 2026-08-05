@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
-from sqlalchemy import case, delete, func, or_, select
+from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
@@ -41,7 +41,7 @@ from app.services.openai_pricing import official_standard_pricing
 from app.services.operational_alerts import evaluate_operational_alerts
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
-from app.services.wine_photo_library import library_photo_path
+from app.services.wine_photo_library import archive_wine_photo, library_photo_path
 
 router = APIRouter(prefix="/admin/operations")
 
@@ -457,17 +457,10 @@ def list_wine_photos(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    demo_wine_ids = select(DemoWineSelection.demo_wine_id)
     rows = db.execute(
         select(WinePhotoLibraryEntry, Household.name)
         .outerjoin(Wine, Wine.id == WinePhotoLibraryEntry.source_wine_id)
         .outerjoin(Household, Household.id == Wine.household_id)
-        .where(
-            or_(
-                WinePhotoLibraryEntry.source_wine_id.is_(None),
-                WinePhotoLibraryEntry.source_wine_id.not_in(demo_wine_ids),
-            )
-        )
         .order_by(WinePhotoLibraryEntry.name, WinePhotoLibraryEntry.producer, WinePhotoLibraryEntry.created_at.desc())
     ).all()
     unique_rows: list[tuple[WinePhotoLibraryEntry, str | None]] = []
@@ -495,6 +488,28 @@ def list_wine_photos(
             for photo, household_name in page
         ],
     }
+
+
+@router.post("/photos/sync-library")
+def sync_wine_photo_library(
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, int]:
+    """Index legacy bottle photos from real cellars in the shared photo library."""
+
+    before = db.scalar(select(func.count()).select_from(WinePhotoLibraryEntry)) or 0
+    wines = db.scalars(
+        select(Wine)
+        .join(Household, Household.id == Wine.household_id)
+        .where(Wine.photo_version != "", Household.is_demo.is_(False))
+    )
+    processed = 0
+    for wine in wines:
+        if archive_wine_photo(db, wine) is not None:
+            processed += 1
+    db.commit()
+    total = db.scalar(select(func.count()).select_from(WinePhotoLibraryEntry)) or 0
+    return {"processed": processed, "added": total - before, "total": total}
 
 
 def demo_household(db: Session) -> Household | None:

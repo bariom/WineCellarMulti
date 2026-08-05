@@ -26,6 +26,7 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
   const [winePhotos, setWinePhotos] = useState<OperationalWinePhotos | null>(null);
   const [photoError, setPhotoError] = useState("");
   const [deletingPhotoId, setDeletingPhotoId] = useState("");
+  const [syncingPhotoLibrary, setSyncingPhotoLibrary] = useState(false);
   const [demoCellar, setDemoCellar] = useState<DemoCellarState | null>(null);
   const [demoSelection, setDemoSelection] = useState<string[]>([]);
   const [publishingDemo, setPublishingDemo] = useState(false);
@@ -104,6 +105,19 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
     }
   }
 
+  async function syncPhotoLibrary() {
+    setSyncingPhotoLibrary(true);
+    setPhotoError("");
+    try {
+      await api<{ processed: number; added: number; total: number }>("/api/v1/admin/operations/photos/sync-library", { method: "POST" });
+      await loadWinePhotos();
+    } catch (error) {
+      setPhotoError(error instanceof Error ? error.message : "Unable to synchronize the photo library");
+    } finally {
+      setSyncingPhotoLibrary(false);
+    }
+  }
+
   return (
     <>
     <section className="settings-card settings-card-wide admin-demo-card">
@@ -159,6 +173,9 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
         </div>
         <div className="admin-photos-heading-actions">
           <strong>{winePhotos?.total ?? "—"}</strong>
+          <button type="button" className="secondary compact" disabled={syncingPhotoLibrary} onClick={() => void syncPhotoLibrary()}>
+            {syncingPhotoLibrary ? (isItalian ? "Sincronizzazione…" : "Synchronizing…") : (isItalian ? "Sincronizza archivio" : "Sync archive")}
+          </button>
           <button type="button" className="secondary compact" onClick={() => void loadWinePhotos()}>
             {isItalian ? "Aggiorna" : "Refresh"}
           </button>
