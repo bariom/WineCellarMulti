@@ -935,6 +935,12 @@ export function WineDetail({
           <strong>{detailValue}</strong>
         </div>
 
+        {wine.vineyard_latitude !== null && wine.vineyard_longitude !== null ? (
+          <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
+            <VineyardMap wine={wine} locale={locale} />
+          </Suspense>
+        ) : null}
+
         <details className="wine-ai-tools">
           <summary>{locale === "it" ? "Strumenti AI" : "AI tools"}</summary>
           <div className="ai-actions detail-ai-actions">
@@ -1064,12 +1070,6 @@ export function WineDetail({
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
       </div>
-
-      {wine.vineyard_latitude !== null && wine.vineyard_longitude !== null ? (
-        <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
-          <VineyardMap wine={wine} locale={locale} />
-        </Suspense>
-      ) : null}
 
       <div className="detail-market-block">
         <ValueHistoryChart wine={wine} t={t} locale={locale} />

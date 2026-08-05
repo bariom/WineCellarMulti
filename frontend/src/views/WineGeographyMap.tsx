@@ -108,7 +108,7 @@ function VineyardLocationMap({ wine, className, fullscreen = false }: { wine: Wi
 
 export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
   const [fullscreen, setFullscreen] = useState(false);
-  const openButtonRef = useRef<HTMLButtonElement | null>(null);
+  const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const precisionLabels = locale === "it"
     ? { vineyard: "Vigneto", estate: "Tenuta", appellation: "Centro della denominazione" }
@@ -128,7 +128,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener("keydown", closeOnEscape);
-      openButtonRef.current?.focus();
+      lastTriggerRef.current?.focus();
     };
   }, [fullscreen]);
 
@@ -145,12 +145,16 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
       <section className="detail-vineyard-block">
         <div className="section-heading">
           <div>
-            <span>{locale === "it" ? "ORIGINE" : "ORIGIN"}</span>
+            <button type="button" className="vineyard-origin-trigger" onClick={(event) => { lastTriggerRef.current = event.currentTarget; setFullscreen(true); }}>
+              <span>{locale === "it" ? "ORIGINE" : "ORIGIN"}</span>
+              <strong>{place || wine.vineyard_name || wine.appellation || wine.region}</strong>
+              <i aria-hidden="true">›</i>
+            </button>
             <h3>{locale === "it" ? "Il luogo del vino" : "Where the wine comes from"}</h3>
           </div>
           <div className="vineyard-map-heading-actions">
             {precision ? <small>{precision}</small> : null}
-            <button ref={openButtonRef} type="button" className="secondary compact vineyard-map-expand" onClick={() => setFullscreen(true)}>
+            <button type="button" className="secondary compact vineyard-map-expand" onClick={(event) => { lastTriggerRef.current = event.currentTarget; setFullscreen(true); }}>
               <span aria-hidden="true">⛶</span>
               {locale === "it" ? "Apri mappa" : "Open map"}
             </button>
