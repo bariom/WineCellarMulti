@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
-from sqlalchemy import case, delete, func, select
+from sqlalchemy import case, delete, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
@@ -457,15 +457,29 @@ def list_wine_photos(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    total = db.scalar(select(func.count()).select_from(WinePhotoLibraryEntry)) or 0
+    demo_wine_ids = select(DemoWineSelection.demo_wine_id)
     rows = db.execute(
         select(WinePhotoLibraryEntry, Household.name)
         .outerjoin(Wine, Wine.id == WinePhotoLibraryEntry.source_wine_id)
         .outerjoin(Household, Household.id == Wine.household_id)
+        .where(
+            or_(
+                WinePhotoLibraryEntry.source_wine_id.is_(None),
+                WinePhotoLibraryEntry.source_wine_id.not_in(demo_wine_ids),
+            )
+        )
         .order_by(WinePhotoLibraryEntry.name, WinePhotoLibraryEntry.producer, WinePhotoLibraryEntry.created_at.desc())
-        .offset(offset)
-        .limit(limit)
     ).all()
+    unique_rows: list[tuple[WinePhotoLibraryEntry, str | None]] = []
+    seen_identities: set[tuple[str, str]] = set()
+    for photo, household_name in rows:
+        identity = (photo.normalized_name, photo.normalized_producer)
+        if identity in seen_identities:
+            continue
+        seen_identities.add(identity)
+        unique_rows.append((photo, household_name))
+    total = len(unique_rows)
+    page = unique_rows[offset:offset + limit]
     return {
         "total": total,
         "items": [
@@ -478,7 +492,7 @@ def list_wine_photos(
                 "thumbnail_url": f"/api/v1/admin/operations/photos/{photo.id}/thumbnail?v={photo.photo_version}",
                 "detail_url": f"/api/v1/admin/operations/photos/{photo.id}/detail?v={photo.photo_version}",
             }
-            for photo, household_name in rows
+            for photo, household_name in page
         ],
     }
 
@@ -715,9 +729,16 @@ def delete_wine_photo(
 ) -> Response:
     library_photo = db.get(WinePhotoLibraryEntry, wine_id)
     if library_photo is not None:
-        for size in PHOTO_SIZES:
-            library_photo_path(library_photo, size).unlink(missing_ok=True)
-        db.delete(library_photo)
+        matching_photos = list(db.scalars(
+            select(WinePhotoLibraryEntry).where(
+                WinePhotoLibraryEntry.normalized_name == library_photo.normalized_name,
+                WinePhotoLibraryEntry.normalized_producer == library_photo.normalized_producer,
+            )
+        ))
+        for photo in matching_photos:
+            for size in PHOTO_SIZES:
+                library_photo_path(photo, size).unlink(missing_ok=True)
+            db.delete(photo)
         db.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     wine = db.get(Wine, wine_id)

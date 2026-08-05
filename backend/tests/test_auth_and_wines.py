@@ -547,7 +547,7 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
 
         admin_photos = client.get("/api/v1/admin/operations/photos")
         assert admin_photos.status_code == 200
-        assert admin_photos.json()["total"] == 2
+        assert admin_photos.json()["total"] == 1
         admin_photo = admin_photos.json()["items"][0]
         assert admin_photo["name"] == "Photo Bottle"
         assert admin_photo["household_name"] in {"Main Cellar", "Second Cellar"}
