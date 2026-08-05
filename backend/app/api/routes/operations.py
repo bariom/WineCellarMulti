@@ -4,8 +4,10 @@ import hmac
 import json
 import math
 import re
+import unicodedata
 from datetime import UTC, datetime, timedelta
 from typing import cast
+from urllib.parse import parse_qsl, unquote, urlencode, urlsplit
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
@@ -154,6 +156,35 @@ def vineyard_candidate(wine: Wine) -> dict[str, object]:
     }
 
 
+def canonical_source_url(value: object) -> str:
+    """Normalize harmless URL variants while preserving the researched page identity."""
+    raw_url = str(value or "").strip()
+    if not raw_url:
+        return ""
+    try:
+        parsed = urlsplit(raw_url)
+        if parsed.scheme.casefold() not in {"http", "https"} or not parsed.hostname:
+            return ""
+        hostname = parsed.hostname.casefold().removeprefix("www.")
+        port = parsed.port
+    except ValueError:
+        return ""
+    authority = hostname
+    if port and not (parsed.scheme.casefold() == "http" and port == 80) and not (
+        parsed.scheme.casefold() == "https" and port == 443
+    ):
+        authority = f"{authority}:{port}"
+    path = unicodedata.normalize("NFC", unquote(parsed.path)).rstrip("/") or "/"
+    query_pairs = sorted(
+        (key, value)
+        for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+        if not key.casefold().startswith("utm_")
+        and key.casefold() not in {"fbclid", "gclid", "mc_cid", "mc_eid"}
+    )
+    query = urlencode(query_pairs, doseq=True)
+    return f"{authority}{path}{f'?{query}' if query else ''}"
+
+
 @router.get("/vineyards")
 def vineyard_research_queue(
     q: str = Query(default="", max_length=200),
@@ -257,11 +288,13 @@ def research_wine_vineyard(
     identity = vineyard_identity(wine)
     matches = [candidate for candidate in db.scalars(select(Wine)) if vineyard_identity(candidate) == identity]
     source_url = str(result.get("source_url") or "").strip()
+    canonical_result_source_url = canonical_source_url(source_url)
     verified_source = next(
         (
             source
             for source in response.web_sources
-            if str(source.get("url") or "").strip().rstrip("/") == source_url.rstrip("/")
+            if canonical_result_source_url
+            and canonical_source_url(source.get("url")) == canonical_result_source_url
         ),
         None,
     )

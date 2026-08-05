@@ -32,6 +32,9 @@
 .detail-vineyard-block .section-heading span { color: var(--accent, var(--primary)); font-size: .66rem; font-weight: 800; letter-spacing: .13em; }
 .detail-vineyard-block .section-heading h3 { margin: 0; font-family: var(--font-display); font-size: 1.25rem; }
 .detail-vineyard-block .section-heading small, .vineyard-map-source { color: var(--text-muted); font-size: .74rem; }
+.vineyard-map-heading-actions { display: flex; align-items: center; justify-content: end; gap: 10px; }
+.vineyard-map-expand { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
+.vineyard-map-expand > span { color: currentColor !important; font-size: 1rem !important; letter-spacing: 0 !important; }
 .vineyard-map-copy { display: grid; gap: 3px; }
 .vineyard-map-copy strong { font-size: .96rem; }
 .vineyard-map-copy span, .vineyard-map-copy p { color: var(--text-muted); font-size: .8rem; }
@@ -40,8 +43,33 @@
 .vineyard-detail-map .leaflet-control-attribution { font-size: .58rem; }
 .vineyard-detail-map .leaflet-tooltip { max-width: min(260px, 70vw); overflow: hidden; border-color: var(--border); border-radius: 8px; color: #211d19; font-family: inherit; font-size: .74rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
 .vineyard-map-source a { color: inherit; text-underline-offset: 3px; }
+
+.vineyard-fullscreen-view { position: fixed; z-index: 620; inset: 0; overflow: hidden; color: var(--text); background: var(--surface); }
+.vineyard-fullscreen-map { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; background: var(--surface-muted); }
+.vineyard-fullscreen-map .leaflet-tooltip { max-width: min(320px, 72vw); overflow: hidden; border-color: var(--border); border-radius: 9px; color: #211d19; font-family: inherit; font-size: .78rem; font-weight: 800; text-overflow: ellipsis; white-space: nowrap; }
+.vineyard-fullscreen-header { position: absolute; z-index: 800; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); display: flex; align-items: center; gap: 14px; width: min(680px, calc(100% - max(24px, env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px)))); margin-inline: auto; padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--surface) 92%, transparent); box-shadow: 0 14px 36px color-mix(in srgb, var(--collector-depth) 36%, transparent); backdrop-filter: blur(18px); }
+.vineyard-fullscreen-header > div { display: grid; min-width: 0; gap: 2px; }
+.vineyard-fullscreen-header strong, .vineyard-fullscreen-header > div span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vineyard-fullscreen-header strong { font-size: .92rem; }
+.vineyard-fullscreen-header > div span { color: var(--text-muted); font-size: .72rem; }
+.vineyard-fullscreen-back { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 7px; min-height: 42px; padding: 8px 12px; border-radius: 11px; }
+.vineyard-fullscreen-back > span:first-child { font-size: 1.15rem; }
+.vineyard-fullscreen-card { position: absolute; z-index: 800; right: max(12px, env(safe-area-inset-right, 0px)); bottom: max(12px, env(safe-area-inset-bottom, 0px)); left: max(12px, env(safe-area-inset-left, 0px)); display: grid; width: min(620px, calc(100% - max(24px, env(safe-area-inset-left, 0px) + env(safe-area-inset-right, 0px)))); margin-inline: auto; padding: 14px 16px; gap: 7px; border: 1px solid color-mix(in srgb, var(--border) 88%, transparent); border-radius: 16px; background: color-mix(in srgb, var(--surface) 93%, transparent); box-shadow: 0 14px 36px color-mix(in srgb, var(--collector-depth) 40%, transparent); backdrop-filter: blur(18px); }
+.vineyard-fullscreen-card > div { display: grid; gap: 2px; }
+.vineyard-fullscreen-card > div span { color: var(--accent, var(--primary)); font-size: .62rem; font-weight: 850; letter-spacing: .12em; }
+.vineyard-fullscreen-card > div strong { font-family: var(--font-display); font-size: 1.05rem; }
+.vineyard-fullscreen-card p { margin: 0; color: var(--text-muted); font-size: .78rem; line-height: 1.42; }
+.vineyard-fullscreen-map .leaflet-bottom { bottom: 140px; }
 @media (max-width: 620px) {
   .detail-vineyard-block { padding: 14px; border-radius: 15px; }
-  .detail-vineyard-block .section-heading { align-items: start; flex-direction: column; gap: 4px; }
+  .detail-vineyard-block .section-heading { align-items: stretch; flex-direction: column; gap: 9px; }
+  .vineyard-map-heading-actions { justify-content: space-between; }
+  .vineyard-map-expand { min-height: 40px; }
   .vineyard-detail-map { height: 245px; }
+  .vineyard-fullscreen-header { align-items: stretch; }
+  .vineyard-fullscreen-header > div { align-self: center; }
+  .vineyard-fullscreen-back { padding-inline: 11px; }
+  .vineyard-fullscreen-back > span:last-child { font-size: .78rem; }
+  .vineyard-fullscreen-card { padding: 13px 14px; }
+  .vineyard-fullscreen-map .leaflet-bottom { bottom: 165px; }
 }

@@ -3051,17 +3051,18 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
         wine = Wine(
             household_id=household.id,
             created_by_user_id=user.id,
-            name="Ferrari Perlè",
-            producer="Ferrari",
+            name="Château Citran",
+            producer="Château Citran",
             vintage="2018",
-            appellation="Trento DOC",
-            region="Trentino-Alto Adige",
+            appellation="Haut-Médoc",
+            region="Bordeaux",
         )
         db.add(wine)
         db.commit()
         wine_id = wine.id
 
-    source_url = "https://example.com/ferrari-vineyards"
+    source_url = "https://commons.wikimedia.org/wiki/Category:Ch%C3%A2teau_Citran"
+    web_source_url = "https://commons.wikimedia.org/wiki/Category:Château_Citran?utm_source=search"
 
     request_options = {}
 
@@ -3072,19 +3073,19 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
                 text=json.dumps(
                     {
                         "status": "found",
-                        "vineyard_name": "Tenuta Lunelli",
-                        "locality": "Trento",
-                        "country": "Italia",
-                        "latitude": 46.0664,
-                        "longitude": 11.1258,
+                        "vineyard_name": "Château Citran",
+                        "locality": "Avensan, Gironda",
+                        "country": "Francia",
+                        "latitude": 45.0525,
+                        "longitude": -0.7475,
                         "precision": "estate",
                         "source_url": source_url,
-                        "source_title": "Ferrari vineyards",
-                        "notes": "Verified producer estate.",
+                        "source_title": "Category:Château Citran — Wikimedia Commons",
+                        "notes": "Punto approssimativo riferito alla tenuta Château Citran.",
                     }
                 ),
                 usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
-                web_sources=({"url": source_url, "title": "Ferrari vineyards"},),
+                web_sources=({"url": web_source_url, "title": "Château Citran"},),
                 web_search_calls=1,
                 requested_model="gpt-5.6-terra",
                 model="gpt-5.6-terra",
@@ -3108,14 +3109,14 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
         "status": "found",
         "updated_wines": 1,
         "wine_id": str(wine_id),
-        "vineyard_name": "Tenuta Lunelli",
+        "vineyard_name": "Château Citran",
         "precision": "estate",
     }
     with TestingSessionLocal() as db:
         saved = db.get(Wine, wine_id)
         assert saved is not None
-        assert saved.vineyard_latitude == 46.0664
-        assert saved.vineyard_longitude == 11.1258
+        assert saved.vineyard_latitude == 45.0525
+        assert saved.vineyard_longitude == -0.7475
         assert saved.vineyard_source_url == source_url
         assert saved.vineyard_verified_at is not None
 

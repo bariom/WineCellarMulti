@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./WineGeographyMap.css";
@@ -88,43 +89,106 @@ function wineRegionLocation(wine: Wine) {
   }).find(Boolean) || null;
 }
 
+function VineyardLocationMap({ wine, className, fullscreen = false }: { wine: Wine; className: string; fullscreen?: boolean }) {
+  const position: [number, number] = [wine.vineyard_latitude as number, wine.vineyard_longitude as number];
+  return (
+    <MapContainer
+      center={position}
+      zoom={wine.vineyard_precision === "vineyard" ? 14 : wine.vineyard_precision === "estate" ? 12 : 10}
+      scrollWheelZoom={fullscreen}
+      className={className}
+    >
+      <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <CircleMarker center={position} radius={fullscreen ? 11 : 9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: "#76233d", fillOpacity: 0.95 }}>
+        <Tooltip permanent direction="top" offset={[0, -8]}>{wine.vineyard_name || wine.name}</Tooltip>
+      </CircleMarker>
+    </MapContainer>
+  );
+}
+
 export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
-  if (wine.vineyard_latitude === null || wine.vineyard_longitude === null) return null;
-  const position: [number, number] = [wine.vineyard_latitude, wine.vineyard_longitude];
+  const [fullscreen, setFullscreen] = useState(false);
+  const openButtonRef = useRef<HTMLButtonElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const precisionLabels = locale === "it"
     ? { vineyard: "Vigneto", estate: "Tenuta", appellation: "Centro della denominazione" }
     : { vineyard: "Vineyard", estate: "Estate", appellation: "Appellation centre" };
   const precision = wine.vineyard_precision ? precisionLabels[wine.vineyard_precision] : "";
   const place = [wine.vineyard_locality, wine.vineyard_country].filter(Boolean).join(", ");
 
+  useEffect(() => {
+    if (!fullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    closeButtonRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      openButtonRef.current?.focus();
+    };
+  }, [fullscreen]);
+
+  if (wine.vineyard_latitude === null || wine.vineyard_longitude === null) return null;
+
+  const sourceLink = wine.vineyard_source_url ? (
+    <a href={wine.vineyard_source_url} target="_blank" rel="noreferrer">
+      {locale === "it" ? "Fonte verificata" : "Verified source"}{wine.vineyard_source_title ? `: ${wine.vineyard_source_title}` : ""}
+    </a>
+  ) : null;
+
   return (
-    <section className="detail-vineyard-block">
-      <div className="section-heading">
-        <div>
-          <span>{locale === "it" ? "ORIGINE" : "ORIGIN"}</span>
-          <h3>{locale === "it" ? "Il luogo del vino" : "Where the wine comes from"}</h3>
+    <>
+      <section className="detail-vineyard-block">
+        <div className="section-heading">
+          <div>
+            <span>{locale === "it" ? "ORIGINE" : "ORIGIN"}</span>
+            <h3>{locale === "it" ? "Il luogo del vino" : "Where the wine comes from"}</h3>
+          </div>
+          <div className="vineyard-map-heading-actions">
+            {precision ? <small>{precision}</small> : null}
+            <button ref={openButtonRef} type="button" className="secondary compact vineyard-map-expand" onClick={() => setFullscreen(true)}>
+              <span aria-hidden="true">⛶</span>
+              {locale === "it" ? "Apri mappa" : "Open map"}
+            </button>
+          </div>
         </div>
-        {precision ? <small>{precision}</small> : null}
-      </div>
-      <div className="vineyard-map-copy">
-        <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
-        {place ? <span>{place}</span> : null}
-        {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
-      </div>
-      <MapContainer center={position} zoom={wine.vineyard_precision === "vineyard" ? 14 : wine.vineyard_precision === "estate" ? 12 : 10} scrollWheelZoom={false} className="vineyard-detail-map">
-        <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <CircleMarker center={position} radius={9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: "#76233d", fillOpacity: 0.95 }}>
-          <Tooltip permanent direction="top" offset={[0, -8]}>{wine.vineyard_name || wine.name}</Tooltip>
-        </CircleMarker>
-      </MapContainer>
-      {wine.vineyard_source_url ? (
-        <small className="vineyard-map-source">
-          <a href={wine.vineyard_source_url} target="_blank" rel="noreferrer">
-            {locale === "it" ? "Fonte verificata" : "Verified source"}{wine.vineyard_source_title ? `: ${wine.vineyard_source_title}` : ""}
-          </a>
-        </small>
+        <div className="vineyard-map-copy">
+          <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
+          {place ? <span>{place}</span> : null}
+          {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
+        </div>
+        <VineyardLocationMap wine={wine} className="vineyard-detail-map" />
+        {sourceLink ? <small className="vineyard-map-source">{sourceLink}</small> : null}
+      </section>
+      {fullscreen ? createPortal(
+        <section className="vineyard-fullscreen-view" aria-label={locale === "it" ? `Mappa di provenienza di ${wine.name}` : `Origin map for ${wine.name}`}>
+          <header className="vineyard-fullscreen-header">
+            <button ref={closeButtonRef} type="button" className="vineyard-fullscreen-back" onClick={() => setFullscreen(false)}>
+              <span aria-hidden="true">←</span>
+              <span>{locale === "it" ? "Torna al vino" : "Back to wine"}</span>
+            </button>
+            <div>
+              <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
+              <span>{[place, precision].filter(Boolean).join(" · ")}</span>
+            </div>
+          </header>
+          <VineyardLocationMap wine={wine} className="vineyard-fullscreen-map" fullscreen />
+          <footer className="vineyard-fullscreen-card">
+            <div>
+              <span>{locale === "it" ? "PROVENIENZA" : "ORIGIN"}</span>
+              <strong>{wine.name}{wine.vintage ? ` · ${wine.vintage}` : ""}</strong>
+            </div>
+            {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
+            {sourceLink ? <small className="vineyard-map-source">{sourceLink}</small> : null}
+          </footer>
+        </section>,
+        document.body,
       ) : null}
-    </section>
+    </>
   );
 }
 
