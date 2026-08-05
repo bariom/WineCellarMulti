@@ -234,7 +234,7 @@ def research_wine_vineyard(
         },
     }
     user_settings = get_or_create_user_ai_settings(db, context)
-    configured_model = default_model_for_field("drink_window_model")
+    configured_model = default_model_for_field("ai_notes_model")
     response, provider_source = create_ai_response(
         db,
         context,
@@ -245,10 +245,12 @@ def research_wine_vineyard(
         json_schema=schema,
         web_search=True,
         web_search_use_default_location=False,
-        web_search_context_size="medium",
-        max_tool_calls=4,
+        web_search_context_size="low",
+        reasoning_effort="low",
+        max_output_tokens=2048,
+        max_tool_calls=1,
         task_type="research",
-        complexity="medium",
+        complexity="low",
         app_funded=True,
     )
     result = parse_json_response(response.text)

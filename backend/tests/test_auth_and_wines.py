@@ -3040,6 +3040,8 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
 def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+    monkeypatch.setattr(settings, "openai_economy_model", "gpt-5.6-luna")
 
     with TestingSessionLocal() as db:
         user = db.scalar(select(User).where(User.email == "owner@example.com"))
@@ -3061,7 +3063,10 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
 
     source_url = "https://example.com/ferrari-vineyards"
 
+    request_options = {}
+
     def fake_create_ai_response(*args, **kwargs):
+        request_options.update(kwargs)
         return (
             OpenAIResponse(
                 text=json.dumps(
@@ -3093,6 +3098,12 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
     response = client.post(f"/api/v1/admin/operations/vineyards/{wine_id}/research?locale=it")
 
     assert response.status_code == 200
+    assert request_options["model"] == "gpt-5.6-luna"
+    assert request_options["reasoning_effort"] == "low"
+    assert request_options["web_search_context_size"] == "low"
+    assert request_options["max_output_tokens"] == 2048
+    assert request_options["max_tool_calls"] == 1
+    assert request_options["complexity"] == "low"
     assert response.json() == {
         "status": "found",
         "updated_wines": 1,
