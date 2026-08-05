@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { CircleMarker, MapContainer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import { loadMapConfig } from "../services/mapConfig";
@@ -47,6 +48,41 @@ function MapPointPicker({ point, label, onChange }: { point: Point | null; label
   );
 }
 
+function EditableVineyardMap({
+  className,
+  label,
+  locale,
+  mapCentre,
+  point,
+  searchFocus,
+  onPointChange,
+}: {
+  className: string;
+  label: string;
+  locale: Locale;
+  mapCentre: [number, number];
+  point: Point | null;
+  searchFocus: GeocodeCandidate | null;
+  onPointChange: (point: Point) => void;
+}) {
+  return (
+    <MapContainer center={mapCentre} zoom={point || searchFocus ? 15 : 5} scrollWheelZoom className={className}>
+      <MapBaseLayers locale={locale} />
+      <MapViewport point={point} searchFocus={searchFocus} />
+      {searchFocus ? (
+        <CircleMarker
+          center={[searchFocus.latitude, searchFocus.longitude]}
+          radius={11}
+          pathOptions={{ color: "#1f5d78", weight: 3, dashArray: "5 4", fillColor: "#fffaf0", fillOpacity: 0.8 }}
+        >
+          <Tooltip permanent direction="top" offset={[0, -10]}>{searchFocus.address}</Tooltip>
+        </CircleMarker>
+      ) : null}
+      <MapPointPicker point={point} label={label} onChange={onPointChange} />
+    </MapContainer>
+  );
+}
+
 export default function VineyardLocationEditor({ locale, label, latitude, longitude, onSave }: VineyardLocationEditorProps) {
   const isItalian = locale === "it";
   const initialPoint = latitude !== null && longitude !== null ? { latitude, longitude } : null;
@@ -58,6 +94,9 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
   const [locationSearching, setLocationSearching] = useState(false);
   const [locationSearchError, setLocationSearchError] = useState("");
   const [searchFocus, setSearchFocus] = useState<GeocodeCandidate | null>(null);
+  const [fullscreen, setFullscreen] = useState(false);
+  const fullscreenTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const fullscreenCloseRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     setPoint(latitude !== null && longitude !== null ? { latitude, longitude } : null);
@@ -67,6 +106,22 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
     setLocationSearchError("");
     setSearchFocus(null);
   }, [label, latitude, longitude]);
+
+  useEffect(() => {
+    if (!fullscreen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    fullscreenCloseRef.current?.focus();
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+      fullscreenTriggerRef.current?.focus();
+    };
+  }, [fullscreen]);
 
   const changed = Boolean(point && (
     latitude === null
@@ -158,76 +213,100 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
       : "Area found: click the map to set the exact point.");
   }
 
-  const mapCentre: [number, number] = point ? [point.latitude, point.longitude] : [46.5, 8.5];
+  function selectPoint(nextPoint: Point) {
+    setPoint(nextPoint);
+    setSearchFocus(null);
+  }
+
+  const activeMapPoint = searchFocus || point;
+  const mapCentre: [number, number] = activeMapPoint ? [activeMapPoint.latitude, activeMapPoint.longitude] : [46.5, 8.5];
   return (
-    <div className="vineyard-location-editor">
-      <div className="vineyard-location-editor-heading">
-        <div>
-          <strong>{isItalian ? "Verifica il punto sulla mappa" : "Check the point on the map"}</strong>
-          <small>{isItalian ? "Clicca sulla posizione esatta della tenuta o inserisci le coordinate." : "Click the exact estate location or enter its coordinates."}</small>
-        </div>
-        {latitude !== null && longitude !== null ? (
-          <button type="button" className="secondary compact" disabled={!changed || saving} onClick={() => { setPoint(initialPoint); setSearchFocus(null); }}>
-            {isItalian ? "Ripristina" : "Reset"}
-          </button>
-        ) : null}
-      </div>
-      <form className="vineyard-location-search" onSubmit={(event) => { event.preventDefault(); void searchLocation(); }}>
-        <input
-          type="search"
-          maxLength={200}
-          value={locationQuery}
-          onChange={(event) => setLocationQuery(event.target.value)}
-          placeholder={isItalian ? "Cerca tenuta, indirizzo o località" : "Search estate, address or locality"}
-          aria-label={isItalian ? "Cerca un luogo sulla mappa" : "Search for a place on the map"}
-        />
-        <button type="submit" className="secondary compact" disabled={locationSearching}>
-          {locationSearching ? (isItalian ? "Cerco…" : "Searching…") : (isItalian ? "Cerca luogo" : "Search place")}
-        </button>
-      </form>
-      {locationResults.length ? (
-        <div className="vineyard-location-search-results">
-          {locationResults.map((candidate, index) => (
-            <button
-              type="button"
-              key={`${candidate.latitude}:${candidate.longitude}:${index}`}
-              onClick={() => focusLocation(candidate)}
-            >
-              <span>{candidate.address}</span>
-              <small>{Math.round(candidate.score)}%</small>
+    <>
+      <div className="vineyard-location-editor">
+        <div className="vineyard-location-editor-heading">
+          <div>
+            <strong>{isItalian ? "Verifica il punto sulla mappa" : "Check the point on the map"}</strong>
+            <small>{isItalian ? "Clicca sulla posizione esatta della tenuta o inserisci le coordinate." : "Click the exact estate location or enter its coordinates."}</small>
+          </div>
+          <div className="vineyard-location-editor-actions">
+            {latitude !== null && longitude !== null ? (
+              <button type="button" className="secondary compact" disabled={!changed || saving} onClick={() => { setPoint(initialPoint); setSearchFocus(null); }}>
+                {isItalian ? "Ripristina" : "Reset"}
+              </button>
+            ) : null}
+            <button ref={fullscreenTriggerRef} type="button" className="secondary compact" onClick={() => setFullscreen(true)}>
+              <span aria-hidden="true">⛶</span> {isItalian ? "Schermo intero" : "Full screen"}
             </button>
-          ))}
+          </div>
         </div>
-      ) : null}
-      {locationSearchError ? <p className="vineyard-location-search-feedback">{locationSearchError}</p> : null}
-      <MapContainer center={mapCentre} zoom={point ? 15 : 5} scrollWheelZoom className="vineyard-location-editor-map">
-        <MapBaseLayers locale={locale} />
-        <MapViewport point={point} searchFocus={searchFocus} />
-        {searchFocus ? (
-          <CircleMarker
-            center={[searchFocus.latitude, searchFocus.longitude]}
-            radius={11}
-            pathOptions={{ color: "#1f5d78", weight: 3, dashArray: "5 4", fillColor: "#fffaf0", fillOpacity: 0.8 }}
-          >
-            <Tooltip permanent direction="top" offset={[0, -10]}>{searchFocus.address}</Tooltip>
-          </CircleMarker>
+        <form className="vineyard-location-search" onSubmit={(event) => { event.preventDefault(); void searchLocation(); }}>
+          <input
+            type="search"
+            maxLength={200}
+            value={locationQuery}
+            onChange={(event) => setLocationQuery(event.target.value)}
+            placeholder={isItalian ? "Cerca tenuta, indirizzo o località" : "Search estate, address or locality"}
+            aria-label={isItalian ? "Cerca un luogo sulla mappa" : "Search for a place on the map"}
+          />
+          <button type="submit" className="secondary compact" disabled={locationSearching}>
+            {locationSearching ? (isItalian ? "Cerco…" : "Searching…") : (isItalian ? "Cerca luogo" : "Search place")}
+          </button>
+        </form>
+        {locationResults.length ? (
+          <div className="vineyard-location-search-results">
+            {locationResults.map((candidate, index) => (
+              <button
+                type="button"
+                key={`${candidate.latitude}:${candidate.longitude}:${index}`}
+                onClick={() => focusLocation(candidate)}
+              >
+                <span>{candidate.address}</span>
+                <small>{Math.round(candidate.score)}%</small>
+              </button>
+            ))}
+          </div>
         ) : null}
-        <MapPointPicker point={point} label={label} onChange={(nextPoint) => { setPoint(nextPoint); setSearchFocus(null); }} />
-      </MapContainer>
-      <div className="vineyard-location-editor-controls">
-        <label>
-          <span>{isItalian ? "Latitudine" : "Latitude"}</span>
-          <input type="number" min="-90" max="90" step="0.000001" value={point?.latitude ?? ""} onChange={(event) => updateCoordinate("latitude", event.target.value)} />
-        </label>
-        <label>
-          <span>{isItalian ? "Longitudine" : "Longitude"}</span>
-          <input type="number" min="-180" max="180" step="0.000001" value={point?.longitude ?? ""} onChange={(event) => updateCoordinate("longitude", event.target.value)} />
-        </label>
-        <button type="button" className="compact" disabled={!point || !changed || saving} onClick={() => void savePoint()}>
-          {saving ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva punto preciso" : "Save precise point")}
-        </button>
+        {locationSearchError ? <p className="vineyard-location-search-feedback">{locationSearchError}</p> : null}
+        {!fullscreen ? (
+          <EditableVineyardMap className="vineyard-location-editor-map" label={label} locale={locale} mapCentre={mapCentre} point={point} searchFocus={searchFocus} onPointChange={selectPoint} />
+        ) : null}
+        <div className="vineyard-location-editor-controls">
+          <label>
+            <span>{isItalian ? "Latitudine" : "Latitude"}</span>
+            <input type="number" min="-90" max="90" step="0.000001" value={point?.latitude ?? ""} onChange={(event) => updateCoordinate("latitude", event.target.value)} />
+          </label>
+          <label>
+            <span>{isItalian ? "Longitudine" : "Longitude"}</span>
+            <input type="number" min="-180" max="180" step="0.000001" value={point?.longitude ?? ""} onChange={(event) => updateCoordinate("longitude", event.target.value)} />
+          </label>
+          <button type="button" className="compact" disabled={!point || !changed || saving} onClick={() => void savePoint()}>
+            {saving ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva punto preciso" : "Save precise point")}
+          </button>
+        </div>
+        {error ? <p role="alert">{error}</p> : null}
       </div>
-      {error ? <p role="alert">{error}</p> : null}
-    </div>
+      {fullscreen ? createPortal(
+        <section className="vineyard-location-fullscreen" aria-label={isItalian ? `Posiziona ${label} sulla mappa` : `Position ${label} on the map`}>
+          <EditableVineyardMap className="vineyard-location-fullscreen-map" label={label} locale={locale} mapCentre={mapCentre} point={point} searchFocus={searchFocus} onPointChange={selectPoint} />
+          <header className="vineyard-location-fullscreen-header">
+            <button ref={fullscreenCloseRef} type="button" className="secondary compact" onClick={() => setFullscreen(false)}>
+              <span aria-hidden="true">←</span> {isItalian ? "Torna all’editor" : "Back to editor"}
+            </button>
+            <div><strong>{label}</strong><small>{isItalian ? "Clicca sulla posizione esatta" : "Click the exact location"}</small></div>
+          </header>
+          <footer className="vineyard-location-fullscreen-footer">
+            <div>
+              <span>{isItalian ? "PUNTO SELEZIONATO" : "SELECTED POINT"}</span>
+              <strong>{point ? `${point.latitude.toFixed(6)}, ${point.longitude.toFixed(6)}` : (isItalian ? "Nessun punto" : "No point selected")}</strong>
+              {error ? <small role="alert">{error}</small> : null}
+            </div>
+            <button type="button" className="compact" disabled={!point || !changed || saving} onClick={() => void savePoint()}>
+              {saving ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva punto" : "Save point")}
+            </button>
+          </footer>
+        </section>,
+        document.body,
+      ) : null}
+    </>
   );
 }
