@@ -90,16 +90,38 @@ function wineRegionLocation(wine: Wine) {
   }).find(Boolean) || null;
 }
 
+function vineyardMapZoom(wine: Wine) {
+  if (wine.vineyard_precision === "manual") return 15;
+  if (wine.vineyard_precision === "vineyard") return 14;
+  if (wine.vineyard_precision === "estate") return 12;
+  if (wine.vineyard_precision === "locality") return 11;
+  return 10;
+}
+
+function VineyardMapViewport({ position, zoom }: { position: [number, number]; zoom: number }) {
+  const map = useMap();
+  const [latitude, longitude] = position;
+
+  useEffect(() => {
+    map.invalidateSize({ pan: false });
+    map.setView([latitude, longitude], zoom, { animate: false });
+  }, [latitude, longitude, map, zoom]);
+
+  return null;
+}
+
 function VineyardLocationMap({ wine, className, locale, fullscreen = false }: { wine: Wine; className: string; locale: Locale; fullscreen?: boolean }) {
   const position: [number, number] = [wine.vineyard_latitude as number, wine.vineyard_longitude as number];
+  const zoom = vineyardMapZoom(wine);
   return (
     <MapContainer
       center={position}
-      zoom={wine.vineyard_precision === "manual" ? 15 : wine.vineyard_precision === "vineyard" ? 14 : wine.vineyard_precision === "estate" ? 12 : wine.vineyard_precision === "locality" ? 11 : 10}
+      zoom={zoom}
       scrollWheelZoom={fullscreen}
       className={className}
     >
-      <MapBaseLayers locale={locale} />
+      <MapBaseLayers key={wine.id} locale={locale} />
+      <VineyardMapViewport position={position} zoom={zoom} />
       <CircleMarker center={position} radius={fullscreen ? 11 : 9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: "#76233d", fillOpacity: 0.95 }}>
         <Tooltip permanent direction="top" offset={[0, -8]}>{wine.vineyard_name || wine.name}</Tooltip>
       </CircleMarker>
