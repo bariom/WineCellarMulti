@@ -12113,9 +12113,6 @@ export function App() {
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
                     <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} activity={userActivity} onRefresh={loadOperationsMetrics} />
                   </Suspense>
-                  <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento cantina demo…" : "Loading demo cellar…"} />}>
-                    <AdminPhotosPanel locale={locale} />
-                  </Suspense>
                 </>
               ) : null}
 
