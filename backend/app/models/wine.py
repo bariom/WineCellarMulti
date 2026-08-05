@@ -33,9 +33,19 @@ class Wine(Base):
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
+    shared_identity_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("shared_wine_identities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    shared_data_features: Mapped[list[str]] = mapped_column(JSON, default=list)
+    shared_data_updated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     name: Mapped[str] = mapped_column(String(200), index=True)
     producer: Mapped[str] = mapped_column(String(200), default="")
-    vintage: Mapped[str] = mapped_column(String(16), default="")
+    vintage: Mapped[str] = mapped_column(String(16), default="", index=True)
     quantity: Mapped[int] = mapped_column(default=0)
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)

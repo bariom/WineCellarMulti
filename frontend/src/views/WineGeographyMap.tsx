@@ -94,7 +94,7 @@ function VineyardLocationMap({ wine, className, fullscreen = false }: { wine: Wi
   return (
     <MapContainer
       center={position}
-      zoom={wine.vineyard_precision === "vineyard" ? 14 : wine.vineyard_precision === "estate" ? 12 : 10}
+      zoom={wine.vineyard_precision === "vineyard" ? 14 : wine.vineyard_precision === "estate" ? 12 : wine.vineyard_precision === "locality" ? 11 : 10}
       scrollWheelZoom={fullscreen}
       className={className}
     >
@@ -111,8 +111,8 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const precisionLabels = locale === "it"
-    ? { vineyard: "Vigneto", estate: "Tenuta", appellation: "Centro della denominazione" }
-    : { vineyard: "Vineyard", estate: "Estate", appellation: "Appellation centre" };
+    ? { vineyard: "Vigneto", estate: "Tenuta", locality: "Zona approssimativa", appellation: "Centro della denominazione" }
+    : { vineyard: "Vineyard", estate: "Estate", locality: "Approximate area", appellation: "Appellation centre" };
   const precision = wine.vineyard_precision ? precisionLabels[wine.vineyard_precision] : "";
   const place = [wine.vineyard_locality, wine.vineyard_country].filter(Boolean).join(", ");
 
@@ -136,7 +136,10 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
 
   const sourceLink = wine.vineyard_source_url ? (
     <a href={wine.vineyard_source_url} target="_blank" rel="noreferrer">
-      {locale === "it" ? "Fonte verificata" : "Verified source"}{wine.vineyard_source_title ? `: ${wine.vineyard_source_title}` : ""}
+      {wine.vineyard_precision === "locality" || wine.vineyard_precision === "appellation"
+        ? (locale === "it" ? "Fonte dell'origine" : "Origin source")
+        : (locale === "it" ? "Fonte verificata" : "Verified source")}
+      {wine.vineyard_source_title ? `: ${wine.vineyard_source_title}` : ""}
     </a>
   ) : null;
 

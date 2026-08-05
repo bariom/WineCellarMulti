@@ -169,17 +169,21 @@ def wine_scores_prompt(*, locale: str, wine_context: str) -> Prompt:
 def wine_vineyard_location_prompt(*, locale: str, wine_context: str) -> Prompt:
     return Prompt(
         id="wine.vineyard_location",
-        version="1",
+        version="2",
         system=(
-            "You research the geographic origin of one exact wine using web sources and return JSON only. "
+            "You research the geographic origin of one exact wine and return JSON only. "
+            "Use your existing wine and geographic knowledge to identify the most likely place, then use web sources to verify that the wine is connected to that place. "
             "Prefer the named vineyard or parcel. If the wine is assembled from several vineyards, use the producer estate only when it is a meaningful geographic origin; otherwise use the appellation centre. "
-            "Never invent a vineyard name or coordinates. Coordinates must identify the researched place and must be supported by a credible source. "
-            "Set precision to vineyard, estate, or appellation so the map never implies more accuracy than the evidence supports. "
+            "Never invent a vineyard name. Exact vineyard or estate coordinates require credible evidence. "
+            "When a credible source identifies the origin but does not publish exact coordinates, return a representative point for the smallest supported locality or appellation instead of status=not_found. "
+            "Set precision to vineyard, estate, locality, or appellation so the map never implies more accuracy than the evidence supports. "
             f"{language_instruction(locale)}"
         ),
         user=(
-            "Find the best verifiable map location for this wine. Return status=not_found and empty location fields when reliable evidence is unavailable. "
-            "source_url must be a concrete source used during web research. Keep notes to one short factual sentence and mention when the point is approximate.\n\n"
+            "Find the best defensible map location for this wine. The source must verify the wine's connection to the named vineyard, estate, locality, or appellation; it does not need to publish numeric coordinates when precision is locality or appellation. "
+            "For an approximate locality or appellation point, use representative centre coordinates, set the matching lower precision, and explicitly say in notes that the point is approximate. "
+            "Return status=not_found and empty location fields only when no reliable source connects this wine to any meaningful geographic area. "
+            "source_url must be a concrete source used during web research. Keep notes to one short factual sentence.\n\n"
             f"{wine_context}"
         ),
     )

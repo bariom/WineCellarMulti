@@ -768,6 +768,8 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
   return {
     id: item.wine_id,
     details_loaded: false,
+    shared_data_features: [],
+    shared_data_updated_at: null,
     household_id: "",
     name: item.wine_name,
     producer: item.wine_producer,
@@ -943,6 +945,20 @@ export function WineDetail({
 
         <details className="wine-ai-tools">
           <summary>{locale === "it" ? "Strumenti AI" : "AI tools"}</summary>
+          {wine.shared_data_features.length ? (
+            <div className="shared-wine-data-notice">
+              <strong>{locale === "it" ? "Dati Vinaris riutilizzati gratuitamente" : "Vinaris data reused at no cost"}</strong>
+              <span>
+                {wine.shared_data_features.map((feature) => ({
+                  notes: locale === "it" ? "note" : "notes",
+                  drink_window: locale === "it" ? "finestra di beva" : "drink window",
+                  value: locale === "it" ? "valore" : "value",
+                  grapes: locale === "it" ? "uve" : "grapes",
+                  scores: locale === "it" ? "punteggi" : "scores",
+                })[feature]).join(" · ")}
+              </span>
+            </div>
+          ) : null}
           <div className="ai-actions detail-ai-actions">
             <button type="button" className="secondary compact wine-ai-all-button" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("all")}>
               <ButtonBusyContent busy={generating === "all"} idleLabel={t("runAllWineAi")} busyLabel={t("generating")} />

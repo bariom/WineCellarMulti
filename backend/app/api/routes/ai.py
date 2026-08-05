@@ -88,6 +88,14 @@ from app.services.ai_credits import (
 )
 from app.services.ai_models import parameters_for_model
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
+from app.services.shared_wine_data import (
+    SHARED_FEATURES,
+    apply_shared_fact,
+    get_shared_fact,
+    hydrate_wine_from_shared,
+    mark_local_feature,
+    publish_shared_fact,
+)
 
 router = APIRouter(prefix="/ai")
 
@@ -656,15 +664,19 @@ def record_ai_audit(
     extra_cost_usd: Decimal = Decimal("0"),
 ) -> None:
     token_usage = usage or TokenUsage()
-    base_cost = quantize_usd(estimate_cost_usd(model, token_usage, db) + extra_cost_usd)
-    billed_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
-        provider_source=provider_source,
-        model=model,
-        usage=token_usage,
-        extra_cost_usd=extra_cost_usd,
-        db=db,
-    )
+    if provider_source == "shared_cache":
+        base_cost = ZERO_USD
+        billed_cost = ZERO_USD
+    else:
+        base_cost = quantize_usd(estimate_cost_usd(model, token_usage, db) + extra_cost_usd)
+        billed_cost = billable_cost_usd(
+            user_is_app_admin=context.user.is_app_admin,
+            provider_source=provider_source,
+            model=model,
+            usage=token_usage,
+            extra_cost_usd=extra_cost_usd,
+            db=db,
+        )
     source_metadata: dict[str, str] = {"provider_source": provider_source}
     if provider_source == "application":
         source_metadata["funded_by"] = "application"
@@ -694,6 +706,48 @@ def record_ai_audit(
             estimated_cost_usd=billed_cost,
         ),
     )
+
+
+def reuse_shared_wine_feature(
+    db: Session,
+    context: CurrentContext,
+    wine: Wine,
+    feature: str,
+    *,
+    locale: str,
+    force_refresh: bool,
+) -> bool:
+    if force_refresh or feature not in SHARED_FEATURES:
+        return False
+    hydrated = hydrate_wine_from_shared(db, wine, locale=locale)
+    fact = get_shared_fact(db, wine, feature, locale=locale)
+    if fact is None:
+        return False
+    changed = apply_shared_fact(wine, fact, only_missing=False)
+    if feature == "scores" and not changed and feature not in hydrated:
+        return False
+    if feature == "value" and (changed or feature in hydrated):
+        record_wine_value_history(db, wine, source="shared")
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature=f"shared_{feature}",
+        model=fact.model or default_model_for_field("ai_notes_model"),
+        summary=f"Reused Vinaris data for {feature}",
+        sources=(fact.sources or []) + [
+            {
+                "kind": "shared_data",
+                "verified_at": fact.verified_at.isoformat(),
+                "expires_at": fact.expires_at.isoformat() if fact.expires_at else "",
+            }
+        ],
+        provider_source="shared_cache",
+    )
+    db.commit()
+    db.refresh(wine)
+    return True
 
 
 def usage_bucket(entries: list[AiAuditLog]) -> AiUsageBucket:
@@ -1603,6 +1657,10 @@ def generate_wine_notes(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    if reuse_shared_wine_feature(
+        db, context, wine, "notes", locale=payload.locale, force_refresh=payload.force_refresh
+    ):
+        return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = ai_notes_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
     response, provider_source = create_ai_response(
@@ -1616,6 +1674,15 @@ def generate_wine_notes(
     )
     notes = response.text
     wine.ai_notes = notes[:4000]
+    mark_local_feature(wine, "notes")
+    publish_shared_fact(
+        db,
+        wine,
+        "notes",
+        {"ai_notes": wine.ai_notes},
+        locale=payload.locale,
+        model=effective_response_model(response, user_settings.ai_notes_model),
+    )
     record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=effective_response_model(response, user_settings.ai_notes_model), summary=notes, reasoning_effort=response.reasoning_effort or "", usage=response.usage, provider_source=provider_source)
     db.commit()
     db.refresh(wine)
@@ -1630,6 +1697,39 @@ def generate_all_wine_ai(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    if not payload.force_refresh:
+        cached_facts = {
+            feature: get_shared_fact(db, wine, feature, locale=payload.locale)
+            for feature in ("notes", "drink_window", "value", "grapes")
+        }
+        if all(cached_facts.values()):
+            applied = []
+            value_changed = False
+            for feature, fact in cached_facts.items():
+                if fact is not None:
+                    changed = apply_shared_fact(wine, fact, only_missing=False)
+                    value_changed = value_changed or (feature == "value" and changed)
+                    applied.append(feature)
+            if len(applied) == len(cached_facts):
+                if value_changed:
+                    record_wine_value_history(db, wine, source="shared")
+                record_ai_audit(
+                    db,
+                    context,
+                    entity_type="wine",
+                    entity_id=wine.id,
+                    feature="shared_full_enrichment",
+                    model=next(
+                        (fact.model for fact in cached_facts.values() if fact and fact.model),
+                        default_model_for_field("ai_notes_model"),
+                    ),
+                    summary="Reused Vinaris data for full wine enrichment",
+                    sources=[{"kind": "shared_data", "features": applied}],
+                    provider_source="shared_cache",
+                )
+                db.commit()
+                db.refresh(wine)
+                return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = wine_full_enrichment_prompt(
         locale=payload.locale,
@@ -1797,6 +1897,9 @@ def generate_all_wine_ai(
     else:
         wine.grapes_not_applicable = True
 
+    for feature in ("notes", "drink_window", "value", "grapes"):
+        mark_local_feature(wine, feature)
+
     record_wine_value_history(db, wine, source="ai")
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     note_entry = market_note_source(value_result.get("market_note") or value_result.get("notes"))
@@ -1816,6 +1919,43 @@ def generate_all_wine_ai(
         + ([grape_source_entry] if grape_source_entry else [])
     )
     effective_model = effective_response_model(response, selected_model)
+    publish_shared_fact(db, wine, "notes", {"ai_notes": wine.ai_notes}, locale=payload.locale, model=effective_model)
+    publish_shared_fact(
+        db,
+        wine,
+        "drink_window",
+        {
+            "drink_from": wine.drink_from,
+            "drink_peak_from": wine.drink_peak_from,
+            "drink_peak_to": wine.drink_peak_to,
+            "drink_to": wine.drink_to,
+            "notes": wine.drink_window_notes,
+        },
+        locale=payload.locale,
+        model=effective_model,
+    )
+    publish_shared_fact(
+        db,
+        wine,
+        "value",
+        {"current_value": str(wine.current_value), "currency": wine.currency, "notes": wine.ai_value_notes},
+        locale=payload.locale,
+        sources=audit_sources,
+        model=effective_model,
+    )
+    if saved_verified_grapes:
+        publish_shared_fact(
+            db,
+            wine,
+            "grapes",
+            {
+                "grapes": wine.grapes,
+                "source_url": wine.grapes_source_url,
+                "source_title": wine.grapes_source_title,
+            },
+            sources=[grape_source_entry] if grape_source_entry else [],
+            model=effective_model,
+        )
     record_ai_audit(
         db,
         context,
@@ -1994,8 +2134,17 @@ def generate_drink_window(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    if reuse_shared_wine_feature(
+        db,
+        context,
+        wine,
+        "drink_window",
+        locale=payload.locale,
+        force_refresh=payload.force_refresh,
+    ):
+        return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = drink_window_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
+    prompt = drink_window_prompt(locale=payload.locale, wine_context=wine_market_context(wine))
     schema = {
         "name": "drink_window",
         "schema": {
@@ -2027,6 +2176,21 @@ def generate_drink_window(
     wine.drink_peak_to = int(result["drink_peak_to"])
     wine.drink_to = int(result["drink_to"])
     wine.drink_window_notes = str(result["notes"])[:2000]
+    mark_local_feature(wine, "drink_window")
+    publish_shared_fact(
+        db,
+        wine,
+        "drink_window",
+        {
+            "drink_from": wine.drink_from,
+            "drink_peak_from": wine.drink_peak_from,
+            "drink_peak_to": wine.drink_peak_to,
+            "drink_to": wine.drink_to,
+            "notes": wine.drink_window_notes,
+        },
+        locale=payload.locale,
+        model=effective_response_model(response, user_settings.drink_window_model),
+    )
     record_ai_audit(
         db,
         context,
@@ -2052,6 +2216,10 @@ def generate_wine_value(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    if reuse_shared_wine_feature(
+        db, context, wine, "value", locale=payload.locale, force_refresh=payload.force_refresh
+    ):
+        return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = wine_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(wine.currency), currency=wine.currency, wine_context=wine_market_context(wine))
     schema = {
@@ -2114,6 +2282,16 @@ def generate_wine_value(
     wine.ai_value_estimated_at = datetime.now(UTC)
     note_entry = market_note_source(result.get("market_note") or result.get("notes"))
     audit_sources = market_sources + web_search_source_entries(response.web_sources) + ([note_entry] if note_entry else [])
+    mark_local_feature(wine, "value")
+    publish_shared_fact(
+        db,
+        wine,
+        "value",
+        {"current_value": str(wine.current_value), "currency": wine.currency, "notes": wine.ai_value_notes},
+        locale=payload.locale,
+        sources=audit_sources,
+        model=effective_response_model(response, user_settings.value_model),
+    )
     record_wine_value_history(db, wine, source="ai")
     record_ai_audit(
         db,
@@ -2142,7 +2320,11 @@ def generate_grapes(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
-    if wine.grapes and wine.grapes_source_url:
+    if wine.grapes and wine.grapes_source_url and not payload.force_refresh:
+        return ai_wine_response(db, context, wine)
+    if reuse_shared_wine_feature(
+        db, context, wine, "grapes", locale=payload.locale, force_refresh=payload.force_refresh
+    ):
         return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = grape_composition_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
@@ -2200,6 +2382,20 @@ def generate_grapes(
     note = str(result.get("notes") or "").strip()
     if note and saved_verified_grapes:
         wine.ai_notes = f"{wine.ai_notes}\n\nUve: {note}".strip()[:4000]
+    if saved_verified_grapes:
+        mark_local_feature(wine, "grapes")
+        publish_shared_fact(
+            db,
+            wine,
+            "grapes",
+            {
+                "grapes": wine.grapes,
+                "source_url": wine.grapes_source_url,
+                "source_title": wine.grapes_source_title,
+            },
+            sources=web_search_source_entries(response.web_sources),
+            model=effective_response_model(response, user_settings.grape_model),
+        )
     record_ai_audit(
         db,
         context,
@@ -2228,6 +2424,10 @@ def generate_scores(
     wine = get_household_wine(db, context, wine_id)
     if wine.scores_not_applicable:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI score lookup disabled for this wine")
+    if reuse_shared_wine_feature(
+        db, context, wine, "scores", locale=payload.locale, force_refresh=payload.force_refresh
+    ):
+        return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = wine_scores_prompt(locale=payload.locale, wine_context=wine_lookup_context(wine))
     schema = {
@@ -2296,6 +2496,36 @@ def generate_scores(
         wine.scores_not_applicable = False
     else:
         wine.scores_not_applicable = True
+    if wine.scores:
+        mark_local_feature(wine, "scores")
+        existing_shared_scores: list[dict] = []
+        existing_fact = get_shared_fact(db, wine, "scores", locale=payload.locale)
+        if existing_fact is not None and isinstance(existing_fact.payload.get("scores"), list):
+            existing_shared_scores = [
+                dict(item)
+                for item in existing_fact.payload["scores"]
+                if isinstance(item, dict)
+            ]
+        verified_scores: list[dict] = []
+        verified_keys: set[tuple[str, str]] = set()
+        for score in [*existing_shared_scores, *new_scores]:
+            key = (
+                str(score.get("critic") or "").strip().casefold(),
+                str(score.get("score") or "").strip().casefold(),
+            )
+            if not all(key) or key in verified_keys:
+                continue
+            verified_keys.add(key)
+            verified_scores.append(score)
+        if verified_scores:
+            publish_shared_fact(
+                db,
+                wine,
+                "scores",
+                {"scores": verified_scores[:8]},
+                sources=web_search_source_entries(response.web_sources),
+                model=effective_response_model(response, user_settings.score_model),
+            )
     record_ai_audit(
         db,
         context,

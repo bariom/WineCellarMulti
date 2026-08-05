@@ -4113,19 +4113,30 @@ export function App() {
     const model = await requestAiModelAdvice(featureAdvice.label, featureAdvice.role, featureAdvice.model);
     if (!model) return;
     const openMarketModal = options?.openMarketModal ?? true;
+    const forceRefresh = feature === "notes"
+      ? Boolean(wine.ai_notes)
+      : feature === "drink-window"
+        ? Boolean(wine.drink_from || wine.drink_peak_from || wine.drink_peak_to || wine.drink_to)
+        : feature === "value"
+          ? wine.current_value !== null
+          : feature === "grapes"
+            ? wine.grapes.length > 0
+            : feature === "scores"
+              ? wine.scores.length > 0
+              : false;
     setGeneratingAi(feature);
     setAiOverlayProgress({ itemName: wineProgressName(wine) });
     setError("");
     try {
       const updated = await api<Wine>(`/api/v1/ai/wines/${wine.id}/${feature}`, {
         method: "POST",
-        body: JSON.stringify({ locale, model }),
+        body: JSON.stringify({ locale, model, force_refresh: forceRefresh }),
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
       const [nextAudit] = await Promise.all([loadAiAudit(), loadAiUsage()]);
       if (feature === "value" && openMarketModal) {
-        const marketEntry = nextAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === updated.id && ["ai_value", "wine_full_enrichment"].includes(entry.feature));
+        const marketEntry = nextAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === updated.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature));
         if (marketEntry && auditMarketSources(marketEntry).length) {
           setMarketViewContext({ kind: "wine", wine: updated, entry: marketEntry });
         }
@@ -7146,7 +7157,7 @@ export function App() {
         onConsume={(payload) => consumeWineBottle(wine, payload)}
         onUpdateTastingEntry={updateWineTastingEntry}
         onDeleteTastingEntry={deleteWineTastingEntry}
-        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment"].includes(entry.feature)) || null}
+        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
         coOwnershipSection={renderCoOwnershipSection(wine)}
         photoActions={canManageWinePhotos ? (
@@ -10916,7 +10927,7 @@ export function App() {
                         onConsume={(payload) => consumeWineBottle(wine, payload)}
                         onUpdateTastingEntry={updateWineTastingEntry}
                         onDeleteTastingEntry={deleteWineTastingEntry}
-                        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment"].includes(entry.feature)) || null}
+                        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
                         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
                         coOwnershipSection={renderCoOwnershipSection(wine)}
                         photoActions={canManageWinePhotos ? (

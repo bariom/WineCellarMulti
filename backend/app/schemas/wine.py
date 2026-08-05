@@ -173,6 +173,8 @@ class WineResponse(BaseModel):
 
     id: UUID
     details_loaded: bool = True
+    shared_data_features: list[str] = Field(default_factory=list)
+    shared_data_updated_at: datetime | None = None
     household_id: UUID
     name: str
     producer: str
@@ -215,7 +217,7 @@ class WineResponse(BaseModel):
     vineyard_country: str = ""
     vineyard_latitude: float | None = None
     vineyard_longitude: float | None = None
-    vineyard_precision: Literal["", "vineyard", "estate", "appellation"] = ""
+    vineyard_precision: Literal["", "vineyard", "estate", "locality", "appellation"] = ""
     vineyard_source_url: str = ""
     vineyard_source_title: str = ""
     vineyard_notes: str = ""

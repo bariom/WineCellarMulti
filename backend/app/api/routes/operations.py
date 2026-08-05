@@ -206,11 +206,14 @@ def vineyard_research_queue(
         if wine.vineyard_latitude is None and wine.vineyard_longitude is None and not wine.vineyard_not_found
     ]
     query = re.sub(r"\s+", " ", q.strip()).casefold()
+    # A specific search also exposes previous no-results so an administrator can
+    # retry them after research policy or source availability changes. Bulk
+    # research remains limited to never-attempted wines to avoid repeated costs.
     filtered = pending
     if query:
         filtered = [
             wine
-            for wine in pending
+            for wine in [*pending, *not_found]
             if query
             in " ".join(
                 (wine.name, wine.producer, wine.vintage, wine.region, wine.appellation)
@@ -252,7 +255,7 @@ def research_wine_vineyard(
                 "country": {"type": "string"},
                 "latitude": {"type": ["number", "null"]},
                 "longitude": {"type": ["number", "null"]},
-                "precision": {"type": "string", "enum": ["vineyard", "estate", "appellation", ""]},
+                "precision": {"type": "string", "enum": ["vineyard", "estate", "locality", "appellation", ""]},
                 "source_url": {"type": "string"},
                 "source_title": {"type": "string"},
                 "notes": {"type": "string"},
@@ -312,10 +315,10 @@ def research_wine_vineyard(
         or not math.isfinite(longitude)
         or not -90 <= latitude <= 90
         or not -180 <= longitude <= 180
-        or precision not in {"vineyard", "estate", "appellation"}
+        or precision not in {"vineyard", "estate", "locality", "appellation"}
         or verified_source is None
     ):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI did not return a verifiable vineyard location")
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI did not return a defensible wine origin")
 
     verified_at = datetime.now(UTC) if found else None
     for candidate in matches:

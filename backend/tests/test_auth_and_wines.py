@@ -3121,6 +3121,81 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
         assert saved.vineyard_verified_at is not None
 
 
+def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        household = db.scalar(select(Household).where(Household.name == "Main Cellar"))
+        assert user is not None
+        assert household is not None
+        wine = Wine(
+            household_id=household.id,
+            created_by_user_id=user.id,
+            name="Soffocone",
+            producer="Bibi Graetz",
+            vintage="2022",
+            region="Toscana",
+            vineyard_not_found=True,
+        )
+        db.add(wine)
+        db.commit()
+        wine_id = wine.id
+
+    source_url = "https://www.bibigraetz.com/allegati_prod_dw/Soffocone%202022%20Tech%20Sheet%20-%20ENG.pdf"
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "status": "found",
+                        "vineyard_name": "Vincigliata",
+                        "locality": "Fiesole",
+                        "country": "Italia",
+                        "latitude": 43.806,
+                        "longitude": 11.293,
+                        "precision": "locality",
+                        "source_url": source_url,
+                        "source_title": "Soffocone 2022 Technical Sheet",
+                        "notes": (
+                            "Origine documentata a Vincigliata; punto approssimativo "
+                            "riferito alla zona di Fiesole."
+                        ),
+                    }
+                ),
+                usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+                web_sources=({"url": source_url, "title": "Soffocone 2022 Technical Sheet"},),
+                web_search_calls=1,
+                requested_model="gpt-5.6-terra",
+                model="gpt-5.6-terra",
+                model_role="balanced",
+            ),
+            "application",
+        )
+
+    monkeypatch.setattr(operations_route, "create_ai_response", fake_create_ai_response)
+
+    retry_queue = client.get("/api/v1/admin/operations/vineyards?q=soffocone")
+    assert retry_queue.status_code == 200
+    assert retry_queue.json()["candidates"][0]["wine_id"] == str(wine_id)
+
+    response = client.post(f"/api/v1/admin/operations/vineyards/{wine_id}/research?locale=it")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "found"
+    assert response.json()["precision"] == "locality"
+    with TestingSessionLocal() as db:
+        saved = db.get(Wine, wine_id)
+        assert saved is not None
+        assert saved.vineyard_name == "Vincigliata"
+        assert saved.vineyard_locality == "Fiesole"
+        assert saved.vineyard_precision == "locality"
+        assert saved.vineyard_not_found is False
+
+
 def test_monitor_device_token_can_trigger_a_fresh_sample(monkeypatch):
     admin = TestClient(app)
     assert register(admin).status_code == 201
@@ -3822,6 +3897,150 @@ def test_ai_generation_requires_configured_openai_key(monkeypatch):
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/notes")
     assert generated.status_code == 503
     assert generated.json()["detail"] == "No AI provider configured"
+
+
+def test_verified_ai_notes_are_reused_across_independent_cellars_without_provider_call(
+    monkeypatch,
+):
+    from app.api.routes import ai as ai_routes
+
+    first_client = TestClient(app)
+    assert register(first_client, email="first@example.com").status_code == 201
+    assert first_client.patch(
+        "/api/v1/ai/settings", json={"openai_api_key": "sk-test"}
+    ).status_code == 200
+    first_wine = first_client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Ferrari Perlé",
+            "producer": "Ferrari Trento",
+            "vintage": "2018",
+            "quantity": 1,
+        },
+    )
+    assert first_wine.status_code == 201
+    provider_calls = 0
+
+    def first_response(*args, **kwargs):
+        nonlocal provider_calls
+        provider_calls += 1
+        return OpenAIResponse(
+            text="Metodo classico di montagna, elegante e adatto alla cantina.",
+            model="gpt-5.5",
+            usage=TokenUsage(input_tokens=100, output_tokens=20, total_tokens=120),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", first_response)
+    generated = first_client.post(
+        f"/api/v1/ai/wines/{first_wine.json()['id']}/notes",
+        json={"locale": "it"},
+    )
+    assert generated.status_code == 200
+    assert provider_calls == 1
+
+    # Simulate deployment over existing AI-enriched rows: the first lookup must
+    # promote only audited public AI fields into the new central store.
+    from app.models import SharedWineFact, SharedWineIdentity
+
+    with TestingSessionLocal() as db:
+        db.query(SharedWineFact).delete()
+        db.query(SharedWineIdentity).delete()
+        db.commit()
+
+    second_client = TestClient(app)
+    assert register(second_client, email="second@example.com").status_code == 201
+    pending_users = first_client.get("/api/v1/auth/pending-users")
+    second_user = next(
+        user for user in pending_users.json() if user["email"] == "second@example.com"
+    )
+    assert first_client.post(
+        f"/api/v1/auth/pending-users/{second_user['id']}/approve"
+    ).status_code == 200
+    assert first_client.patch(
+        f"/api/v1/auth/users/{second_user['id']}", json={"is_app_admin": True}
+    ).status_code == 200
+    assert second_client.post(
+        "/api/v1/auth/login",
+        json={"email": "second@example.com", "password": "strong-password-1"},
+    ).status_code == 200
+    second_wine = second_client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Ferrari Perle",
+            "producer": "Ferrari Trento",
+            "vintage": "2018",
+            "quantity": 2,
+        },
+    )
+    assert second_wine.status_code == 201
+    assert second_wine.json()["ai_notes"] == generated.json()["ai_notes"]
+    assert second_wine.json()["shared_data_features"] == ["notes"]
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_response",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            AssertionError("shared data must not call the AI provider")
+        ),
+    )
+    reused = second_client.post(
+        f"/api/v1/ai/wines/{second_wine.json()['id']}/notes",
+        json={"locale": "it"},
+    )
+    assert reused.status_code == 200
+    assert provider_calls == 1
+    audit = second_client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    assert audit.json()[0]["feature"] == "shared_notes"
+    assert audit.json()[0]["estimated_cost_usd"] == "0.000000"
+
+
+def test_shared_wine_data_scopes_drink_window_by_format_and_expires_market_value():
+    from app.services.shared_wine_data import get_shared_fact, publish_shared_fact
+
+    standard = Wine(
+        name="Testamatta",
+        producer="Bibi Graetz",
+        vintage="2021",
+        format="75 cl",
+        currency="CHF",
+    )
+    magnum = Wine(
+        name="Testamatta",
+        producer="Bibi Graetz",
+        vintage="2021",
+        format="Magnum",
+        currency="CHF",
+    )
+    with TestingSessionLocal() as db:
+        publish_shared_fact(
+            db,
+            standard,
+            "drink_window",
+            {
+                "drink_from": 2026,
+                "drink_peak_from": 2029,
+                "drink_peak_to": 2036,
+                "drink_to": 2040,
+                "notes": "Finestra prudente.",
+            },
+            locale="it",
+        )
+        value_fact = publish_shared_fact(
+            db,
+            standard,
+            "value",
+            {"current_value": "95.00", "currency": "CHF", "notes": "Mercato svizzero."},
+            locale="it",
+        )
+        assert value_fact is not None
+        db.commit()
+
+        assert get_shared_fact(db, standard, "drink_window", locale="it") is not None
+        assert get_shared_fact(db, magnum, "drink_window", locale="it") is None
+        value_fact.expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+        assert get_shared_fact(db, standard, "value", locale="it") is None
 
 
 def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):

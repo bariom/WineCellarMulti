@@ -25,6 +25,8 @@ export type Session = {
 export type Wine = {
   id: string;
   details_loaded: boolean;
+  shared_data_features: Array<"notes" | "drink_window" | "value" | "grapes" | "scores">;
+  shared_data_updated_at: string | null;
   household_id: string;
   name: string;
   producer: string;
@@ -67,7 +69,7 @@ export type Wine = {
   vineyard_country: string;
   vineyard_latitude: number | null;
   vineyard_longitude: number | null;
-  vineyard_precision: "" | "vineyard" | "estate" | "appellation";
+  vineyard_precision: "" | "vineyard" | "estate" | "locality" | "appellation";
   vineyard_source_url: string;
   vineyard_source_title: string;
   vineyard_notes: string;

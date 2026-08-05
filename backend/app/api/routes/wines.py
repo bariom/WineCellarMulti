@@ -60,6 +60,11 @@ from app.services.bottle_photo_ai import (
     warm_bottle_photo_worker,
 )
 from app.services.notifications import create_user_notification
+from app.services.shared_wine_data import (
+    hydrate_wine_from_shared,
+    mark_local_feature,
+    resolve_shared_identity,
+)
 from app.services.wine_photo_library import (
     archive_wine_photo,
     copy_library_photo,
@@ -237,6 +242,8 @@ def wine_response(
     return WineResponse(
         id=wine.id,
         details_loaded=False,
+        shared_data_features=wine.shared_data_features or [],
+        shared_data_updated_at=wine.shared_data_updated_at,
         household_id=wine.household_id,
         name=wine.name,
         producer=wine.producer,
@@ -280,7 +287,7 @@ def wine_response(
         vineyard_latitude=wine.vineyard_latitude,
         vineyard_longitude=wine.vineyard_longitude,
         vineyard_precision=cast(
-            Literal["", "vineyard", "estate", "appellation"],
+            Literal["", "vineyard", "estate", "locality", "appellation"],
             wine.vineyard_precision or "",
         ),
         vineyard_source_url=wine.vineyard_source_url or "",
@@ -1078,7 +1085,8 @@ def create_wine(
     db.add(wine)
     db.flush()
     ensure_catalog_entry_for_wine_data(db, data)
-    record_wine_value_history(db, wine, source="manual")
+    shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
+    record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
     set_user_wine_tags(db, context, wine, tag_names)
     db.commit()
     db.refresh(wine)
@@ -1477,6 +1485,24 @@ def update_wine(
         if field == "owners":
             value = normalize_owner_rows(value or [])
         setattr(wine, field, value)
+    if "current_value" in data and "ai_value_estimated_at" not in data:
+        wine.ai_value_estimated_at = None
+    identity_fields = {"name", "producer", "vintage"}
+    if identity_fields.intersection(data):
+        wine.shared_data_features = []
+        wine.shared_data_updated_at = None
+        resolve_shared_identity(db, wine, create=False)
+        hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
+    local_feature_fields = {
+        "notes": {"ai_notes"},
+        "drink_window": {"drink_from", "drink_peak_from", "drink_peak_to", "drink_to", "drink_window_notes"},
+        "value": {"current_value", "currency", "ai_value_notes"},
+        "grapes": {"grapes", "grapes_source_url", "grapes_source_title"},
+        "scores": {"scores"},
+    }
+    for feature, fields in local_feature_fields.items():
+        if fields.intersection(data):
+            mark_local_feature(wine, feature)
     if (
         "current_value" in data
         and wine.current_value is not None

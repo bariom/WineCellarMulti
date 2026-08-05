@@ -31,6 +31,13 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
   return {
     id: rawString(raw.id, `offline-wine-${index}`),
     details_loaded: raw.details_loaded === undefined ? true : Boolean(raw.details_loaded),
+    shared_data_features: Array.isArray(raw.shared_data_features)
+      ? raw.shared_data_features.filter(
+        (feature): feature is Wine["shared_data_features"][number] =>
+          ["notes", "drink_window", "value", "grapes", "scores"].includes(String(feature)),
+      )
+      : [],
+    shared_data_updated_at: rawNullableString(raw.shared_data_updated_at),
     photo_thumbnail_url: rawString(raw.photo_thumbnail_url),
     photo_detail_url: rawString(raw.photo_detail_url),
     household_id: rawString(raw.household_id, "offline"),
@@ -79,7 +86,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     vineyard_country: rawString(raw.vineyard_country),
     vineyard_latitude: raw.vineyard_latitude === null || raw.vineyard_latitude === undefined ? null : rawNumber(raw.vineyard_latitude),
     vineyard_longitude: raw.vineyard_longitude === null || raw.vineyard_longitude === undefined ? null : rawNumber(raw.vineyard_longitude),
-    vineyard_precision: ["vineyard", "estate", "appellation"].includes(rawString(raw.vineyard_precision))
+    vineyard_precision: ["vineyard", "estate", "locality", "appellation"].includes(rawString(raw.vineyard_precision))
       ? rawString(raw.vineyard_precision) as Wine["vineyard_precision"]
       : "",
     vineyard_source_url: rawString(raw.vineyard_source_url),

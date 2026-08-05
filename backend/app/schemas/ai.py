@@ -83,6 +83,7 @@ class AiSettingsUpdate(BaseModel):
 class AiGenerationRequest(BaseModel):
     locale: str = Field(default="it", pattern="^(it|en)$")
     model: str | None = Field(default=None, max_length=120)
+    force_refresh: bool = False
 
 
 class WineLabelEnrichmentRequest(AiGenerationRequest):
