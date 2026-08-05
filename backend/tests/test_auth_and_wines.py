@@ -547,11 +547,10 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
 
         admin_photos = client.get("/api/v1/admin/operations/photos")
         assert admin_photos.status_code == 200
-        assert admin_photos.json()["total"] == 1
+        assert admin_photos.json()["total"] == 2
         admin_photo = admin_photos.json()["items"][0]
-        assert admin_photo["wine_id"] == wine_id
         assert admin_photo["name"] == "Photo Bottle"
-        assert admin_photo["household_name"] == "Main Cellar"
+        assert admin_photo["household_name"] in {"Main Cellar", "Second Cellar"}
         assert client.get(admin_photo["thumbnail_url"]).status_code == 200
 
         with TestingSessionLocal() as db:
@@ -657,11 +656,12 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
             },
         )
         assert uploaded_again.status_code == 200
-        admin_removed = client.delete(f"/api/v1/admin/operations/photos/{wine_id}")
-        assert admin_removed.status_code == 204
+        for photo in client.get("/api/v1/admin/operations/photos").json()["items"]:
+            admin_removed = client.delete(f"/api/v1/admin/operations/photos/{photo['wine_id']}")
+            assert admin_removed.status_code == 204
         assert client.get("/api/v1/admin/operations/photos").json()["total"] == 0
         with TestingSessionLocal() as db:
-            assert db.get(Wine, uuid.UUID(wine_id)).photo_version == ""
+            assert db.get(Wine, uuid.UUID(wine_id)).photo_version != ""
     finally:
         settings.wine_photo_storage_dir = previous_storage_dir
 

@@ -87,8 +87,8 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
 
   async function deleteWinePhoto(wineId: string, label: string) {
     const confirmed = window.confirm(isItalian
-      ? `Eliminare definitivamente la fotografia di ${label}?`
-      : `Permanently delete the photograph for ${label}?`);
+      ? `Rimuovere ${label} dall'archivio fotografico condiviso?`
+      : `Remove ${label} from the shared photo archive?`);
     if (!confirmed) return;
     setDeletingPhotoId(wineId);
     try {
@@ -153,8 +153,8 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
           <h3>{isItalian ? "Fotografie bottiglia" : "Bottle photographs"}</h3>
           <small>
             {isItalian
-              ? "Libreria globale delle fotografie caricate in tutte le cantine."
-              : "Global library of photographs uploaded across all cellars."}
+              ? "Archivio centrale: ogni fotografia identica compare una sola volta."
+              : "Central archive: each identical photograph appears only once."}
           </small>
         </div>
         <div className="admin-photos-heading-actions">
@@ -178,7 +178,7 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
                   <div>
                     <strong>{label}</strong>
                     <span>{photo.producer || (isItalian ? "Produttore non indicato" : "Producer not provided")}</span>
-                    <small>{photo.household_name}</small>
+                    <small>{isItalian ? "Archivio fotografico condiviso" : "Shared photo library"}</small>
                   </div>
                   <button type="button" className="danger compact" disabled={deletingPhotoId === photo.wine_id} onClick={() => void deleteWinePhoto(photo.wine_id, label)}>
                     {deletingPhotoId === photo.wine_id

@@ -30,6 +30,7 @@ from app.models import (
     UserActivityLog,
     UserMonitorDeviceToken,
     Wine,
+    WinePhotoLibraryEntry,
     WineRecognitionLog,
     WineTastingEntry,
     WineValueHistory,
@@ -40,6 +41,7 @@ from app.services.openai_pricing import official_standard_pricing
 from app.services.operational_alerts import evaluate_operational_alerts
 from app.services.operational_metrics import system_snapshot
 from app.services.request_metrics import request_metrics
+from app.services.wine_photo_library import library_photo_path
 
 router = APIRouter(prefix="/admin/operations")
 
@@ -455,13 +457,12 @@ def list_wine_photos(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    photo_filter = Wine.photo_version != ""
-    total = db.scalar(select(func.count()).select_from(Wine).where(photo_filter)) or 0
+    total = db.scalar(select(func.count()).select_from(WinePhotoLibraryEntry)) or 0
     rows = db.execute(
-        select(Wine, Household.name)
-        .join(Household, Household.id == Wine.household_id)
-        .where(photo_filter)
-        .order_by(Household.name, Wine.name, Wine.vintage)
+        select(WinePhotoLibraryEntry, Household.name)
+        .outerjoin(Wine, Wine.id == WinePhotoLibraryEntry.source_wine_id)
+        .outerjoin(Household, Household.id == Wine.household_id)
+        .order_by(WinePhotoLibraryEntry.name, WinePhotoLibraryEntry.producer, WinePhotoLibraryEntry.created_at.desc())
         .offset(offset)
         .limit(limit)
     ).all()
@@ -469,15 +470,15 @@ def list_wine_photos(
         "total": total,
         "items": [
             {
-                "wine_id": str(wine.id),
-                "name": wine.name,
-                "producer": wine.producer,
-                "vintage": wine.vintage,
-                "household_name": household_name,
-                "thumbnail_url": f"/api/v1/admin/operations/photos/{wine.id}/thumbnail?v={wine.photo_version}",
-                "detail_url": f"/api/v1/admin/operations/photos/{wine.id}/detail?v={wine.photo_version}",
+                "wine_id": str(photo.id),
+                "name": photo.name,
+                "producer": photo.producer,
+                "vintage": "",
+                "household_name": household_name or "Shared photo library",
+                "thumbnail_url": f"/api/v1/admin/operations/photos/{photo.id}/thumbnail?v={photo.photo_version}",
+                "detail_url": f"/api/v1/admin/operations/photos/{photo.id}/detail?v={photo.photo_version}",
             }
-            for wine, household_name in rows
+            for photo, household_name in rows
         ],
     }
 
@@ -683,6 +684,16 @@ def get_wine_photo(
 ) -> FileResponse:
     if size not in PHOTO_SIZES:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+    library_photo = db.get(WinePhotoLibraryEntry, wine_id)
+    if library_photo is not None:
+        path = library_photo_path(library_photo, size)
+        if not path.is_file():
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
+        return FileResponse(
+            path,
+            media_type="image/png",
+            headers={"Cache-Control": "private, max-age=31536000, immutable"},
+        )
     wine = db.get(Wine, wine_id)
     if wine is None or not wine.photo_version:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
@@ -702,6 +713,13 @@ def delete_wine_photo(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> Response:
+    library_photo = db.get(WinePhotoLibraryEntry, wine_id)
+    if library_photo is not None:
+        for size in PHOTO_SIZES:
+            library_photo_path(library_photo, size).unlink(missing_ok=True)
+        db.delete(library_photo)
+        db.commit()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
     wine = db.get(Wine, wine_id)
     if wine is None or not wine.photo_version:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Bottle photo not found")
