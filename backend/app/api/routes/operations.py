@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import hmac
 import json
+import math
+import re
 from datetime import UTC, datetime, timedelta
 from typing import cast
 from uuid import UUID
@@ -12,7 +14,18 @@ from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
-from app.api.routes.ai import available_model_options, model_pricing_usd_per_million_tokens
+from app.api.routes.ai import (
+    available_model_options,
+    create_ai_response,
+    default_model_for_field,
+    effective_response_model,
+    get_or_create_user_ai_settings,
+    model_pricing_usd_per_million_tokens,
+    record_ai_audit,
+    web_search_source_entries,
+    web_search_tool_cost_usd,
+    wine_lookup_context,
+)
 from app.api.routes.wines import PHOTO_SIZES, copy_wine_photo, wine_photo_path
 from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION
@@ -36,6 +49,8 @@ from app.models import (
     WineValueHistory,
     WishlistItem,
 )
+from app.prompts import wine_vineyard_location_prompt
+from app.services.openai_client import parse_json_response
 from app.services.openai_costs import organization_cost_summary, unavailable_summary
 from app.services.openai_pricing import official_standard_pricing
 from app.services.operational_alerts import evaluate_operational_alerts
@@ -118,6 +133,178 @@ def refresh_official_ai_pricing(
     return {
         "price_book_json": json.dumps(price_book, separators=(",", ":")),
         "source": "https://developers.openai.com/api/docs/pricing",
+    }
+
+
+def vineyard_identity(wine: Wine) -> tuple[str, str, str]:
+    def normalize(value: object) -> str:
+        return re.sub(r"\s+", " ", str(value or "").strip()).casefold()
+
+    return normalize(wine.name), normalize(wine.producer), normalize(wine.vintage)
+
+
+def vineyard_candidate(wine: Wine) -> dict[str, object]:
+    return {
+        "wine_id": str(wine.id),
+        "name": wine.name,
+        "producer": wine.producer,
+        "vintage": wine.vintage,
+        "region": wine.region,
+        "appellation": wine.appellation,
+    }
+
+
+@router.get("/vineyards")
+def vineyard_research_queue(
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    wines = list(db.scalars(select(Wine).order_by(Wine.created_at.asc(), Wine.id.asc())))
+    representatives: dict[tuple[str, str, str], Wine] = {}
+    for wine in wines:
+        representatives.setdefault(vineyard_identity(wine), wine)
+    unique_wines = list(representatives.values())
+    located = [wine for wine in unique_wines if wine.vineyard_latitude is not None and wine.vineyard_longitude is not None]
+    not_found = [wine for wine in unique_wines if wine.vineyard_not_found]
+    pending = [
+        wine
+        for wine in unique_wines
+        if wine.vineyard_latitude is None and wine.vineyard_longitude is None and not wine.vineyard_not_found
+    ]
+    return {
+        "total": len(unique_wines),
+        "located": len(located),
+        "not_found": len(not_found),
+        "pending": len(pending),
+        "candidates": [vineyard_candidate(wine) for wine in pending[:100]],
+    }
+
+
+@router.post("/vineyards/{wine_id}/research")
+def research_wine_vineyard(
+    wine_id: UUID,
+    locale: str = Query(default="it", pattern="^(it|en)$"),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    wine = db.get(Wine, wine_id)
+    if wine is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+
+    prompt = wine_vineyard_location_prompt(locale=locale, wine_context=wine_lookup_context(wine))
+    schema = {
+        "name": "wine_vineyard_location",
+        "strict": True,
+        "schema": {
+            "type": "object",
+            "properties": {
+                "status": {"type": "string", "enum": ["found", "not_found"]},
+                "vineyard_name": {"type": "string"},
+                "locality": {"type": "string"},
+                "country": {"type": "string"},
+                "latitude": {"type": ["number", "null"]},
+                "longitude": {"type": ["number", "null"]},
+                "precision": {"type": "string", "enum": ["vineyard", "estate", "appellation", ""]},
+                "source_url": {"type": "string"},
+                "source_title": {"type": "string"},
+                "notes": {"type": "string"},
+            },
+            "required": [
+                "status", "vineyard_name", "locality", "country", "latitude", "longitude",
+                "precision", "source_url", "source_title", "notes",
+            ],
+            "additionalProperties": False,
+        },
+    }
+    user_settings = get_or_create_user_ai_settings(db, context)
+    configured_model = default_model_for_field("drink_window_model")
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=configured_model,
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+        json_schema=schema,
+        web_search=True,
+        web_search_use_default_location=False,
+        web_search_context_size="medium",
+        max_tool_calls=4,
+        task_type="research",
+        complexity="medium",
+        app_funded=True,
+    )
+    result = parse_json_response(response.output_text)
+    identity = vineyard_identity(wine)
+    matches = [candidate for candidate in db.scalars(select(Wine)) if vineyard_identity(candidate) == identity]
+    source_url = str(result.get("source_url") or "").strip()
+    verified_source = next(
+        (
+            source
+            for source in response.web_sources
+            if str(source.get("url") or "").strip().rstrip("/") == source_url.rstrip("/")
+        ),
+        None,
+    )
+    found = result.get("status") == "found"
+    try:
+        latitude = float(result["latitude"]) if result.get("latitude") is not None else None
+        longitude = float(result["longitude"]) if result.get("longitude") is not None else None
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid vineyard coordinates") from exc
+    precision = str(result.get("precision") or "")
+    if found and (
+        latitude is None
+        or longitude is None
+        or not math.isfinite(latitude)
+        or not math.isfinite(longitude)
+        or not -90 <= latitude <= 90
+        or not -180 <= longitude <= 180
+        or precision not in {"vineyard", "estate", "appellation"}
+        or verified_source is None
+    ):
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI did not return a verifiable vineyard location")
+
+    verified_at = datetime.now(UTC) if found else None
+    for candidate in matches:
+        candidate.vineyard_name = str(result.get("vineyard_name") or "").strip()[:240] if found else ""
+        candidate.vineyard_locality = str(result.get("locality") or "").strip()[:240] if found else ""
+        candidate.vineyard_country = str(result.get("country") or "").strip()[:120] if found else ""
+        candidate.vineyard_latitude = latitude if found else None
+        candidate.vineyard_longitude = longitude if found else None
+        candidate.vineyard_precision = precision if found else ""
+        candidate.vineyard_source_url = source_url[:500] if found else ""
+        candidate.vineyard_source_title = str(result.get("source_title") or verified_source.get("title") or "").strip()[:240] if found and verified_source else ""
+        candidate.vineyard_notes = str(result.get("notes") or "").strip()[:1000]
+        candidate.vineyard_verified_at = verified_at
+        candidate.vineyard_not_found = not found
+
+    model = effective_response_model(response, configured_model)
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="vineyard_location",
+        model=model,
+        summary=(
+            f"{precision} location saved for {len(matches)} matching wine records"
+            if found
+            else f"No verifiable vineyard location found for {len(matches)} matching wine records"
+        ),
+        reasoning_effort=response.reasoning_effort or "",
+        sources=web_search_source_entries(response.web_sources),
+        usage=response.usage,
+        provider_source=provider_source,
+        extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
+    )
+    db.commit()
+    return {
+        "status": "found" if found else "not_found",
+        "updated_wines": len(matches),
+        "wine_id": str(wine.id),
+        "vineyard_name": wine.vineyard_name,
+        "precision": wine.vineyard_precision,
     }
 
 
@@ -676,6 +863,17 @@ def publish_demo_cellar(
             grapes_not_applicable=source.grapes_not_applicable,
             scores=source.scores,
             scores_not_applicable=source.scores_not_applicable,
+            vineyard_name=source.vineyard_name,
+            vineyard_locality=source.vineyard_locality,
+            vineyard_country=source.vineyard_country,
+            vineyard_latitude=source.vineyard_latitude,
+            vineyard_longitude=source.vineyard_longitude,
+            vineyard_precision=source.vineyard_precision,
+            vineyard_source_url=source.vineyard_source_url,
+            vineyard_source_title=source.vineyard_source_title,
+            vineyard_notes=source.vineyard_notes,
+            vineyard_verified_at=source.vineyard_verified_at,
+            vineyard_not_found=source.vineyard_not_found,
             owners=[],
             tags=[],
             notes="",

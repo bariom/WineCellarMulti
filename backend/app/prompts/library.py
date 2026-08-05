@@ -166,6 +166,25 @@ def wine_scores_prompt(*, locale: str, wine_context: str) -> Prompt:
     )
 
 
+def wine_vineyard_location_prompt(*, locale: str, wine_context: str) -> Prompt:
+    return Prompt(
+        id="wine.vineyard_location",
+        version="1",
+        system=(
+            "You research the geographic origin of one exact wine using web sources and return JSON only. "
+            "Prefer the named vineyard or parcel. If the wine is assembled from several vineyards, use the producer estate only when it is a meaningful geographic origin; otherwise use the appellation centre. "
+            "Never invent a vineyard name or coordinates. Coordinates must identify the researched place and must be supported by a credible source. "
+            "Set precision to vineyard, estate, or appellation so the map never implies more accuracy than the evidence supports. "
+            f"{language_instruction(locale)}"
+        ),
+        user=(
+            "Find the best verifiable map location for this wine. Return status=not_found and empty location fields when reliable evidence is unavailable. "
+            "source_url must be a concrete source used during web research. Keep notes to one short factual sentence and mention when the point is approximate.\n\n"
+            f"{wine_context}"
+        ),
+    )
+
+
 def wishlist_advice_prompt(*, locale: str, wishlist_context: str) -> Prompt:
     return Prompt(
         id="wishlist.buying_advice",

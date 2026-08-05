@@ -19,6 +19,8 @@ type ChartScale = { min: number; max: number; suffix: string };
 type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string; axis?: "primary" | "secondary" };
 type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
 type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
+type VineyardCandidate = { wine_id: string; name: string; producer: string; vintage: string; region: string; appellation: string };
+type VineyardQueue = { total: number; located: number; not_found: number; pending: number; candidates: VineyardCandidate[] };
 
 function roundedScale(values: Array<number | null>, suffix: string): ChartScale {
   const maximum = Math.max(...values.filter((value): value is number => value !== null && Number.isFinite(value)), 0);
@@ -243,6 +245,10 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const [aiPricingUpdatedAt, setAiPricingUpdatedAt] = useState<string | null>(null);
   const [aiPricingBusy, setAiPricingBusy] = useState<"refresh" | "save" | "" >("");
   const [aiPricingError, setAiPricingError] = useState("");
+  const [vineyardQueue, setVineyardQueue] = useState<VineyardQueue | null>(null);
+  const [vineyardBusy, setVineyardBusy] = useState("");
+  const [vineyardProgress, setVineyardProgress] = useState("");
+  const [vineyardError, setVineyardError] = useState("");
 
   useEffect(() => {
     if (selectedHours === 1) setSelectedHistory(history);
@@ -279,6 +285,53 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   }
 
   useEffect(() => { void loadAiPricing(); }, []);
+
+  async function loadVineyardQueue() {
+    try {
+      setVineyardQueue(await api<VineyardQueue>("/api/v1/admin/operations/vineyards"));
+      setVineyardError("");
+    } catch (error) {
+      setVineyardError(error instanceof Error ? error.message : (isItalian ? "Impossibile caricare la copertura dei vigneti." : "Unable to load vineyard coverage."));
+    }
+  }
+
+  useEffect(() => { void loadVineyardQueue(); }, []);
+
+  async function researchVineyard(candidate: VineyardCandidate) {
+    setVineyardBusy(candidate.wine_id);
+    try {
+      await api(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
+      await loadVineyardQueue();
+    } catch (error) {
+      setVineyardError(error instanceof Error ? error.message : (isItalian ? "Ricerca del vigneto non riuscita." : "Vineyard research failed."));
+    } finally {
+      setVineyardBusy("");
+    }
+  }
+
+  async function researchAllVineyards() {
+    if (!vineyardQueue?.candidates.length) return;
+    const confirmed = window.confirm(isItalian
+      ? `Avviare ${vineyardQueue.candidates.length} ricerche AI? Il costo sarà sostenuto da Vinaris.`
+      : `Run ${vineyardQueue.candidates.length} AI searches? Vinaris will fund the cost.`);
+    if (!confirmed) return;
+    setVineyardBusy("all");
+    setVineyardError("");
+    const candidates = [...vineyardQueue.candidates];
+    for (let index = 0; index < candidates.length; index += 1) {
+      const candidate = candidates[index];
+      setVineyardProgress(`${index + 1}/${candidates.length} · ${candidate.name}`);
+      try {
+        await api(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
+      } catch (error) {
+        setVineyardError(error instanceof Error ? error.message : (isItalian ? `Ricerca interrotta su ${candidate.name}.` : `Research stopped on ${candidate.name}.`));
+        break;
+      }
+    }
+    await loadVineyardQueue();
+    setVineyardBusy("");
+    setVineyardProgress("");
+  }
 
   async function refreshOfficialPricing() {
     setAiPricingBusy("refresh");
@@ -413,6 +466,38 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
         <textarea value={aiPricingDraft} onChange={(event) => setAiPricingDraft(event.target.value)} spellCheck={false} aria-label={isItalian ? "JSON listino modelli AI" : "AI model price book JSON"} />
         {aiPricingUpdatedAt ? <small>{isItalian ? "Ultimo salvataggio" : "Last saved"}: {new Date(aiPricingUpdatedAt).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
         {aiPricingError ? <p role="alert">{aiPricingError}</p> : null}
+      </section>
+      <section className="operations-vineyards" aria-label={isItalian ? "Origine geografica dei vini" : "Wine geographic origin"}>
+        <div className="operations-vineyards-heading">
+          <div>
+            <strong>{isItalian ? "Vigneti e luoghi di provenienza" : "Vineyards and places of origin"}</strong>
+            <small>{isItalian ? "Ricerca amministrativa con AI e fonti web. Il costo è interamente a carico di Vinaris." : "Administrative AI and web research. The cost is entirely funded by Vinaris."}</small>
+          </div>
+          <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy) || !vineyardQueue?.candidates.length} onClick={() => void researchAllVineyards()}>
+            {vineyardBusy === "all" ? (isItalian ? "Ricerca in corso…" : "Researching…") : (isItalian ? "Cerca tutti" : "Research all")}
+          </button>
+        </div>
+        {vineyardQueue ? (
+          <div className="operations-vineyards-summary">
+            <span><strong>{vineyardQueue.located}</strong>{isItalian ? " localizzati" : " located"}</span>
+            <span><strong>{vineyardQueue.pending}</strong>{isItalian ? " da ricercare" : " to research"}</span>
+            <span><strong>{vineyardQueue.not_found}</strong>{isItalian ? " senza fonte affidabile" : " without reliable evidence"}</span>
+          </div>
+        ) : <LoadingState label={isItalian ? "Carico i vini" : "Loading wines"} compact />}
+        {vineyardProgress ? <p className="operations-vineyards-progress">{vineyardProgress}</p> : null}
+        {vineyardQueue?.candidates.length ? (
+          <div className="operations-vineyards-list">
+            {vineyardQueue.candidates.slice(0, 8).map((candidate) => (
+              <article key={candidate.wine_id}>
+                <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.appellation || candidate.region].filter(Boolean).join(" · ")}</small></span>
+                <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy)} onClick={() => void researchVineyard(candidate)}>
+                  {vineyardBusy === candidate.wine_id ? (isItalian ? "Cerco…" : "Searching…") : (isItalian ? "Cerca" : "Research")}
+                </button>
+              </article>
+            ))}
+          </div>
+        ) : vineyardQueue ? <small>{isItalian ? "Tutti i vini sono stati esaminati." : "All wines have been reviewed."}</small> : null}
+        {vineyardError ? <p role="alert">{vineyardError}</p> : null}
       </section>
       {overview ? (
         <>

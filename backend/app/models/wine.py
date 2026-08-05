@@ -4,7 +4,19 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, ForeignKey, Index, Numeric, String, Text, Uuid
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Numeric,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -61,6 +73,19 @@ class Wine(Base):
     grapes_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
     scores: Mapped[list[dict]] = mapped_column(JSON, default=list)
     scores_not_applicable: Mapped[bool] = mapped_column(Boolean, default=False)
+    vineyard_name: Mapped[str] = mapped_column(String(240), default="")
+    vineyard_locality: Mapped[str] = mapped_column(String(240), default="")
+    vineyard_country: Mapped[str] = mapped_column(String(120), default="")
+    vineyard_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vineyard_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    vineyard_precision: Mapped[str] = mapped_column(String(24), default="")
+    vineyard_source_url: Mapped[str] = mapped_column(String(500), default="")
+    vineyard_source_title: Mapped[str] = mapped_column(String(240), default="")
+    vineyard_notes: Mapped[str] = mapped_column(Text, default="")
+    vineyard_verified_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    vineyard_not_found: Mapped[bool] = mapped_column(Boolean, default=False)
     photo_version: Mapped[str] = mapped_column(String(32), default="")
     tasting_history: Mapped[list[dict]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(

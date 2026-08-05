@@ -4,7 +4,7 @@ import "leaflet/dist/leaflet.css";
 import "./WineGeographyMap.css";
 
 import type { TranslationKey } from "../i18n";
-import type { Wine } from "../types";
+import type { Locale, Wine } from "../types";
 
 type WineRegionLocation = { latitude: number; longitude: number };
 type WineMapPoint = { label: string; region: string; location: WineRegionLocation; wines: number; bottles: number };
@@ -86,6 +86,46 @@ function wineRegionLocation(wine: Wine) {
       .find((key) => candidate.includes(key));
     return matchingKey ? wineRegionLocations[matchingKey] : null;
   }).find(Boolean) || null;
+}
+
+export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
+  if (wine.vineyard_latitude === null || wine.vineyard_longitude === null) return null;
+  const position: [number, number] = [wine.vineyard_latitude, wine.vineyard_longitude];
+  const precisionLabels = locale === "it"
+    ? { vineyard: "Vigneto", estate: "Tenuta", appellation: "Centro della denominazione" }
+    : { vineyard: "Vineyard", estate: "Estate", appellation: "Appellation centre" };
+  const precision = wine.vineyard_precision ? precisionLabels[wine.vineyard_precision] : "";
+  const place = [wine.vineyard_locality, wine.vineyard_country].filter(Boolean).join(", ");
+
+  return (
+    <section className="detail-vineyard-block">
+      <div className="section-heading">
+        <div>
+          <span>{locale === "it" ? "ORIGINE" : "ORIGIN"}</span>
+          <h3>{locale === "it" ? "Il luogo del vino" : "Where the wine comes from"}</h3>
+        </div>
+        {precision ? <small>{precision}</small> : null}
+      </div>
+      <div className="vineyard-map-copy">
+        <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
+        {place ? <span>{place}</span> : null}
+        {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
+      </div>
+      <MapContainer center={position} zoom={wine.vineyard_precision === "vineyard" ? 14 : wine.vineyard_precision === "estate" ? 12 : 10} scrollWheelZoom={false} className="vineyard-detail-map">
+        <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <CircleMarker center={position} radius={9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: "#76233d", fillOpacity: 0.95 }}>
+          <Tooltip permanent direction="top" offset={[0, -8]}>{wine.vineyard_name || wine.name}</Tooltip>
+        </CircleMarker>
+      </MapContainer>
+      {wine.vineyard_source_url ? (
+        <small className="vineyard-map-source">
+          <a href={wine.vineyard_source_url} target="_blank" rel="noreferrer">
+            {locale === "it" ? "Fonte verificata" : "Verified source"}{wine.vineyard_source_title ? `: ${wine.vineyard_source_title}` : ""}
+          </a>
+        </small>
+      ) : null}
+    </section>
+  );
 }
 
 export default function WineGeographyMap({ wines, t, onSelectRegion }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void }) {

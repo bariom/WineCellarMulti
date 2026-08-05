@@ -74,6 +74,19 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     grapes_not_applicable: Boolean(raw.grapes_not_applicable),
     scores: rawArray(raw.scores).map((score) => ({ critic: rawString(score.critic), score: rawString(score.score), note: rawString(score.note) })),
     scores_not_applicable: Boolean(raw.scores_not_applicable),
+    vineyard_name: rawString(raw.vineyard_name),
+    vineyard_locality: rawString(raw.vineyard_locality),
+    vineyard_country: rawString(raw.vineyard_country),
+    vineyard_latitude: raw.vineyard_latitude === null || raw.vineyard_latitude === undefined ? null : rawNumber(raw.vineyard_latitude),
+    vineyard_longitude: raw.vineyard_longitude === null || raw.vineyard_longitude === undefined ? null : rawNumber(raw.vineyard_longitude),
+    vineyard_precision: ["vineyard", "estate", "appellation"].includes(rawString(raw.vineyard_precision))
+      ? rawString(raw.vineyard_precision) as Wine["vineyard_precision"]
+      : "",
+    vineyard_source_url: rawString(raw.vineyard_source_url),
+    vineyard_source_title: rawString(raw.vineyard_source_title),
+    vineyard_notes: rawString(raw.vineyard_notes),
+    vineyard_verified_at: rawNullableString(raw.vineyard_verified_at),
+    vineyard_not_found: Boolean(raw.vineyard_not_found),
     tasting_history: rawArray(raw.tasting_history).map((entry, entryIndex) => ({
       id: rawString(entry.id, `offline-tasting-${index}-${entryIndex}`),
       consumed_at: rawString(entry.consumed_at),

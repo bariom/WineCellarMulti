@@ -223,7 +223,7 @@ OPENAI_WISHLIST_MODEL=gpt-5.4
 OPENAI_PAIRING_MODEL=gpt-5.4
 ```
 
-Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, food pairing, and source-backed buying advice. Buying advice supports drink-now, cellaring, and food-pairing goals, plus today/tomorrow/flexible delivery deadlines and a buyer location. Urgent searches favor local pickup; flexible searches can include online retailers.
+Current AI actions: wine notes, drinking window, value estimate, grape composition, wishlist strategy, food pairing, and source-backed buying advice. App administrators can also research a verified vineyard, estate, or appellation location for each distinct wine; these application-funded results include their evidence precision and are displayed on a map in the wine detail. Buying advice supports drink-now, cellaring, and food-pairing goals, plus today/tomorrow/flexible delivery deadlines and a buyer location. Urgent searches favor local pickup; flexible searches can include online retailers.
 
 Bottle recognition uses Luna. The same client-side capture is retained for the
 product photo while an in-memory, EXIF-corrected JPEG copy and optional label

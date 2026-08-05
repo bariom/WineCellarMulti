@@ -62,6 +62,17 @@ export type Wine = {
   grapes_not_applicable: boolean;
   scores: Array<{ critic: string; score: string; note: string }>;
   scores_not_applicable: boolean;
+  vineyard_name: string;
+  vineyard_locality: string;
+  vineyard_country: string;
+  vineyard_latitude: number | null;
+  vineyard_longitude: number | null;
+  vineyard_precision: "" | "vineyard" | "estate" | "appellation";
+  vineyard_source_url: string;
+  vineyard_source_title: string;
+  vineyard_notes: string;
+  vineyard_verified_at: string | null;
+  vineyard_not_found: boolean;
   photo_thumbnail_url: string;
   photo_detail_url: string;
   created_at?: string;

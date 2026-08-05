@@ -9,6 +9,7 @@ import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, 
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
+const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
 export function DrinkWindowMini({ wine }: { wine: Wine }) {
   if (!wine.drink_from || !wine.drink_to) return null;
   const drinkStart = wine.drink_from;
@@ -804,6 +805,17 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     grapes_not_applicable: false,
     scores: [],
     scores_not_applicable: false,
+    vineyard_name: "",
+    vineyard_locality: "",
+    vineyard_country: "",
+    vineyard_latitude: null,
+    vineyard_longitude: null,
+    vineyard_precision: "",
+    vineyard_source_url: "",
+    vineyard_source_title: "",
+    vineyard_notes: "",
+    vineyard_verified_at: null,
+    vineyard_not_found: false,
     photo_thumbnail_url: "",
     photo_detail_url: "",
     tasting_history: [],
@@ -1052,6 +1064,12 @@ export function WineDetail({
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
       </div>
+
+      {wine.vineyard_latitude !== null && wine.vineyard_longitude !== null ? (
+        <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
+          <VineyardMap wine={wine} locale={locale} />
+        </Suspense>
+      ) : null}
 
       <div className="detail-market-block">
         <ValueHistoryChart wine={wine} t={t} locale={locale} />

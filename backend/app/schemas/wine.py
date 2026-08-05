@@ -210,6 +210,17 @@ class WineResponse(BaseModel):
     grapes_not_applicable: bool = False
     scores: list[dict]
     scores_not_applicable: bool = False
+    vineyard_name: str = ""
+    vineyard_locality: str = ""
+    vineyard_country: str = ""
+    vineyard_latitude: float | None = None
+    vineyard_longitude: float | None = None
+    vineyard_precision: Literal["", "vineyard", "estate", "appellation"] = ""
+    vineyard_source_url: str = ""
+    vineyard_source_title: str = ""
+    vineyard_notes: str = ""
+    vineyard_verified_at: datetime | None = None
+    vineyard_not_found: bool = False
     photo_thumbnail_url: str = ""
     photo_detail_url: str = ""
     created_at: datetime

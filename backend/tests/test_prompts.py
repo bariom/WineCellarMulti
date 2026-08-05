@@ -2,6 +2,7 @@ from app.prompts import (
     ai_notes_prompt,
     grape_composition_prompt,
     wine_value_prompt,
+    wine_vineyard_location_prompt,
     wishlist_value_prompt,
 )
 
@@ -44,3 +45,13 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
     assert wishlist_prompt.id == "wishlist.market_value"
     assert "Italian" in wishlist_prompt.system
     assert "target price is CHF 75.00" in wishlist_prompt.user
+
+
+def test_vineyard_prompt_requires_verifiable_coordinates_and_precision():
+    prompt = wine_vineyard_location_prompt(locale="it", wine_context="Wine: Example 2020")
+
+    assert (prompt.id, prompt.version) == ("wine.vineyard_location", "1")
+    assert "Never invent a vineyard name or coordinates" in prompt.system
+    assert "vineyard, estate, or appellation" in prompt.system
+    assert "Italian" in prompt.system
+    assert "Wine: Example 2020" in prompt.user
