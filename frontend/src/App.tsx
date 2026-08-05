@@ -5,7 +5,7 @@ import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, OperationalMetricsHistory, UserActivityLogEntry } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
@@ -1155,7 +1155,6 @@ export function App() {
   const [redeemCodes, setRedeemCodes] = useState<RedeemCode[]>([]);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [operationsOverview, setOperationsOverview] = useState<OperationalMetricsOverview | null>(null);
-  const [operationsHistory, setOperationsHistory] = useState<OperationalMetricsHistory | null>(null);
   const [userActivity, setUserActivity] = useState<UserActivityLogEntry[]>([]);
   const [invites, setInvites] = useState<Invite[]>([]);
   const [receivedInvites, setReceivedInvites] = useState<Invite[]>([]);
@@ -2147,14 +2146,12 @@ export function App() {
   }
 
   async function loadOperationsMetrics() {
-      const [overview, history, activity] = await Promise.all([
-        api<OperationalMetricsOverview>("/api/v1/admin/operations/overview"),
-        api<OperationalMetricsHistory>("/api/v1/admin/operations/history?hours=1"),
-        api<UserActivityLogEntry[]>("/api/v1/admin/operations/activity"),
-      ]);
-      setOperationsOverview(overview);
-      setOperationsHistory(history);
-      setUserActivity(activity);
+    const [overview, activity] = await Promise.all([
+      api<OperationalMetricsOverview>("/api/v1/admin/operations/overview"),
+      api<UserActivityLogEntry[]>("/api/v1/admin/operations/activity"),
+    ]);
+    setOperationsOverview(overview);
+    setUserActivity(activity);
   }
 
   async function loadMyCoOwnershipAgreements(authenticated = session?.authenticated) {
@@ -12150,8 +12147,8 @@ export function App() {
 
               {settingsTab === "operations" && canAppAdmin ? (
                 <>
-                  <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento metriche…" : "Loading metrics…"} />}>
-                    <OperationsPanel locale={locale} overview={operationsOverview} history={operationsHistory} activity={userActivity} onRefresh={loadOperationsMetrics} />
+                  <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento operatività…" : "Loading operations…"} />}>
+                    <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} />
                   </Suspense>
                 </>
               ) : null}

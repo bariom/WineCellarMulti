@@ -156,6 +156,9 @@ def vineyard_candidate(wine: Wine) -> dict[str, object]:
 
 @router.get("/vineyards")
 def vineyard_research_queue(
+    q: str = Query(default="", max_length=200),
+    limit: int = Query(default=8, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
@@ -171,12 +174,26 @@ def vineyard_research_queue(
         for wine in unique_wines
         if wine.vineyard_latitude is None and wine.vineyard_longitude is None and not wine.vineyard_not_found
     ]
+    query = re.sub(r"\s+", " ", q.strip()).casefold()
+    filtered = pending
+    if query:
+        filtered = [
+            wine
+            for wine in pending
+            if query
+            in " ".join(
+                (wine.name, wine.producer, wine.vintage, wine.region, wine.appellation)
+            ).casefold()
+        ]
     return {
         "total": len(unique_wines),
         "located": len(located),
         "not_found": len(not_found),
         "pending": len(pending),
-        "candidates": [vineyard_candidate(wine) for wine in pending[:100]],
+        "filtered": len(filtered),
+        "limit": limit,
+        "offset": offset,
+        "candidates": [vineyard_candidate(wine) for wine in filtered[offset : offset + limit]],
     }
 
 

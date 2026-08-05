@@ -1,152 +1,21 @@
-import { useEffect, useRef, useState } from "react";
-import uPlot from "uplot";
-import "uplot/dist/uPlot.min.css";
-import type { Locale, OperationalMetricsHistory, OperationalMetricsOverview, UserActivityLogEntry } from "../types";
+import { useEffect, useState } from "react";
+import type { Locale, OperationalMetricsOverview, UserActivityLogEntry } from "../types";
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
 import "./OperationsPanel.css";
-import { useChartReveal } from "./chartMotion";
 
 type OperationsPanelProps = {
   locale: Locale;
   overview: OperationalMetricsOverview | null;
-  history: OperationalMetricsHistory | null;
   activity: UserActivityLogEntry[];
   onRefresh: () => void | Promise<void>;
 };
 
-type ChartScale = { min: number; max: number; suffix: string };
-type ChartLine = { label: string; color: string; values: Array<number | null>; suffix: string; axis?: "primary" | "secondary" };
 type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
 type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
 type VineyardCandidate = { wine_id: string; name: string; producer: string; vintage: string; region: string; appellation: string };
-type VineyardQueue = { total: number; located: number; not_found: number; pending: number; candidates: VineyardCandidate[] };
-
-function roundedScale(values: Array<number | null>, suffix: string): ChartScale {
-  const maximum = Math.max(...values.filter((value): value is number => value !== null && Number.isFinite(value)), 0);
-  if (maximum <= 1) return { min: 0, max: 1, suffix };
-  const magnitude = 10 ** Math.floor(Math.log10(maximum));
-  const factor = [1, 2, 5, 10].find((candidate) => maximum <= candidate * magnitude) || 10;
-  return { min: 0, max: factor * magnitude, suffix };
-}
-
-function formatScaleValue(value: number, scale: ChartScale) {
-  return `${value < 10 && value % 1 ? value.toFixed(1) : value.toFixed(0)}${scale.suffix}`;
-}
-
-function OperationsChart({ title, lines, timestamps, locale, primaryScale, secondaryScale }: {
-  title: string;
-  lines: ChartLine[];
-  timestamps: number[];
-  locale: Locale;
-  primaryScale: ChartScale;
-  secondaryScale?: ChartScale;
-}) {
-  const chartHostRef = useRef<HTMLDivElement | null>(null);
-  useChartReveal(chartHostRef);
-  const hasData = lines.some((line) => line.values.some((value) => value !== null));
-
-  useEffect(() => {
-    const chartHost = chartHostRef.current;
-    if (!chartHost || !hasData || !timestamps.length) return;
-
-    const styles = getComputedStyle(chartHost);
-    const textColor = styles.getPropertyValue("--text-muted").trim() || "#66716b";
-    const gridColor = styles.getPropertyValue("--border").trim() || "#d9d5c8";
-    const axisFont = "600 11px system-ui, -apple-system, sans-serif";
-    const dateLocale = locale === "it" ? "it-CH" : "en-GB";
-    const dateSpan = timestamps[timestamps.length - 1] - timestamps[0];
-    const axisDateFormat = new Intl.DateTimeFormat(dateLocale, dateSpan > 172800
-      ? { day: "2-digit", month: "short" }
-      : { hour: "2-digit", minute: "2-digit" });
-    const legendDateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
-    const axis = (scale: ChartScale, scaleKey: string, side: 1 | 3): uPlot.Axis => ({
-      scale: scaleKey,
-      side,
-      size: side === 3 ? 54 : 66,
-      gap: 8,
-      stroke: textColor,
-      font: axisFont,
-      grid: { stroke: gridColor, width: 1 },
-      ticks: { stroke: gridColor, width: 1, size: 5 },
-      values: (_chart, values) => values.map((value) => formatScaleValue(value, scale)),
-    });
-    const data: uPlot.AlignedData = [timestamps, ...lines.map((line) => line.values)];
-    const options: uPlot.Options = {
-      width: Math.floor(chartHost.clientWidth) || 560,
-      height: 210,
-      padding: [10, 4, 0, 4],
-      scales: {
-        x: { time: true },
-        primary: { auto: false, range: [primaryScale.min, primaryScale.max] },
-        ...(secondaryScale ? { secondary: { auto: false, range: [secondaryScale.min, secondaryScale.max] as [number, number] } } : {}),
-      },
-      axes: [
-        {
-          stroke: textColor,
-          font: axisFont,
-          grid: { show: false },
-          ticks: { stroke: gridColor, width: 1, size: 5 },
-          gap: 8,
-          size: 36,
-          values: (_chart, values) => values.map((value) => axisDateFormat.format(new Date(value * 1000))),
-        },
-        axis(primaryScale, "primary", 3),
-        ...(secondaryScale ? [axis(secondaryScale, "secondary", 1)] : []),
-      ],
-      series: [
-        {
-          label: locale === "it" ? "Ora" : "Time",
-          value: (_chart, value) => value === null || value === undefined ? "—" : legendDateFormat.format(new Date(Number(value) * 1000)),
-        },
-        ...lines.map((line): uPlot.Series => ({
-          label: line.label,
-          scale: line.axis === "secondary" ? "secondary" : "primary",
-          stroke: line.color,
-          width: 2,
-          spanGaps: false,
-          points: { show: false },
-          value: (_chart, value) => value === null || value === undefined ? "—" : `${Number(value).toFixed(1)}${line.suffix}`,
-        })),
-      ],
-      legend: { show: true, live: true },
-      cursor: {
-        drag: { x: false, y: false, setScale: false },
-        points: { size: 7 },
-      },
-    };
-    const chart = new uPlot(options, data, chartHost);
-    chart.setCursor({ left: chart.valToPos(timestamps[timestamps.length - 1], "x"), top: 0 });
-    let resizeFrame = 0;
-    const observer = new ResizeObserver(([entry]) => {
-      const width = Math.floor(entry.contentRect.width);
-      if (!width || width === chart.width) return;
-      cancelAnimationFrame(resizeFrame);
-      resizeFrame = requestAnimationFrame(() => chart.setSize({ width, height: 210 }));
-    });
-    observer.observe(chartHost);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(resizeFrame);
-      chart.destroy();
-    };
-  }, [hasData, lines, locale, primaryScale, secondaryScale, timestamps]);
-
-  return (
-    <section className="operations-chart-card">
-      <div className="operations-chart-heading"><strong>{title}</strong><span>{locale === "it" ? "Storico" : "History"}</span></div>
-      {hasData
-        ? <div className="operations-chart" ref={chartHostRef} role="img" aria-label={title} />
-        : <p className="operations-chart-empty">{locale === "it" ? "In attesa di campioni" : "Waiting for samples"}</p>}
-    </section>
-  );
-}
-
-function level(value: number, warning: number, critical: number) {
-  if (value >= critical) return "critical";
-  if (value >= warning) return "warning";
-  return "healthy";
-}
+type VineyardQueue = { total: number; located: number; not_found: number; pending: number; filtered: number; limit: number; offset: number; candidates: VineyardCandidate[] };
+const VINEYARD_PAGE_SIZE = 8;
 
 function usd(value: number, locale: Locale) {
   return new Intl.NumberFormat(locale === "it" ? "it-CH" : "en-US", {
@@ -233,10 +102,8 @@ function activityLabel(action: string, locale: Locale) {
   return (labels[action] || labels.app_action)[locale === "it" ? 0 : 1];
 }
 
-export function OperationsPanel({ locale, overview, history, activity, onRefresh }: OperationsPanelProps) {
+export function OperationsPanel({ locale, overview, activity, onRefresh }: OperationsPanelProps) {
   const isItalian = locale === "it";
-  const [selectedHours, setSelectedHours] = useState(1);
-  const [selectedHistory, setSelectedHistory] = useState(history);
   const [monitorToken, setMonitorToken] = useState("");
   const [monitorTokenError, setMonitorTokenError] = useState("");
   const [monitorTokens, setMonitorTokens] = useState<MonitorDeviceToken[]>([]);
@@ -249,10 +116,9 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   const [vineyardBusy, setVineyardBusy] = useState("");
   const [vineyardProgress, setVineyardProgress] = useState("");
   const [vineyardError, setVineyardError] = useState("");
-
-  useEffect(() => {
-    if (selectedHours === 1) setSelectedHistory(history);
-  }, [history, selectedHours]);
+  const [vineyardSearchDraft, setVineyardSearchDraft] = useState("");
+  const [vineyardQuery, setVineyardQuery] = useState("");
+  const [vineyardPage, setVineyardPage] = useState(0);
 
   async function refreshMonitorTokens() {
     try {
@@ -262,10 +128,9 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
     }
   }
 
-  async function collectAndRefresh() {
+  async function refreshOperations() {
     setRefreshing(true);
     try {
-      await api<void>("/api/v1/admin/operations/collect-now", { method: "POST" });
       await onRefresh();
     } finally {
       setRefreshing(false);
@@ -286,16 +151,26 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
 
   useEffect(() => { void loadAiPricing(); }, []);
 
-  async function loadVineyardQueue() {
+  async function loadVineyardQueue(page = vineyardPage, query = vineyardQuery) {
     try {
-      setVineyardQueue(await api<VineyardQueue>("/api/v1/admin/operations/vineyards"));
+      const params = new URLSearchParams({
+        limit: String(VINEYARD_PAGE_SIZE),
+        offset: String(page * VINEYARD_PAGE_SIZE),
+      });
+      if (query) params.set("q", query);
+      const queue = await api<VineyardQueue>(`/api/v1/admin/operations/vineyards?${params}`);
+      if (page > 0 && queue.candidates.length === 0) {
+        setVineyardPage(Math.max(Math.ceil(queue.filtered / VINEYARD_PAGE_SIZE) - 1, 0));
+        return;
+      }
+      setVineyardQueue(queue);
       setVineyardError("");
     } catch (error) {
       setVineyardError(error instanceof Error ? error.message : (isItalian ? "Impossibile caricare la copertura dei vigneti." : "Unable to load vineyard coverage."));
     }
   }
 
-  useEffect(() => { void loadVineyardQueue(); }, []);
+  useEffect(() => { void loadVineyardQueue(vineyardPage, vineyardQuery); }, [vineyardPage, vineyardQuery]);
 
   async function researchVineyard(candidate: VineyardCandidate) {
     setVineyardBusy(candidate.wine_id);
@@ -310,22 +185,35 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
   }
 
   async function researchAllVineyards() {
-    if (!vineyardQueue?.candidates.length) return;
+    if (!vineyardQueue?.pending) return;
     const confirmed = window.confirm(isItalian
-      ? `Avviare ${vineyardQueue.candidates.length} ricerche AI? Il costo sarà sostenuto da Vinaris.`
-      : `Run ${vineyardQueue.candidates.length} AI searches? Vinaris will fund the cost.`);
+      ? `Avviare fino a ${vineyardQueue.pending} ricerche AI? Il costo sarà sostenuto da Vinaris.`
+      : `Run up to ${vineyardQueue.pending} AI searches? Vinaris will fund the cost.`);
     if (!confirmed) return;
     setVineyardBusy("all");
     setVineyardError("");
-    const candidates = [...vineyardQueue.candidates];
-    for (let index = 0; index < candidates.length; index += 1) {
-      const candidate = candidates[index];
-      setVineyardProgress(`${index + 1}/${candidates.length} · ${candidate.name}`);
+    const total = vineyardQueue.pending;
+    let processed = 0;
+    let stopped = false;
+    while (!stopped) {
+      let batch: VineyardQueue;
       try {
-        await api(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
+        batch = await api<VineyardQueue>("/api/v1/admin/operations/vineyards?limit=100&offset=0");
       } catch (error) {
-        setVineyardError(error instanceof Error ? error.message : (isItalian ? `Ricerca interrotta su ${candidate.name}.` : `Research stopped on ${candidate.name}.`));
+        setVineyardError(error instanceof Error ? error.message : (isItalian ? "Impossibile aggiornare la coda dei vigneti." : "Unable to refresh the vineyard queue."));
         break;
+      }
+      if (!batch.candidates.length) break;
+      for (const candidate of batch.candidates) {
+        setVineyardProgress(`${processed + 1}/${total} · ${candidate.name}`);
+        try {
+          await api(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
+          processed += 1;
+        } catch (error) {
+          setVineyardError(error instanceof Error ? error.message : (isItalian ? `Ricerca interrotta su ${candidate.name}.` : `Research stopped on ${candidate.name}.`));
+          stopped = true;
+          break;
+        }
       }
     }
     await loadVineyardQueue();
@@ -363,15 +251,6 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
     }
   }
 
-  async function selectHours(hours: number) {
-    setSelectedHours(hours);
-    if (hours === 1) {
-      setSelectedHistory(history);
-      return;
-    }
-    setSelectedHistory(await api<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${hours}`));
-  }
-
   async function createMonitorToken() {
     try {
       const created = await api<MonitorDeviceToken & { token: string }>("/api/v1/admin/operations/device-tokens?label=Vinaris%20Monitor", { method: "POST" });
@@ -394,45 +273,23 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
       setMonitorTokenError(isItalian ? "Impossibile revocare il token Monitor." : "Unable to revoke the Monitor token.");
     }
   }
-  const conntrackPercent = overview?.system.conntrack.count !== null && overview?.system.conntrack.max
-    ? (overview.system.conntrack.count / overview.system.conntrack.max) * 100
-    : null;
-  const interactiveP95 = overview?.application.interactive_p95_duration_ms ?? null;
-  const interactiveP50 = overview?.application.interactive_p50_duration_ms ?? null;
-  const interactiveWindowMinutes = Math.round((overview?.application.interactive_window_seconds || 900) / 60);
-  const alerts = overview ? [
-    ["CPU", overview.system.host.cpu_percent, "%"],
-    ["RAM", overview.system.host.memory.percent, "%"],
-    [isItalian ? "Disco" : "Disk", overview.system.host.disk.percent, "%"],
-    ["Conntrack", conntrackPercent, "%"],
-    [isItalian ? "P95 API interattive" : "Interactive API p95", interactiveP95, " ms"],
-  ].flatMap(([label, rawValue, suffix]) => {
-    const value = Number(rawValue);
-    if (!Number.isFinite(value)) return [];
-    const status = label === (isItalian ? "P95 API interattive" : "Interactive API p95") ? level(value, 750, 1500) : level(value, 80, 90);
-    return status === "healthy" ? [] : [{ label, value, suffix, status }];
-  }) : [];
-  const samples = selectedHistory?.samples || [];
-  const timestamps = samples.map((sample) => new Date(sample.collected_at).getTime() / 1000);
-  const latestPersistedSample = samples[samples.length - 1];
-  const stale = latestPersistedSample ? Date.now() - new Date(latestPersistedSample.collected_at).getTime() > 180000 : false;
-  const hostScale: ChartScale = { min: 0, max: 100, suffix: "%" };
-  const tcpScale = roundedScale(samples.map((sample) => sample.system.network.tcp_established), "");
-  const latencyScale = roundedScale(samples.map((sample) => sample.application.interactive_p95_duration_ms ?? sample.application.average_duration_ms), " ms");
+  const vineyardPageCount = Math.max(Math.ceil((vineyardQueue?.filtered || 0) / VINEYARD_PAGE_SIZE), 1);
+  const vineyardFirstResult = vineyardQueue?.filtered ? vineyardPage * VINEYARD_PAGE_SIZE + 1 : 0;
+  const vineyardLastResult = vineyardQueue ? Math.min((vineyardPage + 1) * VINEYARD_PAGE_SIZE, vineyardQueue.filtered) : 0;
 
   return (
     <section className="settings-card operations-card">
       <div className="settings-card-heading">
         <div>
           <span>{isItalian ? "Amministrazione applicazione" : "Application administration"}</span>
-          <h3>{isItalian ? "Stato operativo" : "Operational status"}</h3>
+          <h3>{isItalian ? "Operatività Vinaris" : "Vinaris operations"}</h3>
         </div>
-        <button type="button" className="secondary compact" disabled={refreshing} onClick={() => void collectAndRefresh()}>
+        <button type="button" className="secondary compact" disabled={refreshing} onClick={() => void refreshOperations()}>
           {refreshing ? (isItalian ? "Raccolgo…" : "Collecting…") : (isItalian ? "Aggiorna" : "Refresh")}
         </button>
       </div>
       <p className="settings-help-copy">
-        {isItalian ? "Metriche aggregate riservate all'app-admin. L'aggiornamento avviene solo quando questa scheda è aperta." : "Aggregated metrics restricted to the app admin. Refreshing occurs only while this tab is open."}
+        {isItalian ? "Strumenti amministrativi e dati aggregati riservati all'app-admin." : "Administrative tools and aggregate data restricted to the app admin."}
       </p>
       <section className="operations-monitor-token" aria-label="Vinaris Monitor">
         <div><strong>Vinaris Monitor</strong><small>{isItalian ? "Crea un token revocabile per l'app Android in sola lettura." : "Create a revocable read-only token for the Android app."}</small></div>
@@ -473,7 +330,7 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
             <strong>{isItalian ? "Vigneti e luoghi di provenienza" : "Vineyards and places of origin"}</strong>
             <small>{isItalian ? "Ricerca amministrativa con AI e fonti web. Il costo è interamente a carico di Vinaris." : "Administrative AI and web research. The cost is entirely funded by Vinaris."}</small>
           </div>
-          <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy) || !vineyardQueue?.candidates.length} onClick={() => void researchAllVineyards()}>
+          <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy) || !vineyardQueue?.pending} onClick={() => void researchAllVineyards()}>
             {vineyardBusy === "all" ? (isItalian ? "Ricerca in corso…" : "Researching…") : (isItalian ? "Cerca tutti" : "Research all")}
           </button>
         </div>
@@ -484,10 +341,21 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
             <span><strong>{vineyardQueue.not_found}</strong>{isItalian ? " senza fonte affidabile" : " without reliable evidence"}</span>
           </div>
         ) : <LoadingState label={isItalian ? "Carico i vini" : "Loading wines"} compact />}
+        <form className="operations-vineyards-search" onSubmit={(event) => { event.preventDefault(); setVineyardPage(0); setVineyardQuery(vineyardSearchDraft.trim()); }}>
+          <input
+            type="search"
+            value={vineyardSearchDraft}
+            onChange={(event) => setVineyardSearchDraft(event.target.value)}
+            placeholder={isItalian ? "Cerca vino, produttore, annata o regione" : "Search wine, producer, vintage or region"}
+            aria-label={isItalian ? "Cerca nella coda dei vigneti" : "Search the vineyard queue"}
+          />
+          <button type="submit" className="secondary compact">{isItalian ? "Cerca" : "Search"}</button>
+          {vineyardQuery ? <button type="button" className="secondary compact" onClick={() => { setVineyardSearchDraft(""); setVineyardQuery(""); setVineyardPage(0); }}>{isItalian ? "Azzera" : "Clear"}</button> : null}
+        </form>
         {vineyardProgress ? <p className="operations-vineyards-progress">{vineyardProgress}</p> : null}
         {vineyardQueue?.candidates.length ? (
           <div className="operations-vineyards-list">
-            {vineyardQueue.candidates.slice(0, 8).map((candidate) => (
+            {vineyardQueue.candidates.map((candidate) => (
               <article key={candidate.wine_id}>
                 <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.appellation || candidate.region].filter(Boolean).join(" · ")}</small></span>
                 <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy)} onClick={() => void researchVineyard(candidate)}>
@@ -496,55 +364,21 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
               </article>
             ))}
           </div>
-        ) : vineyardQueue ? <small>{isItalian ? "Tutti i vini sono stati esaminati." : "All wines have been reviewed."}</small> : null}
+        ) : vineyardQueue ? <small>{vineyardQuery ? (isItalian ? "Nessun vino corrisponde alla ricerca." : "No wines match this search.") : (isItalian ? "Tutti i vini sono stati esaminati." : "All wines have been reviewed.")}</small> : null}
+        {vineyardQueue && vineyardQueue.filtered > 0 ? (
+          <nav className="operations-vineyards-pagination" aria-label={isItalian ? "Pagine della coda vigneti" : "Vineyard queue pages"}>
+            <span>{vineyardFirstResult}–{vineyardLastResult} {isItalian ? "di" : "of"} {vineyardQueue.filtered}</span>
+            <div>
+              <button type="button" className="secondary compact" disabled={vineyardPage === 0 || Boolean(vineyardBusy)} onClick={() => setVineyardPage((page) => Math.max(page - 1, 0))}>{isItalian ? "Precedente" : "Previous"}</button>
+              <strong>{vineyardPage + 1}/{vineyardPageCount}</strong>
+              <button type="button" className="secondary compact" disabled={vineyardPage + 1 >= vineyardPageCount || Boolean(vineyardBusy)} onClick={() => setVineyardPage((page) => page + 1)}>{isItalian ? "Successiva" : "Next"}</button>
+            </div>
+          </nav>
+        ) : null}
         {vineyardError ? <p role="alert">{vineyardError}</p> : null}
       </section>
       {overview ? (
         <>
-          <div className={`operations-health ${stale ? "warning" : alerts.some((alert) => alert.status === "critical") ? "critical" : alerts.length ? "warning" : "healthy"}`} role="status">
-            <strong>{stale ? (isItalian ? "Dati non aggiornati" : "Stale data") : alerts.some((alert) => alert.status === "critical") ? (isItalian ? "Richiede attenzione" : "Needs attention") : alerts.length ? (isItalian ? "Da monitorare" : "Monitor") : (isItalian ? "Operativo" : "Healthy")}</strong>
-            <span>{stale ? (isItalian ? "L'ultimo campione ha più di tre minuti." : "The latest sample is more than three minutes old.") : alerts.length ? alerts.map((alert) => `${alert.label} ${alert.value.toFixed(0)}${alert.suffix}`).join(" · ") : (isItalian ? "Nessuna soglia superata." : "No threshold exceeded.")}</span>
-          </div>
-          <section className="operations-section operations-host-section" aria-labelledby="operations-host-heading">
-            <h4 id="operations-host-heading">{isItalian ? "Risorse host" : "Host resources"}</h4>
-            <div className="operations-metrics-grid operations-host-metrics">
-              <div className={level(overview.system.host.cpu_percent, 80, 90)}><span>CPU</span><strong>{overview.system.host.cpu_percent.toFixed(1)}%</strong></div>
-              <div className={level(overview.system.host.memory.percent, 80, 90)}><span>RAM</span><strong>{overview.system.host.memory.percent.toFixed(1)}%</strong></div>
-              <div className={level(overview.system.host.disk.percent, 80, 90)}><span>{isItalian ? "Disco" : "Disk"}</span><strong>{overview.system.host.disk.percent.toFixed(1)}%</strong></div>
-            </div>
-          </section>
-          <div className="operations-history-controls" role="group" aria-label={isItalian ? "Intervallo storico" : "History range"}>
-            {[1, 6, 24, 168].map((option) => <button type="button" key={option} className={selectedHours === option ? "" : "secondary"} onClick={() => void selectHours(option)}>{option === 168 ? (isItalian ? "7 giorni" : "7 days") : `${option}h`}</button>)}
-          </div>
-          <div className="operations-charts">
-            <OperationsChart locale={locale} title={isItalian ? "Risorse host" : "Host resources"} timestamps={timestamps} lines={[
-              { label: "CPU", color: "#598a62", values: samples.map((sample) => sample.system.host.cpu_percent), suffix: "%" },
-              { label: "RAM", color: "#ad7c3c", values: samples.map((sample) => sample.system.host.memory.percent), suffix: "%" },
-              { label: isItalian ? "Disco" : "Disk", color: "#4a7ca6", values: samples.map((sample) => sample.system.host.disk.percent), suffix: "%" },
-            ]} primaryScale={hostScale} />
-            <OperationsChart locale={locale} title={isItalian ? "Rete e reattivitÃ  API" : "Network and API responsiveness"} timestamps={timestamps} lines={[
-              { label: "TCP", color: "#7b4b44", values: samples.map((sample) => sample.system.network.tcp_established), suffix: "" },
-              { label: isItalian ? "P95 interattive" : "Interactive p95", color: "#755487", values: samples.map((sample) => sample.application.interactive_p95_duration_ms ?? sample.application.average_duration_ms), suffix: " ms", axis: "secondary" },
-            ]} primaryScale={tcpScale} secondaryScale={latencyScale} />
-          </div>
-          <section className="operations-section operations-network-section" aria-labelledby="operations-network-heading">
-            <h4 id="operations-network-heading">{isItalian ? "Stato rete e applicazione" : "Network and application status"}</h4>
-            <div className="operations-metrics-grid operations-network-metrics">
-              <div><span>TCP</span><strong>{overview.system.network.tcp_established ?? "—"}</strong><small>{isItalian ? "stabilite" : "established"}</small></div>
-              <div className={conntrackPercent === null ? "" : level(conntrackPercent, 70, 85)}><span>Conntrack</span><strong>{overview.system.conntrack.count ?? "—"}{overview.system.conntrack.max ? ` / ${overview.system.conntrack.max}` : ""}</strong></div>
-              <div className={interactiveP95 === null ? "" : level(interactiveP95, 750, 1500)}>
-                <span>{isItalian ? `API interattive P95 · ${interactiveWindowMinutes} min` : `Interactive API p95 · ${interactiveWindowMinutes} min`}</span>
-                <strong>{interactiveP95 === null ? "—" : `${interactiveP95.toFixed(0)} ms`}</strong>
-                <small>{interactiveP50 === null ? (isItalian ? "In attesa di richieste recenti" : "Waiting for recent requests") : `${isItalian ? "Mediana" : "Median"} ${interactiveP50.toFixed(0)} ms · ${overview.application.interactive_requests_recent || 0} req.`}</small>
-              </div>
-            </div>
-            <div className="operations-summary">
-              <span>{isItalian ? "Richieste" : "Requests"} <strong>{overview.application.requests_total}</strong></span>
-              <span>{isItalian ? "Errori 5xx" : "5xx errors"} <strong>{overview.application.errors_total}</strong></span>
-              <span>{isItalian ? "Operazioni lunghe escluse" : "Long operations excluded"} <strong>{overview.application.slow_requests_recent || 0}</strong></span>
-            </div>
-            <p className="operations-metric-note">{isItalian ? "La reattività considera solo API normali degli ultimi 15 minuti; AI, import ed elaborazione foto sono escluse per non falsare l'esperienza percepita." : "Responsiveness includes only normal APIs from the last 15 minutes; AI, imports and photo processing are excluded so they do not distort perceived performance."}</p>
-          </section>
           <section className="operations-section operations-business-section" aria-labelledby="operations-business-heading">
             <h4 id="operations-business-heading">{isItalian ? "Dati Vinaris" : "Vinaris data"}</h4>
             <div className="operations-business-grid">
@@ -656,14 +490,8 @@ export function OperationsPanel({ locale, overview, history, activity, onRefresh
               </div>
             ) : <p className="operations-activity-empty">{isItalian ? "Nessuna attività registrata per ora." : "No activity recorded yet."}</p>}
           </section>
-          <p className="operations-note">
-            {isItalian ? `${samples.length} campioni nell'intervallo selezionato. ` : `${samples.length} samples in the selected range. `}
-            {isItalian
-              ? `I campioni restano disponibili per ${overview.history_retention_days} giorni.`
-              : `Samples are retained for ${overview.history_retention_days} days.`}
-          </p>
         </>
-      ) : <LoadingState label={isItalian ? "Caricamento metriche…" : "Loading metrics…"} />}
+      ) : <LoadingState label={isItalian ? "Caricamento dati…" : "Loading data…"} />}
     </section>
   );
 }
