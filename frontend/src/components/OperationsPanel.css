@@ -14,9 +14,12 @@
 .operations-vineyards-heading { display:flex; align-items:start; justify-content:space-between; gap:12px; }
 .operations-vineyards-heading > div { display:grid; gap:3px; }
 .operations-vineyards-heading small, .operations-vineyards > small { color:var(--text-muted); font-size:.76rem; }
+.operations-vineyards-metrics { display:grid; gap:7px; }
+.operations-vineyards-metrics > small { color:var(--text-muted); font-size:.67rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .operations-vineyards-summary { display:flex; flex-wrap:wrap; gap:8px; }
 .operations-vineyards-summary span { padding:6px 9px; border:1px solid var(--border); border-radius:999px; background:var(--surface); color:var(--text-muted); font-size:.74rem; }
 .operations-vineyards-summary strong { color:var(--text); font-variant-numeric:tabular-nums; }
+.operations-vineyards-summary.precision .precise { border-color:color-mix(in srgb,#b58a3a 54%,var(--border)); background:color-mix(in srgb,#376f56 9%,var(--surface)); }
 .operations-vineyards-search { display:flex; gap:8px; }
 .operations-vineyards-search input { min-width:0; flex:1 1 280px; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:var(--surface); color:var(--text); }
 .operations-vineyards-list { display:grid; gap:1px; overflow:hidden; border:1px solid var(--border); border-radius:10px; background:var(--border); }
@@ -25,6 +28,7 @@
 .operations-vineyards-list article strong, .operations-vineyards-list article small { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .operations-vineyards-list article strong { font-size:.8rem; }
 .operations-vineyards-list article small { color:var(--text-muted); font-size:.7rem; }
+.operations-vineyard-precise { width:max-content; padding:2px 7px; border:1px solid color-mix(in srgb,#b58a3a 54%,var(--border)); border-radius:999px; color:color-mix(in srgb,#376f56 82%,var(--text)); background:color-mix(in srgb,#376f56 9%,var(--surface)); font-size:.65rem; font-style:normal; font-weight:800; }
 .operations-vineyard-actions { display:flex; justify-content:end; gap:7px; flex-wrap:wrap; }
 .operations-vineyards-progress { margin:0; color:var(--primary); font-size:.78rem; font-weight:700; }
 .operations-vineyards > p[role="alert"] { margin:0; color:var(--danger); font-size:.78rem; }

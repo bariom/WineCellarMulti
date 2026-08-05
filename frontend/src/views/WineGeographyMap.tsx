@@ -98,9 +98,14 @@ function vineyardMapZoom(wine: Wine) {
   return 10;
 }
 
+function hasPreciseVineyardLocation(wine: Wine) {
+  return wine.vineyard_precision === "manual" || wine.vineyard_precision === "vineyard";
+}
+
 function VineyardLocationMap({ wine, className, locale, fullscreen = false }: { wine: Wine; className: string; locale: Locale; fullscreen?: boolean }) {
   const position: [number, number] = [wine.vineyard_latitude as number, wine.vineyard_longitude as number];
   const zoom = vineyardMapZoom(wine);
+  const precise = hasPreciseVineyardLocation(wine);
   return (
     <MapContainer
       key={wine.id}
@@ -110,8 +115,11 @@ function VineyardLocationMap({ wine, className, locale, fullscreen = false }: { 
       className={className}
     >
       <MapBaseLayers locale={locale} />
-      <CircleMarker center={position} radius={fullscreen ? 11 : 9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: "#76233d", fillOpacity: 0.95 }}>
-        <Tooltip permanent direction="top" offset={[0, -8]}>{wine.vineyard_name || wine.name}</Tooltip>
+      {precise ? (
+        <CircleMarker center={position} radius={fullscreen ? 17 : 15} pathOptions={{ color: "#b58a3a", weight: 3, fillOpacity: 0 }} />
+      ) : null}
+      <CircleMarker center={position} radius={fullscreen ? 11 : 9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: precise ? "#376f56" : "#76233d", fillOpacity: 0.95 }}>
+        <Tooltip permanent direction="top" offset={[0, -8]}>{precise ? "✓ " : ""}{wine.vineyard_name || wine.name}</Tooltip>
       </CircleMarker>
     </MapContainer>
   );
@@ -125,6 +133,10 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
     ? { vineyard: "Vigneto", estate: "Tenuta", locality: "Zona approssimativa", appellation: "Centro della denominazione", manual: "Punto impostato manualmente" }
     : { vineyard: "Vineyard", estate: "Estate", locality: "Approximate area", appellation: "Appellation centre", manual: "Manually positioned" };
   const precision = wine.vineyard_precision ? precisionLabels[wine.vineyard_precision] : "";
+  const precise = hasPreciseVineyardLocation(wine);
+  const precisionDisplay = precise
+    ? `${locale === "it" ? "Posizione precisa" : "Precise location"}${precision ? ` · ${precision}` : ""}`
+    : precision;
   const place = [wine.vineyard_locality, wine.vineyard_country].filter(Boolean).join(", ");
 
   useEffect(() => {
@@ -160,14 +172,14 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
         <div className="section-heading">
           <div>
             <button type="button" className="vineyard-origin-trigger" onClick={(event) => { lastTriggerRef.current = event.currentTarget; setFullscreen(true); }}>
-              <span>{locale === "it" ? "ORIGINE" : "ORIGIN"}</span>
+              <span>{precise ? (locale === "it" ? "ORIGINE PRECISA" : "PRECISE ORIGIN") : (locale === "it" ? "ORIGINE" : "ORIGIN")}</span>
               <strong>{place || wine.vineyard_name || wine.appellation || wine.region}</strong>
               <i aria-hidden="true">›</i>
             </button>
             <h3>{locale === "it" ? "Il luogo del vino" : "Where the wine comes from"}</h3>
           </div>
           <div className="vineyard-map-heading-actions">
-            {precision ? <small>{precision}</small> : null}
+            {precisionDisplay ? <small className={precise ? "vineyard-location-precision precise" : "vineyard-location-precision"}>{precise ? <i aria-hidden="true">◎</i> : null}{precisionDisplay}</small> : null}
             <button type="button" className="secondary compact vineyard-map-expand" onClick={(event) => { lastTriggerRef.current = event.currentTarget; setFullscreen(true); }}>
               <span aria-hidden="true">⛶</span>
               {locale === "it" ? "Apri mappa" : "Open map"}
@@ -191,7 +203,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
             </button>
             <div>
               <strong>{wine.vineyard_name || wine.appellation || wine.region}</strong>
-              <span>{[place, precision].filter(Boolean).join(" · ")}</span>
+              <span>{[place, precisionDisplay].filter(Boolean).join(" · ")}</span>
             </div>
           </header>
           <VineyardLocationMap wine={wine} className="vineyard-fullscreen-map" locale={locale} fullscreen />

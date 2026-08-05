@@ -36,6 +36,9 @@
 .vineyard-origin-trigger:hover, .vineyard-origin-trigger:focus-visible { transform: none; background: transparent; box-shadow: none; }
 .vineyard-origin-trigger > strong, .vineyard-origin-trigger > i { display: none; }
 .vineyard-map-heading-actions { display: flex; align-items: center; justify-content: end; gap: 10px; }
+.vineyard-location-precision { display:inline-flex; align-items:center; gap:5px; }
+.vineyard-location-precision.precise { padding:4px 8px; border:1px solid color-mix(in srgb, #b58a3a 54%, var(--border)); border-radius:999px; color:color-mix(in srgb, #376f56 82%, var(--text)); background:color-mix(in srgb, #376f56 9%, var(--surface)); font-weight:800; }
+.vineyard-location-precision i { color:#b58a3a; font-size:.86rem; font-style:normal; line-height:1; }
 .vineyard-map-expand { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .vineyard-map-expand > span { color: currentColor !important; font-size: 1rem !important; letter-spacing: 0 !important; }
 .vineyard-map-copy { display: grid; gap: 3px; }

@@ -232,6 +232,10 @@ def vineyard_research_queue(
         representatives.setdefault(vineyard_identity(wine), wine)
     unique_wines = list(representatives.values())
     located = [wine for wine in unique_wines if wine.vineyard_latitude is not None and wine.vineyard_longitude is not None]
+    precision_counts = {
+        precision: sum(1 for wine in located if wine.vineyard_precision == precision)
+        for precision in ("vineyard", "manual", "estate", "locality", "appellation")
+    }
     not_found = [wine for wine in unique_wines if wine.vineyard_not_found]
     pending = [
         wine
@@ -256,6 +260,7 @@ def vineyard_research_queue(
     return {
         "total": len(unique_wines),
         "located": len(located),
+        "precision_counts": precision_counts,
         "not_found": len(not_found),
         "pending": len(pending),
         "filtered": len(filtered),

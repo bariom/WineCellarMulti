@@ -30,7 +30,8 @@ type VineyardCandidate = {
   source_title: string;
   notes: string;
 };
-type VineyardQueue = { total: number; located: number; not_found: number; pending: number; filtered: number; limit: number; offset: number; candidates: VineyardCandidate[] };
+type VineyardPrecisionCounts = { vineyard: number; manual: number; estate: number; locality: number; appellation: number };
+type VineyardQueue = { total: number; located: number; precision_counts: VineyardPrecisionCounts; not_found: number; pending: number; filtered: number; limit: number; offset: number; candidates: VineyardCandidate[] };
 type VineyardResearchResult = {
   status: "found" | "not_found";
   updated_wines: number;
@@ -59,6 +60,10 @@ function usd(value: number, locale: Locale) {
 
 function successRate(successes: number, total: number) {
   return total > 0 ? `${Math.round((successes / total) * 100)}%` : "—";
+}
+
+function isPreciseVineyardPrecision(precision: string) {
+  return precision === "manual" || precision === "vineyard";
 }
 
 function activityLabel(action: string, locale: Locale) {
@@ -388,10 +393,20 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
           </button>
         </div>
         {vineyardQueue ? (
-          <div className="operations-vineyards-summary">
-            <span><strong>{vineyardQueue.located}</strong>{isItalian ? " localizzati" : " located"}</span>
-            <span><strong>{vineyardQueue.pending}</strong>{isItalian ? " da ricercare" : " to research"}</span>
-            <span><strong>{vineyardQueue.not_found}</strong>{isItalian ? " senza fonte affidabile" : " without reliable evidence"}</span>
+          <div className="operations-vineyards-metrics">
+            <div className="operations-vineyards-summary">
+              <span><strong>{vineyardQueue.located}</strong>{isItalian ? " localizzati" : " located"}</span>
+              <span><strong>{vineyardQueue.pending}</strong>{isItalian ? " da ricercare" : " to research"}</span>
+              <span><strong>{vineyardQueue.not_found}</strong>{isItalian ? " senza fonte affidabile" : " without reliable evidence"}</span>
+            </div>
+            <small>{isItalian ? "Precisione delle coordinate" : "Coordinate precision"}</small>
+            <div className="operations-vineyards-summary precision">
+              <span className="precise"><strong>{vineyardQueue.precision_counts.vineyard}</strong>{isItalian ? " vigneti precisi AI" : " precise AI vineyards"}</span>
+              <span className="precise"><strong>{vineyardQueue.precision_counts.manual}</strong>{isItalian ? " punti precisi manuali" : " precise manual points"}</span>
+              <span><strong>{vineyardQueue.precision_counts.estate}</strong>{isItalian ? " tenute" : " estates"}</span>
+              <span><strong>{vineyardQueue.precision_counts.locality}</strong>{isItalian ? " località approssimative" : " approximate localities"}</span>
+              <span><strong>{vineyardQueue.precision_counts.appellation}</strong>{isItalian ? " centri denominazione" : " appellation centres"}</span>
+            </div>
           </div>
         ) : <LoadingState label={isItalian ? "Carico i vini" : "Loading wines"} compact />}
         <form className="operations-vineyards-search" onSubmit={(event) => { event.preventDefault(); setVineyardPage(0); setVineyardQuery(vineyardSearchDraft.trim()); }}>
@@ -410,7 +425,11 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
           <div className="operations-vineyards-list">
             {vineyardQueue.candidates.map((candidate) => (
               <article key={candidate.wine_id}>
-                <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.appellation || candidate.region].filter(Boolean).join(" · ")}</small></span>
+                <span>
+                  <strong>{candidate.name} {candidate.vintage}</strong>
+                  <small>{[candidate.producer, candidate.appellation || candidate.region].filter(Boolean).join(" · ")}</small>
+                  {isPreciseVineyardPrecision(candidate.precision) ? <em className="operations-vineyard-precise">◎ {isItalian ? "Posizione precisa" : "Precise location"}</em> : null}
+                </span>
                 <div className="operations-vineyard-actions">
                   <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy)} onClick={() => openManualVineyardLocation(candidate)}>
                     {candidate.latitude !== null && candidate.longitude !== null
@@ -437,7 +456,11 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
               </div>
               <div>
                 <span className={`status-pill ${vineyardFeedback.status === "found" ? "configured" : ""}`}>
-                  {vineyardFeedback.status === "found" ? (isItalian ? "Punto trovato" : "Point found") : (isItalian ? "Da posizionare" : "Needs positioning")}
+                  {vineyardFeedback.status === "found"
+                    ? (isPreciseVineyardPrecision(vineyardFeedback.precision)
+                      ? (isItalian ? "Posizione precisa" : "Precise location")
+                      : (isItalian ? "Punto trovato" : "Point found"))
+                    : (isItalian ? "Da posizionare" : "Needs positioning")}
                 </span>
                 <button type="button" className="secondary compact" onClick={() => setVineyardFeedback(null)} aria-label={isItalian ? "Chiudi risultato" : "Close result"}>×</button>
               </div>

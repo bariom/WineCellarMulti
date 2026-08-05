@@ -3145,6 +3145,16 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
         assert saved.vineyard_source_url == source_url
         assert saved.vineyard_verified_at is not None
 
+    queue = client.get("/api/v1/admin/operations/vineyards?q=citran")
+    assert queue.status_code == 200
+    assert queue.json()["precision_counts"] == {
+        "vineyard": 0,
+        "manual": 0,
+        "estate": 1,
+        "locality": 0,
+        "appellation": 0,
+    }
+
 
 def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
     client = TestClient(app)
