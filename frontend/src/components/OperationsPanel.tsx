@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import type { Locale, OperationalMetricsOverview, UserActivityLogEntry } from "../types";
 import { LoadingState } from "./AppUi";
 import { api } from "../services/api";
@@ -15,6 +15,22 @@ type MonitorDeviceToken = { id: string; label: string; created_at: string; last_
 type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
 type VineyardCandidate = { wine_id: string; name: string; producer: string; vintage: string; region: string; appellation: string };
 type VineyardQueue = { total: number; located: number; not_found: number; pending: number; filtered: number; limit: number; offset: number; candidates: VineyardCandidate[] };
+type VineyardResearchResult = {
+  status: "found" | "not_found";
+  updated_wines: number;
+  wine_id: string;
+  vineyard_name: string;
+  locality: string;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  precision: string;
+  source_url: string;
+  source_title: string;
+  notes: string;
+};
+type VineyardFeedback = VineyardResearchResult & Pick<VineyardCandidate, "name" | "producer" | "vintage">;
+const VineyardLocationEditor = lazy(() => import("./VineyardLocationEditor"));
 const VINEYARD_PAGE_SIZE = 8;
 
 function usd(value: number, locale: Locale) {
@@ -119,6 +135,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
   const [vineyardSearchDraft, setVineyardSearchDraft] = useState("");
   const [vineyardQuery, setVineyardQuery] = useState("");
   const [vineyardPage, setVineyardPage] = useState(0);
+  const [vineyardFeedback, setVineyardFeedback] = useState<VineyardFeedback | null>(null);
 
   async function refreshMonitorTokens() {
     try {
@@ -175,13 +192,24 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
   async function researchVineyard(candidate: VineyardCandidate) {
     setVineyardBusy(candidate.wine_id);
     try {
-      await api(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
+      const result = await api<VineyardResearchResult>(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
+      setVineyardFeedback({ ...result, name: candidate.name, producer: candidate.producer, vintage: candidate.vintage });
       await loadVineyardQueue();
     } catch (error) {
       setVineyardError(error instanceof Error ? error.message : (isItalian ? "Ricerca del vigneto non riuscita." : "Vineyard research failed."));
     } finally {
       setVineyardBusy("");
     }
+  }
+
+  async function saveManualVineyardLocation(latitude: number, longitude: number) {
+    if (!vineyardFeedback) return;
+    const saved = await api<VineyardResearchResult>(`/api/v1/admin/operations/vineyards/${vineyardFeedback.wine_id}/location`, {
+      method: "PUT",
+      body: JSON.stringify({ latitude, longitude }),
+    });
+    setVineyardFeedback((current) => current ? { ...current, ...saved } : current);
+    await loadVineyardQueue();
   }
 
   async function researchAllVineyards() {
@@ -365,6 +393,38 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
             ))}
           </div>
         ) : vineyardQueue ? <small>{vineyardQuery ? (isItalian ? "Nessun vino corrisponde alla ricerca." : "No wines match this search.") : (isItalian ? "Tutti i vini sono stati esaminati." : "All wines have been reviewed.")}</small> : null}
+        {vineyardFeedback ? (
+          <section className="operations-vineyard-feedback" aria-label={isItalian ? "Risultato della ricerca geografica" : "Geographic research result"}>
+            <header>
+              <div>
+                <span>{isItalian ? "RISULTATO RICERCA" : "RESEARCH RESULT"}</span>
+                <strong>{vineyardFeedback.name}{vineyardFeedback.vintage ? ` · ${vineyardFeedback.vintage}` : ""}</strong>
+                <small>{[vineyardFeedback.vineyard_name || vineyardFeedback.producer, vineyardFeedback.locality, vineyardFeedback.country].filter(Boolean).join(" · ")}</small>
+              </div>
+              <div>
+                <span className={`status-pill ${vineyardFeedback.status === "found" ? "configured" : ""}`}>
+                  {vineyardFeedback.status === "found" ? (isItalian ? "Punto trovato" : "Point found") : (isItalian ? "Da posizionare" : "Needs positioning")}
+                </span>
+                <button type="button" className="secondary compact" onClick={() => setVineyardFeedback(null)} aria-label={isItalian ? "Chiudi risultato" : "Close result"}>×</button>
+              </div>
+            </header>
+            {vineyardFeedback.notes ? <p>{vineyardFeedback.notes}</p> : null}
+            {vineyardFeedback.source_url ? (
+              <a href={vineyardFeedback.source_url} target="_blank" rel="noreferrer">
+                {isItalian ? "Fonte dell'origine" : "Origin source"}{vineyardFeedback.source_title ? `: ${vineyardFeedback.source_title}` : ""}
+              </a>
+            ) : null}
+            <Suspense fallback={<LoadingState label={isItalian ? "Carico la mappa" : "Loading map"} compact />}>
+              <VineyardLocationEditor
+                locale={locale}
+                label={vineyardFeedback.vineyard_name || vineyardFeedback.producer || vineyardFeedback.name}
+                latitude={vineyardFeedback.latitude}
+                longitude={vineyardFeedback.longitude}
+                onSave={saveManualVineyardLocation}
+              />
+            </Suspense>
+          </section>
+        ) : null}
         {vineyardQueue && vineyardQueue.filtered > 0 ? (
           <nav className="operations-vineyards-pagination" aria-label={isItalian ? "Pagine della coda vigneti" : "Vineyard queue pages"}>
             <span>{vineyardFirstResult}–{vineyardLastResult} {isItalian ? "di" : "of"} {vineyardQueue.filtered}</span>

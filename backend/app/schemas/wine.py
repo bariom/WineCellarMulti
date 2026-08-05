@@ -217,7 +217,7 @@ class WineResponse(BaseModel):
     vineyard_country: str = ""
     vineyard_latitude: float | None = None
     vineyard_longitude: float | None = None
-    vineyard_precision: Literal["", "vineyard", "estate", "locality", "appellation"] = ""
+    vineyard_precision: Literal["", "vineyard", "estate", "locality", "appellation", "manual"] = ""
     vineyard_source_url: str = ""
     vineyard_source_title: str = ""
     vineyard_notes: str = ""

@@ -69,7 +69,7 @@ export type Wine = {
   vineyard_country: string;
   vineyard_latitude: number | null;
   vineyard_longitude: number | null;
-  vineyard_precision: "" | "vineyard" | "estate" | "locality" | "appellation";
+  vineyard_precision: "" | "vineyard" | "estate" | "locality" | "appellation" | "manual";
   vineyard_source_url: string;
   vineyard_source_title: string;
   vineyard_notes: string;

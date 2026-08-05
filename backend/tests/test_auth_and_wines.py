@@ -3110,7 +3110,14 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
         "updated_wines": 1,
         "wine_id": str(wine_id),
         "vineyard_name": "Château Citran",
+        "locality": "Avensan, Gironda",
+        "country": "Francia",
+        "latitude": 45.0525,
+        "longitude": -0.7475,
         "precision": "estate",
+        "source_url": source_url,
+        "source_title": "Category:Château Citran — Wikimedia Commons",
+        "notes": "Punto approssimativo riferito alla tenuta Château Citran.",
     }
     with TestingSessionLocal() as db:
         saved = db.get(Wine, wine_id)
@@ -3194,6 +3201,32 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
         assert saved.vineyard_locality == "Fiesole"
         assert saved.vineyard_precision == "locality"
         assert saved.vineyard_not_found is False
+
+    located_retry_queue = client.get("/api/v1/admin/operations/vineyards?q=soffocone")
+    assert located_retry_queue.status_code == 200
+    assert located_retry_queue.json()["candidates"][0]["wine_id"] == str(wine_id)
+
+    invalid_manual_location = client.put(
+        f"/api/v1/admin/operations/vineyards/{wine_id}/location",
+        json={"latitude": 91, "longitude": 11.2945},
+    )
+    assert invalid_manual_location.status_code == 422
+
+    manual_location = client.put(
+        f"/api/v1/admin/operations/vineyards/{wine_id}/location",
+        json={"latitude": 43.80512, "longitude": 11.29456},
+    )
+    assert manual_location.status_code == 200
+    assert manual_location.json()["latitude"] == 43.80512
+    assert manual_location.json()["longitude"] == 11.29456
+    assert manual_location.json()["precision"] == "manual"
+    assert manual_location.json()["source_url"] == source_url
+    with TestingSessionLocal() as db:
+        saved = db.get(Wine, wine_id)
+        assert saved is not None
+        assert saved.vineyard_precision == "manual"
+        assert saved.vineyard_latitude == 43.80512
+        assert saved.vineyard_source_url == source_url
 
 
 def test_monitor_device_token_can_trigger_a_fresh_sample(monkeypatch):

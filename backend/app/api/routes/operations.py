@@ -12,6 +12,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 from sqlalchemy import case, delete, func, select
 from sqlalchemy.orm import Session
 
@@ -63,6 +64,11 @@ from app.services.wine_photo_library import archive_wine_photo, library_photo_pa
 router = APIRouter(prefix="/admin/operations")
 
 SAMPLE_RETENTION = timedelta(days=14)
+
+
+class ManualVineyardLocation(BaseModel):
+    latitude: float = Field(ge=-90, le=90)
+    longitude: float = Field(ge=-180, le=180)
 
 
 def app_ai_pricing(db: Session) -> AppAiPricing | None:
@@ -156,6 +162,24 @@ def vineyard_candidate(wine: Wine) -> dict[str, object]:
     }
 
 
+def vineyard_location_result(wine: Wine, *, updated_wines: int) -> dict[str, object]:
+    found = wine.vineyard_latitude is not None and wine.vineyard_longitude is not None
+    return {
+        "status": "found" if found else "not_found",
+        "updated_wines": updated_wines,
+        "wine_id": str(wine.id),
+        "vineyard_name": wine.vineyard_name,
+        "locality": wine.vineyard_locality,
+        "country": wine.vineyard_country,
+        "latitude": wine.vineyard_latitude,
+        "longitude": wine.vineyard_longitude,
+        "precision": wine.vineyard_precision,
+        "source_url": wine.vineyard_source_url,
+        "source_title": wine.vineyard_source_title,
+        "notes": wine.vineyard_notes,
+    }
+
+
 def canonical_source_url(value: object) -> str:
     """Normalize harmless URL variants while preserving the researched page identity."""
     raw_url = str(value or "").strip()
@@ -206,14 +230,15 @@ def vineyard_research_queue(
         if wine.vineyard_latitude is None and wine.vineyard_longitude is None and not wine.vineyard_not_found
     ]
     query = re.sub(r"\s+", " ", q.strip()).casefold()
-    # A specific search also exposes previous no-results so an administrator can
-    # retry them after research policy or source availability changes. Bulk
-    # research remains limited to never-attempted wines to avoid repeated costs.
+    # A specific search also exposes previous no-results and located wines so an
+    # administrator can retry them after research policy or source availability
+    # changes. Bulk research remains limited to never-attempted wines to avoid
+    # repeated costs.
     filtered = pending
     if query:
         filtered = [
             wine
-            for wine in [*pending, *not_found]
+            for wine in unique_wines
             if query
             in " ".join(
                 (wine.name, wine.producer, wine.vintage, wine.region, wine.appellation)
@@ -354,13 +379,31 @@ def research_wine_vineyard(
         extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
     )
     db.commit()
-    return {
-        "status": "found" if found else "not_found",
-        "updated_wines": len(matches),
-        "wine_id": str(wine.id),
-        "vineyard_name": wine.vineyard_name,
-        "precision": wine.vineyard_precision,
-    }
+    return vineyard_location_result(wine, updated_wines=len(matches))
+
+
+@router.put("/vineyards/{wine_id}/location")
+def save_manual_wine_vineyard_location(
+    wine_id: UUID,
+    payload: ManualVineyardLocation,
+    db: Session = Depends(get_db),
+    _: CurrentContext = Depends(require_app_admin_context),
+) -> dict[str, object]:
+    wine = db.get(Wine, wine_id)
+    if wine is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+
+    identity = vineyard_identity(wine)
+    matches = [candidate for candidate in db.scalars(select(Wine)) if vineyard_identity(candidate) == identity]
+    positioned_at = datetime.now(UTC)
+    for candidate in matches:
+        candidate.vineyard_latitude = payload.latitude
+        candidate.vineyard_longitude = payload.longitude
+        candidate.vineyard_precision = "manual"
+        candidate.vineyard_verified_at = positioned_at
+        candidate.vineyard_not_found = False
+    db.commit()
+    return vineyard_location_result(wine, updated_wines=len(matches))
 
 
 def require_operations_read_access(

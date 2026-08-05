@@ -86,7 +86,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     vineyard_country: rawString(raw.vineyard_country),
     vineyard_latitude: raw.vineyard_latitude === null || raw.vineyard_latitude === undefined ? null : rawNumber(raw.vineyard_latitude),
     vineyard_longitude: raw.vineyard_longitude === null || raw.vineyard_longitude === undefined ? null : rawNumber(raw.vineyard_longitude),
-    vineyard_precision: ["vineyard", "estate", "locality", "appellation"].includes(rawString(raw.vineyard_precision))
+    vineyard_precision: ["vineyard", "estate", "locality", "appellation", "manual"].includes(rawString(raw.vineyard_precision))
       ? rawString(raw.vineyard_precision) as Wine["vineyard_precision"]
       : "",
     vineyard_source_url: rawString(raw.vineyard_source_url),

@@ -1,0 +1,16 @@
+.vineyard-location-editor { display:grid; gap:10px; padding:11px; border:1px solid var(--border); border-radius:12px; background:var(--surface); }
+.vineyard-location-editor-heading { display:flex; align-items:start; justify-content:space-between; gap:12px; }
+.vineyard-location-editor-heading > div { display:grid; gap:3px; }
+.vineyard-location-editor-heading strong { font-size:.82rem; }
+.vineyard-location-editor-heading small { color:var(--text-muted); font-size:.72rem; }
+.vineyard-location-editor-map { width:100%; height:320px; border:1px solid var(--border); border-radius:10px; cursor:crosshair; overflow:hidden; }
+.vineyard-location-editor-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:9px; }
+.vineyard-location-editor-controls label { display:grid; gap:4px; min-width:0; }
+.vineyard-location-editor-controls label span { color:var(--text-muted); font-size:.69rem; font-weight:750; text-transform:uppercase; letter-spacing:.04em; }
+.vineyard-location-editor-controls input { width:100%; min-width:0; padding:8px 9px; border:1px solid var(--border); border-radius:8px; background:var(--surface-muted); color:var(--text); font-variant-numeric:tabular-nums; }
+.vineyard-location-editor > p[role="alert"] { margin:0; color:var(--danger); font-size:.76rem; }
+@media (max-width:620px) {
+  .vineyard-location-editor-map { height:280px; }
+  .vineyard-location-editor-controls { grid-template-columns:1fr 1fr; }
+  .vineyard-location-editor-controls button { grid-column:1 / -1; }
+}

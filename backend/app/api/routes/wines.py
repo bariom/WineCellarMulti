@@ -287,7 +287,7 @@ def wine_response(
         vineyard_latitude=wine.vineyard_latitude,
         vineyard_longitude=wine.vineyard_longitude,
         vineyard_precision=cast(
-            Literal["", "vineyard", "estate", "locality", "appellation"],
+            Literal["", "vineyard", "estate", "locality", "appellation", "manual"],
             wine.vineyard_precision or "",
         ),
         vineyard_source_url=wine.vineyard_source_url or "",

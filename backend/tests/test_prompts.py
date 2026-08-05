@@ -47,13 +47,16 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
     assert "target price is CHF 75.00" in wishlist_prompt.user
 
 
-def test_vineyard_prompt_allows_a_sourced_approximate_area():
+def test_vineyard_prompt_prefers_the_physical_producer_before_a_locality():
     prompt = wine_vineyard_location_prompt(locale="it", wine_context="Wine: Example 2020")
 
-    assert (prompt.id, prompt.version) == ("wine.vineyard_location", "2")
-    assert "Never invent a vineyard name" in prompt.system
+    assert (prompt.id, prompt.version) == ("wine.vineyard_location", "3")
+    assert "physical producer estate, winery, or cellar" in prompt.system
+    assert "Do not choose a town centre" in prompt.system
+    assert "official contact/address page" in prompt.system
+    assert "source does not need to print numeric coordinates" in prompt.system
     assert "vineyard, estate, locality, or appellation" in prompt.system
     assert "representative point" in prompt.system
-    assert "does not need to publish numeric coordinates" in prompt.user
+    assert "physical estate or winery before considering" in prompt.user
     assert "Italian" in prompt.system
     assert "Wine: Example 2020" in prompt.user

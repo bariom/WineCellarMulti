@@ -169,18 +169,21 @@ def wine_scores_prompt(*, locale: str, wine_context: str) -> Prompt:
 def wine_vineyard_location_prompt(*, locale: str, wine_context: str) -> Prompt:
     return Prompt(
         id="wine.vineyard_location",
-        version="2",
+        version="3",
         system=(
             "You research the geographic origin of one exact wine and return JSON only. "
-            "Use your existing wine and geographic knowledge to identify the most likely place, then use web sources to verify that the wine is connected to that place. "
-            "Prefer the named vineyard or parcel. If the wine is assembled from several vineyards, use the producer estate only when it is a meaningful geographic origin; otherwise use the appellation centre. "
-            "Never invent a vineyard name. Exact vineyard or estate coordinates require credible evidence. "
+            "Use your existing wine and geographic knowledge to identify the most likely place, then use the single available web search efficiently to verify the most precise physical location. "
+            "Use this strict fallback order: named vineyard or parcel; physical producer estate, winery, or cellar; appellation centre; locality centre. "
+            "When no exact vineyard is documented, actively search for the named producer's official contact/address page or another authoritative source locating its physical wine estate. Do not choose a town centre merely because the producer's address mentions that town. "
+            "For the producer fallback, set vineyard_name to the producer estate or winery name and precision to estate. Never use a corporate office, distributor, shop, hospitality venue, or generic municipality as the producer estate. "
+            "Never invent a vineyard or estate. Exact vineyard coordinates require credible evidence. Estate coordinates may be geocoded from a complete, credible street address or an unambiguous authoritative map location; the source does not need to print numeric coordinates. "
             "When a credible source identifies the origin but does not publish exact coordinates, return a representative point for the smallest supported locality or appellation instead of status=not_found. "
             "Set precision to vineyard, estate, locality, or appellation so the map never implies more accuracy than the evidence supports. "
             f"{language_instruction(locale)}"
         ),
         user=(
-            "Find the best defensible map location for this wine. The source must verify the wine's connection to the named vineyard, estate, locality, or appellation; it does not need to publish numeric coordinates when precision is locality or appellation. "
+            "Find the best defensible map location for this wine. If the exact vineyard is unavailable, locate the producer's physical estate or winery before considering an appellation or locality centre. "
+            "The source must verify the named vineyard, producer address, estate, locality, or appellation; it does not need to publish numeric coordinates when an estate point is geocoded from its verified address or when precision is locality or appellation. "
             "For an approximate locality or appellation point, use representative centre coordinates, set the matching lower precision, and explicitly say in notes that the point is approximate. "
             "Return status=not_found and empty location fields only when no reliable source connects this wine to any meaningful geographic area. "
             "source_url must be a concrete source used during web research. Keep notes to one short factual sentence.\n\n"
