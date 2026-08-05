@@ -13,7 +13,23 @@ type OperationsPanelProps = {
 
 type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
 type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
-type VineyardCandidate = { wine_id: string; name: string; producer: string; vintage: string; region: string; appellation: string };
+type VineyardCandidate = {
+  wine_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  region: string;
+  appellation: string;
+  vineyard_name: string;
+  locality: string;
+  country: string;
+  latitude: number | null;
+  longitude: number | null;
+  precision: string;
+  source_url: string;
+  source_title: string;
+  notes: string;
+};
 type VineyardQueue = { total: number; located: number; not_found: number; pending: number; filtered: number; limit: number; offset: number; candidates: VineyardCandidate[] };
 type VineyardResearchResult = {
   status: "found" | "not_found";
@@ -29,7 +45,7 @@ type VineyardResearchResult = {
   source_title: string;
   notes: string;
 };
-type VineyardFeedback = VineyardResearchResult & Pick<VineyardCandidate, "name" | "producer" | "vintage">;
+type VineyardFeedback = VineyardResearchResult & Pick<VineyardCandidate, "name" | "producer" | "vintage"> & { mode: "research" | "manual" };
 const VineyardLocationEditor = lazy(() => import("./VineyardLocationEditor"));
 const VINEYARD_PAGE_SIZE = 8;
 
@@ -193,13 +209,22 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
     setVineyardBusy(candidate.wine_id);
     try {
       const result = await api<VineyardResearchResult>(`/api/v1/admin/operations/vineyards/${candidate.wine_id}/research?locale=${locale}`, { method: "POST" });
-      setVineyardFeedback({ ...result, name: candidate.name, producer: candidate.producer, vintage: candidate.vintage });
+      setVineyardFeedback({ ...result, name: candidate.name, producer: candidate.producer, vintage: candidate.vintage, mode: "research" });
       await loadVineyardQueue();
     } catch (error) {
       setVineyardError(error instanceof Error ? error.message : (isItalian ? "Ricerca del vigneto non riuscita." : "Vineyard research failed."));
     } finally {
       setVineyardBusy("");
     }
+  }
+
+  function openManualVineyardLocation(candidate: VineyardCandidate) {
+    setVineyardFeedback({
+      ...candidate,
+      status: candidate.latitude !== null && candidate.longitude !== null ? "found" : "not_found",
+      updated_wines: 0,
+      mode: "manual",
+    });
   }
 
   async function saveManualVineyardLocation(latitude: number, longitude: number) {
@@ -386,9 +411,16 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
             {vineyardQueue.candidates.map((candidate) => (
               <article key={candidate.wine_id}>
                 <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.appellation || candidate.region].filter(Boolean).join(" · ")}</small></span>
-                <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy)} onClick={() => void researchVineyard(candidate)}>
-                  {vineyardBusy === candidate.wine_id ? (isItalian ? "Cerco…" : "Searching…") : (isItalian ? "Cerca" : "Research")}
-                </button>
+                <div className="operations-vineyard-actions">
+                  <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy)} onClick={() => openManualVineyardLocation(candidate)}>
+                    {candidate.latitude !== null && candidate.longitude !== null
+                      ? (isItalian ? "Modifica punto" : "Edit point")
+                      : (isItalian ? "Imposta punto" : "Set point")}
+                  </button>
+                  <button type="button" className="secondary compact" disabled={Boolean(vineyardBusy)} onClick={() => void researchVineyard(candidate)}>
+                    {vineyardBusy === candidate.wine_id ? (isItalian ? "Cerco…" : "Searching…") : (isItalian ? "Cerca con AI" : "Research with AI")}
+                  </button>
+                </div>
               </article>
             ))}
           </div>
@@ -397,7 +429,9 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
           <section className="operations-vineyard-feedback" aria-label={isItalian ? "Risultato della ricerca geografica" : "Geographic research result"}>
             <header>
               <div>
-                <span>{isItalian ? "RISULTATO RICERCA" : "RESEARCH RESULT"}</span>
+                <span>{vineyardFeedback.mode === "manual"
+                  ? (isItalian ? "POSIZIONE MANUALE" : "MANUAL POSITION")
+                  : (isItalian ? "RISULTATO RICERCA" : "RESEARCH RESULT")}</span>
                 <strong>{vineyardFeedback.name}{vineyardFeedback.vintage ? ` · ${vineyardFeedback.vintage}` : ""}</strong>
                 <small>{[vineyardFeedback.vineyard_name || vineyardFeedback.producer, vineyardFeedback.locality, vineyardFeedback.country].filter(Boolean).join(" · ")}</small>
               </div>

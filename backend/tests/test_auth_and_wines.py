@@ -3204,7 +3204,11 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
 
     located_retry_queue = client.get("/api/v1/admin/operations/vineyards?q=soffocone")
     assert located_retry_queue.status_code == 200
-    assert located_retry_queue.json()["candidates"][0]["wine_id"] == str(wine_id)
+    located_candidate = located_retry_queue.json()["candidates"][0]
+    assert located_candidate["wine_id"] == str(wine_id)
+    assert located_candidate["latitude"] == 43.806
+    assert located_candidate["longitude"] == 11.293
+    assert located_candidate["source_url"] == source_url
 
     invalid_manual_location = client.put(
         f"/api/v1/admin/operations/vineyards/{wine_id}/location",

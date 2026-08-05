@@ -159,6 +159,15 @@ def vineyard_candidate(wine: Wine) -> dict[str, object]:
         "vintage": wine.vintage,
         "region": wine.region,
         "appellation": wine.appellation,
+        "vineyard_name": wine.vineyard_name,
+        "locality": wine.vineyard_locality,
+        "country": wine.vineyard_country,
+        "latitude": wine.vineyard_latitude,
+        "longitude": wine.vineyard_longitude,
+        "precision": wine.vineyard_precision,
+        "source_url": wine.vineyard_source_url,
+        "source_title": wine.vineyard_source_title,
+        "notes": wine.vineyard_notes,
     }
 
 
