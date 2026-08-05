@@ -36,7 +36,7 @@ export type AppIconName =
   | "bottle" | "cellar" | "dashboard" | "dashboard-cards" | "wishlist" | "search" | "filter" | "sort"
   | "edit" | "delete" | "import" | "export" | "compare" | "camera" | "chevron-left" | "chevron-right"
   | "sentiment-positive" | "sentiment-negative" | "status-delivered" | "status-pickup" | "status-shipped" | "status-ordered"
-  | "glass-sparkle" | "calendar" | "chart" | "users" | "settings" | "logout" | "bell" | "location" | "grapes";
+  | "glass-sparkle" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes";
 
 type IconVariant = "action" | "navigation" | "feature" | "premium" | "ai" | "status";
 type IconTone = "default" | "muted" | "accent" | "success" | "warning" | "danger" | "ai";
@@ -58,7 +58,7 @@ const icons: Record<AppIconName, typeof Wine> = {
   "chevron-left": CaretLeft, "chevron-right": CaretRight, "sentiment-positive": Smiley,
   "sentiment-negative": SmileySad, "status-delivered": CheckCircle, "status-pickup": Package,
   "status-shipped": Truck, "status-ordered": CalendarBlank, "glass-sparkle": Martini,
-  calendar: CalendarBlank, chart: ChartLineUp, users: UsersThree, settings: GearSix,
+  calendar: CalendarBlank, chart: ChartLineUp, star: StarFour, users: UsersThree, settings: GearSix,
   logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine,
 };
 

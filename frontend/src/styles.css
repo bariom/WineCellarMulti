@@ -7981,6 +7981,77 @@ button.balance-indicator:focus-visible {
   grid-template-columns: minmax(0, 1fr) auto;
 }
 
+.data-quality-overview {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  padding: 4px 0 2px;
+}
+
+.data-quality-ring {
+  display: grid;
+  width: 96px;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.data-quality-ring > div {
+  display: grid;
+  width: 72%;
+  aspect-ratio: 1;
+  place-items: center;
+  align-content: center;
+  border-radius: 50%;
+  background: var(--surface);
+  text-align: center;
+}
+
+.data-quality-ring strong {
+  color: var(--financial-text);
+  font-size: 1.25rem;
+}
+
+.data-quality-ring span,
+.data-quality-overview-copy > span {
+  color: var(--text-muted);
+  font-size: 0.69rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.data-quality-overview-copy {
+  display: grid;
+  gap: 5px;
+}
+
+.data-quality-overview-copy > strong { font-size: 0.9rem; }
+
+.data-quality-legend {
+  display: flex;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.data-quality-legend i {
+  display: grid;
+  width: 21px;
+  height: 21px;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 7px;
+}
+
+.data-quality-legend .app-icon {
+  display: inline-grid;
+}
+
+.data-quality-legend svg {
+  width: 0.78rem;
+  height: 0.78rem;
+}
+
 .score-quality-list {
   gap: 0;
   padding-right: 8px;

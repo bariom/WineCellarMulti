@@ -5804,6 +5804,28 @@ export function App() {
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
   const missingGrapesWines = allMissingGrapesWines.slice(0, 5);
   const missingScoresWines = allMissingScoresWines;
+  const dataQualityChartSegments = [
+    { key: "complete", label: locale === "it" ? "Completi" : "Complete", icon: "status-delivered" as AppIconName, count: Math.max(cellarDataCheckCount - cellarMissingDataCount, 0), color: "#46745d" },
+    { key: "window", label: t("missingDrinkWindow"), icon: "calendar" as AppIconName, count: allMissingDrinkWindowWines.length, color: "#a58a58" },
+    { key: "value", label: t("missingValue"), icon: "chart" as AppIconName, count: allMissingValueWines.length, color: "#748073" },
+    { key: "grapes", label: t("missingGrapes"), icon: "grapes" as AppIconName, count: allMissingGrapesWines.length, color: "#ad9561" },
+    { key: "scores", label: t("missingScores"), icon: "star" as AppIconName, count: allMissingScoresWines.length, color: "#875766" },
+  ];
+  let dataQualityChartCursor = 0;
+  const dataQualityChartGradient = dataQualityChartSegments
+    .filter((segment) => segment.count > 0)
+    .map((segment) => {
+      const start = dataQualityChartCursor;
+      dataQualityChartCursor += (segment.count / cellarDataCheckCount) * 100;
+      return `${segment.color} ${start}% ${dataQualityChartCursor}%`;
+    })
+    .join(", ");
+  const incompleteWineCount = new Set([
+    ...allMissingValueWines,
+    ...allMissingDrinkWindowWines,
+    ...allMissingGrapesWines,
+    ...allMissingScoresWines,
+  ].map((wine) => wine.id)).size;
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
   const dashboardFocusLabels: Record<DashboardFocus, string> = {
@@ -9090,15 +9112,33 @@ export function App() {
                         <span>{t("incompleteData")}</span>
                         <h2>{t("dataQuality")}</h2>
                       </div>
-                      <strong>{allValueRefreshWines.length + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores}</strong>
+                      <strong>{cellarMissingDataCount}</strong>
                     </div>
-                    <p>{t("aiReadinessHelp")}</p>
+                    {cellarMissingDataCount ? (
+                      <>
+                        <div className="data-quality-overview">
+                          <div className="data-quality-ring" style={{ background: `conic-gradient(${dataQualityChartGradient})` }} aria-label={`${t("dataCompleteness")}: ${cellarDataCompleteness}%`}>
+                            <div><strong>{cellarDataCompleteness}%</strong><span>{t("dataCompleteness")}</span></div>
+                          </div>
+                          <div className="data-quality-overview-copy">
+                            <strong>{locale === "it" ? `${incompleteWineCount} vini da completare` : `${incompleteWineCount} wines to complete`}</strong>
+                            <span>{locale === "it" ? "La mappa mostra la copertura dei dati essenziali." : "The chart maps coverage of essential data."}</span>
+                            <div className="data-quality-legend" aria-hidden="true">
+                              {dataQualityChartSegments.filter((segment) => segment.count > 0).map((segment) => <i key={segment.key} title={segment.label} style={{ background: `color-mix(in srgb, ${segment.color} 14%, var(--surface))`, borderColor: `color-mix(in srgb, ${segment.color} 42%, var(--border))`, color: segment.color }}>{segment.icon === "grapes" ? grapesSvgIcon() : <AppIcon name={segment.icon} size="0.78rem" />}</i>)}
+                            </div>
+                          </div>
+                        </div>
+                        <button type="button" className="secondary compact" onClick={() => openOperationalCellarFilter("missing_data")}>
+                          {t("openFilteredCellar")}
+                        </button>
+                      </>
+                    ) : <p className="dashboard-card-intro">{locale === "it" ? "I dati essenziali della cantina sono completi." : "Your cellar’s essential data is complete."}</p>}
                   </article>
                   <article className="dashboard-card">
                     <div className="card-heading">
                       <div>
                         <span>{t("valueToRefresh")}</span>
-                        <h2>{t("value")}</h2>
+                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="chart" /></i>{t("value")}</h2>
                       </div>
                       <strong>{allValueRefreshWines.length}</strong>
                     </div>
@@ -9126,7 +9166,7 @@ export function App() {
                     <div className="card-heading">
                       <div>
                         <span>{t("missingDrinkWindow")}</span>
-                        <h2>{t("drinkWindow")}</h2>
+                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="calendar" /></i>{t("drinkWindow")}</h2>
                       </div>
                       <strong>{cellarStats.missingDrinkWindow}</strong>
                     </div>
@@ -9174,7 +9214,7 @@ export function App() {
                     <div className="card-heading">
                       <div>
                         <span>{t("missingScores")}</span>
-                        <h2>{t("scores")}</h2>
+                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="star" /></i>{t("scores")}</h2>
                       </div>
                       <strong>{cellarStats.missingScores}</strong>
                     </div>
