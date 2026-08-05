@@ -6,6 +6,7 @@ import "./WineGeographyMap.css";
 
 import type { TranslationKey } from "../i18n";
 import type { Locale, Wine } from "../types";
+import MapBaseLayers from "../components/MapBaseLayers";
 
 type WineRegionLocation = { latitude: number; longitude: number };
 type WineMapPoint = { label: string; region: string; location: WineRegionLocation; wines: number; bottles: number };
@@ -89,7 +90,7 @@ function wineRegionLocation(wine: Wine) {
   }).find(Boolean) || null;
 }
 
-function VineyardLocationMap({ wine, className, fullscreen = false }: { wine: Wine; className: string; fullscreen?: boolean }) {
+function VineyardLocationMap({ wine, className, locale, fullscreen = false }: { wine: Wine; className: string; locale: Locale; fullscreen?: boolean }) {
   const position: [number, number] = [wine.vineyard_latitude as number, wine.vineyard_longitude as number];
   return (
     <MapContainer
@@ -98,7 +99,7 @@ function VineyardLocationMap({ wine, className, fullscreen = false }: { wine: Wi
       scrollWheelZoom={fullscreen}
       className={className}
     >
-      <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+      <MapBaseLayers locale={locale} />
       <CircleMarker center={position} radius={fullscreen ? 11 : 9} pathOptions={{ color: "#fffaf0", weight: 3, fillColor: "#76233d", fillOpacity: 0.95 }}>
         <Tooltip permanent direction="top" offset={[0, -8]}>{wine.vineyard_name || wine.name}</Tooltip>
       </CircleMarker>
@@ -168,7 +169,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
           {place ? <span>{place}</span> : null}
           {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
         </div>
-        <VineyardLocationMap wine={wine} className="vineyard-detail-map" />
+        <VineyardLocationMap wine={wine} className="vineyard-detail-map" locale={locale} />
         {sourceLink ? <small className="vineyard-map-source">{sourceLink}</small> : null}
       </section>
       {fullscreen ? createPortal(
@@ -183,7 +184,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
               <span>{[place, precision].filter(Boolean).join(" · ")}</span>
             </div>
           </header>
-          <VineyardLocationMap wine={wine} className="vineyard-fullscreen-map" fullscreen />
+          <VineyardLocationMap wine={wine} className="vineyard-fullscreen-map" locale={locale} fullscreen />
           <footer className="vineyard-fullscreen-card">
             <div>
               <span>{locale === "it" ? "PROVENIENZA" : "ORIGIN"}</span>

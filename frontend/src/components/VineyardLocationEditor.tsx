@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap, useMapEvents } from "react-leaflet";
+import { CircleMarker, MapContainer, Tooltip, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import type { Locale } from "../types";
+import MapBaseLayers from "./MapBaseLayers";
 import "./VineyardLocationEditor.css";
 
 type VineyardLocationEditorProps = {
@@ -100,7 +101,7 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
         ) : null}
       </div>
       <MapContainer center={mapCentre} zoom={point ? 15 : 5} scrollWheelZoom className="vineyard-location-editor-map">
-        <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <MapBaseLayers locale={locale} />
         <MapViewport point={point} />
         <MapPointPicker point={point} label={label} onChange={setPoint} />
       </MapContainer>

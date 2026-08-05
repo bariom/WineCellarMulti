@@ -39,6 +39,7 @@ SESSION_TTL_DAYS=30
 INVITE_TTL_DAYS=7
 TRIAL_ENTITLEMENT_DAYS=5
 CORS_ORIGINS=https://vinaris.app,https://www.vinaris.app,https://vinaris.duckdns.org,https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
+ARCGIS_API_KEY=
 OPENAI_API_KEY=
 OPENAI_MODEL=gpt-5.4-mini
 OPENAI_AI_NOTES_MODEL=gpt-5.4-mini

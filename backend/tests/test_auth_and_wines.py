@@ -426,6 +426,24 @@ def test_register_login_session_and_logout():
     assert login.json()["daily_wine_budget_chf"] == "45.00"
 
 
+def test_authenticated_map_config_exposes_only_the_public_arcgis_browser_key(monkeypatch):
+    anonymous = TestClient(app)
+    assert anonymous.get("/api/v1/map-config").status_code == 401
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    monkeypatch.setattr(settings, "arcgis_api_key", "arcgis-public-test-key")
+
+    configured = client.get("/api/v1/map-config")
+
+    assert configured.status_code == 200
+    assert configured.headers["cache-control"] == "private, no-store"
+    assert configured.json() == {
+        "satellite_enabled": True,
+        "arcgis_api_key": "arcgis-public-test-key",
+    }
+
+
 def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path, monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
