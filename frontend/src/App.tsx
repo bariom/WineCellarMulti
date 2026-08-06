@@ -21,6 +21,7 @@ import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import { useChartReveal } from "./components/chartMotion";
+import { DashboardCountUp } from "./components/DashboardCountUp";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import "./styles.css";
 
@@ -7181,6 +7182,7 @@ export function App() {
   return (
     <HelpContext.Provider value={{ openHelp }}>
     <main className="app-shell">
+      {authenticated || shouldPrioritizeAuthAction ? (
       <header className="topbar" style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         <div className="topbar-brand">
           {authenticated ? (
@@ -7478,6 +7480,7 @@ export function App() {
           </div>
         )}
       </header>
+      ) : null}
 
       {visibleError && !showInlineAuthError ? (
         <div ref={errorBannerRef} className="error-banner app-error-banner" role="alert" aria-live="assertive">
@@ -7504,22 +7507,6 @@ export function App() {
         publicAuthPanel
       ) : (
         <>
-          <section className="mobile-public-landing" aria-labelledby="mobile-public-title">
-            <p className="eyebrow">Private cellar intelligence</p>
-            <h2 id="mobile-public-title">{landing.headline}</h2>
-            <p>{landing.subheadline}</p>
-            <div className="mobile-public-actions">
-              <button type="button" onClick={() => void enterDemo()} disabled={saving}>
-                {saving ? (locale === "it" ? "Apertura…" : "Opening…") : demoCtaLabel}
-              </button>
-              <button type="button" onClick={() => openAuthPanel("register")}>
-                {landing.secondaryCta}
-              </button>
-              <button type="button" className="secondary" onClick={() => openAuthPanel("login")}>
-                {landing.primaryCta}
-              </button>
-            </div>
-          </section>
           {false ? <section className="public-landing">
             <div className="public-hero">
               <div className="public-hero-copy">
@@ -7958,6 +7945,7 @@ export function App() {
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <PublicLanding
                   locale={locale}
+                  onLocaleChange={(nextLocale) => void changeLocale(nextLocale)}
                   onRegister={() => openAuthPanel("register")}
                   onLogin={() => openAuthPanel("login")}
                   onDemo={() => void enterDemo()}
@@ -8187,12 +8175,12 @@ export function App() {
                   <p className="eyebrow">{t("dashboard")}</p>
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
                 </div>
-                <div className="hero-kpis" aria-label={t("cellarSnapshot")}>
+                <div className="hero-kpis" key={dashboardFocus} aria-label={t("cellarSnapshot")}>
                   {dashboardFocus === "daily" ? (
                     <>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong>{cellarStats.drinkNow}</strong>
+                        <strong><DashboardCountUp value={cellarStats.drinkNow} format={(value) => formatBottleCount(value, locale)} /></strong>
                         <p>{t("wines")}</p>
                       </div>
                       <div className="hero-kpi">
@@ -8202,7 +8190,7 @@ export function App() {
                       </div>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("bottles")}</span>
-                        <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+                        <strong><DashboardCountUp value={cellarStats.bottles} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
                         <p>{t("dailyRotation")}</p>
                       </div>
                     </>
@@ -8210,17 +8198,17 @@ export function App() {
                     <>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("bottles")}</span>
-                        <strong>{formatBottleCount(cellarStats.bottles, locale)}</strong>
+                        <strong><DashboardCountUp value={cellarStats.bottles} format={(value) => formatBottleCount(value, locale)} /></strong>
                         <p>{t("cellar")}</p>
                       </div>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong>{cellarStats.drinkNow}</strong>
+                        <strong><DashboardCountUp value={cellarStats.drinkNow} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
                         <p>{t("wines")}</p>
                       </div>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("missing_data")}</i>{t("dataQuality")}</span>
-                        <strong>{cellarDataCompleteness}%</strong>
+                        <strong><DashboardCountUp value={cellarDataCompleteness} format={(value) => `${Math.round(value)}%`} delay={140} /></strong>
                         <p>{t("balancedFocus")}</p>
                       </div>
                     </>
@@ -8228,20 +8216,20 @@ export function App() {
                     <>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("mine")}</i>{t("myBottles")}</span>
-                        <strong>{formatBottleCount(cellarStats.myBottles, locale)}</strong>
-                        <p>{formatMoney(cellarStats.myValue, "CHF", locale)}</p>
+                        <strong><DashboardCountUp value={cellarStats.myBottles} format={(value) => formatBottleCount(value, locale)} /></strong>
+                        <p><DashboardCountUp value={cellarStats.myValue} format={(value) => formatMoney(value, "CHF", locale)} delay={120} /></p>
                       </div>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("shared")}</i>{t("sharedBottles")}</span>
-                        <strong>{formatBottleCount(cellarStats.sharedBottles, locale)}</strong>
-                        <p>{formatMoney(cellarStats.sharedValue, "CHF", locale)}</p>
+                        <strong><DashboardCountUp value={cellarStats.sharedBottles} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
+                        <p><DashboardCountUp value={cellarStats.sharedValue} format={(value) => formatMoney(value, "CHF", locale)} delay={190} /></p>
                       </div>
                       <div className="hero-kpi hero-kpi--value">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>{t("totalValue")}</span>
-                        <strong>{formatMoney(cellarStats.totalValue, "CHF", locale)}</strong>
+                        <strong><DashboardCountUp value={cellarStats.totalValue} format={(value) => formatMoney(value, "CHF", locale)} delay={140} /></strong>
                         <div className="hero-kpi-value-trend">
                           <PortfolioValueSparkline points={portfolioValueHistory} label={t("valueEvolution")} />
-                          <p>{formatBottleCount(cellarStats.bottles, locale)} {t("bottles").toLowerCase()}</p>
+                          <p><DashboardCountUp value={cellarStats.bottles} format={(value) => `${formatBottleCount(value, locale)} ${t("bottles").toLowerCase()}`} delay={230} /></p>
                         </div>
                       </div>
                     </>

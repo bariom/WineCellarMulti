@@ -5520,6 +5520,12 @@ textarea {
   white-space: nowrap;
 }
 
+.dashboard-count-up {
+  display: inline;
+  color: inherit;
+  font: inherit;
+}
+
 .hero-kpi p {
   margin: 0;
   color: #52635c;
