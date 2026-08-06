@@ -5558,7 +5558,15 @@ export function App() {
   const cellarSommelierSelectionLimit = Math.min(5, Math.max(1, Math.ceil(
     wines.filter((wine) => isWinePhysicallyInCellar(wine) && Math.max(Number(wine.quantity || 0), 0) > 0).length * 0.05,
   )));
-  const cellarSommelierSelectedWines = cellarSommelierEligibleWines.slice(0, cellarSommelierSelectionLimit);
+  const cellarSommelierSoonWines = wines
+    .filter((wine) => isWinePhysicallyInCellar(wine) && Math.max(Number(wine.quantity || 0), 0) > 0)
+    .filter((wine) => !cellarSommelierEligibleWines.some((candidate) => candidate.id === wine.id) && isWineIdealSoon(wine, currentYear))
+    .sort((first, second) => (wineIdealWindowStart(first) || 9999) - (wineIdealWindowStart(second) || 9999))
+    .slice(0, 2);
+  const cellarSommelierSelectedWines = [
+    ...cellarSommelierEligibleWines.slice(0, cellarSommelierSelectionLimit),
+    ...cellarSommelierSoonWines,
+  ];
   const cellarSommelierHighlightedWine = cellarSommelierHighlightedWineId
     ? cellarSommelierSelectedWines.find((wine) => wine.id === cellarSommelierHighlightedWineId)
     : null;
@@ -5611,6 +5619,7 @@ export function App() {
     const windowEnd = winePriorityDrinkEnd(wine);
     if (windowEnd && windowEnd < currentYear) return t("dailyReasonPastWindow");
     if (windowEnd && windowEnd <= currentYear + 2) return t("dailyReasonShortWindow");
+    if (isWineIdealSoon(wine, currentYear)) return t("dailyReasonSoon");
     if (
       wine.drink_peak_from
       && wine.drink_peak_to
