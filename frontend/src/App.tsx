@@ -5529,6 +5529,12 @@ export function App() {
     ...dailyTonightGroups.flatMap(({ wines: groupWines }) => groupWines),
     ...dailyPremiumWines,
   ];
+  // This is deliberately deterministic: it reuses the cellar data already in
+  // memory and never turns a dashboard visit into an AI request.
+  const dailySommelierWines = rankedDailyTonightWines.slice(0, 3);
+  const dailySommelierCountLabel = dailySommelierWines.length === 1
+    ? t("dailySommelierCandidateOne")
+    : t("dailySommelierCandidates");
   const dailyTonightStyleCount = new Set(
     dailyTonightWines.map((wine) => wineTone(wine.type)),
   ).size;
@@ -8235,6 +8241,67 @@ export function App() {
                     </>
                   )}
                 </div>
+                <details className="hero-sommelier">
+                  <summary>
+                    <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="1.1rem" />
+                    <span>
+                      <small>{t("dailySommelierTitle")}</small>
+                      <strong>{dailySommelierWines.length} {dailySommelierCountLabel}</strong>
+                    </span>
+                  </summary>
+                  <div
+                    className="hero-sommelier-popover dashboard-card"
+                    style={{ display: "grid", gap: 10, marginTop: 7, padding: 12 }}
+                  >
+                    {dailySommelierWines.length ? (
+                      <>
+                        <p>{t("dailySommelierIntro")}</p>
+                        <div className="hero-sommelier-list" style={{ display: "grid", gap: 6 }}>
+                          {dailySommelierWines.map((wine) => (
+                            <button
+                              type="button"
+                              key={wine.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                                alignItems: "center",
+                                gap: 7,
+                                width: "100%",
+                                padding: "7px 8px",
+                                textAlign: "left",
+                              }}
+                              onClick={() => openWineFromDashboard(wine)}
+                            >
+                              <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                              <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                                <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
+                                <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dailyRecommendationReason(wine)}</small>
+                              </span>
+                              <b>{wine.drink_to || "—"}</b>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    ) : (
+                      <p>{t("dailySommelierEmpty")}</p>
+                    )}
+                    <small className="hero-sommelier-free" style={{ color: "var(--text-muted)" }}>{t("dailySommelierFree")}</small>
+                    {canGenerateAi ? (
+                      <button
+                        type="button"
+                        className="secondary hero-sommelier-ai-action"
+                        style={{ width: "100%" }}
+                        onClick={() => {
+                          setActiveView("pairing");
+                          setWineFormOpen(false);
+                          setWishlistFormOpen(false);
+                        }}
+                      >
+                        {t("dailySommelierPairing")}
+                      </button>
+                    ) : null}
+                  </div>
+                </details>
               </section>
 
               {dashboardFocus === "daily" ? (

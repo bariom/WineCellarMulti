@@ -16336,6 +16336,7 @@ label > span,
 }
 
 .hero-panel {
+  position: relative;
   border: 1px solid var(--vinaris-hairline);
   border-radius: 22px;
   background:
@@ -16344,6 +16345,12 @@ label > span,
     var(--vinaris-surface-elevated);
   box-shadow: var(--vinaris-shadow-float);
 }
+
+/* Deterministic dashboard aid: it never calls an AI provider. */
+.hero-sommelier { position: absolute; z-index: 4; top: -15px; right: 22px; width: min(264px, calc(100% - 28px)); }
+.hero-sommelier summary { display: flex; align-items: center; gap: 9px; padding: 8px 13px; border: 1px solid var(--border); border-radius: 999px; cursor: pointer; list-style: none; background: var(--surface-raised); }
+.hero-sommelier summary::-webkit-details-marker { display: none; }
+@media (max-width: 820px) { .hero-sommelier { position: static; grid-column: 1 / -1; width: 100%; } .hero-sommelier-popover { box-shadow: none; } }
 
 .hero-copy h2 {
   font-size: clamp(1.55rem, 3vw, 2.35rem);
