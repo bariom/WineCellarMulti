@@ -11,6 +11,32 @@ prima di un push su `main` quando si tocca la relativa funzionalità.
 - Per i casi mobile usare una viewport di circa 390 × 844 px oppure un telefono
   reale. Per desktop usare una viewport di almeno 1280 px.
 
+## UAT visivo e responsivo
+
+Eseguire per ogni modifica a shell, landing, navigazione o layout. Usare almeno
+le viewport 360 x 800, 390 x 844, 412 x 915, 768 x 1024 e 1366 x 768.
+
+### P0 - Navigazione e overflow
+
+1. Nella landing, aprire e chiudere il menu hamburger con tap, click esterno ed
+   il tasto `Esc`; ridimensionare poi la finestra oltre 1160 px.
+2. Verificare che menu, footer, call to action e testi legali restino nel
+   viewport senza scroll orizzontale o testo tagliato.
+3. Nell'app autenticata, aprire menu orizzontali, filtri, una riga vino e il
+   dettaglio; verificare che i contenitori stretti abbiano scroll interno o
+   adattamento verticale, mai overflow della pagina.
+
+Risultato atteso: nessun elemento interattivo fuori dallo schermo, nessun
+contenuto coperto e nessuna barra di scorrimento orizzontale involontaria.
+
+### P1 - Gerarchia e movimento
+
+1. Controllare che ombre piu marcate siano riservate a modali e pannelli
+   flottanti; card e controlli normali devono rimanere sobri.
+2. Verificare che i contenuti non entrino con animazioni decorative.
+3. Con `prefers-reduced-motion` attivo, verificare che restino solo i contenuti
+   finali, senza movimento continuo.
+
 ## Cantina e dettaglio vino
 
 ### P0 · Mobile · dettaglio vino modale

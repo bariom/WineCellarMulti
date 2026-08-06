@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Locale } from "../../types";
 import type { LandingCopy } from "./content";
 
@@ -13,6 +13,7 @@ type LandingHeaderProps = {
 export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, onRegister }: LandingHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const update = () => setScrolled(window.scrollY > 18);
@@ -23,12 +24,28 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
 
   useEffect(() => {
     if (!menuOpen) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+    const closeMenu = (event: KeyboardEvent | PointerEvent) => {
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") setMenuOpen(false);
+        return;
+      }
+      if (!headerRef.current?.contains(event.target as Node)) setMenuOpen(false);
     };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    window.addEventListener("keydown", closeMenu);
+    window.addEventListener("pointerdown", closeMenu);
+    return () => {
+      window.removeEventListener("keydown", closeMenu);
+      window.removeEventListener("pointerdown", closeMenu);
+    };
   }, [menuOpen]);
+
+  useEffect(() => {
+    const closeOnWideViewport = () => {
+      if (window.innerWidth > 1160) setMenuOpen(false);
+    };
+    window.addEventListener("resize", closeOnWideViewport, { passive: true });
+    return () => window.removeEventListener("resize", closeOnWideViewport);
+  }, []);
 
   const navItems = [
     ["#product", copy.nav.product],
@@ -39,7 +56,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
   ];
 
   return (
-    <header className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
+    <header ref={headerRef} className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
       <a className="marketing-brand" href="#top" aria-label="Vinaris">
         <img src="/icons/icon-192.png" alt="" width="42" height="42" fetchPriority="high" />
         <span><strong>Vinaris</strong><small>Private cellar intelligence</small></span>
@@ -66,8 +83,8 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
               <option value="en">EN</option>
             </select>
           </label>
-          <button type="button" className="marketing-button text" onClick={onLogin}>{copy.header.login}</button>
-          <button type="button" className="marketing-button primary compact" onClick={onRegister}>{copy.header.register}</button>
+          <button type="button" className="marketing-button text" onClick={() => { setMenuOpen(false); onLogin(); }}>{copy.header.login}</button>
+          <button type="button" className="marketing-button primary compact" onClick={() => { setMenuOpen(false); onRegister(); }}>{copy.header.register}</button>
         </div>
       </div>
     </header>

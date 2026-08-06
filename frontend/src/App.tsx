@@ -1294,6 +1294,8 @@ export function App() {
     other: WINE_TONE_PAGE_SIZE,
   });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
+  const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
+  const mobileAccountMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<ViewName>("home");
   const [helpSlug, setHelpSlug] = useState<string | null>(() => helpSlugFromLocation());
   const helpReturnViewRef = useRef<ViewName>("home");
@@ -1353,6 +1355,27 @@ export function App() {
   useEffect(() => {
     if (activeView !== "settings") settingsReturnViewRef.current = activeView;
   }, [activeView]);
+
+  useEffect(() => {
+    if (!mobileAccountMenuOpen) return;
+    const closeMenu = (event: KeyboardEvent | PointerEvent) => {
+      if (event instanceof KeyboardEvent) {
+        if (event.key === "Escape") setMobileAccountMenuOpen(false);
+        return;
+      }
+      if (!mobileAccountMenuRef.current?.contains(event.target as Node)) setMobileAccountMenuOpen(false);
+    };
+    window.addEventListener("keydown", closeMenu);
+    window.addEventListener("pointerdown", closeMenu);
+    return () => {
+      window.removeEventListener("keydown", closeMenu);
+      window.removeEventListener("pointerdown", closeMenu);
+    };
+  }, [mobileAccountMenuOpen]);
+
+  useEffect(() => {
+    if (!isMobileViewport) setMobileAccountMenuOpen(false);
+  }, [isMobileViewport]);
 
   useEffect(() => {
     if (!wineDetailExpanded && !pairingWineDetailId) return;
@@ -7435,6 +7458,7 @@ export function App() {
         </div>
         {authenticated ? (
           <div
+            ref={mobileAccountMenuRef}
             className={`session-pill${session?.is_demo ? " demo-session-pill" : ""}`}
             style={session?.is_demo && isMobileViewport ? {
               display: "flex",
@@ -7697,6 +7721,32 @@ export function App() {
             >
               {logoutIcon()}
             </button>
+            <button
+              type="button"
+              className={`secondary compact topbar-icon-button mobile-account-menu-toggle${mobileAccountMenuOpen ? " active" : ""}`}
+              aria-label={locale === "it" ? "Apri menu account" : "Open account menu"}
+              aria-expanded={mobileAccountMenuOpen}
+              aria-controls="mobile-account-menu"
+              onClick={() => setMobileAccountMenuOpen((open) => !open)}
+            >
+              <AppIcon name="menu" variant="action" detailLevel="compact" />
+            </button>
+            {mobileAccountMenuOpen ? (
+              <div id="mobile-account-menu" className="mobile-account-menu" role="menu" aria-label={locale === "it" ? "Menu account" : "Account menu"}>
+                <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); toggleSettingsView(); }}>
+                  <AppIcon name="settings" variant="action" detailLevel="compact" />
+                  {t("settings")}
+                </button>
+                <button type="button" role="menuitem" onClick={() => { setMobileAccountMenuOpen(false); openHelp(); }}>
+                  <AppIcon name="grapes" variant="premium" detailLevel="compact" />
+                  {t("help")}
+                </button>
+                <button type="button" role="menuitem" className="mobile-account-menu-logout" onClick={() => { setMobileAccountMenuOpen(false); void logout().catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to logout")); }}>
+                  <AppIcon name="logout" variant="action" detailLevel="compact" />
+                  {t("logout")}
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="session-pill public-session-pill" style={isMobileViewport ? { display: "flex", flexWrap: "wrap", gap: "8px", width: "100%", maxWidth: "none", boxSizing: "border-box" } : undefined}>

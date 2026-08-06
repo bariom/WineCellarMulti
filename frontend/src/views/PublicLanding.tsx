@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect } from "react";
 import type { Locale } from "../types";
 import LandingHeader from "./landing/LandingHeader";
 import { landingCopy } from "./landing/content";
@@ -44,7 +44,6 @@ export default function PublicLanding({
   demoLoading = false,
 }: PublicLandingProps) {
   const copy = landingCopy[locale];
-  const mainRef = useRef<HTMLElement | null>(null);
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
 
   useEffect(() => {
@@ -56,25 +55,6 @@ export default function PublicLanding({
     ensureMeta("og:type", "website", true);
   }, [copy.meta.description, copy.meta.title, locale]);
 
-  useEffect(() => {
-    const root = mainRef.current;
-    if (!root) return;
-    const targets = Array.from(root.querySelectorAll<HTMLElement>("[data-reveal]"));
-    if (!("IntersectionObserver" in window) || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-      targets.forEach((target) => target.classList.add("is-visible"));
-      return;
-    }
-    const observer = new IntersectionObserver((entries) => {
-      entries.forEach((entry) => {
-        if (!entry.isIntersecting) return;
-        (entry.target as HTMLElement).classList.add("is-visible");
-        observer.unobserve(entry.target);
-      });
-    }, { rootMargin: "0px 0px -9%", threshold: 0.08 });
-    targets.forEach((target) => observer.observe(target));
-    return () => observer.disconnect();
-  }, [locale]);
-
   return (
     <div className="marketing-site">
       <LandingHeader
@@ -85,7 +65,7 @@ export default function PublicLanding({
         onRegister={onRegister}
       />
 
-      <main id="top" ref={mainRef} className="marketing-landing">
+      <main id="top" className="marketing-landing">
         <section className="marketing-hero" aria-labelledby="marketing-title">
           <div className="marketing-hero-copy" data-reveal>
             <p className="marketing-kicker">{copy.hero.eyebrow}</p>
@@ -203,7 +183,6 @@ export default function PublicLanding({
         <nav aria-label={locale === "it" ? "Informazioni legali" : "Legal information"}>
           <a href={`/privacy?lang=${locale}`}>{copy.footer.privacy}</a>
           <a href={`/terms?lang=${locale}`}>{copy.footer.terms}</a>
-          <button type="button" onClick={onLogin}>{copy.footer.login}</button>
         </nav>
         <small>© {new Date().getFullYear()} Vinaris</small>
       </footer>

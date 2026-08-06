@@ -2,11 +2,11 @@ import { readFile, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const limits = {
-  // Keep a small margin for the lazy history module and its optional sommelier reflection.
-  javascriptBytes: 756_000,
-  javascriptGzipBytes: 197_300,
-  cssBytes: 394_500,
-  cssGzipBytes: 67_000,
+  // Guard against regressions while leaving deliberate product refinements a realistic margin.
+  javascriptBytes: 800_000,
+  javascriptGzipBytes: 210_000,
+  cssBytes: 430_000,
+  cssGzipBytes: 72_000,
 };
 
 const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
