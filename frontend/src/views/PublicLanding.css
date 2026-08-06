@@ -108,7 +108,7 @@
 .marketing-hero {
   position: relative;
   display: grid;
-  grid-template-columns: minmax(340px, .78fr) minmax(620px, 1.22fr);
+  grid-template-columns: minmax(340px, 43fr) minmax(620px, 57fr);
   min-height: min(660px, calc(100vh - 108px));
   border: 1px solid var(--mk-line);
   border-radius: 30px;
@@ -117,7 +117,7 @@
     linear-gradient(115deg, #f8f4eb 0 43%, #ece9df 43% 100%);
   box-shadow: var(--mk-shadow);
 }
-.marketing-hero::before { position: absolute; top: 0; bottom: 0; left: 42.8%; width: 1px; background: var(--mk-line); content: ""; }
+.marketing-hero::before { position: absolute; top: 0; bottom: 0; left: 43%; width: 1px; background: var(--mk-line); content: ""; }
 .marketing-hero-copy { position: relative; z-index: 2; display: grid; align-content: center; gap: 23px; padding: clamp(40px, 4.5vw, 68px); }
 .marketing-hero-copy::before { position: absolute; top: 7%; left: 8%; width: 160px; height: 160px; border: 1px solid rgba(173, 131, 57, .19); border-radius: 50%; content: ""; }
 .marketing-hero-lead { max-width: 42ch; color: #343c35; font-size: clamp(1.08rem, 1.55vw, 1.32rem); font-weight: 570; line-height: 1.56; }
@@ -125,6 +125,12 @@
 .marketing-hero-proof span { display: inline-flex; align-items: center; gap: 7px; }
 .marketing-hero-proof i { width: 7px; height: 7px; border-radius: 50%; background: #418467; box-shadow: 0 0 0 4px rgba(65, 132, 103, .12); }
 .marketing-hero-product { position: relative; z-index: 1; min-width: 0; padding: clamp(30px, 3.5vw, 48px) clamp(24px, 3vw, 48px); }
+.marketing-real-product { display: grid; align-content: center; gap: 13px; margin: 0; }
+.marketing-real-product picture { display: block; min-width: 0; overflow: hidden; border: 1px solid rgba(179, 156, 106, .72); border-radius: 18px; background: #f9f7f1; box-shadow: 0 20px 48px rgba(39, 28, 21, .17); isolation: isolate; }
+.marketing-real-product img { display: block; width: 100%; height: auto; }
+.marketing-real-product figcaption { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 4px; color: var(--mk-muted); font-size: .62rem; }
+.marketing-real-product figcaption span { color: #806530; font-weight: 900; letter-spacing: .08em; text-transform: uppercase; }
+.marketing-real-product figcaption strong { font-weight: 700; text-align: right; }
 
 .marketing-product-stage { position: relative; height: 100%; min-height: 520px; }
 .marketing-product-glow { position: absolute; inset: 14% 5%; border-radius: 50%; background: rgba(90, 36, 48, .16); filter: blur(60px); }
@@ -173,6 +179,15 @@
 .marketing-value-strip p { color: var(--mk-muted); font-size: .82rem; line-height: 1.55; }
 
 .marketing-section { scroll-margin-top: 112px; padding: 0 clamp(22px, 5vw, 72px); }
+.marketing-origin-section { display: grid; grid-template-columns: minmax(0, .9fr) minmax(320px, 1.1fr); align-items: center; gap: clamp(42px, 8vw, 118px); }
+.marketing-origin-copy { display: grid; align-content: center; gap: 22px; }
+.marketing-origin-copy > p:not(.marketing-kicker, .marketing-origin-signature) { max-width: 58ch; color: var(--mk-muted); font-size: 1rem; line-height: 1.72; }
+.marketing-origin-signature { max-width: 42ch; padding: 15px 0 15px 20px; border-left: 2px solid var(--mk-gold); color: var(--mk-wine); font-family: Georgia, serif; font-size: 1.08rem; font-style: italic; line-height: 1.45; }
+.marketing-origin-device { position: relative; width: min(100%, 410px); margin: 0 auto; padding: 10px; border: 1px solid #4d473d; border-radius: 34px; background: #171714; box-shadow: 0 26px 60px rgba(39, 28, 21, .2); }
+.marketing-origin-device::before { position: absolute; top: 16px; left: 50%; z-index: 2; width: 72px; height: 5px; border-radius: 99px; background: rgba(23, 23, 20, .78); content: ""; transform: translateX(-50%); }
+.marketing-origin-device img { display: block; width: 100%; height: auto; border-radius: 25px; }
+.marketing-origin-device figcaption { display: flex; justify-content: space-between; gap: 16px; padding: 12px 10px 4px; color: rgba(255, 255, 255, .7); font-size: .62rem; }
+.marketing-origin-device figcaption span { color: #d7bd72; font-weight: 900; letter-spacing: .07em; text-transform: uppercase; }
 .marketing-journey-section { display: grid; grid-template-columns: .85fr 1.15fr; gap: clamp(34px, 6vw, 88px); }
 .marketing-journey-section > .marketing-section-copy { padding-top: 40px; }
 .marketing-capture-visual { position: relative; display: grid; grid-template-columns: .75fr auto 1.15fr; align-items: center; min-height: 370px; padding: clamp(20px, 3vw, 38px); border: 1px solid var(--mk-line); border-radius: 24px; background: #ece8de; }
@@ -207,6 +222,7 @@
 @media (min-width: 1161px) {
   .marketing-landing h1 { max-width: 10.6ch; font-size: clamp(4rem, 4.4vw, 5.2rem); }
   .marketing-hero-product { display: grid; align-content: start; padding: 74px 42px 34px; }
+  .marketing-real-product { align-content: center; }
   .marketing-product-stage { width: min(100%, 720px); height: 440px; min-height: 440px; margin: 0 auto; }
   .marketing-product-dashboard { inset: 3% 0; }
   .marketing-product-dashboard > header { min-height: 74px; }
@@ -228,9 +244,9 @@
   .marketing-hero { grid-template-columns: 1fr; min-height: auto; background: linear-gradient(160deg, #f8f4eb 0 45%, #ece9df 45%); }
   .marketing-hero::before { top: 42%; right: 5%; bottom: auto; left: 5%; width: auto; height: 1px; }
   .marketing-hero-copy { min-height: 520px; }
-  .marketing-hero-product { min-height: 550px; }
+  .marketing-hero-product { min-height: 0; }
   .marketing-product-stage { min-height: 470px; }
-  .marketing-journey-section,.marketing-maturity-section,.marketing-sommelier-section,.marketing-insights-section { grid-template-columns: 1fr; }
+  .marketing-origin-section,.marketing-journey-section,.marketing-maturity-section,.marketing-sommelier-section,.marketing-insights-section { grid-template-columns: 1fr; }
   .marketing-journey-section > .marketing-section-copy { padding-top: 0; }
   .marketing-maturity-section .marketing-section-copy,.marketing-sommelier-section .marketing-section-copy,.marketing-insights-section .marketing-section-copy { max-width: 740px; }
 }
@@ -245,10 +261,11 @@
   .marketing-hero-copy { min-height: 570px; padding: 45px 28px 50px; }
   .marketing-landing h1 { max-width: 8.8ch; font-size: clamp(3.3rem, 15vw, 5.2rem); }.marketing-landing h2 { font-size: clamp(2.45rem, 10vw, 4rem); }
   .marketing-hero-lead { font-size: 1.04rem; }.marketing-actions { align-items: stretch; }.marketing-actions .marketing-button { flex: 1 1 190px; }
-  .marketing-hero-product { min-height: 500px; padding: 32px 18px 24px; }
+  .marketing-hero-product { min-height: 0; padding: 32px 18px 24px; }
   .marketing-product-stage { min-height: 444px; }.marketing-product-dashboard { inset: 5% 0 4%; transform: none; }.marketing-product-dashboard > header { grid-template-columns: 1.1fr repeat(2,.55fr); }.marketing-product-dashboard > header .wide { display: none; }.product-dashboard-body { grid-template-columns: 1fr .55fr; }.product-focus-card { grid-template-columns: 55px 1fr; gap: 18px; padding: 25px 20px; }.product-action-card { padding: 25px 12px; }.product-bottle { width: 32px; height: 128px; }.product-bottle::before { top: -36px; left: 10px; width: 12px; height: 40px; }.product-bottle i { top: 45px; width: 24px; height: 43px; }.product-bottle b { top: 59px; left: 9px; width: 14px; height: 14px; }.product-focus-card footer { right: 18px; bottom: 19px; left: 18px; }.product-action-card > div { grid-template-columns: 5px 1fr; }.product-action-card > div em { display: none; }.marketing-floating-ai { top: 0; right: 0; }
   .marketing-value-strip { grid-template-columns: 1fr; padding: 0 20px; }.marketing-value-strip article { padding: 24px 0; border-right: 0; border-bottom: 1px solid var(--mk-line); }.marketing-value-strip article:last-child { border-bottom: 0; }
   .marketing-section { padding-right: 22px; padding-left: 22px; }
+  .marketing-origin-section { justify-items: center; }.marketing-origin-copy { width: min(100%, 740px); }.marketing-origin-device { width: min(100%, 390px); }
   .marketing-capture-visual { grid-template-columns: 1fr; gap: 0; }.capture-frame { height: 230px; }.capture-connector { justify-self: center; width: auto; padding: 9px 0; transform: rotate(90deg); }.marketing-capture-visual article { margin-top: 3px; }
   .marketing-journey-steps { grid-template-columns: repeat(2, 1fr); }.marketing-journey-steps li:nth-child(even) { margin-top: 0; }.marketing-journey-steps li:nth-child(2) { border-right: 0; }.marketing-journey-steps li:nth-child(3),.marketing-journey-steps li:nth-child(4) { border-top-color: transparent; }.marketing-journey-steps li:nth-child(4) { border-right: 0; }
   .marketing-maturity-section { padding: 64px 22px; }.marketing-window-stages { grid-template-columns: repeat(2, 1fr); gap: 9px; }.marketing-window-chart { height: 210px; }.marketing-window-card > footer { padding-right: 18px; padding-left: 18px; }
@@ -262,9 +279,10 @@
   .marketing-hero::before { top: 58%; }
   .marketing-hero-copy { min-height: 610px; padding: 42px 22px 46px; }.marketing-hero-copy::before { width: 110px; height: 110px; }.marketing-hero-copy .marketing-actions { display: grid; }.marketing-hero-copy .marketing-button { width: 100%; }
   .marketing-hero-proof { display: grid; }
-  .marketing-hero-product { min-height: 445px; padding: 28px 11px 20px; }
+  .marketing-hero-product { min-height: 0; padding: 28px 11px 20px; }
   .marketing-product-stage { min-height: 397px; }.marketing-product-dashboard { right: 2px; left: 2px; }.marketing-product-dashboard > header { grid-template-columns: 1.25fr .65fr; min-height: 68px; }.marketing-product-dashboard > header .product-kpi:nth-of-type(3) { display: none; }.product-dashboard-body { grid-template-columns: 1fr; }.product-action-card { display: none; }.product-focus-card { border-right: 0; }.product-focus-card > div strong { font-size: 2.1rem; }.product-focus-card > em { font-size: 4.4rem; }.marketing-floating-ai { right: 5px; }.marketing-floating-ai strong { font-size: .6rem; }
   .marketing-value-strip article { grid-template-columns: 42px minmax(0, 1fr); gap: 14px; }.marketing-value-strip article > span { width: 42px; height: 42px; }
+  .marketing-real-product figcaption,.marketing-origin-device figcaption { display: grid; gap: 4px; }.marketing-real-product figcaption strong { text-align: left; }.marketing-origin-device { padding: 7px; border-radius: 28px; }.marketing-origin-device img { border-radius: 21px; }
   .marketing-journey-steps { grid-template-columns: 1fr; }.marketing-journey-steps li { min-height: auto; padding: 27px 12px; border-right: 0; }.marketing-journey-steps li:nth-child(n) { border-top: 1px solid var(--mk-line); }.marketing-journey-steps li > span { margin-bottom: 18px; }
   .marketing-window-card > header { display: grid; padding: 20px; }.marketing-window-stages { padding-right: 20px; padding-left: 20px; }.marketing-window-chart { height: 180px; margin: 0 6px; }.window-peak { left: 60%; }.marketing-window-chart > i b { font-size: .5rem; }.marketing-window-card > footer { font-size: .54rem; }
   .marketing-sommelier-console { padding: 16px; }.sommelier-question { border-radius: 14px; }.sommelier-answer { max-width: 96%; }

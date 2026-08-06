@@ -14,6 +14,17 @@ export type LandingCopy = {
     web: string;
   };
   value: Array<{ title: string; body: string }>;
+  origin: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    signature: string;
+    demoLabel: string;
+    desktopCaption: string;
+    mobileCaption: string;
+    desktopAlt: string;
+    mobileAlt: string;
+  };
   journey: {
     eyebrow: string;
     title: string;
@@ -95,6 +106,17 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       { title: "Aprila al momento giusto", body: "Finestre di beva e priorità mostrano cosa è pronto, cosa aspettare e cosa non dimenticare." },
       { title: "Comprendi la cantina", body: "Valore, maturità, acquisti e degustazioni diventano una visione coerente della collezione." },
     ],
+    origin: {
+      eyebrow: "Nato da una cantina reale",
+      title: "Nato in cantina, non in un brief.",
+      body: "Ho costruito Vinaris perché fogli di calcolo e app generiche non bastavano più a seguire acquisti, attese, finestre di beva e memoria della mia collezione. Oggi lo uso ogni giorno e continuo a progettarlo per cantine da 20 a oltre 1.000 bottiglie.",
+      signature: "Il collezionista dietro Vinaris, partendo dalla propria cantina.",
+      demoLabel: "Interfaccia reale",
+      desktopCaption: "Cantina demo · vista desktop",
+      mobileCaption: "La stessa cantina, su mobile",
+      desktopAlt: "Dashboard desktop reale della cantina demo Vinaris",
+      mobileAlt: "Dashboard mobile reale della cantina demo Vinaris",
+    },
     journey: {
       eyebrow: "Dalle bottiglie alle decisioni",
       title: "Inserisci una bottiglia. Vinaris costruisce il contesto.",
@@ -186,6 +208,17 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       { title: "Open it at the right moment", body: "Drinking windows and priorities show what is ready, what should wait, and what needs attention." },
       { title: "Understand your cellar", body: "Value, maturity, purchases, and tastings become one coherent view of the collection." },
     ],
+    origin: {
+      eyebrow: "Built from a real cellar",
+      title: "Born in a cellar, not in a brief.",
+      body: "I built Vinaris because spreadsheets and generic apps were no longer enough to follow purchases, waiting periods, drinking windows, and the memory of my collection. I now use it every day and keep designing it for cellars ranging from 20 to more than 1,000 bottles.",
+      signature: "The collector behind Vinaris, starting from a real working cellar.",
+      demoLabel: "Real interface",
+      desktopCaption: "Demo cellar · desktop view",
+      mobileCaption: "The same cellar, on mobile",
+      desktopAlt: "Real desktop dashboard of the Vinaris demo cellar",
+      mobileAlt: "Real mobile dashboard of the Vinaris demo cellar",
+    },
     journey: {
       eyebrow: "From bottles to intelligence",
       title: "Add a bottle. Vinaris builds the context.",

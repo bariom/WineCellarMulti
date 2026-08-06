@@ -3,11 +3,9 @@ import type { Locale } from "../types";
 import LandingHeader from "./landing/LandingHeader";
 import { landingCopy } from "./landing/content";
 import {
-  BottleJourneyVisual,
   InsightsVisual,
   LandingIcon,
   MaturityVisual,
-  ProductPreview,
   SommelierVisual,
 } from "./landing/LandingVisuals";
 import "./PublicLanding.css";
@@ -22,7 +20,6 @@ type PublicLandingProps = {
 };
 
 const iconNames = ["search", "window", "insights"] as const;
-const featureIcons = ["spark", "window", "cellar", "insights", "search", "camera"] as const;
 
 function ensureMeta(name: string, content: string, property = false) {
   const selector = property ? `meta[property="${name}"]` : `meta[name="${name}"]`;
@@ -83,10 +80,21 @@ export default function PublicLanding({
               <span>{copy.hero.web}</span>
             </div>
           </div>
-          <div data-reveal className="marketing-hero-product"><ProductPreview copy={copy} locale={locale} /></div>
+          <figure data-reveal className="marketing-hero-product marketing-real-product">
+            <picture>
+              <img
+                src="/landing/demo-dashboard-desktop.webp"
+                alt={copy.origin.desktopAlt}
+                width="1440"
+                height="920"
+                fetchPriority="high"
+              />
+            </picture>
+            <figcaption><span>{copy.origin.demoLabel}</span><strong>{copy.origin.desktopCaption}</strong></figcaption>
+          </figure>
         </section>
 
-        <section className="marketing-value-strip" aria-label={copy.journey.eyebrow} data-reveal>
+        <section className="marketing-value-strip" aria-label={copy.origin.eyebrow} data-reveal>
           {copy.value.map((item, index) => (
             <article key={item.title}>
               <span><LandingIcon name={iconNames[index]} /></span>
@@ -95,20 +103,17 @@ export default function PublicLanding({
           ))}
         </section>
 
-        <section id="product" className="marketing-section marketing-journey-section">
-          <div className="marketing-section-copy" data-reveal>
-            <p className="marketing-kicker">{copy.journey.eyebrow}</p>
-            <h2>{copy.journey.title}</h2>
-            <p>{copy.journey.body}</p>
+        <section id="product" className="marketing-section marketing-origin-section">
+          <div className="marketing-origin-copy" data-reveal>
+            <p className="marketing-kicker">{copy.origin.eyebrow}</p>
+            <h2>{copy.origin.title}</h2>
+            <p>{copy.origin.body}</p>
+            <p className="marketing-origin-signature">{copy.origin.signature}</p>
           </div>
-          <BottleJourneyVisual copy={copy} />
-          <ol className="marketing-journey-steps">
-            {copy.journey.steps.map((step, index) => (
-              <li key={step.title} data-reveal>
-                <span>0{index + 1}</span><h3>{step.title}</h3><p>{step.body}</p>
-              </li>
-            ))}
-          </ol>
+          <figure className="marketing-origin-device" data-reveal>
+            <img src="/landing/demo-dashboard-mobile.webp" alt={copy.origin.mobileAlt} width="390" height="844" />
+            <figcaption><span>{copy.origin.demoLabel}</span>{copy.origin.mobileCaption}</figcaption>
+          </figure>
         </section>
 
         <section id="maturity" className="marketing-section marketing-maturity-section">
@@ -139,24 +144,6 @@ export default function PublicLanding({
             <p>{copy.insights.body}</p>
           </div>
           <div data-reveal><InsightsVisual copy={copy} locale={locale} /></div>
-        </section>
-
-        <section className="marketing-section marketing-features-section">
-          <div className="marketing-section-copy" data-reveal>
-            <p className="marketing-kicker">{copy.features.eyebrow}</p>
-            <h2>{copy.features.title}</h2>
-          </div>
-          <div className="marketing-feature-grid">
-            {copy.features.items.map((feature, index) => (
-              <article key={feature.title} data-reveal>
-                <LandingIcon name={featureIcons[index]} />
-                <span>0{index + 1}</span>
-                <h3>{feature.title}</h3>
-                <p>{feature.body}</p>
-                <strong>{feature.stat}</strong>
-              </article>
-            ))}
-          </div>
         </section>
 
         <section id="access" className="marketing-closing-section" data-reveal>

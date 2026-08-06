@@ -25,6 +25,8 @@ function pwaPrecachePlugin(): Plugin {
           "/icons/icon-512.png",
           "/icons/maskable-512.png",
           "/icons/logo.png",
+          "/landing/demo-dashboard-desktop.webp",
+          "/landing/demo-dashboard-mobile.webp",
           ...entryAssets,
         ]));
       await writeFile(serviceWorkerUrl, generatedSource, "utf8");
