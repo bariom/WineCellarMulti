@@ -409,6 +409,8 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
         occasion=entry.occasion,
         pairing=entry.pairing,
         companions=entry.companions,
+        sommelier_feedback=entry.sommelier_feedback,
+        sommelier_feedback_at=entry.sommelier_feedback_at,
         created_at=entry.created_at,
         tasting_id=entry.id,
     )

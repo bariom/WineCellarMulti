@@ -2,10 +2,10 @@ import { readFile, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const limits = {
-  // Keep a small margin for the lazy history module's runtime metadata.
+  // Keep a small margin for the lazy history module and its optional sommelier reflection.
   javascriptBytes: 756_000,
-  javascriptGzipBytes: 196_900,
-  cssBytes: 392_500,
+  javascriptGzipBytes: 197_100,
+  cssBytes: 393_700,
   cssGzipBytes: 67_000,
 };
 

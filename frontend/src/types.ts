@@ -87,6 +87,8 @@ export type Wine = {
     occasion: string;
     pairing: string;
     companions: string;
+    sommelier_feedback: string;
+    sommelier_feedback_at: string | null;
     created_at: string;
   }>;
   value_history: Array<{ id: string; value: string; currency: string; source: string; recorded_at: string }>;
@@ -247,6 +249,8 @@ export type TastingArchiveApiItem = {
   occasion: string;
   pairing: string;
   companions: string;
+  sommelier_feedback: string;
+  sommelier_feedback_at: string | null;
   created_at: string;
 };
 
@@ -942,7 +946,16 @@ export type TastingArchiveEntry = {
   occasion: string;
   pairing: string;
   companions: string;
+  sommelier_feedback: string;
+  sommelier_feedback_at: string | null;
   created_at: string;
+};
+
+export type TastingReflectionResult = {
+  feedback: string;
+  model: string;
+  reasoning_effort: string;
+  estimated_cost_usd: number;
 };
 
 export type ValueBreakdownItem = { label: string; value: number };

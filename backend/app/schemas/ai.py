@@ -183,6 +183,19 @@ class PairingResponse(BaseModel):
     estimated_cost_usd: Decimal = Decimal("0")
 
 
+class TastingReflectionRequest(AiGenerationRequest):
+    wine_id: UUID
+    tasting_id: UUID
+    personal_feedback: str = Field(default="", max_length=1200)
+
+
+class TastingReflectionResponse(BaseModel):
+    feedback: str = ""
+    model: str
+    reasoning_effort: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")
+
+
 class BuyingAdviceRequest(AiGenerationRequest):
     purpose: str = Field(pattern="^(drink_now|cellar|pairing)$")
     pairing_with: str = Field(default="", max_length=240)

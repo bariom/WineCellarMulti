@@ -103,6 +103,8 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       occasion: rawString(entry.occasion),
       pairing: rawString(entry.pairing),
       companions: rawString(entry.companions),
+      sommelier_feedback: rawString(entry.sommelier_feedback),
+      sommelier_feedback_at: rawNullableString(entry.sommelier_feedback_at),
       created_at: rawString(entry.created_at),
     })),
     value_history: rawArray(raw.value_history).map((entry, entryIndex) => ({

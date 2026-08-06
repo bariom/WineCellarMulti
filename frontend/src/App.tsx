@@ -6,7 +6,7 @@ import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
@@ -4428,6 +4428,41 @@ export function App() {
     }
   }
 
+  async function generateTastingReflection(entry: { id: string; wine: { id: string } }, personalFeedback: string) {
+    const model = await requestAiModelAdvice(
+      locale === "it" ? "Riflessione del sommelier" : "Sommelier reflection",
+      "economy",
+      aiSettings?.pairing_model || aiSettingsDraft.pairing_model,
+    );
+    if (!model) return;
+    setGeneratingAi("tasting-reflection");
+    setError("");
+    try {
+      await api<TastingReflectionResult>("/api/v1/ai/tasting-reflection", {
+        method: "POST",
+        body: JSON.stringify({
+          wine_id: entry.wine.id,
+          tasting_id: entry.id,
+          personal_feedback: personalFeedback.trim(),
+          locale,
+          model,
+        }),
+      });
+      await Promise.all([
+        loadTastingArchiveOverview(),
+        !offlineMode && activeView === "history" && historySection === "tastings"
+          ? loadTastingArchive(tastingArchiveOffset)
+          : Promise.resolve(),
+        loadAiAudit(),
+        loadAiUsage(),
+      ]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to generate sommelier reflection");
+    } finally {
+      setGeneratingAi("");
+    }
+  }
+
   async function generateBuyingAdvice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!buyingLocation.trim()) {
@@ -5063,6 +5098,8 @@ export function App() {
         occasion: entry.occasion,
         pairing: entry.pairing,
         companions: entry.companions,
+        sommelier_feedback: entry.sommelier_feedback,
+        sommelier_feedback_at: entry.sommelier_feedback_at,
         created_at: entry.created_at,
       }),
     ),
@@ -5084,6 +5121,8 @@ export function App() {
       occasion: item.occasion,
       pairing: item.pairing,
       companions: item.companions,
+      sommelier_feedback: item.sommelier_feedback,
+      sommelier_feedback_at: item.sommelier_feedback_at,
       created_at: item.created_at,
     };
   });
@@ -5492,6 +5531,8 @@ export function App() {
           occasion: item.occasion,
           pairing: item.pairing,
           companions: item.companions,
+          sommelier_feedback: item.sommelier_feedback,
+          sommelier_feedback_at: item.sommelier_feedback_at,
           created_at: item.created_at,
         };
       });
@@ -11109,6 +11150,7 @@ export function App() {
                 ) : null}
                 <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                   <TastingArchiveSection
+                    canGenerateAi={canGenerateAi}
                     canWrite={canWriteWine}
                     displayValue={displayValue}
                     entries={visibleTastingEntries}
@@ -11116,6 +11158,7 @@ export function App() {
                     t={t}
                     locale={locale}
                     onOpenWine={openWineFromTastingArchive}
+                    onGenerateReflection={generateTastingReflection}
                     onUpdateEntry={updateWineTastingEntry}
                     onDeleteEntry={deleteWineTastingEntry}
                     wineTone={wineTone}

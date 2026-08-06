@@ -25,6 +25,8 @@ type TastingArchiveEntry = {
   occasion: string;
   pairing: string;
   companions: string;
+  sommelier_feedback: string;
+  sommelier_feedback_at: string | null;
   created_at: string;
 };
 
@@ -39,6 +41,7 @@ type ConsumeWineDraft = {
 };
 
 type TastingArchiveSectionProps = {
+  canGenerateAi: boolean;
   canWrite: boolean;
   entries: TastingArchiveEntry[];
   locale: "en" | "it";
@@ -46,6 +49,7 @@ type TastingArchiveSectionProps = {
   displayValue: (value: string | null | undefined, locale: "en" | "it", group: string) => string;
   onDeleteEntry: (wine: any, entryId: string) => Promise<void>;
   onOpenWine: (wine: any) => void;
+  onGenerateReflection: (entry: { id: string; wine: { id: string } }, personalFeedback: string) => Promise<void>;
   onUpdateEntry: (wine: any, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
   t: (key: any) => string;
   wineTone: (type: string) => string;
@@ -241,12 +245,14 @@ function TastingEntryEditor({
 }
 
 export default function TastingArchiveSection({
+  canGenerateAi,
   canWrite,
   displayValue,
   entries,
   locale,
   onDeleteEntry,
   onOpenWine,
+  onGenerateReflection,
   onUpdateEntry,
   saving,
   t,
@@ -254,6 +260,9 @@ export default function TastingArchiveSection({
 }: TastingArchiveSectionProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+  const [reflectionEntryId, setReflectionEntryId] = useState<string | null>(null);
+  const [reflectionDraft, setReflectionDraft] = useState("");
+  const [reflectingEntryId, setReflectingEntryId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!editingId) return;
@@ -315,6 +324,65 @@ export default function TastingArchiveSection({
                   {entry.pairing ? <span>{t("tastingPairing")}: {entry.pairing}</span> : null}
                   {entry.companions ? <span>{t("tastingCompanions")}: {entry.companions}</span> : null}
                 </div>
+              ) : null}
+              {entry.sommelier_feedback ? (
+                <aside className="tasting-sommelier-feedback">
+                  <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Nota del Sommelier" : "Sommelier note"}</span>
+                  <p>{entry.sommelier_feedback}</p>
+                </aside>
+              ) : null}
+              {canGenerateAi && (entry.pairing || entry.occasion || entry.note) ? (
+                <aside className="tasting-sommelier-invite">
+                  {reflectionEntryId === entry.id ? (
+                    <>
+                      <div>
+                        <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Un ricordo per il Sommelier" : "A note for the Sommelier"}</span>
+                        <strong>{locale === "it" ? "Che cosa rifaresti di questa esperienza?" : "What would you repeat from this experience?"}</strong>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={reflectionDraft}
+                        onChange={(event) => setReflectionDraft(event.target.value)}
+                        placeholder={locale === "it" ? "Facoltativo: una sensazione, un dettaglio della serata…" : "Optional: a feeling or detail from the occasion…"}
+                        disabled={reflectingEntryId === entry.id}
+                      />
+                      <div className="tasting-sommelier-invite-actions">
+                        <button
+                          type="button"
+                          disabled={reflectingEntryId === entry.id}
+                          onClick={() => {
+                            setReflectingEntryId(entry.id);
+                            onGenerateReflection(entry, reflectionDraft)
+                              .then(() => {
+                                setReflectionEntryId(null);
+                                setReflectionDraft("");
+                              })
+                              .finally(() => setReflectingEntryId(null));
+                          }}
+                        >
+                          {reflectingEntryId === entry.id
+                            ? (locale === "it" ? "Il Sommelier riflette…" : "Sommelier is reflecting…")
+                            : (locale === "it" ? "Chiedi al Sommelier" : "Ask the Sommelier")}
+                        </button>
+                        <button type="button" className="secondary compact" disabled={reflectingEntryId === entry.id} onClick={() => { setReflectionEntryId(null); setReflectionDraft(""); }}>
+                          {t("cancel")}
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Sommelier della cantina" : "Cellar Sommelier"}</span>
+                        <strong>{entry.pairing
+                          ? (locale === "it" ? "Trasforma l'abbinamento in un ricordo" : "Turn this pairing into a memory")
+                          : (locale === "it" ? "Dai un finale a questa degustazione" : "Give this tasting a final note")}</strong>
+                      </div>
+                      <button type="button" className="secondary compact" onClick={() => setReflectionEntryId(entry.id)}>
+                        <AppIcon name="glass-sparkle" />{locale === "it" ? "Raccontalo al Sommelier" : "Tell the Sommelier"}
+                      </button>
+                    </>
+                  )}
+                </aside>
               ) : null}
               <div className="tasting-archive-actions">
                 <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>

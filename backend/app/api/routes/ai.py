@@ -41,6 +41,7 @@ from app.models import (
     UserAiCreditTransaction,
     UserAiSettings,
     Wine,
+    WineTastingEntry,
     WishlistItem,
 )
 from app.prompts import (
@@ -72,6 +73,8 @@ from app.schemas.ai import (
     RegionalGapTarget,
     RegionalGapTargetSuggestionRequest,
     RegionalGapTargetSuggestionResponse,
+    TastingReflectionRequest,
+    TastingReflectionResponse,
     WineCompareRequest,
     WineCompareResponse,
     WineLabelEnrichmentRequest,
@@ -902,8 +905,14 @@ def replace_compare_placeholders(text: str, first_name: str, second_name: str) -
         (r"\bWine B\b", second_name),
         (r"\bA vs B\b", f"{first_name} vs {second_name}"),
         (r"\bB vs A\b", f"{second_name} vs {first_name}"),
-        (r"\bA(?=\s+(?:è|is|looks|seems|feels|fits|works|goes|suits|va|sembra|appare|resta|rimane|può|can|should))", first_name),
-        (r"\bB(?=\s+(?:è|is|looks|seems|feels|fits|works|goes|suits|va|sembra|appare|resta|rimane|può|can|should))", second_name),
+        (
+            r"\bA(?=\s+(?:è|is|looks|seems|feels|fits|works|goes|suits|va|sembra|appare|resta|rimane|può|can|should))",
+            first_name,
+        ),
+        (
+            r"\bB(?=\s+(?:è|is|looks|seems|feels|fits|works|goes|suits|va|sembra|appare|resta|rimane|può|can|should))",
+            second_name,
+        ),
     ]
     for pattern, replacement in replacements:
         result = re.sub(pattern, replacement, result)
@@ -920,8 +929,12 @@ def wishlist_advice_context(item: WishlistItem) -> str:
             f"Type: {item.type}",
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
-            f"Target price: {item.currency} {item.target_price} (maximum)" if item.target_price and item.target_price > 0 else "Target price: not provided",
-            f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}" if getattr(item, "offer_price", None) is not None else "Offer price: not provided",
+            f"Target price: {item.currency} {item.target_price} (maximum)"
+            if item.target_price and item.target_price > 0
+            else "Target price: not provided",
+            f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}"
+            if getattr(item, "offer_price", None) is not None
+            else "Offer price: not provided",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
             f"Status: {item.status}",
@@ -941,8 +954,12 @@ def wishlist_market_context(item: WishlistItem, *, include_ai_context: bool = Fa
             f"Format: {item.format}",
             f"Region: {item.region}",
             f"Appellation: {item.appellation}",
-            f"Target price: {item.currency} {item.target_price} (maximum)" if item.target_price and item.target_price > 0 else "Target price: not provided",
-            f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}" if getattr(item, "offer_price", None) is not None else "Offer price: not provided",
+            f"Target price: {item.currency} {item.target_price} (maximum)"
+            if item.target_price and item.target_price > 0
+            else "Target price: not provided",
+            f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}"
+            if getattr(item, "offer_price", None) is not None
+            else "Offer price: not provided",
             *([f"AI context note: {item.ai_context_note}"] if include_ai_context else []),
         ],
     )
@@ -961,13 +978,20 @@ def wishlist_priority_rank(priority: str) -> int:
 
 def wishlist_ready_to_buy(status: str) -> bool:
     normalized = str(status or "").strip().lower()
-    return any(word in normalized for word in ["buy", "ready", "approved", "compra", "acquista", "pronto", "approvato"])
+    return any(
+        word in normalized
+        for word in ["buy", "ready", "approved", "compra", "acquista", "pronto", "approvato"]
+    )
 
 
 def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -> str:
     sorted_items = sorted(
         items,
-        key=lambda item: (wishlist_priority_rank(item.priority), -float(item.target_price or 0), item.name.lower()),
+        key=lambda item: (
+            wishlist_priority_rank(item.priority),
+            -float(item.target_price or 0),
+            item.name.lower(),
+        ),
     )
     high_priority_count = sum(1 for item in items if wishlist_priority_rank(item.priority) == 0)
     ready_to_buy_count = sum(1 for item in items if wishlist_ready_to_buy(item.status))
@@ -982,8 +1006,14 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
         "Wishlist portfolio:",
     ]
     for index, item in enumerate(sorted_items[:40], start=1):
-        target_ceiling = f"{item.currency} {Decimal(str(item.target_price)).quantize(Decimal('0.01'))}" if item.target_price and item.target_price > 0 else "not provided"
-        offer_price = f"{item.currency} {item.offer_price}" if item.offer_price is not None else "unknown"
+        target_ceiling = (
+            f"{item.currency} {Decimal(str(item.target_price)).quantize(Decimal('0.01'))}"
+            if item.target_price and item.target_price > 0
+            else "not provided"
+        )
+        offer_price = (
+            f"{item.currency} {item.offer_price}" if item.offer_price is not None else "unknown"
+        )
         lines.extend(
             [
                 (
@@ -992,23 +1022,31 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
                     f"Priority: {item.priority or 'Unknown'} | Purpose: {item.purpose or 'Unknown'} | Status: {item.status or 'Unknown'}"
                 ),
                 f"   Region/Appellation: {item.region or 'n/d'} / {item.appellation or 'n/d'}",
-                f"   Market estimate: {item.ai_market_price_currency or item.currency} {item.ai_market_price}" if item.ai_market_price else "   Market estimate: unknown",
+                f"   Market estimate: {item.ai_market_price_currency or item.currency} {item.ai_market_price}"
+                if item.ai_market_price
+                else "   Market estimate: unknown",
                 f"   AI context note: {item.ai_context_note or 'none'}",
             ],
         )
     if len(sorted_items) > 40:
-        lines.append(f"... {len(sorted_items) - 40} more items omitted from the detailed list, but included in the summary counts.")
+        lines.append(
+            f"... {len(sorted_items) - 40} more items omitted from the detailed list, but included in the summary counts."
+        )
     return "\n".join(lines)
 
 
-def normalize_market_sources(raw_sources: Any, *, default_currency: str, require_url: bool = False) -> list[dict]:
+def normalize_market_sources(
+    raw_sources: Any, *, default_currency: str, require_url: bool = False
+) -> list[dict]:
     if not isinstance(raw_sources, list):
         return []
     normalized: list[dict] = []
     for raw_source in raw_sources[:12]:
         if not isinstance(raw_source, dict):
             continue
-        merchant = str(raw_source.get("merchant") or raw_source.get("source") or raw_source.get("name") or "").strip()[:160]
+        merchant = str(
+            raw_source.get("merchant") or raw_source.get("source") or raw_source.get("name") or ""
+        ).strip()[:160]
         if not merchant:
             continue
         try:
@@ -1026,7 +1064,8 @@ def normalize_market_sources(raw_sources: Any, *, default_currency: str, require
                 "merchant": merchant,
                 "country": str(raw_source.get("country") or "").strip()[:80],
                 "price": str(price),
-                "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8] or default_currency,
+                "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8]
+                or default_currency,
                 "url": url,
                 "note": str(raw_source.get("note") or "").strip()[:240],
                 "verified": bool(url),
@@ -1096,7 +1135,11 @@ def pairing_wine_context(wine: Wine) -> dict:
 
 
 def pairing_candidate_sort_key(wine: Wine, current_year: int) -> tuple[int, int, str, str]:
-    if wine.drink_peak_from and wine.drink_peak_to and wine.drink_peak_from <= current_year <= wine.drink_peak_to:
+    if (
+        wine.drink_peak_from
+        and wine.drink_peak_to
+        and wine.drink_peak_from <= current_year <= wine.drink_peak_to
+    ):
         readiness = 0
     elif wine.drink_from and wine.drink_to and wine.drink_from <= current_year <= wine.drink_to:
         readiness = 1
@@ -1110,7 +1153,11 @@ def pairing_candidate_sort_key(wine: Wine, current_year: int) -> tuple[int, int,
 
 
 def pairing_wine_is_in_ideal_window(wine: Wine, current_year: int) -> bool:
-    return bool(wine.drink_peak_from and wine.drink_peak_to and wine.drink_peak_from <= current_year <= wine.drink_peak_to)
+    return bool(
+        wine.drink_peak_from
+        and wine.drink_peak_to
+        and wine.drink_peak_from <= current_year <= wine.drink_peak_to
+    )
 
 
 def select_pairing_candidates(wines: list[Wine], limit: int = PAIRING_MAX_CANDIDATES) -> list[Wine]:
@@ -1188,16 +1235,20 @@ def clean_pairing_response(
     raw_dishes = payload.get("dish_recommendations", [])
     if not isinstance(raw_dishes, list):
         raw_dishes = []
-    dishes = [
-        PairingDishRecommendation(
-            name=str(item.get("name") or "").strip(),
-            description=str(item.get("description") or "").strip(),
-            why_it_works=str(item.get("why_it_works") or "").strip(),
-            dietary_note=str(item.get("dietary_note") or "").strip(),
-        )
-        for item in raw_dishes[:3]
-        if isinstance(item, dict) and str(item.get("name") or "").strip()
-    ] if target_wine is not None else []
+    dishes = (
+        [
+            PairingDishRecommendation(
+                name=str(item.get("name") or "").strip(),
+                description=str(item.get("description") or "").strip(),
+                why_it_works=str(item.get("why_it_works") or "").strip(),
+                dietary_note=str(item.get("dietary_note") or "").strip(),
+            )
+            for item in raw_dishes[:3]
+            if isinstance(item, dict) and str(item.get("name") or "").strip()
+        ]
+        if target_wine is not None
+        else []
+    )
     return PairingResponse(
         summary=str(payload.get("summary") or "").strip(),
         model="",
@@ -1229,7 +1280,10 @@ def buying_price_amount(value: str) -> Decimal | None:
 def clean_recommendation_vintage(value: str) -> str:
     vintage = value.strip()
     lowered = vintage.lower()
-    if any(term in lowered for term in ("non conferm", "not confirm", "non indic", "not indic", "pagina", "unknown")):
+    if any(
+        term in lowered
+        for term in ("non conferm", "not confirm", "non indic", "not indic", "pagina", "unknown")
+    ):
         return ""
     return vintage[:24]
 
@@ -1267,7 +1321,9 @@ def clean_buying_recommendations(
         confidence = str(item.get("confidence") or "medium").strip().lower()
         price = str(item.get("price") or "").strip()
         price_amount = buying_price_amount(price)
-        if (min_price_chf is not None and price_amount is not None and price_amount < min_price_chf) or (
+        if (
+            min_price_chf is not None and price_amount is not None and price_amount < min_price_chf
+        ) or (
             max_price_chf is not None and price_amount is not None and price_amount > max_price_chf
         ):
             continue
@@ -1281,7 +1337,9 @@ def clean_buying_recommendations(
                 producer=str(item.get("producer") or "").strip()[:160],
                 vintage=clean_recommendation_vintage(str(item.get("vintage") or "")),
                 merchant=merchant[:160],
-                merchant_type=merchant_type if merchant_type in {"local_shop", "online"} else "online",
+                merchant_type=merchant_type
+                if merchant_type in {"local_shop", "online"}
+                else "online",
                 price=price[:40],
                 currency=str(item.get("currency") or "CHF").strip().upper()[:8] or "CHF",
                 availability=str(item.get("availability") or "").strip()[:240],
@@ -1307,7 +1365,9 @@ def compare_wines(
     user_settings = get_or_create_user_ai_settings(db, context)
     selected_wines = [get_household_wine(db, context, wine_id) for wine_id in payload.wine_ids]
     if len(selected_wines) != 2:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Exactly 2 wines are required")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Exactly 2 wines are required"
+        )
     first, second = selected_wines
     schema = {
         "name": "wine_compare",
@@ -1363,11 +1423,21 @@ def compare_wines(
     compare_response = WineCompareResponse(
         model=effective_response_model(response, user_settings.pairing_model),
         reasoning_effort=response.reasoning_effort or "",
-        style_profile=replace_compare_placeholders(str(result.get("style_profile") or "").strip(), first.name, second.name),
-        readiness=replace_compare_placeholders(str(result.get("readiness") or "").strip(), first.name, second.name),
-        occasion=replace_compare_placeholders(str(result.get("occasion") or "").strip(), first.name, second.name),
-        cellar_value=replace_compare_placeholders(str(result.get("cellar_value") or "").strip(), first.name, second.name),
-        verdict=replace_compare_placeholders(str(result.get("verdict") or "").strip(), first.name, second.name),
+        style_profile=replace_compare_placeholders(
+            str(result.get("style_profile") or "").strip(), first.name, second.name
+        ),
+        readiness=replace_compare_placeholders(
+            str(result.get("readiness") or "").strip(), first.name, second.name
+        ),
+        occasion=replace_compare_placeholders(
+            str(result.get("occasion") or "").strip(), first.name, second.name
+        ),
+        cellar_value=replace_compare_placeholders(
+            str(result.get("cellar_value") or "").strip(), first.name, second.name
+        ),
+        verdict=replace_compare_placeholders(
+            str(result.get("verdict") or "").strip(), first.name, second.name
+        ),
         estimated_cost_usd=charged_cost,
     )
     record_ai_audit(
@@ -1393,31 +1463,53 @@ def suggest_pairing(
     context: CurrentContext = Depends(require_write_context),
 ) -> PairingResponse:
     if payload.target_wine_id is None and len(payload.dish.strip()) < 2:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Dish is required")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Dish is required"
+        )
     user_settings = get_or_create_user_ai_settings(db, context)
-    pairing_preferences = "" if payload.ignore_preferences else (user_settings.pairing_preferences or "").strip()
-    max_price_chf = Decimal(str(payload.max_price_chf)) if payload.max_price_chf is not None else None
+    pairing_preferences = (
+        "" if payload.ignore_preferences else (user_settings.pairing_preferences or "").strip()
+    )
+    max_price_chf = (
+        Decimal(str(payload.max_price_chf)) if payload.max_price_chf is not None else None
+    )
     local_origin = payload.local_origin.strip()
     prefer_local_wines = payload.market_only and payload.prefer_local_wines and bool(local_origin)
-    target_wine = get_household_wine(db, context, payload.target_wine_id) if payload.target_wine_id else None
-    cellar_wines = [] if (payload.market_only or target_wine is not None) else list(
-        db.scalars(
-            select(Wine)
-            .where(Wine.household_id == context.household.id)
-            .where(Wine.status == "Delivered")
-            .where(Wine.quantity > 0)
-            .order_by(Wine.name)
-            .limit(120),
-        ),
+    target_wine = (
+        get_household_wine(db, context, payload.target_wine_id) if payload.target_wine_id else None
+    )
+    cellar_wines = (
+        []
+        if (payload.market_only or target_wine is not None)
+        else list(
+            db.scalars(
+                select(Wine)
+                .where(Wine.household_id == context.household.id)
+                .where(Wine.status == "Delivered")
+                .where(Wine.quantity > 0)
+                .order_by(Wine.name)
+                .limit(120),
+            ),
+        )
     )
     cellar_wines = [wine for wine in cellar_wines if user_can_see_wine(context, wine)]
     if max_price_chf is not None:
-        cellar_wines = [wine for wine in cellar_wines if pairing_budget_value_chf(wine) <= max_price_chf]
+        cellar_wines = [
+            wine for wine in cellar_wines if pairing_budget_value_chf(wine) <= max_price_chf
+        ]
     if payload.only_ideal_drink_window:
         current_year = datetime.now(UTC).year
-        cellar_wines = [wine for wine in cellar_wines if pairing_wine_is_in_ideal_window(wine, current_year)]
-    cellar_wines = select_pairing_candidates(cellar_wines, limit=user_settings.pairing_candidate_limit)
-    wine_context_payload = [pairing_wine_context(target_wine)] if target_wine is not None else [pairing_wine_context(wine) for wine in cellar_wines]
+        cellar_wines = [
+            wine for wine in cellar_wines if pairing_wine_is_in_ideal_window(wine, current_year)
+        ]
+    cellar_wines = select_pairing_candidates(
+        cellar_wines, limit=user_settings.pairing_candidate_limit
+    )
+    wine_context_payload = (
+        [pairing_wine_context(target_wine)]
+        if target_wine is not None
+        else [pairing_wine_context(wine) for wine in cellar_wines]
+    )
     schema = {
         "name": "wine_pairing",
         "schema": {
@@ -1477,7 +1569,12 @@ def suggest_pairing(
                     },
                 },
             },
-            "required": ["summary", "cellar_matches", "market_recommendations", "dish_recommendations"],
+            "required": [
+                "summary",
+                "cellar_matches",
+                "market_recommendations",
+                "dish_recommendations",
+            ],
         },
     }
     target_mode = target_wine is not None
@@ -1495,7 +1592,9 @@ def suggest_pairing(
         user_settings,
         model=selected_pairing_model,
         task_type="pairing",
-        system_prompt=target_system_prompt if target_mode else (
+        system_prompt=target_system_prompt
+        if target_mode
+        else (
             "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
             "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
             "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
@@ -1510,7 +1609,9 @@ def suggest_pairing(
             f"preferenze_alimentari: {payload.dietary_preferences.strip() or 'none'}\n"
             f"allergie_o_ingredienti_da_evitare: {payload.allergies.strip() or 'none'}\n"
             "Proponi piatti concreti, realizzabili e distinti; indica brevemente perche funzionano e una nota utile sulle preferenze o allergie."
-        ) if target_mode else (
+        )
+        if target_mode
+        else (
             f"Piatto o pietanza: {payload.dish}\n"
             f"budget_massimo_chf: {str(max_price_chf) if max_price_chf is not None else 'none'}\n"
             f"include_market: {str(payload.include_market).lower()}\n"
@@ -1561,6 +1662,103 @@ def suggest_pairing(
     return cleaned
 
 
+@router.post("/tasting-reflection", response_model=TastingReflectionResponse)
+def create_tasting_reflection(
+    payload: TastingReflectionRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> TastingReflectionResponse:
+    """Create and retain a light, personal reflection for one recorded tasting."""
+    wine = get_household_wine(db, context, payload.wine_id)
+    entry = db.scalar(
+        select(WineTastingEntry).where(
+            WineTastingEntry.id == payload.tasting_id,
+            WineTastingEntry.wine_id == wine.id,
+            WineTastingEntry.household_id == context.household.id,
+        )
+    )
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tasting entry not found")
+
+    user_settings = get_or_create_user_ai_settings(db, context)
+    selected_model = request_model(payload, user_settings.pairing_model)
+    schema = {
+        "name": "tasting_sommelier_reflection",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"feedback": {"type": "string"}},
+            "required": ["feedback"],
+        },
+    }
+    wine_label = " ".join(part for part in (wine.name, wine.vintage) if part).strip()
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=selected_model,
+        task_type="tasting_reflection",
+        max_output_tokens=320,
+        system_prompt=(
+            "Sei il sommelier personale di una cantina privata. Offri una breve riflessione calda e curiosa "
+            "su una degustazione gia avvenuta. Non inventare aromi, sensazioni o fatti non presenti nel contesto. "
+            "Commenta con tatto l'abbinamento o l'occasione quando disponibili e suggerisci una sola idea utile "
+            "per ricordare o ripetere l'esperienza. Non assegnare punteggi e non usare liste. "
+            "Scrivi al massimo 55 parole, in seconda persona, con un tono conviviale e mai prescrittivo. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            f"Vino: {wine_label}\n"
+            f"Produttore: {wine.producer or 'non indicato'}\n"
+            f"Data degustazione: {entry.consumed_at.isoformat()}\n"
+            f"Occasione: {entry.occasion or 'non indicata'}\n"
+            f"Abbinamento: {entry.pairing or 'non indicato'}\n"
+            f"Compagnia: {entry.companions or 'non indicata'}\n"
+            f"Voto: {entry.rating or 'non indicato'} su 6\n"
+            f"Gradimento: {entry.enjoyment or 'non indicato'}\n"
+            f"Nota registrata: {entry.note or 'nessuna'}\n"
+            f"Ricordo aggiuntivo del collezionista: {payload.personal_feedback.strip() or 'nessuno'}"
+        ),
+        json_schema=schema,
+    )
+    parsed = parse_json_response(response.text)
+    feedback = str(parsed.get("feedback") or "").strip()
+    if not feedback:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier reflection was empty"
+        )
+
+    entry.sommelier_feedback = feedback
+    entry.sommelier_feedback_at = datetime.now(UTC)
+    effective_model = effective_response_model(response, selected_model)
+    charged_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        provider_source=provider_source,
+        model=effective_model,
+        usage=response.usage,
+        db=db,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="tasting",
+        entity_id=entry.id,
+        feature="tasting_reflection",
+        model=effective_model,
+        reasoning_effort=response.reasoning_effort or "",
+        summary=f"{wine_label}: {feedback}",
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return TastingReflectionResponse(
+        feedback=feedback,
+        model=effective_model,
+        reasoning_effort=response.reasoning_effort or "",
+        estimated_cost_usd=charged_cost,
+    )
+
+
 @router.post("/buying-advice", response_model=BuyingAdviceResponse)
 def suggest_buying_advice(
     payload: BuyingAdviceRequest,
@@ -1568,9 +1766,18 @@ def suggest_buying_advice(
     context: CurrentContext = Depends(require_write_context),
 ) -> BuyingAdviceResponse:
     if payload.purpose == "pairing" and not payload.pairing_with.strip():
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pairing food is required")
-    if payload.min_price_chf is not None and payload.max_price_chf is not None and payload.min_price_chf > payload.max_price_chf:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Minimum price cannot exceed maximum price")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pairing food is required"
+        )
+    if (
+        payload.min_price_chf is not None
+        and payload.max_price_chf is not None
+        and payload.min_price_chf > payload.max_price_chf
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Minimum price cannot exceed maximum price",
+        )
     user_settings = get_or_create_user_ai_settings(db, context)
     purpose_labels = {
         "drink_now": "drink immediately",
@@ -1611,8 +1818,19 @@ def suggest_buying_advice(
                             "confidence": {"type": "string", "enum": ["high", "medium", "low"]},
                         },
                         "required": [
-                            "name", "producer", "vintage", "merchant", "merchant_type", "price", "currency",
-                            "availability", "delivery_estimate", "source_url", "reason", "local", "confidence",
+                            "name",
+                            "producer",
+                            "vintage",
+                            "merchant",
+                            "merchant_type",
+                            "price",
+                            "currency",
+                            "availability",
+                            "delivery_estimate",
+                            "source_url",
+                            "reason",
+                            "local",
+                            "confidence",
                         ],
                     },
                 },
@@ -1666,7 +1884,9 @@ def suggest_buying_advice(
     )
     parsed = parse_json_response(response.text)
     verified_urls = {str(source.get("url") or "").strip() for source in response.web_sources}
-    recommendations = clean_buying_recommendations(parsed, verified_urls, payload.min_price_chf, payload.max_price_chf)
+    recommendations = clean_buying_recommendations(
+        parsed, verified_urls, payload.min_price_chf, payload.max_price_chf
+    )
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     effective_model = effective_response_model(response, user_settings.pairing_model)
     charged_cost = response.charged_cost_usd
@@ -1742,7 +1962,18 @@ def generate_wine_notes(
         locale=payload.locale,
         model=effective_response_model(response, user_settings.ai_notes_model),
     )
-    record_ai_audit(db, context, entity_type="wine", entity_id=wine.id, feature="ai_notes", model=effective_response_model(response, user_settings.ai_notes_model), summary=notes, reasoning_effort=response.reasoning_effort or "", usage=response.usage, provider_source=provider_source)
+    record_ai_audit(
+        db,
+        context,
+        entity_type="wine",
+        entity_id=wine.id,
+        feature="ai_notes",
+        model=effective_response_model(response, user_settings.ai_notes_model),
+        summary=notes,
+        reasoning_effort=response.reasoning_effort or "",
+        usage=response.usage,
+        provider_source=provider_source,
+    )
     db.commit()
     db.refresh(wine)
     return ai_wine_response(db, context, wine)
@@ -1813,7 +2044,13 @@ def generate_all_wine_ai(
                         "drink_to": {"type": "integer"},
                         "notes": {"type": "string"},
                     },
-                    "required": ["drink_from", "drink_peak_from", "drink_peak_to", "drink_to", "notes"],
+                    "required": [
+                        "drink_from",
+                        "drink_peak_from",
+                        "drink_peak_to",
+                        "drink_to",
+                        "notes",
+                    ],
                 },
                 "value": {
                     "type": "object",
@@ -1836,11 +2073,24 @@ def generate_all_wine_ai(
                                     "url": {"type": "string"},
                                     "note": {"type": "string"},
                                 },
-                                "required": ["merchant", "country", "price", "currency", "url", "note"],
+                                "required": [
+                                    "merchant",
+                                    "country",
+                                    "price",
+                                    "currency",
+                                    "url",
+                                    "note",
+                                ],
                             },
                         },
                     },
-                    "required": ["current_value", "currency", "notes", "market_note", "market_sources"],
+                    "required": [
+                        "current_value",
+                        "currency",
+                        "notes",
+                        "market_note",
+                        "market_sources",
+                    ],
                 },
                 "grape_composition": {
                     "type": "object",
@@ -1890,8 +2140,14 @@ def generate_all_wine_ai(
     drink_window = result.get("drink_window")
     value_result = result.get("value")
     grape_result = result.get("grape_composition")
-    if not isinstance(drink_window, dict) or not isinstance(value_result, dict) or not isinstance(grape_result, dict):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid wine enrichment")
+    if (
+        not isinstance(drink_window, dict)
+        or not isinstance(value_result, dict)
+        or not isinstance(grape_result, dict)
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid wine enrichment"
+        )
 
     try:
         current_value = Decimal(str(value_result["current_value"])).quantize(Decimal("0.01"))
@@ -1900,9 +2156,13 @@ def generate_all_wine_ai(
         drink_peak_to = int(drink_window["drink_peak_to"])
         drink_to = int(drink_window["drink_to"])
     except (InvalidOperation, KeyError, TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid wine enrichment") from exc
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid wine enrichment"
+        ) from exc
     if not (drink_from <= drink_peak_from <= drink_peak_to <= drink_to):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an invalid drinking window")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an invalid drinking window"
+        )
 
     result_currency = str(value_result.get("currency") or wine.currency)[:8]
     market_sources = normalize_market_sources(
@@ -1913,11 +2173,16 @@ def generate_all_wine_ai(
     if not market_sources:
         wine.value_not_found = True
         db.commit()
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No verified live market price sources found",
+        )
 
     grapes = grape_result.get("grapes", [])
     if not isinstance(grapes, list):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes"
+        )
     grape_source_url = str(grape_result.get("source_url") or "").strip()
     verified_grape_source = next(
         (
@@ -1978,7 +2243,9 @@ def generate_all_wine_ai(
         + ([grape_source_entry] if grape_source_entry else [])
     )
     effective_model = effective_response_model(response, selected_model)
-    publish_shared_fact(db, wine, "notes", {"ai_notes": wine.ai_notes}, locale=payload.locale, model=effective_model)
+    publish_shared_fact(
+        db, wine, "notes", {"ai_notes": wine.ai_notes}, locale=payload.locale, model=effective_model
+    )
     publish_shared_fact(
         db,
         wine,
@@ -1997,7 +2264,11 @@ def generate_all_wine_ai(
         db,
         wine,
         "value",
-        {"current_value": str(wine.current_value), "currency": wine.currency, "notes": wine.ai_value_notes},
+        {
+            "current_value": str(wine.current_value),
+            "currency": wine.currency,
+            "notes": wine.ai_value_notes,
+        },
         locale=payload.locale,
         sources=audit_sources,
         model=effective_model,
@@ -2045,16 +2316,23 @@ def enrich_wine_label(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineLabelEnrichmentResponse:
     if payload.source in {"label", "photo"} and not context.user.can_use_label_recognition:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Wine label recognition is not enabled for this user")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Wine label recognition is not enabled for this user",
+        )
     user_settings = get_or_create_user_ai_settings(db, context)
     model = request_model(payload, user_settings.grape_model or settings.openai_grape_model)
     confirmed_identity = "\n".join(
         value
         for value in (
             f"Confirmed wine name: {payload.confirmed_name}" if payload.confirmed_name else "",
-            f"Confirmed producer: {payload.confirmed_producer}" if payload.confirmed_producer else "",
+            f"Confirmed producer: {payload.confirmed_producer}"
+            if payload.confirmed_producer
+            else "",
             f"Confirmed vintage: {payload.confirmed_vintage}" if payload.confirmed_vintage else "",
-            f"Confirmed appellation: {payload.confirmed_appellation}" if payload.confirmed_appellation else "",
+            f"Confirmed appellation: {payload.confirmed_appellation}"
+            if payload.confirmed_appellation
+            else "",
         )
         if value
     )
@@ -2084,7 +2362,18 @@ def enrich_wine_label(
                 "confidence": {"type": "string", "enum": ["low", "medium", "high"]},
                 "notes": {"type": "string"},
             },
-            "required": ["name", "producer", "vintage", "type", "region", "appellation", "country", "grapes_text", "confidence", "notes"],
+            "required": [
+                "name",
+                "producer",
+                "vintage",
+                "type",
+                "region",
+                "appellation",
+                "country",
+                "grapes_text",
+                "confidence",
+                "notes",
+            ],
         },
     }
     response, provider_source = create_ai_response(
@@ -2107,7 +2396,7 @@ def enrich_wine_label(
             f"{photo_identity_rules}"
             "Guidelines:\n"
             "- name should be the cuvee/wine name without vintage or producer when possible.\n"
-            "- Preserve apostrophes inside names. Do not truncate Italian or French names at apostrophes, e.g. keep \"Torre dell'anima\" complete.\n"
+            '- Preserve apostrophes inside names. Do not truncate Italian or French names at apostrophes, e.g. keep "Torre dell\'anima" complete.\n'
             "- producer should be winery/domain/brand.\n"
             "- If the input contains patterns like 'X di Y', 'X by Y', or 'X de Y', treat Y as a candidate producer and verify it.\n"
             "- vintage should be a four-digit year, NV, MV, or empty.\n"
@@ -2131,7 +2420,8 @@ def enrich_wine_label(
         bool(
             payload.confirmed_producer
             and result_producer
-            and normalize_identity(payload.confirmed_producer) != normalize_identity(result_producer)
+            and normalize_identity(payload.confirmed_producer)
+            != normalize_identity(result_producer)
         )
         or bool(
             payload.confirmed_vintage
@@ -2280,7 +2570,12 @@ def generate_wine_value(
     ):
         return ai_wine_response(db, context, wine)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wine_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(wine.currency), currency=wine.currency, wine_context=wine_market_context(wine))
+    prompt = wine_value_prompt(
+        locale=payload.locale,
+        currency_instruction=value_currency_instruction(wine.currency),
+        currency=wine.currency,
+        wine_context=wine_market_context(wine),
+    )
     schema = {
         "name": "wine_value",
         "schema": {
@@ -2327,26 +2622,41 @@ def generate_wine_value(
     try:
         value = Decimal(str(result["current_value"])).quantize(Decimal("0.01"))
     except (InvalidOperation, KeyError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid value") from exc
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid value"
+        ) from exc
     result_currency = str(result.get("currency") or wine.currency)[:8]
-    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
+    market_sources = normalize_market_sources(
+        result.get("market_sources"), default_currency=result_currency, require_url=True
+    )
     if not market_sources:
         wine.value_not_found = True
         db.commit()
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No verified live market price sources found",
+        )
     wine.current_value = max(value, Decimal("0"))
     wine.value_not_found = False
     wine.currency = result_currency
     wine.ai_value_notes = str(result["notes"])[:2000]
     wine.ai_value_estimated_at = datetime.now(UTC)
     note_entry = market_note_source(result.get("market_note") or result.get("notes"))
-    audit_sources = market_sources + web_search_source_entries(response.web_sources) + ([note_entry] if note_entry else [])
+    audit_sources = (
+        market_sources
+        + web_search_source_entries(response.web_sources)
+        + ([note_entry] if note_entry else [])
+    )
     mark_local_feature(wine, "value")
     publish_shared_fact(
         db,
         wine,
         "value",
-        {"current_value": str(wine.current_value), "currency": wine.currency, "notes": wine.ai_value_notes},
+        {
+            "current_value": str(wine.current_value),
+            "currency": wine.currency,
+            "notes": wine.ai_value_notes,
+        },
         locale=payload.locale,
         sources=audit_sources,
         model=effective_response_model(response, user_settings.value_model),
@@ -2427,7 +2737,9 @@ def generate_grapes(
     result = parse_json_response(response.text)
     grapes = result.get("grapes", [])
     if not isinstance(grapes, list):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid grapes"
+        )
     verified_source = response.web_sources[0] if response.web_sources else {}
     saved_verified_grapes = bool(grapes and verified_source.get("url"))
     if saved_verified_grapes:
@@ -2463,7 +2775,12 @@ def generate_grapes(
         feature="grapes",
         model=effective_response_model(response, user_settings.grape_model),
         reasoning_effort=response.reasoning_effort or "",
-        summary=note or ("Verified grape composition saved" if saved_verified_grapes else "No verified grape composition found"),
+        summary=note
+        or (
+            "Verified grape composition saved"
+            if saved_verified_grapes
+            else "No verified grape composition found"
+        ),
         sources=web_search_source_entries(response.web_sources),
         usage=response.usage,
         provider_source=provider_source,
@@ -2482,7 +2799,9 @@ def generate_scores(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     if wine.scores_not_applicable:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI score lookup disabled for this wine")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="AI score lookup disabled for this wine"
+        )
     if reuse_shared_wine_feature(
         db, context, wine, "scores", locale=payload.locale, force_refresh=payload.force_refresh
     ):
@@ -2529,7 +2848,9 @@ def generate_scores(
     result = parse_json_response(response.text)
     scores = result.get("scores") or []
     if not isinstance(scores, list):
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid scores")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid scores"
+        )
     new_scores = [
         {
             "critic": str(item.get("critic") or "")[:120],
@@ -2540,7 +2861,10 @@ def generate_scores(
         if isinstance(item, dict) and (item.get("critic") or item.get("score"))
     ][:8]
     known_scores = {
-        (str(score.get("critic") or "").strip().casefold(), str(score.get("score") or "").strip().casefold())
+        (
+            str(score.get("critic") or "").strip().casefold(),
+            str(score.get("score") or "").strip().casefold(),
+        )
         for score in existing_scores
     }
     additional_scores = []
@@ -2561,9 +2885,7 @@ def generate_scores(
         existing_fact = get_shared_fact(db, wine, "scores", locale=payload.locale)
         if existing_fact is not None and isinstance(existing_fact.payload.get("scores"), list):
             existing_shared_scores = [
-                dict(item)
-                for item in existing_fact.payload["scores"]
-                if isinstance(item, dict)
+                dict(item) for item in existing_fact.payload["scores"] if isinstance(item, dict)
             ]
         verified_scores: list[dict] = []
         verified_keys: set[tuple[str, str]] = set()
@@ -2612,7 +2934,9 @@ def generate_wishlist_strategy(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wishlist_advice_prompt(locale=payload.locale, wishlist_context=wishlist_advice_context(item))
+    prompt = wishlist_advice_prompt(
+        locale=payload.locale, wishlist_context=wishlist_advice_context(item)
+    )
     schema = {
         "name": "wishlist_strategy",
         "schema": {
@@ -2624,7 +2948,12 @@ def generate_wishlist_strategy(
                 "recommended_status": {"type": "string"},
                 "recommended_priority": {"type": "string"},
             },
-            "required": ["strategy", "purpose_advice", "recommended_status", "recommended_priority"],
+            "required": [
+                "strategy",
+                "purpose_advice",
+                "recommended_status",
+                "recommended_priority",
+            ],
         },
     }
     response, provider_source = create_ai_response(
@@ -2669,7 +2998,9 @@ def generate_wishlist_purpose(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wishlist_purpose_prompt(locale=payload.locale, wishlist_context=wishlist_advice_context(item))
+    prompt = wishlist_purpose_prompt(
+        locale=payload.locale, wishlist_context=wishlist_advice_context(item)
+    )
     schema = {
         "name": "wishlist_purpose",
         "schema": {
@@ -2724,7 +3055,13 @@ def generate_wishlist_target_price(
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
     user_settings = get_or_create_user_ai_settings(db, context)
-    prompt = wishlist_value_prompt(locale=payload.locale, currency_instruction=value_currency_instruction(item.currency), currency=item.currency, target_price=item.target_price if item.target_price and item.target_price > 0 else None, wishlist_context=wishlist_market_context(item, include_ai_context=True))
+    prompt = wishlist_value_prompt(
+        locale=payload.locale,
+        currency_instruction=value_currency_instruction(item.currency),
+        currency=item.currency,
+        target_price=item.target_price if item.target_price and item.target_price > 0 else None,
+        wishlist_context=wishlist_market_context(item, include_ai_context=True),
+    )
     schema = {
         "name": "wishlist_market_price",
         "schema": {
@@ -2753,7 +3090,14 @@ def generate_wishlist_target_price(
                     },
                 },
             },
-            "required": ["market_price", "market_price_currency", "price_advice", "recommended_status", "market_note", "market_sources"],
+            "required": [
+                "market_price",
+                "market_price_currency",
+                "price_advice",
+                "recommended_status",
+                "market_note",
+                "market_sources",
+            ],
         },
     }
     response, provider_source = create_ai_response(
@@ -2772,17 +3116,28 @@ def generate_wishlist_target_price(
     try:
         market_price = Decimal(str(result["market_price"])).quantize(Decimal("0.01"))
     except (InvalidOperation, KeyError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid market price") from exc
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid market price"
+        ) from exc
     result_currency = str(result.get("market_price_currency") or item.currency)[:8]
-    market_sources = normalize_market_sources(result.get("market_sources"), default_currency=result_currency, require_url=True)
+    market_sources = normalize_market_sources(
+        result.get("market_sources"), default_currency=result_currency, require_url=True
+    )
     if not market_sources:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="No verified live market price sources found")
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="No verified live market price sources found",
+        )
     item.ai_market_price = max(market_price, Decimal("0"))
     item.ai_market_price_currency = result_currency
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.ai_strategy = str(result["price_advice"])[:3000]
     note_entry = market_note_source(result.get("market_note") or result.get("price_advice"))
-    audit_sources = market_sources + web_search_source_entries(response.web_sources) + ([note_entry] if note_entry else [])
+    audit_sources = (
+        market_sources
+        + web_search_source_entries(response.web_sources)
+        + ([note_entry] if note_entry else [])
+    )
     record_ai_audit(
         db,
         context,
@@ -2937,7 +3292,13 @@ def suggest_regional_gap_targets(
         model=effective_response_model(response, user_settings.wishlist_model),
         reasoning_effort=response.reasoning_effort or "",
         summary=f"{payload.profile}: {suggestion.rationale}",
-        sources=[{"kind": "regional_gap_targets", "profile": payload.profile, "targets": [target.model_dump(mode="json") for target in normalized]}],
+        sources=[
+            {
+                "kind": "regional_gap_targets",
+                "profile": payload.profile,
+                "targets": [target.model_dump(mode="json") for target in normalized],
+            }
+        ],
         usage=response.usage,
         provider_source=provider_source,
     )
@@ -2968,7 +3329,9 @@ def generate_wishlist_portfolio_strategy(
         ),
     )
     if not items:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wishlist is empty")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wishlist is empty"
+        )
     schema = {
         "name": "wishlist_portfolio_strategy",
         "schema": {

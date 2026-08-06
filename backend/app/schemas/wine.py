@@ -93,6 +93,8 @@ class WineTastingEntryResponse(BaseModel):
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    sommelier_feedback: str = ""
+    sommelier_feedback_at: datetime | None = None
     created_at: datetime
 
 
@@ -113,6 +115,8 @@ class TastingArchiveItemResponse(BaseModel):
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    sommelier_feedback: str = ""
+    sommelier_feedback_at: datetime | None = None
     created_at: datetime
     tasting_id: UUID
 

@@ -11834,6 +11834,66 @@ button.stat-card:hover {
   font-weight: 500;
 }
 
+.tasting-sommelier-invite,
+.tasting-sommelier-feedback {
+  display: grid;
+  gap: 9px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--collector-sheen) 42%, transparent), transparent 46%),
+    color-mix(in srgb, var(--surface-muted) 82%, var(--surface));
+}
+
+.tasting-sommelier-invite > div:first-child,
+.tasting-sommelier-feedback > span {
+  display: grid;
+  gap: 3px;
+}
+
+.tasting-sommelier-invite span,
+.tasting-sommelier-feedback > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-strong);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.tasting-sommelier-invite strong {
+  color: var(--text);
+  font-size: 0.94rem;
+}
+
+.tasting-sommelier-invite > button {
+  justify-self: start;
+}
+
+.tasting-sommelier-invite textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.tasting-sommelier-invite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tasting-sommelier-feedback {
+  border-color: color-mix(in srgb, var(--drink-ideal) 36%, var(--border));
+}
+
+.tasting-sommelier-feedback p {
+  margin: 0;
+  color: var(--text);
+  line-height: 1.5;
+}
+
 .tasting-archive-actions {
   display: flex;
   flex-wrap: wrap;
