@@ -283,22 +283,43 @@ export default function TastingArchiveSection({
       <TastingArchiveInsights locale={locale} />
       <div className="tasting-archive-list">
         {entries.map((entry) => (
-        <article className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
-          <div className="tasting-archive-head">
-            <div className="tasting-archive-title">
-              <strong><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} aria-hidden="true" />{entry.wine.name}</strong>
-              <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
+        <details className={`tasting-archive-entry tone-${wineTone(entry.wine.type)}`} key={entry.id}>
+          <summary className="tasting-archive-entry-summary">
+            <div className="tasting-archive-head">
+              <div className="tasting-archive-title">
+                <strong><i className={`wine-dot tone-${wineTone(entry.wine.type)}`} aria-hidden="true" />{entry.wine.name}</strong>
+                <span>{[entry.wine.producer, entry.wine.vintage, entry.wine.region].filter(Boolean).join(" - ")}</span>
+              </div>
+              <div className="tasting-archive-summary">
+                <span>{formatDisplayDate(entry.consumed_at)}</span>
+                {entry.sommelier_pairing_score !== null ? <strong className="tasting-archive-ai-score"><small>AI</small>{entry.sommelier_pairing_score}/10</strong> : null}
+                {canGenerateAi && entry.pairing && !entry.sommelier_feedback ? (
+                  <button
+                    type="button"
+                    className="secondary compact tasting-archive-ai-trigger"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      setReflectionEntryId(entry.id);
+                      setReflectionDraft("");
+                      const archiveEntry = event.currentTarget.closest("details");
+                      if (archiveEntry) archiveEntry.open = true;
+                    }}
+                  >
+                    <AppIcon name="glass-sparkle" />
+                    {locale === "it" ? "Valuta con AI" : "Evaluate with AI"}
+                  </button>
+                ) : null}
+                {entry.rating ? <strong>{entry.rating}/6</strong> : null}
+                <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
+              </div>
             </div>
-            <div className="tasting-archive-summary">
-              <span>{formatDisplayDate(entry.consumed_at)}</span>
-              {entry.rating ? <strong>{entry.rating}/6</strong> : null}
-              <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
-            </div>
-          </div>
-          <p className="tasting-archive-meta">
-            {[displayValue(entry.wine.format, locale, "format"), displayValue(entry.wine.type, locale, "type"), entry.wine.appellation].filter(Boolean).join(" - ")}
-          </p>
-          {editingId === entry.id ? (
+          </summary>
+          <div className="tasting-archive-entry-body">
+            <p className="tasting-archive-meta">
+              {[displayValue(entry.wine.format, locale, "format"), displayValue(entry.wine.type, locale, "type"), entry.wine.appellation].filter(Boolean).join(" - ")}
+            </p>
+            {editingId === entry.id ? (
             <TastingEntryEditor
               draft={editDraft}
               setDraft={setEditDraft}
@@ -331,26 +352,28 @@ export default function TastingArchiveSection({
                 </div>
               ) : null}
               {entry.sommelier_feedback ? (
-                <aside className="tasting-sommelier-feedback">
-                  <div className="tasting-sommelier-feedback-head">
-                    <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Valutazione dell'abbinamento" : "Pairing evaluation"}</span>
-                    {entry.sommelier_pairing_score ? <strong>{entry.sommelier_pairing_score}<small>/10</small></strong> : null}
+                <details className="tasting-sommelier-feedback">
+                  <summary className="tasting-sommelier-feedback-head">
+                    <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Valutazione AI dell'abbinamento" : "AI pairing evaluation"}</span>
+                    {entry.sommelier_pairing_score !== null ? <strong>{entry.sommelier_pairing_score}<small>/10</small></strong> : null}
+                  </summary>
+                  <div className="tasting-sommelier-feedback-body">
+                    <p>{entry.sommelier_feedback}</p>
+                    {entry.sommelier_pairing_advice ? (
+                      <p className="tasting-sommelier-advice"><b>{locale === "it" ? "Consiglio" : "Advice"}:</b> {entry.sommelier_pairing_advice}</p>
+                    ) : null}
+                    {entry.sommelier_feedback_cost_usd !== null ? (
+                      <small className="tasting-sommelier-cost">{locale === "it" ? "Costo richiesta AI" : "AI request cost"}: {formatAiBudget(entry.sommelier_feedback_cost_usd)}</small>
+                    ) : null}
                   </div>
-                  <p>{entry.sommelier_feedback}</p>
-                  {entry.sommelier_pairing_advice ? (
-                    <p className="tasting-sommelier-advice"><b>{locale === "it" ? "Consiglio" : "Advice"}:</b> {entry.sommelier_pairing_advice}</p>
-                  ) : null}
-                  {entry.sommelier_feedback_cost_usd !== null ? (
-                    <small className="tasting-sommelier-cost">{locale === "it" ? "Costo richiesta AI" : "AI request cost"}: {formatAiBudget(entry.sommelier_feedback_cost_usd)}</small>
-                  ) : null}
-                </aside>
+                </details>
               ) : null}
               {canGenerateAi && entry.pairing ? (
                 <aside className="tasting-sommelier-invite">
                   {reflectionEntryId === entry.id ? (
                     <>
                       <div>
-                        <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Un ricordo per il Sommelier" : "A note for the Sommelier"}</span>
+                        <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Dettagli per il Sommelier AI" : "Details for the AI Sommelier"}</span>
                         <strong>{locale === "it" ? "Che cosa rifaresti di questa esperienza?" : "What would you repeat from this experience?"}</strong>
                       </div>
                       <textarea
@@ -375,8 +398,8 @@ export default function TastingArchiveSection({
                           }}
                         >
                           {reflectingEntryId === entry.id
-                            ? (locale === "it" ? "Il Sommelier riflette…" : "Sommelier is reflecting…")
-                            : (locale === "it" ? "Chiedi al Sommelier" : "Ask the Sommelier")}
+                            ? (locale === "it" ? "Il Sommelier AI valuta…" : "AI Sommelier is evaluating…")
+                            : (locale === "it" ? "Valuta con il Sommelier AI" : "Evaluate with the AI Sommelier")}
                         </button>
                         <button type="button" className="secondary compact" disabled={reflectingEntryId === entry.id} onClick={() => { setReflectionEntryId(null); setReflectionDraft(""); }}>
                           {t("cancel")}
@@ -386,11 +409,11 @@ export default function TastingArchiveSection({
                   ) : (
                     <>
                       <div>
-                        <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Sommelier della cantina" : "Cellar Sommelier"}</span>
-                        <strong>{locale === "it" ? "Valuta davvero l'abbinamento" : "Get a real pairing evaluation"}</strong>
+                        <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Sommelier AI della cantina" : "Cellar AI Sommelier"}</span>
+                        <strong>{locale === "it" ? "Scopri quanto funziona l'abbinamento" : "See how well the pairing works"}</strong>
                       </div>
                       <button type="button" className="secondary compact" onClick={() => setReflectionEntryId(entry.id)}>
-                        <AppIcon name="glass-sparkle" />{locale === "it" ? "Raccontalo al Sommelier" : "Tell the Sommelier"}
+                        <AppIcon name="glass-sparkle" />{locale === "it" ? "Valuta con il Sommelier AI" : "Evaluate with the AI Sommelier"}
                       </button>
                     </>
                   )}
@@ -415,8 +438,9 @@ export default function TastingArchiveSection({
                 ) : null}
               </div>
             </>
-          )}
-        </article>
+            )}
+          </div>
+        </details>
         ))}
       </div>
     </>

@@ -1,5 +1,9 @@
 .tasting-archive-insights { display: grid; gap: .9rem; margin: 0 0 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--panel) 88%, var(--accent) 12%); }
 .tasting-archive-insights > header, .tasting-profile-title, .tasting-profile-card dl > div { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.tasting-profile-periods { display: flex; flex-wrap: wrap; gap: .4rem; }
+.tasting-profile-periods button { min-height: 34px; padding: .4rem .7rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); background: var(--panel); font-size: .78rem; font-weight: 750; }
+.tasting-profile-periods button.active { border-color: color-mix(in srgb, var(--accent) 46%, var(--line)); color: var(--text); background: color-mix(in srgb, var(--accent) 12%, var(--panel)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent); }
+.tasting-profile-empty { margin: 0; padding: .8rem; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); background: var(--panel); }
 .tasting-archive-insights h3 { margin: .15rem 0 0; font-size: 1rem; }
 .tasting-archive-insights > header > span, .tasting-profile-title span, .tasting-profile-card dt, .tasting-profile-note, .tasting-profile-unavailable { color: var(--muted); font-size: .82rem; }
 .tasting-profile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .7rem; }

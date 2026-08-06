@@ -2819,6 +2819,14 @@ def test_tasting_archive_reads_paginated_normalized_entries():
         }
     ]
 
+    period_page = client.get(
+        "/api/v1/wines/tasting-archive?from_date=2026-02-01&limit=50&offset=0"
+    )
+    assert period_page.status_code == 200
+    assert period_page.json()["total"] == 1
+    assert period_page.json()["items"][0]["note"] == "Second archive note"
+    assert period_page.json()["profile"][0]["count"] == 1
+
 
 def test_user_can_create_and_switch_to_second_household():
     client = TestClient(app)

@@ -584,6 +584,7 @@ def list_tasting_archive(
     q: str = Query(default=""),
     type: str = Query(default=""),
     status_filter: str = Query(default="", alias="status"),
+    from_date: date | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -593,6 +594,8 @@ def list_tasting_archive(
     normalized_type = normalize_wine_type(type).lower()
     normalized_status = status_filter.strip().lower()
     filters = [WineTastingEntry.household_id == context.household.id]
+    if from_date is not None:
+        filters.append(WineTastingEntry.consumed_at >= from_date)
     if normalized_type:
         filters.append(func.lower(Wine.type) == normalized_type)
     if normalized_status:
