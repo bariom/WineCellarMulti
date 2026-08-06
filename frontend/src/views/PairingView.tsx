@@ -1,4 +1,4 @@
-import { FormEvent } from "react";
+import { FormEvent, useState } from "react";
 import { FeatureIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
 import { reasoningEffortTranslationKey } from "../i18n";
@@ -18,6 +18,7 @@ type PairingResult = {
   reasoning_effort: string;
   cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
   market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
+  dish_recommendations: Array<{ name: string; description: string; why_it_works: string; dietary_note: string }>;
   estimated_cost_usd: string;
 };
 
@@ -38,6 +39,7 @@ type PairingViewProps = {
   pairingBudgetSliderMax: number;
   pairingBudgetSliderValue: number;
   pairingDish: string;
+  pairingTargetWine: WineLike | null;
   pairingIgnorePreferences: boolean;
   pairingIncludeMarket: boolean;
   pairingLocalOrigin: string;
@@ -50,11 +52,12 @@ type PairingViewProps = {
   savedPairingPreferences: string;
   wines: WineLike[];
   formatAiBudget: (value: string | number) => string;
-  onGeneratePairing: (event: FormEvent<HTMLFormElement>) => void;
+  onGeneratePairing: (event: FormEvent<HTMLFormElement>, context?: [string | null, string, string]) => void;
   onOpenWine: (wine: any) => void;
   onSavePairingPreferences: () => void;
   setAiSettingsDraft: (value: any) => void;
   setPairingDish: (value: string) => void;
+  setPairingTargetWine: (value: string | null) => void;
   setPairingIgnorePreferences: (value: boolean) => void;
   setPairingIncludeMarket: (value: boolean) => void;
   setPairingLocalOrigin: (value: string) => void;
@@ -117,6 +120,7 @@ export default function PairingView({
   pairingBudgetSliderMax,
   pairingBudgetSliderValue,
   pairingDish,
+  pairingTargetWine,
   pairingIgnorePreferences,
   pairingIncludeMarket,
   pairingLocalOrigin,
@@ -129,6 +133,7 @@ export default function PairingView({
   savedPairingPreferences,
   setAiSettingsDraft,
   setPairingDish,
+  setPairingTargetWine,
   setPairingIgnorePreferences,
   setPairingIncludeMarket,
   setPairingLocalOrigin,
@@ -139,6 +144,18 @@ export default function PairingView({
   t,
   wines,
 }: PairingViewProps) {
+  const [pairingDietaryPreferences, setPairingDietaryPreferences] = useState("");
+  const [pairingAllergies, setPairingAllergies] = useState("");
+  const isWineFirstPairing = Boolean(pairingTargetWine);
+  const pairingCopy = locale === "it"
+    ? {
+        forWine: "Piatti per questo vino", changeMode: "Scegli un piatto invece", preferences: "Preferenze alimentari", preferencesPlaceholder: "Es. vegetariano, pescetariano, gradisco il piccante",
+        allergies: "Allergie o ingredienti da evitare", allergiesPlaceholder: "Es. frutta a guscio, crostacei, lattosio", allergiesHelp: "Indica allergie o restrizioni per escluderle dai suggerimenti.", dishes: "Piatti suggeriti",
+      }
+    : {
+        forWine: "Dishes for this wine", changeMode: "Choose a dish instead", preferences: "Food preferences", preferencesPlaceholder: "E.g. vegetarian, pescatarian, spicy food welcome",
+        allergies: "Allergies or ingredients to avoid", allergiesPlaceholder: "E.g. nuts, shellfish, lactose", allergiesHelp: "Tell us any allergies or restrictions so they can be excluded from the suggestions.", dishes: "Suggested dishes",
+      };
   const pairingPreviewLimit = 3;
   const cellarMatchBudgetValues = pairingResult?.cellar_matches
     .map((match) => {
@@ -183,7 +200,7 @@ export default function PairingView({
       return first.originalRank - second.originalRank;
     })
     .slice(0, pairingPreviewLimit);
-  const pairingResultCount = pairingPreviewItems.length;
+  const pairingResultCount = isWineFirstPairing ? (pairingResult?.dish_recommendations.length || 0) : pairingPreviewItems.length;
 
   return (
     <section className="pairing-card">
@@ -201,12 +218,37 @@ export default function PairingView({
       </div>
       <div className="pairing-layout">
         <div className="pairing-main">
-          <form className="pairing-form" onSubmit={onGeneratePairing}>
-            <label>
-              <span>{t("pairingDish")}</span>
-              <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
-            </label>
-            <div className="pairing-budget-control">
+          <form className="pairing-form" onSubmit={(event) => onGeneratePairing(event, [pairingTargetWine?.id || null, pairingDietaryPreferences, pairingAllergies])}>
+            {isWineFirstPairing ? (
+              <div className="pairing-match" style={{ gridTemplateColumns: pairingTargetWine?.photo_thumbnail_url ? "58px minmax(0, 1fr) auto" : "minmax(0, 1fr) auto", alignItems: "center" }}>
+                {pairingTargetWine?.photo_thumbnail_url ? <img src={pairingTargetWine.photo_thumbnail_url} alt="" loading="lazy" style={{ width: "58px", maxHeight: "86px", objectFit: "contain", justifySelf: "center" }} /> : null}
+                <div style={{ display: "grid", gap: 3, minWidth: 0 }}>
+                  <span>{pairingCopy.forWine}</span>
+                  <strong>{pairingTargetWine?.name}</strong>
+                  {pairingTargetWine?.producer ? <small>{pairingTargetWine.producer}</small> : null}
+                </div>
+                <button type="button" className="secondary compact" onClick={() => setPairingTargetWine(null)} disabled={generatingAi === "pairing"}>{pairingCopy.changeMode}</button>
+              </div>
+            ) : (
+              <label>
+                <span>{t("pairingDish")}</span>
+                <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+              </label>
+            )}
+            {isWineFirstPairing ? (
+              <>
+                <label>
+                  <span>{pairingCopy.preferences}</span>
+                  <textarea value={pairingDietaryPreferences} onChange={(event) => setPairingDietaryPreferences(event.target.value)} placeholder={pairingCopy.preferencesPlaceholder} rows={2} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                </label>
+                <label>
+                  <span>{pairingCopy.allergies}</span>
+                  <textarea value={pairingAllergies} onChange={(event) => setPairingAllergies(event.target.value)} placeholder={pairingCopy.allergiesPlaceholder} rows={2} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                  <small>{pairingCopy.allergiesHelp}</small>
+                </label>
+              </>
+            ) : null}
+            {!isWineFirstPairing ? <div className="pairing-budget-control">
               <div className="pairing-budget-head">
                 <span>{t("pairingMaxPrice")}</span>
                 <strong>{hasPairingBudget ? `CHF ${activePairingBudget.toFixed(0)}` : t("pairingNoBudget")}</strong>
@@ -256,7 +298,7 @@ export default function PairingView({
                 </div>
               </div>
               <small>{t("pairingMaxPriceHelp")}</small>
-            </div>
+            </div> : null}
             <label className="pairing-preferences-field">
               <span>{t("pairingPreferences")}</span>
               <textarea
@@ -278,19 +320,19 @@ export default function PairingView({
                 {t("savePairingPreferences")}
               </button>
             </div>
-            <label className="pairing-option">
+            {!isWineFirstPairing ? <label className="pairing-option">
               <input type="checkbox" checked={pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
               <span>{t("pairingIgnorePreferences")}</span>
-            </label>
-            <label className="pairing-option">
+            </label> : null}
+            {!isWineFirstPairing ? <label className="pairing-option">
               <input type="checkbox" checked={pairingOnlyIdealDrinkWindow} onChange={(event) => setPairingOnlyIdealDrinkWindow(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
               <span>{t("pairingOnlyIdealDrinkWindow")}</span>
-            </label>
-            <label className="pairing-option">
+            </label> : null}
+            {!isWineFirstPairing ? <label className="pairing-option">
               <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
               <span>{t("pairingIncludeMarket")}</span>
-            </label>
-            <label className="pairing-option">
+            </label> : null}
+            {!isWineFirstPairing ? <label className="pairing-option">
               <input
                 type="checkbox"
                 checked={pairingMarketOnly}
@@ -305,8 +347,8 @@ export default function PairingView({
                 disabled={!canGenerateAi || generatingAi === "pairing"}
               />
               <span>{t("pairingMarketOnly")}</span>
-            </label>
-            {pairingMarketOnly ? (
+            </label> : null}
+            {!isWineFirstPairing && pairingMarketOnly ? (
               <>
                 <label className="pairing-option">
                   <input
@@ -340,10 +382,24 @@ export default function PairingView({
             {generatingAi === "pairing" ? <LoadingState label={t("generating")} compact /> : null}
             {!canGenerateAi ? <EmptyState title={t("noApiKey")} icon="glass-sparkle" compact /> : null}
           </form>
-          {pairingResult ? (
+          {pairingResult && (!isWineFirstPairing || pairingResult.dish_recommendations.length) ? (
             <div className="pairing-result">
               {pairingResult.summary ? <p className="pairing-summary">{pairingResult.summary}</p> : null}
-              {pairingResult.cellar_matches.length ? (
+              {isWineFirstPairing && pairingResult.dish_recommendations.length ? (
+                <section>
+                  <h3>{pairingCopy.dishes}</h3>
+                  <div className="pairing-match-list">
+                    {pairingResult.dish_recommendations.map((dish, index) => (
+                      <article className="pairing-match" key={`${dish.name}-${index}`}>
+                        <strong>{dish.name}</strong>
+                        {dish.description ? <span>{dish.description}</span> : null}
+                        {dish.why_it_works ? <span><b>{t("pairingWhy")}:</b> {dish.why_it_works}</span> : null}
+                        {dish.dietary_note ? <small>{dish.dietary_note}</small> : null}
+                      </article>
+                    ))}
+                  </div>
+                </section>
+              ) : !isWineFirstPairing && pairingResult.cellar_matches.length ? (
                 <section>
                   <h3>{t("pairingCellarMatches")}</h3>
                   <div className="pairing-match-list">
@@ -379,8 +435,8 @@ export default function PairingView({
                     })}
                   </div>
                 </section>
-              ) : <p className="pairing-summary">{t("pairingNoCellarMatch")}</p>}
-              {Object.values(pairingResult.market_recommendations).some((items) => items.length > 0) ? (
+              ) : !isWineFirstPairing ? <p className="pairing-summary">{t("pairingNoCellarMatch")}</p> : null}
+              {!isWineFirstPairing && Object.values(pairingResult.market_recommendations).some((items) => items.length > 0) ? (
                 <section>
                   <h3>{t("pairingMarketFallback")}</h3>
                   <div className="pairing-market-grid">
@@ -441,9 +497,9 @@ export default function PairingView({
               </div>
             ) : (
               <p className="pairing-sidekick-empty">
-                {locale === "it"
-                  ? "Inserisci un piatto e un eventuale budget per ricevere suggerimenti contestualizzati dalla tua cantina."
-                  : "Enter a dish and an optional budget to receive contextual suggestions from your cellar."}
+                {isWineFirstPairing
+                  ? (locale === "it" ? "Indica preferenze o allergie e ricevi piatti studiati per questa bottiglia." : "Add preferences or allergies to receive dishes tailored to this bottle.")
+                  : (locale === "it" ? "Inserisci un piatto e un eventuale budget per ricevere suggerimenti contestualizzati dalla tua cantina." : "Enter a dish and an optional budget to receive contextual suggestions from your cellar.")}
               </p>
             )}
           </div>

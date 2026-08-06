@@ -138,7 +138,10 @@ class RegionalGapTargetSuggestionResponse(BaseModel):
 
 
 class PairingRequest(AiGenerationRequest):
-    dish: str = Field(min_length=2, max_length=240)
+    dish: str = Field(default="", max_length=240)
+    target_wine_id: UUID | None = None
+    dietary_preferences: str = Field(default="", max_length=600)
+    allergies: str = Field(default="", max_length=600)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     include_market: bool = False
     market_only: bool = False
@@ -163,12 +166,20 @@ class PairingMarketWine(BaseModel):
     reason: str = ""
 
 
+class PairingDishRecommendation(BaseModel):
+    name: str
+    description: str = ""
+    why_it_works: str = ""
+    dietary_note: str = ""
+
+
 class PairingResponse(BaseModel):
     summary: str = ""
     model: str
     reasoning_effort: str = ""
     cellar_matches: list[PairingCellarMatch] = Field(default_factory=list)
     market_recommendations: dict[str, list[PairingMarketWine]] = Field(default_factory=dict)
+    dish_recommendations: list[PairingDishRecommendation] = Field(default_factory=list)
     estimated_cost_usd: Decimal = Decimal("0")
 
 

@@ -65,6 +65,7 @@ from app.schemas.ai import (
     BuyingAdviceResponse,
     BuyingRecommendation,
     PairingCellarMatch,
+    PairingDishRecommendation,
     PairingMarketWine,
     PairingRequest,
     PairingResponse,
@@ -110,7 +111,7 @@ GPT56_DEFAULT_ROLE_BY_FIELD = {
     "grape_model": "economy",
     "score_model": "economy",
     "wishlist_model": "balanced",
-    "pairing_model": "balanced",
+    "pairing_model": "economy",
 }
 PAIRING_MAX_CANDIDATES = 25
 DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
@@ -1137,7 +1138,13 @@ def pairing_budget_value_chf(wine: Wine) -> Decimal:
     return Decimal(str(reference_value))
 
 
-def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_market: bool) -> PairingResponse:
+def clean_pairing_response(
+    payload: dict,
+    available_wine_ids: set[str],
+    include_market: bool,
+    *,
+    target_wine: Wine | None = None,
+) -> PairingResponse:
     matches = payload.get("cellar_matches", [])
     if not isinstance(matches, list):
         matches = []
@@ -1161,7 +1168,7 @@ def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_
         )
 
     market: dict[str, list[PairingMarketWine]] = {"low": [], "medium": [], "high": []}
-    if include_market or not cleaned_matches:
+    if target_wine is None and (include_market or not cleaned_matches):
         raw_market = payload.get("market_recommendations", {})
         if isinstance(raw_market, dict):
             for tier in ["low", "medium", "high"]:
@@ -1178,11 +1185,25 @@ def clean_pairing_response(payload: dict, available_wine_ids: set[str], include_
                     for item in items[:2]
                     if isinstance(item, dict) and str(item.get("name") or "").strip()
                 ]
+    raw_dishes = payload.get("dish_recommendations", [])
+    if not isinstance(raw_dishes, list):
+        raw_dishes = []
+    dishes = [
+        PairingDishRecommendation(
+            name=str(item.get("name") or "").strip(),
+            description=str(item.get("description") or "").strip(),
+            why_it_works=str(item.get("why_it_works") or "").strip(),
+            dietary_note=str(item.get("dietary_note") or "").strip(),
+        )
+        for item in raw_dishes[:3]
+        if isinstance(item, dict) and str(item.get("name") or "").strip()
+    ] if target_wine is not None else []
     return PairingResponse(
         summary=str(payload.get("summary") or "").strip(),
         model="",
         cellar_matches=cleaned_matches,
         market_recommendations=market,
+        dish_recommendations=dishes,
         estimated_cost_usd=Decimal("0"),
     )
 
@@ -1371,12 +1392,15 @@ def suggest_pairing(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> PairingResponse:
+    if payload.target_wine_id is None and len(payload.dish.strip()) < 2:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Dish is required")
     user_settings = get_or_create_user_ai_settings(db, context)
     pairing_preferences = "" if payload.ignore_preferences else (user_settings.pairing_preferences or "").strip()
     max_price_chf = Decimal(str(payload.max_price_chf)) if payload.max_price_chf is not None else None
     local_origin = payload.local_origin.strip()
     prefer_local_wines = payload.market_only and payload.prefer_local_wines and bool(local_origin)
-    cellar_wines = [] if payload.market_only else list(
+    target_wine = get_household_wine(db, context, payload.target_wine_id) if payload.target_wine_id else None
+    cellar_wines = [] if (payload.market_only or target_wine is not None) else list(
         db.scalars(
             select(Wine)
             .where(Wine.household_id == context.household.id)
@@ -1393,7 +1417,7 @@ def suggest_pairing(
         current_year = datetime.now(UTC).year
         cellar_wines = [wine for wine in cellar_wines if pairing_wine_is_in_ideal_window(wine, current_year)]
     cellar_wines = select_pairing_candidates(cellar_wines, limit=user_settings.pairing_candidate_limit)
-    wine_context_payload = [pairing_wine_context(wine) for wine in cellar_wines]
+    wine_context_payload = [pairing_wine_context(target_wine)] if target_wine is not None else [pairing_wine_context(wine) for wine in cellar_wines]
     schema = {
         "name": "wine_pairing",
         "schema": {
@@ -1438,17 +1462,40 @@ def suggest_pairing(
                     },
                     "required": ["low", "medium", "high"],
                 },
+                "dish_recommendations": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "name": {"type": "string"},
+                            "description": {"type": "string"},
+                            "why_it_works": {"type": "string"},
+                            "dietary_note": {"type": "string"},
+                        },
+                        "required": ["name", "description", "why_it_works", "dietary_note"],
+                    },
+                },
             },
-            "required": ["summary", "cellar_matches", "market_recommendations"],
+            "required": ["summary", "cellar_matches", "market_recommendations", "dish_recommendations"],
         },
     }
+    target_mode = target_wine is not None
+    selected_pairing_model = request_model(payload, user_settings.pairing_model)
+    target_system_prompt = (
+        "Sei un sommelier privato. Dato un vino gia selezionato, proponi da uno a tre piatti che lo valorizzino. "
+        "Le allergie e gli ingredienti da evitare sono vincoli assoluti: non suggerire piatti che li contengano, neppure come variante. "
+        "Le preferenze alimentari sono preferenze forti. Non proporre vini alternativi, mercato o cellar_matches. "
+        "Compila dish_recommendations e lascia cellar_matches e market_recommendations vuoti. Rispondi solo con JSON valido. "
+        f"{response_language_instruction(payload.locale)}"
+    )
     response, provider_source = create_ai_response(
         db,
         context,
         user_settings,
-        model=request_model(payload, user_settings.pairing_model),
+        model=selected_pairing_model,
         task_type="pairing",
-        system_prompt=(
+        system_prompt=target_system_prompt if target_mode else (
             "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
             "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
             "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
@@ -1458,6 +1505,12 @@ def suggest_pairing(
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
+            f"Vino selezionato: {wine_context_payload[0]}\n"
+            f"gusti_personali: {pairing_preferences or 'none'}\n"
+            f"preferenze_alimentari: {payload.dietary_preferences.strip() or 'none'}\n"
+            f"allergie_o_ingredienti_da_evitare: {payload.allergies.strip() or 'none'}\n"
+            "Proponi piatti concreti, realizzabili e distinti; indica brevemente perche funzionano e una nota utile sulle preferenze o allergie."
+        ) if target_mode else (
             f"Piatto o pietanza: {payload.dish}\n"
             f"budget_massimo_chf: {str(max_price_chf) if max_price_chf is not None else 'none'}\n"
             f"include_market: {str(payload.include_market).lower()}\n"
@@ -1471,17 +1524,23 @@ def suggest_pairing(
             "Se e presente un budget massimo in CHF, privilegia chiaramente bottiglie entro quel tetto e non proporre cellar_matches sopra budget. "
             "Se preferire_vini_locali e true, privilegia per il mercato bottiglie coerenti con origine_locale, restando sensato rispetto al piatto. "
             "Se include_market e true, le proposte di mercato devono stare entro il budget quando possibile. "
-            "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60."
+            "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60. "
+            "Lascia dish_recommendations vuoto."
         ),
         json_schema=schema,
     )
-    cleaned = clean_pairing_response(parse_json_response(response.text), {str(wine.id) for wine in cellar_wines}, payload.include_market)
-    cleaned.model = effective_response_model(response, user_settings.pairing_model)
+    cleaned = clean_pairing_response(
+        parse_json_response(response.text),
+        {str(wine.id) for wine in cellar_wines},
+        payload.include_market,
+        target_wine=target_wine,
+    )
+    cleaned.model = effective_response_model(response, selected_pairing_model)
     cleaned.reasoning_effort = response.reasoning_effort or ""
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
         provider_source=provider_source,
-        model=effective_response_model(response, user_settings.pairing_model),
+        model=effective_response_model(response, selected_pairing_model),
         usage=response.usage,
         db=db,
     )
@@ -1491,10 +1550,10 @@ def suggest_pairing(
         context,
         entity_type="pairing",
         entity_id=context.household.id,
-        feature="pairing",
-        model=effective_response_model(response, user_settings.pairing_model),
+        feature="pairing_dishes" if target_mode else "pairing",
+        model=effective_response_model(response, selected_pairing_model),
         reasoning_effort=response.reasoning_effort or "",
-        summary=f"{payload.dish}: {cleaned.summary}",
+        summary=f"{target_wine.name if target_wine is not None else payload.dish}: {cleaned.summary}",
         usage=response.usage,
         provider_source=provider_source,
     )

@@ -646,6 +646,7 @@ export type PairingResult = {
   reasoning_effort: string;
   cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
   market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
+  dish_recommendations: Array<{ name: string; description: string; why_it_works: string; dietary_note: string }>;
   estimated_cost_usd: string;
 };
 

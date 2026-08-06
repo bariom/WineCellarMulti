@@ -834,6 +834,7 @@ export function WineDetail({
   saving,
   generating,
   onGenerate,
+  onOpenPairing,
   onToggleValueAiExclusion,
   onToggleGrapesAiExclusion,
   onToggleScoresAiExclusion,
@@ -857,6 +858,7 @@ export function WineDetail({
   saving: boolean;
   generating: string;
   onGenerate: (feature: WineAiFeature) => void;
+  onOpenPairing: () => void;
   onToggleValueAiExclusion: (excluded: boolean) => void;
   onToggleGrapesAiExclusion: (excluded: boolean) => void;
   onToggleScoresAiExclusion: (excluded: boolean) => void;
@@ -960,6 +962,12 @@ export function WineDetail({
             </div>
           ) : null}
           <div className="ai-actions detail-ai-actions">
+            {canGenerate ? (
+              <button type="button" className="secondary compact" disabled={Boolean(generating)} onClick={onOpenPairing}>
+                <AppIcon name="glass-sparkle" variant="ai" />
+                {t("pairing")}
+              </button>
+            ) : null}
             <button type="button" className="secondary compact wine-ai-all-button" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("all")}>
               <ButtonBusyContent busy={generating === "all"} idleLabel={t("runAllWineAi")} busyLabel={t("generating")} />
             </button>

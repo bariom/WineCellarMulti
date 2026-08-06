@@ -4910,6 +4910,39 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     assert audit.json()[0]["model"] == "gpt-5.5"
 
 
+def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"}).status_code == 200
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Etna Rosso", "producer": "Produttore", "vintage": "2020", "quantity": 1, "price": 32, "status": "Delivered", "type": "Red"},
+    )
+    assert wine.status_code == 201
+
+    def fake_create_response(*args, **kwargs):
+        assert "Etna Rosso" in args[2]
+        assert "crostacei" in args[2]
+        return OpenAIResponse(
+            text='{"summary":"Tre idee leggere e mediterranee.","cellar_matches":[],"market_recommendations":{"low":[],"medium":[],"high":[]},"dish_recommendations":[{"name":"Melanzane alla parmigiana","description":"Versione vegetariana.","why_it_works":"La freschezza sostiene il pomodoro.","dietary_note":"Senza crostacei."}]}',
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    pairing = client.post(
+        "/api/v1/ai/pairing",
+        json={"target_wine_id": wine.json()["id"], "dietary_preferences": "vegetariano", "allergies": "crostacei"},
+    )
+    assert pairing.status_code == 200
+    assert pairing.json()["dish_recommendations"][0]["name"] == "Melanzane alla parmigiana"
+    assert pairing.json()["cellar_matches"] == []
+    assert pairing.json()["market_recommendations"] == {"low": [], "medium": [], "high": []}
+    assert client.get("/api/v1/ai/audit").json()[0]["feature"] == "pairing_dishes"
+
+
 def test_pairing_restaurant_mode_can_prefer_local_market_wines(monkeypatch):
     from app.api.routes import ai as ai_routes
 

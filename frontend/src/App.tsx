@@ -1,4 +1,5 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
@@ -1204,6 +1205,7 @@ export function App() {
   const [contactSupportDraft, setContactSupportDraft] = useState<ContactSupportDraft>(emptyContactSupportDraft);
   const [inviteDraft, setInviteDraft] = useState<InviteDraft>(emptyInviteDraft);
   const [pairingDish, setPairingDish] = useState("");
+  const [pairingTargetWineId, setPairingTargetWineId] = useState<string | null>(null);
   const [pairingMaxPrice, setPairingMaxPrice] = useState("");
   const [pairingIncludeMarket, setPairingIncludeMarket] = useState(false);
   const [pairingMarketOnly, setPairingMarketOnly] = useState(false);
@@ -1297,6 +1299,10 @@ export function App() {
   const helpReturnViewRef = useRef<ViewName>("home");
   const settingsReturnViewRef = useRef<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
+  const [cellarSommelierVisible, setCellarSommelierVisible] = useState(false);
+  const [cellarSommelierOpen, setCellarSommelierOpen] = useState(false);
+  const [cellarSommelierHighlightedWineId, setCellarSommelierHighlightedWineId] = useState<string | null>(null);
+  const cellarSommelierPromptedWineIdsRef = useRef(new Set<string>());
   const [primaryDashboardFocus, setPrimaryDashboardFocus] =
     useState<PrimaryDashboardFocus>("collector");
   const [dailyWineBudgetDraft, setDailyWineBudgetDraft] = useState("");
@@ -4384,9 +4390,9 @@ export function App() {
     }
   }
 
-  async function generatePairing(event: FormEvent<HTMLFormElement>) {
+  async function generatePairing(event: FormEvent<HTMLFormElement>, pairingContext?: [string | null, string, string]) {
     event.preventDefault();
-    if (!pairingDish.trim()) {
+    if (!pairingContext?.[0] && !pairingDish.trim()) {
       setError(t("pairingEmptyDish"));
       return;
     }
@@ -4399,6 +4405,9 @@ export function App() {
         method: "POST",
         body: JSON.stringify({
           dish: pairingDish.trim(),
+          target_wine_id: pairingContext?.[0] || null,
+          dietary_preferences: pairingContext?.[1]?.trim() || "",
+          allergies: pairingContext?.[2]?.trim() || "",
           max_price_chf: pairingMaxPrice.trim() ? Number(pairingMaxPrice.trim()) : null,
           include_market: pairingIncludeMarket,
           market_only: pairingMarketOnly,
@@ -5535,11 +5544,72 @@ export function App() {
   const dailySommelierCountLabel = dailySommelierWines.length === 1
     ? t("dailySommelierCandidateOne")
     : t("dailySommelierCandidates");
+  const cellarSommelierEligibleWines = wines
+    .filter((wine) => isWinePhysicallyInCellar(wine) && Math.max(Number(wine.quantity || 0), 0) > 0)
+    .filter((wine) => {
+      const windowEnd = winePriorityDrinkEnd(wine);
+      return Boolean(windowEnd && (isWineReadyToPrioritize(wine, currentYear) || windowEnd < currentYear));
+    })
+    .sort((first, second) => {
+      const firstReadiness = isWineAtMaturityPeak(first, currentYear) ? 0 : isWineReadyToPrioritize(first, currentYear) ? 1 : 2;
+      const secondReadiness = isWineAtMaturityPeak(second, currentYear) ? 0 : isWineReadyToPrioritize(second, currentYear) ? 1 : 2;
+      return firstReadiness - secondReadiness || (winePriorityDrinkEnd(first) || 9999) - (winePriorityDrinkEnd(second) || 9999);
+    });
+  const cellarSommelierSelectionLimit = Math.min(5, Math.max(1, Math.ceil(
+    wines.filter((wine) => isWinePhysicallyInCellar(wine) && Math.max(Number(wine.quantity || 0), 0) > 0).length * 0.05,
+  )));
+  const cellarSommelierSelectedWines = cellarSommelierEligibleWines.slice(0, cellarSommelierSelectionLimit);
+  const cellarSommelierHighlightedWine = cellarSommelierHighlightedWineId
+    ? cellarSommelierSelectedWines.find((wine) => wine.id === cellarSommelierHighlightedWineId)
+    : null;
+  const cellarSommelierWines = activeView === "cellar"
+    ? (cellarSommelierHighlightedWine ? [cellarSommelierHighlightedWine] : cellarSommelierSelectedWines.slice(0, 3))
+    : dailySommelierWines;
+  const cellarSommelierContext = activeView === "cellar"
+    ? t("dailySommelierCellarIntro")
+    : t("dailySommelierIntro");
+  const isSommelierSpotlightWine = (wine: Wine) => {
+    return cellarSommelierSelectedWines.some((candidate) => candidate.id === wine.id);
+  };
+
+  useEffect(() => {
+    if (!(["home", "cellar"] as ViewName[]).includes(activeView) || !cellarSommelierWines.length) return;
+    const visitKey = `vinaris-cellar-sommelier-${activeView}`;
+    if (window.sessionStorage.getItem(visitKey)) return;
+    window.sessionStorage.setItem(visitKey, "seen");
+    if (Math.random() > 0.38) return;
+    const timer = window.setTimeout(() => {
+      setCellarSommelierVisible(true);
+      setCellarSommelierOpen(true);
+    }, 1800 + Math.round(Math.random() * 3600));
+    return () => window.clearTimeout(timer);
+  }, [activeView, cellarSommelierWines.length, cellarSommelierWines[0]?.id]);
+
+  useEffect(() => {
+    if (activeView !== "cellar") return;
+    const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-sommelier-wine-id]"));
+    if (!rows.length) return;
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries.find((candidate) => candidate.isIntersecting && !cellarSommelierPromptedWineIdsRef.current.has(candidate.target.getAttribute("data-sommelier-wine-id") || ""));
+      const wineId = entry?.target.getAttribute("data-sommelier-wine-id");
+      if (!wineId || !entry) return;
+      cellarSommelierPromptedWineIdsRef.current.add(wineId);
+      observer.unobserve(entry.target);
+      window.setTimeout(() => {
+        setCellarSommelierHighlightedWineId(wineId);
+        setCellarSommelierVisible(true);
+        setCellarSommelierOpen(true);
+      }, 420);
+    }, { threshold: 0.72 });
+    rows.forEach((row) => observer.observe(row));
+    return () => observer.disconnect();
+  }, [activeView, filteredWines]);
   const dailyTonightStyleCount = new Set(
     dailyTonightWines.map((wine) => wineTone(wine.type)),
   ).size;
   const dailyRecommendationReason = (wine: Wine) => {
     const windowEnd = winePriorityDrinkEnd(wine);
+    if (windowEnd && windowEnd < currentYear) return t("dailyReasonPastWindow");
     if (windowEnd && windowEnd <= currentYear + 2) return t("dailyReasonShortWindow");
     if (
       wine.drink_peak_from
@@ -6765,6 +6835,12 @@ export function App() {
     openWineInView(wine, "cellar");
   }
 
+  function openDishPairingForWine(wine?: Wine) {
+    if (!wine) return;
+    setPairingTargetWineId(wine.id);
+    setActiveView("pairing");
+  }
+
   async function updateWineRating(wine: Wine, rating: string) {
     setSaving(true);
     setError("");
@@ -7157,6 +7233,7 @@ export function App() {
         saving={saving}
         generating={generatingAi}
         onGenerate={(feature) => generateWineAi(wine, feature)}
+        onOpenPairing={() => openDishPairingForWine(wine)}
         onToggleValueAiExclusion={(excluded) => setWineValueAiExclusion(wine, excluded)}
         onToggleGrapesAiExclusion={(excluded) => setWineGrapesAiExclusion(wine, excluded)}
         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
@@ -7182,6 +7259,100 @@ export function App() {
         t={t}
         locale={locale}
       />
+    );
+  }
+
+  function renderCellarSommelierLayer() {
+    if (!cellarSommelierVisible || !cellarSommelierWines.length || activeView !== "cellar") return null;
+    const countLabel = cellarSommelierWines.length === 1
+      ? t("dailySommelierCandidateOne")
+      : t("dailySommelierCandidates");
+    return createPortal(
+      <aside
+        aria-label={t("dailySommelierTitle")}
+        style={{
+          position: "fixed",
+          right: isMobileViewport ? 12 : 24,
+          top: isMobileViewport ? 12 : undefined,
+          bottom: isMobileViewport ? "auto" : 24,
+          zIndex: 75,
+          width: "min(360px, calc(100vw - 24px))",
+          maxHeight: "calc(100dvh - 24px)",
+        }}
+      >
+        <section
+          style={{
+            overflowY: isMobileViewport ? "auto" : "hidden",
+            maxHeight: "calc(100dvh - 24px)",
+            border: "1px solid var(--border)",
+            borderRadius: 20,
+            background: "color-mix(in srgb, var(--surface-raised) 86%, transparent)",
+            backdropFilter: "blur(14px) saturate(1.08)",
+            boxShadow: "0 0 0 6px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 34px color-mix(in srgb, var(--accent) 42%, transparent), 0 20px 48px color-mix(in srgb, var(--collector-depth) 66%, transparent)",
+          }}
+        >
+          <header style={{ display: "grid", gridTemplateColumns: "58px minmax(0, 1fr) auto", alignItems: "center", gap: 10, padding: "10px 10px 10px 12px", background: "color-mix(in srgb, var(--surface-muted) 80%, transparent)" }}>
+            <img
+              src="/images/sommelier_ai.png"
+              alt=""
+              style={{ width: 58, height: 58, objectFit: "cover", objectPosition: "center 18%", borderRadius: "50%", border: "1px solid var(--border)" }}
+            />
+            <button
+              type="button"
+              aria-expanded={cellarSommelierOpen}
+              onClick={() => setCellarSommelierOpen((current) => !current)}
+              style={{ minWidth: 0, padding: 0, border: 0, color: "var(--text)", textAlign: "left", background: "transparent", boxShadow: "none" }}
+            >
+              <span style={{ display: "grid", gap: 3 }}>
+                <small style={{ color: "var(--accent)", fontWeight: 800 }}>{t("dailySommelierTitle")}</small>
+                <strong>{cellarSommelierWines.length} {countLabel}</strong>
+              </span>
+            </button>
+            <button
+              type="button"
+              aria-label={t("close")}
+              title={t("close")}
+              onClick={() => setCellarSommelierVisible(false)}
+              style={{ display: "grid", placeItems: "center", width: 30, height: 30, padding: 0, border: "1px solid var(--border)", borderRadius: "50%", color: "var(--text-muted)", background: "var(--surface-raised)", boxShadow: "none", fontSize: "1.15rem" }}
+            >
+              ×
+            </button>
+          </header>
+          {cellarSommelierOpen ? (
+            <div style={{ display: "grid", gap: 10, padding: 14 }}>
+              <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.45 }}>{cellarSommelierContext}</p>
+              <div style={{ display: "grid", gap: 7 }}>
+                {cellarSommelierWines.map((wine) => (
+                  <button
+                    type="button"
+                    key={wine.id}
+                    onClick={() => openWineFromDashboard(wine)}
+                    style={{ display: "grid", gridTemplateColumns: "auto minmax(0, 1fr) auto", alignItems: "center", gap: 8, width: "100%", padding: "9px 10px", border: "1px solid var(--border)", borderRadius: 11, color: "var(--text)", textAlign: "left", background: "var(--surface-muted)", boxShadow: "none" }}
+                  >
+                    <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                    <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                      <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
+                      <small style={{ color: "var(--text-muted)", lineHeight: 1.3 }}>{dailyRecommendationReason(wine)}</small>
+                    </span>
+                    <b>{wine.drink_to || "—"}</b>
+                  </button>
+                ))}
+              </div>
+              {canGenerateAi ? (
+                <button
+                  type="button"
+                  className="secondary"
+                  style={{ width: "100%" }}
+                  onClick={() => openDishPairingForWine(cellarSommelierWines[0])}
+                >
+                  {t("dailySommelierPairing")}
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+        </section>
+      </aside>,
+      document.body,
     );
   }
 
@@ -8075,7 +8246,7 @@ export function App() {
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
-            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
+            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
             </button>
@@ -8176,6 +8347,142 @@ export function App() {
                 </details>
               </section>
 
+              {cellarSommelierVisible ? (
+                <aside
+                  aria-label={t("dailySommelierTitle")}
+                  style={{
+                    position: "fixed",
+                    right: isMobileViewport ? 12 : 24,
+                    bottom: isMobileViewport ? 12 : 24,
+                    zIndex: 75,
+                    width: "min(360px, calc(100vw - 24px))",
+                    filter: "drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 38%, transparent))",
+                  }}
+                >
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      padding: "7px 8px 7px 13px",
+                      border: "1px solid var(--border)",
+                      borderRadius: 999,
+                      background: "color-mix(in srgb, var(--surface-raised) 84%, transparent)",
+                      backdropFilter: "blur(14px) saturate(1.08)",
+                      boxShadow: "0 0 0 5px color-mix(in srgb, var(--accent) 16%, transparent), 0 0 30px color-mix(in srgb, var(--accent) 36%, transparent), var(--vinaris-shadow-float)",
+                    }}
+                  >
+                    <img
+                      src="/images/sommelier_ai.png"
+                      alt=""
+                      style={{ width: 42, height: 42, objectFit: "cover", objectPosition: "center 18%", borderRadius: "50%", border: "1px solid var(--border)" }}
+                    />
+                    <button
+                      type="button"
+                      aria-expanded={cellarSommelierOpen}
+                      onClick={() => setCellarSommelierOpen((current) => !current)}
+                      style={{
+                        display: "flex",
+                        flex: 1,
+                        alignItems: "center",
+                        gap: 9,
+                        minWidth: 0,
+                        padding: 0,
+                        border: 0,
+                        color: "var(--text)",
+                        textAlign: "left",
+                        background: "transparent",
+                        boxShadow: "none",
+                      }}
+                    >
+                      <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="1.1rem" />
+                      <span style={{ display: "grid", gap: 1, minWidth: 0 }}>
+                        <small style={{ color: "var(--text-muted)", fontSize: "0.68rem" }}>{t("dailySommelierTitle")}</small>
+                        <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: "0.82rem" }}>
+                          {dailySommelierWines.length} {dailySommelierCountLabel}
+                        </strong>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setCellarSommelierVisible(false)}
+                      aria-label={t("close")}
+                      title={t("close")}
+                      style={{
+                        display: "grid",
+                        placeItems: "center",
+                        width: 28,
+                        height: 28,
+                        padding: 0,
+                        border: "1px solid var(--border)",
+                        borderRadius: "50%",
+                        color: "var(--text-muted)",
+                        background: "var(--surface-muted)",
+                        boxShadow: "none",
+                        fontSize: "1.05rem",
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                  {cellarSommelierOpen ? (
+                    <div
+                      className="dashboard-card"
+                      style={{ display: "grid", gap: 10, marginTop: 8, padding: 13, background: "color-mix(in srgb, var(--surface-raised) 86%, transparent)", backdropFilter: "blur(14px) saturate(1.08)" }}
+                    >
+                      {dailySommelierWines.length ? (
+                        <>
+                          <p style={{ margin: 0, color: "var(--text-muted)", lineHeight: 1.45 }}>{t("dailySommelierIntro")}</p>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            {dailySommelierWines.map((wine) => (
+                              <button
+                                type="button"
+                                key={wine.id}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "auto minmax(0, 1fr) auto",
+                                  alignItems: "center",
+                                  gap: 8,
+                                  width: "100%",
+                                  padding: "9px 10px",
+                                  border: "1px solid var(--border)",
+                                  borderRadius: 10,
+                                  color: "var(--text)",
+                                  textAlign: "left",
+                                  background: "var(--surface-muted)",
+                                  boxShadow: "none",
+                                }}
+                                onClick={() => openWineFromDashboard(wine)}
+                              >
+                                <i className={`wine-dot tone-${wineTone(wine.type)}`} />
+                                <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
+                                  <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
+                                  <small style={{ overflow: "hidden", color: "var(--text-muted)", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dailyRecommendationReason(wine)}</small>
+                                </span>
+                                <b>{wine.drink_to || "—"}</b>
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      ) : (
+                        <p style={{ margin: 0, color: "var(--text-muted)" }}>{t("dailySommelierEmpty")}</p>
+                      )}
+                      <small style={{ color: "var(--text-muted)" }}>{t("dailySommelierFree")}</small>
+                      {canGenerateAi ? (
+                        <button
+                          type="button"
+                          className="secondary"
+                          style={{ width: "100%" }}
+                          onClick={() => openDishPairingForWine(dailySommelierWines[0])}
+                        >
+                          {t("dailySommelierPairing")}
+                        </button>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </aside>
+              ) : null}
+
               <section className="hero-panel">
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
@@ -8241,67 +8548,6 @@ export function App() {
                     </>
                   )}
                 </div>
-                <details className="hero-sommelier">
-                  <summary>
-                    <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="1.1rem" />
-                    <span>
-                      <small>{t("dailySommelierTitle")}</small>
-                      <strong>{dailySommelierWines.length} {dailySommelierCountLabel}</strong>
-                    </span>
-                  </summary>
-                  <div
-                    className="hero-sommelier-popover dashboard-card"
-                    style={{ display: "grid", gap: 10, marginTop: 7, padding: 12 }}
-                  >
-                    {dailySommelierWines.length ? (
-                      <>
-                        <p>{t("dailySommelierIntro")}</p>
-                        <div className="hero-sommelier-list" style={{ display: "grid", gap: 6 }}>
-                          {dailySommelierWines.map((wine) => (
-                            <button
-                              type="button"
-                              key={wine.id}
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "auto minmax(0, 1fr) auto",
-                                alignItems: "center",
-                                gap: 7,
-                                width: "100%",
-                                padding: "7px 8px",
-                                textAlign: "left",
-                              }}
-                              onClick={() => openWineFromDashboard(wine)}
-                            >
-                              <i className={`wine-dot tone-${wineTone(wine.type)}`} />
-                              <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-                                <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
-                                <small style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dailyRecommendationReason(wine)}</small>
-                              </span>
-                              <b>{wine.drink_to || "—"}</b>
-                            </button>
-                          ))}
-                        </div>
-                      </>
-                    ) : (
-                      <p>{t("dailySommelierEmpty")}</p>
-                    )}
-                    <small className="hero-sommelier-free" style={{ color: "var(--text-muted)" }}>{t("dailySommelierFree")}</small>
-                    {canGenerateAi ? (
-                      <button
-                        type="button"
-                        className="secondary hero-sommelier-ai-action"
-                        style={{ width: "100%" }}
-                        onClick={() => {
-                          setActiveView("pairing");
-                          setWineFormOpen(false);
-                          setWishlistFormOpen(false);
-                        }}
-                      >
-                        {t("dailySommelierPairing")}
-                      </button>
-                    ) : null}
-                  </div>
-                </details>
               </section>
 
               {dashboardFocus === "daily" ? (
@@ -9328,6 +9574,7 @@ export function App() {
                   pairingBudgetSliderMax={pairingBudgetSliderMax}
                   pairingBudgetSliderValue={pairingBudgetSliderValue}
                   pairingDish={pairingDish}
+                  pairingTargetWine={pairingTargetWineId ? wines.find((wine) => wine.id === pairingTargetWineId) || null : null}
                   pairingIgnorePreferences={pairingIgnorePreferences}
                   pairingIncludeMarket={pairingIncludeMarket}
                   pairingLocalOrigin={pairingLocalOrigin}
@@ -9340,6 +9587,7 @@ export function App() {
                   savedPairingPreferences={aiSettings?.pairing_preferences || ""}
                   setAiSettingsDraft={setAiSettingsDraft}
                   setPairingDish={setPairingDish}
+                  setPairingTargetWine={setPairingTargetWineId}
                   setPairingIgnorePreferences={setPairingIgnorePreferences}
                   setPairingIncludeMarket={setPairingIncludeMarket}
                   setPairingLocalOrigin={setPairingLocalOrigin}
@@ -10887,7 +11135,12 @@ export function App() {
                       <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
                     </button>
                     {openWineToneGroups[group.tone] ? group.items.slice(0, wineToneRenderLimits[group.tone]).map((wine) => (
-              <div className="list-item-block" key={wine.id} data-wine-row-id={wine.id}>
+              <div
+                className="list-item-block"
+                key={wine.id}
+                data-wine-row-id={wine.id}
+                data-sommelier-wine-id={activeView === "cellar" && isSommelierSpotlightWine(wine) ? wine.id : undefined}
+              >
                 <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${canAccessWinePhotos && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   {canAccessWinePhotos && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
                   <div className="wine-row-main">
@@ -10903,6 +11156,23 @@ export function App() {
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
                       <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
+                      {activeView === "cellar" && isSommelierSpotlightWine(wine) ? (
+                        <button
+                          type="button"
+                          className="row-chip row-sommelier-notice"
+                          title={t("dailySommelierTitle")}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            cellarSommelierPromptedWineIdsRef.current.add(wine.id);
+                            setCellarSommelierHighlightedWineId(wine.id);
+                            setCellarSommelierVisible(true);
+                            setCellarSommelierOpen(true);
+                          }}
+                        >
+                          <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="0.9rem" />
+                          {t("dailySommelierAvailable")}
+                        </button>
+                      ) : null}
                     </p>
                     <p className="row-secondary">
                       {[displayValue(wine.format, locale, "format"), displayValue(wine.type, locale, "type"), wine.region, wine.appellation]
@@ -10944,6 +11214,12 @@ export function App() {
                     </div>
                   </div>
                   <div className="row-actions">
+                    {canGenerateAi ? (
+                      <button type="button" className="secondary" onClick={(event) => { event.stopPropagation(); openDishPairingForWine(wine); }}>
+                        <AppIcon name="glass-sparkle" variant="ai" />
+                        <span className="action-label">{t("pairing")}</span>
+                      </button>
+                    ) : null}
                     <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
                       <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
                       <span className="action-label">{t("compare")}</span>
@@ -10975,6 +11251,7 @@ export function App() {
                         saving={saving}
                         generating={generatingAi}
                         onGenerate={(feature) => generateWineAi(wine, feature)}
+                        onOpenPairing={() => openDishPairingForWine(wine)}
                         onToggleValueAiExclusion={(excluded) => setWineValueAiExclusion(wine, excluded)}
                         onToggleGrapesAiExclusion={(excluded) => setWineGrapesAiExclusion(wine, excluded)}
                         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
@@ -11001,6 +11278,12 @@ export function App() {
                         locale={locale}
                       />
                       <nav className="mobile-wine-actions" aria-label={locale === "it" ? "Azioni vino" : "Wine actions"}>
+                        {canGenerateAi ? (
+                          <button type="button" className="secondary" onClick={() => openDishPairingForWine(wine)}>
+                            <AppIcon name="glass-sparkle" variant="ai" />
+                            <span>{t("pairing")}</span>
+                          </button>
+                        ) : null}
                         {canWriteWine && wine.quantity > 0 ? (
                           <button type="button" onClick={(event) => {
                             const panel = event.currentTarget.closest(".mobile-detail-sheet")?.querySelector<HTMLDetailsElement>(".consume-panel");
@@ -12514,6 +12797,7 @@ export function App() {
           ) : null}
         </section>
       )}
+      {renderCellarSommelierLayer()}
       {wishlistConversionItem ? (
         <div className="auth-modal-overlay" onClick={() => !saving && setWishlistConversionItem(null)}>
           <section className="auth-modal-card" role="dialog" aria-modal="true" aria-labelledby="wishlist-conversion-title" onClick={(event) => event.stopPropagation()}>
