@@ -26,6 +26,9 @@ type TastingArchiveEntry = {
   pairing: string;
   companions: string;
   sommelier_feedback: string;
+  sommelier_pairing_score: number | null;
+  sommelier_pairing_advice: string;
+  sommelier_feedback_cost_usd: string | null;
   sommelier_feedback_at: string | null;
   created_at: string;
 };
@@ -43,6 +46,7 @@ type ConsumeWineDraft = {
 type TastingArchiveSectionProps = {
   canGenerateAi: boolean;
   canWrite: boolean;
+  formatAiBudget: (value: string | number) => string;
   entries: TastingArchiveEntry[];
   locale: "en" | "it";
   saving: boolean;
@@ -249,6 +253,7 @@ export default function TastingArchiveSection({
   canWrite,
   displayValue,
   entries,
+  formatAiBudget,
   locale,
   onDeleteEntry,
   onOpenWine,
@@ -327,11 +332,20 @@ export default function TastingArchiveSection({
               ) : null}
               {entry.sommelier_feedback ? (
                 <aside className="tasting-sommelier-feedback">
-                  <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Nota del Sommelier" : "Sommelier note"}</span>
+                  <div className="tasting-sommelier-feedback-head">
+                    <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Valutazione dell'abbinamento" : "Pairing evaluation"}</span>
+                    {entry.sommelier_pairing_score ? <strong>{entry.sommelier_pairing_score}<small>/10</small></strong> : null}
+                  </div>
                   <p>{entry.sommelier_feedback}</p>
+                  {entry.sommelier_pairing_advice ? (
+                    <p className="tasting-sommelier-advice"><b>{locale === "it" ? "Consiglio" : "Advice"}:</b> {entry.sommelier_pairing_advice}</p>
+                  ) : null}
+                  {entry.sommelier_feedback_cost_usd !== null ? (
+                    <small className="tasting-sommelier-cost">{locale === "it" ? "Costo richiesta AI" : "AI request cost"}: {formatAiBudget(entry.sommelier_feedback_cost_usd)}</small>
+                  ) : null}
                 </aside>
               ) : null}
-              {canGenerateAi && (entry.pairing || entry.occasion || entry.note) ? (
+              {canGenerateAi && entry.pairing ? (
                 <aside className="tasting-sommelier-invite">
                   {reflectionEntryId === entry.id ? (
                     <>
@@ -373,9 +387,7 @@ export default function TastingArchiveSection({
                     <>
                       <div>
                         <span><AppIcon name="glass-sparkle" />{locale === "it" ? "Sommelier della cantina" : "Cellar Sommelier"}</span>
-                        <strong>{entry.pairing
-                          ? (locale === "it" ? "Trasforma l'abbinamento in un ricordo" : "Turn this pairing into a memory")
-                          : (locale === "it" ? "Dai un finale a questa degustazione" : "Give this tasting a final note")}</strong>
+                        <strong>{locale === "it" ? "Valuta davvero l'abbinamento" : "Get a real pairing evaluation"}</strong>
                       </div>
                       <button type="button" className="secondary compact" onClick={() => setReflectionEntryId(entry.id)}>
                         <AppIcon name="glass-sparkle" />{locale === "it" ? "Raccontalo al Sommelier" : "Tell the Sommelier"}

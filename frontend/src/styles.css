@@ -11847,13 +11847,13 @@ button.stat-card:hover {
 }
 
 .tasting-sommelier-invite > div:first-child,
-.tasting-sommelier-feedback > span {
+.tasting-sommelier-feedback-head {
   display: grid;
   gap: 3px;
 }
 
 .tasting-sommelier-invite span,
-.tasting-sommelier-feedback > span {
+.tasting-sommelier-feedback-head > span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -11892,6 +11892,40 @@ button.stat-card:hover {
   margin: 0;
   color: var(--text);
   line-height: 1.5;
+}
+
+.tasting-sommelier-feedback-head {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.tasting-sommelier-feedback-head > strong {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 2px;
+  min-width: 52px;
+  justify-content: center;
+  padding: 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--drink-ideal) 44%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--drink-ideal) 14%, var(--surface));
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.tasting-sommelier-feedback-head > strong small {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+.tasting-sommelier-advice {
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.tasting-sommelier-cost {
+  color: var(--text-muted);
+  font-size: 0.76rem;
 }
 
 .tasting-archive-actions {

@@ -1668,7 +1668,7 @@ def create_tasting_reflection(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> TastingReflectionResponse:
-    """Create and retain a light, personal reflection for one recorded tasting."""
+    """Create and retain a concise evaluation of one wine-and-food pairing."""
     wine = get_household_wine(db, context, payload.wine_id)
     entry = db.scalar(
         select(WineTastingEntry).where(
@@ -1687,8 +1687,12 @@ def create_tasting_reflection(
         "schema": {
             "type": "object",
             "additionalProperties": False,
-            "properties": {"feedback": {"type": "string"}},
-            "required": ["feedback"],
+            "properties": {
+                "feedback": {"type": "string"},
+                "pairing_score": {"type": "integer", "minimum": 1, "maximum": 10},
+                "advice": {"type": "string"},
+            },
+            "required": ["feedback", "pairing_score", "advice"],
         },
     }
     wine_label = " ".join(part for part in (wine.name, wine.vintage) if part).strip()
@@ -1698,13 +1702,15 @@ def create_tasting_reflection(
         user_settings,
         model=selected_model,
         task_type="tasting_reflection",
-        max_output_tokens=320,
+        max_output_tokens=220,
         system_prompt=(
-            "Sei il sommelier personale di una cantina privata. Offri una breve riflessione calda e curiosa "
-            "su una degustazione gia avvenuta. Non inventare aromi, sensazioni o fatti non presenti nel contesto. "
-            "Commenta con tatto l'abbinamento o l'occasione quando disponibili e suggerisci una sola idea utile "
-            "per ricordare o ripetere l'esperienza. Non assegnare punteggi e non usare liste. "
-            "Scrivi al massimo 55 parole, in seconda persona, con un tono conviviale e mai prescrittivo. "
+            "Sei il sommelier personale di una cantina privata. Valuta con rigore ma con un tono conviviale "
+            "un abbinamento vino-piatto gia avvenuto. Assegna pairing_score da 1 a 10: 5 e corretto, 7 e molto riuscito, "
+            "9-10 e eccezionale. Non inventare aromi o sensazioni non fornite. "
+            "feedback deve spiegare in massimo 30 parole perche l'abbinamento funziona o dove e limitato, citando "
+            "un rapporto gastronomico concreto (freschezza, struttura, sapidita, dolcezza, grasso o intensita) solo quando giustificato. "
+            "advice deve dare un unico suggerimento pratico, massimo 22 parole, per servirlo meglio o perfezionare il piatto. "
+            "Non usare liste, premesse o frasi generiche sul ricordo della serata. "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
@@ -1723,12 +1729,24 @@ def create_tasting_reflection(
     )
     parsed = parse_json_response(response.text)
     feedback = str(parsed.get("feedback") or "").strip()
-    if not feedback:
+    advice = str(parsed.get("advice") or "").strip()
+    raw_pairing_score = parsed.get("pairing_score")
+    if raw_pairing_score is None:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier reflection was empty"
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier pairing score was missing"
+        )
+    try:
+        pairing_score = int(raw_pairing_score)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier pairing score was invalid") from exc
+    if not feedback or not advice or pairing_score < 1 or pairing_score > 10:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier evaluation was incomplete"
         )
 
     entry.sommelier_feedback = feedback
+    entry.sommelier_pairing_score = pairing_score
+    entry.sommelier_pairing_advice = advice
     entry.sommelier_feedback_at = datetime.now(UTC)
     effective_model = effective_response_model(response, selected_model)
     charged_cost = billable_cost_usd(
@@ -1738,6 +1756,7 @@ def create_tasting_reflection(
         usage=response.usage,
         db=db,
     )
+    entry.sommelier_feedback_cost_usd = charged_cost
     record_ai_audit(
         db,
         context,
@@ -1753,6 +1772,8 @@ def create_tasting_reflection(
     db.commit()
     return TastingReflectionResponse(
         feedback=feedback,
+        pairing_score=pairing_score,
+        advice=advice,
         model=effective_model,
         reasoning_effort=response.reasoning_effort or "",
         estimated_cost_usd=charged_cost,

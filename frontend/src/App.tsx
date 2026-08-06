@@ -5099,6 +5099,9 @@ export function App() {
         pairing: entry.pairing,
         companions: entry.companions,
         sommelier_feedback: entry.sommelier_feedback,
+        sommelier_pairing_score: entry.sommelier_pairing_score,
+        sommelier_pairing_advice: entry.sommelier_pairing_advice,
+        sommelier_feedback_cost_usd: entry.sommelier_feedback_cost_usd,
         sommelier_feedback_at: entry.sommelier_feedback_at,
         created_at: entry.created_at,
       }),
@@ -5122,6 +5125,9 @@ export function App() {
       pairing: item.pairing,
       companions: item.companions,
       sommelier_feedback: item.sommelier_feedback,
+      sommelier_pairing_score: item.sommelier_pairing_score,
+      sommelier_pairing_advice: item.sommelier_pairing_advice,
+      sommelier_feedback_cost_usd: item.sommelier_feedback_cost_usd,
       sommelier_feedback_at: item.sommelier_feedback_at,
       created_at: item.created_at,
     };
@@ -5532,6 +5538,9 @@ export function App() {
           pairing: item.pairing,
           companions: item.companions,
           sommelier_feedback: item.sommelier_feedback,
+          sommelier_pairing_score: item.sommelier_pairing_score,
+          sommelier_pairing_advice: item.sommelier_pairing_advice,
+          sommelier_feedback_cost_usd: item.sommelier_feedback_cost_usd,
           sommelier_feedback_at: item.sommelier_feedback_at,
           created_at: item.created_at,
         };
@@ -11154,6 +11163,7 @@ export function App() {
                     canWrite={canWriteWine}
                     displayValue={displayValue}
                     entries={visibleTastingEntries}
+                    formatAiBudget={formatAiBudget}
                     saving={saving}
                     t={t}
                     locale={locale}

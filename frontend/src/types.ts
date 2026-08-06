@@ -88,6 +88,9 @@ export type Wine = {
     pairing: string;
     companions: string;
     sommelier_feedback: string;
+    sommelier_pairing_score: number | null;
+    sommelier_pairing_advice: string;
+    sommelier_feedback_cost_usd: string | null;
     sommelier_feedback_at: string | null;
     created_at: string;
   }>;
@@ -250,6 +253,9 @@ export type TastingArchiveApiItem = {
   pairing: string;
   companions: string;
   sommelier_feedback: string;
+  sommelier_pairing_score: number | null;
+  sommelier_pairing_advice: string;
+  sommelier_feedback_cost_usd: string | null;
   sommelier_feedback_at: string | null;
   created_at: string;
 };
@@ -947,12 +953,17 @@ export type TastingArchiveEntry = {
   pairing: string;
   companions: string;
   sommelier_feedback: string;
+  sommelier_pairing_score: number | null;
+  sommelier_pairing_advice: string;
+  sommelier_feedback_cost_usd: string | null;
   sommelier_feedback_at: string | null;
   created_at: string;
 };
 
 export type TastingReflectionResult = {
   feedback: string;
+  pairing_score: number;
+  advice: string;
   model: string;
   reasoning_effort: string;
   estimated_cost_usd: number;

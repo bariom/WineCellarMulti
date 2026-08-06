@@ -191,6 +191,8 @@ class TastingReflectionRequest(AiGenerationRequest):
 
 class TastingReflectionResponse(BaseModel):
     feedback: str = ""
+    pairing_score: int = Field(ge=1, le=10)
+    advice: str = ""
     model: str
     reasoning_effort: str = ""
     estimated_cost_usd: Decimal = Decimal("0")

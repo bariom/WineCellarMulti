@@ -146,6 +146,11 @@ class WineTastingEntry(Base):
     pairing: Mapped[str] = mapped_column(String(300), default="")
     companions: Mapped[str] = mapped_column(String(300), default="")
     sommelier_feedback: Mapped[str] = mapped_column(Text, default="")
+    sommelier_pairing_score: Mapped[int | None] = mapped_column(nullable=True)
+    sommelier_pairing_advice: Mapped[str] = mapped_column(Text, default="")
+    sommelier_feedback_cost_usd: Mapped[Decimal | None] = mapped_column(
+        Numeric(12, 6), nullable=True
+    )
     sommelier_feedback_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

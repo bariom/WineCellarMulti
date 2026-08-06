@@ -94,6 +94,9 @@ class WineTastingEntryResponse(BaseModel):
     pairing: str = ""
     companions: str = ""
     sommelier_feedback: str = ""
+    sommelier_pairing_score: int | None = Field(default=None, ge=1, le=10)
+    sommelier_pairing_advice: str = ""
+    sommelier_feedback_cost_usd: Decimal | None = None
     sommelier_feedback_at: datetime | None = None
     created_at: datetime
 
@@ -116,6 +119,9 @@ class TastingArchiveItemResponse(BaseModel):
     pairing: str = ""
     companions: str = ""
     sommelier_feedback: str = ""
+    sommelier_pairing_score: int | None = Field(default=None, ge=1, le=10)
+    sommelier_pairing_advice: str = ""
+    sommelier_feedback_cost_usd: Decimal | None = None
     sommelier_feedback_at: datetime | None = None
     created_at: datetime
     tasting_id: UUID

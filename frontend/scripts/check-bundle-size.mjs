@@ -4,8 +4,8 @@ import { gzipSync } from "node:zlib";
 const limits = {
   // Keep a small margin for the lazy history module and its optional sommelier reflection.
   javascriptBytes: 756_000,
-  javascriptGzipBytes: 197_100,
-  cssBytes: 393_700,
+  javascriptGzipBytes: 197_300,
+  cssBytes: 394_500,
   cssGzipBytes: 67_000,
 };
 
