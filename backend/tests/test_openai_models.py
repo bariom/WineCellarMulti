@@ -104,7 +104,7 @@ def test_gpt56_flag_migrates_saved_feature_models(monkeypatch: pytest.MonkeyPatc
     assert saved_settings.grape_model == "gpt-5.6-luna"
     assert saved_settings.drink_window_model == "gpt-5.6-terra"
     assert saved_settings.wishlist_model == "gpt-5.6-terra"
-    assert saved_settings.pairing_model == "gpt-5.6-terra"
+    assert saved_settings.pairing_model == "gpt-5.6-luna"
 
 
 def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.MonkeyPatch):
