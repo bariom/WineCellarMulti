@@ -206,7 +206,7 @@ export default function PairingView({
     .slice(0, pairingPreviewLimit);
   const pairingResultCount = isWineFirstPairing ? (pairingResult?.dish_recommendations.length || 0) : pairingPreviewItems.length;
   const pairingDishSummary = pairingResult?.dish_recommendations.length
-    ? `${pairingResult.dish_recommendations.slice(0, 2).map((dish) => dish.name).join(" · ")}${pairingResult.dish_recommendations.length > 2 ? ` +${pairingResult.dish_recommendations.length - 2}` : ""}`
+    ? pairingResult.dish_recommendations.map((dish) => dish.name).join(" · ")
     : "";
 
   return (
@@ -510,16 +510,7 @@ export default function PairingView({
               <span>{locale === "it" ? "Proposte consigliate" : "Suggested matches"}</span>
               <strong>{isWineFirstPairing && pairingDishSummary ? pairingDishSummary : (pairingResultCount ? `${pairingResultCount}` : (locale === "it" ? "In attesa di una richiesta" : "Waiting for a request"))}</strong>
             </div>
-            {isWineFirstPairing && pairingResult?.dish_recommendations.length ? (
-              <div className="pairing-sidekick-list">
-                {pairingResult.dish_recommendations.map((dish, index) => (
-                  <article key={`${dish.name}-${index}`} className="pairing-sidekick-item">
-                    <strong>{dish.name}</strong>
-                    {dish.description ? <span>{dish.description}</span> : null}
-                  </article>
-                ))}
-              </div>
-            ) : pairingPreviewItems.length ? (
+            {!isWineFirstPairing && pairingPreviewItems.length ? (
               <div className="pairing-sidekick-list">
                 {pairingPreviewItems.map((item) => (
                   <article key={item.key} className="pairing-sidekick-item">
