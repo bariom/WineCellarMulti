@@ -74,7 +74,7 @@ function NearbyWinePlaceMarkers({ enabled }: { enabled: boolean }) {
     }
     void api<MapPlace[]>(`/api/v1/map/places?${search.toString()}`)
       .then((result) => {
-        placesByViewport.set(cacheKey, result);
+        if (result.length) placesByViewport.set(cacheKey, result);
         if (active) setPlaces(result);
       })
       .catch(() => {
