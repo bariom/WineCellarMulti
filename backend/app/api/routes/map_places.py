@@ -31,7 +31,7 @@ class MapPlaceResponse(BaseModel):
 
 
 def cache_key(south: float, west: float, north: float, east: float) -> str:
-    return "v2:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
+    return "v3:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
 
 
 def place_kind(tags: dict[str, object]) -> str:
@@ -60,7 +60,7 @@ def fetch_places(south: float, west: float, north: float, east: float) -> list[d
   nwr[\"product\"=\"wine\"][\"name\"]({bbox});
   nwr[\"drink\"=\"wine\"][\"name\"]({bbox});
 );
-out center 60;"""
+out center 200;"""
     contact = settings.legal_contact_email.strip() or "support@vinaris.app"
     request = Request(
         settings.map_places_overpass_url,
@@ -94,7 +94,7 @@ out center 60;"""
             continue
         seen.add(key)
         places.append({"name": name, "latitude": latitude, "longitude": longitude, "kind": place_kind(tags)})
-    return places[:60]
+    return places[:120]
 
 
 @router.get("/places", response_model=list[MapPlaceResponse])
