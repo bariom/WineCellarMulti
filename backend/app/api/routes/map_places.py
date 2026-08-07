@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import UTC, datetime, timedelta
+from math import ceil, floor
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -21,6 +22,7 @@ logger = logging.getLogger(__name__)
 PLACE_CACHE_TTL = timedelta(days=30)
 MAX_LATITUDE_SPAN = 0.5
 MAX_LONGITUDE_SPAN = 0.7
+CACHE_GRID_SCALE = 100
 
 
 class MapPlaceResponse(BaseModel):
@@ -31,7 +33,18 @@ class MapPlaceResponse(BaseModel):
 
 
 def cache_key(south: float, west: float, north: float, east: float) -> str:
-    return "v4:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
+    return "v5:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
+
+
+def cache_bounds(south: float, west: float, north: float, east: float) -> tuple[float, float, float, float]:
+    """Snap a viewport outward to stable 0.01° cells for reusable cache entries."""
+
+    return (
+        floor(south * CACHE_GRID_SCALE) / CACHE_GRID_SCALE,
+        floor(west * CACHE_GRID_SCALE) / CACHE_GRID_SCALE,
+        ceil(north * CACHE_GRID_SCALE) / CACHE_GRID_SCALE,
+        ceil(east * CACHE_GRID_SCALE) / CACHE_GRID_SCALE,
+    )
 
 
 def place_kind(tags: dict[str, object]) -> str:
@@ -149,17 +162,18 @@ def nearby_wine_places(
 ) -> list[MapPlaceResponse]:
     if north <= south or east <= west or north - south > MAX_LATITUDE_SPAN or east - west > MAX_LONGITUDE_SPAN:
         return []
-    key = cache_key(south, west, north, east)
+    cached_south, cached_west, cached_north, cached_east = cache_bounds(south, west, north, east)
+    key = cache_key(cached_south, cached_west, cached_north, cached_east)
     now = datetime.now(UTC)
     cached = db.get(MapPlaceCache, key)
     if cached is not None and cached.expires_at.replace(tzinfo=UTC) > now:
         return [MapPlaceResponse.model_validate(item) for item in json.loads(cached.payload)]
     try:
-        places = fetch_places(south, west, north, east)
+        places = fetch_places(cached_south, cached_west, cached_north, cached_east)
     except Exception:  # Keep map navigation usable when the community service is unavailable.
         logger.info("OpenStreetMap wine places lookup unavailable", exc_info=True)
         try:
-            places = fetch_nominatim_wine_places(south, west, north, east)
+            places = fetch_nominatim_wine_places(cached_south, cached_west, cached_north, cached_east)
         except Exception:
             logger.info("OpenStreetMap wine places fallback unavailable", exc_info=True)
             return []

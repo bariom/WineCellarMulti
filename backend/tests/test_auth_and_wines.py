@@ -2042,6 +2042,13 @@ def test_map_places_are_cached_per_viewport(monkeypatch):
     assert calls == 1
 
 
+def test_map_place_cache_uses_stable_geographic_cells():
+    first = map_places_route.cache_bounds(43.617484, 11.455410, 43.621350, 11.476010)
+    nearby = map_places_route.cache_bounds(43.616600, 11.453858, 43.620610, 11.474450)
+
+    assert first == nearby == (43.61, 11.45, 43.63, 11.48)
+
+
 def test_map_places_fall_back_to_nominatim_when_overpass_is_unavailable(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
