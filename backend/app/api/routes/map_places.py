@@ -31,12 +31,16 @@ class MapPlaceResponse(BaseModel):
 
 
 def cache_key(south: float, west: float, north: float, east: float) -> str:
-    return ":".join(f"{value:.2f}" for value in (south, west, north, east))
+    return "v2:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
 
 
 def place_kind(tags: dict[str, object]) -> str:
     if tags.get("craft") == "winery" or tags.get("man_made") == "winery":
         return "winery"
+    if tags.get("landuse") == "vineyard" or tags.get("crop") == "grape":
+        return "vineyard"
+    if any(tags.get(key) == "wine" for key in ("produce", "product", "drink")):
+        return "producer"
     if tags.get("tourism") == "wine_tasting":
         return "tasting"
     return "wine_shop"
@@ -50,6 +54,11 @@ def fetch_places(south: float, west: float, north: float, east: float) -> list[d
   nwr[\"man_made\"=\"winery\"]({bbox});
   nwr[\"tourism\"=\"wine_tasting\"]({bbox});
   nwr[\"shop\"=\"wine\"]({bbox});
+  nwr[\"landuse\"=\"vineyard\"][\"name\"]({bbox});
+  nwr[\"crop\"=\"grape\"][\"name\"]({bbox});
+  nwr[\"produce\"=\"wine\"][\"name\"]({bbox});
+  nwr[\"product\"=\"wine\"][\"name\"]({bbox});
+  nwr[\"drink\"=\"wine\"][\"name\"]({bbox});
 );
 out center 60;"""
     contact = settings.legal_contact_email.strip() or "support@vinaris.app"

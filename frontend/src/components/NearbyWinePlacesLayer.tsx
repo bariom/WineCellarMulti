@@ -8,7 +8,7 @@ type MapPlace = {
   name: string;
   latitude: number;
   longitude: number;
-  kind: "winery" | "tasting" | "wine_shop";
+  kind: "winery" | "vineyard" | "producer" | "tasting" | "wine_shop";
 };
 
 type Viewport = {
@@ -85,7 +85,12 @@ function NearbyWinePlaceMarkers({ enabled }: { enabled: boolean }) {
           key={`${place.name}:${place.latitude}:${place.longitude}`}
           center={[place.latitude, place.longitude]}
           radius={6}
-          pathOptions={{ color: "#fffaf0", weight: 2, fillColor: place.kind === "winery" ? "#8f6230" : "#496f61", fillOpacity: 0.94 }}
+          pathOptions={{
+            color: "#fffaf0",
+            weight: 2,
+            fillColor: place.kind === "vineyard" ? "#af8436" : place.kind === "winery" || place.kind === "producer" ? "#8f6230" : "#496f61",
+            fillOpacity: 0.94,
+          }}
         >
           <Tooltip permanent direction="top" offset={[0, -7]} className="nearby-wine-place-label">
             <strong>{place.name}</strong>

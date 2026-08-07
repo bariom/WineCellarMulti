@@ -206,11 +206,12 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
   }
 
   function focusLocation(candidate: GeocodeCandidate) {
+    setPoint({ latitude: candidate.latitude, longitude: candidate.longitude });
     setSearchFocus(candidate);
     setLocationResults([]);
     setLocationSearchError(isItalian
-      ? "Zona trovata: clicca sulla mappa per impostare il punto preciso."
-      : "Area found: click the map to set the exact point.");
+      ? "Zona trovata: il punto proposto è evidenziato. Clicca sulla mappa per rifinirlo."
+      : "Area found: the suggested point is highlighted. Click the map to refine it.");
   }
 
   function selectPoint(nextPoint: Point) {
