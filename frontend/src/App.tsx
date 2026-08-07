@@ -5261,12 +5261,16 @@ export function App() {
     const timer = window.setTimeout(() => {
       const target = document.querySelector<HTMLElement>(`[data-wine-row-id="${pendingWineScrollId}"]`);
       if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      setPendingWineScrollId(null);
-    }, 80);
+      // The selected row can sit beyond the first page of a colour group. Wait
+      // for that group to render, then keep the card clear of the sticky tools.
+      window.requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        setPendingWineScrollId(null);
+      });
+    }, 120);
 
     return () => window.clearTimeout(timer);
-  }, [activeView, filteredWines, pendingWineScrollId]);
+  }, [activeView, filteredWines, pendingWineScrollId, wineToneRenderLimits]);
 
   useEffect(() => {
     if (!selectedWineId || !isWineCollectionView) return;
