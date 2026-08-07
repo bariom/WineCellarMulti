@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 from math import ceil, floor
+from time import sleep
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
@@ -20,6 +21,7 @@ router = APIRouter(prefix="/map")
 logger = logging.getLogger(__name__)
 
 PLACE_CACHE_TTL = timedelta(days=30)
+EMPTY_PLACE_CACHE_TTL = timedelta(minutes=5)
 MAX_LATITUDE_SPAN = 0.5
 MAX_LONGITUDE_SPAN = 0.7
 CACHE_GRID_SCALE = 100
@@ -34,7 +36,7 @@ class MapPlaceResponse(BaseModel):
 
 
 def cache_key(south: float, west: float, north: float, east: float) -> str:
-    return "v7:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
+    return "v8:" + ":".join(f"{value:.2f}" for value in (south, west, north, east))
 
 
 def cache_bounds(south: float, west: float, north: float, east: float) -> tuple[float, float, float, float]:
@@ -111,17 +113,19 @@ out center 120;"""
     return places[:80]
 
 
-def fetch_nominatim_wine_places(south: float, west: float, north: float, east: float) -> list[dict[str, object]]:
-    """Complement sparse Overpass results with OSM's search index."""
-
+def fetch_nominatim_search(
+    south: float,
+    west: float,
+    north: float,
+    east: float,
+    search_term: str,
+) -> list[dict[str, object]]:
     query = urlencode(
         {
             "format": "jsonv2",
             "limit": 20,
             "bounded": 1,
-            # Nominatim indexes many estates as craft=winery rather than as
-            # shops. Overpass already covers wine shops in the same viewport.
-            "q": "winery",
+            "q": search_term,
             "viewbox": f"{west:.5f},{north:.5f},{east:.5f},{south:.5f}",
         }
     )
@@ -157,6 +161,22 @@ def fetch_nominatim_wine_places(south: float, west: float, north: float, east: f
                 "kind": "winery" if category == "craft" and item_type == "winery" else "wine_shop",
             })
     return places
+
+
+def fetch_nominatim_wine_places(south: float, west: float, north: float, east: float) -> list[dict[str, object]]:
+    """Complement sparse Overpass results with both winery and wine-shop indexes."""
+
+    place_sets: list[list[dict[str, object]]] = []
+    for index, search_term in enumerate(("winery", "wine shop")):
+        if index:
+            # Respect the public Nominatim usage policy while the month-long
+            # shared cache keeps this cost away from normal map navigation.
+            sleep(1.05)
+        try:
+            place_sets.append(fetch_nominatim_search(south, west, north, east, search_term))
+        except Exception:
+            logger.info("OpenStreetMap %s lookup unavailable", search_term, exc_info=True)
+    return merge_places(*place_sets)
 
 
 def merge_places(*place_sets: list[dict[str, object]]) -> list[dict[str, object]]:
@@ -212,12 +232,13 @@ def nearby_wine_places(
             logger.info("OpenStreetMap wine places complement unavailable", exc_info=True)
     places = merge_places(overpass_places, nominatim_places)
     encoded_places = json.dumps(places, separators=(",", ":"), ensure_ascii=False)
+    cache_ttl = PLACE_CACHE_TTL if places else EMPTY_PLACE_CACHE_TTL
     if cached is None:
-        cached = MapPlaceCache(query_key=key, payload=encoded_places, created_at=now, expires_at=now + PLACE_CACHE_TTL)
+        cached = MapPlaceCache(query_key=key, payload=encoded_places, created_at=now, expires_at=now + cache_ttl)
         db.add(cached)
     else:
         cached.payload = encoded_places
         cached.created_at = now
-        cached.expires_at = now + PLACE_CACHE_TTL
+        cached.expires_at = now + cache_ttl
     db.commit()
     return [MapPlaceResponse.model_validate(place) for place in places]

@@ -2050,6 +2050,27 @@ def test_map_place_cache_uses_stable_geographic_cells():
     assert first == nearby == (43.61, 11.45, 43.63, 11.48)
 
 
+def test_nominatim_complement_preserves_wineries_and_wine_shops(monkeypatch):
+    search_terms: list[str] = []
+
+    def fake_search(_south: float, _west: float, _north: float, _east: float, search_term: str):
+        search_terms.append(search_term)
+        return [{
+            "name": "Ornellaia" if search_term == "winery" else "Enoteca di prova",
+            "latitude": 43.21,
+            "longitude": 10.62,
+            "kind": "winery" if search_term == "winery" else "wine_shop",
+        }]
+
+    monkeypatch.setattr(map_places_route, "fetch_nominatim_search", fake_search)
+    monkeypatch.setattr(map_places_route, "sleep", lambda _seconds: None)
+
+    places = map_places_route.fetch_nominatim_wine_places(43.19, 10.57, 43.24, 10.74)
+
+    assert search_terms == ["winery", "wine shop"]
+    assert [place["name"] for place in places] == ["Ornellaia", "Enoteca di prova"]
+
+
 def test_map_places_complement_sparse_overpass_results_with_nominatim(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
