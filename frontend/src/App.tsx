@@ -1257,6 +1257,7 @@ export function App() {
   const [deleteHouseholdConfirmDraft, setDeleteHouseholdConfirmDraft] = useState("");
   const [userAiBalanceDrafts, setUserAiBalanceDrafts] = useState<Record<string, string>>({});
   const [userAiNoteDrafts, setUserAiNoteDrafts] = useState<Record<string, string>>({});
+  const [userAccessDaysDrafts, setUserAccessDaysDrafts] = useState<Record<string, string>>({});
   const [shareDraft, setShareDraft] = useState({ email: "", share_pct: "50", message: "" });
   const [passkeyName, setPasskeyName] = useState("Vinaris");
   const [passkeyHelpOpen, setPasskeyHelpOpen] = useState(false);
@@ -2011,6 +2012,10 @@ export function App() {
             can_use_label_recognition: false,
             can_manage_wine_photos: false,
             has_demo_access: false,
+            has_active_subscription: false,
+            subscription_plan: null,
+            subscription_cancel_at_period_end: false,
+            access_override_until: null,
             ai_credit_balance_usd: "0.000000",
             approved_at: null,
             entitlement_valid_until: null,
@@ -2021,6 +2026,10 @@ export function App() {
       setPendingUsers(mergedUsers.filter((user) => !user.is_approved));
       setUserAiBalanceDrafts(Object.fromEntries(mergedUsers.map((user) => [user.id, String(Number(user.ai_credit_balance_usd || 0).toFixed(2))])));
       setUserAiNoteDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [user.id, current[user.id] || ""])));
+      setUserAccessDaysDrafts((current) => Object.fromEntries(mergedUsers.map((user) => [
+        user.id,
+        current[user.id] ?? (user.entitlement_days_remaining === null ? "" : String(user.entitlement_days_remaining)),
+      ])));
     } else {
       setAppUsers([]);
       setSelectedAppUserStats(null);
@@ -4490,6 +4499,24 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to generate sommelier reflection");
     } finally {
       setGeneratingAi("");
+    }
+  }
+
+  async function updateUserAccessDays(user: AppUser, clear = false) {
+    const targetValue = (userAccessDaysDrafts[user.id] || "").trim();
+    if (!clear && !targetValue) return;
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify(clear ? { clear_access_override: true } : { access_override_days: Number(targetValue) }),
+      });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update access");
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -12381,6 +12408,13 @@ export function App() {
                                 <span className={user.is_approved ? "status-pill configured" : "status-pill"}>{user.is_approved ? "approved" : "pending"}</span>
                                 {user.is_blocked ? <span className="status-pill">{t("blocked")}</span> : null}
                                 {user.is_app_admin ? <span className="status-pill">App admin</span> : null}
+                                {user.has_active_subscription ? (
+                                  <span className="status-pill configured">
+                                    {locale === "it"
+                                      ? `Abbonamento ${user.subscription_plan === "monthly" ? "mensile" : "annuale"}${user.subscription_cancel_at_period_end ? " · in disdetta" : ""}`
+                                      : `${user.subscription_plan === "monthly" ? "Monthly" : "Annual"} subscription${user.subscription_cancel_at_period_end ? " · cancelling" : ""}`}
+                                  </span>
+                                ) : null}
                                 {user.can_use_label_recognition ? <span className="status-pill">{t("labelRecognitionEnabled")}</span> : null}
                                 {user.can_manage_wine_photos ? <span className="status-pill">{locale === "it" ? "Caricamento foto abilitato" : "Photo uploads enabled"}</span> : null}
                                 <span className="status-pill">{formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
@@ -12430,6 +12464,35 @@ export function App() {
                                 </div>
                                 <small>{t("aiCreditAdminHelp")}</small>
                               </details>
+                              {!user.is_app_admin && !user.has_demo_access ? (
+                                <details className="user-admin-detail">
+                                  <summary>{locale === "it" ? "Accesso app" : "App access"}</summary>
+                                  <div className="credit-adjust-row">
+                                    <label>
+                                      <span>{locale === "it" ? "Giorni residui" : "Days remaining"}</span>
+                                      <input
+                                        type="number"
+                                        min="0"
+                                        max="3650"
+                                        step="1"
+                                        value={userAccessDaysDrafts[user.id] || ""}
+                                        onChange={(event) => setUserAccessDaysDrafts((current) => ({ ...current, [user.id]: event.target.value }))}
+                                      />
+                                    </label>
+                                    <button type="button" className="secondary compact" disabled={saving || !(userAccessDaysDrafts[user.id] || "").trim()} onClick={() => updateUserAccessDays(user)}>
+                                      {locale === "it" ? "Imposta accesso" : "Set access"}
+                                    </button>
+                                    {user.access_override_until ? (
+                                      <button type="button" className="secondary compact" disabled={saving} onClick={() => updateUserAccessDays(user, true)}>
+                                        {locale === "it" ? "Ripristina automatico" : "Restore automatic"}
+                                      </button>
+                                    ) : null}
+                                  </div>
+                                  <small>{locale === "it"
+                                    ? "Imposta i giorni effettivamente residui. 0 disattiva l'accesso; il ripristino torna a usare abbonamenti e redeem code."
+                                    : "Set the exact remaining days. 0 disables access; restore returns to subscriptions and redeem codes."}</small>
+                                </details>
+                              ) : null}
                               <details className="user-admin-actions-detail">
                                 <summary>More</summary>
                                 <div className="user-admin-actions-menu">

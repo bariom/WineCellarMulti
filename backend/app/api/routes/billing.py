@@ -6,39 +6,65 @@ import json
 import secrets
 import string
 import time
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request as FastAPIRequest, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Response, status
+from fastapi import Request as FastAPIRequest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, active_entitlement_valid_until, get_authenticated_context, require_app_admin_context
+from app.api.deps import (
+    CurrentContext,
+    active_entitlement_valid_until,
+    get_authenticated_context,
+    require_app_admin_context,
+)
 from app.core.config import settings
 from app.core.crypto import decrypt_secret, encrypt_secret
 from app.core.security import hash_redeem_code
 from app.db.session import get_db
-from app.models import RedeemCode, RedeemRedemption, StripeCheckoutSession, StripeWebhookEvent, User, UserEntitlement
-from app.schemas.billing import BillingPortalResponse, BillingStatusResponse, CheckoutSessionCreate, CheckoutSessionResponse, EntitlementResponse, RedeemCodeCreate, RedeemCodeResponse, RedeemRequest
+from app.models import (
+    RedeemCode,
+    RedeemRedemption,
+    StripeCheckoutSession,
+    StripeWebhookEvent,
+    User,
+    UserEntitlement,
+)
+from app.schemas.billing import (
+    BillingPortalResponse,
+    BillingStatusResponse,
+    CheckoutSessionCreate,
+    CheckoutSessionResponse,
+    EntitlementResponse,
+    RedeemCodeCreate,
+    RedeemCodeResponse,
+    RedeemRequest,
+)
+from app.services.ai_credits import (
+    ZERO_USD,
+    ai_credit_balance,
+    create_ai_credit_transaction,
+    quantize_usd,
+)
 from app.services.email import send_email
-from app.services.ai_credits import ZERO_USD, ai_credit_balance, create_ai_credit_transaction, quantize_usd
 from app.services.notifications import create_user_notification
-
 
 router = APIRouter(prefix="/billing")
 CODE_ALPHABET = string.ascii_uppercase + string.digits
 
 
 def now_utc() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def as_aware_utc(value: datetime) -> datetime:
-    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
 
 
 def normalize_redeem_code(code: str) -> str:
@@ -312,7 +338,7 @@ def verify_stripe_signature(payload: bytes, signature_header: str | None, tolera
     timestamp = int(timestamp_values[0])
     if abs(time.time() - timestamp) > tolerance_seconds:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Expired Stripe signature")
-    signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode("utf-8")
+    signed_payload = f"{timestamp}.{payload.decode('utf-8')}".encode()
     expected = hmac.new(settings.stripe_webhook_secret.encode("utf-8"), signed_payload, hashlib.sha256).hexdigest()
     if not any(hmac.compare_digest(expected, signature) for signature in signatures):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid Stripe signature")
@@ -671,6 +697,7 @@ def redeem_code(
         valid_until=valid_from + timedelta(days=code.duration_days),
     )
     redemption = RedeemRedemption(redeem_code_id=code.id, user_id=context.user.id)
+    context.user.access_override_until = None
     code.redeemed_count += 1
     db.add(entitlement)
     db.add(redemption)

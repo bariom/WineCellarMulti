@@ -79,6 +79,8 @@ class UserAdminUpdate(BaseModel):
     can_manage_wine_photos: bool | None = None
     ai_credit_balance_target_usd: Decimal | None = None
     ai_credit_note: str | None = Field(default=None, max_length=400)
+    access_override_days: int | None = Field(default=None, ge=0, le=3650)
+    clear_access_override: bool = False
 
 
 class UserAdminResponse(BaseModel):
@@ -91,6 +93,10 @@ class UserAdminResponse(BaseModel):
     can_use_label_recognition: bool
     can_manage_wine_photos: bool
     has_demo_access: bool = False
+    has_active_subscription: bool = False
+    subscription_plan: str | None = None
+    subscription_cancel_at_period_end: bool = False
+    access_override_until: str | None = None
     ai_credit_balance_usd: Decimal = Decimal("0")
     approved_at: str | None = None
     entitlement_valid_until: str | None = None

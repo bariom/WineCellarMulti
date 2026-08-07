@@ -50,6 +50,9 @@ class User(Base):
     theme_preference: Mapped[str] = mapped_column(String(32), default="system")
     dashboard_focus: Mapped[str] = mapped_column(String(32), default="collector")
     daily_wine_budget_chf: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    access_override_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class UserMonitorDeviceToken(Base):

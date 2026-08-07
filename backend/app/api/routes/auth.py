@@ -58,6 +58,7 @@ from app.models import (
     Membership,
     PasskeyChallenge,
     RedeemCode,
+    StripeCheckoutSession,
     User,
     UserActivityLog,
     UserEntitlement,
@@ -365,6 +366,21 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         .where(Membership.user_id == user.id, Household.is_demo.is_(True))
         .limit(1)
     ) is not None
+    subscription = db.scalar(
+        select(StripeCheckoutSession)
+        .where(
+            StripeCheckoutSession.user_id == user.id,
+            StripeCheckoutSession.status == "completed",
+            StripeCheckoutSession.plan.in_(("monthly", "annual")),
+            StripeCheckoutSession.stripe_subscription_id.is_not(None),
+        )
+        .order_by(StripeCheckoutSession.completed_at.desc())
+    )
+    has_active_subscription = subscription is not None and subscription.subscription_status not in {
+        "canceled",
+        "incomplete_expired",
+        "unpaid",
+    }
     return UserAdminResponse(
         id=str(user.id),
         email=user.email,
@@ -375,6 +391,10 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         can_use_label_recognition=user.can_use_label_recognition,
         can_manage_wine_photos=user.can_manage_wine_photos,
         has_demo_access=has_demo_access,
+        has_active_subscription=has_active_subscription,
+        subscription_plan=subscription.plan if has_active_subscription else None,
+        subscription_cancel_at_period_end=bool(subscription and subscription.cancel_at_period_end),
+        access_override_until=user.access_override_until.isoformat() if user.access_override_until else None,
         ai_credit_balance_usd=ai_credit_balance(db, user),
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,
@@ -1159,6 +1179,8 @@ def update_user_admin(
         and payload.can_use_label_recognition is None
         and payload.can_manage_wine_photos is None
         and payload.ai_credit_balance_target_usd is None
+        and payload.access_override_days is None
+        and not payload.clear_access_override
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No user changes provided")
     if payload.is_app_admin is not None:
@@ -1181,6 +1203,10 @@ def update_user_admin(
         user.can_use_label_recognition = payload.can_use_label_recognition
     if payload.can_manage_wine_photos is not None:
         user.can_manage_wine_photos = payload.can_manage_wine_photos
+    if payload.clear_access_override:
+        user.access_override_until = None
+    elif payload.access_override_days is not None:
+        user.access_override_until = datetime.now(UTC) + timedelta(days=payload.access_override_days)
     if payload.ai_credit_balance_target_usd is not None:
         if payload.ai_credit_balance_target_usd < Decimal("0"):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="AI credit balance cannot be negative")

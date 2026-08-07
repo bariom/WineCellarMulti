@@ -25,6 +25,13 @@ class CurrentContext:
 
 def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
     now = datetime.now(UTC)
+    if user.access_override_until is not None:
+        override_until = (
+            user.access_override_until.replace(tzinfo=UTC)
+            if user.access_override_until.tzinfo is None
+            else user.access_override_until.astimezone(UTC)
+        )
+        return override_until if override_until > now else None
     entitlement = db.scalar(
         select(UserEntitlement)
         .where(UserEntitlement.user_id == user.id, UserEntitlement.valid_until > now)

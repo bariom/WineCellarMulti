@@ -2059,6 +2059,27 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     assert redeemed.json()["active_source"] == "redeem"
     assert user_client.get("/api/v1/wines").status_code == 200
 
+    access_override = admin_client.patch(
+        f"/api/v1/auth/users/{pending_user['id']}",
+        json={"access_override_days": 12},
+    )
+    assert access_override.status_code == 200
+    assert access_override.json()["entitlement_days_remaining"] == 12
+    assert access_override.json()["access_override_until"] is not None
+    disabled_access = admin_client.patch(
+        f"/api/v1/auth/users/{pending_user['id']}",
+        json={"access_override_days": 0},
+    )
+    assert disabled_access.status_code == 200
+    assert user_client.get("/api/v1/wines").status_code == 402
+    restored_access = admin_client.patch(
+        f"/api/v1/auth/users/{pending_user['id']}",
+        json={"clear_access_override": True},
+    )
+    assert restored_access.status_code == 200
+    assert restored_access.json()["access_override_until"] is None
+    assert user_client.get("/api/v1/wines").status_code == 200
+
     with TestingSessionLocal() as db:
         code = db.get(RedeemCode, uuid.UUID(unused_code_id))
         assert code is not None
@@ -2285,6 +2306,12 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert status_payload["has_active_entitlement"] is False
     assert len(status_payload["entitlements"]) == 0
     assert len(status_payload["available_redeem_codes"]) == 1
+    stripe_user = next(
+        user for user in client.get("/api/v1/auth/users").json()
+        if user["email"] == "stripe@example.com"
+    )
+    assert stripe_user["has_active_subscription"] is True
+    assert stripe_user["subscription_plan"] == "monthly"
     paid_code = status_payload["available_redeem_codes"][0]["code"]
     assert paid_code.startswith("WCM-")
     assert any(
