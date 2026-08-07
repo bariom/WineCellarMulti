@@ -792,6 +792,7 @@ export type UserActivityLogEntry = {
 export type DemoActivitySummary = {
   total_visits: number;
   visits_24h: number;
+  visits_7d: number;
   last_visit_at: string | null;
 };
 
@@ -845,6 +846,15 @@ export type OperationalMetricsOverview = {
     period_start: string | null;
     collected_at: string | null;
   };
+  active_alerts: Array<{
+    metric: string;
+    label: string;
+    value: number;
+    suffix: string;
+    severity: "warning" | "critical";
+    opened_at: string;
+    last_notified_at: string | null;
+  }>;
   history_retention_days: number;
 };
 

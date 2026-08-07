@@ -27,6 +27,7 @@ from app.models import (
     AiAuditLog,
     Household,
     Membership,
+    OperationalAlertState,
     RedeemCode,
     User,
     UserAiCreditTransaction,
@@ -746,6 +747,7 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
         assert demo_activity.status_code == 200
         assert demo_activity.json()["total_visits"] == 1
         assert demo_activity.json()["visits_24h"] == 1
+        assert demo_activity.json()["visits_7d"] == 1
         assert demo_activity.json()["last_visit_at"] is not None
 
         wines = visitor.get("/api/v1/wines")
@@ -3020,7 +3022,28 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert payload["business"]["coownership_active"] == 0
     assert payload["business"]["coownership_pending"] == 0
     assert payload["openai"]["available"] is False
+    assert isinstance(payload["active_alerts"], list)
     assert payload["history_retention_days"] == 14
+
+    with TestingSessionLocal() as db:
+        db.add(
+            OperationalAlertState(
+                metric="disk",
+                severity="warning",
+                opened_at=datetime.now(UTC),
+                last_notified_at=None,
+                last_value=87.4,
+            )
+        )
+        db.commit()
+
+    alert_payload = client.get("/api/v1/admin/operations/overview").json()
+    disk_alert = next(
+        alert for alert in alert_payload["active_alerts"] if alert["metric"] == "disk"
+    )
+    assert disk_alert["label"] == "Disco"
+    assert disk_alert["value"] == 87.4
+    assert disk_alert["severity"] == "warning"
 
     # Once a collector sample exists, opening the dashboard must not run the
     # aggregate business queries again.

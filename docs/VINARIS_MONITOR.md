@@ -13,8 +13,16 @@ POST /api/v1/admin/operations/device-tokens?label=Il-mio-telefono
 
 La richiesta usa la normale sessione amministratore. Il valore `token` della
 risposta viene mostrato una sola volta: inserirlo nell'app Monitor. Il token
-permette esclusivamente di leggere overview, storico e attività operativa;
-non consente alcuna modifica alla cantina.
+permette di leggere overview, storico, allerte attive, attività operativa e
+andamento della cantina demo. Può richiedere una nuova rilevazione tecnica, ma
+non consente alcuna modifica a utenti, cantine o dati applicativi.
+
+## Funzioni autonome
+
+Il Monitor sintetizza lo stato operativo, mette in evidenza dati non recenti e
+allerte attive, mostra utenti da approvare o bloccati, inventario, attività,
+costi AI e visite alla demo. La funzione **Condividi stato** prepara una
+fotografia diagnostica senza includere il token del dispositivo.
 
 Per revocarlo:
 

@@ -41,6 +41,7 @@ from app.models import (
     DemoWineSelection,
     Household,
     Membership,
+    OperationalAlertState,
     OperationalMetricSample,
     User,
     UserActivityLog,
@@ -539,6 +540,11 @@ def demo_activity_summary(
                 demo_visit, UserActivityLog.created_at >= now - timedelta(hours=24)
             )
         ) or 0,
+        "visits_7d": db.scalar(
+            select(func.count()).select_from(UserActivityLog).where(
+                demo_visit, UserActivityLog.created_at >= now - timedelta(days=7)
+            )
+        ) or 0,
         "last_visit_at": last_visit_at.isoformat() if last_visit_at else None,
     }
 
@@ -672,6 +678,36 @@ def sample_response(sample: OperationalMetricSample) -> dict[str, object]:
     }
 
 
+def active_alerts_snapshot(db: Session) -> list[dict[str, object]]:
+    labels = {
+        "cpu": ("CPU", "%"),
+        "memory": ("RAM", "%"),
+        "disk": ("Disco", "%"),
+        "conntrack": ("Conntrack", "%"),
+        "latency": ("P95 API interattive", " ms"),
+    }
+    states = db.scalars(
+        select(OperationalAlertState).order_by(
+            OperationalAlertState.severity.asc(),
+            OperationalAlertState.opened_at.asc(),
+        )
+    ).all()
+    return [
+        {
+            "metric": state.metric,
+            "label": labels.get(state.metric, (state.metric.replace("_", " ").title(), ""))[0],
+            "value": state.last_value,
+            "suffix": labels.get(state.metric, ("", ""))[1],
+            "severity": state.severity,
+            "opened_at": state.opened_at.isoformat(),
+            "last_notified_at": (
+                state.last_notified_at.isoformat() if state.last_notified_at else None
+            ),
+        }
+        for state in states
+    ]
+
+
 def save_sample(db: Session, system: dict[str, object], now: datetime) -> None:
     application = cast(dict[str, object], request_metrics.snapshot())
     db.add(
@@ -719,6 +755,7 @@ def operations_overview(
     assert latest is not None
     return {
         **sample_response(latest),
+        "active_alerts": active_alerts_snapshot(db),
         "history_retention_days": SAMPLE_RETENTION.days,
     }
 

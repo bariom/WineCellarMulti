@@ -1,11 +1,13 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
 import "./monitor.css";
-import { App } from "./App";
 
+const monitorOnly = import.meta.env.VITE_VINARIS_MONITOR === "true";
+const App = monitorOnly
+  ? null
+  : lazy(() => import("./App").then((module) => ({ default: module.App })));
 const MonitorApp = lazy(() => import("./MonitorApp").then((module) => ({ default: module.MonitorApp })));
 const LegalDocumentView = lazy(() => import("./legal/LegalDocumentView").then((module) => ({ default: module.LegalDocumentView })));
-const monitorOnly = import.meta.env.VITE_VINARIS_MONITOR === "true";
 const legalDocument = window.location.pathname === "/privacy"
   ? "privacy"
   : window.location.pathname === "/terms"
@@ -19,7 +21,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         ? <LegalDocumentView kind={legalDocument} />
         : monitorOnly || window.location.pathname.startsWith("/monitor")
           ? <MonitorApp />
-          : <App />}
+          : App ? <App /> : null}
     </Suspense>
   </React.StrictMode>,
 );
