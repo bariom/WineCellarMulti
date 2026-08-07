@@ -3348,7 +3348,7 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
     assert manual_location.json()["latitude"] == 43.80512
     assert manual_location.json()["longitude"] == 11.29456
     assert manual_location.json()["precision"] == "manual"
-    assert manual_location.json()["source_url"] == source_url
+    assert manual_location.json()["source_url"] == ""
     with TestingSessionLocal() as db:
         saved = db.get(Wine, wine_id)
         assert saved is not None

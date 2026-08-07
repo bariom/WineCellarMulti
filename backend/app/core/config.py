@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     operations_alert_conntrack_critical_percent: float = 90
     operations_alert_latency_warning_ms: float = 750
     operations_alert_latency_critical_ms: float = 1500
+    operations_alert_latency_min_interactive_requests: int = 20
     # Public browser token for the optional ArcGIS satellite basemap. Protect it
     # with ArcGIS referrer restrictions; it is returned only to authenticated app users.
     arcgis_api_key: str = ""

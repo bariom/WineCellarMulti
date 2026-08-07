@@ -51,6 +51,22 @@ def test_technical_operations_requests_are_excluded_from_application_latency():
     assert is_interactive_application_request("/api/v1/ai/wines/test/value") is False
     assert is_interactive_application_request("/api/v1/imports/json") is False
     assert is_interactive_application_request("/api/v1/wines/photo/process") is False
+    assert is_interactive_application_request("/api/v1/map/places") is False
+
+
+def test_latency_alert_requires_a_representative_interactive_sample():
+    system = {"host": {"cpu_percent": 20, "memory": {"percent": 20}, "disk": {"percent": 30}}}
+    sparse = operational_alerts.detected_alerts(
+        system,
+        {"interactive_p95_duration_ms": 9_909, "interactive_requests_recent": 4},
+    )
+    representative = operational_alerts.detected_alerts(
+        system,
+        {"interactive_p95_duration_ms": 9_909, "interactive_requests_recent": 20},
+    )
+
+    assert all(alert.metric != "latency" for alert in sparse)
+    assert any(alert.metric == "latency" and alert.severity == "critical" for alert in representative)
 
 
 def test_user_activity_actions_identify_specific_features():

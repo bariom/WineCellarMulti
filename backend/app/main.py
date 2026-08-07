@@ -41,6 +41,7 @@ SLOW_APPLICATION_PATH_PREFIXES = (
     "/api/v1/ai/",
     "/api/v1/imports/",
     "/api/v1/wines/photo/process",
+    "/api/v1/map/places",
 )
 
 

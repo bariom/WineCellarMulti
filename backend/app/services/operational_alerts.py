@@ -57,7 +57,8 @@ def detected_alerts(system: dict[str, object], application: dict[str, object]) -
         else None
     )
     interactive_p95 = _value(application, "interactive_p95_duration_ms")
-    metrics = (
+    interactive_requests = _value(application, "interactive_requests_recent")
+    metrics: list[tuple[str, str, float | None, str, float, float]] = [
         (
             "cpu",
             "CPU",
@@ -90,15 +91,21 @@ def detected_alerts(system: dict[str, object], application: dict[str, object]) -
             settings.operations_alert_conntrack_warning_percent,
             settings.operations_alert_conntrack_critical_percent,
         ),
-        (
-            "latency",
-            "P95 API interattive",
-            interactive_p95,
-            "ms",
-            settings.operations_alert_latency_warning_ms,
-            settings.operations_alert_latency_critical_ms,
-        ),
-    )
+    ]
+    if (
+        interactive_requests is not None
+        and interactive_requests >= settings.operations_alert_latency_min_interactive_requests
+    ):
+        metrics.append(
+            (
+                "latency",
+                "P95 API interattive",
+                interactive_p95,
+                "ms",
+                settings.operations_alert_latency_warning_ms,
+                settings.operations_alert_latency_critical_ms,
+            )
+        )
     return [
         MetricAlert(metric=metric, label=label, value=value, suffix=suffix, severity=severity)
         for metric, label, value, suffix, warning, critical in metrics
