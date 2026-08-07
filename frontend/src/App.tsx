@@ -566,6 +566,12 @@ function prioritySortValue(priority: string) {
 
 function appUserEntitlementStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } | null {
   if (user.is_app_admin) return null;
+  if (user.has_demo_access) {
+    return {
+      label: locale === "it" ? "Demo · accesso illimitato" : "Demo · unlimited access",
+      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
+    };
+  }
   const days = user.entitlement_days_remaining ?? 0;
   const dayLabel = locale === "it" ? (days === 1 ? "giorno residuo" : "giorni residui") : (days === 1 ? "day remaining" : "days remaining");
   if (days <= 0) {
@@ -2004,6 +2010,7 @@ export function App() {
             is_blocked: false,
             can_use_label_recognition: false,
             can_manage_wine_photos: false,
+            has_demo_access: false,
             ai_credit_balance_usd: "0.000000",
             approved_at: null,
             entitlement_valid_until: null,

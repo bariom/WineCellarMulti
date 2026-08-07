@@ -90,6 +90,7 @@ class UserAdminResponse(BaseModel):
     is_blocked: bool
     can_use_label_recognition: bool
     can_manage_wine_photos: bool
+    has_demo_access: bool = False
     ai_credit_balance_usd: Decimal = Decimal("0")
     approved_at: str | None = None
     entitlement_valid_until: str | None = None

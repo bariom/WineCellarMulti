@@ -3,9 +3,19 @@
   box-sizing: border-box;
 }
 
+body:has(.monitor-shell) {
+  margin: 0;
+  background: #101312;
+}
+
+#root:has(.monitor-shell) {
+  min-height: 100dvh;
+}
+
 .monitor-shell {
   min-height: 100dvh;
-  max-width: 760px;
+  width: 100%;
+  max-width: 1100px;
   margin: 0 auto;
   padding: 20px 16px 40px;
   color: #f4efe4;
@@ -197,10 +207,19 @@
   font-size: 1.1rem;
 }
 
+.monitor-section-head > div {
+  min-width: 0;
+}
+
 .monitor-section-head b {
   color: #eed997;
   font-size: 1.35rem;
   font-variant-numeric: tabular-nums;
+  max-width: 45%;
+  overflow: hidden;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .monitor-range {
@@ -267,6 +286,7 @@
 
 .monitor-chart-card {
   min-height: 264px;
+  overflow: hidden;
 }
 
 .monitor-uplot {

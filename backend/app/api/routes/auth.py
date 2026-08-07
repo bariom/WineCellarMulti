@@ -359,6 +359,12 @@ def pending_user_response(user: User) -> PendingUserResponse:
 def user_admin_response(user: User, db: Session) -> UserAdminResponse:
     valid_until = active_entitlement_valid_until(db, user)
     days_remaining = math.ceil((valid_until - datetime.now(UTC)).total_seconds() / 86400) if valid_until else None
+    has_demo_access = db.scalar(
+        select(Household.id)
+        .join(Membership, Membership.household_id == Household.id)
+        .where(Membership.user_id == user.id, Household.is_demo.is_(True))
+        .limit(1)
+    ) is not None
     return UserAdminResponse(
         id=str(user.id),
         email=user.email,
@@ -368,6 +374,7 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         is_blocked=user.is_blocked,
         can_use_label_recognition=user.can_use_label_recognition,
         can_manage_wine_photos=user.can_manage_wine_photos,
+        has_demo_access=has_demo_access,
         ai_credit_balance_usd=ai_credit_balance(db, user),
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,

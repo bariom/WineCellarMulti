@@ -435,6 +435,7 @@ export type AppUser = PendingUser & {
   is_blocked: boolean;
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
+  has_demo_access: boolean;
   ai_credit_balance_usd: string;
   approved_at: string | null;
   entitlement_valid_until: string | null;

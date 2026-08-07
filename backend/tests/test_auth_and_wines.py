@@ -742,6 +742,11 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
         assert entered.json()["is_demo"] is True
         assert entered.json()["membership_role"] == "viewer"
         assert entered.json()["has_active_entitlement"] is True
+        demo_user = next(
+            user for user in admin.get("/api/v1/auth/users").json()
+            if user["id"] == entered.json()["user_id"]
+        )
+        assert demo_user["has_demo_access"] is True
 
         demo_activity = admin.get("/api/v1/admin/operations/demo-activity")
         assert demo_activity.status_code == 200
