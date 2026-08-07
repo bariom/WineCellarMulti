@@ -2042,6 +2042,28 @@ def test_map_places_are_cached_per_viewport(monkeypatch):
     assert calls == 1
 
 
+def test_map_places_fall_back_to_nominatim_when_overpass_is_unavailable(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    def unavailable_overpass(*_args):
+        raise TimeoutError("Overpass unavailable")
+
+    monkeypatch.setattr(map_places_route, "fetch_places", unavailable_overpass)
+    monkeypatch.setattr(
+        map_places_route,
+        "fetch_nominatim_wine_places",
+        lambda *_args: [{"name": "Enoteca di prova", "latitude": 45.1, "longitude": 8.1, "kind": "wine_shop"}],
+    )
+
+    response = client.get("/api/v1/map/places?south=45&west=8&north=45.2&east=8.2")
+
+    assert response.status_code == 200
+    assert response.json() == [
+        {"name": "Enoteca di prova", "latitude": 45.1, "longitude": 8.1, "kind": "wine_shop"}
+    ]
+
+
 def test_app_admin_can_create_and_user_can_redeem_code():
     admin_client = TestClient(app)
     registered = register(admin_client)

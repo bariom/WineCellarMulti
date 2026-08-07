@@ -71,7 +71,7 @@ out center 120;"""
         },
         method="POST",
     )
-    with urlopen(request, timeout=16) as response:  # noqa: S310 - configured HTTPS endpoint
+    with urlopen(request, timeout=8) as response:  # noqa: S310 - configured HTTPS endpoint
         payload = json.loads(response.read().decode("utf-8"))
 
     places: list[dict[str, object]] = []
@@ -97,6 +97,47 @@ out center 120;"""
     return places[:80]
 
 
+def fetch_nominatim_wine_places(south: float, west: float, north: float, east: float) -> list[dict[str, object]]:
+    """Provide a fast OSM fallback for wine shops when Overpass is unavailable."""
+
+    query = urlencode(
+        {
+            "format": "jsonv2",
+            "limit": 20,
+            "bounded": 1,
+            "q": "wine shop",
+            "viewbox": f"{west:.5f},{north:.5f},{east:.5f},{south:.5f}",
+        }
+    )
+    contact = settings.legal_contact_email.strip() or "support@vinaris.app"
+    request = Request(
+        f"{settings.map_places_nominatim_url}?{query}",
+        headers={"User-Agent": f"{settings.app_name}/1.0 (+mailto:{contact})"},
+    )
+    with urlopen(request, timeout=5) as response:  # noqa: S310 - configured HTTPS endpoint
+        payload = json.loads(response.read().decode("utf-8"))
+    if not isinstance(payload, list):
+        return []
+
+    places: list[dict[str, object]] = []
+    for item in payload:
+        if not isinstance(item, dict):
+            continue
+        category = str(item.get("category") or "")
+        item_type = str(item.get("type") or "")
+        if not ((category == "shop" and item_type == "wine") or (category == "craft" and item_type == "winery")):
+            continue
+        name = str(item.get("name") or "").strip()
+        try:
+            latitude = float(item.get("lat"))
+            longitude = float(item.get("lon"))
+        except (TypeError, ValueError):
+            continue
+        if name and -90 <= latitude <= 90 and -180 <= longitude <= 180:
+            places.append({"name": name, "latitude": latitude, "longitude": longitude, "kind": "wine_shop"})
+    return places
+
+
 @router.get("/places", response_model=list[MapPlaceResponse])
 def nearby_wine_places(
     south: float = Query(ge=-85, le=85),
@@ -117,7 +158,11 @@ def nearby_wine_places(
         places = fetch_places(south, west, north, east)
     except Exception:  # Keep map navigation usable when the community service is unavailable.
         logger.info("OpenStreetMap wine places lookup unavailable", exc_info=True)
-        return []
+        try:
+            places = fetch_nominatim_wine_places(south, west, north, east)
+        except Exception:
+            logger.info("OpenStreetMap wine places fallback unavailable", exc_info=True)
+            return []
     encoded_places = json.dumps(places, separators=(",", ":"), ensure_ascii=False)
     if cached is None:
         cached = MapPlaceCache(query_key=key, payload=encoded_places, created_at=now, expires_at=now + PLACE_CACHE_TTL)

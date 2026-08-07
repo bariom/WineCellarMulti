@@ -56,6 +56,7 @@ class Settings(BaseSettings):
     # with ArcGIS referrer restrictions; it is returned only to authenticated app users.
     arcgis_api_key: str = ""
     map_places_overpass_url: str = "https://overpass-api.de/api/interpreter"
+    map_places_nominatim_url: str = "https://nominatim.openstreetmap.org/search"
     openai_api_key: str = ""
     # Organization Admin key used exclusively for the app-admin operational cost summary.
     # It is never returned to the browser and is distinct from the application AI key.
