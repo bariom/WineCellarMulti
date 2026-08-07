@@ -1702,7 +1702,9 @@ def create_tasting_reflection(
         user_settings,
         model=selected_model,
         task_type="tasting_reflection",
-        max_output_tokens=220,
+        # A compact JSON response can still require reasoning tokens. Leave enough
+        # headroom so structured output is not cut off before its closing brace.
+        max_output_tokens=512,
         system_prompt=(
             "Sei il sommelier personale di una cantina privata. Valuta con rigore ma con un tono conviviale "
             "un abbinamento vino-piatto gia avvenuto. Assegna pairing_score da 1 a 10: 5 e corretto, 7 e molto riuscito, "

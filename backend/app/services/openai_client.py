@@ -401,6 +401,19 @@ def create_response(
                 continue
             raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="OpenAI request failed") from exc
 
+    if payload.get("status") == "incomplete":
+        incomplete_details = payload.get("incomplete_details")
+        incomplete_reason = (
+            str(incomplete_details.get("reason") or "")
+            if isinstance(incomplete_details, dict)
+            else ""
+        )
+        if incomplete_reason == "max_output_tokens":
+            detail = "AI response was incomplete because it reached the output limit"
+        else:
+            detail = "AI response was incomplete"
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=detail)
+
     text = extract_response_text(payload)
     if not text:
         raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned an empty response")

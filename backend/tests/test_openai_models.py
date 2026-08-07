@@ -152,6 +152,26 @@ def test_create_response_sends_automatic_task_effort(monkeypatch: pytest.MonkeyP
     assert response.task_type == "grape_inference"
 
 
+def test_create_response_rejects_incomplete_structured_output(monkeypatch: pytest.MonkeyPatch):
+    def fake_urlopen(request, timeout):
+        return FakeResponse(
+            {
+                "status": "incomplete",
+                "incomplete_details": {"reason": "max_output_tokens"},
+                "output_text": '{"feedback":"truncated',
+                "usage": {},
+            }
+        )
+
+    monkeypatch.setattr("app.services.openai_client.urllib.request.urlopen", fake_urlopen)
+
+    with pytest.raises(HTTPException) as exc_info:
+        create_response("gpt-5.6-luna", "system", "user", api_key="sk-test")
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "AI response was incomplete because it reached the output limit"
+
+
 def test_response_body_allows_cost_controls_for_web_search():
     body = response_body(
         "gpt-5.6-terra",
