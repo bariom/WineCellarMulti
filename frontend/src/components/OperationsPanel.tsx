@@ -521,9 +521,9 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
                 <small>{overview.business.households_total ? (overview.business.users_enabled / overview.business.households_total).toFixed(1) : "—"} {isItalian ? "utenti per cantina" : "users per cellar"}</small>
               </div>
               <div>
-                <span>{isItalian ? "Inventario" : "Inventory"}</span>
+                <span>{isItalian ? "Inventario globale" : "Global inventory"}</span>
                 <strong>{overview.business.bottles_total}</strong>
-                <small>{overview.business.wines_total} {isItalian ? "vini distinti" : "distinct wines"}</small>
+                <small>{overview.business.wines_total} {isItalian ? "record vino · demo e test inclusi" : "wine records · demo and tests included"}</small>
               </div>
               <div>
                 <span>{isItalian ? "Bottiglie in cantina" : "Bottles in cellar"}</span>
@@ -581,6 +581,18 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
                 <small>{isItalian ? "bottiglie per cantina" : "bottles per cellar"}</small>
               </div>
             </div>
+            <details className="operations-household-inventory">
+              <summary>{isItalian ? "Ripartizione inventario per cantina" : "Inventory by cellar"}</summary>
+              <div>
+                {(overview.business.household_inventory || []).map((household) => (
+                  <article key={household.name}>
+                    <span><strong>{household.name}</strong>{household.is_demo ? <em>{isItalian ? "demo" : "demo"}</em> : null}</span>
+                    <small>{household.wine_records} {isItalian ? "record vino" : "wine records"}</small>
+                    <b>{household.bottles} {isItalian ? "bottiglie" : "bottles"}</b>
+                  </article>
+                ))}
+              </div>
+            </details>
           </section>
           <section className="operations-openai-cost" aria-label={isItalian ? "Costi OpenAI" : "OpenAI costs"}>
             <div>

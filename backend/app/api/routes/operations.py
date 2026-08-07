@@ -566,7 +566,7 @@ def demo_activity_summary(
     }
 
 
-def business_snapshot(db: Session) -> dict[str, int | float]:
+def business_snapshot(db: Session) -> dict[str, object]:
     now = datetime.now(UTC)
     today = now.date()
     thirty_days_ago = now - timedelta(days=30)
@@ -656,12 +656,33 @@ def business_snapshot(db: Session) -> dict[str, int | float]:
             ),
         )
     ).one()
+    household_inventory = db.execute(
+        select(
+            Household.name,
+            Household.is_demo,
+            func.count(Wine.id),
+            func.coalesce(func.sum(Wine.quantity), 0),
+        )
+        .select_from(Household)
+        .outerjoin(Wine, Wine.household_id == Household.id)
+        .group_by(Household.id, Household.name, Household.is_demo)
+        .order_by(func.coalesce(func.sum(Wine.quantity), 0).desc(), Household.name.asc())
+    ).all()
     return {
         "users_total": users[0],
         "users_approved": users[1],
         "users_blocked": users[2],
         "users_enabled": users[3],
         "households_total": db.scalar(select(func.count()).select_from(Household)) or 0,
+        "household_inventory": [
+            {
+                "name": name,
+                "is_demo": is_demo,
+                "wine_records": wine_records,
+                "bottles": bottles,
+            }
+            for name, is_demo, wine_records, bottles in household_inventory
+        ],
         "wines_total": wines[0],
         "bottles_total": wines[1],
         "bottles_in_cellar": wines[2],
