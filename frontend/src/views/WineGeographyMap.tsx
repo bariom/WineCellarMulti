@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { CircleMarker, MapContainer, TileLayer, Tooltip, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Tooltip, useMap } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import "./WineGeographyMap.css";
 
@@ -222,7 +222,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
   );
 }
 
-export default function WineGeographyMap({ wines, t, onSelectRegion }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void }) {
+export default function WineGeographyMap({ wines, t, onSelectRegion, locale }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void; locale: Locale }) {
   const markers = new Map<string, WineMapPoint>();
   wines.forEach((wine) => {
     const location = wineRegionLocation(wine);
@@ -242,7 +242,7 @@ export default function WineGeographyMap({ wines, t, onSelectRegion }: { wines: 
     <div className="wine-geography-map" aria-label={t("geographicMap")}>
       <MapContainer center={[24, 8]} zoom={2} minZoom={2} maxZoom={12} scrollWheelZoom className="wine-geography-leaflet">
         <DensityViewport points={points} />
-        <TileLayer attribution={'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'} url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <MapBaseLayers locale={locale} />
         {points.map((point) => (
           <CircleMarker key={`${point.label}:${point.location.latitude}:${point.location.longitude}`} center={[point.location.latitude, point.location.longitude]} radius={Math.min(22, 7 + Math.sqrt(Math.max(point.bottles, 1)) * 2.25)} pathOptions={{ color: "#fff7ef", weight: 2, fillColor: "#9b3123", fillOpacity: 0.84 }} eventHandlers={point.region ? { click: () => onSelectRegion(point.region) } : undefined}>
             <Tooltip direction="top" offset={[0, -8]} opacity={0.96}>

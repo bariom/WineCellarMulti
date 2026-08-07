@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { LayersControl, TileLayer } from "react-leaflet";
 import { loadMapConfig, type MapConfig } from "../services/mapConfig";
 import type { Locale } from "../types";
+import NearbyWinePlacesLayer from "./NearbyWinePlacesLayer";
 
 const OSM_TILE_URL = "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
 const ARCGIS_IMAGERY_URL = "https://ibasemaps-api.arcgis.com/arcgis/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}";
@@ -25,20 +26,25 @@ export default function MapBaseLayers({ locale }: { locale: Locale }) {
       url={OSM_TILE_URL}
     />
   );
-  if (!mapConfig?.satellite_enabled || !mapConfig.arcgis_api_key) return osmLayer;
-
-  const satelliteUrl = `${ARCGIS_IMAGERY_URL}?token=${encodeURIComponent(mapConfig.arcgis_api_key)}`;
+  const satelliteUrl = mapConfig?.satellite_enabled && mapConfig.arcgis_api_key
+    ? `${ARCGIS_IMAGERY_URL}?token=${encodeURIComponent(mapConfig.arcgis_api_key)}`
+    : "";
   return (
     <LayersControl position="topright">
       <LayersControl.BaseLayer checked name={locale === "it" ? "Mappa" : "Map"}>
         {osmLayer}
       </LayersControl.BaseLayer>
-      <LayersControl.BaseLayer name="Satellite">
-        <TileLayer
-          attribution={'Tiles &copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community'}
-          url={satelliteUrl}
-        />
-      </LayersControl.BaseLayer>
+      {satelliteUrl ? (
+        <LayersControl.BaseLayer name="Satellite">
+          <TileLayer
+            attribution={'Tiles &copy; <a href="https://www.esri.com/">Esri</a>, Maxar, Earthstar Geographics, and the GIS User Community'}
+            url={satelliteUrl}
+          />
+        </LayersControl.BaseLayer>
+      ) : null}
+      <LayersControl.Overlay name={locale === "it" ? "Cantine e luoghi" : "Wineries and places"}>
+        <NearbyWinePlacesLayer locale={locale} />
+      </LayersControl.Overlay>
     </LayersControl>
   );
 }

@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     # Public browser token for the optional ArcGIS satellite basemap. Protect it
     # with ArcGIS referrer restrictions; it is returned only to authenticated app users.
     arcgis_api_key: str = ""
+    map_places_overpass_url: str = "https://overpass-api.de/api/interpreter"
     openai_api_key: str = ""
     # Organization Admin key used exclusively for the app-admin operational cost summary.
     # It is never returned to the browser and is distinct from the application AI key.

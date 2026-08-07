@@ -16,6 +16,7 @@ from app.models.household_preferences import (
     UserOperationalActionSnooze,
 )
 from app.models.invite import HouseholdInvite
+from app.models.map_places import MapPlaceCache
 from app.models.membership import Membership
 from app.models.notification import UserNotification, UserNotificationDismissal
 from app.models.operational_metrics import OperationalAlertState, OperationalMetricSample
@@ -47,6 +48,7 @@ __all__ = [
     "HouseholdRegionalGapSettings",
     "HouseholdInvite",
     "Membership",
+    "MapPlaceCache",
     "OperationalMetricSample",
     "OperationalAlertState",
     "PasskeyChallenge",

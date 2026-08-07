@@ -8,6 +8,7 @@ from app.api.routes import (
     coownership,
     households,
     imports,
+    map_places,
     monitoring,
     notifications,
     operations,
@@ -24,6 +25,7 @@ api_router.include_router(billing.router, tags=["billing"])
 api_router.include_router(ai.router, tags=["ai"])
 api_router.include_router(households.router, tags=["household"])
 api_router.include_router(imports.router, tags=["imports"])
+api_router.include_router(map_places.router, tags=["map"])
 api_router.include_router(monitoring.router, tags=["monitoring"])
 api_router.include_router(notifications.router, tags=["notifications"])
 api_router.include_router(operations.router, tags=["operations"])

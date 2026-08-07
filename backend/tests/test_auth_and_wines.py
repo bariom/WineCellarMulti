@@ -15,6 +15,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.routes import catalog as catalog_route
+from app.api.routes import map_places as map_places_route
 from app.api.routes import operations as operations_route
 from app.api.routes import wines as wines_route
 from app.core.config import settings
@@ -2016,6 +2017,29 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
         assert audit is not None
         assert audit.estimated_cost_usd == starting_balance - ending_balance
         assert audit.sources[-1]["provider_source"] == "credits"
+
+
+def test_map_places_are_cached_per_viewport(monkeypatch):
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    calls = 0
+
+    def fake_fetch_places(south: float, west: float, north: float, east: float):
+        nonlocal calls
+        calls += 1
+        assert (south, west, north, east) == (45.0, 8.0, 45.2, 8.2)
+        return [{"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"}]
+
+    monkeypatch.setattr(map_places_route, "fetch_places", fake_fetch_places)
+    query = "south=45&west=8&north=45.2&east=8.2"
+    first = client.get(f"/api/v1/map/places?{query}")
+    assert first.status_code == 200
+    assert first.json() == [
+        {"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"}
+    ]
+    second = client.get(f"/api/v1/map/places?{query}")
+    assert second.status_code == 200
+    assert calls == 1
 
 
 def test_app_admin_can_create_and_user_can_redeem_code():

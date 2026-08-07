@@ -256,7 +256,7 @@ function DashboardBottleList({
   );
 }
 
-function DeferredWineGeographyMap({ wines, t, onSelectRegion }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void }) {
+function DeferredWineGeographyMap({ wines, t, onSelectRegion, locale }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void; locale: Locale }) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [shouldLoad, setShouldLoad] = useState(false);
 
@@ -283,7 +283,7 @@ function DeferredWineGeographyMap({ wines, t, onSelectRegion }: { wines: Wine[];
     <div ref={containerRef} className="deferred-map-placeholder">
       {shouldLoad ? (
         <Suspense fallback={<LoadingState label={t("loadingData")} />}>
-          <WineGeographyMap wines={wines} t={t} onSelectRegion={onSelectRegion} />
+          <WineGeographyMap wines={wines} t={t} onSelectRegion={onSelectRegion} locale={locale} />
         </Suspense>
       ) : (
         <LoadingState label={t("loadingData")} />
@@ -9220,7 +9220,7 @@ export function App() {
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("wineOrigins")}</h2>
                     </div>
                   </div>
-                  <DeferredWineGeographyMap wines={cellarWines} t={t} onSelectRegion={openCellarForRegion} />
+                  <DeferredWineGeographyMap wines={cellarWines} t={t} onSelectRegion={openCellarForRegion} locale={locale} />
                 </article>
 
                 {renderMaturityHeatmapCard()}
