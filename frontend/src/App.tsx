@@ -4577,7 +4577,7 @@ export function App() {
     setSelectedSuggestedPhotoId(null);
     const name = draft.name.trim();
     const producer = draft.producer.trim();
-    if (!wineFormOpen || editingId || !canReuseWinePhotos || pendingBottlePhoto || name.length < 2 || !producer) return;
+    if (!wineFormOpen || !canReuseWinePhotos || pendingBottlePhoto || name.length < 2 || !producer) return;
 
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
@@ -4601,6 +4601,25 @@ export function App() {
   }, [canReuseWinePhotos, draft.name, draft.producer, editingId, pendingBottlePhoto, wineFormOpen]);
 
   const winePhotoSuggestion = winePhotoSuggestions[winePhotoSuggestionIndex] || null;
+
+  async function reuseSuggestedWinePhoto(sourceWineId: string) {
+    if (!editingId) {
+      setPendingBottlePhoto(null);
+      setSelectedSuggestedPhotoId((current) => current === sourceWineId ? null : sourceWineId);
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${editingId}/photo/reuse/${sourceWineId}`, { method: "POST" });
+      setWines((current) => current.map((wine) => wine.id === updated.id ? updated : wine));
+      setSelectedWineId(updated.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to reuse bottle photo");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   const canGenerateAi =
     canWriteWine &&
@@ -9912,7 +9931,7 @@ export function App() {
                   </div>
                 ) : null}
                 {canReuseWinePhotos ? (
-                  <div className={`bottle-photo-form-card${canManageWinePhotos ? "" : " reuse-only"}${!editingId && winePhotoSuggestion ? " has-suggestion" : ""}`}>
+                  <div className={`bottle-photo-form-card${canManageWinePhotos ? "" : " reuse-only"}${winePhotoSuggestion ? " has-suggestion" : ""}`}>
                     <div>
                       <strong>{locale === "it" ? "Foto della bottiglia" : "Bottle photo"}</strong>
                       <small>
@@ -9948,7 +9967,7 @@ export function App() {
                         onError={(message) => setError(formatUserErrorMessage(message, locale))}
                       />
                     </Suspense> : null}
-                    {!editingId && winePhotoSuggestion ? (
+                    {winePhotoSuggestion ? (
                       <div className={`wine-photo-suggestion${selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id ? " selected" : ""}`}>
                         <img src={winePhotoSuggestion.thumbnail_url} alt={locale === "it" ? `Foto proposta per ${draft.name}` : `Suggested photo for ${draft.name}`} />
                         <div>
@@ -9972,12 +9991,12 @@ export function App() {
                           <button
                             type="button"
                             className={selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id ? "compact" : "secondary compact"}
-                            onClick={() => {
-                              setPendingBottlePhoto(null);
-                              setSelectedSuggestedPhotoId((current) => current === winePhotoSuggestion.source_wine_id ? null : winePhotoSuggestion.source_wine_id);
-                            }}
+                            disabled={saving}
+                            onClick={() => void reuseSuggestedWinePhoto(winePhotoSuggestion.source_wine_id)}
                           >
-                            {selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id
+                            {editingId
+                              ? (locale === "it" ? "Usa questa foto" : "Use this photo")
+                              : selectedSuggestedPhotoId === winePhotoSuggestion.source_wine_id
                               ? (locale === "it" ? "Foto selezionata" : "Photo selected")
                               : (locale === "it" ? "Usa questa foto" : "Use this photo")}
                           </button>
