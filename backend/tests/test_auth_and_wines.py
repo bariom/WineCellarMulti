@@ -2031,6 +2031,7 @@ def test_map_places_are_cached_per_viewport(monkeypatch):
         return [{"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"}]
 
     monkeypatch.setattr(map_places_route, "fetch_places", fake_fetch_places)
+    monkeypatch.setattr(map_places_route, "fetch_nominatim_wine_places", lambda *_args: [])
     query = "south=45&west=8&north=45.2&east=8.2"
     first = client.get(f"/api/v1/map/places?{query}")
     assert first.status_code == 200
@@ -2049,25 +2050,30 @@ def test_map_place_cache_uses_stable_geographic_cells():
     assert first == nearby == (43.61, 11.45, 43.63, 11.48)
 
 
-def test_map_places_fall_back_to_nominatim_when_overpass_is_unavailable(monkeypatch):
+def test_map_places_complement_sparse_overpass_results_with_nominatim(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
 
-    def unavailable_overpass(*_args):
-        raise TimeoutError("Overpass unavailable")
-
-    monkeypatch.setattr(map_places_route, "fetch_places", unavailable_overpass)
+    monkeypatch.setattr(
+        map_places_route,
+        "fetch_places",
+        lambda *_args: [{"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"}],
+    )
     monkeypatch.setattr(
         map_places_route,
         "fetch_nominatim_wine_places",
-        lambda *_args: [{"name": "Enoteca di prova", "latitude": 45.1, "longitude": 8.1, "kind": "wine_shop"}],
+        lambda *_args: [
+            {"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "wine_shop"},
+            {"name": "Enoteca di prova", "latitude": 45.12, "longitude": 8.12, "kind": "wine_shop"},
+        ],
     )
 
     response = client.get("/api/v1/map/places?south=45&west=8&north=45.2&east=8.2")
 
     assert response.status_code == 200
     assert response.json() == [
-        {"name": "Enoteca di prova", "latitude": 45.1, "longitude": 8.1, "kind": "wine_shop"}
+        {"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"},
+        {"name": "Enoteca di prova", "latitude": 45.12, "longitude": 8.12, "kind": "wine_shop"},
     ]
 
 
