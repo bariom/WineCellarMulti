@@ -10,7 +10,7 @@ from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION, legal_acceptance_is_current
 from app.core.security import hash_session_token
 from app.db.session import get_db
-from app.models import Household, Membership, RedeemCode, User, UserEntitlement, UserSession
+from app.models import Household, Membership, User, UserEntitlement, UserSession
 
 
 @dataclass(frozen=True)
@@ -25,33 +25,18 @@ class CurrentContext:
 
 def active_entitlement_valid_until(db: Session, user: User) -> datetime | None:
     now = datetime.now(UTC)
-    entitlements = db.scalars(
+    entitlement = db.scalar(
         select(UserEntitlement)
         .where(UserEntitlement.user_id == user.id, UserEntitlement.valid_until > now)
         .order_by(UserEntitlement.valid_until.desc()),
     )
-    for entitlement in entitlements:
-        valid_until = (
-            entitlement.valid_until.replace(tzinfo=UTC)
-            if entitlement.valid_until.tzinfo is None
-            else entitlement.valid_until.astimezone(UTC)
-        )
-        if entitlement.source in {"redeem", "trial"} and entitlement.source_id is not None:
-            code = db.get(RedeemCode, entitlement.source_id)
-            if code is None or code.revoked_at is not None:
-                continue
-            if code.expires_at is not None:
-                code_expires_at = (
-                    code.expires_at.replace(tzinfo=UTC)
-                    if code.expires_at.tzinfo is None
-                    else code.expires_at.astimezone(UTC)
-                )
-                if code_expires_at <= now:
-                    continue
-                valid_until = min(valid_until, code_expires_at)
-        if valid_until > now:
-            return valid_until
-    return None
+    if entitlement is None:
+        return None
+    return (
+        entitlement.valid_until.replace(tzinfo=UTC)
+        if entitlement.valid_until.tzinfo is None
+        else entitlement.valid_until.astimezone(UTC)
+    )
 
 
 def build_session_response(context: CurrentContext | None) -> dict[str, object | None]:

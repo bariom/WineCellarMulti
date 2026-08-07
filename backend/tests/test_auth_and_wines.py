@@ -2064,8 +2064,8 @@ def test_app_admin_can_create_and_user_can_redeem_code():
         assert code is not None
         code.expires_at = datetime.now(UTC) - timedelta(minutes=1)
         db.commit()
-    assert user_client.get("/api/v1/billing/status").json()["has_active_entitlement"] is False
-    assert user_client.get("/api/v1/wines").status_code == 402
+    assert user_client.get("/api/v1/billing/status").json()["has_active_entitlement"] is True
+    assert user_client.get("/api/v1/wines").status_code == 200
 
     duplicate = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert duplicate.status_code == 400
@@ -2074,12 +2074,14 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     listed_after_revoke = admin_client.get("/api/v1/billing/redeem-codes")
     revoked_code = next(code for code in listed_after_revoke.json() if code["id"] == unused_code_id)
     assert revoked_code["is_active"] is False
+    assert user_client.get("/api/v1/billing/status").json()["has_active_entitlement"] is True
     force_deleted = admin_client.delete(f"/api/v1/billing/redeem-codes/{unused_code_id}?force=true")
     assert force_deleted.status_code == 204
     assert all(
         code["id"] != unused_code_id
         for code in admin_client.get("/api/v1/billing/redeem-codes").json()
     )
+    assert user_client.get("/api/v1/billing/status").json()["has_active_entitlement"] is True
 
     extra_code = admin_client.post(
         "/api/v1/billing/redeem-codes",
