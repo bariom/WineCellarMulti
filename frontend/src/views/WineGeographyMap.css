@@ -16,6 +16,42 @@
 .wine-geography-leaflet .leaflet-control-attribution { font-size: 0.6rem; }
 .wine-geography-leaflet .leaflet-interactive { cursor: pointer; }
 
+/* Leaflet's native layer switcher uses form controls. Keep it outside the
+   application's generous mobile input sizing so it stays a compact map tool. */
+:is(.wine-geography-leaflet, .vineyard-detail-map, .vineyard-fullscreen-map, .vineyard-location-editor-map, .vineyard-location-fullscreen-map) .leaflet-control-layers {
+  max-width: min(210px, calc(100vw - 44px));
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--collector-depth) 26%, transparent);
+  font: 700 .68rem/1.2 var(--font-body, inherit);
+}
+
+:is(.wine-geography-leaflet, .vineyard-detail-map, .vineyard-fullscreen-map, .vineyard-location-editor-map, .vineyard-location-fullscreen-map) .leaflet-control-layers label {
+  display: flex;
+  align-items: center;
+  min-height: 23px;
+  margin: 0;
+  padding: 2px 0;
+  gap: 5px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+:is(.wine-geography-leaflet, .vineyard-detail-map, .vineyard-fullscreen-map, .vineyard-location-editor-map, .vineyard-location-fullscreen-map) .leaflet-control-layers-selector {
+  width: 14px !important;
+  min-width: 14px;
+  height: 14px;
+  min-height: 14px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  accent-color: var(--accent);
+}
+
 .wine-geography-map > p {
   margin: 0;
   color: var(--text-muted);

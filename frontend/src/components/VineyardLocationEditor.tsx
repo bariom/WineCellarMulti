@@ -135,6 +135,10 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
     || longitude === null
     || Math.abs(point.latitude - latitude) > 0.0000001
     || Math.abs(point.longitude - longitude) > 0.0000001
+    || details.vineyardName !== vineyardName
+    || details.locality !== locality
+    || details.country !== country
+    || details.notes !== notes
   ));
 
   function updateCoordinate(field: keyof Point, value: string) {
