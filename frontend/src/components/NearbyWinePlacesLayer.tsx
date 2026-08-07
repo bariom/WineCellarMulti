@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { LayerGroup as LeafletLayerGroup } from "leaflet";
 import { CircleMarker, LayerGroup, Tooltip, useMap, useMapEvents } from "react-leaflet";
 
 import { api } from "../services/api";
-import type { Locale } from "../types";
 
 type MapPlace = {
   name: string;
@@ -19,6 +19,8 @@ type Viewport = {
   zoom: number;
 };
 
+const MINIMUM_PLACES_ZOOM = 12;
+
 function readViewport(map: ReturnType<typeof useMap>): Viewport {
   const bounds = map.getBounds();
   return {
@@ -30,7 +32,7 @@ function readViewport(map: ReturnType<typeof useMap>): Viewport {
   };
 }
 
-function NearbyWinePlaceMarkers({ enabled, locale }: { enabled: boolean; locale: Locale }) {
+function NearbyWinePlaceMarkers({ enabled }: { enabled: boolean }) {
   const map = useMap();
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [places, setPlaces] = useState<MapPlace[]>([]);
@@ -53,7 +55,7 @@ function NearbyWinePlaceMarkers({ enabled, locale }: { enabled: boolean; locale:
   }, [enabled, map]);
 
   useEffect(() => {
-    if (!viewport || viewport.zoom < 12) {
+    if (!viewport || viewport.zoom < MINIMUM_PLACES_ZOOM) {
       setPlaces([]);
       return;
     }
@@ -76,11 +78,6 @@ function NearbyWinePlaceMarkers({ enabled, locale }: { enabled: boolean; locale:
     };
   }, [viewport]);
 
-  const kindLabel = (kind: MapPlace["kind"]) => {
-    if (locale === "it") return kind === "winery" ? "Cantina" : kind === "tasting" ? "Degustazione" : "Enoteca";
-    return kind === "winery" ? "Winery" : kind === "tasting" ? "Wine tasting" : "Wine shop";
-  };
-
   return (
     <>
       {places.map((place) => (
@@ -90,9 +87,8 @@ function NearbyWinePlaceMarkers({ enabled, locale }: { enabled: boolean; locale:
           radius={6}
           pathOptions={{ color: "#fffaf0", weight: 2, fillColor: place.kind === "winery" ? "#8f6230" : "#496f61", fillOpacity: 0.94 }}
         >
-          <Tooltip direction="top" offset={[0, -7]}>
-            <strong>{place.name}</strong><br />
-            {kindLabel(place.kind)}
+          <Tooltip permanent direction="top" offset={[0, -7]} className="nearby-wine-place-label">
+            <strong>{place.name}</strong>
           </Tooltip>
         </CircleMarker>
       ))}
@@ -100,11 +96,36 @@ function NearbyWinePlaceMarkers({ enabled, locale }: { enabled: boolean; locale:
   );
 }
 
-export default function NearbyWinePlacesLayer({ locale }: { locale: Locale }) {
+export default function NearbyWinePlacesLayer() {
+  const map = useMap();
   const [enabled, setEnabled] = useState(false);
+  const layerRef = useRef<LeafletLayerGroup | null>(null);
+  const disableLayer = useCallback(() => {
+    const layer = layerRef.current;
+    if (layer && map.hasLayer(layer)) map.removeLayer(layer);
+  }, [map]);
+
+  useMapEvents({
+    zoomend: () => {
+      if (enabled && map.getZoom() < MINIMUM_PLACES_ZOOM) disableLayer();
+    },
+  });
+
   return (
-    <LayerGroup eventHandlers={{ add: () => setEnabled(true), remove: () => setEnabled(false) }}>
-      <NearbyWinePlaceMarkers enabled={enabled} locale={locale} />
+    <LayerGroup
+      ref={layerRef}
+      eventHandlers={{
+        add: () => {
+          if (map.getZoom() < MINIMUM_PLACES_ZOOM) {
+            queueMicrotask(disableLayer);
+            return;
+          }
+          setEnabled(true);
+        },
+        remove: () => setEnabled(false),
+      }}
+    >
+      <NearbyWinePlaceMarkers enabled={enabled} />
     </LayerGroup>
   );
 }

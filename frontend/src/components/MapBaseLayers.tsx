@@ -42,8 +42,8 @@ export default function MapBaseLayers({ locale }: { locale: Locale }) {
           />
         </LayersControl.BaseLayer>
       ) : null}
-      <LayersControl.Overlay name={locale === "it" ? "Cantine e luoghi" : "Wineries and places"}>
-        <NearbyWinePlacesLayer locale={locale} />
+      <LayersControl.Overlay name={locale === "it" ? "Cantine e luoghi (zoom ≥ 12)" : "Wineries and places (zoom ≥ 12)"}>
+        <NearbyWinePlacesLayer />
       </LayersControl.Overlay>
     </LayersControl>
   );

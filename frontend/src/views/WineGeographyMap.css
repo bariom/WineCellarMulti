@@ -48,6 +48,18 @@
 .vineyard-detail-map { z-index: 0; width: 100%; height: 310px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface-muted); }
 .vineyard-detail-map .leaflet-control-attribution { font-size: .58rem; }
 .vineyard-detail-map .leaflet-tooltip { max-width: min(260px, 70vw); overflow: hidden; border-color: var(--border); border-radius: 8px; color: #211d19; font-family: inherit; font-size: .74rem; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }
+.vineyard-detail-map .leaflet-tooltip.nearby-wine-place-label,
+.vineyard-fullscreen-map .leaflet-tooltip.nearby-wine-place-label {
+  max-width: min(190px, 52vw);
+  padding: 3px 6px;
+  border-color: color-mix(in srgb, var(--border) 82%, #8f6230);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--collector-depth) 20%, transparent);
+  font-size: .68rem;
+  font-weight: 800;
+  pointer-events: none;
+}
 .vineyard-map-source a { color: inherit; text-underline-offset: 3px; }
 
 .vineyard-fullscreen-view { position: fixed; z-index: 620; inset: 0; overflow: hidden; color: var(--text); background: var(--surface); }
