@@ -70,6 +70,10 @@ SAMPLE_RETENTION = timedelta(days=14)
 class ManualVineyardLocation(BaseModel):
     latitude: float = Field(ge=-90, le=90)
     longitude: float = Field(ge=-180, le=180)
+    vineyard_name: str | None = Field(default=None, max_length=240)
+    locality: str | None = Field(default=None, max_length=240)
+    country: str | None = Field(default=None, max_length=120)
+    notes: str | None = Field(default=None, max_length=1000)
 
 
 def app_ai_pricing(db: Session) -> AppAiPricing | None:
@@ -415,6 +419,19 @@ def save_manual_wine_vineyard_location(
         candidate.vineyard_latitude = payload.latitude
         candidate.vineyard_longitude = payload.longitude
         candidate.vineyard_precision = "manual"
+        if payload.vineyard_name is not None:
+            candidate.vineyard_name = payload.vineyard_name.strip()
+        if payload.locality is not None:
+            candidate.vineyard_locality = payload.locality.strip()
+        if payload.country is not None:
+            candidate.vineyard_country = payload.country.strip()
+        candidate.vineyard_notes = (
+            payload.notes.strip()
+            if payload.notes is not None
+            else "Posizione impostata manualmente dall'amministratore."
+        )
+        candidate.vineyard_source_url = ""
+        candidate.vineyard_source_title = ""
         candidate.vineyard_verified_at = positioned_at
         candidate.vineyard_not_found = False
     db.commit()

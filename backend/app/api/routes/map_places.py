@@ -18,7 +18,7 @@ from app.models import MapPlaceCache
 router = APIRouter(prefix="/map")
 logger = logging.getLogger(__name__)
 
-PLACE_CACHE_TTL = timedelta(days=14)
+PLACE_CACHE_TTL = timedelta(days=30)
 MAX_LATITUDE_SPAN = 0.5
 MAX_LONGITUDE_SPAN = 0.7
 

@@ -232,11 +232,18 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
     });
   }
 
-  async function saveManualVineyardLocation(latitude: number, longitude: number) {
+  async function saveManualVineyardLocation(payload: { latitude: number; longitude: number; vineyardName: string; locality: string; country: string; notes: string }) {
     if (!vineyardFeedback) return;
     const saved = await api<VineyardResearchResult>(`/api/v1/admin/operations/vineyards/${vineyardFeedback.wine_id}/location`, {
       method: "PUT",
-      body: JSON.stringify({ latitude, longitude }),
+      body: JSON.stringify({
+        latitude: payload.latitude,
+        longitude: payload.longitude,
+        vineyard_name: payload.vineyardName,
+        locality: payload.locality,
+        country: payload.country,
+        notes: payload.notes,
+      }),
     });
     setVineyardFeedback((current) => current ? { ...current, ...saved } : current);
     await loadVineyardQueue();
@@ -477,6 +484,10 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
                 label={vineyardFeedback.vineyard_name || vineyardFeedback.producer || vineyardFeedback.name}
                 latitude={vineyardFeedback.latitude}
                 longitude={vineyardFeedback.longitude}
+                vineyardName={vineyardFeedback.vineyard_name || vineyardFeedback.producer || vineyardFeedback.name}
+                locality={vineyardFeedback.locality}
+                country={vineyardFeedback.country}
+                notes={vineyardFeedback.notes}
                 onSave={saveManualVineyardLocation}
               />
             </Suspense>

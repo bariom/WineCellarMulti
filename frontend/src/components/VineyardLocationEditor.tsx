@@ -12,11 +12,16 @@ type VineyardLocationEditorProps = {
   label: string;
   latitude: number | null;
   longitude: number | null;
-  onSave: (latitude: number, longitude: number) => Promise<void>;
+  vineyardName: string;
+  locality: string;
+  country: string;
+  notes: string;
+  onSave: (point: Point & VineyardDetails) => Promise<void>;
 };
 
 type Point = { latitude: number; longitude: number };
 type GeocodeCandidate = Point & { address: string; score: number };
+type VineyardDetails = { vineyardName: string; locality: string; country: string; notes: string };
 
 function MapViewport({ point, searchFocus }: { point: Point | null; searchFocus: Point | null }) {
   const map = useMap();
@@ -83,10 +88,11 @@ function EditableVineyardMap({
   );
 }
 
-export default function VineyardLocationEditor({ locale, label, latitude, longitude, onSave }: VineyardLocationEditorProps) {
+export default function VineyardLocationEditor({ locale, label, latitude, longitude, vineyardName, locality, country, notes, onSave }: VineyardLocationEditorProps) {
   const isItalian = locale === "it";
   const initialPoint = latitude !== null && longitude !== null ? { latitude, longitude } : null;
   const [point, setPoint] = useState<Point | null>(initialPoint);
+  const [details, setDetails] = useState<VineyardDetails>({ vineyardName, locality, country, notes });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [locationQuery, setLocationQuery] = useState(label);
@@ -105,7 +111,8 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
     setLocationResults([]);
     setLocationSearchError("");
     setSearchFocus(null);
-  }, [label, latitude, longitude]);
+    setDetails({ vineyardName, locality, country, notes });
+  }, [label, latitude, longitude, vineyardName, locality, country, notes]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -146,7 +153,7 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
     setSaving(true);
     setError("");
     try {
-      await onSave(point.latitude, point.longitude);
+      await onSave({ ...point, ...details });
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : (isItalian ? "Impossibile salvare il punto." : "Unable to save the point."));
     } finally {
@@ -268,6 +275,27 @@ export default function VineyardLocationEditor({ locale, label, latitude, longit
           </div>
         ) : null}
         {locationSearchError ? <p className="vineyard-location-search-feedback">{locationSearchError}</p> : null}
+        <details className="vineyard-location-details">
+          <summary>{isItalian ? "Descrizione mostrata nella scheda vino" : "Description shown on the wine card"}</summary>
+          <div>
+            <label>
+              <span>{isItalian ? "Nome del luogo" : "Place name"}</span>
+              <input value={details.vineyardName} onChange={(event) => setDetails((current) => ({ ...current, vineyardName: event.target.value }))} />
+            </label>
+            <label>
+              <span>{isItalian ? "Località" : "Locality"}</span>
+              <input value={details.locality} onChange={(event) => setDetails((current) => ({ ...current, locality: event.target.value }))} />
+            </label>
+            <label>
+              <span>{isItalian ? "Paese" : "Country"}</span>
+              <input value={details.country} onChange={(event) => setDetails((current) => ({ ...current, country: event.target.value }))} />
+            </label>
+            <label className="vineyard-location-details-notes">
+              <span>{isItalian ? "Descrizione" : "Description"}</span>
+              <textarea rows={3} value={details.notes} onChange={(event) => setDetails((current) => ({ ...current, notes: event.target.value }))} />
+            </label>
+          </div>
+        </details>
         {!fullscreen ? (
           <EditableVineyardMap className="vineyard-location-editor-map" label={label} locale={locale} mapCentre={mapCentre} point={point} searchFocus={searchFocus} onPointChange={selectPoint} />
         ) : null}

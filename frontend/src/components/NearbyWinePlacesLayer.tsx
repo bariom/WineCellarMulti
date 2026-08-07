@@ -20,6 +20,7 @@ type Viewport = {
 };
 
 const MINIMUM_PLACES_ZOOM = 12;
+const placesByViewport = new Map<string, MapPlace[]>();
 
 function readViewport(map: ReturnType<typeof useMap>): Viewport {
   const bounds = map.getBounds();
@@ -48,7 +49,6 @@ function NearbyWinePlaceMarkers({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) {
-      setPlaces([]);
       return;
     }
     setViewport(readViewport(map));
@@ -66,8 +66,15 @@ function NearbyWinePlaceMarkers({ enabled }: { enabled: boolean }) {
       north: viewport.north.toFixed(5),
       east: viewport.east.toFixed(5),
     });
+    const cacheKey = search.toString();
+    const cachedPlaces = placesByViewport.get(cacheKey);
+    if (cachedPlaces) {
+      setPlaces(cachedPlaces);
+      return;
+    }
     void api<MapPlace[]>(`/api/v1/map/places?${search.toString()}`)
       .then((result) => {
+        placesByViewport.set(cacheKey, result);
         if (active) setPlaces(result);
       })
       .catch(() => {

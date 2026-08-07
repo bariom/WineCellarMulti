@@ -3335,7 +3335,14 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
 
     manual_location = client.put(
         f"/api/v1/admin/operations/vineyards/{wine_id}/location",
-        json={"latitude": 43.80512, "longitude": 11.29456},
+        json={
+            "latitude": 43.80512,
+            "longitude": 11.29456,
+            "vineyard_name": "Tenuta di Vincigliata",
+            "locality": "Fiesole",
+            "country": "Italia",
+            "notes": "Punto verificato e impostato manualmente dall'amministratore.",
+        },
     )
     assert manual_location.status_code == 200
     assert manual_location.json()["latitude"] == 43.80512
@@ -3345,9 +3352,11 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
     with TestingSessionLocal() as db:
         saved = db.get(Wine, wine_id)
         assert saved is not None
-        assert saved.vineyard_precision == "manual"
-        assert saved.vineyard_latitude == 43.80512
-        assert saved.vineyard_source_url == source_url
+    assert saved.vineyard_precision == "manual"
+    assert saved.vineyard_latitude == 43.80512
+    assert saved.vineyard_source_url == ""
+    assert saved.vineyard_name == "Tenuta di Vincigliata"
+    assert saved.vineyard_notes == "Punto verificato e impostato manualmente dall'amministratore."
 
 
 def test_monitor_device_token_can_trigger_a_fresh_sample(monkeypatch):

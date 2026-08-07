@@ -12,6 +12,14 @@
 .vineyard-location-search-results button span { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .vineyard-location-search-results button small { color:var(--text-muted); font-variant-numeric:tabular-nums; }
 .vineyard-location-search-feedback { margin:0; color:var(--text-muted); font-size:.74rem; }
+.vineyard-location-details { border:1px solid var(--border); border-radius:9px; background:var(--surface-muted); }
+.vineyard-location-details summary { padding:8px 10px; color:var(--text); cursor:pointer; font-size:.76rem; font-weight:800; }
+.vineyard-location-details > div { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px; padding:0 10px 10px; }
+.vineyard-location-details label { display:grid; gap:4px; min-width:0; }
+.vineyard-location-details label span { color:var(--text-muted); font-size:.65rem; font-weight:750; letter-spacing:.04em; text-transform:uppercase; }
+.vineyard-location-details input, .vineyard-location-details textarea { width:100%; min-width:0; box-sizing:border-box; padding:7px 8px; border:1px solid var(--border); border-radius:7px; background:var(--surface); color:var(--text); font:inherit; font-size:.8rem; }
+.vineyard-location-details textarea { resize:vertical; }
+.vineyard-location-details .vineyard-location-details-notes { grid-column:1 / -1; }
 .vineyard-location-editor-map { width:100%; height:320px; border:1px solid var(--border); border-radius:10px; cursor:crosshair; overflow:hidden; }
 .vineyard-location-editor-controls { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto; align-items:end; gap:9px; }
 .vineyard-location-editor-controls label { display:grid; gap:4px; min-width:0; }
@@ -36,6 +44,7 @@
   .vineyard-location-editor-actions { justify-content:start; }
   .vineyard-location-search { grid-template-columns:1fr; }
   .vineyard-location-editor-map { height:280px; }
+  .vineyard-location-details > div { grid-template-columns:1fr; }
   .vineyard-location-editor-controls { grid-template-columns:1fr 1fr; }
   .vineyard-location-editor-controls button { grid-column:1 / -1; }
   .vineyard-location-fullscreen-footer { align-items:stretch; flex-direction:column; }

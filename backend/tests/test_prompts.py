@@ -50,7 +50,7 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
 def test_vineyard_prompt_prefers_the_physical_producer_before_a_locality():
     prompt = wine_vineyard_location_prompt(locale="it", wine_context="Wine: Example 2020")
 
-    assert (prompt.id, prompt.version) == ("wine.vineyard_location", "3")
+    assert (prompt.id, prompt.version) == ("wine.vineyard_location", "4")
     assert "physical producer estate, winery, or cellar" in prompt.system
     assert "Do not choose a town centre" in prompt.system
     assert "official contact/address page" in prompt.system
