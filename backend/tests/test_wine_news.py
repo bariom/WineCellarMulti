@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -161,6 +161,35 @@ def test_publication_selection_excludes_unprocessed_candidates():
         db.commit()
 
         assert refresh_publication_selection(db) == 0
+
+
+def test_first_edition_uses_a_seven_day_bootstrap_window():
+    with TestingSessionLocal() as db:
+        source = WineNewsSource(
+            id="bootstrap-source",
+            name="Bootstrap Journal",
+            feed_url="https://example.com/bootstrap-feed",
+            website_url="https://example.com",
+            language="en",
+            enabled=True,
+        )
+        db.add(source)
+        article = WineNewsArticle(
+            source_id=source.id,
+            canonical_url="https://example.com/bootstrap-story",
+            original_title="A recent editorial wine story",
+            source_language="en",
+            source_published_at=datetime.now(UTC) - timedelta(days=3),
+            content_fingerprint="bootstrap-fingerprint",
+            importance_score=90,
+            status="candidate",
+            ai_processed_at=datetime.now(UTC),
+        )
+        db.add(article)
+        db.commit()
+
+        assert refresh_publication_selection(db) == 1
+        assert article.status == "published"
 
 
 def test_authenticated_feed_returns_localized_editorial_copy(monkeypatch):

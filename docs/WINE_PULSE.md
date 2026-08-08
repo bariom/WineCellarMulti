@@ -74,7 +74,9 @@ custom registry are disabled, not deleted.
 - Generated titles and summaries are explicitly identified as Vinaris AI copy.
 - HTML is stripped and feed content is treated as untrusted model input.
 - At most ten stories are selected in a 30-hour edition window, with no more
-  than two from one publisher and one from the same story cluster.
+  than two from one publisher and one from the same story cluster. The first
+  edition may use a seven-day bootstrap window so a new installation is not
+  empty while it waits for fresh stories.
 - A source must be reviewed for syndication and attribution terms before it is
   added or retained in production. Availability of an RSS endpoint alone is
   not a blanket republication licence.

@@ -542,12 +542,17 @@ def apply_editorial_decision(article: WineNewsArticle, decision: dict[str, Any])
 
 def refresh_publication_selection(db: Session) -> int:
     now = datetime.now(UTC)
-    day_start = now - timedelta(hours=30)
+    has_published_edition = bool(
+        db.scalar(
+            select(func.count(WineNewsArticle.id)).where(WineNewsArticle.status == "published")
+        )
+    )
+    edition_start = now - timedelta(hours=30 if has_published_edition else 24 * 7)
     recent = list(
         db.scalars(
             select(WineNewsArticle)
             .where(
-                WineNewsArticle.source_published_at >= day_start,
+                WineNewsArticle.source_published_at >= edition_start,
                 WineNewsArticle.status.in_(("candidate", "published")),
                 WineNewsArticle.ai_processed_at.is_not(None),
             )
