@@ -13,6 +13,24 @@ type OperationsPanelProps = {
 
 type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
 type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
+type WinePulseStatus = {
+  latest_run: {
+    started_at: string;
+    completed_at: string | null;
+    status: string;
+    stats: Record<string, number>;
+    error: string;
+  } | null;
+  published: number;
+  sources: Array<{
+    id: string;
+    name: string;
+    language: string;
+    enabled: boolean;
+    last_success_at: string | null;
+    last_error: string;
+  }>;
+};
 type VineyardCandidate = {
   wine_id: string;
   name: string;
@@ -157,6 +175,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
   const [vineyardQuery, setVineyardQuery] = useState("");
   const [vineyardPage, setVineyardPage] = useState(0);
   const [vineyardFeedback, setVineyardFeedback] = useState<VineyardFeedback | null>(null);
+  const [winePulseStatus, setWinePulseStatus] = useState<WinePulseStatus | null>(null);
 
   async function refreshMonitorTokens() {
     try {
@@ -169,13 +188,23 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
   async function refreshOperations() {
     setRefreshing(true);
     try {
-      await onRefresh();
+      await Promise.all([onRefresh(), loadWinePulseStatus()]);
     } finally {
       setRefreshing(false);
     }
   }
 
   useEffect(() => { void refreshMonitorTokens(); }, []);
+
+  async function loadWinePulseStatus() {
+    try {
+      setWinePulseStatus(await api<WinePulseStatus>("/api/v1/wine-pulse/status"));
+    } catch {
+      setWinePulseStatus(null);
+    }
+  }
+
+  useEffect(() => { void loadWinePulseStatus(); }, []);
 
   async function loadAiPricing() {
     try {
@@ -369,6 +398,34 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
             {!deviceToken.revoked_at ? <button type="button" className="secondary compact" onClick={() => void revokeMonitorToken(deviceToken)}>{isItalian ? "Revoca" : "Revoke"}</button> : null}
           </div>)}
         </div> : null}
+      </section>
+      <section className="operations-wine-pulse" aria-label="Vinaris Wine Pulse">
+        <div className="operations-wine-pulse-heading">
+          <div>
+            <strong>Vinaris Wine Pulse</strong>
+            <small>{isItalian ? "Raccolta autonoma, selezione AI e stato delle fonti." : "Autonomous collection, AI selection and source health."}</small>
+          </div>
+          <span className={winePulseStatus?.latest_run?.status === "completed" ? "healthy" : "warning"}>
+            {winePulseStatus?.latest_run?.status || (isItalian ? "Mai eseguito" : "Never run")}
+          </span>
+        </div>
+        {winePulseStatus ? (
+          <div className="operations-wine-pulse-metrics">
+            <div><span>{isItalian ? "Pubblicate" : "Published"}</span><strong>{winePulseStatus.published}</strong></div>
+            <div><span>{isItalian ? "Fonti attive" : "Active sources"}</span><strong>{winePulseStatus.sources.filter((source) => source.enabled).length}</strong></div>
+            <div><span>{isItalian ? "Nuove nell’ultimo ciclo" : "New in latest run"}</span><strong>{winePulseStatus.latest_run?.stats.new || 0}</strong></div>
+            <div><span>{isItalian ? "Elaborate dall’AI" : "AI processed"}</span><strong>{winePulseStatus.latest_run?.stats.ai_processed || 0}</strong></div>
+          </div>
+        ) : <LoadingState label={isItalian ? "Carico Wine Pulse" : "Loading Wine Pulse"} compact />}
+        {winePulseStatus?.sources.some((source) => source.last_error) ? (
+          <details>
+            <summary>{isItalian ? "Fonti da controllare" : "Sources requiring attention"}</summary>
+            {winePulseStatus.sources.filter((source) => source.last_error).map((source) => (
+              <p key={source.id}><strong>{source.name}</strong><span>{source.last_error}</span></p>
+            ))}
+          </details>
+        ) : null}
+        {winePulseStatus?.latest_run?.completed_at ? <small>{isItalian ? "Ultimo ciclo" : "Latest run"}: {new Date(winePulseStatus.latest_run.completed_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}
       </section>
       <section className="operations-ai-pricing" aria-label={isItalian ? "Listino modelli AI" : "AI model price book"}>
         <div className="operations-ai-pricing-heading">

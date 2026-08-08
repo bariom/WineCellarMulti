@@ -15,6 +15,7 @@ from app.api.routes import (
     session,
     support,
     tags,
+    wine_news,
     wines,
     wishlist,
 )
@@ -36,3 +37,4 @@ api_router.include_router(catalog.router, prefix="/wines", tags=["catalog"])
 api_router.include_router(wines.router, prefix="/wines", tags=["wines"])
 api_router.include_router(coownership.router, tags=["co-ownership"])
 api_router.include_router(wishlist.router, tags=["wishlist"])
+api_router.include_router(wine_news.router, tags=["wine-pulse"])

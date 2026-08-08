@@ -19,6 +19,7 @@ SIMPLE_TASKS = {
     "label_enrichment",
     "score_summary",
     "structured_extraction",
+    "wine_news_editorial",
 }
 ADVANCED_TASKS = {
     "cellar_analysis",
@@ -33,6 +34,7 @@ TASK_REASONING_EFFORT = {
     "label_enrichment": "low",
     "grape_inference": "low",
     "score_summary": "low",
+    "wine_news_editorial": "low",
     "wine_value": "low",
     "wishlist_value": "low",
     # Interpretation and decisions that benefit from a moderate reasoning budget.

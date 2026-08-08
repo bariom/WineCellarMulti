@@ -34,6 +34,7 @@ from app.models.wine_catalog import (
     WinePhotoLibraryEntry,
     WineRecognitionLog,
 )
+from app.models.wine_news import WineNewsArticle, WineNewsCollectionRun, WineNewsSource
 from app.models.wine_share import WineShareOffer
 from app.models.wishlist import WishlistItem, WishlistList
 
@@ -79,6 +80,9 @@ __all__ = [
     "WineRecognitionLog",
     "WineValueHistory",
     "WineShareOffer",
+    "WineNewsArticle",
+    "WineNewsCollectionRun",
+    "WineNewsSource",
     "WishlistItem",
     "WishlistList",
 ]

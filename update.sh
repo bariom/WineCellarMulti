@@ -54,6 +54,14 @@ if restart_service_if_available winecellarmulti-backend; then
   RESTARTED=true
 fi
 
+if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files winecellarmulti-backend.service --no-legend 2>/dev/null | grep -q '^winecellarmulti-backend.service'; then
+  echo "Installing Wine Pulse collector timer"
+  sudo install -m 0644 "$ROOT_DIR/deploy/systemd/vinaris-wine-pulse.service" /etc/systemd/system/vinaris-wine-pulse.service
+  sudo install -m 0644 "$ROOT_DIR/deploy/systemd/vinaris-wine-pulse.timer" /etc/systemd/system/vinaris-wine-pulse.timer
+  sudo systemctl daemon-reload
+  sudo systemctl enable --now vinaris-wine-pulse.timer
+fi
+
 if command -v nginx >/dev/null 2>&1; then
   echo "Validating and reloading nginx"
   sudo nginx -t

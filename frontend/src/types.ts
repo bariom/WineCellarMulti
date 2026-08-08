@@ -914,7 +914,37 @@ export type OperationalWinePhotos = {
   items: OperationalWinePhoto[];
 };
 
-export type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "buying" | "help" | "settings";
+export type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "pulse" | "buying" | "help" | "settings";
+
+export type WineNewsCategory = "wine_world" | "regions_vintages" | "producers" | "market" | "climate_vineyards" | "events_awards";
+export type WineNewsLanguage = "all" | "it" | "en";
+
+export type WineNewsArticle = {
+  id: string;
+  source: string;
+  source_url: string;
+  article_url: string;
+  published_at: string;
+  source_language: "it" | "en";
+  original_title: string;
+  headline: string;
+  summary: string;
+  category: WineNewsCategory;
+  importance_score: number;
+  image_url: string | null;
+  ai_generated: boolean;
+};
+
+export type WineNewsFeed = {
+  items: WineNewsArticle[];
+  locale: Locale;
+  category: WineNewsCategory | null;
+  generated_at: string | null;
+  total: number;
+  offset: number;
+  next_offset: number | null;
+  has_more: boolean;
+};
 
 export type HistorySection = "tastings" | "wines";
 

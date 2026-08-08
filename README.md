@@ -351,6 +351,11 @@ Nightly backups now package PostgreSQL and the complete wine-photo store in one
 checksummed bundle. Use `scripts/verify-backup.sh` for a disposable restore test
 and follow [docs/BACKUP_AND_RESTORE.md](docs/BACKUP_AND_RESTORE.md) for recovery.
 
+Wine Pulse provides a deliberately small Italian/English wine-news edition.
+Collection and AI curation run independently from the web process; deployment,
+source configuration and editorial safeguards are documented in
+[docs/WINE_PULSE.md](docs/WINE_PULSE.md).
+
 Find the Linux machine IP with:
 
 ```bash
@@ -380,6 +385,7 @@ hostname -I
 - `PATCH /api/v1/wines/{wine_id}`
 - `DELETE /api/v1/wines/{wine_id}`
 - `GET /api/v1/wishlist`
+- `GET /api/v1/wine-pulse`
 - `POST /api/v1/wishlist`
 - `PATCH /api/v1/wishlist/{item_id}`
 - `DELETE /api/v1/wishlist/{item_id}`

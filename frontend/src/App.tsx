@@ -23,6 +23,7 @@ import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import { useChartReveal } from "./components/chartMotion";
 import { DashboardCountUp } from "./components/DashboardCountUp";
+import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import "./styles.css";
 
@@ -4670,7 +4671,7 @@ export function App() {
     : "viewer";
   const contextualHelpArticle = selectedWineId
     ? "wine-detail"
-    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", pairing: "pairing", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
+    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", pairing: "pairing", pulse: "wine-pulse", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
 
   function updateHelpLocation(slug: string | null, replace = false) {
     const path = slug ? `/help/${encodeURIComponent(slug)}` : "/help";
@@ -8428,7 +8429,7 @@ export function App() {
           className={`workspace ${
             activeView === "settings"
               ? "settings-workspace"
-              : activeView === "home" || activeView === "pairing" || activeView === "buying" || activeView === "help"
+              : activeView === "home" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
@@ -8455,6 +8456,10 @@ export function App() {
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
+            </button>
+            <button type="button" className={activeView === "pulse" ? "" : "secondary"} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
+              <AppIcon name="newspaper" variant="premium" detailLevel="rich" />
+              Wine Pulse
             </button>
             <button type="button" className="secondary" onClick={() => openHelp()}>
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
@@ -9757,8 +9762,11 @@ export function App() {
                   </article>
                 </DashboardCarousel>
               ) : null}
+              <WinePulsePreview locale={locale} onOpen={() => setActiveView("pulse")} />
             </section>
           ) : null}
+
+          {activeView === "pulse" ? <WinePulseView locale={locale} /> : null}
 
           {activeView === "pairing" ? (
             <section className="pairing-view">

@@ -1,0 +1,15 @@
+[Unit]
+Description=Vinaris Wine Pulse collector and AI editor
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=administrator
+Group=administrator
+WorkingDirectory=/home/administrator/progetti/WineCellarMulti/backend
+ExecStart=/home/administrator/progetti/WineCellarMulti/backend/.venv/bin/python scripts/collect_wine_news.py
+Nice=10
+
+[Install]
+WantedBy=multi-user.target

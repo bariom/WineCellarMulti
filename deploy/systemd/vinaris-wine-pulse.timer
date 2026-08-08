@@ -1,0 +1,12 @@
+[Unit]
+Description=Refresh Vinaris Wine Pulse three times a day
+
+[Timer]
+OnBootSec=10min
+OnCalendar=*-*-* 05,13,21:20:00
+RandomizedDelaySec=15min
+Persistent=true
+Unit=vinaris-wine-pulse.service
+
+[Install]
+WantedBy=timers.target

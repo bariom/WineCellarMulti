@@ -15,6 +15,7 @@ import { GearSix } from "@phosphor-icons/react/dist/csr/GearSix";
 import { HeartStraight } from "@phosphor-icons/react/dist/csr/HeartStraight";
 import { MagnifyingGlass } from "@phosphor-icons/react/dist/csr/MagnifyingGlass";
 import { MapPin } from "@phosphor-icons/react/dist/csr/MapPin";
+import { NewspaperClipping } from "@phosphor-icons/react/dist/csr/NewspaperClipping";
 import { Martini } from "@phosphor-icons/react/dist/csr/Martini";
 import { List } from "@phosphor-icons/react/dist/csr/List";
 import { Package } from "@phosphor-icons/react/dist/csr/Package";
@@ -37,7 +38,7 @@ export type AppIconName =
   | "bottle" | "cellar" | "dashboard" | "dashboard-cards" | "wishlist" | "search" | "filter" | "sort"
   | "edit" | "delete" | "import" | "export" | "compare" | "camera" | "chevron-left" | "chevron-right"
   | "sentiment-positive" | "sentiment-negative" | "status-delivered" | "status-pickup" | "status-shipped" | "status-ordered"
-  | "glass-sparkle" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes" | "menu";
+  | "glass-sparkle" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes" | "menu" | "newspaper";
 
 type IconVariant = "action" | "navigation" | "feature" | "premium" | "ai" | "status";
 type IconTone = "default" | "muted" | "accent" | "success" | "warning" | "danger" | "ai";
@@ -60,7 +61,7 @@ const icons: Record<AppIconName, typeof Wine> = {
   "sentiment-negative": SmileySad, "status-delivered": CheckCircle, "status-pickup": Package,
   "status-shipped": Truck, "status-ordered": CalendarBlank, "glass-sparkle": Martini,
   calendar: CalendarBlank, chart: ChartLineUp, star: StarFour, users: UsersThree, settings: GearSix,
-  logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine, menu: List,
+  logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine, menu: List, newspaper: NewspaperClipping,
 };
 
 /** Vinaris adapter over Phosphor: duotone section icons and precise operational controls. */
