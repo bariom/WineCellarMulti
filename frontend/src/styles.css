@@ -8222,6 +8222,17 @@ button.balance-indicator:focus-visible {
 }
 
 @media (min-width: 821px) {
+  .collector-dashboard-carousel .maturity-heatmap-card {
+    grid-row: span 2;
+  }
+
+  .collector-dashboard-carousel .collector-ranking-card {
+    grid-column: span 2;
+    min-height: 0;
+  }
+}
+
+@media (min-width: 821px) {
   .dashboard-grid > .maturity-heatmap-card-full {
     grid-column: 1 / -1;
   }

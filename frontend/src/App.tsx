@@ -9049,7 +9049,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "collector" ? (
-              <DashboardCarousel label={t("priorityActions")}>
+              <DashboardCarousel label={t("priorityActions")} className="collector-dashboard-carousel">
                 <article className="dashboard-card key-position-card">
                   {keyPositionCandidates.length ? (
                     <>
@@ -9293,7 +9293,7 @@ export function App() {
 
                 {renderMaturityHeatmapCard()}
 
-                <article className="dashboard-card">
+                <article className="dashboard-card collector-ranking-card">
                   <div className="card-heading">
                     <div>
                       <span>{t("investedMore")}</span>
@@ -9310,7 +9310,7 @@ export function App() {
                   </div>
                 </article>
 
-                <article className="dashboard-card">
+                <article className="dashboard-card collector-ranking-card">
                   <div className="card-heading">
                     <div>
                       <span>{t("valueByProducer")}</span>
