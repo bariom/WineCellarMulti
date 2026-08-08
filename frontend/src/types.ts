@@ -843,6 +843,26 @@ export type OperationalMetricsOverview = {
     label_recognition_successes_30d: number;
     coownership_active: number;
     coownership_pending: number;
+    wine_pulse: {
+      enabled: boolean;
+      ai_enabled: boolean;
+      published: number;
+      active_sources: number;
+      healthy_sources: number;
+      failed_sources: number;
+      last_status: string;
+      last_started_at: string | null;
+      last_completed_at: string | null;
+      last_error: string;
+      last_run: {
+        fetched: number;
+        new: number;
+        ai_processed: number;
+        ai_errors: number;
+        published: number;
+        source_errors: number;
+      };
+    };
   };
   openai: {
     available: boolean;

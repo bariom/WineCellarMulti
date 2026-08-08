@@ -47,6 +47,9 @@ from app.models import (
     UserActivityLog,
     UserMonitorDeviceToken,
     Wine,
+    WineNewsArticle,
+    WineNewsCollectionRun,
+    WineNewsSource,
     WinePhotoLibraryEntry,
     WineRecognitionLog,
     WineTastingEntry,
@@ -566,6 +569,78 @@ def demo_activity_summary(
     }
 
 
+def wine_pulse_snapshot(db: Session) -> dict[str, object]:
+    latest_run = db.scalar(
+        select(WineNewsCollectionRun)
+        .order_by(WineNewsCollectionRun.started_at.desc())
+        .limit(1)
+    )
+    source_counts = db.execute(
+        select(
+            func.coalesce(
+                func.sum(case((WineNewsSource.enabled.is_(True), 1), else_=0)), 0
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            WineNewsSource.enabled.is_(True)
+                            & (WineNewsSource.last_error == ""),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+            func.coalesce(
+                func.sum(
+                    case(
+                        (
+                            WineNewsSource.enabled.is_(True)
+                            & (WineNewsSource.last_error != ""),
+                            1,
+                        ),
+                        else_=0,
+                    )
+                ),
+                0,
+            ),
+        )
+    ).one()
+    run_stats = latest_run.stats if latest_run and isinstance(latest_run.stats, dict) else {}
+
+    def stat(name: str) -> int:
+        value = run_stats.get(name, 0)
+        return value if isinstance(value, int) else 0
+
+    return {
+        "enabled": settings.wine_pulse_enabled,
+        "ai_enabled": settings.wine_pulse_ai_enabled,
+        "published": db.scalar(
+            select(func.count(WineNewsArticle.id)).where(WineNewsArticle.status == "published")
+        )
+        or 0,
+        "active_sources": int(source_counts[0]),
+        "healthy_sources": int(source_counts[1]),
+        "failed_sources": int(source_counts[2]),
+        "last_status": latest_run.status if latest_run else "not_started",
+        "last_started_at": latest_run.started_at.isoformat() if latest_run else None,
+        "last_completed_at": (
+            latest_run.completed_at.isoformat() if latest_run and latest_run.completed_at else None
+        ),
+        "last_error": latest_run.error if latest_run else "",
+        "last_run": {
+            "fetched": stat("fetched"),
+            "new": stat("new"),
+            "ai_processed": stat("ai_processed"),
+            "ai_errors": stat("ai_errors"),
+            "published": stat("published"),
+            "source_errors": stat("source_errors"),
+        },
+    }
+
+
 def business_snapshot(db: Session) -> dict[str, object]:
     now = datetime.now(UTC)
     today = now.date()
@@ -703,6 +778,7 @@ def business_snapshot(db: Session) -> dict[str, object]:
         "label_recognition_successes_30d": recognitions[1],
         "coownership_active": agreements[0],
         "coownership_pending": agreements[1],
+        "wine_pulse": wine_pulse_snapshot(db),
     }
 
 
@@ -781,7 +857,7 @@ def operations_overview(
     # recalculating statistics across all operational tables on every opening.
     # A first install still gets a usable initial sample without waiting for the
     # first systemd timer run.
-    if latest is None:
+    if latest is None or not isinstance(latest.business, dict) or "wine_pulse" not in latest.business:
         now = datetime.now(UTC)
         save_sample(db, system_snapshot(), now)
         latest = db.scalar(

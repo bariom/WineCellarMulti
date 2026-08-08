@@ -40,6 +40,17 @@ function dateTime(timestamp: string | null | undefined) {
   });
 }
 
+function winePulseStatus(status: string | null | undefined) {
+  const labels: Record<string, string> = {
+    completed: "Aggiornato",
+    completed_with_errors: "Aggiornato con errori",
+    failed: "Raccolta non riuscita",
+    running: "Raccolta in corso",
+    not_started: "In attesa della prima raccolta",
+  };
+  return labels[status || ""] || "Stato non disponibile";
+}
+
 function uptime(seconds: number | null | undefined) {
   if (seconds === null || seconds === undefined) return "—";
   const days = Math.floor(seconds / 86_400);
@@ -270,6 +281,7 @@ export function MonitorApp() {
     const business = overview.business;
     const alerts = overview.active_alerts;
     const pendingUsers = Math.max(business.users_total - business.users_approved, 0);
+    const winePulse = business.wine_pulse;
     const snapshot = [
       `Vinaris Monitor · ${alerts.length ? "attenzione richiesta" : "operativo"}`,
       `Rilevazione: ${dateTime(overview.collected_at)}`,
@@ -277,6 +289,7 @@ export function MonitorApp() {
       `CPU ${value(system.host.cpu_percent, "%")} · RAM ${value(system.host.memory.percent, "%")} · disco ${value(system.host.disk.percent, "%")}`,
       `Utenti: ${business.users_enabled} attivi · ${pendingUsers} da approvare · ${business.users_blocked} bloccati`,
       `AI mese corrente: ${usd(overview.openai.current_month_usd)} · ${business.ai_requests_30d} azioni negli ultimi 30g`,
+      `Wine Pulse: ${winePulseStatus(winePulse.last_status)} · ${winePulse.published} notizie pubblicate · fonti sane ${winePulse.healthy_sources}/${winePulse.active_sources}`,
       alerts.length
         ? `Allerte: ${alerts.map((alert) => `${alert.label} ${alert.value.toFixed(0)}${alert.suffix}`).join(", ")}`
         : "Allerte: nessuna",
@@ -327,10 +340,20 @@ export function MonitorApp() {
   const sampleIsStale = overview
     ? Date.now() - new Date(overview.collected_at).getTime() > STALE_AFTER_MS
     : false;
-  const healthTone = hasCriticalAlert ? "critical" : alerts.length || sampleIsStale ? "warning" : "healthy";
-  const healthLabel = hasCriticalAlert
+  const winePulse = business?.wine_pulse;
+  const winePulseIsStale = Boolean(
+    winePulse?.enabled
+    && (!winePulse.last_completed_at || Date.now() - new Date(winePulse.last_completed_at).getTime() > 10 * 60 * 60 * 1000),
+  );
+  const winePulseFailed = winePulse?.enabled && winePulse.last_status === "failed";
+  const winePulseNeedsAttention = Boolean(
+    winePulse?.enabled
+    && (winePulseFailed || winePulseIsStale || winePulse.failed_sources > 0 || winePulse.last_status === "completed_with_errors"),
+  );
+  const healthTone = hasCriticalAlert || winePulseFailed ? "critical" : alerts.length || sampleIsStale || winePulseNeedsAttention ? "warning" : "healthy";
+  const healthLabel = hasCriticalAlert || winePulseFailed
     ? "Intervento richiesto"
-    : alerts.length
+    : alerts.length || winePulseNeedsAttention
       ? "Da controllare"
       : sampleIsStale
         ? "Dati non recenti"
@@ -463,6 +486,26 @@ export function MonitorApp() {
           <div><span>Ricerca nomi</span><strong>{usd(business?.wine_name_search_cost_30d_usd)}</strong></div>
           <div><span>Foto bottiglie</span><strong>{business?.wine_photos_total ?? "—"}</strong></div>
         </div>
+      </section>
+
+      <section className={`monitor-card monitor-kpi-section${winePulseNeedsAttention ? " monitor-pulse-attention" : ""}`}>
+        <div className="monitor-section-head">
+          <div><span>WINE PULSE</span><strong>Rassegna editoriale</strong></div>
+          <b>{winePulse?.enabled ? winePulseStatus(winePulse.last_status) : "Disattivato"}</b>
+        </div>
+        <div className="monitor-kpi-grid">
+          <div><span>Notizie pubblicate</span><strong>{winePulse?.published ?? "—"}</strong></div>
+          <div className={winePulse?.failed_sources ? "attention" : ""}><span>Fonti sane</span><strong>{winePulse ? `${winePulse.healthy_sources}/${winePulse.active_sources}` : "—"}</strong></div>
+          <div className={winePulseIsStale ? "attention" : ""}><span>Ultima raccolta</span><strong>{dateTime(winePulse?.last_completed_at)}</strong></div>
+          <div className={winePulse?.last_run.ai_errors ? "attention" : ""}><span>Valutati dall'AI</span><strong>{winePulse?.last_run.ai_processed ?? "—"}</strong></div>
+        </div>
+        {winePulse?.enabled ? (
+          <p className="monitor-pulse-note">
+            {winePulseNeedsAttention
+              ? winePulse.last_error || (winePulseIsStale ? "La raccolta non risulta aggiornata nelle ultime dieci ore." : "Controlla le fonti o l'ultima raccolta.")
+              : `${winePulse.last_run.new} nuove voci rilevate · ${winePulse.last_run.published} selezionate nell'ultima raccolta.`}
+          </p>
+        ) : null}
       </section>
 
       <section className="monitor-card monitor-kpi-section">

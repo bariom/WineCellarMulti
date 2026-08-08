@@ -1,8 +1,11 @@
+from datetime import UTC, datetime
+
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes.operations import wine_pulse_snapshot
 from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
@@ -66,7 +69,10 @@ def test_latency_alert_requires_a_representative_interactive_sample():
     )
 
     assert all(alert.metric != "latency" for alert in sparse)
-    assert any(alert.metric == "latency" and alert.severity == "critical" for alert in representative)
+    assert any(
+        alert.metric == "latency" and alert.severity == "critical"
+        for alert in representative
+    )
 
 
 def test_user_activity_actions_identify_specific_features():
@@ -174,6 +180,60 @@ def test_monitoring_endpoints_require_a_dedicated_token(monkeypatch):
     system = client.get("/api/v1/monitoring/system", headers=headers)
     assert system.status_code == 200
     assert system.json()["host"]["memory"]["total_bytes"] > 0
+
+
+def test_wine_pulse_snapshot_reports_editorial_health():
+    from app.models import WineNewsArticle, WineNewsCollectionRun, WineNewsSource
+
+    db = TestingSessionLocal()
+    try:
+        source = WineNewsSource(
+            id="pulse-source",
+            name="Pulse Source",
+            feed_url="https://example.test/feed",
+            website_url="https://example.test",
+            language="en",
+            enabled=True,
+            last_error="timeout",
+        )
+        db.add(source)
+        db.add(
+            WineNewsArticle(
+                source_id=source.id,
+                canonical_url="https://example.test/story",
+                original_title="A published wine story",
+                source_language="en",
+                source_published_at=datetime.now(UTC),
+                content_fingerprint="a" * 64,
+                status="published",
+            )
+        )
+        db.add(
+            WineNewsCollectionRun(
+                started_at=datetime.now(UTC),
+                completed_at=datetime.now(UTC),
+                status="completed_with_errors",
+                stats={"fetched": 12, "new": 4, "ai_processed": 3, "source_errors": 1},
+            )
+        )
+        db.commit()
+
+        snapshot = wine_pulse_snapshot(db)
+        assert snapshot["published"] == 1
+        assert snapshot["active_sources"] == 1
+        assert snapshot["healthy_sources"] == 0
+        assert snapshot["failed_sources"] == 1
+        assert snapshot["last_status"] == "completed_with_errors"
+        assert snapshot["last_run"] == {
+            "fetched": 12,
+            "new": 4,
+            "ai_processed": 3,
+            "ai_errors": 0,
+            "published": 0,
+            "source_errors": 1,
+        }
+    finally:
+        db.close()
 
 
 def test_linux_tcp_connection_counts_reads_procfs_without_psutil(monkeypatch, tmp_path):

@@ -389,6 +389,17 @@ body:has(.monitor-shell) {
   background: #2a271e;
 }
 
+.monitor-pulse-attention {
+  border-color: #7d6732;
+}
+
+.monitor-pulse-note {
+  margin: 12px 0 0;
+  color: #adb5a9;
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .monitor-kpi-grid span {
   color: #adb5a9;
   font-size: .7rem;
