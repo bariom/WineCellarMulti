@@ -861,9 +861,9 @@ summary:focus-visible {
 }
 
 .notification-panel {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
+  position: fixed;
+  top: max(78px, calc(env(safe-area-inset-top, 0px) + 70px));
+  right: max(16px, env(safe-area-inset-right, 0px));
   z-index: 120;
   display: grid;
   gap: 10px;
@@ -896,8 +896,20 @@ summary:focus-visible {
   border-bottom: 1px solid var(--border);
 }
 
+.notification-heading > div:first-child {
+  min-width: 0;
+}
+
+.notification-heading > div:first-child > strong,
+.notification-heading > div:first-child > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .notification-heading-actions {
   display: inline-flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: 8px;
 }
@@ -15556,6 +15568,59 @@ textarea:hover {
   border-color: color-mix(in srgb, var(--border) 70%, var(--collector-edge));
   background: color-mix(in srgb, var(--surface-muted) 86%, var(--surface));
   font-size: 0.7rem;
+}
+
+.row-chip.row-sommelier-notice,
+.operational-workspace .wine-row:not(.wishlist-row) .row-chip.row-sommelier-notice {
+  position: relative;
+  min-height: 32px;
+  padding: 5px 11px 5px 8px;
+  border: 1px solid color-mix(in srgb, var(--primary) 64%, var(--border));
+  border-left: 3px solid var(--primary);
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--primary) 88%, var(--text));
+  background:
+    linear-gradient(90deg, color-mix(in srgb, var(--primary) 19%, transparent), color-mix(in srgb, var(--accent) 6%, transparent) 38%, transparent 72%),
+    color-mix(in srgb, var(--surface-raised) 92%, var(--surface));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 74%, transparent),
+    0 5px 13px color-mix(in srgb, var(--primary) 18%, transparent);
+  font-size: 0.78rem;
+  font-weight: 850;
+  letter-spacing: 0.01em;
+  animation: sommelier-notice-breathe 4.8s ease-in-out infinite;
+}
+
+@keyframes sommelier-notice-breathe {
+  0%, 100% {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 74%, transparent),
+      0 0 0 0 color-mix(in srgb, var(--primary) 0%, transparent),
+      0 5px 13px color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  52% {
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 74%, transparent),
+      0 0 0 7px color-mix(in srgb, var(--primary) 18%, transparent),
+      0 7px 18px color-mix(in srgb, var(--primary) 28%, transparent);
+  }
+}
+
+.row-sommelier-notice .app-icon {
+  display: inline-grid;
+  width: 22px;
+  height: 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 24%, var(--surface-raised));
+}
+
+.row-sommelier-notice:hover {
+  border-color: color-mix(in srgb, var(--primary) 78%, var(--border));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 74%, transparent),
+    0 7px 16px color-mix(in srgb, var(--primary) 26%, transparent);
 }
 
 .operational-workspace .wine-row:not(.wishlist-row) > .mini-drink-window {

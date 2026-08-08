@@ -722,6 +722,37 @@ function regionalGapAiCommentary(suggestion: RegionalGapAiSuggestion, locale: Lo
     : "AI generated the regional targets shown here. Review the proposal before adopting it.";
 }
 
+const CELLAR_SOMMELIER_SESSION_ELIGIBILITY_KEY = "vinaris:cellar-sommelier-session-eligibility";
+const CELLAR_SOMMELIER_SESSION_PROMPT_KEY = "vinaris:cellar-sommelier-session-prompted";
+
+function canShowAutomaticCellarSommelierPrompt() {
+  try {
+    const eligibility = window.sessionStorage.getItem(CELLAR_SOMMELIER_SESSION_ELIGIBILITY_KEY);
+    if (eligibility) return eligibility === "eligible";
+    const isEligible = Math.random() < 0.25;
+    window.sessionStorage.setItem(CELLAR_SOMMELIER_SESSION_ELIGIBILITY_KEY, isEligible ? "eligible" : "not-eligible");
+    return isEligible;
+  } catch {
+    return Math.random() < 0.25;
+  }
+}
+
+function hasShownAutomaticCellarSommelierPrompt() {
+  try {
+    return window.sessionStorage.getItem(CELLAR_SOMMELIER_SESSION_PROMPT_KEY) === "shown";
+  } catch {
+    return false;
+  }
+}
+
+function markAutomaticCellarSommelierPromptShown() {
+  try {
+    window.sessionStorage.setItem(CELLAR_SOMMELIER_SESSION_PROMPT_KEY, "shown");
+  } catch {
+    // The in-memory guard still prevents duplicates while this page remains open.
+  }
+}
+
 function breakdownColor(label: string, index: number, mode: "type" | "region") {
   if (mode === "type") {
     const tone = wineTone(label);
@@ -1312,6 +1343,7 @@ export function App() {
   const [cellarSommelierOpen, setCellarSommelierOpen] = useState(false);
   const [cellarSommelierHighlightedWineId, setCellarSommelierHighlightedWineId] = useState<string | null>(null);
   const cellarSommelierPromptedWineIdsRef = useRef(new Set<string>());
+  const automaticCellarSommelierPromptShownRef = useRef(false);
   const [primaryDashboardFocus, setPrimaryDashboardFocus] =
     useState<PrimaryDashboardFocus>("collector");
   const [dailyWineBudgetDraft, setDailyWineBudgetDraft] = useState("");
@@ -5712,19 +5744,23 @@ export function App() {
 
   useEffect(() => {
     if (!(["home", "cellar"] as ViewName[]).includes(activeView) || !cellarSommelierWines.length) return;
+    if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt() || !canShowAutomaticCellarSommelierPrompt()) return;
     const visitKey = `vinaris-cellar-sommelier-${activeView}`;
     if (window.sessionStorage.getItem(visitKey)) return;
     window.sessionStorage.setItem(visitKey, "seen");
-    if (Math.random() > 0.38) return;
     const timer = window.setTimeout(() => {
+      if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt()) return;
+      automaticCellarSommelierPromptShownRef.current = true;
+      markAutomaticCellarSommelierPromptShown();
       setCellarSommelierVisible(true);
       setCellarSommelierOpen(true);
-    }, 1800 + Math.round(Math.random() * 3600));
+    }, 18_000 + Math.round(Math.random() * 27_000));
     return () => window.clearTimeout(timer);
   }, [activeView, cellarSommelierWines.length, cellarSommelierWines[0]?.id]);
 
   useEffect(() => {
     if (activeView !== "cellar") return;
+    if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt() || !canShowAutomaticCellarSommelierPrompt()) return;
     const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-sommelier-wine-id]"));
     if (!rows.length) return;
     const observer = new IntersectionObserver((entries) => {
@@ -5734,10 +5770,13 @@ export function App() {
       cellarSommelierPromptedWineIdsRef.current.add(wineId);
       observer.unobserve(entry.target);
       window.setTimeout(() => {
+        if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt()) return;
+        automaticCellarSommelierPromptShownRef.current = true;
+        markAutomaticCellarSommelierPromptShown();
         setCellarSommelierHighlightedWineId(wineId);
         setCellarSommelierVisible(true);
         setCellarSommelierOpen(true);
-      }, 420);
+      }, 18_000 + Math.round(Math.random() * 27_000));
     }, { threshold: 0.72 });
     rows.forEach((row) => observer.observe(row));
     return () => observer.disconnect();
@@ -7473,7 +7512,7 @@ export function App() {
                       <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
                       <small style={{ color: "var(--text-muted)", lineHeight: 1.3 }}>{dailyRecommendationReason(wine)}</small>
                     </span>
-                    <b>{wine.drink_to || "—"}</b>
+                    <b>{wine.drink_peak_from || wine.drink_from || wine.drink_to || "—"}</b>
                   </button>
                 ))}
               </div>
@@ -7572,7 +7611,7 @@ export function App() {
                 <span className="notification-button-icon" aria-hidden="true">{notificationBellIcon()}</span>
                 {notificationCount ? <strong>{notificationCount}</strong> : null}
               </button>
-              {notificationsOpen ? (
+              {notificationsOpen ? createPortal(
                 <>
                   <button
                     type="button"
@@ -7757,7 +7796,8 @@ export function App() {
                     ) : null}
                     </div>
                   </div>
-                </>
+                </>,
+                document.body,
               ) : null}
             </div> : null}
             <button
@@ -8625,7 +8665,7 @@ export function App() {
                                   <strong style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wine.name}</strong>
                                   <small style={{ overflow: "hidden", color: "var(--text-muted)", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dailyRecommendationReason(wine)}</small>
                                 </span>
-                                <b>{wine.drink_to || "—"}</b>
+                                <b>{wine.drink_peak_from || wine.drink_from || wine.drink_to || "—"}</b>
                               </button>
                             ))}
                           </div>
