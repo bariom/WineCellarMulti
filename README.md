@@ -158,6 +158,8 @@ APP_ENV=production
 APP_DEBUG=false
 SESSION_COOKIE_SECURE=true
 TRIAL_ENTITLEMENT_DAYS=5
+# false: disponibile soltanto agli amministratori dell'app; true: disponibile agli utenti
+RESTAURANT_MODE_ENABLED=false
 CORS_ORIGINS=https://vinaris.app,https://www.vinaris.app,http://localhost:5173,http://127.0.0.1:5173
 ```
 

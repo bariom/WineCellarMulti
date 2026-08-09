@@ -11,6 +11,7 @@ class SessionResponse(BaseModel):
     active_household_id: str | None = None
     active_household_name: str | None = None
     active_household_mode: str = "private"
+    restaurant_mode_available: bool = False
     membership_role: str | None = None
     is_app_admin: bool = False
     is_demo: bool = False

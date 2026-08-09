@@ -56,6 +56,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "active_household_id": None,
             "active_household_name": None,
             "active_household_mode": "private",
+            "restaurant_mode_available": False,
             "membership_role": None,
             "is_app_admin": False,
             "is_demo": False,
@@ -86,6 +87,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_id": str(context.household.id),
         "active_household_name": context.household.name,
         "active_household_mode": context.household.operating_mode,
+        "restaurant_mode_available": settings.restaurant_mode_enabled
+        or context.user.is_app_admin,
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
         "is_demo": context.household.is_demo,

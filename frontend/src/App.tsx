@@ -2915,6 +2915,7 @@ export function App() {
       active_household_id: null,
       active_household_name: null,
       active_household_mode: "private",
+      restaurant_mode_available: false,
       membership_role: null,
       is_app_admin: false,
       is_demo: false,
@@ -3630,6 +3631,7 @@ export function App() {
         active_household_id: rawString(household.id, "offline"),
         active_household_name: rawString(household.name, file.name.replace(/\.json$/i, "")),
         active_household_mode: rawString(household.operating_mode) === "restaurant" ? "restaurant" : "private",
+        restaurant_mode_available: false,
         membership_role: "offline",
         is_app_admin: false,
         is_demo: false,
@@ -4672,7 +4674,8 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
-  const isRestaurant = session?.active_household_mode === "restaurant";
+  const restaurantModeAvailable = Boolean(session?.restaurant_mode_available || session?.is_app_admin);
+  const isRestaurant = restaurantModeAvailable && session?.active_household_mode === "restaurant";
   const canAccessWinePhotos = !offlineMode && Boolean(session?.authenticated);
   const canManageWinePhotos = canWriteWine && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
   const canReuseWinePhotos = canWriteWine && canAccessWinePhotos;
@@ -6581,6 +6584,22 @@ export function App() {
         mobileWineDetailHistoryActiveRef.current = true;
       }
     }
+  }
+
+  function openWineSalePanel(wine: Wine) {
+    setSelectedWineId(wine.id);
+    if (isMobileViewport && !mobileWineDetailHistoryActiveRef.current) {
+      window.history.pushState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
+      mobileWineDetailHistoryActiveRef.current = true;
+    }
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+      const detail = [...document.querySelectorAll<HTMLElement>(`[data-wine-detail-id="${wine.id}"]`)]
+        .find((candidate) => candidate.getClientRects().length > 0);
+      const panel = detail?.querySelector<HTMLDetailsElement>(".sale-panel");
+      if (!panel) return;
+      panel.open = true;
+      panel.scrollIntoView({ behavior: "smooth", block: "center" });
+    }));
   }
 
   function revealLatestWineEditorField() {
@@ -8592,6 +8611,8 @@ export function App() {
             <Suspense fallback={<LoadingState label={t("loadingData")} />}>
               <RestaurantDashboard
                 locale={locale}
+                wines={wines}
+                onOpenIncompleteWines={() => openOperationalCellarFilter("missing_data")}
                 refreshKey={restaurantDashboardVersion}
                 onOpenWine={(wineId) => { setSelectedWineId(wineId); setActiveView("cellar"); }}
                 onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
@@ -11013,6 +11034,8 @@ export function App() {
                 <RestaurantDashboard
                   locale={locale}
                   mode={isRestaurant ? "restaurant" : "private"}
+                  wines={wines}
+                  onOpenIncompleteWines={() => openOperationalCellarFilter("missing_data")}
                   refreshKey={restaurantDashboardVersion}
                   onOpenWine={(wineId) => { setSelectedWineId(wineId); setActiveView("cellar"); }}
                   onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
@@ -11545,14 +11568,22 @@ export function App() {
                     ) : null}
                   </div>
                   <DrinkWindowMini wine={wine} />
-                  <div className="row-price-block" aria-label={`${t("currentPrice")}, ${t("positionTotal")}`}>
+                  <div className="row-price-block" aria-label={isRestaurant
+                    ? `${locale === "it" ? "Prezzo di vendita" : "Sale price"}, ${locale === "it" ? "Valore a listino" : "List value"}`
+                    : `${t("currentPrice")}, ${t("positionTotal")}`}>
                     <div>
-                      <span>{t("currentPrice")}</span>
-                      <strong>{formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
+                      <span>{isRestaurant ? (locale === "it" ? "Prezzo di vendita" : "Sale price") : t("currentPrice")}</span>
+                      <strong>{isRestaurant
+                        ? wine.sale_price ? formatMoney(wine.sale_price, wine.currency, locale) : t("notSpecified")
+                        : formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
                     </div>
                     <div>
-                      <span>{t("positionTotal")}</span>
-                      <strong>{formatMoney(wineUnitValue(wine) * Math.max(Number(wine.quantity || 0), 0), wine.currency, locale)}</strong>
+                      <span>{isRestaurant ? (locale === "it" ? "Valore a listino" : "List value") : t("positionTotal")}</span>
+                      <strong>{isRestaurant
+                        ? wine.sale_price
+                          ? formatMoney(Number(wine.sale_price) * Math.max(Number(wine.quantity || 0), 0), wine.currency, locale)
+                          : t("notSpecified")
+                        : formatMoney(wineUnitValue(wine) * Math.max(Number(wine.quantity || 0), 0), wine.currency, locale)}</strong>
                     </div>
                   </div>
                   <div className="row-actions">
@@ -11562,10 +11593,13 @@ export function App() {
                         <span className="action-label">{t("pairing")}</span>
                       </button>
                     ) : null}
-                    <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
+                    {isRestaurant ? <button type="button" className="secondary" disabled={!canWriteWine || wine.quantity <= 0} onClick={(event) => { event.stopPropagation(); openWineSalePanel(wine); }}>
+                      <span className="action-icon" aria-hidden="true">−1</span>
+                      <span className="action-label">{locale === "it" ? "Venduta" : "Sold"}</span>
+                    </button> : <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} onClick={(event) => { event.stopPropagation(); toggleCompareWine(wine); }}>
                       <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
                       <span className="action-label">{t("compare")}</span>
-                    </button>
+                    </button>}
                     <button type="button" className="secondary" disabled={!canWriteWine} onClick={(event) => { event.stopPropagation(); startEditWine(wine); }}>
                       <span className="action-icon" aria-hidden="true">{appActionSvgIcon("edit")}</span>
                       <span className="action-label">{t("edit")}</span>
@@ -11650,10 +11684,10 @@ export function App() {
                             <span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span>
                           </button>
                         ) : null}
-                        <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} aria-pressed={compareWineIds.includes(wine.id)} onClick={() => toggleCompareWine(wine)}>
+                        {!isRestaurant ? <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} aria-pressed={compareWineIds.includes(wine.id)} onClick={() => toggleCompareWine(wine)}>
                           <span className="action-icon" aria-hidden="true">{appActionSvgIcon("compare")}</span>
                           <span>{t("compare")}</span>
-                        </button>
+                        </button> : null}
                         <button type="button" className="secondary" disabled={!canWriteWine} onClick={() => startEditWine(wine)}>
                           <AppIcon name="edit" />
                           <span>{t("edit")}</span>
@@ -12371,7 +12405,7 @@ export function App() {
                     {saving ? t("saving") : t("renameCellar")}
                   </button>
                 </form>
-                <div className="inline-form cellar-mode-setting">
+                {restaurantModeAvailable ? <div className="inline-form cellar-mode-setting">
                   <label>
                     <span>{locale === "it" ? "Tipo di gestione" : "Cellar operation"}</span>
                     <select
@@ -12388,7 +12422,7 @@ export function App() {
                       ? "La modalità ristorante sostituisce la degustazione con la vendita e abilita ricavi e margine lordo. I dati esistenti non vengono rimossi."
                       : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
                   </p>
-                </div>
+                </div> : null}
                 <form className="inline-form" onSubmit={createHousehold}>
                   <label>
                     <span>{t("createCellar")}</span>

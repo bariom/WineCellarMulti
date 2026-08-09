@@ -904,13 +904,29 @@ export function WineDetail({
         : t("youngWine");
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
   const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
+  const [aiToolsOpen, setAiToolsOpen] = useState(restaurantMode);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
+  const sharedFeatureLabels: Record<Wine["shared_data_features"][number], string> = {
+    notes: locale === "it" ? "note" : "notes",
+    drink_window: locale === "it" ? "finestra di beva" : "drink window",
+    value: locale === "it" ? "valore" : "value",
+    grapes: locale === "it" ? "uvaggio" : "grapes",
+    scores: locale === "it" ? "punteggi" : "scores",
+  };
+  const missingAiData = [
+    !wine.ai_notes ? sharedFeatureLabels.notes : "",
+    !(wine.drink_from && wine.drink_to) ? sharedFeatureLabels.drink_window : "",
+    wine.current_value === null || wine.current_value === undefined || wine.current_value === "" ? sharedFeatureLabels.value : "",
+    !wine.grapes_not_applicable && (!Array.isArray(wine.grapes) || !wine.grapes.length) ? sharedFeatureLabels.grapes : "",
+    !wine.scores_not_applicable && (!Array.isArray(wine.scores) || !wine.scores.length) ? sharedFeatureLabels.scores : "",
+  ].filter(Boolean);
 
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
     setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
-  }, [wine.id]);
+    setAiToolsOpen(restaurantMode);
+  }, [restaurantMode, wine.id]);
 
   async function submitConsume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -925,7 +941,7 @@ export function WineDetail({
   }
 
   return (
-    <section className={`wine-detail tone-${wineTone(wine.type)}`}>
+    <section className={`wine-detail tone-${wineTone(wine.type)}`} data-wine-detail-id={wine.id}>
       <div className="detail-hero">
         <div className="detail-title">
           {showBottlePhoto && wine.photo_detail_url ? (
@@ -959,20 +975,14 @@ export function WineDetail({
           </Suspense>
         ) : null}
 
-        <details className="wine-ai-tools">
-          <summary>{locale === "it" ? "Strumenti AI" : "AI tools"}</summary>
+        <details className="wine-ai-tools" open={aiToolsOpen} onToggle={(event) => setAiToolsOpen(event.currentTarget.open)}>
+          <summary>{restaurantMode ? (locale === "it" ? "Completa i dati del vino con l’AI" : "Complete wine data with AI") : (locale === "it" ? "Strumenti AI" : "AI tools")}</summary>
           {wine.shared_data_features.length ? (
             <div className="shared-wine-data-notice">
               <strong>{locale === "it" ? "Dati Vinaris riutilizzati gratuitamente" : "Vinaris data reused at no cost"}</strong>
-              <span>
-                {wine.shared_data_features.map((feature) => ({
-                  notes: locale === "it" ? "note" : "notes",
-                  drink_window: locale === "it" ? "finestra di beva" : "drink window",
-                  value: locale === "it" ? "valore" : "value",
-                  grapes: locale === "it" ? "uve" : "grapes",
-                  scores: locale === "it" ? "punteggi" : "scores",
-                })[feature]).join(" · ")}
-              </span>
+              <span><b>{locale === "it" ? "Riutilizzati:" : "Reused:"}</b> {wine.shared_data_features.map((feature) => sharedFeatureLabels[feature]).join(" · ")}</span>
+              {missingAiData.length ? <span><b>{locale === "it" ? "Ancora da verificare:" : "Still to verify:"}</b> {missingAiData.join(" · ")}</span> : null}
+              <small>{locale === "it" ? "Vinaris condivide soltanto informazioni verificate; i dati manuali o privi di fonte non vengono copiati automaticamente." : "Vinaris only shares verified information; manual or unsourced data is not copied automatically."}</small>
             </div>
           ) : null}
           <div className="ai-actions detail-ai-actions">

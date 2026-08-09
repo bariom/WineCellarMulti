@@ -12,6 +12,7 @@ from app.db.session import get_db
 from app.models import Wine, WineSale
 from app.schemas.sale import (
     CurrencySalesSummary,
+    SaleBreakdownItem,
     SaleRankingItem,
     SaleSeriesPoint,
     WineSaleCreate,
@@ -151,6 +152,8 @@ def sales_summary(
         lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0}
     )
     wine_totals: dict[tuple[UUID, str], dict[str, Decimal | int | str]] = {}
+    type_totals: dict[tuple[str, str], dict[str, Decimal | int]] = {}
+    region_totals: dict[tuple[str, str], dict[str, Decimal | int]] = {}
     for sale, wine in rows:
         revenue = sale.unit_sale_price * sale.quantity
         cost = sale.unit_purchase_cost * sale.quantity
@@ -168,11 +171,23 @@ def sales_summary(
                 "revenue": Decimal("0"),
                 "cost": Decimal("0"),
                 "bottles": 0,
+                "current_stock": wine.quantity,
             },
         )
         item["revenue"] += revenue
         item["cost"] += cost
         item["bottles"] += sale.quantity
+        for totals_map, label in (
+            (type_totals, wine.type.strip() or "Other"),
+            (region_totals, wine.region.strip() or "Not specified"),
+        ):
+            breakdown = totals_map.setdefault(
+                (label, currency),
+                {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0},
+            )
+            breakdown["revenue"] += revenue
+            breakdown["cost"] += cost
+            breakdown["bottles"] += sale.quantity
     currencies = []
     for currency, totals in sorted(currency_totals.items()):
         revenue = Decimal(totals["revenue"])
@@ -205,9 +220,44 @@ def sales_summary(
     ]
     ranked = sorted(
         wine_totals.items(),
-        key=lambda row: (Decimal(row[1]["revenue"]) - Decimal(row[1]["cost"]), int(row[1]["bottles"])),
+        key=lambda row: (int(row[1]["bottles"]), Decimal(row[1]["revenue"])),
         reverse=True,
     )[:8]
+    household_wines = list(
+        db.scalars(
+            select(Wine)
+            .where(Wine.household_id == context.household.id, Wine.quantity > 0)
+            .order_by(Wine.name.asc(), Wine.vintage.desc())
+        )
+    )
+    least_sold = sorted(
+        household_wines,
+        key=lambda wine: (
+            int(wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get("bottles", 0)),
+            -wine.quantity,
+            wine.name.lower(),
+        ),
+    )[:10]
+
+    def breakdown_items(
+        values: dict[tuple[str, str], dict[str, Decimal | int]],
+    ) -> list[SaleBreakdownItem]:
+        ordered = sorted(
+            values.items(),
+            key=lambda row: (int(row[1]["bottles"]), Decimal(row[1]["revenue"])),
+            reverse=True,
+        )
+        return [
+            SaleBreakdownItem(
+                label=key[0],
+                currency=key[1],
+                bottles=int(totals["bottles"]),
+                revenue=Decimal(totals["revenue"]),
+                cost=Decimal(totals["cost"]),
+                gross_margin=Decimal(totals["revenue"]) - Decimal(totals["cost"]),
+            )
+            for key, totals in ordered
+        ]
     return WineSalesSummaryResponse(
         from_date=from_date,
         to_date=to_date,
@@ -221,8 +271,40 @@ def sales_summary(
                 revenue=Decimal(values["revenue"]),
                 gross_margin=Decimal(values["revenue"]) - Decimal(values["cost"]),
                 currency=wine_key[1],
+                current_stock=int(values["current_stock"]),
             )
             for wine_key, values in ranked
         ],
+        least_sold_wines=[
+            SaleRankingItem(
+                wine_id=wine.id,
+                label=" ".join(part for part in [wine.name, wine.vintage] if part),
+                bottles=int(
+                    wine_totals.get(
+                        (wine.id, (wine.currency or "CHF").upper()), {}
+                    ).get("bottles", 0)
+                ),
+                revenue=Decimal(
+                    wine_totals.get(
+                        (wine.id, (wine.currency or "CHF").upper()), {}
+                    ).get("revenue", 0)
+                ),
+                gross_margin=Decimal(
+                    wine_totals.get(
+                        (wine.id, (wine.currency or "CHF").upper()), {}
+                    ).get("revenue", 0)
+                )
+                - Decimal(
+                    wine_totals.get(
+                        (wine.id, (wine.currency or "CHF").upper()), {}
+                    ).get("cost", 0)
+                ),
+                currency=(wine.currency or "CHF").upper(),
+                current_stock=wine.quantity,
+            )
+            for wine in least_sold
+        ],
+        sales_by_type=breakdown_items(type_totals),
+        sales_by_region=breakdown_items(region_totals),
         recent_sales=[sale_response(sale, wine) for sale, wine in rows[:20]],
     )

@@ -25,6 +25,7 @@ SECRET_KEY="$(read_secret)"
 cat > "$ROOT_ENV" <<EOF
 POSTGRES_PASSWORD=$POSTGRES_PASSWORD
 SECRET_KEY=$SECRET_KEY
+RESTAURANT_MODE_ENABLED=false
 EOF
 
 cat > "$BACKEND_ENV" <<EOF
@@ -38,6 +39,7 @@ SESSION_COOKIE_SECURE=false
 SESSION_TTL_DAYS=30
 INVITE_TTL_DAYS=7
 TRIAL_ENTITLEMENT_DAYS=5
+RESTAURANT_MODE_ENABLED=false
 CORS_ORIGINS=https://vinaris.app,https://www.vinaris.app,https://vinaris.duckdns.org,https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
 ARCGIS_API_KEY=
 OPENAI_API_KEY=

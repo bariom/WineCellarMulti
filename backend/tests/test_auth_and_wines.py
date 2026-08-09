@@ -130,12 +130,53 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert summary.status_code == 200
     assert summary.json()["currencies"][0]["gross_margin"] == "70.00"
     assert summary.json()["currencies"][0]["bottles"] == 2
+    assert summary.json()["sales_by_type"][0]["bottles"] == 2
+    assert summary.json()["sales_by_region"][0]["bottles"] == 2
+    assert summary.json()["top_wines"][0]["bottles"] == 2
+    assert summary.json()["least_sold_wines"][0]["current_stock"] == 1
 
     voided = client.post(f"/api/v1/sales/{sale['id']}/void", json={"reason": "Errore cassa"})
     assert voided.status_code == 200
     assert voided.json()["voided_at"] is not None
     assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 3
     assert client.get("/api/v1/sales/summary").json()["currencies"] == []
+
+
+def test_restaurant_mode_feature_flag_keeps_app_admin_access(monkeypatch):
+    monkeypatch.setattr(settings, "restaurant_mode_enabled", False)
+    client = TestClient(app)
+    registered = register(client)
+    assert registered.status_code == 201
+    assert registered.json()["is_app_admin"] is True
+    assert registered.json()["restaurant_mode_available"] is True
+
+    admin_change = client.patch(
+        "/api/v1/household", json={"operating_mode": "restaurant"}
+    )
+    assert admin_change.status_code == 200
+
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        household = db.scalar(select(Household))
+        assert user is not None
+        assert household is not None
+        user.is_app_admin = False
+        user.access_override_until = datetime.now(UTC) + timedelta(days=1)
+        household.operating_mode = "private"
+        db.commit()
+
+    assert client.get("/api/v1/session").json()["restaurant_mode_available"] is False
+    unavailable = client.patch(
+        "/api/v1/household", json={"operating_mode": "restaurant"}
+    )
+    assert unavailable.status_code == 403
+
+    monkeypatch.setattr(settings, "restaurant_mode_enabled", True)
+    assert client.get("/api/v1/session").json()["restaurant_mode_available"] is True
+    enabled_change = client.patch(
+        "/api/v1/household", json={"operating_mode": "restaurant"}
+    )
+    assert enabled_change.status_code == 200
 
 
 def register(

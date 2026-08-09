@@ -48,6 +48,18 @@ from app.services.notifications import create_user_notification
 router = APIRouter(prefix="/household")
 
 
+def ensure_restaurant_mode_available(context: CurrentContext, operating_mode: str) -> None:
+    if (
+        operating_mode == "restaurant"
+        and not settings.restaurant_mode_enabled
+        and not context.user.is_app_admin
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Restaurant mode is not currently available",
+        )
+
+
 def regional_gap_settings_response(settings: HouseholdRegionalGapSettings | None) -> RegionalGapSettingsResponse:
     if settings is None:
         return RegionalGapSettingsResponse()
@@ -214,6 +226,7 @@ def create_household(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
         )
+    ensure_restaurant_mode_available(context, payload.operating_mode)
 
     household = Household(name=name, operating_mode=payload.operating_mode)
     db.add(household)
@@ -326,6 +339,7 @@ def update_active_household(
             )
         context.household.name = name
     if payload.operating_mode is not None:
+        ensure_restaurant_mode_available(context, payload.operating_mode)
         context.household.operating_mode = payload.operating_mode
     db.commit()
     db.refresh(context.household)

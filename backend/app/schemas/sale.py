@@ -54,6 +54,16 @@ class SaleRankingItem(BaseModel):
     revenue: Decimal
     gross_margin: Decimal
     currency: str
+    current_stock: int = 0
+
+
+class SaleBreakdownItem(BaseModel):
+    label: str
+    currency: str
+    bottles: int
+    revenue: Decimal
+    cost: Decimal
+    gross_margin: Decimal
 
 
 class CurrencySalesSummary(BaseModel):
@@ -72,4 +82,7 @@ class WineSalesSummaryResponse(BaseModel):
     currencies: list[CurrencySalesSummary]
     series: list[SaleSeriesPoint]
     top_wines: list[SaleRankingItem]
+    least_sold_wines: list[SaleRankingItem]
+    sales_by_type: list[SaleBreakdownItem]
+    sales_by_region: list[SaleBreakdownItem]
     recent_sales: list[WineSaleResponse]

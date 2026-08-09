@@ -5,6 +5,7 @@ export type Session = {
   active_household_id: string | null;
   active_household_name: string | null;
   active_household_mode: "private" | "restaurant";
+  restaurant_mode_available: boolean;
   membership_role: string | null;
   is_app_admin: boolean;
   is_demo: boolean;
@@ -141,7 +142,10 @@ export type RestaurantSalesSummary = {
   to_date: string;
   currencies: Array<{ currency: string; revenue: string; cost: string; gross_margin: string; gross_margin_pct: string; bottles: number; average_sale_price: string }>;
   series: Array<{ date: string; currency: string; revenue: string; cost: string; gross_margin: string; bottles: number }>;
-  top_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string }>;
+  top_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string; current_stock: number }>;
+  least_sold_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string; current_stock: number }>;
+  sales_by_type: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
+  sales_by_region: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
   recent_sales: WineSale[];
 };
 
