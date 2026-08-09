@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -9,11 +9,18 @@ from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import WineNewsArticle, WineNewsSource
+from app.models import (
+    User,
+    UserNotification,
+    WineNewsArticle,
+    WineNewsCollectionRun,
+    WineNewsSource,
+)
 from app.services import wine_news as wine_news_service
 from app.services.wine_news import (
     FeedEntry,
     collect_wine_news,
+    notify_wine_pulse_edition,
     parse_feed,
     refresh_publication_selection,
 )
@@ -74,8 +81,7 @@ def editorial_decision(*_args):
         "headline_it": "La vendemmia di Bordeaux mostra segnali incoraggianti",
         "headline_en": "Bordeaux harvest shows encouraging signs",
         "summary_it": (
-            "Le condizioni recenti migliorano le prospettive. "
-            "I produttori restano prudenti."
+            "Le condizioni recenti migliorano le prospettive. I produttori restano prudenti."
         ),
         "summary_en": "Recent conditions improved the outlook. Producers remain cautious.",
         "ai_model": "gpt-5.6-luna",
@@ -160,7 +166,7 @@ def test_publication_selection_excludes_unprocessed_candidates():
         )
         db.commit()
 
-        assert refresh_publication_selection(db) == 0
+        assert refresh_publication_selection(db) == []
 
 
 def test_first_edition_uses_a_seven_day_bootstrap_window():
@@ -188,8 +194,97 @@ def test_first_edition_uses_a_seven_day_bootstrap_window():
         db.add(article)
         db.commit()
 
-        assert refresh_publication_selection(db) == 1
+        assert len(refresh_publication_selection(db)) == 1
         assert article.status == "published"
+
+
+def test_later_editions_use_a_seventy_two_hour_window():
+    with TestingSessionLocal() as db:
+        source = WineNewsSource(
+            id="rolling-source",
+            name="Rolling Journal",
+            feed_url="https://example.com/rolling-feed",
+            website_url="https://example.com",
+            language="en",
+            enabled=True,
+        )
+        db.add(source)
+        db.add(
+            WineNewsArticle(
+                source_id=source.id,
+                canonical_url="https://example.com/older-published-story",
+                original_title="An earlier published wine story",
+                source_language="en",
+                source_published_at=datetime.now(UTC) - timedelta(days=5),
+                content_fingerprint="older-published-fingerprint",
+                importance_score=91,
+                status="published",
+                ai_processed_at=datetime.now(UTC),
+            )
+        )
+        article = WineNewsArticle(
+            source_id=source.id,
+            canonical_url="https://example.com/two-day-story",
+            original_title="A two-day-old wine story",
+            source_language="en",
+            source_published_at=datetime.now(UTC) - timedelta(days=2),
+            content_fingerprint="two-day-fingerprint",
+            importance_score=89,
+            status="candidate",
+            ai_processed_at=datetime.now(UTC),
+        )
+        db.add(article)
+        db.commit()
+
+        assert len(refresh_publication_selection(db)) == 1
+        assert article.status == "published"
+
+
+def test_wine_pulse_notifications_are_localized_and_rate_limited():
+    with TestingSessionLocal() as db:
+        italian_user = User(
+            email="pulse-it@example.com",
+            display_name="Lettore italiano",
+            password_hash="hash",
+            locale="it",
+            is_approved=True,
+            is_blocked=False,
+        )
+        english_user = User(
+            email="pulse-en@example.com",
+            display_name="English reader",
+            password_hash="hash",
+            locale="en",
+            is_approved=True,
+            is_blocked=False,
+        )
+        blocked_user = User(
+            email="pulse-blocked@example.com",
+            display_name="Blocked reader",
+            password_hash="hash",
+            locale="it",
+            is_approved=True,
+            is_blocked=True,
+        )
+        run = WineNewsCollectionRun(started_at=datetime.now(UTC), status="completed", stats={})
+        db.add_all([italian_user, english_user, blocked_user, run])
+        db.commit()
+
+        assert notify_wine_pulse_edition(db, run, published_count=3) == 2
+        db.commit()
+        notifications = db.scalars(select(UserNotification).order_by(UserNotification.title)).all()
+        assert len(notifications) == 2
+        assert {notification.action_url for notification in notifications} == {"/pulse"}
+        assert any(
+            notification.title == "Wine Pulse \u00e8 aggiornato" for notification in notifications
+        )
+        assert any(notification.title == "Wine Pulse is updated" for notification in notifications)
+        assert all("3" in notification.message for notification in notifications)
+
+        next_run = WineNewsCollectionRun(started_at=datetime.now(UTC), status="completed", stats={})
+        db.add(next_run)
+        db.commit()
+        assert notify_wine_pulse_edition(db, next_run, published_count=2) == 0
 
 
 def test_authenticated_feed_returns_localized_editorial_copy(monkeypatch):

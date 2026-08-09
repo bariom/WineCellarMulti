@@ -73,10 +73,13 @@ custom registry are disabled, not deleted.
 - Original title, publisher, date and canonical link are always retained.
 - Generated titles and summaries are explicitly identified as Vinaris AI copy.
 - HTML is stripped and feed content is treated as untrusted model input.
-- At most ten stories are selected in a 30-hour edition window, with no more
+- At most ten stories are selected in a 72-hour edition window, with no more
   than two from one publisher and one from the same story cluster. The first
   edition may use a seven-day bootstrap window so a new installation is not
   empty while it waits for fresh stories.
+- When a collection adds stories to the edition, Vinaris creates one in-app
+  Wine Pulse notification for each active user. Alerts open Wine Pulse directly,
+  are limited to one every twelve hours per user, and never send email or push.
 - A source must be reviewed for syndication and attribution terms before it is
   added or retained in production. Availability of an RSS endpoint alone is
   not a blanket republication licence.

@@ -1060,6 +1060,14 @@ function notificationSvgIcon(kind: string) {
   if (kind === "smart_future_deliveries") return dashboardStatSvgIcon("future_deliveries");
   if (kind === "smart_to_collect") return dashboardStatSvgIcon("to_collect");
   if (kind === "smart_entitlement_expiring") return dashboardStatSvgIcon("missing_data");
+  if (kind === "wine_pulse_edition") {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <path d="M5 5.5h14v13H5z" />
+        <path d="M8 9h8M8 12h8M8 15h5" />
+      </svg>
+    );
+  }
   if (kind === "pending_users") return dashboardStatSvgIcon("shared");
   if (kind === "invite") return dashboardStatSvgIcon("shared");
   if (kind === "share_offer") return dashboardStatSvgIcon("shared");
@@ -3416,6 +3424,8 @@ export function App() {
       loadSettingsTabData("users");
     } else if (notification.action_url?.includes("/home")) {
       setActiveView("home");
+    } else if (notification.action_url?.includes("/pulse")) {
+      setActiveView("pulse");
     } else if (notification.action_url?.includes("/cellar")) {
       const url = new URL(notification.action_url, window.location.origin);
       const wineId = url.searchParams.get("wine_id");

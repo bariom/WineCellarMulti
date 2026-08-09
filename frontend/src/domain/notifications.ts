@@ -21,6 +21,13 @@ export function localizedNotification(notification: UserNotification, locale: Lo
   const count = firstNumber(notification.message);
 
   switch (notification.kind) {
+    case "wine_pulse_edition":
+      return {
+        title: "Wine Pulse is updated",
+        message: count
+          ? `${count} new wine-world ${count === "1" ? "story" : "stories"}, selected by Vinaris.`
+          : "New wine-world stories, selected by Vinaris.",
+      };
     case "smart_drink_now":
       return { title: "Cellar reminder", message: count ? `${count} wines are ready to drink in your cellar.` : "Some wines are ready to drink in your cellar." };
     case "smart_past_window":
