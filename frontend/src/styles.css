@@ -8221,6 +8221,80 @@ button.balance-indicator:focus-visible {
   grid-column: span 2;
 }
 
+.auth-status-kicker {
+  color: var(--primary) !important;
+  font-size: 0.68rem !important;
+  font-weight: 900;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.verification-email-address {
+  width: fit-content;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 8px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--primary));
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+
+.verification-next-steps {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding-left: 22px;
+  color: var(--text);
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.verification-next-steps li::marker {
+  color: var(--primary);
+  font-weight: 900;
+}
+
+.email-verification-success-notice {
+  gap: 8px;
+  padding: 18px 20px;
+  border: 2px solid color-mix(in srgb, var(--primary) 52%, var(--border));
+  border-left-width: 6px;
+  border-radius: 12px;
+  color: var(--text);
+  background: var(--success-surface);
+}
+
+.email-verification-success-notice > span:not(.auth-status-kicker) {
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.email-verification-success-notice button {
+  justify-self: start;
+  margin-top: 4px;
+}
+
+.registration-email-guide {
+  display: grid;
+  gap: 5px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, var(--border));
+  border-radius: 10px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-raised));
+}
+
+.registration-email-guide strong {
+  font-size: 0.9rem;
+}
+
+.registration-email-guide span {
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 @media (min-width: 821px) {
   .collector-dashboard-carousel .maturity-heatmap-card {
     grid-row: span 2;

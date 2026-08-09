@@ -1281,6 +1281,7 @@ export function App() {
   const [acceptToken, setAcceptToken] = useState("");
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [emailVerificationConfirmed, setEmailVerificationConfirmed] = useState(false);
+  const [registrationEmail, setRegistrationEmail] = useState("");
   const [passwordResetToken, setPasswordResetToken] = useState("");
   const [coOwnershipToken, setCoOwnershipToken] = useState("");
   const [coOwnershipAgreements, setCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
@@ -2124,6 +2125,10 @@ export function App() {
 
   function openAuthPanel(mode: "login" | "register") {
     setAuthMode(mode);
+    if (mode === "register") {
+      setRegistrationEmail("");
+      setEmailVerificationConfirmed(false);
+    }
     setAuthModalOpen(true);
     if (!isMobileViewport) {
       return;
@@ -2706,6 +2711,7 @@ export function App() {
       setSession(nextSession);
       if (authMode === "register") {
         setEmailVerificationConfirmed(false);
+        setRegistrationEmail(authDraft.email.trim());
       }
       if (nextSession.authenticated) {
         applySessionPreferences(nextSession, true);
@@ -2744,7 +2750,7 @@ export function App() {
       setEmailVerificationToken("");
       setEmailVerificationConfirmed(true);
       setSession((current) => (current ? { ...current, pending_email_verification: false } : current));
-      setNotice(t("emailVerificationSuccess"));
+      setNotice("");
       setAuthMode("login");
       setAuthModalOpen(true);
     } catch (nextError) {
@@ -2752,6 +2758,13 @@ export function App() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function focusLoginAfterVerification() {
+    setAuthMode("login");
+    window.requestAnimationFrame(() => {
+      document.getElementById("auth-login-email")?.focus();
+    });
   }
 
   async function loginWithPasskey() {
@@ -4822,7 +4835,7 @@ export function App() {
   const onboardingStep = emailVerificationToken || session?.pending_email_verification
     ? 2
     : emailVerificationConfirmed
-      ? 2
+      ? 3
       : 1;
   const onboardingProgress = (activeStep: 1 | 2 | 3, emailComplete = false) => (
     <ol className="onboarding-progress" aria-label="Onboarding">
@@ -4896,8 +4909,24 @@ export function App() {
         </div>
       ) : null}
       {emailVerificationConfirmed ? (
-        <div className="invite-notice">
-          <strong>{t("emailVerificationSuccess")}</strong>
+        <div className="invite-notice email-verification-success-notice" role="status">
+          <span className="auth-status-kicker">{t("onboardingAccessStep")}</span>
+          <strong>{t("emailVerificationSuccessTitle")}</strong>
+          <span>{t("emailVerificationSuccessHelp")}</span>
+          <button type="button" onClick={focusLoginAfterVerification}>{t("signInNow")}</button>
+        </div>
+      ) : null}
+      {session?.pending_email_verification ? (
+        <div className="invite-notice email-verification-notice" role="status">
+          <span className="auth-status-kicker">{t("onboardingEmailStep")}</span>
+          <strong>{t("pendingEmailVerification")}</strong>
+          {registrationEmail ? <b className="verification-email-address">{registrationEmail}</b> : null}
+          <span>{t("pendingEmailVerificationHelp")}</span>
+          <ol className="verification-next-steps">
+            <li>{t("verificationCheckInbox")}</li>
+            <li>{t("verificationOpenLink")}</li>
+            <li>{t("verificationReturnToLogin")}</li>
+          </ol>
         </div>
       ) : null}
       {!emailVerificationToken && !session?.pending_email_verification ? <>
@@ -4909,16 +4938,16 @@ export function App() {
         <div className="auth-form-heading">
           <h2>{authMode === "register" ? t("createAccount") : authMode === "forgot-password" ? t("passwordResetTitle") : authMode === "reset-password" ? t("passwordResetNewPassword") : t("login")}</h2>
         </div>
+        {authMode === "register" ? (
+          <div className="registration-email-guide">
+            <strong>{t("registrationEmailGuideTitle")}</strong>
+            <span>{t("registrationEmailGuideHelp")}</span>
+          </div>
+        ) : null}
         {session?.pending_approval ? (
           <div className="invite-notice">
             <strong>{t("pendingApproval")}</strong>
             <span>{t("pendingApprovalHelp")}</span>
-          </div>
-        ) : null}
-        {session?.pending_email_verification ? (
-          <div className="invite-notice email-verification-notice">
-            <strong>{t("pendingEmailVerification")}</strong>
-            <span>{t("pendingEmailVerificationHelp")}</span>
           </div>
         ) : null}
         {authMode === "register" ? (
@@ -4930,7 +4959,7 @@ export function App() {
         {authMode !== "reset-password" ? (
           <label>
             <span>{t("email")}</span>
-            <input type="email" inputMode="email" autoComplete="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} placeholder="nome@esempio.com" required />
+            <input id={authMode === "login" ? "auth-login-email" : undefined} type="email" inputMode="email" autoComplete="email" value={authDraft.email} onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })} placeholder="nome@esempio.com" required />
           </label>
         ) : null}
         {authMode === "register" ? (
