@@ -44,7 +44,6 @@ def article_response(
 @router.get("", response_model=WineNewsFeedResponse)
 def wine_pulse_feed(
     locale: Literal["it", "en"] = Query(default="it"),
-    language: Literal["all", "it", "en"] = Query(default="all"),
     category: WineNewsCategory | None = Query(default=None),
     limit: int = Query(default=20, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
@@ -52,8 +51,6 @@ def wine_pulse_feed(
     _: CurrentContext = Depends(get_current_context),
 ) -> WineNewsFeedResponse:
     filters = [WineNewsArticle.status == "published"]
-    if language != "all":
-        filters.append(WineNewsArticle.source_language == language)
     if category:
         filters.append(WineNewsArticle.category == category)
 

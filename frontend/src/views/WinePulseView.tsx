@@ -6,7 +6,6 @@ import type {
   WineNewsArticle,
   WineNewsCategory,
   WineNewsFeed,
-  WineNewsLanguage,
 } from "../types";
 import "./WinePulseView.css";
 
@@ -60,8 +59,13 @@ function WinePulseArticleCard({ article, locale, featured = false }: {
   featured?: boolean;
 }) {
   return (
-    <article className={`wine-pulse-story${featured ? " wine-pulse-story--featured" : ""}`}>
-      <div className="wine-pulse-source-mark" aria-hidden="true">{sourceInitials(article.source)}</div>
+    <article className={`wine-pulse-story wine-pulse-story--${article.category}${featured ? " wine-pulse-story--featured" : ""}`}>
+      {featured ? (
+        <div className="wine-pulse-lead-number" aria-label={locale === "it" ? "Storia di copertina" : "Cover story"}>
+          <span>{locale === "it" ? "Copertina" : "Cover"}</span>
+          <strong>01</strong>
+        </div>
+      ) : <div className="wine-pulse-source-mark" aria-hidden="true">{sourceInitials(article.source)}</div>}
       <div className="wine-pulse-story-copy">
         <div className="wine-pulse-story-meta">
           <span>{article.source}</span>
@@ -80,6 +84,14 @@ function WinePulseArticleCard({ article, locale, featured = false }: {
           </a>
         </div>
       </div>
+      {featured ? (
+        <div className="wine-pulse-featured-visual" aria-hidden="true">
+          {article.image_url ? (
+            <img src={article.image_url} alt="" onError={(event) => { event.currentTarget.style.display = "none"; }} />
+          ) : null}
+          <span>{sourceInitials(article.source)}</span>
+        </div>
+      ) : null}
     </article>
   );
 }
@@ -120,14 +132,13 @@ export function WinePulsePreview({ locale, onOpen }: { locale: Locale; onOpen: (
 
 export default function WinePulseView({ locale }: { locale: Locale }) {
   const [feed, setFeed] = useState<WineNewsFeed | null>(null);
-  const [language, setLanguage] = useState<WineNewsLanguage>("all");
   const [category, setCategory] = useState<WineNewsCategory | "all">("all");
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    const query = new URLSearchParams({ locale, language, limit: "40" });
+    const query = new URLSearchParams({ locale, limit: "40" });
     if (category !== "all") query.set("category", category);
     setLoading(true);
     setFailed(false);
@@ -138,7 +149,7 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [locale, language, category]);
+  }, [locale, category]);
 
   return (
     <section className="wine-pulse-view">
@@ -154,16 +165,15 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
         {feed?.generated_at ? (
           <small>{locale === "it" ? "Ultimo aggiornamento" : "Last updated"}: {relativeDate(feed.generated_at, locale)}</small>
         ) : null}
+        {feed?.total ? (
+          <div className="wine-pulse-edition-mark">
+            <span>{locale === "it" ? "Edizione corrente" : "Current edition"}</span>
+            <strong>{feed.total} {locale === "it" ? (feed.total === 1 ? "storia selezionata" : "storie selezionate") : (feed.total === 1 ? "story selected" : "stories selected")}</strong>
+          </div>
+        ) : null}
       </header>
 
       <div className="wine-pulse-controls">
-        <div className="wine-pulse-language" role="group" aria-label={locale === "it" ? "Lingua delle fonti" : "Source language"}>
-          {(["all", "it", "en"] as WineNewsLanguage[]).map((value) => (
-            <button type="button" key={value} className={language === value ? "" : "secondary"} onClick={() => setLanguage(value)}>
-              {value === "all" ? (locale === "it" ? "Tutte" : "All") : value.toLocaleUpperCase()}
-            </button>
-          ))}
-        </div>
         <label>
           <span>{locale === "it" ? "Argomento" : "Topic"}</span>
           <select value={category} onChange={(event) => setCategory(event.target.value as WineNewsCategory | "all")}>

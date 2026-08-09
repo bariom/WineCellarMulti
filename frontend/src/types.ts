@@ -937,7 +937,6 @@ export type OperationalWinePhotos = {
 export type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "pulse" | "buying" | "help" | "settings";
 
 export type WineNewsCategory = "wine_world" | "regions_vintages" | "producers" | "market" | "climate_vineyards" | "events_awards";
-export type WineNewsLanguage = "all" | "it" | "en";
 
 export type WineNewsArticle = {
   id: string;
