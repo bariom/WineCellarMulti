@@ -520,6 +520,7 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "quantity": as_int(raw.get("quantity")),
         "currency": as_str(raw.get("currency")) or "CHF",
         "price": as_decimal(raw.get("price")),
+        "sale_price": as_optional_decimal(raw.get("sale_price")),
         "current_value": as_optional_decimal(raw.get("current_value")),
         "status": as_str(raw.get("status")) or "Ordered",
         "format": as_str(raw.get("format")),
@@ -1298,6 +1299,7 @@ def export_json(
         "household": {
             "id": str(context.household.id),
             "name": context.household.name,
+            "operating_mode": context.household.operating_mode,
         },
         "included_blocks": [],
     }

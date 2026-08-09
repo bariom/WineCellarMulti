@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -17,6 +18,7 @@ class HouseholdMembershipResponse(BaseModel):
     membership_id: UUID
     household_id: UUID
     household_name: str
+    operating_mode: Literal["private", "restaurant"] = "private"
     role: str
 
 
@@ -25,11 +27,13 @@ class HouseholdSwitch(BaseModel):
 
 
 class HouseholdUpdate(BaseModel):
-    name: str = Field(min_length=1, max_length=160)
+    name: str | None = Field(default=None, min_length=1, max_length=160)
+    operating_mode: Literal["private", "restaurant"] | None = None
 
 
 class HouseholdCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
+    operating_mode: Literal["private", "restaurant"] = "private"
 
 
 class RegionalGapTargetPayload(BaseModel):

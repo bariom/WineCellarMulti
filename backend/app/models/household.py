@@ -14,3 +14,4 @@ class Household(Base):
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(160), index=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    operating_mode: Mapped[str] = mapped_column(String(24), default="private", index=True)

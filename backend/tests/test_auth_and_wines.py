@@ -90,6 +90,54 @@ def teardown_function():
     app.dependency_overrides.clear()
 
 
+def test_restaurant_sale_tracks_margin_and_can_be_voided():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    private_wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "vintage": "2019", "quantity": 3, "price": 20, "sale_price": 50},
+    )
+    assert private_wine.status_code == 201
+    wine_id = private_wine.json()["id"]
+    private_sale = client.post("/api/v1/sales", json={"wine_id": wine_id, "quantity": 1})
+    assert private_sale.status_code == 201
+    assert private_sale.json()["quantity"] == 1
+    private_summary = client.get("/api/v1/sales/summary")
+    assert private_summary.status_code == 200
+    assert private_summary.json()["currencies"][0]["bottles"] == 1
+    assert client.post(
+        f"/api/v1/sales/{private_sale.json()['id']}/void", json={"reason": "Verifica privata"}
+    ).status_code == 200
+
+    changed = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
+    assert changed.status_code == 200
+    assert changed.json()["operating_mode"] == "restaurant"
+    assert client.get("/api/v1/session").json()["active_household_mode"] == "restaurant"
+
+    sold = client.post(
+        "/api/v1/sales",
+        json={"wine_id": wine_id, "quantity": 2, "unit_sale_price": 55, "note": "Tavolo 4"},
+    )
+    assert sold.status_code == 201
+    sale = sold.json()
+    assert sale["revenue"] == "110.00"
+    assert sale["cost"] == "40.00"
+    assert sale["gross_margin"] == "70.00"
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 1
+
+    summary = client.get("/api/v1/sales/summary")
+    assert summary.status_code == 200
+    assert summary.json()["currencies"][0]["gross_margin"] == "70.00"
+    assert summary.json()["currencies"][0]["bottles"] == 2
+
+    voided = client.post(f"/api/v1/sales/{sale['id']}/void", json={"reason": "Errore cassa"})
+    assert voided.status_code == 200
+    assert voided.json()["voided_at"] is not None
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 3
+    assert client.get("/api/v1/sales/summary").json()["currencies"] == []
+
+
 def register(
     client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
 ):

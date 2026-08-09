@@ -13,6 +13,7 @@ class WineCreate(BaseModel):
     quantity: int = Field(default=0, ge=0)
     currency: str = "CHF"
     price: Decimal = Field(default=Decimal("0"), ge=0)
+    sale_price: Decimal | None = Field(default=None, ge=0)
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool = False
     status: str = "Ordered"
@@ -52,6 +53,7 @@ class WineUpdate(BaseModel):
     quantity: int | None = Field(default=None, ge=0)
     currency: str | None = None
     price: Decimal | None = Field(default=None, ge=0)
+    sale_price: Decimal | None = Field(default=None, ge=0)
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool | None = None
     status: str | None = None
@@ -192,6 +194,7 @@ class WineResponse(BaseModel):
     quantity: int
     currency: str
     price: Decimal
+    sale_price: Decimal | None = None
     current_value: Decimal | None = None
     value_not_found: bool = False
     status: str

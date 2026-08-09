@@ -467,6 +467,7 @@ def wine_copy_for_recipient(
         quantity=source.quantity,
         currency=source.currency,
         price=source.price,
+        sale_price=source.sale_price,
         current_value=source.current_value,
         value_not_found=source.value_not_found,
         status=source.status,

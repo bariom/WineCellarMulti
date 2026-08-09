@@ -49,6 +49,7 @@ class Wine(Base):
     quantity: Mapped[int] = mapped_column(default=0)
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    sale_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     current_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     value_not_found: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(32), default="Ordered")
@@ -161,6 +162,37 @@ class WineTastingEntry(Base):
         Numeric(10, 2), nullable=True
     )
     currency_at_consumption: Mapped[str] = mapped_column(String(8), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, index=True
+    )
+
+
+class WineSale(Base):
+    __tablename__ = "wine_sales"
+    __table_args__ = (
+        Index("ix_wine_sales_household_sold", "household_id", "sold_at", "created_at"),
+        Index("ix_wine_sales_wine_sold", "wine_id", "sold_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    sold_at: Mapped[date] = mapped_column(Date, index=True)
+    quantity: Mapped[int] = mapped_column(default=1)
+    unit_sale_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    unit_purchase_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    currency: Mapped[str] = mapped_column(String(8), default="CHF")
+    previous_wine_status: Mapped[str] = mapped_column(String(64), default="Delivered")
+    note: Mapped[str] = mapped_column(Text, default="")
+    voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    void_reason: Mapped[str] = mapped_column(String(300), default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, index=True
     )

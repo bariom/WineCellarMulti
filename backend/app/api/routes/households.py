@@ -164,6 +164,7 @@ def list_household_memberships(
                 membership_id=membership.id,
                 household_id=household.id,
                 household_name=household.name,
+                operating_mode=household.operating_mode,
                 role=membership.role,
             ),
         )
@@ -197,6 +198,7 @@ def switch_household(
         membership_id=membership.id,
         household_id=household.id,
         household_name=household.name,
+        operating_mode=household.operating_mode,
         role=membership.role,
     )
 
@@ -213,7 +215,7 @@ def create_household(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
         )
 
-    household = Household(name=name)
+    household = Household(name=name, operating_mode=payload.operating_mode)
     db.add(household)
     db.flush()
     membership = Membership(
@@ -232,6 +234,7 @@ def create_household(
         membership_id=membership.id,
         household_id=household.id,
         household_name=household.name,
+        operating_mode=household.operating_mode,
         role=membership.role,
     )
 
@@ -315,19 +318,22 @@ def update_active_household(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_admin_context),
 ) -> HouseholdMembershipResponse:
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
-        )
-
-    context.household.name = name
+    if payload.name is not None:
+        name = payload.name.strip()
+        if not name:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
+            )
+        context.household.name = name
+    if payload.operating_mode is not None:
+        context.household.operating_mode = payload.operating_mode
     db.commit()
     db.refresh(context.household)
     return HouseholdMembershipResponse(
         membership_id=context.membership.id,
         household_id=context.household.id,
         household_name=context.household.name,
+        operating_mode=context.household.operating_mode,
         role=context.membership.role,
     )
 

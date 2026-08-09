@@ -12,6 +12,7 @@ from app.api.routes import (
     monitoring,
     notifications,
     operations,
+    sales,
     session,
     support,
     tags,
@@ -30,6 +31,7 @@ api_router.include_router(map_places.router, tags=["map"])
 api_router.include_router(monitoring.router, tags=["monitoring"])
 api_router.include_router(notifications.router, tags=["notifications"])
 api_router.include_router(operations.router, tags=["operations"])
+api_router.include_router(sales.router, tags=["sales"])
 api_router.include_router(session.router, tags=["session"])
 api_router.include_router(support.router, tags=["support"])
 api_router.include_router(tags.router, tags=["tags"])

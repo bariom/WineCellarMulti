@@ -4,6 +4,7 @@ export type Session = {
   user_email: string | null;
   active_household_id: string | null;
   active_household_name: string | null;
+  active_household_mode: "private" | "restaurant";
   membership_role: string | null;
   is_app_admin: boolean;
   is_demo: boolean;
@@ -34,6 +35,7 @@ export type Wine = {
   quantity: number;
   currency: string;
   price: string;
+  sale_price: string | null;
   current_value: string | null;
   value_not_found: boolean;
   status: string;
@@ -107,6 +109,42 @@ export type ConsumeWineDraft = {
   tasting_companions: string;
 };
 
+export type WineSaleDraft = {
+  sold_at: string;
+  quantity: string;
+  unit_sale_price: string;
+  note: string;
+};
+
+export type WineSale = {
+  id: string;
+  wine_id: string;
+  wine_name: string;
+  wine_producer: string;
+  wine_vintage: string;
+  sold_at: string;
+  quantity: number;
+  unit_sale_price: string;
+  unit_purchase_cost: string;
+  revenue: string;
+  cost: string;
+  gross_margin: string;
+  currency: string;
+  note: string;
+  voided_at: string | null;
+  void_reason: string;
+  created_at: string;
+};
+
+export type RestaurantSalesSummary = {
+  from_date: string;
+  to_date: string;
+  currencies: Array<{ currency: string; revenue: string; cost: string; gross_margin: string; gross_margin_pct: string; bottles: number; average_sale_price: string }>;
+  series: Array<{ date: string; currency: string; revenue: string; cost: string; gross_margin: string; bottles: number }>;
+  top_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string }>;
+  recent_sales: WineSale[];
+};
+
 export type CatalogWine = {
   id?: string;
   name: string;
@@ -141,6 +179,7 @@ export type WineDraft = {
   quantity: string;
   currency: string;
   price: string;
+  sale_price: string;
   current_value: string;
   status: string;
   format: string;
@@ -405,6 +444,7 @@ export type HouseholdMembership = {
   membership_id: string;
   household_id: string;
   household_name: string;
+  operating_mode: "private" | "restaurant";
   role: string;
 };
 
@@ -965,7 +1005,7 @@ export type WineNewsFeed = {
   has_more: boolean;
 };
 
-export type HistorySection = "tastings" | "wines";
+export type HistorySection = "tastings" | "wines" | "sales";
 
 export type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data";
 

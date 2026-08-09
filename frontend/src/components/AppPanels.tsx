@@ -6,6 +6,7 @@ import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, format
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
 import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
+import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
@@ -777,6 +778,7 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     quantity: 0,
     currency: "CHF",
     price: "0",
+    sale_price: null,
     current_value: null,
     value_not_found: false,
     status: item.wine_status,
@@ -840,6 +842,8 @@ export function WineDetail({
   onToggleScoresAiExclusion,
   onUpdateRating,
   onConsume,
+  restaurantMode = false,
+  onSell,
   onUpdateTastingEntry,
   onDeleteTastingEntry,
   marketAuditEntry,
@@ -864,6 +868,8 @@ export function WineDetail({
   onToggleScoresAiExclusion: (excluded: boolean) => void;
   onUpdateRating: (rating: string) => Promise<void>;
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
+  restaurantMode?: boolean;
+  onSell: (payload: WineSaleDraft) => Promise<void>;
   onUpdateTastingEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
   onDeleteTastingEntry: (wine: Wine, entryId: string) => Promise<void>;
   marketAuditEntry: AiAuditLog | null;
@@ -897,17 +903,25 @@ export function WineDetail({
         ? t("idealWindow")
         : t("youngWine");
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+  const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
 
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
+    setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
   }, [wine.id]);
 
   async function submitConsume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onConsume(consumeDraft);
     setConsumeDraft(emptyConsumeWineDraft());
+  }
+
+  async function submitSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onSell(saleDraft);
+    setSaleDraft((current) => ({ ...current, quantity: "1", note: "" }));
   }
 
   return (
@@ -925,14 +939,14 @@ export function WineDetail({
               <i className={`wine-dot tone-${wineTone(wine.type)}`} />
               <span>{wine.name}</span>
             </h2>
-            {canWrite ? (
+            {!restaurantMode ? canWrite ? (
               <RatingInput
                 value={String(wine.rating || 0)}
                 disabled={saving}
                 label={t("rating")}
                 onChange={(rating) => { void onUpdateRating(rating); }}
               />
-            ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null}
+            ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null : null}
             <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
             {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
           </div>
@@ -1088,8 +1102,9 @@ export function WineDetail({
         <div className="detail-grid detail-facts-grid">
           <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
           <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
-          <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} />
+          {!restaurantMode ? <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
+          {restaurantMode ? <DetailField label={locale === "it" ? "Prezzo di vendita" : "Sale price"} value={wine.sale_price ? formatMoney(wine.sale_price, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
@@ -1151,7 +1166,21 @@ export function WineDetail({
         </div>
       ) : null}
 
-      {canWrite && wine.quantity > 0 ? (
+      {canWrite && wine.quantity > 0 ? restaurantMode ? (
+        <details className="detail-section consume-panel sale-panel">
+          <summary><span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span></summary>
+          <p className="consume-help">{locale === "it" ? "Registra la vendita senza creare una degustazione. Il costo d’acquisto viene salvato come fotografia storica del margine." : "Record a sale without creating a tasting. Purchase cost is snapshotted for historical margin reporting."}</p>
+          <form className="consume-form" onSubmit={submitSale}>
+            <div className="detail-grid consume-grid">
+              <label><span>{locale === "it" ? "Data vendita" : "Sale date"}</span><input type="date" value={saleDraft.sold_at} onChange={(event) => setSaleDraft({ ...saleDraft, sold_at: event.target.value })} disabled={saving} required /></label>
+              <label><span>{locale === "it" ? "Bottiglie" : "Bottles"}</span><input type="number" min="1" max={wine.quantity} value={saleDraft.quantity} onChange={(event) => setSaleDraft({ ...saleDraft, quantity: event.target.value })} disabled={saving} required /></label>
+              <label><span>{locale === "it" ? `Prezzo unitario (${wine.currency})` : `Unit price (${wine.currency})`}</span><input type="number" min="0" step="0.01" value={saleDraft.unit_sale_price} onChange={(event) => setSaleDraft({ ...saleDraft, unit_sale_price: event.target.value })} disabled={saving} required /></label>
+            </div>
+            <label><span>{locale === "it" ? "Nota vendita" : "Sale note"}</span><textarea rows={2} value={saleDraft.note} onChange={(event) => setSaleDraft({ ...saleDraft, note: event.target.value })} disabled={saving} /></label>
+            <div className="form-actions"><button type="submit" disabled={saving || !saleDraft.unit_sale_price}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Registra vendita" : "Record sale"} busyLabel={t("working")} /></button></div>
+          </form>
+        </details>
+      ) : (
         <details className="detail-section consume-panel">
           <summary>
             <span>{t("consumeBottle")}</span>
@@ -1234,6 +1263,22 @@ export function WineDetail({
         </details>
       ) : null}
 
+      {canWrite && wine.quantity > 0 && !restaurantMode ? (
+        <details className="detail-section sale-panel">
+          <summary><span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span></summary>
+          <p className="consume-help">{locale === "it" ? "Registra una o più bottiglie vendute. La quantità iniziale è 1 e non può superare la giacenza disponibile." : "Record one or more sold bottles. Quantity starts at 1 and cannot exceed available stock."}</p>
+          <form className="consume-form" onSubmit={submitSale}>
+            <div className="detail-grid consume-grid">
+              <label><span>{locale === "it" ? "Data vendita" : "Sale date"}</span><input type="date" value={saleDraft.sold_at} onChange={(event) => setSaleDraft({ ...saleDraft, sold_at: event.target.value })} disabled={saving} required /></label>
+              <label><span>{locale === "it" ? "Bottiglie vendute" : "Bottles sold"}</span><input type="number" min="1" max={wine.quantity} value={saleDraft.quantity} onChange={(event) => setSaleDraft({ ...saleDraft, quantity: event.target.value })} disabled={saving} required /></label>
+              <label><span>{locale === "it" ? `Prezzo unitario (${wine.currency})` : `Unit price (${wine.currency})`}</span><input type="number" min="0" step="0.01" value={saleDraft.unit_sale_price} onChange={(event) => setSaleDraft({ ...saleDraft, unit_sale_price: event.target.value })} disabled={saving} required /></label>
+            </div>
+            <label><span>{locale === "it" ? "Nota vendita" : "Sale note"}</span><textarea rows={2} value={saleDraft.note} onChange={(event) => setSaleDraft({ ...saleDraft, note: event.target.value })} disabled={saving} /></label>
+            <div className="form-actions"><button type="submit" disabled={saving || !saleDraft.unit_sale_price}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Registra vendita" : "Record sale"} busyLabel={t("working")} /></button></div>
+          </form>
+        </details>
+      ) : null}
+
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
         <div className="notes-grid">
           {wine.notes ? <DetailNote title={t("notes")}>{wine.notes}</DetailNote> : null}
@@ -1244,7 +1289,7 @@ export function WineDetail({
 
       {coOwnershipSection}
 
-      <TastingHistorySection
+      {!restaurantMode ? <TastingHistorySection
         wine={wine}
         entries={wine.tasting_history || []}
         canWrite={canWrite}
@@ -1252,7 +1297,7 @@ export function WineDetail({
         onUpdateEntry={onUpdateTastingEntry}
         onDeleteEntry={onDeleteTastingEntry}
         t={t}
-      />
+      /> : null}
 
       <details className="detail-section ai-audit-detail">
         <summary>

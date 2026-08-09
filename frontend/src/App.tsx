@@ -10,6 +10,7 @@ import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine,
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
+import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
 import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
@@ -83,6 +84,7 @@ const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const HelpView = lazy(() => import("./views/HelpView"));
 const TimeSeriesChart = lazy(() => import("./components/TimeSeriesChart"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
+const RestaurantDashboard = lazy(() => import("./views/RestaurantDashboard"));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
@@ -425,6 +427,7 @@ const emptyDraft: WineDraft = {
   quantity: "1",
   currency: "CHF",
   price: "0",
+  sale_price: "",
   current_value: "",
   status: "Ordered",
   format: "",
@@ -1294,6 +1297,7 @@ export function App() {
   const [exportSelection, setExportSelection] = useState<ExportSelection>(defaultExportSelection);
   const [importSelection, setImportSelection] = useState<ImportSelection>(importSelectionFromBlocks(["wines", "wishlist"]));
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
+  const [restaurantDashboardVersion, setRestaurantDashboardVersion] = useState(0);
   const [newHouseholdNameDraft, setNewHouseholdNameDraft] = useState("");
   const [deleteHouseholdConfirmDraft, setDeleteHouseholdConfirmDraft] = useState("");
   const [userAiBalanceDrafts, setUserAiBalanceDrafts] = useState<Record<string, string>>({});
@@ -2910,6 +2914,7 @@ export function App() {
       user_email: null,
       active_household_id: null,
       active_household_name: null,
+      active_household_mode: "private",
       membership_role: null,
       is_app_admin: false,
       is_demo: false,
@@ -3015,6 +3020,7 @@ export function App() {
               ...current,
               active_household_id: updatedMembership.household_id,
               active_household_name: updatedMembership.household_name,
+              active_household_mode: updatedMembership.operating_mode,
               membership_role: updatedMembership.role,
             }
           : current,
@@ -3623,6 +3629,7 @@ export function App() {
         user_email: null,
         active_household_id: rawString(household.id, "offline"),
         active_household_name: rawString(household.name, file.name.replace(/\.json$/i, "")),
+        active_household_mode: rawString(household.operating_mode) === "restaurant" ? "restaurant" : "private",
         membership_role: "offline",
         is_app_admin: false,
         is_demo: false,
@@ -4329,6 +4336,49 @@ export function App() {
     }
   }
 
+  async function updateHouseholdMode(operatingMode: "private" | "restaurant") {
+    setSaving(true);
+    setError("");
+    try {
+      const updatedMembership = await api<HouseholdMembership>("/api/v1/household", {
+        method: "PATCH",
+        body: JSON.stringify({ operating_mode: operatingMode }),
+      });
+      setHouseholdMemberships((current) => current.map((membership) =>
+        membership.household_id === updatedMembership.household_id ? updatedMembership : membership,
+      ));
+      setSession((current) => current ? { ...current, active_household_mode: updatedMembership.operating_mode } : current);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update cellar mode");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function sellWineBottles(wine: Wine, payload: WineSaleDraft) {
+    setSaving(true);
+    setError("");
+    try {
+      await api("/api/v1/sales", {
+        method: "POST",
+        body: JSON.stringify({
+          wine_id: wine.id,
+          sold_at: payload.sold_at || undefined,
+          quantity: Number(payload.quantity || 1),
+          unit_sale_price: payload.unit_sale_price ? Number(payload.unit_sale_price) : undefined,
+          note: payload.note.trim(),
+        }),
+      });
+      await loadWines();
+      setRestaurantDashboardVersion((current) => current + 1);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to register sale");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function updateWineTastingEntry(wine: Wine, entryId: string, payload: ConsumeWineDraft) {
     setSaving(true);
     setError("");
@@ -4622,6 +4672,7 @@ export function App() {
   const canAdmin = !offlineMode && (session?.membership_role === "owner" || session?.membership_role === "admin");
   const canAppAdmin = !offlineMode && Boolean(session?.is_app_admin);
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
+  const isRestaurant = session?.active_household_mode === "restaurant";
   const canAccessWinePhotos = !offlineMode && Boolean(session?.authenticated);
   const canManageWinePhotos = canWriteWine && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
   const canReuseWinePhotos = canWriteWine && canAccessWinePhotos;
@@ -5062,7 +5113,7 @@ export function App() {
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const cellarWines = wines.filter((wine) => wine.quantity > 0);
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
-  const isWineCollectionView = activeView === "cellar" || activeView === "history";
+  const isWineCollectionView = activeView === "cellar" || (activeView === "history" && historySection !== "sales");
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
   const activeWineCollection = activeView === "history"
     ? historySection === "tastings"
@@ -7457,6 +7508,8 @@ export function App() {
         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
         onUpdateRating={(rating) => updateWineRating(wine, rating)}
         onConsume={(payload) => consumeWineBottle(wine, payload)}
+        restaurantMode={isRestaurant}
+        onSell={(payload) => sellWineBottles(wine, payload)}
         onUpdateTastingEntry={updateWineTastingEntry}
         onDeleteTastingEntry={deleteWineTastingEntry}
         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
@@ -7481,7 +7534,7 @@ export function App() {
   }
 
   function renderCellarSommelierLayer() {
-    if (!cellarSommelierVisible || !cellarSommelierWines.length || activeView !== "cellar") return null;
+    if (isRestaurant || !cellarSommelierVisible || !cellarSommelierWines.length || activeView !== "cellar") return null;
     const countLabel = cellarSommelierWines.length === 1
       ? t("dailySommelierCandidateOne")
       : t("dailySommelierCandidates");
@@ -8535,7 +8588,17 @@ export function App() {
             </form>
           </div>
           ) : null}
-          {activeView === "home" ? (
+          {activeView === "home" && isRestaurant ? (
+            <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+              <RestaurantDashboard
+                locale={locale}
+                refreshKey={restaurantDashboardVersion}
+                onOpenWine={(wineId) => { setSelectedWineId(wineId); setActiveView("cellar"); }}
+                onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
+              />
+            </Suspense>
+          ) : null}
+          {activeView === "home" && !isRestaurant ? (
             <section className="home-dashboard">
               <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
                 <div className="dashboard-focus-lead">
@@ -10198,6 +10261,10 @@ export function App() {
                     <span>{t("currentValue")}</span>
                     <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
                   </label>
+                  {isRestaurant ? <label>
+                    <span>{locale === "it" ? "Prezzo di vendita" : "Sale price"}</span>
+                    <input type="number" min="0" step="0.01" value={draft.sale_price} onChange={(event) => setDraft({ ...draft, sale_price: event.target.value })} disabled={!canWriteWine} />
+                  </label> : null}
                 </div>
                 <div className="form-row">
                   <label>
@@ -10931,8 +10998,27 @@ export function App() {
               >
                 {t("historyArchivedWines")}
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={historySection === "sales"}
+                className={historySection === "sales" ? "" : "secondary"}
+                onClick={() => setHistorySection("sales")}
+              >
+                {locale === "it" ? "Vendite" : "Sales"}
+              </button>
             </div>
-            <details className="stats-panel-wrapper" open>
+            {historySection === "sales" ? (
+              <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+                <RestaurantDashboard
+                  locale={locale}
+                  mode={isRestaurant ? "restaurant" : "private"}
+                  refreshKey={restaurantDashboardVersion}
+                  onOpenWine={(wineId) => { setSelectedWineId(wineId); setActiveView("cellar"); }}
+                  onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
+                />
+              </Suspense>
+            ) : <details className="stats-panel-wrapper" open>
               <summary>{historySection === "tastings" ? t("historyTastings") : t("consumedWines")}</summary>
               <section className="stats-panel">
                 {historySection === "tastings" ? (
@@ -10980,7 +11066,7 @@ export function App() {
                   </>
                 )}
               </section>
-            </details>
+            </details>}
             </>
             ) : (
             <details className="stats-panel-wrapper" open>
@@ -11047,7 +11133,7 @@ export function App() {
               ) : null}
             </details>
             )}
-            <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
+            {!(activeView === "history" && historySection === "sales") ? <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
             <details ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
               <summary>
                 {activeView === "cellar" ? (
@@ -11246,8 +11332,8 @@ export function App() {
                 <button type="button" className="clear-active-cellar-filters" onClick={() => clearFilters(activeView)}>{t("clearFilters")}</button>
               </div>
             ) : null}
-            </div>
-            <div className="list-header">
+            </div> : null}
+            {!(activeView === "history" && historySection === "sales") ? <div className="list-header">
               <h2>
                 {activeView === "wishlist"
                   ? t("wishlist")
@@ -11268,7 +11354,7 @@ export function App() {
                       : wishlist.length
                   } {t("records")}</>}
               </span>
-            </div>
+            </div> : null}
             {activeView === "cellar" && maturityFilter ? (
               <div className="active-maturity-filter">
                 <span>{t("maturityFilter")}</span>
@@ -11513,6 +11599,8 @@ export function App() {
                         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
                         onUpdateRating={(rating) => updateWineRating(wine, rating)}
                         onConsume={(payload) => consumeWineBottle(wine, payload)}
+                        restaurantMode={isRestaurant}
+                        onSell={(payload) => sellWineBottles(wine, payload)}
                         onUpdateTastingEntry={updateWineTastingEntry}
                         onDeleteTastingEntry={deleteWineTastingEntry}
                         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
@@ -11548,7 +11636,18 @@ export function App() {
                             window.requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
                           }}>
                             <span className="action-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</span>
-                            <span>{t("consumeBottle")}</span>
+                            <span>{isRestaurant ? (locale === "it" ? "Venduta 1" : "Sell bottles") : t("consumeBottle")}</span>
+                          </button>
+                        ) : null}
+                        {canWriteWine && wine.quantity > 0 && !isRestaurant ? (
+                          <button type="button" className="secondary" onClick={(event) => {
+                            const panel = event.currentTarget.closest(".mobile-detail-sheet")?.querySelector<HTMLDetailsElement>(".sale-panel");
+                            if (!panel) return;
+                            panel.open = true;
+                            window.requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
+                          }}>
+                            <span className="action-icon" aria-hidden="true">€</span>
+                            <span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span>
                           </button>
                         ) : null}
                         <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} aria-pressed={compareWineIds.includes(wine.id)} onClick={() => toggleCompareWine(wine)}>
@@ -12272,6 +12371,24 @@ export function App() {
                     {saving ? t("saving") : t("renameCellar")}
                   </button>
                 </form>
+                <div className="inline-form cellar-mode-setting">
+                  <label>
+                    <span>{locale === "it" ? "Tipo di gestione" : "Cellar operation"}</span>
+                    <select
+                      value={session?.active_household_mode || "private"}
+                      disabled={!canAdmin || saving}
+                      onChange={(event) => void updateHouseholdMode(event.target.value as "private" | "restaurant")}
+                    >
+                      <option value="private">{locale === "it" ? "Cantina privata" : "Private cellar"}</option>
+                      <option value="restaurant">{locale === "it" ? "Ristorante" : "Restaurant"}</option>
+                    </select>
+                  </label>
+                  <p className="empty-state">
+                    {locale === "it"
+                      ? "La modalità ristorante sostituisce la degustazione con la vendita e abilita ricavi e margine lordo. I dati esistenti non vengono rimossi."
+                      : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
+                  </p>
+                </div>
                 <form className="inline-form" onSubmit={createHousehold}>
                   <label>
                     <span>{t("createCellar")}</span>

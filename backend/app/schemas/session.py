@@ -10,6 +10,7 @@ class SessionResponse(BaseModel):
     user_display_name: str | None = None
     active_household_id: str | None = None
     active_household_name: str | None = None
+    active_household_mode: str = "private"
     membership_role: str | None = None
     is_app_admin: bool = False
     is_demo: bool = False

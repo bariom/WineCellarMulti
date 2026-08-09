@@ -356,6 +356,9 @@ Collection and AI curation run independently from the web process; deployment,
 source configuration and editorial safeguards are documented in
 [docs/WINE_PULSE.md](docs/WINE_PULSE.md).
 
+Restaurant cellars can record bottle sales and review revenue, bottle cost and
+gross margin; see [docs/RESTAURANT_MODE.md](docs/RESTAURANT_MODE.md).
+
 Find the Linux machine IP with:
 
 ```bash

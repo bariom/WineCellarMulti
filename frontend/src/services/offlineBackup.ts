@@ -47,6 +47,7 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     quantity: rawNumber(raw.quantity),
     currency: rawString(raw.currency, "CHF"),
     price: rawString(raw.price, "0"),
+    sale_price: rawNullableString(raw.sale_price),
     current_value: raw.current_value === null || raw.current_value === undefined ? null : rawString(raw.current_value),
     value_not_found: Boolean(raw.value_not_found),
     status: rawString(raw.status, "Delivered"),
