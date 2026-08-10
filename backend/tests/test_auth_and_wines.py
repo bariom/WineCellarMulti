@@ -100,6 +100,8 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     )
     assert private_wine.status_code == 201
     wine_id = private_wine.json()["id"]
+    listed_wine = client.get("/api/v1/wines").json()[0]
+    assert listed_wine["sale_price"] == "50.00"
     private_sale = client.post("/api/v1/sales", json={"wine_id": wine_id, "quantity": 1})
     assert private_sale.status_code == 201
     assert private_sale.json()["quantity"] == 1

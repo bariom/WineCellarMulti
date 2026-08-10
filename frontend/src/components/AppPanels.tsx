@@ -1274,7 +1274,7 @@ export function WineDetail({
       ) : null}
 
       {canWrite && wine.quantity > 0 && !restaurantMode ? (
-        <details className="detail-section sale-panel">
+        <details className="detail-section consume-panel sale-panel">
           <summary><span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span></summary>
           <p className="consume-help">{locale === "it" ? "Registra una o più bottiglie vendute. La quantità iniziale è 1 e non può superare la giacenza disponibile." : "Record one or more sold bottles. Quantity starts at 1 and cannot exceed available stock."}</p>
           <form className="consume-form" onSubmit={submitSale}>

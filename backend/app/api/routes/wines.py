@@ -251,6 +251,7 @@ def wine_response(
         quantity=wine.quantity,
         currency=wine.currency,
         price=wine.price,
+        sale_price=wine.sale_price,
         current_value=wine.current_value,
         value_not_found=wine.value_not_found,
         status=wine.status,
