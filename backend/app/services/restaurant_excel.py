@@ -89,7 +89,9 @@ def build_restaurant_excel(
     for sale, _wine in sales_rows:
         currency = (sale.currency or "CHF").upper()
         totals[currency]["revenue"] += sale.unit_sale_price * sale.quantity
-        totals[currency]["cost"] += sale.unit_purchase_cost * sale.quantity
+        totals[currency]["cost"] += (
+            sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
+        )
         totals[currency]["bottles"] += sale.quantity
     summary_headers = [
         "Valuta" if it else "Currency",
@@ -146,7 +148,7 @@ def build_restaurant_excel(
     sale_rows = []
     for sale, wine in sales_rows:
         revenue = sale.unit_sale_price * sale.quantity
-        cost = sale.unit_purchase_cost * sale.quantity
+        cost = sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
         sale_rows.append(
             [
                 sale.sold_at,
@@ -174,7 +176,7 @@ def build_restaurant_excel(
         currency = (sale.currency or "CHF").upper()
         values = producer_totals[(producer, currency)]
         values["revenue"] += sale.unit_sale_price * sale.quantity
-        values["cost"] += sale.unit_purchase_cost * sale.quantity
+        values["cost"] += sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
         values["bottles"] += sale.quantity
     producer_rows: list[list[object]] = []
     for (producer, currency), values in sorted(

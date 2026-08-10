@@ -1,5 +1,5 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import type { Locale, RestaurantSalesSummary, Wine } from "../types";
+import { useEffect, useState, type CSSProperties, type FormEvent } from "react";
+import type { Locale, RestaurantSalesSummary, StockMovement, StockMovementType, Wine } from "../types";
 import { api, extractApiErrorText } from "../services/api";
 import { formatMoney } from "../components/panelSupport";
 import { displayValue, translate } from "../i18n";
@@ -9,6 +9,7 @@ import TimeSeriesChart from "../components/TimeSeriesChart";
 import "./RestaurantDashboard.css";
 
 type Period = "week" | "month" | "semester" | "year" | "custom";
+type ManualStockMovementType = Extract<StockMovementType, "purchase" | "adjustment_in" | "adjustment_out" | "breakage" | "complimentary">;
 
 function isoDate(date: Date) {
   const year = date.getFullYear();
@@ -121,6 +122,20 @@ function numberValue(value: string | number | null | undefined) {
 function hasCompleteDrinkWindow(wine: Wine) {
   return [wine.drink_from, wine.drink_peak_from, wine.drink_peak_to, wine.drink_to]
     .every((value) => typeof value === "number");
+}
+
+function stockMovementLabel(type: StockMovementType, locale: Locale) {
+  const labels: Record<StockMovementType, [string, string]> = {
+    opening_balance: ["Saldo iniziale", "Opening balance"],
+    purchase: ["Acquisto", "Purchase"],
+    adjustment_in: ["Rettifica in entrata", "Inbound adjustment"],
+    adjustment_out: ["Rettifica in uscita", "Outbound adjustment"],
+    breakage: ["Rottura", "Breakage"],
+    complimentary: ["Omaggio", "Complimentary"],
+    sale: ["Vendita", "Sale"],
+    sale_void: ["Vendita annullata", "Voided sale"],
+  };
+  return labels[type]?.[locale === "it" ? 0 : 1] || type;
 }
 
 function useCompactRestaurantLayout() {
@@ -353,6 +368,18 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
   const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState("");
   const [libraryPhotoUrls, setLibraryPhotoUrls] = useState<Record<string, string>>({});
+  const [stockMovements, setStockMovements] = useState<StockMovement[]>([]);
+  const [stockMovementSaving, setStockMovementSaving] = useState(false);
+  const [stockDraft, setStockDraft] = useState({
+    wine_id: "",
+    movement_type: "purchase" as ManualStockMovementType,
+    quantity: "1",
+    occurred_on: isoDate(new Date()),
+    unit_cost: "",
+    supplier: "",
+    reference: "",
+    note: "",
+  });
   const inventoryWines = wines.filter((wine) => wine.quantity > 0);
   const inventoryBottles = inventoryWines.reduce((total, wine) => total + wine.quantity, 0);
   const missingSalePrice = inventoryWines.filter((wine) => !wine.sale_price).length;
@@ -392,6 +419,21 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     .filter((wine) => !wine.photo_thumbnail_url && !wine.photo_detail_url && wine.name && wine.producer)
     .map((wine) => `${wine.id}:${wine.name}:${wine.producer}`)
     .join("|");
+
+  useEffect(() => {
+    if (!stockDraft.wine_id && inventoryWines[0]) {
+      setStockDraft((current) => ({ ...current, wine_id: inventoryWines[0].id }));
+    }
+  }, [inventoryWines, stockDraft.wine_id]);
+
+  useEffect(() => {
+    if (mode !== "restaurant") return;
+    let active = true;
+    api<StockMovement[]>("/api/v1/inventory/movements?limit=40")
+      .then((result) => { if (active) setStockMovements(Array.isArray(result) ? result : []); })
+      .catch(() => { if (active) setStockMovements([]); });
+    return () => { active = false; };
+  }, [mode, refreshKey]);
 
   useEffect(() => {
     if (period !== "custom") {
@@ -489,6 +531,36 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     }
   }
 
+  async function createStockMovement(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!stockDraft.wine_id || !Number(stockDraft.quantity)) return;
+    setStockMovementSaving(true);
+    setError("");
+    try {
+      const inbound = stockDraft.movement_type === "purchase" || stockDraft.movement_type === "adjustment_in";
+      const created = await api<StockMovement[]>("/api/v1/inventory/movements", {
+        method: "POST",
+        body: JSON.stringify({
+          wine_id: stockDraft.wine_id,
+          movement_type: stockDraft.movement_type,
+          quantity: Number(stockDraft.quantity),
+          occurred_on: stockDraft.occurred_on,
+          unit_cost: inbound && stockDraft.unit_cost ? Number(stockDraft.unit_cost) : undefined,
+          supplier: inbound ? stockDraft.supplier.trim() : "",
+          reference: stockDraft.reference.trim(),
+          note: stockDraft.note.trim(),
+        }),
+      });
+      setStockMovements((current) => [...created, ...current].slice(0, 40));
+      setStockDraft((current) => ({ ...current, quantity: "1", reference: "", note: "" }));
+      await onChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : (locale === "it" ? "Impossibile registrare il movimento" : "Unable to record stock movement"));
+    } finally {
+      setStockMovementSaving(false);
+    }
+  }
+
   return <section className={`restaurant-dashboard${mode === "restaurant" && restaurantDashboardView === "intelligence" ? " is-intelligence" : ""}`}>
     <header className="restaurant-dashboard-head">
       <div><p className="eyebrow">{mode === "private" ? (locale === "it" ? "Cantina privata" : "Private cellar") : (locale === "it" ? "Gestione ristorante" : "Restaurant operations")}</p><h1>{mode === "private" ? (locale === "it" ? "Vendite della collezione" : "Collection sales") : (locale === "it" ? "Dashboard ristorante" : "Restaurant dashboard")}</h1><p>{mode === "private" ? (locale === "it" ? "Capitale recuperato e plusvalenze o minusvalenze realizzate nel periodo." : "Recovered capital and realized gains or losses for the selected period.") : (locale === "it" ? "Carta vini, giacenze, ricavi e marginalità in una sola visione operativa." : "Wine list, stock, revenue and margin in one operational view.")}</p></div>
@@ -557,6 +629,37 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           </section>
         </div>
       </section>
+    </details> : null}
+    {mode === "restaurant" ? <details className="restaurant-panel restaurant-stock-ledger restaurant-collapsible" open>
+      <summary className="restaurant-section-title">
+        <div><p className="eyebrow">{locale === "it" ? "Magazzino" : "Inventory"}</p><h2>{locale === "it" ? "Movimenti e lotti" : "Movements and lots"}</h2></div>
+        <span>{locale === "it" ? "Carichi, rettifiche e uscite con valorizzazione FIFO" : "Receipts, adjustments and issues with FIFO costing"}</span>
+      </summary>
+      <div className="restaurant-stock-ledger-body">
+        <form className="restaurant-stock-form" onSubmit={(event) => void createStockMovement(event)}>
+          <label className="restaurant-stock-wine">{locale === "it" ? "Vino" : "Wine"}<select value={stockDraft.wine_id} onChange={(event) => setStockDraft((current) => ({ ...current, wine_id: event.target.value }))} required>{inventoryWines.map((wine) => <option key={wine.id} value={wine.id}>{wine.name} {wine.vintage} · {wine.quantity} {locale === "it" ? "disp." : "available"}</option>)}</select></label>
+          <label>{locale === "it" ? "Movimento" : "Movement"}<select value={stockDraft.movement_type} onChange={(event) => setStockDraft((current) => ({ ...current, movement_type: event.target.value as ManualStockMovementType }))}>
+            {(["purchase", "adjustment_in", "adjustment_out", "breakage", "complimentary"] as ManualStockMovementType[]).map((type) => <option key={type} value={type}>{stockMovementLabel(type, locale)}</option>)}
+          </select></label>
+          <label>{locale === "it" ? "Quantità" : "Quantity"}<input type="number" min="1" max="10000" value={stockDraft.quantity} onChange={(event) => setStockDraft((current) => ({ ...current, quantity: event.target.value }))} required /></label>
+          <label>{locale === "it" ? "Data" : "Date"}<input type="date" value={stockDraft.occurred_on} onChange={(event) => setStockDraft((current) => ({ ...current, occurred_on: event.target.value }))} required /></label>
+          {stockDraft.movement_type === "purchase" || stockDraft.movement_type === "adjustment_in" ? <>
+            <label>{locale === "it" ? "Costo unitario" : "Unit cost"}<input type="number" min="0" step="0.01" value={stockDraft.unit_cost} onChange={(event) => setStockDraft((current) => ({ ...current, unit_cost: event.target.value }))} required={stockDraft.movement_type === "purchase"} placeholder={locale === "it" ? "Usa il costo attuale" : "Use current cost"} /></label>
+            <label>{locale === "it" ? "Fornitore" : "Supplier"}<input value={stockDraft.supplier} maxLength={160} onChange={(event) => setStockDraft((current) => ({ ...current, supplier: event.target.value }))} /></label>
+          </> : null}
+          <label>{locale === "it" ? "Riferimento" : "Reference"}<input value={stockDraft.reference} maxLength={160} onChange={(event) => setStockDraft((current) => ({ ...current, reference: event.target.value }))} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} /></label>
+          <label className="restaurant-stock-note">{locale === "it" ? "Nota" : "Note"}<input value={stockDraft.note} maxLength={1000} onChange={(event) => setStockDraft((current) => ({ ...current, note: event.target.value }))} /></label>
+          <button type="submit" disabled={stockMovementSaving || !inventoryWines.length}>{stockMovementSaving ? (locale === "it" ? "Registro…" : "Recording…") : (locale === "it" ? "Registra movimento" : "Record movement")}</button>
+        </form>
+        <section className="restaurant-stock-history">
+          <header><div><span>{locale === "it" ? "Libro mastro" : "Ledger"}</span><h3>{locale === "it" ? "Ultimi movimenti" : "Latest movements"}</h3></div><small>{locale === "it" ? "Le vendite scaricano automaticamente i lotti più vecchi" : "Sales automatically consume the oldest lots"}</small></header>
+          {stockMovements.length ? <div>{stockMovements.map((movement) => <button type="button" key={movement.id} onClick={() => onOpenWine(movement.wine_id)}>
+            <span className={`restaurant-stock-delta ${movement.quantity_delta > 0 ? "is-inbound" : "is-outbound"}`}>{movement.quantity_delta > 0 ? "+" : ""}{movement.quantity_delta}</span>
+            <span><strong>{movement.wine_name} {movement.wine_vintage}</strong><small>{stockMovementLabel(movement.movement_type, locale)} · {displayDate(movement.occurred_on, locale)}{movement.supplier ? ` · ${movement.supplier}` : ""}</small></span>
+            <span className="restaurant-stock-cost"><strong>{formatMoney(movement.total_cost, movement.currency, locale)}</strong><small>{formatMoney(movement.unit_cost, movement.currency, locale)} / {locale === "it" ? "bt." : "btl."}</small></span>
+          </button>)}</div> : <p className="empty-state">{locale === "it" ? "I nuovi movimenti di magazzino appariranno qui." : "New inventory movements will appear here."}</p>}
+        </section>
+      </div>
     </details> : null}
     {error ? <p className="error-banner">{error}</p> : null}
     {mode === "restaurant" ? <header className="restaurant-section-title restaurant-sales-heading"><div><p className="eyebrow">{locale === "it" ? "Vendite" : "Sales"}</p><h2>{locale === "it" ? "Performance del periodo" : "Period performance"}</h2></div><PeriodSelector locale={locale} period={period} setPeriod={setPeriod} fromDate={fromDate} setFromDate={setFromDate} toDate={toDate} setToDate={setToDate} onNavigate={navigatePeriod} canNavigateForward={toDate < isoDate(new Date())} onExport={() => void exportExcel()} exporting={exportingExcel} /><span>{displayDate(fromDate, locale)} — {displayDate(toDate, locale)}</span></header> : null}

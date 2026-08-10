@@ -147,6 +147,85 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert client.get("/api/v1/sales/summary").json()["currencies"] == []
 
 
+def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "FIFO Barolo",
+            "producer": "Cantina Test",
+            "vintage": "2020",
+            "quantity": 2,
+            "price": 20,
+            "sale_price": 60,
+            "currency": "CHF",
+            "order_date": "2026-07-01",
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+
+    purchase = client.post(
+        "/api/v1/inventory/movements",
+        json={
+            "wine_id": wine_id,
+            "movement_type": "purchase",
+            "quantity": 2,
+            "occurred_on": "2026-08-01",
+            "unit_cost": 30,
+            "supplier": "Fornitore SA",
+            "reference": "FT-42",
+        },
+    )
+    assert purchase.status_code == 201
+    assert purchase.json()[0]["quantity_delta"] == 2
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 4
+
+    sold = client.post(
+        "/api/v1/sales",
+        json={"wine_id": wine_id, "quantity": 3, "unit_sale_price": 60},
+    )
+    assert sold.status_code == 201
+    assert sold.json()["unit_purchase_cost"] == "23.33"
+    assert sold.json()["cost"] == "70.00"
+
+    loss = client.post(
+        "/api/v1/inventory/movements",
+        json={
+            "wine_id": wine_id,
+            "movement_type": "breakage",
+            "quantity": 1,
+            "note": "Bottiglia danneggiata",
+        },
+    )
+    assert loss.status_code == 201
+    assert loss.json()[0]["quantity_delta"] == -1
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 0
+
+    movements = client.get(f"/api/v1/inventory/movements?wine_id={wine_id}")
+    assert movements.status_code == 200
+    movement_types = [item["movement_type"] for item in movements.json()]
+    assert "opening_balance" in movement_types
+    assert "purchase" in movement_types
+    assert movement_types.count("sale") == 2
+    assert "breakage" in movement_types
+
+    lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}&include_empty=true")
+    assert lots.status_code == 200
+    assert [item["quantity_remaining"] for item in lots.json()] == [0, 0]
+
+    voided = client.post(
+        f"/api/v1/sales/{sold.json()['id']}/void",
+        json={"reason": "Vendita errata"},
+    )
+    assert voided.status_code == 200
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 3
+    restored_lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}").json()
+    assert [item["quantity_remaining"] for item in restored_lots] == [2, 1]
+
+
 def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
     client = TestClient(app)
     assert register(client).status_code == 201

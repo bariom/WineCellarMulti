@@ -22,6 +22,7 @@ from app.schemas.sale import (
     WineSaleVoid,
 )
 from app.services.restaurant_excel import build_restaurant_excel
+from app.services.stock_ledger import remove_fifo_stock, restore_sale_stock
 
 router = APIRouter(prefix="/sales")
 
@@ -35,7 +36,7 @@ def validate_sales_period(from_date: date, to_date: date) -> None:
 
 def sale_response(sale: WineSale, wine: Wine) -> WineSaleResponse:
     revenue = sale.unit_sale_price * sale.quantity
-    cost = sale.unit_purchase_cost * sale.quantity
+    cost = sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
     return WineSaleResponse(
         id=sale.id,
         wine_id=wine.id,
@@ -106,15 +107,26 @@ def create_sale(
         quantity=payload.quantity,
         unit_sale_price=unit_sale_price,
         unit_purchase_cost=wine.price or Decimal("0"),
+        total_purchase_cost=None,
         currency=(wine.currency or "CHF").upper(),
         previous_wine_status=wine.status,
         note=payload.note.strip(),
         created_at=datetime.now(UTC),
     )
-    wine.quantity -= payload.quantity
-    if wine.quantity == 0:
-        wine.status = "Sold"
     db.add(sale)
+    db.flush()
+    _, fifo_unit_cost, fifo_total_cost = remove_fifo_stock(
+        db,
+        wine,
+        movement_type="sale",
+        quantity=payload.quantity,
+        occurred_on=sale.sold_at,
+        note=payload.note,
+        user_id=context.user.id,
+        sale=sale,
+    )
+    sale.unit_purchase_cost = fifo_unit_cost
+    sale.total_purchase_cost = fifo_total_cost
     db.commit()
     db.refresh(sale)
     return sale_response(sale, wine)
@@ -132,7 +144,13 @@ def void_sale(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Sale already voided")
     sale.voided_at = datetime.now(UTC)
     sale.void_reason = payload.reason.strip()
-    wine.quantity += sale.quantity
+    restore_sale_stock(
+        db,
+        wine,
+        sale,
+        note=payload.reason,
+        user_id=context.user.id,
+    )
     if wine.status.lower() == "sold":
         wine.status = sale.previous_wine_status
     db.commit()
@@ -171,7 +189,7 @@ def sales_summary(
     producer_totals: dict[tuple[str, str], dict[str, Decimal | int]] = {}
     for sale, wine in rows:
         revenue = sale.unit_sale_price * sale.quantity
-        cost = sale.unit_purchase_cost * sale.quantity
+        cost = sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
         currency = sale.currency.upper()
         currency_totals[currency]["revenue"] += revenue
         currency_totals[currency]["cost"] += cost

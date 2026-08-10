@@ -65,6 +65,7 @@ from app.services.shared_wine_data import (
     mark_local_feature,
     resolve_shared_identity,
 )
+from app.services.stock_ledger import ensure_opening_stock, reconcile_direct_quantity_change
 from app.services.wine_photo_library import (
     archive_wine_photo,
     copy_library_photo,
@@ -1094,6 +1095,8 @@ def create_wine(
     )
     db.add(wine)
     db.flush()
+    if context.household.operating_mode == "restaurant":
+        ensure_opening_stock(db, wine, user_id=context.user.id)
     ensure_catalog_entry_for_wine_data(db, data)
     shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
@@ -1494,6 +1497,7 @@ def update_wine(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    previous_quantity = wine.quantity
     data = payload.model_dump(exclude_unset=True)
     tag_names = data.pop("tags", None)
     if "type" in data:
@@ -1510,6 +1514,13 @@ def update_wine(
         if field == "owners":
             value = normalize_owner_rows(value or [])
         setattr(wine, field, value)
+    if context.household.operating_mode == "restaurant" and "quantity" in data:
+        reconcile_direct_quantity_change(
+            db,
+            wine,
+            previous_quantity=previous_quantity,
+            user_id=context.user.id,
+        )
     if "current_value" in data and "ai_value_estimated_at" not in data:
         wine.ai_value_estimated_at = None
     identity_fields = {"name", "producer", "vintage"}

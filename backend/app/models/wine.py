@@ -188,11 +188,82 @@ class WineSale(Base):
     quantity: Mapped[int] = mapped_column(default=1)
     unit_sale_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     unit_purchase_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2))
+    total_purchase_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     previous_wine_status: Mapped[str] = mapped_column(String(64), default="Delivered")
     note: Mapped[str] = mapped_column(Text, default="")
     voided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     void_reason: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, index=True
+    )
+
+
+class WineStockLot(Base):
+    __tablename__ = "wine_stock_lots"
+    __table_args__ = (
+        Index("ix_wine_stock_lots_household_wine", "household_id", "wine_id"),
+        Index("ix_wine_stock_lots_fifo", "wine_id", "acquired_on", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    acquired_on: Mapped[date] = mapped_column(Date, index=True)
+    quantity_received: Mapped[int] = mapped_column()
+    quantity_remaining: Mapped[int] = mapped_column()
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(8), default="CHF")
+    supplier: Mapped[str] = mapped_column(String(160), default="")
+    reference: Mapped[str] = mapped_column(String(160), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, index=True
+    )
+
+
+class WineStockMovement(Base):
+    __tablename__ = "wine_stock_movements"
+    __table_args__ = (
+        Index(
+            "ix_wine_stock_movements_household_occurred",
+            "household_id",
+            "occurred_on",
+            "created_at",
+        ),
+        Index("ix_wine_stock_movements_wine_occurred", "wine_id", "occurred_on"),
+        Index("ix_wine_stock_movements_sale_id", "sale_id"),
+        Index("ix_wine_stock_movements_lot_id", "lot_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    lot_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wine_stock_lots.id", ondelete="SET NULL"), nullable=True
+    )
+    sale_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wine_sales.id", ondelete="SET NULL"), nullable=True
+    )
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    movement_type: Mapped[str] = mapped_column(String(32), index=True)
+    quantity_delta: Mapped[int] = mapped_column()
+    unit_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
+    currency: Mapped[str] = mapped_column(String(8), default="CHF")
+    occurred_on: Mapped[date] = mapped_column(Date, index=True)
+    supplier: Mapped[str] = mapped_column(String(160), default="")
+    reference: Mapped[str] = mapped_column(String(160), default="")
+    note: Mapped[str] = mapped_column(Text, default="")
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, index=True
     )

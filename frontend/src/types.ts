@@ -150,6 +150,36 @@ export type RestaurantSalesSummary = {
   recent_sales: WineSale[];
 };
 
+export type StockMovementType =
+  | "opening_balance"
+  | "purchase"
+  | "adjustment_in"
+  | "adjustment_out"
+  | "breakage"
+  | "complimentary"
+  | "sale"
+  | "sale_void";
+
+export type StockMovement = {
+  id: string;
+  wine_id: string;
+  wine_name: string;
+  wine_producer: string;
+  wine_vintage: string;
+  lot_id: string | null;
+  sale_id: string | null;
+  movement_type: StockMovementType;
+  quantity_delta: number;
+  unit_cost: string;
+  total_cost: string;
+  currency: string;
+  occurred_on: string;
+  supplier: string;
+  reference: string;
+  note: string;
+  created_at: string;
+};
+
 export type CatalogWine = {
   id?: string;
   name: string;

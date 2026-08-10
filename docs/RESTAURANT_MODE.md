@@ -11,12 +11,15 @@ La modalità ristorante si configura sulla singola cantina da **Impostazioni > S
 
 1. Impostare la cantina come `Ristorante`.
 2. Censire per ogni vino il prezzo d’acquisto e il prezzo di vendita abituale.
-3. Dal dettaglio del vino usare **Venduta 1**, modificando quantità, data e prezzo effettivo quando necessario.
-4. Consultare la home per ricavi, costo delle bottiglie, margine lordo, andamento, vini più redditizi e registro vendite.
+3. Dalla dashboard usare **Movimenti e lotti** per registrare acquisti, rettifiche, rotture e omaggi.
+4. Dal dettaglio del vino usare **Venduta 1**, modificando quantità, data e prezzo effettivo quando necessario.
+5. Consultare la home per ricavi, costo delle bottiglie, margine lordo, andamento, vini più redditizi e registro vendite.
 
 La home ristorante comprende anche una panoramica editoriale della carta vini: referenze e bottiglie disponibili, scorte basse, prezzi mancanti, capitale a costo e valore potenziale separati per valuta, bottiglie di punta, distribuzione per tipologia e regioni principali. Le statistiche del periodo dettagliano inoltre quantità, ricavi e margine per tipologia e regione, i vini più venduti e le referenze invendute o meno vendute ancora presenti in giacenza.
 
-Ogni vendita salva una fotografia del costo d’acquisto e del prezzo praticato. Modificare successivamente il vino non altera quindi i margini storici. Una vendita errata può essere annullata dal registro: le bottiglie tornano in giacenza e l’operazione resta tracciata.
+Ogni carico crea un lotto con data, fornitore, riferimento e costo unitario. Le uscite consumano i lotti in ordine FIFO; una vendita conserva sia il prezzo praticato sia il costo totale esatto dei lotti utilizzati. Modificare successivamente il vino non altera quindi i margini storici. Una vendita errata può essere annullata dal registro: le bottiglie tornano nei lotti originari e l’operazione resta tracciata.
+
+Al primo aggiornamento, la migrazione crea automaticamente un lotto di saldo iniziale per ogni vino già in giacenza. Anche una modifica diretta della quantità dalla scheda vino genera una rettifica nel libro mastro, così il saldo aggregato e i movimenti restano coerenti.
 
 Le valute sono rendicontate separatamente e non vengono sommate. Il **margine lordo** è `ricavi - costo d’acquisto delle bottiglie`: non comprende IVA, personale, affitto, scarti o altri costi e non sostituisce la contabilità del ristorante.
 

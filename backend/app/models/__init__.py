@@ -27,7 +27,14 @@ from app.models.tags import UserTag, UserWineTag
 from app.models.user import User, UserMonitorDeviceToken
 from app.models.user_activity import UserActivityLog
 from app.models.user_ai_settings import UserAiSettings
-from app.models.wine import Wine, WineSale, WineTastingEntry, WineValueHistory
+from app.models.wine import (
+    Wine,
+    WineSale,
+    WineStockLot,
+    WineStockMovement,
+    WineTastingEntry,
+    WineValueHistory,
+)
 from app.models.wine_catalog import (
     WineCatalogAlias,
     WineCatalogEntry,
@@ -74,6 +81,8 @@ __all__ = [
     "UserWineTag",
     "Wine",
     "WineSale",
+    "WineStockLot",
+    "WineStockMovement",
     "WineTastingEntry",
     "WineCatalogAlias",
     "WineCatalogEntry",
