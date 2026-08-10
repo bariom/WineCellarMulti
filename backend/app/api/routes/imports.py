@@ -24,6 +24,7 @@ from app.models import (
     UserTag,
     UserWineTag,
     Wine,
+    WineSale,
     WineShareOffer,
     WineTastingEntry,
     WineValueHistory,
@@ -61,6 +62,9 @@ class LegacyImportResult(BaseModel):
     ai_audit_imported: int = 0
     ai_audit_skipped: int = 0
     ai_audit_updated: int = 0
+    sales_imported: int = 0
+    sales_skipped: int = 0
+    sales_updated: int = 0
 
 
 class LegacyImportPreview(BaseModel):
@@ -79,6 +83,7 @@ class LegacyImportPreview(BaseModel):
     share_offers_total: int = 0
     user_tags_total: int = 0
     ai_audit_total: int = 0
+    sales_total: int = 0
 
 
 def as_uuid(value: Any) -> UUID:
@@ -345,8 +350,18 @@ def export_ai_audit(db: Session, household_id: UUID) -> list[dict[str, Any]]:
     return [model_payload(log) for log in logs]
 
 
+def export_sales(db: Session, household_id: UUID) -> list[dict[str, Any]]:
+    sales = db.scalars(
+        select(WineSale)
+        .where(WineSale.household_id == household_id)
+        .order_by(WineSale.sold_at.asc(), WineSale.created_at.asc())
+    )
+    return [model_payload(sale) for sale in sales]
+
+
 SUPPORTED_EXPORT_BLOCKS = (
     "wines",
+    "sales",
     "wishlist",
     "members",
     "invites",
@@ -386,6 +401,10 @@ def selected_import_blocks(payload: dict[str, Any]) -> list[str]:
 def clear_household_export_blocks(
     db: Session, context: CurrentContext, blocks: list[str]
 ) -> tuple[int, int]:
+    if "sales" in blocks or "wines" in blocks:
+        db.query(WineSale).filter(WineSale.household_id == context.household.id).delete(
+            synchronize_session=False
+        )
     if "share_offers" in blocks and "wines" not in blocks:
         db.query(WineShareOffer).filter(WineShareOffer.household_id == context.household.id).delete(
             synchronize_session=False
@@ -700,6 +719,7 @@ def vinaris_preview_payload(
         share_offers_total=len(payload_list(payload, "share_offers")),
         user_tags_total=len(payload_list(payload, "user_tags")),
         ai_audit_total=len(payload_list(payload, "ai_audit")),
+        sales_total=len(payload_list(payload, "sales")),
     )
 
 
@@ -721,6 +741,7 @@ def import_vinaris_json_payload(
         UserTag: set(),
         WineShareOffer: set(),
         AiAuditLog: set(),
+        WineSale: set(),
     }
     if mode == "replace_all":
         result.wines_deleted, result.wishlist_deleted = clear_household_export_blocks(
@@ -819,6 +840,50 @@ def import_vinaris_json_payload(
                 for field, value in value_data.items():
                     if field != "id":
                         setattr(value_entry, field, value)
+
+    db.flush()
+    for raw_sale in payload_list(payload, "sales") if "sales" in blocks else []:
+        original_wine_id = as_uuid(raw_sale.get("wine_id"))
+        wine_id = imported_wine_ids.get(original_wine_id, original_wine_id)
+        wine = db.scalar(
+            select(Wine).where(Wine.id == wine_id, Wine.household_id == context.household.id)
+        )
+        sold_at = as_date(raw_sale.get("sold_at"))
+        quantity = as_int(raw_sale.get("quantity"))
+        if wine is None or sold_at is None or quantity < 1:
+            result.sales_skipped += 1
+            continue
+        sale_id = as_uuid(raw_sale.get("id"))
+        existing_sale = db.scalar(
+            select(WineSale).where(
+                WineSale.id == sale_id, WineSale.household_id == context.household.id
+            )
+        )
+        sale_data = {
+            "wine_id": wine.id,
+            "household_id": context.household.id,
+            "created_by_user_id": context.user.id,
+            "sold_at": sold_at,
+            "quantity": quantity,
+            "unit_sale_price": as_decimal(raw_sale.get("unit_sale_price"), str(wine.sale_price or 0)),
+            "unit_purchase_cost": as_decimal(raw_sale.get("unit_purchase_cost"), str(wine.price or 0)),
+            "currency": as_str(raw_sale.get("currency")) or wine.currency,
+            "previous_wine_status": as_str(raw_sale.get("previous_wine_status")) or wine.status,
+            "note": as_str(raw_sale.get("note")),
+            "voided_at": as_datetime(raw_sale.get("voided_at")),
+            "void_reason": as_str(raw_sale.get("void_reason")),
+            "created_at": as_datetime(raw_sale.get("created_at")) or datetime.now(UTC),
+        }
+        if existing_sale is None:
+            sale_data["id"] = ensure_unused_id(db, WineSale, sale_id, reserved_ids[WineSale])
+            db.add(WineSale(**sale_data))
+            result.sales_imported += 1
+        elif mode in {"update_existing", "replace_all"}:
+            for field, value in sale_data.items():
+                setattr(existing_sale, field, value)
+            result.sales_updated += 1
+        else:
+            result.sales_skipped += 1
 
     for raw_item in payload_list(payload, "wishlist") if "wishlist" in blocks else []:
         raw_list_id = as_uuid(raw_item.get("wishlist_list_id"))
@@ -1284,6 +1349,7 @@ def empty_cellar(
 @router.get("/export-json")
 def export_json(
     include_wines: bool = Query(default=True),
+    include_sales: bool = Query(default=True),
     include_wishlist: bool = Query(default=True),
     include_members: bool = Query(default=True),
     include_invites: bool = Query(default=True),
@@ -1306,6 +1372,9 @@ def export_json(
     if include_wines:
         export_payload["wines"] = export_wines(db, context.household.id)
         export_payload["included_blocks"].append("wines")
+    if include_sales:
+        export_payload["sales"] = export_sales(db, context.household.id)
+        export_payload["included_blocks"].append("sales")
     if include_wishlist:
         export_payload["wishlist"] = export_wishlist(db, context.household.id)
         export_payload["wishlist_lists"] = export_wishlist_lists(db, context.household.id)

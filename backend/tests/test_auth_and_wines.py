@@ -4018,6 +4018,16 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     assert consumed.status_code == 200
     assert consumed.json()["quantity"] == 2
     assert len(consumed.json()["tasting_history"]) == 1
+    sale = client.post(
+        "/api/v1/sales",
+        json={
+            "wine_id": created_wine.json()["id"],
+            "quantity": 1,
+            "unit_sale_price": 44,
+            "sold_at": "2026-06-04",
+        },
+    )
+    assert sale.status_code == 201
 
     exported = client.get(
         "/api/v1/imports/export-json?include_members=false&include_invites=false&include_share_offers=false&include_tags=false&include_ai_audit=false",
@@ -4025,13 +4035,14 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     assert exported.status_code == 200
     export_payload = exported.json()
     assert export_payload["schema"] == "winecellarmulti.export.v2"
-    assert export_payload["included_blocks"] == ["wines", "wishlist"]
+    assert export_payload["included_blocks"] == ["wines", "sales", "wishlist"]
     assert export_payload["wines"][0]["tasting_history"][0]["note"] == "Saved in backup history"
+    assert len(export_payload["sales"]) == 1
 
     preview = client.post("/api/v1/imports/json/preview", json=export_payload)
     assert preview.status_code == 200
     assert preview.json()["format"] == "vinaris"
-    assert preview.json()["included_blocks"] == ["wines", "wishlist"]
+    assert preview.json()["included_blocks"] == ["wines", "sales", "wishlist"]
     assert preview.json()["wines_total"] == 1
     assert preview.json()["wishlist_total"] == 1
 
@@ -4042,6 +4053,7 @@ def test_vinaris_export_roundtrip_uses_selected_blocks():
     assert imported.status_code == 200
     assert imported.json()["wines_imported"] == 1
     assert imported.json()["wishlist_imported"] == 1
+    assert imported.json()["sales_imported"] == 1
     assert imported.json()["members_imported"] == 0
     assert imported.json()["user_tags_imported"] == 0
 

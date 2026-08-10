@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import type { Locale, RestaurantSalesSummary, Wine } from "../types";
 import { api } from "../services/api";
 import { formatMoney } from "../components/panelSupport";
-import { displayValue } from "../i18n";
+import { displayValue, translate } from "../i18n";
+import { normalizeWineType } from "../domain/wineTypes";
+import WineGeographyMap from "./WineGeographyMap";
 import "./RestaurantDashboard.css";
 
 type Period = "week" | "month" | "semester" | "year" | "custom";
@@ -33,6 +35,11 @@ function bottleDistribution(wines: Wine[], field: "type" | "region", fallback: s
 function numberValue(value: string | number | null | undefined) {
   const parsed = Number(value || 0);
   return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function hasCompleteDrinkWindow(wine: Wine) {
+  return [wine.drink_from, wine.drink_peak_from, wine.drink_peak_to, wine.drink_to]
+    .every((value) => typeof value === "number");
 }
 
 function RevenueLineChart({ points, locale, currency }: {
@@ -69,6 +76,63 @@ function RevenueLineChart({ points, locale, currency }: {
   </div>;
 }
 
+function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; locale: Locale; onOpenWine: (wineId: string) => void }) {
+  const [selectedCell, setSelectedCell] = useState<{ type: string; year: number } | null>(null);
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const currentYear = new Date().getFullYear();
+  const inventory = wines.filter((wine) => wine.quantity > 0);
+  const mapped = inventory.filter(hasCompleteDrinkWindow);
+  const years = Array.from({ length: 9 }, (_, index) => currentYear + index);
+  const types = ["Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"]
+    .filter((type) => mapped.some((wine) => normalizeWineType(wine.type) === type));
+  const heatmapRows = types.map((type) => ({
+    type,
+    cells: years.map((year) => {
+      const items = mapped.filter((wine) => normalizeWineType(wine.type) === type && Number(wine.drink_from) <= year && Number(wine.drink_to) >= year);
+      return { year, items, bottles: items.reduce((total, wine) => total + wine.quantity, 0) };
+    }),
+  }));
+  const maxHeatmapBottles = Math.max(...heatmapRows.flatMap((row) => row.cells.map((cell) => cell.bottles)), 1);
+  const peakWines = mapped.filter((wine) => Number(wine.drink_peak_from) <= currentYear && Number(wine.drink_peak_to) >= currentYear);
+  const riskWines = mapped
+    .filter((wine) => Number(wine.drink_to) <= currentYear + 2)
+    .map((wine) => ({ wine, exposure: Math.max(Number(wine.sale_price ?? wine.price ?? 0), 0) * wine.quantity }))
+    .sort((first, second) => Number(first.wine.drink_to) - Number(second.wine.drink_to) || second.exposure - first.exposure);
+  const totalsByCurrency = (items: Wine[]) => [...items.reduce((totals, wine) => {
+    const currency = (wine.currency || "CHF").toUpperCase();
+    totals.set(currency, (totals.get(currency) || 0) + Math.max(Number(wine.sale_price ?? wine.price ?? 0), 0) * wine.quantity);
+    return totals;
+  }, new Map<string, number>()).entries()].map(([currency, value]) => formatMoney(value, currency, locale)).join(" · ") || "—";
+  const selectedWines = selectedCell
+    ? heatmapRows.find((row) => row.type === selectedCell.type)?.cells.find((cell) => cell.year === selectedCell.year)?.items || []
+    : [];
+  const regionalWines = selectedRegion ? inventory.filter((wine) => wine.region === selectedRegion) : [];
+  const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
+
+  return <section className="restaurant-intelligence">
+    <header className="restaurant-intelligence-head">
+      <div><p className="eyebrow">{locale === "it" ? "Intelligence di carta" : "Wine list intelligence"}</p><h2>{locale === "it" ? "Maturità, capitale e geografia" : "Maturity, capital and geography"}</h2><p>{locale === "it" ? "Una lettura strategica per trasformare le finestre di beva in decisioni di carta e di rotazione." : "A strategic view that turns drinking windows into wine-list and rotation decisions."}</p></div>
+      <div className="restaurant-intelligence-kpis"><article><span>{locale === "it" ? "Nel picco oggi" : "At peak today"}</span><strong>{peakWines.reduce((total, wine) => total + wine.quantity, 0)}</strong><small>{locale === "it" ? "bottiglie da valorizzare" : "bottles to feature"}</small></article><article className={riskWines.length ? "needs-attention" : ""}><span>{locale === "it" ? "Da ruotare entro 24 mesi" : "Rotate within 24 months"}</span><strong>{riskWines.reduce((total, item) => total + item.wine.quantity, 0)}</strong><small>{totalsByCurrency(riskWines.map((item) => item.wine))}</small></article></div>
+    </header>
+    <section className="restaurant-intelligence-panel restaurant-maturity-heatmap">
+      <header><div><span>{locale === "it" ? "Mappa di maturità" : "Maturity map"}</span><h3>{locale === "it" ? "Quando la carta è più pronta" : "When the wine list is ready"}</h3></div><small>{locale === "it" ? "Clicca una cella per vedere i vini" : "Select a cell to inspect wines"}</small></header>
+      {heatmapRows.length ? <div className="restaurant-maturity-grid" style={{ "--restaurant-maturity-years": years.length } as CSSProperties}>
+        <div className="restaurant-maturity-years"><span />{years.map((year) => <span key={year} className={year === currentYear ? "is-current" : ""}>{year}</span>)}</div>
+        {heatmapRows.map((row) => <div className="restaurant-maturity-row" key={row.type}><span>{displayValue(row.type, locale, "type")}</span>{row.cells.map((cell) => {
+          const selected = selectedCell?.type === row.type && selectedCell.year === cell.year;
+          const title = `${displayValue(row.type, locale, "type")} ${cell.year}: ${cell.bottles} ${locale === "it" ? "bottiglie" : "bottles"}`;
+          return <button type="button" key={cell.year} className={selected ? "is-selected" : ""} disabled={!cell.bottles} title={title} aria-label={title} style={{ "--restaurant-maturity-weight": `${Math.max((cell.bottles / maxHeatmapBottles) * 68, cell.bottles ? 16 : 0)}%` } as CSSProperties} onClick={() => setSelectedCell({ type: row.type, year: cell.year })}>{cell.bottles || ""}</button>;
+        })}</div>)}
+      </div> : <p className="empty-state">{locale === "it" ? "Completa le finestre di beva per visualizzare la mappa di maturità." : "Complete drinking windows to display the maturity map."}</p>}
+      {selectedCell ? <div className="restaurant-maturity-selection"><div><span>{locale === "it" ? "Selezione" : "Selection"}</span><strong>{displayValue(selectedCell.type, locale, "type")} · {selectedCell.year}</strong></div><div>{selectedWines.slice(0, 5).map((wine) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>{wine.name}<small>{wine.quantity} {locale === "it" ? "bottiglie" : "bottles"}</small></button>)}</div></div> : null}
+    </section>
+    <div className="restaurant-intelligence-grid">
+      <section className="restaurant-intelligence-panel restaurant-capital-risk"><header><div><span>{locale === "it" ? "Capitale da recuperare" : "Capital to recover"}</span><h3>{locale === "it" ? "Priorità prima della fine finestra" : "Priorities before the window ends"}</h3></div><small>{locale === "it" ? "Prezzo di carta × giacenza" : "List price × current stock"}</small></header>{riskWines.length ? <div className="restaurant-risk-list">{riskWines.slice(0, 6).map(({ wine, exposure }) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}><span><strong>{wine.name}</strong><small>{wine.producer} · {wine.quantity} {locale === "it" ? "bottiglie" : "bottles"}</small></span><span><strong>{formatMoney(exposure, wine.currency, locale)}</strong><small>{Number(wine.drink_to) < currentYear ? (locale === "it" ? "Finestra superata" : "Window passed") : (locale === "it" ? `Entro il ${wine.drink_to}` : `By ${wine.drink_to}`)}</small></span></button>)}</div> : <p className="empty-state">{locale === "it" ? "Nessuna rimanenza con finestra in scadenza nei prossimi due anni." : "No stock with a window ending in the next two years."}</p>}</section>
+      <section className="restaurant-intelligence-panel restaurant-geography"><header><div><span>{locale === "it" ? "Geografia della carta" : "Wine list geography"}</span><h3>{locale === "it" ? "Origini da raccontare" : "Origins to tell"}</h3></div><small>{locale === "it" ? "Clicca un punto per esplorare la regione" : "Select a point to explore its region"}</small></header><WineGeographyMap wines={inventory} locale={locale} t={t} onSelectRegion={setSelectedRegion} />{selectedRegion ? <div className="restaurant-region-selection"><strong>{selectedRegion}</strong><span>{regionalWines.length} {locale === "it" ? "vini" : "wines"} · {regionalWines.reduce((total, wine) => total + wine.quantity, 0)} {locale === "it" ? "bottiglie" : "bottles"}</span></div> : null}</section>
+    </div>
+  </section>;
+}
+
 export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, onChanged, onOpenIncompleteWines, mode = "restaurant", wines = [] }: {
   locale: Locale;
   refreshKey: number;
@@ -79,6 +143,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
   wines?: Wine[];
 }) {
   const [period, setPeriod] = useState<Period>("month");
+  const [restaurantDashboardView, setRestaurantDashboardView] = useState<"operations" | "intelligence">("operations");
   const [fromDate, setFromDate] = useState(periodStart("month"));
   const [toDate, setToDate] = useState(isoDate(new Date()));
   const [summary, setSummary] = useState<RestaurantSalesSummary | null>(null);
@@ -92,6 +157,20 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
   const incompleteWineData = inventoryWines.filter((wine) => !wine.type || !wine.region || !wine.format || !Array.isArray(wine.grapes) || !wine.grapes.length).length;
   const types = bottleDistribution(inventoryWines, "type", locale === "it" ? "Altri" : "Other");
   const regions = bottleDistribution(inventoryWines, "region", locale === "it" ? "Non indicata" : "Not specified");
+  const currentYear = new Date().getFullYear();
+  const winesWithDrinkWindow = inventoryWines.filter(hasCompleteDrinkWindow);
+  const peakWines = [...winesWithDrinkWindow]
+    .filter((wine) => Number(wine.drink_peak_to) >= currentYear && Number(wine.drink_peak_from) <= currentYear + 1)
+    .sort((first, second) => {
+      const firstIsPeak = Number(first.drink_peak_from) <= currentYear ? 0 : 1;
+      const secondIsPeak = Number(second.drink_peak_from) <= currentYear ? 0 : 1;
+      return firstIsPeak - secondIsPeak || Number(first.drink_peak_to) - Number(second.drink_peak_to) || second.quantity - first.quantity;
+    })
+    .slice(0, 4);
+  const atRiskWines = [...winesWithDrinkWindow]
+    .filter((wine) => Number(wine.drink_to) <= currentYear + 2)
+    .sort((first, second) => Number(first.drink_to) - Number(second.drink_to) || second.quantity - first.quantity)
+    .slice(0, 4);
   const leadingWines = [...inventoryWines]
     .filter((wine) => Number(wine.sale_price || 0) > 0)
     .sort((first, second) => Number(second.sale_price || 0) - Number(first.sale_price || 0))
@@ -163,7 +242,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     await onChanged();
   }
 
-  return <section className="restaurant-dashboard">
+  return <section className={`restaurant-dashboard${mode === "restaurant" && restaurantDashboardView === "intelligence" ? " is-intelligence" : ""}`}>
     <header className="restaurant-dashboard-head">
       <div><p className="eyebrow">{mode === "private" ? (locale === "it" ? "Cantina privata" : "Private cellar") : (locale === "it" ? "Gestione ristorante" : "Restaurant operations")}</p><h1>{mode === "private" ? (locale === "it" ? "Vendite della collezione" : "Collection sales") : (locale === "it" ? "Dashboard ristorante" : "Restaurant dashboard")}</h1><p>{mode === "private" ? (locale === "it" ? "Capitale recuperato e plusvalenze o minusvalenze realizzate nel periodo." : "Recovered capital and realized gains or losses for the selected period.") : (locale === "it" ? "Carta vini, giacenze, ricavi e marginalità in una sola visione operativa." : "Wine list, stock, revenue and margin in one operational view.")}</p></div>
       <div className="restaurant-periods" role="group" aria-label={locale === "it" ? "Periodo" : "Period"}>
@@ -171,13 +250,19 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       </div>
       {period === "custom" ? <div className="restaurant-custom-dates"><label>{locale === "it" ? "Dal" : "From"}<input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label><label>{locale === "it" ? "Al" : "To"}<input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} /></label></div> : null}
     </header>
+    {mode === "restaurant" ? <nav className="restaurant-dashboard-tabs" aria-label={locale === "it" ? "Vista dashboard ristorante" : "Restaurant dashboard view"}>
+      <button type="button" className={restaurantDashboardView === "operations" ? "" : "secondary"} onClick={() => setRestaurantDashboardView("operations")}>{locale === "it" ? "Operatività" : "Operations"}</button>
+      <button type="button" className={restaurantDashboardView === "intelligence" ? "" : "secondary"} onClick={() => setRestaurantDashboardView("intelligence")}>{locale === "it" ? "Intelligence di carta" : "Wine list intelligence"}</button>
+    </nav> : null}
+    {mode === "restaurant" && restaurantDashboardView === "intelligence" ? <RestaurantIntelligence wines={wines} locale={locale} onOpenWine={onOpenWine} /> : null}
+    <div className="restaurant-operations">
     {mode === "restaurant" ? <section className="restaurant-inventory-overview">
       <header className="restaurant-section-title">
         <div><p className="eyebrow">{locale === "it" ? "Carta vini" : "Wine list"}</p><h2>{locale === "it" ? "La cantina del ristorante" : "Restaurant cellar"}</h2></div>
         <span>{locale === "it" ? "Giacenza, valore potenziale e composizione" : "Stock, potential value and composition"}</span>
       </header>
       <div className="restaurant-inventory-kpis">
-        <article><span>{locale === "it" ? "Referenze attive" : "Active labels"}</span><strong>{inventoryWines.length}</strong></article>
+        <article><span>{locale === "it" ? "Vini in carta" : "Active labels"}</span><strong>{inventoryWines.length}</strong></article>
         <article><span>{locale === "it" ? "Bottiglie disponibili" : "Available bottles"}</span><strong>{inventoryBottles}</strong></article>
         <article><span>{locale === "it" ? "Scorte basse" : "Low stock"}</span><strong>{lowStockWines}</strong><small>{locale === "it" ? "Referenze con 1–2 bottiglie" : "Labels with 1–2 bottles"}</small></article>
         <article className={missingSalePrice ? "needs-attention" : ""}><span>{locale === "it" ? "Prezzo da completare" : "Missing sale price"}</span><strong>{missingSalePrice}</strong><small>{locale === "it" ? "Referenze senza prezzo di vendita" : "Labels without a sale price"}</small></article>
@@ -208,6 +293,27 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           <div className="restaurant-distribution">{regions.map((item) => <div key={item.label}><div><span>{item.label}</span><strong>{item.bottles}</strong></div><i><b style={{ width: `${(item.bottles / Math.max(regions[0]?.bottles || 1, 1)) * 100}%` }} /></i></div>)}</div>
         </section>
       </div>
+      <section className="restaurant-proposals">
+        <header className="restaurant-section-title"><div><p className="eyebrow">{locale === "it" ? "Suggerimenti di carta" : "Wine list suggestions"}</p><h2>{locale === "it" ? "Vini da proporre" : "Wines to feature"}</h2></div><span>{locale === "it" ? "Basati sulla finestra di beva, senza AI" : "Based on drinking windows, no AI"}</span></header>
+        <div className="restaurant-proposals-grid">
+          <section className="restaurant-proposal-card is-peak">
+            <header><div><span>{locale === "it" ? "Nel momento giusto" : "At the right moment"}</span><h3>{locale === "it" ? "Valorizza il picco" : "Feature at peak"}</h3></div><strong>{peakWines.length}</strong></header>
+            <p>{locale === "it" ? "Vini nel loro apice o a un anno dal picco: pronti per una proposta mirata in carta." : "Wines at peak or within a year of it, ready for a focused feature."}</p>
+            {peakWines.length ? <div className="restaurant-proposal-list">{peakWines.map((wine) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>
+              <span><strong>{wine.name}</strong><small>{wine.producer || wine.vintage}</small></span>
+              <span className="restaurant-proposal-meta"><strong>{wine.quantity} {locale === "it" ? "in carta" : "in stock"}</strong><small>{locale === "it" ? `Picco ${wine.drink_peak_from}–${wine.drink_peak_to}` : `Peak ${wine.drink_peak_from}–${wine.drink_peak_to}`}</small></span>
+            </button>)}</div> : <p className="restaurant-proposal-empty">{locale === "it" ? "Nessun vino nel picco nel prossimo anno." : "No wines at peak in the next year."}</p>}
+          </section>
+          <section className="restaurant-proposal-card is-risk">
+            <header><div><span>{locale === "it" ? "Priorità di rotazione" : "Rotation priority"}</span><h3>{locale === "it" ? "Evita rimanenze mature" : "Avoid mature stock"}</h3></div><strong>{atRiskWines.length}</strong></header>
+            <p>{locale === "it" ? "Bottiglie con finestra in scadenza o già superata: rendile visibili prima che perdano rilevanza in carta." : "Wines nearing or past their window: make them visible before they lose relevance on the list."}</p>
+            {atRiskWines.length ? <div className="restaurant-proposal-list">{atRiskWines.map((wine) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>
+              <span><strong>{wine.name}</strong><small>{wine.producer || wine.vintage}</small></span>
+              <span className="restaurant-proposal-meta"><strong>{wine.quantity} {locale === "it" ? "in carta" : "in stock"}</strong><small>{Number(wine.drink_to) < currentYear ? (locale === "it" ? "Finestra superata" : "Window passed") : (locale === "it" ? `Entro il ${wine.drink_to}` : `By ${wine.drink_to}`)}</small></span>
+            </button>)}</div> : <p className="restaurant-proposal-empty">{locale === "it" ? "Nessuna finestra a rischio nei prossimi due anni." : "No windows at risk in the next two years."}</p>}
+          </section>
+        </div>
+      </section>
     </section> : null}
     {error ? <p className="error-banner">{error}</p> : null}
     {mode === "restaurant" ? <header className="restaurant-section-title restaurant-sales-heading"><div><p className="eyebrow">{locale === "it" ? "Vendite" : "Sales"}</p><h2>{locale === "it" ? "Performance del periodo" : "Period performance"}</h2></div><span>{fromDate} — {toDate}</span></header> : null}
@@ -267,5 +373,6 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       <section className="restaurant-panel"><header><h2>{locale === "it" ? "Invenduti o meno venduti" : "Unsold or slow-moving"}</h2></header>{summary?.least_sold_wines.length ? <div className="restaurant-ranking restaurant-slow-movers">{summary.least_sold_wines.map((wine) => <button type="button" key={`${wine.wine_id}-${wine.currency}`} onClick={() => onOpenWine(wine.wine_id)}><span><strong>{wine.label}</strong><small>{wine.current_stock} {locale === "it" ? "in giacenza" : "in stock"}</small></span><span className="restaurant-ranking-result"><strong>{wine.bottles ? `${wine.bottles} ${locale === "it" ? "vendute" : "sold"}` : (locale === "it" ? "Invenduto" : "Unsold")}</strong><small>{wine.bottles ? formatMoney(wine.revenue, wine.currency, locale) : (locale === "it" ? "Nessuna vendita nel periodo" : "No sales in this period")}</small></span></button>)}</div> : <p className="empty-state">—</p>}</section>
     </div>
     <section className="restaurant-panel"><header><h2>{locale === "it" ? "Registro vendite" : "Sales register"}</h2></header>{summary?.recent_sales.length ? <div className="restaurant-sales-list">{summary.recent_sales.map((sale) => <article key={sale.id}><div><strong>{sale.wine_name}</strong><span>{sale.sold_at} · {sale.quantity} × {formatMoney(sale.unit_sale_price, sale.currency, locale)}</span></div><div><strong>{formatMoney(sale.gross_margin, sale.currency, locale)}</strong><button type="button" className="secondary compact" onClick={() => void voidSale(sale.id)}>{locale === "it" ? "Annulla" : "Void"}</button></div></article>)}</div> : <p className="empty-state">—</p>}</section>
+    </div>
   </section>;
 }
