@@ -46,7 +46,7 @@ export function isWineReadyToPrioritize(wine: Wine, currentYear: number) {
 
 export function isWinePhysicallyInCellar(wine: Wine) {
   const status = wine.status.trim().toLowerCase();
-  return ["delivered", "consegnato", "in cellar", "in cantina"].includes(status);
+  return ["delivered", "consegnato", "in_cellar", "in cellar", "in cantina"].includes(status);
 }
 
 export function isWineIdealSoon(wine: Wine, currentYear: number) {

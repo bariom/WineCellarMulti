@@ -75,6 +75,7 @@ class PendingUserResponse(BaseModel):
 class UserAdminUpdate(BaseModel):
     is_app_admin: bool | None = None
     is_blocked: bool | None = None
+    can_use_restaurant_mode: bool | None = None
     can_use_label_recognition: bool | None = None
     can_manage_wine_photos: bool | None = None
     ai_credit_balance_target_usd: Decimal | None = None
@@ -90,6 +91,7 @@ class UserAdminResponse(BaseModel):
     is_approved: bool
     is_app_admin: bool
     is_blocked: bool
+    can_use_restaurant_mode: bool
     can_use_label_recognition: bool
     can_manage_wine_photos: bool
     has_demo_access: bool = False

@@ -24,7 +24,7 @@ export function DetailField({
 
 export function wineStatusTone(status: string) {
   const normalized = status.trim().toLowerCase();
-  if (normalized.includes("deliver") || normalized.includes("consegn")) return "delivered";
+  if (normalized.includes("deliver") || normalized.includes("consegn") || normalized === "in_cellar" || normalized === "in cellar" || normalized === "in cantina") return "delivered";
   if (normalized.includes("collect") || normalized.includes("pickup") || normalized.includes("ritir")) return "pickup";
   if (normalized.includes("shipp") || normalized.includes("spedit")) return "shipped";
   if (normalized.includes("order") || normalized.includes("ordin")) return "ordered";

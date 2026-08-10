@@ -733,6 +733,7 @@ export const translations = {
     exportFullCellarHelp: "Today export can include the full cellar backup. Choose which blocks to include before downloading the JSON.",
     exportHistoryIncluded: "Tasting history is stored inside wines and is included when Wines is selected.",
     exportIncludesWines: "Wines",
+    exportIncludesSales: "Sales history",
     exportIncludesWishlist: "Wishlist",
     exportIncludesMembers: "Members",
     exportIncludesInvites: "Invites",
@@ -1505,6 +1506,7 @@ export const translations = {
     exportFullCellarHelp: "Ora l'export può includere il backup completo della cantina. Scegli quali blocchi inserire prima di scaricare il JSON.",
     exportHistoryIncluded: "Lo storico degustazioni è salvato dentro i vini ed è incluso quando selezioni Vini.",
     exportIncludesWines: "Vini",
+    exportIncludesSales: "Storico vendite",
     exportIncludesWishlist: "Wishlist",
     exportIncludesMembers: "Membri",
     exportIncludesInvites: "Inviti",
@@ -1586,7 +1588,11 @@ export function translate(locale: Locale, key: TranslationKey) {
 }
 
 export const localizedDisplayValues: Record<Locale, Record<string, Record<string, string>>> = {
-  en: {},
+  en: {
+    status: {
+      in_cellar: "In cellar",
+    },
+  },
   it: {
     format: {
       "Bottle (750ml)": "Bottiglia (750ml)",
@@ -1618,6 +1624,7 @@ export const localizedDisplayValues: Record<Locale, Record<string, Record<string
       Shipped: "Spedito",
       "To Collect": "Da ritirare",
       Delivered: "In cantina",
+      in_cellar: "In cantina",
       Consumed: "Bevuto",
       Cancelled: "Annullato",
       Evaluate: "Valutare",

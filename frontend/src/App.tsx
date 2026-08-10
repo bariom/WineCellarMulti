@@ -347,6 +347,7 @@ const emptyRedeemCodeDraft: RedeemCodeDraft = {
 
 const defaultExportSelection: ExportSelection = {
   wines: true,
+  sales: true,
   wishlist: true,
   members: true,
   invites: true,
@@ -359,6 +360,7 @@ function importSelectionFromBlocks(blocks: string[]): ImportSelection {
   const enabled = new Set(blocks);
   return {
     wines: enabled.has("wines"),
+    sales: enabled.has("sales"),
     wishlist: enabled.has("wishlist"),
     members: false,
     invites: false,
@@ -1510,6 +1512,7 @@ export function App() {
   const landing = landingContent[locale];
   const exportBlocks = [
     { key: "wines", label: t("exportIncludesWines") },
+    { key: "sales", label: t("exportIncludesSales") },
     { key: "wishlist", label: t("exportIncludesWishlist") },
     { key: "members", label: t("exportIncludesMembers") },
     { key: "invites", label: t("exportIncludesInvites") },
@@ -2055,6 +2058,7 @@ export function App() {
             is_approved: false,
             is_app_admin: false,
             is_blocked: false,
+            can_use_restaurant_mode: false,
             can_use_label_recognition: false,
             can_manage_wine_photos: false,
             has_demo_access: false,
@@ -3222,6 +3226,22 @@ export function App() {
       await loadAppUsers();
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to update user");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function toggleRestaurantModeAccess(user: AppUser) {
+    setSaving(true);
+    setError("");
+    try {
+      await api<AppUser>(`/api/v1/auth/users/${user.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ can_use_restaurant_mode: !user.can_use_restaurant_mode }),
+      });
+      await loadAppUsers();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update restaurant access");
     } finally {
       setSaving(false);
     }
@@ -12669,6 +12689,7 @@ export function App() {
                                 <span className={user.is_approved ? "status-pill configured" : "status-pill"}>{user.is_approved ? "approved" : "pending"}</span>
                                 {user.is_blocked ? <span className="status-pill">{t("blocked")}</span> : null}
                                 {user.is_app_admin ? <span className="status-pill">App admin</span> : null}
+                                {user.can_use_restaurant_mode ? <span className="status-pill configured">{locale === "it" ? "Ristorante abilitato" : "Restaurant enabled"}</span> : null}
                                 {user.has_active_subscription ? (
                                   <span className="status-pill configured">
                                     {locale === "it"
@@ -12767,6 +12788,13 @@ export function App() {
                                   </button>
                                   <button type="button" className={user.can_use_label_recognition ? "compact" : "secondary compact"} disabled={saving} onClick={() => toggleLabelRecognition(user)}>
                                     {user.can_use_label_recognition ? t("labelRecognitionEnabled") : t("labelRecognitionDisabled")}
+                                  </button>
+                                  <button type="button" className={user.can_use_restaurant_mode ? "compact" : "secondary compact"} disabled={saving || user.is_app_admin} onClick={() => toggleRestaurantModeAccess(user)}>
+                                    {user.is_app_admin
+                                      ? (locale === "it" ? "Ristorante incluso per admin" : "Restaurant included for admins")
+                                      : user.can_use_restaurant_mode
+                                        ? (locale === "it" ? "Disabilita ristorante" : "Disable restaurant")
+                                        : (locale === "it" ? "Abilita ristorante" : "Enable restaurant")}
                                   </button>
                                   <button type="button" className={user.can_manage_wine_photos ? "compact" : "secondary compact"} disabled={saving || user.is_app_admin} onClick={() => toggleWinePhotoAccess(user)}>
                                     {user.is_app_admin
@@ -12993,6 +13021,7 @@ export function App() {
                             importPreview.share_offers_total ? `${t("exportIncludesShareOffers")}: ${importPreview.share_offers_total}` : "",
                             importPreview.user_tags_total ? `${t("tags")}: ${importPreview.user_tags_total}` : "",
                             importPreview.ai_audit_total ? `${t("aiAudit")}: ${importPreview.ai_audit_total}` : "",
+                            importPreview.sales_total ? `${t("exportIncludesSales")}: ${importPreview.sales_total}` : "",
                           ].filter(Boolean).join(" | ")}
                         </small>
                       ) : null}
@@ -13032,6 +13061,7 @@ export function App() {
                       {(importResult.wines_deleted || importResult.wishlist_deleted) ? <span>{t("emptyCellar")}: {importResult.wines_deleted} {t("wines").toLowerCase()}, {importResult.wishlist_deleted} {t("wishlist").toLowerCase()}</span> : null}
                       <span>{t("wines")}: +{importResult.wines_imported}, {t("updatedItems")} {importResult.wines_updated}, {t("skipped")} {importResult.wines_skipped}</span>
                       <span>{t("wishlist")}: +{importResult.wishlist_imported}, {t("updatedItems")} {importResult.wishlist_updated}, {t("skipped")} {importResult.wishlist_skipped}</span>
+                      {(importResult.sales_imported || importResult.sales_updated || importResult.sales_skipped) ? <span>{t("exportIncludesSales")}: +{importResult.sales_imported}, {t("updatedItems")} {importResult.sales_updated}, {t("skipped")} {importResult.sales_skipped}</span> : null}
                       {(importResult.members_imported || importResult.members_updated || importResult.members_skipped) ? <span>{t("members")}: +{importResult.members_imported}, {t("updatedItems")} {importResult.members_updated}, {t("skipped")} {importResult.members_skipped}</span> : null}
                       {(importResult.invites_imported || importResult.invites_updated || importResult.invites_skipped) ? <span>{t("invites")}: +{importResult.invites_imported}, {t("updatedItems")} {importResult.invites_updated}, {t("skipped")} {importResult.invites_skipped}</span> : null}
                       {(importResult.share_offers_imported || importResult.share_offers_updated || importResult.share_offers_skipped) ? <span>{t("exportIncludesShareOffers")}: +{importResult.share_offers_imported}, {t("updatedItems")} {importResult.share_offers_updated}, {t("skipped")} {importResult.share_offers_skipped}</span> : null}

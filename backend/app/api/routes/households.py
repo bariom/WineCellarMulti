@@ -51,7 +51,7 @@ router = APIRouter(prefix="/household")
 def ensure_restaurant_mode_available(context: CurrentContext, operating_mode: str) -> None:
     if (
         operating_mode == "restaurant"
-        and not settings.restaurant_mode_enabled
+        and not context.user.can_use_restaurant_mode
         and not context.user.is_app_admin
     ):
         raise HTTPException(

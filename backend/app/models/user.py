@@ -20,6 +20,7 @@ class User(Base):
     is_approved: Mapped[bool] = mapped_column(Boolean, default=True)
     is_app_admin: Mapped[bool] = mapped_column(Boolean, default=False)
     is_blocked: Mapped[bool] = mapped_column(Boolean, default=False)
+    can_use_restaurant_mode: Mapped[bool] = mapped_column(Boolean, default=False)
     can_use_label_recognition: Mapped[bool] = mapped_column(Boolean, default=False)
     can_manage_wine_photos: Mapped[bool] = mapped_column(Boolean, default=False)
     photo_usage_disclaimer_accepted_at: Mapped[datetime | None] = mapped_column(

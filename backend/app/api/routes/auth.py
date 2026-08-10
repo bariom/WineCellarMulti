@@ -388,6 +388,7 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         is_approved=user.is_approved,
         is_app_admin=user.is_app_admin,
         is_blocked=user.is_blocked,
+        can_use_restaurant_mode=user.can_use_restaurant_mode,
         can_use_label_recognition=user.can_use_label_recognition,
         can_manage_wine_photos=user.can_manage_wine_photos,
         has_demo_access=has_demo_access,
@@ -1176,6 +1177,7 @@ def update_user_admin(
     if (
         payload.is_app_admin is None
         and payload.is_blocked is None
+        and payload.can_use_restaurant_mode is None
         and payload.can_use_label_recognition is None
         and payload.can_manage_wine_photos is None
         and payload.ai_credit_balance_target_usd is None
@@ -1199,6 +1201,8 @@ def update_user_admin(
         user.is_blocked = payload.is_blocked
         if payload.is_blocked:
             db.query(UserSession).filter(UserSession.user_id == user.id).delete()
+    if payload.can_use_restaurant_mode is not None:
+        user.can_use_restaurant_mode = payload.can_use_restaurant_mode
     if payload.can_use_label_recognition is not None:
         user.can_use_label_recognition = payload.can_use_label_recognition
     if payload.can_manage_wine_photos is not None:

@@ -235,6 +235,7 @@ export type ImportPreview = {
   share_offers_total: number;
   user_tags_total: number;
   ai_audit_total: number;
+  sales_total: number;
 };
 
 export type ImportResult = {
@@ -261,6 +262,9 @@ export type ImportResult = {
   ai_audit_imported: number;
   ai_audit_skipped: number;
   ai_audit_updated: number;
+  sales_imported: number;
+  sales_skipped: number;
+  sales_updated: number;
 };
 
 export type WineShareOffer = {
@@ -477,6 +481,7 @@ export type AppUser = PendingUser & {
   is_approved: boolean;
   is_app_admin: boolean;
   is_blocked: boolean;
+  can_use_restaurant_mode: boolean;
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
   has_demo_access: boolean;
@@ -797,6 +802,7 @@ export type ContactSupportDraft = {
 
 export type ExportSelection = {
   wines: boolean;
+  sales: boolean;
   wishlist: boolean;
   members: boolean;
   invites: boolean;

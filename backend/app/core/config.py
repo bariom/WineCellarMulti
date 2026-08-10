@@ -15,7 +15,6 @@ class Settings(BaseSettings):
     email_verification_ttl_hours: int = 48
     password_reset_ttl_minutes: int = 30
     coownership_invite_ttl_days: int = 30
-    restaurant_mode_enabled: bool = False
     registration_requires_approval: bool = True
     legal_operator_name: str = ""
     legal_operator_address: str = ""

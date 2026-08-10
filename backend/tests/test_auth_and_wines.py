@@ -144,8 +144,7 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert client.get("/api/v1/sales/summary").json()["currencies"] == []
 
 
-def test_restaurant_mode_feature_flag_keeps_app_admin_access(monkeypatch):
-    monkeypatch.setattr(settings, "restaurant_mode_enabled", False)
+def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():
     client = TestClient(app)
     registered = register(client)
     assert registered.status_code == 201
@@ -173,7 +172,12 @@ def test_restaurant_mode_feature_flag_keeps_app_admin_access(monkeypatch):
     )
     assert unavailable.status_code == 403
 
-    monkeypatch.setattr(settings, "restaurant_mode_enabled", True)
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        user.can_use_restaurant_mode = True
+        db.commit()
+
     assert client.get("/api/v1/session").json()["restaurant_mode_available"] is True
     enabled_change = client.patch(
         "/api/v1/household", json={"operating_mode": "restaurant"}
@@ -2392,13 +2396,19 @@ def test_new_users_receive_photo_permissions_and_admin_can_disable_them():
     )
     assert app_user["can_use_label_recognition"] is True
     assert app_user["can_manage_wine_photos"] is True
+    assert app_user["can_use_restaurant_mode"] is False
     disabled = admin_client.patch(
         f"/api/v1/auth/users/{app_user['id']}",
-        json={"can_use_label_recognition": False, "can_manage_wine_photos": False},
+        json={
+            "can_use_label_recognition": False,
+            "can_manage_wine_photos": False,
+            "can_use_restaurant_mode": True,
+        },
     )
     assert disabled.status_code == 200
     assert disabled.json()["can_use_label_recognition"] is False
     assert disabled.json()["can_manage_wine_photos"] is False
+    assert disabled.json()["can_use_restaurant_mode"] is True
 
     refreshed_login = user_client.post(
         "/api/v1/auth/login",
@@ -2407,6 +2417,7 @@ def test_new_users_receive_photo_permissions_and_admin_can_disable_them():
     assert refreshed_login.status_code == 200
     assert refreshed_login.json()["can_use_label_recognition"] is False
     assert refreshed_login.json()["can_manage_wine_photos"] is False
+    assert refreshed_login.json()["restaurant_mode_available"] is True
     blocked = user_client.post(
         "/api/v1/wines/catalog/recognize-bottle",
         files={"image": ("label.jpg", b"fake-image", "image/jpeg")},

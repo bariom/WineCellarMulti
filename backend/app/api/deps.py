@@ -87,7 +87,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_id": str(context.household.id),
         "active_household_name": context.household.name,
         "active_household_mode": context.household.operating_mode,
-        "restaurant_mode_available": settings.restaurant_mode_enabled
+        "restaurant_mode_available": context.user.can_use_restaurant_mode
         or context.user.is_app_admin,
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
