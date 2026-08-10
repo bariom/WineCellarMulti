@@ -22,6 +22,12 @@ type WinePulseStatus = {
     error: string;
   } | null;
   published: number;
+  next_cycle: {
+    scheduled_from: string;
+    scheduled_to: string;
+    timezone: string;
+    random_delay_minutes: number;
+  } | null;
   sources: Array<{
     id: string;
     name: string;
@@ -31,6 +37,27 @@ type WinePulseStatus = {
     last_error: string;
   }>;
 };
+
+function winePulseCycleDisplay(status: WinePulseStatus | null, locale: Locale) {
+  const cycle = status?.next_cycle;
+  if (!cycle) return null;
+  const language = locale === "it" ? "it-CH" : "en-GB";
+  const time = new Intl.DateTimeFormat(language, {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: cycle.timezone,
+  });
+  const day = new Intl.DateTimeFormat(language, {
+    day: "2-digit",
+    month: "short",
+    timeZone: cycle.timezone,
+  });
+  return {
+    window: `${time.format(new Date(cycle.scheduled_from))}–${time.format(new Date(cycle.scheduled_to))}`,
+    day: day.format(new Date(cycle.scheduled_from)),
+    timezone: cycle.timezone,
+  };
+}
 type VineyardCandidate = {
   wine_id: string;
   name: string;
@@ -176,6 +203,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
   const [vineyardPage, setVineyardPage] = useState(0);
   const [vineyardFeedback, setVineyardFeedback] = useState<VineyardFeedback | null>(null);
   const [winePulseStatus, setWinePulseStatus] = useState<WinePulseStatus | null>(null);
+  const nextWinePulseCycle = winePulseCycleDisplay(winePulseStatus, locale);
 
   async function refreshMonitorTokens() {
     try {
@@ -415,6 +443,7 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
             <div><span>{isItalian ? "Fonti attive" : "Active sources"}</span><strong>{winePulseStatus.sources.filter((source) => source.enabled).length}</strong></div>
             <div><span>{isItalian ? "Nuove nell’ultimo ciclo" : "New in latest run"}</span><strong>{winePulseStatus.latest_run?.stats.new || 0}</strong></div>
             <div><span>{isItalian ? "Elaborate dall’AI" : "AI processed"}</span><strong>{winePulseStatus.latest_run?.stats.ai_processed || 0}</strong></div>
+            <div><span>{isItalian ? "Prossimo ciclo" : "Next cycle"}</span><strong>{nextWinePulseCycle?.window || "—"}</strong>{nextWinePulseCycle ? <small>{nextWinePulseCycle.day} · {nextWinePulseCycle.timezone}</small> : null}</div>
           </div>
         ) : <LoadingState label={isItalian ? "Carico Wine Pulse" : "Loading Wine Pulse"} compact />}
         {winePulseStatus?.sources.some((source) => source.last_error) ? (

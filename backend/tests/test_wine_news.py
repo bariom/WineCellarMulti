@@ -5,6 +5,8 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes.wine_news import next_wine_pulse_cycle
+from app.core.config import settings
 from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
 from app.db.session import get_db
@@ -49,6 +51,23 @@ def setup_function():
 
 def teardown_function():
     app.dependency_overrides.clear()
+
+
+def test_next_wine_pulse_cycle_reports_scheduled_window(monkeypatch):
+    monkeypatch.setattr(settings, "wine_pulse_enabled", True)
+    monkeypatch.setattr(settings, "wine_pulse_schedule_hours", "5,13,21")
+    monkeypatch.setattr(settings, "wine_pulse_schedule_minute", 20)
+    monkeypatch.setattr(settings, "wine_pulse_schedule_timezone", "Europe/Zurich")
+    monkeypatch.setattr(settings, "wine_pulse_random_delay_minutes", 15)
+
+    cycle = next_wine_pulse_cycle(datetime(2026, 8, 10, 10, 0, tzinfo=UTC))
+
+    assert cycle == {
+        "scheduled_from": "2026-08-10T11:20:00+00:00",
+        "scheduled_to": "2026-08-10T11:35:00+00:00",
+        "timezone": "Europe/Zurich",
+        "random_delay_minutes": 15,
+    }
 
 
 def register(client: TestClient):

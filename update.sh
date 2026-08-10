@@ -59,7 +59,8 @@ if command -v systemctl >/dev/null 2>&1 && systemctl list-unit-files winecellarm
   sudo install -m 0644 "$ROOT_DIR/deploy/systemd/vinaris-wine-pulse.service" /etc/systemd/system/vinaris-wine-pulse.service
   sudo install -m 0644 "$ROOT_DIR/deploy/systemd/vinaris-wine-pulse.timer" /etc/systemd/system/vinaris-wine-pulse.timer
   sudo systemctl daemon-reload
-  sudo systemctl enable --now vinaris-wine-pulse.timer
+  sudo systemctl enable vinaris-wine-pulse.timer
+  sudo systemctl restart vinaris-wine-pulse.timer
 fi
 
 if command -v nginx >/dev/null 2>&1; then

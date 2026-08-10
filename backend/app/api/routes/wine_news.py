@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Literal, cast
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_app_admin_context
+from app.core.config import settings
 from app.db.session import get_db
 from app.models import WineNewsArticle, WineNewsCollectionRun, WineNewsSource
 from app.schemas.wine_news import (
@@ -17,6 +20,56 @@ from app.schemas.wine_news import (
 from app.services.wine_news import latest_collection_time
 
 router = APIRouter(prefix="/wine-pulse")
+
+
+def next_wine_pulse_cycle(now: datetime | None = None) -> dict[str, object] | None:
+    if not settings.wine_pulse_enabled:
+        return None
+    try:
+        timezone = ZoneInfo(settings.wine_pulse_schedule_timezone)
+    except ZoneInfoNotFoundError:
+        timezone = ZoneInfo("UTC")
+    current = (now or datetime.now(UTC)).astimezone(timezone)
+    try:
+        hours = sorted(
+            {
+                int(value.strip())
+                for value in settings.wine_pulse_schedule_hours.split(",")
+                if value.strip()
+            }
+        )
+        hours = [hour for hour in hours if 0 <= hour <= 23]
+    except ValueError:
+        hours = []
+    if not hours:
+        hours = [5, 13, 21]
+    minute = max(0, min(int(settings.wine_pulse_schedule_minute), 59))
+    scheduled = None
+    for day_offset in (0, 1):
+        day = current.date() + timedelta(days=day_offset)
+        for hour in hours:
+            candidate = datetime(
+                day.year,
+                day.month,
+                day.day,
+                hour,
+                minute,
+                tzinfo=timezone,
+            )
+            if candidate > current:
+                scheduled = candidate
+                break
+        if scheduled is not None:
+            break
+    if scheduled is None:
+        return None
+    delay = max(0, int(settings.wine_pulse_random_delay_minutes))
+    return {
+        "scheduled_from": scheduled.astimezone(UTC).isoformat(),
+        "scheduled_to": (scheduled + timedelta(minutes=delay)).astimezone(UTC).isoformat(),
+        "timezone": str(timezone),
+        "random_delay_minutes": delay,
+    }
 
 
 def article_response(
@@ -104,6 +157,7 @@ def wine_pulse_status(
             )
             or 0
         ),
+        "next_cycle": next_wine_pulse_cycle(),
         "sources": [
             {
                 "id": source.id,

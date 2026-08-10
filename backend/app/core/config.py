@@ -115,6 +115,10 @@ class Settings(BaseSettings):
     wine_pulse_feed_timeout_seconds: int = 20
     wine_pulse_retention_days: int = 180
     wine_pulse_sources_json: str = ""
+    wine_pulse_schedule_hours: str = "5,13,21"
+    wine_pulse_schedule_minute: int = 20
+    wine_pulse_schedule_timezone: str = "Europe/Zurich"
+    wine_pulse_random_delay_minutes: int = 15
     stripe_secret_key: str = ""
     stripe_webhook_secret: str = ""
     stripe_checkout_url: str = "https://api.stripe.com/v1/checkout/sessions"
