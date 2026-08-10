@@ -1017,7 +1017,7 @@ export type WineNewsFeed = {
 
 export type HistorySection = "tastings" | "wines" | "sales";
 
-export type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data";
+export type QuickWineFilter = "" | "mine" | "shared" | "drink_now" | "drink_soon" | "past_window" | "future_deliveries" | "to_collect" | "missing_data" | "low_stock" | "missing_sale_price";
 
 export type MaturityPhase = "early" | "drinkable" | "peak" | "past" | "unknown";
 

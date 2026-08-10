@@ -904,7 +904,7 @@ export function WineDetail({
         : t("youngWine");
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
   const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
-  const [aiToolsOpen, setAiToolsOpen] = useState(restaurantMode);
+  const [aiToolsOpen, setAiToolsOpen] = useState(!restaurantMode);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
   const sharedFeatureLabels: Record<Wine["shared_data_features"][number], string> = {
@@ -925,7 +925,7 @@ export function WineDetail({
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
     setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
-    setAiToolsOpen(restaurantMode);
+    setAiToolsOpen(!restaurantMode);
   }, [restaurantMode, wine.id]);
 
   async function submitConsume(event: FormEvent<HTMLFormElement>) {

@@ -4696,6 +4696,9 @@ export function App() {
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
   const restaurantModeAvailable = Boolean(session?.restaurant_mode_available || session?.is_app_admin);
   const isRestaurant = restaurantModeAvailable && session?.active_household_mode === "restaurant";
+  const hasAnotherRestaurantCellar = householdMemberships.some((membership) =>
+    membership.household_id !== session?.active_household_id && membership.operating_mode === "restaurant",
+  );
   const canAccessWinePhotos = !offlineMode && Boolean(session?.authenticated);
   const canManageWinePhotos = canWriteWine && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
   const canReuseWinePhotos = canWriteWine && canAccessWinePhotos;
@@ -6469,6 +6472,8 @@ export function App() {
     future_deliveries: t("futureDeliveries"),
     to_collect: t("winesToCollect"),
     missing_data: t("dataQuality"),
+    low_stock: locale === "it" ? "Scorte basse" : "Low stock",
+    missing_sale_price: locale === "it" ? "Prezzo di vendita mancante" : "Missing sale price",
   };
   const activeCollectionFilterChips: Array<{ key: string; label: string; onRemove: () => void }> = [
     ...(searchQuery.trim() ? [{ key: "query", label: `“${searchQuery.trim()}”`, onRemove: () => setSearchQuery("") }] : []),
@@ -8633,8 +8638,13 @@ export function App() {
                 locale={locale}
                 wines={wines}
                 onOpenIncompleteWines={() => openOperationalCellarFilter("missing_data")}
+                onOpenLowStockWines={() => openOperationalCellarFilter("low_stock")}
+                onOpenMissingSalePriceWines={() => openOperationalCellarFilter("missing_sale_price")}
                 refreshKey={restaurantDashboardVersion}
-                onOpenWine={(wineId) => { setSelectedWineId(wineId); setActiveView("cellar"); }}
+                onOpenWine={(wineId) => {
+                  const wine = wines.find((item) => item.id === wineId);
+                  if (wine) openWineFromDashboard(wine);
+                }}
                 onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
               />
             </Suspense>
@@ -11056,8 +11066,13 @@ export function App() {
                   mode={isRestaurant ? "restaurant" : "private"}
                   wines={wines}
                   onOpenIncompleteWines={() => openOperationalCellarFilter("missing_data")}
+                  onOpenLowStockWines={() => openOperationalCellarFilter("low_stock")}
+                  onOpenMissingSalePriceWines={() => openOperationalCellarFilter("missing_sale_price")}
                   refreshKey={restaurantDashboardVersion}
-                  onOpenWine={(wineId) => { setSelectedWineId(wineId); setActiveView("cellar"); }}
+                  onOpenWine={(wineId) => {
+                    const wine = wines.find((item) => item.id === wineId);
+                    if (wine) openWineFromDashboard(wine);
+                  }}
                   onChanged={async () => { await loadWines(); setRestaurantDashboardVersion((current) => current + 1); }}
                 />
               </Suspense>
@@ -12434,13 +12449,17 @@ export function App() {
                       onChange={(event) => void updateHouseholdMode(event.target.value as "private" | "restaurant")}
                     >
                       <option value="private">{locale === "it" ? "Cantina privata" : "Private cellar"}</option>
-                      <option value="restaurant">{locale === "it" ? "Ristorante" : "Restaurant"}</option>
+                      <option value="restaurant" disabled={session?.active_household_mode !== "restaurant" && hasAnotherRestaurantCellar}>{locale === "it" ? "Ristorante" : "Restaurant"}</option>
                     </select>
                   </label>
                   <p className="empty-state">
                     {locale === "it"
-                      ? "La modalità ristorante sostituisce la degustazione con la vendita e abilita ricavi e margine lordo. I dati esistenti non vengono rimossi."
-                      : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
+                      ? hasAnotherRestaurantCellar
+                        ? "Hai già una cantina ristorante: ogni utente può usarne una sola."
+                        : "La modalità ristorante sostituisce la degustazione con la vendita e abilita ricavi e margine lordo. I dati esistenti non vengono rimossi."
+                      : hasAnotherRestaurantCellar
+                        ? "You already have a restaurant cellar: each user can use only one."
+                        : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
                   </p>
                 </div> : null}
                 <form className="inline-form" onSubmit={createHousehold}>

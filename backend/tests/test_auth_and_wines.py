@@ -185,6 +185,27 @@ def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():
     assert enabled_change.status_code == 200
 
 
+def test_user_can_have_only_one_restaurant_cellar():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    restaurant_cellar = client.post("/api/v1/household", json={"name": "Restaurant cellar"})
+    assert restaurant_cellar.status_code == 201
+    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+
+    private_cellar = client.post("/api/v1/household", json={"name": "Second private cellar"})
+    assert private_cellar.status_code == 201
+    duplicate = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
+    assert duplicate.status_code == 409
+    assert duplicate.json()["detail"] == "Each user can have access to only one restaurant cellar"
+
+    direct_duplicate = client.post(
+        "/api/v1/household",
+        json={"name": "Second restaurant cellar", "operating_mode": "restaurant"},
+    )
+    assert direct_duplicate.status_code == 409
+
+
 def register(
     client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
 ):

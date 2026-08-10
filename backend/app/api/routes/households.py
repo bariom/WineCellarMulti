@@ -60,6 +60,31 @@ def ensure_restaurant_mode_available(context: CurrentContext, operating_mode: st
         )
 
 
+def ensure_restaurant_cellar_limit(
+    db: Session,
+    context: CurrentContext,
+    operating_mode: str,
+    current_household_id: UUID | None = None,
+) -> None:
+    if operating_mode != "restaurant":
+        return
+    existing_restaurant_household_id = db.scalar(
+        select(Household.id)
+        .join(Membership, Membership.household_id == Household.id)
+        .where(
+            Membership.user_id == context.user.id,
+            Household.operating_mode == "restaurant",
+            *([Household.id != current_household_id] if current_household_id else []),
+        )
+        .limit(1)
+    )
+    if existing_restaurant_household_id is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Each user can have access to only one restaurant cellar",
+        )
+
+
 def regional_gap_settings_response(settings: HouseholdRegionalGapSettings | None) -> RegionalGapSettingsResponse:
     if settings is None:
         return RegionalGapSettingsResponse()
@@ -227,6 +252,7 @@ def create_household(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
         )
     ensure_restaurant_mode_available(context, payload.operating_mode)
+    ensure_restaurant_cellar_limit(db, context, payload.operating_mode)
 
     household = Household(name=name, operating_mode=payload.operating_mode)
     db.add(household)
@@ -340,6 +366,12 @@ def update_active_household(
         context.household.name = name
     if payload.operating_mode is not None:
         ensure_restaurant_mode_available(context, payload.operating_mode)
+        ensure_restaurant_cellar_limit(
+            db,
+            context,
+            payload.operating_mode,
+            current_household_id=context.household.id,
+        )
         context.household.operating_mode = payload.operating_mode
     db.commit()
     db.refresh(context.household)

@@ -27,6 +27,49 @@ function displayDate(date: string, locale: Locale) {
   });
 }
 
+function dateInputValue(date: string, locale: Locale) {
+  const [year, month, day] = date.split("-");
+  if (!year || !month || !day) return "";
+  return locale === "it" ? `${day}/${month}/${year}` : `${month}/${day}/${year}`;
+}
+
+function parseDateInput(value: string, locale: Locale) {
+  const parts = value.trim().match(/^(\d{1,2})[/.\-](\d{1,2})[/.\-](\d{4})$/);
+  if (!parts) return null;
+  const [, first, second, year] = parts;
+  const day = Number(locale === "it" ? first : second);
+  const month = Number(locale === "it" ? second : first);
+  const parsed = new Date(Number(year), month - 1, day);
+  if (parsed.getFullYear() !== Number(year) || parsed.getMonth() !== month - 1 || parsed.getDate() !== day) return null;
+  return isoDate(parsed);
+}
+
+function LocalizedDateInput({ locale, value, onChange, label }: { locale: Locale; value: string; onChange: (date: string) => void; label: string }) {
+  const [draft, setDraft] = useState(() => dateInputValue(value, locale));
+
+  useEffect(() => setDraft(dateInputValue(value, locale)), [value, locale]);
+
+  function commit() {
+    const parsed = parseDateInput(draft, locale);
+    if (parsed) onChange(parsed);
+    setDraft(dateInputValue(parsed || value, locale));
+  }
+
+  return <input
+    type="text"
+    inputMode="numeric"
+    autoComplete="off"
+    value={draft}
+    placeholder={locale === "it" ? "gg/mm/aaaa" : "mm/dd/yyyy"}
+    aria-label={label}
+    onChange={(event) => setDraft(event.target.value)}
+    onBlur={commit}
+    onKeyDown={(event) => {
+      if (event.key === "Enter") event.currentTarget.blur();
+    }}
+  />;
+}
+
 function periodStart(period: Exclude<Period, "custom">) {
   return periodRange(period).fromDate;
 }
@@ -96,7 +139,7 @@ function PeriodSelector({ locale, period, setPeriod, fromDate, setFromDate, toDa
       {(["week", "month", "semester", "year", "custom"] as Period[]).map((item) => <button type="button" className={period === item ? "" : "secondary"} key={item} onClick={() => setPeriod(item)}>{({ week: locale === "it" ? "Settimana" : "Week", month: locale === "it" ? "Mese" : "Month", semester: locale === "it" ? "6 mesi" : "6 months", year: locale === "it" ? "Anno" : "Year", custom: locale === "it" ? "Personalizzato" : "Custom" })[item]}</button>)}
     </div>
     {period !== "custom" ? <div className="restaurant-period-navigation"><button type="button" className="secondary compact" onClick={() => onNavigate(-1)} aria-label={locale === "it" ? "Periodo precedente" : "Previous period"}>‹</button><button type="button" className="secondary compact" onClick={() => onNavigate(1)} disabled={!canNavigateForward} aria-label={locale === "it" ? "Periodo successivo" : "Next period"}>›</button></div> : null}
-    {period === "custom" ? <div className="restaurant-custom-dates"><label>{locale === "it" ? "Dal" : "From"}<input type="date" lang={locale === "it" ? "it-CH" : "en-US"} value={fromDate} onChange={(event) => setFromDate(event.target.value)} /></label><label>{locale === "it" ? "Al" : "To"}<input type="date" lang={locale === "it" ? "it-CH" : "en-US"} value={toDate} onChange={(event) => setToDate(event.target.value)} /></label></div> : null}
+    {period === "custom" ? <div className="restaurant-custom-dates"><label>{locale === "it" ? "Dal" : "From"}<LocalizedDateInput locale={locale} value={fromDate} onChange={setFromDate} label={locale === "it" ? "Data iniziale" : "Start date"} /></label><label>{locale === "it" ? "Al" : "To"}<LocalizedDateInput locale={locale} value={toDate} onChange={setToDate} label={locale === "it" ? "Data finale" : "End date"} /></label></div> : null}
   </div>;
 }
 
@@ -216,9 +259,18 @@ function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; 
     totals.set(currency, (totals.get(currency) || 0) + Math.max(Number(wine.sale_price ?? wine.price ?? 0), 0) * wine.quantity);
     return totals;
   }, new Map<string, number>()).entries()].map(([currency, value]) => formatMoney(value, currency, locale)).join(" · ") || "—";
-  const selectedWines = selectedCell
+  const selectedWines = [...(selectedCell
     ? heatmapRows.find((row) => row.type === selectedCell.type)?.cells.find((cell) => cell.year === selectedCell.year)?.items || []
-    : [];
+    : [])]
+    .sort((first, second) => {
+      const firstAtPeak = Number(first.drink_peak_from) <= Number(selectedCell?.year) && Number(first.drink_peak_to) >= Number(selectedCell?.year);
+      const secondAtPeak = Number(second.drink_peak_from) <= Number(selectedCell?.year) && Number(second.drink_peak_to) >= Number(selectedCell?.year);
+      return Number(secondAtPeak) - Number(firstAtPeak)
+        || Number(first.drink_to) - Number(second.drink_to)
+        || Number(second.quantity) - Number(first.quantity)
+        || first.name.localeCompare(second.name);
+    });
+  const visibleSelectedWines = selectedWines.slice(0, 5);
   const regionalWines = selectedRegion ? inventory.filter((wine) => wine.region === selectedRegion) : [];
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
 
@@ -240,10 +292,11 @@ function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; 
         <div className="restaurant-capital-risk-years"><span>{locale === "it" ? "Rischio capitale" : "Capital at risk"}</span>{capitalRiskByYear.map((point) => {
           const amount = [...point.totals.entries()].map(([currency, value]) => formatMoney(value, currency, locale)).join(" · ");
           const label = `${point.year}: ${locale === "it" ? "rischio capitale stimato" : "estimated capital at risk"} ${amount || "—"}`;
-          return <span key={point.year} className={point.total ? "has-risk" : ""} style={{ "--restaurant-capital-risk-intensity": `${Math.round((point.total / maxCapitalRisk) * 78)}%` } as CSSProperties} title={label} aria-label={label}>{amount || "—"}</span>;
+          const intensity = Math.round((point.total / maxCapitalRisk) * 78);
+          return <span key={point.year} className={point.total ? "has-risk" : ""} style={{ "--restaurant-capital-risk-intensity": `${intensity}%`, color: intensity >= 48 ? "var(--surface)" : "var(--text)", textShadow: intensity >= 48 ? "0 1px 1px color-mix(in srgb, var(--primary) 30%, transparent)" : "none" } as CSSProperties} title={label} aria-label={label}>{amount || "—"}</span>;
         })}</div>
       </div> : <p className="empty-state">{locale === "it" ? "Completa le finestre di beva per visualizzare la mappa di maturità." : "Complete drinking windows to display the maturity map."}</p>}
-      {selectedCell ? <div className="restaurant-maturity-selection"><div><span>{locale === "it" ? "Selezione" : "Selection"}</span><strong>{displayValue(selectedCell.type, locale, "type")} · {selectedCell.year}</strong></div><div>{selectedWines.slice(0, 5).map((wine) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>{wine.name}<small>{wine.quantity} {locale === "it" ? "bottiglie" : "bottles"}</small></button>)}</div></div> : null}
+      {selectedCell ? <div className="restaurant-maturity-selection"><div><span>{locale === "it" ? "Selezione" : "Selection"}</span><strong>{displayValue(selectedCell.type, locale, "type")} · {selectedCell.year}</strong><small>{locale === "it" ? `${visibleSelectedWines.length} priorità su ${selectedWines.length} referenze` : `${visibleSelectedWines.length} priorities from ${selectedWines.length} labels`}</small></div><div>{visibleSelectedWines.map((wine) => { const atPeak = Number(wine.drink_peak_from) <= selectedCell.year && Number(wine.drink_peak_to) >= selectedCell.year; return <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>{wine.name} · {wine.vintage || "NV"}<small>{wine.quantity} {locale === "it" ? "bottiglie" : "bottles"} · {atPeak ? (locale === "it" ? "Nel picco" : "At peak") : (locale === "it" ? `Finestra fino al ${wine.drink_to}` : `Window to ${wine.drink_to}`)}</small></button>; })}</div></div> : null}
     </details>
     <div className="restaurant-intelligence-grid">
       <details className="restaurant-intelligence-panel restaurant-capital-risk restaurant-collapsible"><summary><div><span>{locale === "it" ? "Capitale da recuperare" : "Capital to recover"}</span><h3>{locale === "it" ? "Priorità prima della fine finestra" : "Priorities before the window ends"}</h3></div><small>{locale === "it" ? "Prezzo di carta × giacenza" : "List price × current stock"}</small></summary>{riskWines.length ? <div className="restaurant-risk-list">{riskWines.slice(0, 6).map(({ wine, exposure }) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}><span><strong>{wine.name}</strong><small>{wine.producer} · {wine.quantity} {locale === "it" ? "bottiglie" : "bottles"}</small></span><span><strong>{formatMoney(exposure, wine.currency, locale)}</strong><small>{Number(wine.drink_to) < currentYear ? (locale === "it" ? "Finestra superata" : "Window passed") : (locale === "it" ? `Entro il ${wine.drink_to}` : `By ${wine.drink_to}`)}</small></span></button>)}</div> : <p className="empty-state">{locale === "it" ? "Nessuna rimanenza con finestra in scadenza nei prossimi due anni." : "No stock with a window ending in the next two years."}</p>}</details>
@@ -252,12 +305,14 @@ function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; 
   </section>;
 }
 
-export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, onChanged, onOpenIncompleteWines, mode = "restaurant", wines = [] }: {
+export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, onChanged, onOpenIncompleteWines, onOpenLowStockWines, onOpenMissingSalePriceWines, mode = "restaurant", wines = [] }: {
   locale: Locale;
   refreshKey: number;
   onOpenWine: (wineId: string) => void;
   onChanged: () => Promise<void>;
   onOpenIncompleteWines?: () => void;
+  onOpenLowStockWines?: () => void;
+  onOpenMissingSalePriceWines?: () => void;
   mode?: "restaurant" | "private";
   wines?: Wine[];
 }) {
@@ -397,8 +452,8 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       <div className="restaurant-inventory-kpis">
         <article><span>{locale === "it" ? "Vini in carta" : "Active labels"}</span><strong>{inventoryWines.length}</strong></article>
         <article><span>{locale === "it" ? "Bottiglie disponibili" : "Available bottles"}</span><strong>{inventoryBottles}</strong></article>
-        <article><span>{locale === "it" ? "Scorte basse" : "Low stock"}</span><strong>{lowStockWines}</strong><small>{locale === "it" ? "Referenze con 1–2 bottiglie" : "Labels with 1–2 bottles"}</small></article>
-        <article className={missingSalePrice ? "needs-attention" : ""}><span>{locale === "it" ? "Prezzo da completare" : "Missing sale price"}</span><strong>{missingSalePrice}</strong><small>{locale === "it" ? "Referenze senza prezzo di vendita" : "Labels without a sale price"}</small></article>
+        <button type="button" className={lowStockWines ? "needs-attention" : ""} disabled={!lowStockWines || !onOpenLowStockWines} onClick={onOpenLowStockWines}><span>{locale === "it" ? "Scorte basse" : "Low stock"}</span><strong>{lowStockWines}</strong><small>{locale === "it" ? "Referenze con 1–2 bottiglie" : "Labels with 1–2 bottles"}</small></button>
+        <button type="button" className={missingSalePrice ? "needs-attention" : ""} disabled={!missingSalePrice || !onOpenMissingSalePriceWines} onClick={onOpenMissingSalePriceWines}><span>{locale === "it" ? "Prezzo da completare" : "Missing sale price"}</span><strong>{missingSalePrice}</strong><small>{locale === "it" ? "Referenze senza prezzo di vendita" : "Labels without a sale price"}</small></button>
         <button type="button" className={incompleteWineData ? "needs-attention" : ""} disabled={!onOpenIncompleteWines} onClick={onOpenIncompleteWines}><span>{locale === "it" ? "Dati vino da completare" : "Wine data to complete"}</span><strong>{incompleteWineData}</strong><small>{locale === "it" ? "Apri le schede e usa l’arricchimento AI" : "Open records and use AI enrichment"}</small></button>
       </div>
       {inventoryByCurrency.length ? <div className="restaurant-inventory-values">
