@@ -85,4 +85,5 @@ class WineSalesSummaryResponse(BaseModel):
     least_sold_wines: list[SaleRankingItem]
     sales_by_type: list[SaleBreakdownItem]
     sales_by_region: list[SaleBreakdownItem]
+    sales_by_producer: list[SaleBreakdownItem]
     recent_sales: list[WineSaleResponse]

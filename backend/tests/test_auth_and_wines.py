@@ -6,10 +6,12 @@ import time
 import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from io import BytesIO
 from urllib.parse import parse_qs, urlparse
 
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -134,6 +136,7 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert summary.json()["currencies"][0]["bottles"] == 2
     assert summary.json()["sales_by_type"][0]["bottles"] == 2
     assert summary.json()["sales_by_region"][0]["bottles"] == 2
+    assert summary.json()["sales_by_producer"][0]["bottles"] == 2
     assert summary.json()["top_wines"][0]["bottles"] == 2
     assert summary.json()["least_sold_wines"][0]["current_stock"] == 1
 
@@ -142,6 +145,56 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert voided.json()["voided_at"] is not None
     assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 3
     assert client.get("/api/v1/sales/summary").json()["currencies"] == []
+
+
+def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    low_stock = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Excel Barolo",
+            "producer": "Export Estate",
+            "vintage": "2019",
+            "quantity": 2,
+            "price": 20,
+            "sale_price": 55,
+            "currency": "CHF",
+            "type": "Red",
+        },
+    )
+    assert low_stock.status_code == 201
+    assert client.post(
+        "/api/v1/wines",
+        json={"name": "Missing Price", "quantity": 4, "price": 12, "currency": "CHF"},
+    ).status_code == 201
+    assert client.post(
+        "/api/v1/sales",
+        json={"wine_id": low_stock.json()["id"], "quantity": 1, "sold_at": "2026-08-10"},
+    ).status_code == 201
+
+    exported = client.get(
+        "/api/v1/sales/export.xlsx",
+        params={"from_date": "2026-08-01", "to_date": "2026-08-31", "locale": "it"},
+    )
+    assert exported.status_code == 200
+    assert exported.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    workbook = load_workbook(BytesIO(exported.content), read_only=True, data_only=True)
+    assert workbook.sheetnames == [
+        "Riepilogo",
+        "Vendite",
+        "Produttori",
+        "Inventario",
+        "Da riordinare",
+        "Prezzi mancanti",
+    ]
+    assert workbook["Vendite"]["B2"].value == "Excel Barolo"
+    assert workbook["Produttori"]["A2"].value == "Export Estate"
+    assert workbook["Da riordinare"]["A2"].value == "Excel Barolo"
+    assert workbook["Prezzi mancanti"]["A2"].value == "Missing Price"
 
 
 def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():

@@ -146,6 +146,7 @@ export type RestaurantSalesSummary = {
   least_sold_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string; current_stock: number }>;
   sales_by_type: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
   sales_by_region: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
+  sales_by_producer: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
   recent_sales: WineSale[];
 };
 

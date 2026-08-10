@@ -4,6 +4,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,8 +21,16 @@ from app.schemas.sale import (
     WineSalesSummaryResponse,
     WineSaleVoid,
 )
+from app.services.restaurant_excel import build_restaurant_excel
 
 router = APIRouter(prefix="/sales")
+
+
+def validate_sales_period(from_date: date, to_date: date) -> None:
+    if from_date > to_date or (to_date - from_date).days > 730:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid sales period"
+        )
 
 
 def sale_response(sale: WineSale, wine: Wine) -> WineSaleResponse:
@@ -68,16 +77,22 @@ def create_sale(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineSaleResponse:
     wine = db.scalar(
-        select(Wine).where(
+        select(Wine)
+        .where(
             Wine.id == payload.wine_id,
             Wine.household_id == context.household.id,
-        ).with_for_update()
+        )
+        .with_for_update()
     )
     if wine is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
     if payload.quantity > wine.quantity:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock")
-    unit_sale_price = payload.unit_sale_price if payload.unit_sale_price is not None else wine.sale_price
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock"
+        )
+    unit_sale_price = (
+        payload.unit_sale_price if payload.unit_sale_price is not None else wine.sale_price
+    )
     if unit_sale_price is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -132,8 +147,7 @@ def sales_summary(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> WineSalesSummaryResponse:
-    if from_date > to_date or (to_date - from_date).days > 730:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Invalid sales period")
+    validate_sales_period(from_date, to_date)
     rows = db.execute(
         select(WineSale, Wine)
         .join(Wine, Wine.id == WineSale.wine_id)
@@ -154,6 +168,7 @@ def sales_summary(
     wine_totals: dict[tuple[UUID, str], dict[str, Decimal | int | str]] = {}
     type_totals: dict[tuple[str, str], dict[str, Decimal | int]] = {}
     region_totals: dict[tuple[str, str], dict[str, Decimal | int]] = {}
+    producer_totals: dict[tuple[str, str], dict[str, Decimal | int]] = {}
     for sale, wine in rows:
         revenue = sale.unit_sale_price * sale.quantity
         cost = sale.unit_purchase_cost * sale.quantity
@@ -180,6 +195,7 @@ def sales_summary(
         for totals_map, label in (
             (type_totals, wine.type.strip() or "Other"),
             (region_totals, wine.region.strip() or "Not specified"),
+            (producer_totals, wine.producer.strip() or "Not specified"),
         ):
             breakdown = totals_map.setdefault(
                 (label, currency),
@@ -204,7 +220,9 @@ def sales_summary(
                 if revenue
                 else Decimal("0"),
                 bottles=bottles,
-                average_sale_price=(revenue / bottles).quantize(Decimal("0.01")) if bottles else Decimal("0"),
+                average_sale_price=(revenue / bottles).quantize(Decimal("0.01"))
+                if bottles
+                else Decimal("0"),
             )
         )
     series = [
@@ -258,6 +276,7 @@ def sales_summary(
             )
             for key, totals in ordered
         ]
+
     return WineSalesSummaryResponse(
         from_date=from_date,
         to_date=to_date,
@@ -280,24 +299,22 @@ def sales_summary(
                 wine_id=wine.id,
                 label=" ".join(part for part in [wine.name, wine.vintage] if part),
                 bottles=int(
-                    wine_totals.get(
-                        (wine.id, (wine.currency or "CHF").upper()), {}
-                    ).get("bottles", 0)
+                    wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get(
+                        "bottles", 0
+                    )
                 ),
                 revenue=Decimal(
-                    wine_totals.get(
-                        (wine.id, (wine.currency or "CHF").upper()), {}
-                    ).get("revenue", 0)
+                    wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get(
+                        "revenue", 0
+                    )
                 ),
                 gross_margin=Decimal(
-                    wine_totals.get(
-                        (wine.id, (wine.currency or "CHF").upper()), {}
-                    ).get("revenue", 0)
+                    wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get(
+                        "revenue", 0
+                    )
                 )
                 - Decimal(
-                    wine_totals.get(
-                        (wine.id, (wine.currency or "CHF").upper()), {}
-                    ).get("cost", 0)
+                    wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get("cost", 0)
                 ),
                 currency=(wine.currency or "CHF").upper(),
                 current_stock=wine.quantity,
@@ -306,5 +323,58 @@ def sales_summary(
         ],
         sales_by_type=breakdown_items(type_totals),
         sales_by_region=breakdown_items(region_totals),
+        sales_by_producer=breakdown_items(producer_totals),
         recent_sales=[sale_response(sale, wine) for sale, wine in rows[:20]],
+    )
+
+
+@router.get("/export.xlsx")
+def export_restaurant_excel(
+    from_date: date = Query(default_factory=lambda: datetime.now(UTC).date() - timedelta(days=29)),
+    to_date: date = Query(default_factory=lambda: datetime.now(UTC).date()),
+    locale: str = Query(default="it", pattern="^(it|en)$"),
+    low_stock_threshold: int = Query(default=2, ge=1, le=25),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> StreamingResponse:
+    validate_sales_period(from_date, to_date)
+    if context.household.operating_mode != "restaurant":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Excel operations export is available only for restaurant cellars",
+        )
+    sales_rows = list(
+        db.execute(
+            select(WineSale, Wine)
+            .join(Wine, Wine.id == WineSale.wine_id)
+            .where(
+                WineSale.household_id == context.household.id,
+                WineSale.sold_at >= from_date,
+                WineSale.sold_at <= to_date,
+                WineSale.voided_at.is_(None),
+            )
+            .order_by(WineSale.sold_at.asc(), WineSale.created_at.asc())
+        ).all()
+    )
+    inventory = list(
+        db.scalars(
+            select(Wine)
+            .where(Wine.household_id == context.household.id, Wine.quantity > 0)
+            .order_by(Wine.name.asc(), Wine.vintage.desc())
+        )
+    )
+    workbook = build_restaurant_excel(
+        context.household,
+        sales_rows,
+        inventory,
+        from_date,
+        to_date,
+        locale,
+        low_stock_threshold,
+    )
+    filename = f"vinaris-restaurant-{from_date.isoformat()}-{to_date.isoformat()}.xlsx"
+    return StreamingResponse(
+        workbook,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )

@@ -1,6 +1,6 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import type { Locale, RestaurantSalesSummary, Wine } from "../types";
-import { api } from "../services/api";
+import { api, extractApiErrorText } from "../services/api";
 import { formatMoney } from "../components/panelSupport";
 import { displayValue, translate } from "../i18n";
 import { normalizeWineType } from "../domain/wineTypes";
@@ -123,7 +123,7 @@ function hasCompleteDrinkWindow(wine: Wine) {
     .every((value) => typeof value === "number");
 }
 
-function PeriodSelector({ locale, period, setPeriod, fromDate, setFromDate, toDate, setToDate, onNavigate, canNavigateForward }: {
+function PeriodSelector({ locale, period, setPeriod, fromDate, setFromDate, toDate, setToDate, onNavigate, canNavigateForward, onExport, exporting }: {
   locale: Locale;
   period: Period;
   setPeriod: (period: Period) => void;
@@ -133,6 +133,8 @@ function PeriodSelector({ locale, period, setPeriod, fromDate, setFromDate, toDa
   setToDate: (date: string) => void;
   onNavigate: (direction: -1 | 1) => void;
   canNavigateForward: boolean;
+  onExport: () => void;
+  exporting: boolean;
 }) {
   return <div className="restaurant-period-selector">
     <div className="restaurant-periods" role="group" aria-label={locale === "it" ? "Periodo del grafico" : "Chart period"}>
@@ -140,6 +142,7 @@ function PeriodSelector({ locale, period, setPeriod, fromDate, setFromDate, toDa
     </div>
     {period !== "custom" ? <div className="restaurant-period-navigation"><button type="button" className="secondary compact" onClick={() => onNavigate(-1)} aria-label={locale === "it" ? "Periodo precedente" : "Previous period"}>‹</button><button type="button" className="secondary compact" onClick={() => onNavigate(1)} disabled={!canNavigateForward} aria-label={locale === "it" ? "Periodo successivo" : "Next period"}>›</button></div> : null}
     {period === "custom" ? <div className="restaurant-custom-dates"><label>{locale === "it" ? "Dal" : "From"}<LocalizedDateInput locale={locale} value={fromDate} onChange={setFromDate} label={locale === "it" ? "Data iniziale" : "Start date"} /></label><label>{locale === "it" ? "Al" : "To"}<LocalizedDateInput locale={locale} value={toDate} onChange={setToDate} label={locale === "it" ? "Data finale" : "End date"} /></label></div> : null}
+    <button type="button" className="secondary compact restaurant-excel-export" disabled={exporting} onClick={onExport}>{exporting ? (locale === "it" ? "Preparo Excel…" : "Preparing Excel…") : (locale === "it" ? "Esporta Excel" : "Export Excel")}</button>
   </div>;
 }
 
@@ -322,6 +325,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
   const [toDate, setToDate] = useState(isoDate(new Date()));
   const [summary, setSummary] = useState<RestaurantSalesSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState("");
   const [libraryPhotoUrls, setLibraryPhotoUrls] = useState<Record<string, string>>({});
   const inventoryWines = wines.filter((wine) => wine.quantity > 0);
@@ -398,6 +402,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           least_sold_wines: Array.isArray(result.least_sold_wines) ? result.least_sold_wines : [],
           sales_by_type: Array.isArray(result.sales_by_type) ? result.sales_by_type : [],
           sales_by_region: Array.isArray(result.sales_by_region) ? result.sales_by_region : [],
+          sales_by_producer: Array.isArray(result.sales_by_producer) ? result.sales_by_producer : [],
           recent_sales: Array.isArray(result.recent_sales) ? result.recent_sales : [],
         });
         setError("");
@@ -432,6 +437,31 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     if (!reason?.trim()) return;
     await api(`/api/v1/sales/${saleId}/void`, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
     await onChanged();
+  }
+
+  async function exportExcel() {
+    setExportingExcel(true);
+    setError("");
+    try {
+      const query = new URLSearchParams({ from_date: fromDate, to_date: toDate, locale });
+      const response = await fetch(`/api/v1/sales/export.xlsx?${query.toString()}`, { credentials: "include" });
+      if (!response.ok) {
+        const message = extractApiErrorText(await response.text());
+        throw new Error(message || `Request failed: ${response.status}`);
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `vinaris-ristorante-${fromDate}-${toDate}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : (locale === "it" ? "Impossibile esportare il file Excel" : "Unable to export Excel file"));
+    } finally {
+      setExportingExcel(false);
+    }
   }
 
   return <section className={`restaurant-dashboard${mode === "restaurant" && restaurantDashboardView === "intelligence" ? " is-intelligence" : ""}`}>
@@ -504,7 +534,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       </section>
     </details> : null}
     {error ? <p className="error-banner">{error}</p> : null}
-    {mode === "restaurant" ? <header className="restaurant-section-title restaurant-sales-heading"><div><p className="eyebrow">{locale === "it" ? "Vendite" : "Sales"}</p><h2>{locale === "it" ? "Performance del periodo" : "Period performance"}</h2></div><PeriodSelector locale={locale} period={period} setPeriod={setPeriod} fromDate={fromDate} setFromDate={setFromDate} toDate={toDate} setToDate={setToDate} onNavigate={navigatePeriod} canNavigateForward={toDate < isoDate(new Date())} /><span>{displayDate(fromDate, locale)} — {displayDate(toDate, locale)}</span></header> : null}
+    {mode === "restaurant" ? <header className="restaurant-section-title restaurant-sales-heading"><div><p className="eyebrow">{locale === "it" ? "Vendite" : "Sales"}</p><h2>{locale === "it" ? "Performance del periodo" : "Period performance"}</h2></div><PeriodSelector locale={locale} period={period} setPeriod={setPeriod} fromDate={fromDate} setFromDate={setFromDate} toDate={toDate} setToDate={setToDate} onNavigate={navigatePeriod} canNavigateForward={toDate < isoDate(new Date())} onExport={() => void exportExcel()} exporting={exportingExcel} /><span>{displayDate(fromDate, locale)} — {displayDate(toDate, locale)}</span></header> : null}
     {loading && !summary ? <p>{locale === "it" ? "Caricamento vendite…" : "Loading sales…"}</p> : null}
     {summary?.currencies.map((totals) => <section className="restaurant-currency" key={totals.currency}>
       <div className="restaurant-kpis">
@@ -549,14 +579,15 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     })}
     {mode === "restaurant" && summary ? <div className="restaurant-sales-breakdowns">
       {([
-        [locale === "it" ? "Vendite per tipologia" : "Sales by wine type", summary.sales_by_type],
-        [locale === "it" ? "Vendite per regione" : "Sales by region", summary.sales_by_region],
-      ] as const).map(([title, items]) => <details className="restaurant-panel restaurant-sales-breakdown restaurant-collapsible" key={title}>
-        <summary><h2>{title}</h2><span>{locale === "it" ? "Bottiglie · ricavi · margine" : "Bottles · revenue · margin"}</span></summary>
-        {items.length ? <div>{items.map((item) => {
+        { title: locale === "it" ? "Vendite per tipologia" : "Sales by wine type", items: summary.sales_by_type, kind: "type" },
+        { title: locale === "it" ? "Vendite per regione" : "Sales by region", items: summary.sales_by_region, kind: "region" },
+        { title: locale === "it" ? "Vendite per produttore" : "Sales by producer", items: summary.sales_by_producer, kind: "producer" },
+      ] as const).map(({ title, items, kind }) => <details className="restaurant-panel restaurant-sales-breakdown restaurant-collapsible" style={kind === "producer" ? { gridColumn: "1 / -1" } : undefined} key={title}>
+        <summary><h2>{title}</h2><span>{kind === "producer" ? (locale === "it" ? "Top 10 · bottiglie · ricavi · margine" : "Top 10 · bottles · revenue · margin") : (locale === "it" ? "Bottiglie · ricavi · margine" : "Bottles · revenue · margin")}</span></summary>
+        {items.length ? <div>{items.slice(0, kind === "producer" ? 10 : undefined).map((item) => {
           const maxBottles = Math.max(...items.map((entry) => entry.bottles), 1);
           return <article key={`${item.label}-${item.currency}`}>
-            <div><strong>{title === (locale === "it" ? "Vendite per tipologia" : "Sales by wine type") ? (displayValue(item.label, locale, "type") || item.label) : item.label}</strong><span>{item.bottles} {locale === "it" ? "vendute" : "sold"}</span></div>
+            <div><strong>{kind === "type" ? (displayValue(item.label, locale, "type") || item.label) : item.label}</strong><span>{item.bottles} {locale === "it" ? "vendute" : "sold"}</span></div>
             <i><b style={{ width: `${(item.bottles / maxBottles) * 100}%` }} /></i>
             <div className="restaurant-breakdown-money"><span>{formatMoney(item.revenue, item.currency, locale)}</span><strong>{formatMoney(item.gross_margin, item.currency, locale)}</strong></div>
           </article>;
