@@ -10122,6 +10122,9 @@ export function App() {
                               />
                               <small>{t("recognitionVintageHelp")}</small>
                             </label>
+                            <div className="vintage-quick-choices" role="group" aria-label={t("vintageHelp")}>
+                              {(["NV", "MV"] as const).map((value) => <button key={value} type="button" className={`secondary compact vintage-choice${draft.vintage.trim().toUpperCase() === value ? " is-selected" : ""}`} aria-pressed={draft.vintage.trim().toUpperCase() === value} disabled={!canWriteWine || wineEnrichmentLoading} onClick={() => setDraft((current) => ({ ...current, vintage: value }))}>{value}</button>)}
+                            </div>
                             <button type="button" className="compact" disabled={wineEnrichmentLoading || wineRecognitionLoading} onClick={() => void confirmWineImageRecognition()}>
                               <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("confirmRecognitionAndSearch")} busyLabel={t("generating")} />
                             </button>
@@ -10282,11 +10285,16 @@ export function App() {
                   </label>
                 </div>
                   <div className="form-row">
-                    <label>
-                      <span>{t("vintage")}</span>
-                      <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} />
+                    <div className="vintage-field">
+                      <label>
+                        <span>{t("vintage")}</span>
+                        <input value={draft.vintage} onChange={(event) => setDraft({ ...draft, vintage: event.target.value })} disabled={!canWriteWine} autoComplete="off" />
+                      </label>
+                      <div className="vintage-quick-choices" role="group" aria-label={t("vintageHelp")}>
+                        {(["NV", "MV"] as const).map((value) => <button key={value} type="button" className={`secondary compact vintage-choice${draft.vintage.trim().toUpperCase() === value ? " is-selected" : ""}`} aria-pressed={draft.vintage.trim().toUpperCase() === value} disabled={!canWriteWine} onClick={() => setDraft({ ...draft, vintage: value })}>{value}</button>)}
+                      </div>
                       <small className="form-hint">{t("vintageHelp")}</small>
-                    </label>
+                    </div>
                     <label>
                       <span>{t("quantity")}</span>
                       <input type="number" min="0" value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} disabled={!canWriteWine} />
@@ -10625,10 +10633,16 @@ export function App() {
                   <input value={wishlistDraft.producer} onChange={(event) => setWishlistDraft({ ...wishlistDraft, producer: event.target.value })} disabled={!canWriteWine} />
                 </label>
                 <div className="form-row">
-                  <label>
-                    <span>{t("vintage")}</span>
-                    <input value={wishlistDraft.vintage} onChange={(event) => setWishlistDraft({ ...wishlistDraft, vintage: event.target.value })} disabled={!canWriteWine} />
-                  </label>
+                  <div className="vintage-field">
+                    <label>
+                      <span>{t("vintage")}</span>
+                      <input value={wishlistDraft.vintage} onChange={(event) => setWishlistDraft({ ...wishlistDraft, vintage: event.target.value })} disabled={!canWriteWine} autoComplete="off" />
+                    </label>
+                    <div className="vintage-quick-choices" role="group" aria-label={t("vintageHelp")}>
+                      {(["NV", "MV"] as const).map((value) => <button key={value} type="button" className={`secondary compact vintage-choice${wishlistDraft.vintage.trim().toUpperCase() === value ? " is-selected" : ""}`} aria-pressed={wishlistDraft.vintage.trim().toUpperCase() === value} disabled={!canWriteWine} onClick={() => setWishlistDraft({ ...wishlistDraft, vintage: value })}>{value}</button>)}
+                    </div>
+                    <small className="form-hint">{t("vintageHelp")}</small>
+                  </div>
                   <label>
                     <span>{locale === "it" ? "Prezzo offerto" : "Offer price"}</span>
                     <input type="number" min="0" step="0.01" value={wishlistDraft.offer_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, offer_price: event.target.value })} disabled={!canWriteWine} />

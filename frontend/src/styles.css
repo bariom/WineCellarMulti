@@ -3625,6 +3625,33 @@ summary:focus-visible {
   line-height: 1.35;
 }
 
+.vintage-field {
+  display: grid;
+  align-content: start;
+  gap: 6px;
+  min-width: 0;
+}
+
+.vintage-quick-choices {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button.vintage-choice {
+  min-width: 42px;
+  min-height: 30px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+button.vintage-choice.is-selected {
+  border-color: color-mix(in srgb, var(--primary) 68%, var(--border));
+  color: var(--primary-contrast);
+  background: var(--primary);
+}
+
 .manual-ai-search {
   display: grid;
   justify-items: start;
