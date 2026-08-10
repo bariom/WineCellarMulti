@@ -365,6 +365,14 @@ def update_active_household(
             )
         context.household.name = name
     if payload.operating_mode is not None:
+        if (
+            context.household.operating_mode == "restaurant"
+            and payload.operating_mode != "restaurant"
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="A restaurant cellar cannot be changed back to private",
+            )
         ensure_restaurant_mode_available(context, payload.operating_mode)
         ensure_restaurant_cellar_limit(
             db,

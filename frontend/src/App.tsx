@@ -12431,7 +12431,7 @@ export function App() {
                     <span>{t("cellarName")}</span>
                     <input
                       value={householdNameDraft}
-                      disabled={!canAdmin || saving}
+                      disabled={!canAdmin || saving || session?.active_household_mode === "restaurant"}
                       onChange={(event) => setHouseholdNameDraft(event.target.value)}
                       required
                     />
@@ -12454,10 +12454,14 @@ export function App() {
                   </label>
                   <p className="empty-state">
                     {locale === "it"
-                      ? hasAnotherRestaurantCellar
+                      ? session?.active_household_mode === "restaurant"
+                        ? "Una cantina ristorante resta ristorante e non può essere riconvertita in cantina privata."
+                        : hasAnotherRestaurantCellar
                         ? "Hai già una cantina ristorante: ogni utente può usarne una sola."
                         : "La modalità ristorante sostituisce la degustazione con la vendita e abilita ricavi e margine lordo. I dati esistenti non vengono rimossi."
-                      : hasAnotherRestaurantCellar
+                      : session?.active_household_mode === "restaurant"
+                        ? "A restaurant cellar stays a restaurant cellar and cannot be converted back to private."
+                        : hasAnotherRestaurantCellar
                         ? "You already have a restaurant cellar: each user can use only one."
                         : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
                   </p>

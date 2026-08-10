@@ -206,6 +206,16 @@ def test_user_can_have_only_one_restaurant_cellar():
     assert direct_duplicate.status_code == 409
 
 
+def test_restaurant_cellar_cannot_be_changed_back_to_private():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+
+    reverted = client.patch("/api/v1/household", json={"operating_mode": "private"})
+    assert reverted.status_code == 409
+    assert reverted.json()["detail"] == "A restaurant cellar cannot be changed back to private"
+
+
 def register(
     client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
 ):
