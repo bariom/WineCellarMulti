@@ -11,6 +11,40 @@ import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } 
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
+
+function ProgressiveBottlePhoto({ detailUrl, thumbnailUrl, alt }: { detailUrl: string; thumbnailUrl: string; alt: string }) {
+  const [loadedDetailUrl, setLoadedDetailUrl] = useState("");
+  const showsDetail = loadedDetailUrl === detailUrl || !thumbnailUrl || thumbnailUrl === detailUrl;
+  const visibleUrl = showsDetail ? detailUrl : thumbnailUrl;
+
+  useEffect(() => {
+    setLoadedDetailUrl("");
+    if (!detailUrl || !thumbnailUrl || thumbnailUrl === detailUrl) return;
+    let active = true;
+    const image = new Image();
+    image.fetchPriority = "high";
+    image.decoding = "async";
+    image.onload = () => {
+      const decoded = image.decode?.();
+      if (decoded) {
+        void decoded.catch(() => undefined).finally(() => {
+          if (active) setLoadedDetailUrl(detailUrl);
+        });
+      } else if (active) {
+        setLoadedDetailUrl(detailUrl);
+      }
+    };
+    image.src = detailUrl;
+    return () => {
+      active = false;
+    };
+  }, [detailUrl, thumbnailUrl]);
+
+  return <img src={visibleUrl} alt={alt} decoding="async" fetchPriority="high" onError={() => {
+    if (visibleUrl !== detailUrl) setLoadedDetailUrl(detailUrl);
+  }} />;
+}
+
 export function DrinkWindowMini({ wine }: { wine: Wine }) {
   if (!wine.drink_from || !wine.drink_to) return null;
   const drinkStart = wine.drink_from;
@@ -946,7 +980,7 @@ export function WineDetail({
         <div className="detail-title">
           {showBottlePhoto && wine.photo_detail_url ? (
             <div className="detail-bottle-photo">
-              <img src={wine.photo_detail_url} alt={`${wine.name} ${wine.vintage}`.trim()} />
+              <ProgressiveBottlePhoto detailUrl={wine.photo_detail_url} thumbnailUrl={wine.photo_thumbnail_url} alt={`${wine.name} ${wine.vintage}`.trim()} />
             </div>
           ) : null}
           <div>
