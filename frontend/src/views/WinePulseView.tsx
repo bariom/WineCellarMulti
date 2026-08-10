@@ -189,7 +189,9 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
         {feed?.total ? (
           <div className="wine-pulse-edition-mark">
             <span>{view === "archive" ? (locale === "it" ? "Archivio Wine Pulse" : "Wine Pulse archive") : (locale === "it" ? "Edizione corrente" : "Current edition")}</span>
-            <strong>{feed.total} {locale === "it" ? (feed.total === 1 ? "storia" : "storie") : (feed.total === 1 ? "story" : "stories")}{view === "current" ? (locale === "it" ? " selezionata" : " selected") : ""}</strong>
+            <strong>{locale === "it"
+              ? `${feed.total} ${feed.total === 1 ? "storia" : "storie"}${view === "current" ? (feed.total === 1 ? " selezionata" : " selezionate") : ""}`
+              : `${feed.total} ${feed.total === 1 ? "story" : "stories"}${view === "current" ? " selected" : ""}`}</strong>
           </div>
         ) : null}
       </header>

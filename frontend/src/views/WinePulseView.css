@@ -17,7 +17,7 @@
   display: grid;
   gap: 8px;
   overflow: hidden;
-  padding: clamp(24px, 5vw, 52px);
+  padding: clamp(22px, 3.5vw, 36px);
   border: 1px solid var(--pulse-rule);
   border-radius: 22px;
   background:
@@ -47,10 +47,10 @@
 }
 
 .wine-pulse-hero-kicker { gap: 8px; color: var(--accent); font-size: .74rem; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
-.wine-pulse-hero h1 { margin: 0; color: var(--pulse-ink); font-family: var(--font-display); font-size: clamp(2.8rem, 7vw, 5.4rem); line-height: .95; }
+.wine-pulse-hero h1 { margin: 0; color: var(--pulse-ink); font-family: var(--font-display); font-size: clamp(2.6rem, 5vw, 4.4rem); line-height: .95; }
 .wine-pulse-hero > p { max-width: 700px; margin: 4px 0 0; color: var(--text-muted); font-size: clamp(1rem, 2vw, 1.2rem); line-height: 1.55; }
 .wine-pulse-hero > small { margin-top: 10px; color: var(--text-subtle); }
-.wine-pulse-edition-mark { display: inline-grid; gap: 2px; width: fit-content; margin-top: 8px; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--pulse-rule)); border-radius: 9px; background: color-mix(in srgb, var(--surface-raised) 76%, var(--accent)); }
+.wine-pulse-edition-mark { position: absolute; z-index: 1; top: clamp(18px, 2.5vw, 28px); right: clamp(18px, 3vw, 32px); display: inline-grid; gap: 2px; width: fit-content; padding: 9px 12px; border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--pulse-rule)); border-radius: 9px; background: color-mix(in srgb, var(--surface-raised) 88%, var(--accent)); }
 .wine-pulse-edition-mark span { color: var(--text-subtle); font-size: .64rem; font-weight: 850; letter-spacing: .085em; text-transform: uppercase; }
 .wine-pulse-edition-mark strong { color: var(--pulse-ink); font-family: var(--font-display); font-size: .94rem; }
 
@@ -111,6 +111,7 @@
 @media (max-width: 820px) {
   .wine-pulse-view { gap: 16px; padding-top: 0; }
   .wine-pulse-hero { padding: 24px 20px; border-radius: 17px; }
+  .wine-pulse-edition-mark { position: static; margin-top: 8px; }
   .wine-pulse-controls { align-items: stretch; flex-direction: column; }
   .wine-pulse-controls label { align-items: stretch; flex-direction: column; gap: 5px; }
   .wine-pulse-controls select { width: 100%; min-width: 0; }
