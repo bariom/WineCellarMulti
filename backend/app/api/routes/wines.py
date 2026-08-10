@@ -1110,6 +1110,21 @@ def get_wine(
     context: CurrentContext = Depends(get_current_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
+    # A shared fact can be created after this record was added (for example when
+    # an older cellar is migrated). Reconcile a missing window when the user
+    # opens the wine, without adding any AI/provider call to the request.
+    if not all(
+        value is not None
+        for value in (
+            wine.drink_from,
+            wine.drink_peak_from,
+            wine.drink_peak_to,
+            wine.drink_to,
+        )
+    ):
+        if hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it"):
+            db.commit()
+            db.refresh(wine)
     return wine_response(
         wine,
         user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),

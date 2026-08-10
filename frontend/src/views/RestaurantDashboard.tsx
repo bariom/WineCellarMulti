@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { Locale, RestaurantSalesSummary, Wine } from "../types";
 import { api } from "../services/api";
 import { formatMoney } from "../components/panelSupport";
+import { displayValue } from "../i18n";
 import "./RestaurantDashboard.css";
 
 type Period = "week" | "month" | "semester" | "year" | "custom";
@@ -27,6 +28,45 @@ function bottleDistribution(wines: Wine[], field: "type" | "region", fallback: s
     .map(([label, bottles]) => ({ label, bottles }))
     .sort((first, second) => second.bottles - first.bottles)
     .slice(0, 6);
+}
+
+function numberValue(value: string | number | null | undefined) {
+  const parsed = Number(value || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function RevenueLineChart({ points, locale, currency }: {
+  points: RestaurantSalesSummary["series"];
+  locale: Locale;
+  currency: string;
+}) {
+  const values = points.map((point) => numberValue(point.revenue));
+  const peak = Math.max(...values, 1);
+  const width = 720;
+  const height = 228;
+  const padding = { top: 22, right: 18, bottom: 34, left: 48 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const coordinates = values.map((value, index) => ({
+    x: padding.left + (values.length === 1 ? innerWidth / 2 : (index / (values.length - 1)) * innerWidth),
+    y: padding.top + innerHeight - (value / peak) * innerHeight,
+  }));
+  const line = coordinates.map((point, index) => `${index ? "L" : "M"}${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+  const lastCoordinate = coordinates[coordinates.length - 1];
+  const area = coordinates.length ? `${line} L${lastCoordinate.x},${padding.top + innerHeight} L${coordinates[0].x},${padding.top + innerHeight} Z` : "";
+  const ticks = [...new Set([0, Math.floor((points.length - 1) / 2), Math.max(points.length - 1, 0)])];
+  const formatDate = (date: string) => new Date(`${date}T00:00:00`).toLocaleDateString(locale, { day: "2-digit", month: "short" });
+
+  return <div className="restaurant-line-chart" aria-label={locale === "it" ? `Andamento ricavi in ${currency}` : `Revenue trend in ${currency}`}>
+    <svg viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" role="img">
+      <defs><linearGradient id={`revenue-area-${currency}`} x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stopColor="var(--accent)" stopOpacity=".32" /><stop offset="100%" stopColor="var(--accent)" stopOpacity="0" /></linearGradient></defs>
+      {[0, .5, 1].map((ratio) => <line key={ratio} x1={padding.left} x2={width - padding.right} y1={padding.top + innerHeight * ratio} y2={padding.top + innerHeight * ratio} className="restaurant-chart-gridline" />)}
+      <text x="0" y={padding.top + 4} className="restaurant-chart-axis">{formatMoney(peak, currency, locale)}</text><text x="0" y={padding.top + innerHeight + 4} className="restaurant-chart-axis">0</text>
+      {area ? <path d={area} fill={`url(#revenue-area-${currency})`} /> : null}{line ? <path d={line} className="restaurant-chart-line" /> : null}
+      {coordinates.map((point, index) => <circle key={points[index].date} cx={point.x} cy={point.y} r="4.5" className="restaurant-chart-point"><title>{`${formatDate(points[index].date)} · ${formatMoney(values[index], currency, locale)}`}</title></circle>)}
+      {ticks.map((index) => points[index] ? <text key={index} x={coordinates[index].x} y={height - 7} textAnchor="middle" className="restaurant-chart-axis">{formatDate(points[index].date)}</text> : null)}
+    </svg>
+  </div>;
 }
 
 export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, onChanged, onOpenIncompleteWines, mode = "restaurant", wines = [] }: {
@@ -161,7 +201,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
         </section>
         <section className="restaurant-panel restaurant-mix-panel">
           <header><div><span>{locale === "it" ? "Profilo" : "Profile"}</span><h2>{locale === "it" ? "Tipologie" : "Wine types"}</h2></div></header>
-          <div className="restaurant-distribution">{types.map((item) => <div key={item.label}><div><span>{item.label}</span><strong>{item.bottles}</strong></div><i><b style={{ width: `${(item.bottles / Math.max(types[0]?.bottles || 1, 1)) * 100}%` }} /></i></div>)}</div>
+          <div className="restaurant-distribution">{types.map((item) => <div key={item.label}><div><span>{displayValue(item.label, locale, "type") || item.label}</span><strong>{item.bottles}</strong></div><i><b style={{ width: `${(item.bottles / Math.max(types[0]?.bottles || 1, 1)) * 100}%` }} /></i></div>)}</div>
         </section>
         <section className="restaurant-panel restaurant-mix-panel">
           <header><div><span>{locale === "it" ? "Provenienza" : "Origin"}</span><h2>{locale === "it" ? "Top regioni" : "Top regions"}</h2></div></header>
@@ -183,8 +223,28 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     {!summary?.currencies.length && !loading ? <div className="restaurant-empty"><strong>{locale === "it" ? "Nessuna vendita nel periodo" : "No sales in this period"}</strong><span>{locale === "it" ? "Apri una bottiglia in cantina e usa “Venduta 1” per iniziare." : "Open a bottle in the cellar and use “Sell bottles” to begin."}</span></div> : null}
     {summary?.currencies.map(({ currency }) => {
       const points = summary.series.filter((point) => point.currency === currency);
-      const peakRevenue = Math.max(...points.map((point) => Number(point.revenue)), 1);
-      return points.length ? <section className="restaurant-panel" key={`chart-${currency}`}><header><h2>{mode === "private" ? (locale === "it" ? `Capitale recuperato · ${currency}` : `Recovered capital · ${currency}`) : (locale === "it" ? `Andamento ricavi · ${currency}` : `Revenue trend · ${currency}`)}</h2></header><div className="restaurant-chart">{points.map((point) => <div className="restaurant-chart-column" key={`${point.date}-${currency}`} title={`${point.date}: ${point.revenue} ${currency}`}><i style={{ height: `${Math.max((Number(point.revenue) / peakRevenue) * 100, 3)}%` }} /><span>{new Date(`${point.date}T00:00:00`).toLocaleDateString(locale, { day: "2-digit", month: "short" })}</span></div>)}</div></section> : null;
+      const totals = summary.currencies.find((item) => item.currency === currency);
+      if (!points.length || !totals) return null;
+      const grossMargin = numberValue(totals.gross_margin);
+      const bottles = Math.max(totals.bottles, 1);
+      const stockInCurrency = inventoryWines
+        .filter((wine) => (wine.currency || "CHF").toUpperCase() === currency)
+        .reduce((total, wine) => total + wine.quantity, 0);
+      const sellThrough = totals.bottles + stockInCurrency ? (totals.bottles / (totals.bottles + stockInCurrency)) * 100 : 0;
+      return <section className="restaurant-performance-panel" key={`chart-${currency}`}>
+        <header className="restaurant-performance-head">
+          <div><p className="eyebrow">{locale === "it" ? "Andamento" : "Performance"}</p><h2>{mode === "private" ? (locale === "it" ? `Capitale recuperato · ${currency}` : `Recovered capital · ${currency}`) : (locale === "it" ? `Ricavi e ritmo di vendita · ${currency}` : `Revenue and sales pace · ${currency}`)}</h2></div>
+          <span>{locale === "it" ? `${points.length} giorni con vendite` : `${points.length} sales days`}</span>
+        </header>
+        <div className="restaurant-performance-body">
+          <RevenueLineChart points={points} locale={locale} currency={currency} />
+          <aside className="restaurant-insights">
+            <div><span>{locale === "it" ? "Margine per bottiglia" : "Margin per bottle"}</span><strong>{formatMoney(grossMargin / bottles, currency, locale)}</strong><small>{locale === "it" ? "media realizzata" : "realized average"}</small></div>
+            <div><span>{locale === "it" ? "Rotazione del periodo" : "Period sell-through"}</span><strong>{sellThrough.toLocaleString(locale, { maximumFractionDigits: 1 })}%</strong><small>{locale === "it" ? `${totals.bottles} vendute · ${stockInCurrency} in carta` : `${totals.bottles} sold · ${stockInCurrency} on list`}</small></div>
+            <div className={lowStockWines ? "needs-attention" : ""}><span>{locale === "it" ? "Scorte da controllare" : "Stock to review"}</span><strong>{lowStockWines}</strong><small>{locale === "it" ? "referenze con 1–2 bottiglie" : "labels with 1–2 bottles"}</small></div>
+          </aside>
+        </div>
+      </section>;
     })}
     {mode === "restaurant" && summary ? <div className="restaurant-sales-breakdowns">
       {([
@@ -195,7 +255,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
         {items.length ? <div>{items.map((item) => {
           const maxBottles = Math.max(...items.map((entry) => entry.bottles), 1);
           return <article key={`${item.label}-${item.currency}`}>
-            <div><strong>{item.label}</strong><span>{item.bottles} {locale === "it" ? "vendute" : "sold"}</span></div>
+            <div><strong>{title === (locale === "it" ? "Vendite per tipologia" : "Sales by wine type") ? (displayValue(item.label, locale, "type") || item.label) : item.label}</strong><span>{item.bottles} {locale === "it" ? "vendute" : "sold"}</span></div>
             <i><b style={{ width: `${(item.bottles / maxBottles) * 100}%` }} /></i>
             <div className="restaurant-breakdown-money"><span>{formatMoney(item.revenue, item.currency, locale)}</span><strong>{formatMoney(item.gross_margin, item.currency, locale)}</strong></div>
           </article>;

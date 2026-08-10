@@ -345,8 +345,21 @@ def promote_existing_verified_wine_data(
                 model=note_audit.model,
             )
         window_audit = evidence(candidate, "drink_window", "wine_full_enrichment")
-        if (
+        window_summary = str(window_audit.summary or "") if window_audit else ""
+        window_is_audited = bool(
             window_audit
+            and (
+                window_summary.startswith(
+                    f"{candidate.drink_from}-{candidate.drink_to}: "
+                )
+                or (
+                    window_audit.feature == "wine_full_enrichment"
+                    and f"drink {candidate.drink_from}-{candidate.drink_to}" in window_summary
+                )
+            )
+        )
+        if (
+            window_is_audited
             and all(
                 value is not None
                 for value in (
@@ -356,10 +369,6 @@ def promote_existing_verified_wine_data(
                     candidate.drink_to,
                 )
             )
-            and (
-                f"{candidate.drink_from}-{candidate.drink_to}: "
-                f"{candidate.drink_window_notes}"
-            ).startswith(window_audit.summary)
             and get_shared_fact(db, target, "drink_window", locale=locale) is None
         ):
             publish_shared_fact(

@@ -4353,6 +4353,74 @@ def test_shared_wine_data_scopes_drink_window_by_format_and_expires_market_value
         assert get_shared_fact(db, standard, "value", locale="it") is None
 
 
+def test_legacy_full_enrichment_drink_window_is_reused_in_another_cellar():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    source = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Le C des Carmes Haut-Brion",
+            "producer": "Chateau Les Carmes Haut-Brion",
+            "vintage": "2022",
+            "format": "Bottiglia (750ml)",
+            "quantity": 1,
+        },
+    )
+    assert source.status_code == 201
+    session = client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        wine = db.get(Wine, uuid.UUID(source.json()["id"]))
+        assert wine is not None
+        wine.drink_from = 2025
+        wine.drink_peak_from = 2028
+        wine.drink_peak_to = 2033
+        wine.drink_to = 2037
+        wine.drink_window_notes = "Finestra di beva già stimata dall'AI."
+        db.add(
+            AiAuditLog(
+                household_id=wine.household_id,
+                user_id=uuid.UUID(session["user_id"]),
+                entity_type="wine",
+                entity_id=wine.id,
+                feature="wine_full_enrichment",
+                summary="CHF 68.00; drink 2025-2037; 2 grapes; scheda completa.",
+            )
+        )
+        db.commit()
+
+    assert client.post("/api/v1/household", json={"name": "Restaurant cellar"}).status_code == 201
+    reused = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Le C des Carmes Haut-Brion",
+            "producer": "Chateau Les Carmes Haut-Brion",
+            "vintage": "2022",
+            "format": "750ml",
+            "quantity": 10,
+        },
+    )
+    assert reused.status_code == 201
+    assert reused.json()["drink_from"] == 2025
+    assert reused.json()["drink_peak_from"] == 2028
+    assert reused.json()["drink_peak_to"] == 2033
+    assert reused.json()["drink_to"] == 2037
+    assert "drink_window" in reused.json()["shared_data_features"]
+    with TestingSessionLocal() as db:
+        restaurant_wine = db.get(Wine, uuid.UUID(reused.json()["id"]))
+        assert restaurant_wine is not None
+        restaurant_wine.drink_from = None
+        restaurant_wine.drink_peak_from = None
+        restaurant_wine.drink_peak_to = None
+        restaurant_wine.drink_to = None
+        restaurant_wine.drink_window_notes = ""
+        db.commit()
+
+    repaired = client.get(f"/api/v1/wines/{reused.json()['id']}")
+    assert repaired.status_code == 200
+    assert repaired.json()["drink_from"] == 2025
+    assert repaired.json()["drink_to"] == 2037
+
+
 def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
     from app.api.routes import ai as ai_routes
 
