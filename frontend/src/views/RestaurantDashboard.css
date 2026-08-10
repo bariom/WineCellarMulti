@@ -28,6 +28,8 @@
 @media(max-width:800px){.restaurant-section-title.restaurant-sales-heading{align-items:stretch;gap:.75rem}.restaurant-sales-heading>.restaurant-period-selector{margin-left:0}.restaurant-sales-heading>span{order:2}.restaurant-sales-heading>.restaurant-period-selector .restaurant-periods{gap:.35rem}.restaurant-sales-heading>.restaurant-period-selector .restaurant-periods button{padding:.5rem .65rem;font-size:.85rem}.restaurant-panel.restaurant-collapsible>summary{align-items:start;padding-right:2.25rem}.restaurant-panel.restaurant-collapsible>summary::after{right:0;top:.85rem;transform:none}.restaurant-panel.restaurant-collapsible[open]>summary::after{transform:none}}
 .restaurant-intelligence-panel.restaurant-collapsible>summary{display:flex;align-items:end;justify-content:space-between;gap:1rem;padding:.1rem 2.5rem .75rem 0;border-bottom:1px solid var(--border)}.restaurant-intelligence-panel.restaurant-collapsible>summary h3{margin:.15rem 0 0}.restaurant-intelligence-panel.restaurant-collapsible>summary>small{color:var(--text-muted);text-align:right}.restaurant-intelligence-panel.restaurant-collapsible:not([open])>summary{padding-bottom:0;border-bottom:0}.restaurant-intelligence-panel.restaurant-collapsible:not([open])>summary::after{top:50%}@media(max-width:800px){.restaurant-intelligence-panel.restaurant-collapsible>summary{align-items:start;flex-direction:column;padding-right:2.25rem}.restaurant-intelligence-panel.restaurant-collapsible>summary>small{text-align:left}.restaurant-intelligence-panel.restaurant-collapsible>summary::after{right:0;top:.85rem;transform:none}.restaurant-intelligence-panel.restaurant-collapsible[open]>summary::after{transform:none}}
 
+.restaurant-mobile-scroll-hint { display: none; }
+
 /* Mobile restaurant operations: preserve tap targets and information hierarchy. */
 @media (max-width: 640px) {
   .restaurant-dashboard { gap: .75rem; min-width: 0; }
@@ -82,12 +84,24 @@
   .restaurant-proposal-list button { min-height: 3.5rem; }
 
   .restaurant-maturity-grid { margin-inline: -.15rem; padding-inline: .15rem; scroll-snap-type: x proximity; }
+  .restaurant-mobile-scroll-hint { display: block; margin: .72rem 0 -.35rem; color: var(--text-muted); font-size: .73rem; }
   .restaurant-maturity-years,
   .restaurant-maturity-row,
   .restaurant-capital-risk-years { min-width: 35rem; }
+  .restaurant-maturity-years > span:first-child,
+  .restaurant-maturity-row > span:first-child,
+  .restaurant-capital-risk-years > span:first-child { position: sticky; left: 0; z-index: 2; padding-inline: .2rem .45rem; background: var(--surface); box-shadow: .45rem 0 .75rem color-mix(in srgb, var(--surface) 86%, transparent); }
+  .restaurant-maturity-years > span:first-child { min-height: 2.65rem; }
   .restaurant-maturity-row button,
   .restaurant-capital-risk-years > span { scroll-snap-align: start; }
   .restaurant-maturity-selection { padding: .65rem; }
+  .restaurant-maturity-selection > div:last-child { display: grid; width: 100%; }
+  .restaurant-maturity-selection button { display: grid; width: 100%; text-align: left; }
+  .restaurant-intelligence-head h2 { font-size: clamp(1.45rem, 7.5vw, 1.9rem); line-height: 1.04; }
+  .restaurant-intelligence-head p { font-size: .86rem; line-height: 1.4; }
+  .restaurant-intelligence-kpis { width: 100%; }
+  .restaurant-intelligence-kpis article { min-height: 6.15rem; }
+  .restaurant-intelligence-panel.restaurant-geography .wine-geography-leaflet { height: 17rem; }
 
   .restaurant-sales-list article { align-items: start; flex-direction: column; gap: .45rem; }
   .restaurant-sales-list article > div:last-child { width: 100%; display: flex; align-items: center; justify-content: space-between; }

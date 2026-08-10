@@ -123,6 +123,22 @@ function hasCompleteDrinkWindow(wine: Wine) {
     .every((value) => typeof value === "number");
 }
 
+function useCompactRestaurantLayout() {
+  const [compact, setCompact] = useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(max-width: 640px)").matches,
+  );
+
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 640px)");
+    const update = () => setCompact(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+
+  return compact;
+}
+
 function PeriodSelector({ locale, period, setPeriod, fromDate, setFromDate, toDate, setToDate, onNavigate, canNavigateForward, onExport, exporting }: {
   locale: Locale;
   period: Period;
@@ -224,6 +240,9 @@ function InteractiveRevenueLineChart({ points, locale, currency }: {
 function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; locale: Locale; onOpenWine: (wineId: string) => void }) {
   const [selectedCell, setSelectedCell] = useState<{ type: string; year: number } | null>(null);
   const [selectedRegion, setSelectedRegion] = useState("");
+  const compactLayout = useCompactRestaurantLayout();
+  const [riskOpen, setRiskOpen] = useState(false);
+  const [geographyOpen, setGeographyOpen] = useState(false);
   const currentYear = new Date().getFullYear();
   const inventory = wines.filter((wine) => wine.quantity > 0);
   const mapped = inventory.filter(hasCompleteDrinkWindow);
@@ -277,6 +296,12 @@ function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; 
   const regionalWines = selectedRegion ? inventory.filter((wine) => wine.region === selectedRegion) : [];
   const t = (key: Parameters<typeof translate>[1]) => translate(locale, key);
 
+  useEffect(() => {
+    if (!compactLayout) return;
+    setRiskOpen(true);
+    setGeographyOpen(true);
+  }, [compactLayout]);
+
   return <section className="restaurant-intelligence">
     <header className="restaurant-intelligence-head">
       <div><p className="eyebrow">{locale === "it" ? "Intelligence di carta" : "Wine list intelligence"}</p><h2>{locale === "it" ? "Maturità, capitale e geografia" : "Maturity, capital and geography"}</h2><p>{locale === "it" ? "Una lettura strategica per trasformare le finestre di beva in decisioni di carta e di rotazione." : "A strategic view that turns drinking windows into wine-list and rotation decisions."}</p></div>
@@ -284,7 +309,7 @@ function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; 
     </header>
     <details className="restaurant-intelligence-panel restaurant-maturity-heatmap restaurant-collapsible" open>
       <summary><div><span>{locale === "it" ? "Mappa di maturità" : "Maturity map"}</span><h3>{locale === "it" ? "Quando la carta è più pronta" : "When the wine list is ready"}</h3></div><small>{locale === "it" ? "Clicca una cella per vedere i vini" : "Select a cell to inspect wines"}</small></summary>
-      {heatmapRows.length ? <div className="restaurant-maturity-grid" style={{ "--restaurant-maturity-years": years.length } as CSSProperties}>
+      {heatmapRows.length ? <><p className="restaurant-mobile-scroll-hint">{locale === "it" ? "Scorri la mappa per leggere tutti gli anni." : "Scroll the map to read every year."}</p><div className="restaurant-maturity-grid" style={{ "--restaurant-maturity-years": years.length } as CSSProperties}>
         <div className="restaurant-maturity-years"><span />{years.map((year) => <span key={year} className={year === currentYear ? "is-current" : ""}>{year}</span>)}</div>
         {heatmapRows.map((row) => <div className="restaurant-maturity-row" key={row.type}><span>{displayValue(row.type, locale, "type")}</span>{row.cells.map((cell) => {
           const selected = selectedCell?.type === row.type && selectedCell.year === cell.year;
@@ -298,12 +323,12 @@ function RestaurantIntelligence({ wines, locale, onOpenWine }: { wines: Wine[]; 
           const intensity = Math.round((point.total / maxCapitalRisk) * 78);
           return <span key={point.year} className={point.total ? "has-risk" : ""} style={{ "--restaurant-capital-risk-intensity": `${intensity}%`, color: intensity >= 48 ? "var(--surface)" : "var(--text)", textShadow: intensity >= 48 ? "0 1px 1px color-mix(in srgb, var(--primary) 30%, transparent)" : "none" } as CSSProperties} title={label} aria-label={label}>{amount || "—"}</span>;
         })}</div>
-      </div> : <p className="empty-state">{locale === "it" ? "Completa le finestre di beva per visualizzare la mappa di maturità." : "Complete drinking windows to display the maturity map."}</p>}
+      </div></> : <p className="empty-state">{locale === "it" ? "Completa le finestre di beva per visualizzare la mappa di maturità." : "Complete drinking windows to display the maturity map."}</p>}
       {selectedCell ? <div className="restaurant-maturity-selection"><div><span>{locale === "it" ? "Selezione" : "Selection"}</span><strong>{displayValue(selectedCell.type, locale, "type")} · {selectedCell.year}</strong><small>{locale === "it" ? `${visibleSelectedWines.length} priorità su ${selectedWines.length} referenze` : `${visibleSelectedWines.length} priorities from ${selectedWines.length} labels`}</small></div><div>{visibleSelectedWines.map((wine) => { const atPeak = Number(wine.drink_peak_from) <= selectedCell.year && Number(wine.drink_peak_to) >= selectedCell.year; return <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}>{wine.name} · {wine.vintage || "NV"}<small>{wine.quantity} {locale === "it" ? "bottiglie" : "bottles"} · {atPeak ? (locale === "it" ? "Nel picco" : "At peak") : (locale === "it" ? `Finestra fino al ${wine.drink_to}` : `Window to ${wine.drink_to}`)}</small></button>; })}</div></div> : null}
     </details>
     <div className="restaurant-intelligence-grid">
-      <details className="restaurant-intelligence-panel restaurant-capital-risk restaurant-collapsible"><summary><div><span>{locale === "it" ? "Capitale da recuperare" : "Capital to recover"}</span><h3>{locale === "it" ? "Priorità prima della fine finestra" : "Priorities before the window ends"}</h3></div><small>{locale === "it" ? "Prezzo di carta × giacenza" : "List price × current stock"}</small></summary>{riskWines.length ? <div className="restaurant-risk-list">{riskWines.slice(0, 6).map(({ wine, exposure }) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}><span><strong>{wine.name}</strong><small>{wine.producer} · {wine.quantity} {locale === "it" ? "bottiglie" : "bottles"}</small></span><span><strong>{formatMoney(exposure, wine.currency, locale)}</strong><small>{Number(wine.drink_to) < currentYear ? (locale === "it" ? "Finestra superata" : "Window passed") : (locale === "it" ? `Entro il ${wine.drink_to}` : `By ${wine.drink_to}`)}</small></span></button>)}</div> : <p className="empty-state">{locale === "it" ? "Nessuna rimanenza con finestra in scadenza nei prossimi due anni." : "No stock with a window ending in the next two years."}</p>}</details>
-      <details className="restaurant-intelligence-panel restaurant-geography restaurant-collapsible"><summary><div><span>{locale === "it" ? "Geografia della carta" : "Wine list geography"}</span><h3>{locale === "it" ? "Origini da raccontare" : "Origins to tell"}</h3></div><small>{locale === "it" ? "Clicca un punto per esplorare la regione" : "Select a point to explore its region"}</small></summary><WineGeographyMap wines={inventory} locale={locale} t={t} onSelectRegion={setSelectedRegion} />{selectedRegion ? <div className="restaurant-region-selection"><strong>{selectedRegion}</strong><span>{regionalWines.length} {locale === "it" ? "vini" : "wines"} · {regionalWines.reduce((total, wine) => total + wine.quantity, 0)} {locale === "it" ? "bottiglie" : "bottles"}</span></div> : null}</details>
+      <details className="restaurant-intelligence-panel restaurant-capital-risk restaurant-collapsible" open={riskOpen} onToggle={(event) => setRiskOpen(event.currentTarget.open)}><summary><div><span>{locale === "it" ? "Capitale da recuperare" : "Capital to recover"}</span><h3>{locale === "it" ? "Priorità prima della fine finestra" : "Priorities before the window ends"}</h3></div><small>{locale === "it" ? "Prezzo di carta × giacenza" : "List price × current stock"}</small></summary>{riskWines.length ? <div className="restaurant-risk-list">{riskWines.slice(0, 6).map(({ wine, exposure }) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}><span><strong>{wine.name}</strong><small>{wine.producer} · {wine.quantity} {locale === "it" ? "bottiglie" : "bottles"}</small></span><span><strong>{formatMoney(exposure, wine.currency, locale)}</strong><small>{Number(wine.drink_to) < currentYear ? (locale === "it" ? "Finestra superata" : "Window passed") : (locale === "it" ? `Entro il ${wine.drink_to}` : `By ${wine.drink_to}`)}</small></span></button>)}</div> : <p className="empty-state">{locale === "it" ? "Nessuna rimanenza con finestra in scadenza nei prossimi due anni." : "No stock with a window ending in the next two years."}</p>}</details>
+      <details className="restaurant-intelligence-panel restaurant-geography restaurant-collapsible" open={geographyOpen} onToggle={(event) => setGeographyOpen(event.currentTarget.open)}><summary><div><span>{locale === "it" ? "Geografia della carta" : "Wine list geography"}</span><h3>{locale === "it" ? "Origini da raccontare" : "Origins to tell"}</h3></div><small>{locale === "it" ? "Clicca un punto per esplorare la regione" : "Select a point to explore its region"}</small></summary><WineGeographyMap wines={inventory} locale={locale} t={t} onSelectRegion={setSelectedRegion} />{selectedRegion ? <div className="restaurant-region-selection"><strong>{selectedRegion}</strong><span>{regionalWines.length} {locale === "it" ? "vini" : "wines"} · {regionalWines.reduce((total, wine) => total + wine.quantity, 0)} {locale === "it" ? "bottiglie" : "bottles"}</span></div> : null}</details>
     </div>
   </section>;
 }
