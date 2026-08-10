@@ -133,13 +133,16 @@ export function WinePulsePreview({ locale, onOpen }: { locale: Locale; onOpen: (
 export default function WinePulseView({ locale }: { locale: Locale }) {
   const [feed, setFeed] = useState<WineNewsFeed | null>(null);
   const [category, setCategory] = useState<WineNewsCategory | "all">("all");
+  const [view, setView] = useState<"current" | "archive">("current");
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const controller = new AbortController();
-    const query = new URLSearchParams({ locale, limit: "40" });
+    const query = new URLSearchParams({ locale, view, limit: "20" });
     if (category !== "all") query.set("category", category);
+    setFeed(null);
     setLoading(true);
     setFailed(false);
     api<WineNewsFeed>(`/api/v1/wine-pulse?${query}`, { signal: controller.signal })
@@ -149,7 +152,25 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
       })
       .finally(() => setLoading(false));
     return () => controller.abort();
-  }, [locale, category]);
+  }, [locale, category, view]);
+
+  async function loadMore() {
+    if (!feed?.next_offset || loadingMore) return;
+    const query = new URLSearchParams({
+      locale,
+      view,
+      limit: "20",
+      offset: String(feed.next_offset),
+    });
+    if (category !== "all") query.set("category", category);
+    setLoadingMore(true);
+    try {
+      const next = await api<WineNewsFeed>(`/api/v1/wine-pulse?${query}`);
+      setFeed((current) => current ? { ...next, items: [...current.items, ...next.items] } : next);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
 
   return (
     <section className="wine-pulse-view">
@@ -167,13 +188,21 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
         ) : null}
         {feed?.total ? (
           <div className="wine-pulse-edition-mark">
-            <span>{locale === "it" ? "Edizione corrente" : "Current edition"}</span>
-            <strong>{feed.total} {locale === "it" ? (feed.total === 1 ? "storia selezionata" : "storie selezionate") : (feed.total === 1 ? "story selected" : "stories selected")}</strong>
+            <span>{view === "archive" ? (locale === "it" ? "Archivio Wine Pulse" : "Wine Pulse archive") : (locale === "it" ? "Edizione corrente" : "Current edition")}</span>
+            <strong>{feed.total} {locale === "it" ? (feed.total === 1 ? "storia" : "storie") : (feed.total === 1 ? "story" : "stories")}{view === "current" ? (locale === "it" ? " selezionata" : " selected") : ""}</strong>
           </div>
         ) : null}
       </header>
 
       <div className="wine-pulse-controls">
+        <div className="wine-pulse-view-switch" role="tablist" aria-label={locale === "it" ? "Vista Wine Pulse" : "Wine Pulse view"}>
+          <button type="button" role="tab" aria-selected={view === "current"} className={view === "current" ? "active" : ""} onClick={() => setView("current")}>
+            {locale === "it" ? "Edizione corrente" : "Current edition"}
+          </button>
+          <button type="button" role="tab" aria-selected={view === "archive"} className={view === "archive" ? "active" : ""} onClick={() => setView("archive")}>
+            {locale === "it" ? "Archivio" : "Archive"}
+          </button>
+        </div>
         <label>
           <span>{locale === "it" ? "Argomento" : "Topic"}</span>
           <select value={category} onChange={(event) => setCategory(event.target.value as WineNewsCategory | "all")}>
@@ -185,15 +214,17 @@ export default function WinePulseView({ locale }: { locale: Locale }) {
 
       {loading ? <div className="wine-pulse-state">{locale === "it" ? "Preparazione della rassegna…" : "Preparing the edition…"}</div> : null}
       {!loading && failed ? <div className="wine-pulse-state wine-pulse-state--error">{locale === "it" ? "Wine Pulse non è momentaneamente disponibile." : "Wine Pulse is temporarily unavailable."}</div> : null}
-      {!loading && !failed && !feed?.items.length ? <div className="wine-pulse-state">{locale === "it" ? "Nessuna storia disponibile per questi filtri." : "No stories are available for these filters."}</div> : null}
+      {!loading && !failed && !feed?.items.length ? <div className="wine-pulse-state">{locale === "it" ? (view === "archive" ? "L’archivio non contiene ancora storie consultabili." : "Nessuna storia disponibile per questi filtri.") : (view === "archive" ? "The archive does not contain any browsable stories yet." : "No stories are available for these filters.")}</div> : null}
       {!loading && feed?.items.length ? (
         <div className="wine-pulse-feed">
           {feed.items.map((article, index) => (
-            <WinePulseArticleCard key={article.id} article={article} locale={locale} featured={index === 0} />
+            <WinePulseArticleCard key={article.id} article={article} locale={locale} featured={view === "current" && index === 0} />
           ))}
+          {feed.has_more ? <button type="button" className="wine-pulse-load-more secondary" onClick={() => void loadMore()} disabled={loadingMore}>{loadingMore ? (locale === "it" ? "Caricamento…" : "Loading…") : (locale === "it" ? "Carica altre storie" : "Load more stories")}</button> : null}
         </div>
       ) : null}
       <footer className="wine-pulse-disclosure">
+        {locale === "it" && view === "archive" ? "Le storie archiviate restano consultabili fino a 180 giorni. " : null}
         {locale === "it"
           ? "Titoli e sintesi localizzati sono generati automaticamente a partire dai metadati delle fonti. Per il contenuto completo e autorevole consulta sempre l’articolo originale."
           : "Localized headlines and summaries are generated automatically from source metadata. Always consult the original article for the complete, authoritative content."}

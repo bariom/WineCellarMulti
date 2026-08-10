@@ -228,19 +228,18 @@ def test_later_editions_use_a_seventy_two_hour_window():
             enabled=True,
         )
         db.add(source)
-        db.add(
-            WineNewsArticle(
-                source_id=source.id,
-                canonical_url="https://example.com/older-published-story",
-                original_title="An earlier published wine story",
-                source_language="en",
-                source_published_at=datetime.now(UTC) - timedelta(days=5),
-                content_fingerprint="older-published-fingerprint",
-                importance_score=91,
-                status="published",
-                ai_processed_at=datetime.now(UTC),
-            )
+        older_article = WineNewsArticle(
+            source_id=source.id,
+            canonical_url="https://example.com/older-published-story",
+            original_title="An earlier published wine story",
+            source_language="en",
+            source_published_at=datetime.now(UTC) - timedelta(days=5),
+            content_fingerprint="older-published-fingerprint",
+            importance_score=91,
+            status="published",
+            ai_processed_at=datetime.now(UTC),
         )
+        db.add(older_article)
         article = WineNewsArticle(
             source_id=source.id,
             canonical_url="https://example.com/two-day-story",
@@ -257,6 +256,7 @@ def test_later_editions_use_a_seventy_two_hour_window():
 
         assert len(refresh_publication_selection(db)) == 1
         assert article.status == "published"
+        assert older_article.status == "archived"
 
 
 def test_wine_pulse_notifications_are_localized_and_rate_limited():
@@ -316,3 +316,49 @@ def test_authenticated_feed_returns_localized_editorial_copy(monkeypatch):
         assert payload["total"] == 1
         assert payload["items"][0]["headline"].startswith("La vendemmia")
         assert payload["items"][0]["source"] == "Test Wine Journal"
+
+
+def test_authenticated_feed_separates_current_edition_from_archive():
+    with TestingSessionLocal() as db:
+        source = WineNewsSource(
+            id="archive-source",
+            name="Archive Journal",
+            feed_url="https://example.com/archive-feed",
+            website_url="https://example.com",
+            language="en",
+        )
+        current = WineNewsArticle(
+            source_id=source.id,
+            canonical_url="https://example.com/current-story",
+            original_title="Current wine story",
+            source_language="en",
+            source_published_at=datetime.now(UTC) - timedelta(hours=12),
+            content_fingerprint="current-archive-fingerprint",
+            status="published",
+            ai_processed_at=datetime.now(UTC),
+        )
+        archived = WineNewsArticle(
+            source_id=source.id,
+            canonical_url="https://example.com/archived-story",
+            original_title="Archived wine story",
+            source_language="en",
+            source_published_at=datetime.now(UTC) - timedelta(days=4),
+            content_fingerprint="archived-archive-fingerprint",
+            status="published",
+            ai_processed_at=datetime.now(UTC),
+        )
+        db.add_all([source, current, archived])
+        db.commit()
+        current_id = str(current.id)
+        archived_id = str(archived.id)
+
+    with TestClient(app) as client:
+        assert register(client).status_code == 201
+        current_feed = client.get("/api/v1/wine-pulse?locale=en")
+        archive_feed = client.get("/api/v1/wine-pulse?locale=en&view=archive")
+
+    assert current_feed.status_code == 200
+    assert [item["id"] for item in current_feed.json()["items"]] == [current_id]
+    assert archive_feed.status_code == 200
+    assert archive_feed.json()["view"] == "archive"
+    assert [item["id"] for item in archive_feed.json()["items"]] == [archived_id]

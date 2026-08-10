@@ -1009,6 +1009,7 @@ export type WineNewsFeed = {
   items: WineNewsArticle[];
   locale: Locale;
   category: WineNewsCategory | null;
+  view: "current" | "archive";
   generated_at: string | null;
   total: number;
   offset: number;

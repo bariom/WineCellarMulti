@@ -5,7 +5,7 @@ from typing import Literal, cast
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_app_admin_context
@@ -94,16 +94,37 @@ def article_response(
     )
 
 
+def current_edition_start(now: datetime | None = None) -> datetime:
+    return (now or datetime.now(UTC)) - timedelta(hours=72)
+
+
 @router.get("", response_model=WineNewsFeedResponse)
 def wine_pulse_feed(
     locale: Literal["it", "en"] = Query(default="it"),
     category: WineNewsCategory | None = Query(default=None),
+    view: Literal["current", "archive"] = Query(default="current"),
     limit: int = Query(default=20, ge=1, le=50),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(get_current_context),
 ) -> WineNewsFeedResponse:
-    filters = [WineNewsArticle.status == "published"]
+    edition_start = current_edition_start()
+    filters = (
+        [
+            WineNewsArticle.status == "published",
+            WineNewsArticle.source_published_at >= edition_start,
+        ]
+        if view == "current"
+        else [
+            or_(
+                WineNewsArticle.status == "archived",
+                and_(
+                    WineNewsArticle.status == "published",
+                    WineNewsArticle.source_published_at < edition_start,
+                ),
+            )
+        ]
+    )
     if category:
         filters.append(WineNewsArticle.category == category)
 
@@ -124,6 +145,7 @@ def wine_pulse_feed(
         items=[article_response(article, source, locale) for article, source in rows],
         locale=locale,
         category=category,
+        view=view,
         generated_at=latest_collection_time(db),
         total=total,
         offset=offset,
@@ -137,6 +159,7 @@ def wine_pulse_status(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
+    edition_start = current_edition_start()
     latest = db.scalar(
         select(WineNewsCollectionRun).order_by(WineNewsCollectionRun.started_at.desc()).limit(1)
     )
@@ -153,7 +176,10 @@ def wine_pulse_status(
         else None,
         "published": int(
             db.scalar(
-                select(func.count(WineNewsArticle.id)).where(WineNewsArticle.status == "published")
+                select(func.count(WineNewsArticle.id)).where(
+                    WineNewsArticle.status == "published",
+                    WineNewsArticle.source_published_at >= edition_start,
+                )
             )
             or 0
         ),

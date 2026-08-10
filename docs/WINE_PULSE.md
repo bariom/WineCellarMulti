@@ -77,6 +77,8 @@ custom registry are disabled, not deleted.
   than two from one publisher and one from the same story cluster. The first
   edition may use a seven-day bootstrap window so a new installation is not
   empty while it waits for fresh stories.
+- Earlier selected stories remain available in the authenticated Wine Pulse
+  archive until the configured retention period expires (180 days by default).
 - When a collection adds stories to the edition, Vinaris creates one in-app
   Wine Pulse notification for each active user. Alerts open Wine Pulse directly,
   are limited to one every twelve hours per user, and never send email or push.

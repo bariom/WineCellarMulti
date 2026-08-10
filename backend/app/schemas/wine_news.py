@@ -34,6 +34,7 @@ class WineNewsFeedResponse(BaseModel):
     items: list[WineNewsArticleResponse]
     locale: Literal["it", "en"]
     category: WineNewsCategory | None = None
+    view: Literal["current", "archive"] = "current"
     generated_at: datetime | None = None
     total: int = 0
     offset: int = 0

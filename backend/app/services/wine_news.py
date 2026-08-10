@@ -16,7 +16,7 @@ from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -549,6 +549,15 @@ def apply_editorial_decision(article: WineNewsArticle, decision: dict[str, Any])
 
 def refresh_publication_selection(db: Session) -> list[WineNewsArticle]:
     now = datetime.now(UTC)
+    rolling_edition_start = now - timedelta(hours=72)
+    db.execute(
+        update(WineNewsArticle)
+        .where(
+            WineNewsArticle.status == "published",
+            WineNewsArticle.source_published_at < rolling_edition_start,
+        )
+        .values(status="archived")
+    )
     has_published_edition = bool(
         db.scalar(
             select(func.count(WineNewsArticle.id)).where(WineNewsArticle.status == "published")
