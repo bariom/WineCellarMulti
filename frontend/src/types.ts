@@ -152,6 +152,7 @@ export type RestaurantSalesSummary = {
 
 export type StockMovementType =
   | "opening_balance"
+  | "initial_purchase"
   | "purchase"
   | "adjustment_in"
   | "adjustment_out"
@@ -222,6 +223,7 @@ export type WineDraft = {
   region: string;
   appellation: string;
   merchant: string;
+  initial_stock_reference: string;
   order_date: string;
   expected_delivery: string;
   owner_share_pct: string;

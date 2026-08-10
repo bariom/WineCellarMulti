@@ -162,6 +162,7 @@ def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
             "sale_price": 60,
             "currency": "CHF",
             "order_date": "2026-07-01",
+            "initial_stock_reference": "FT-INITIAL",
         },
     )
     assert created.status_code == 201
@@ -207,10 +208,14 @@ def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
     movements = client.get(f"/api/v1/inventory/movements?wine_id={wine_id}")
     assert movements.status_code == 200
     movement_types = [item["movement_type"] for item in movements.json()]
-    assert "opening_balance" in movement_types
+    assert "initial_purchase" in movement_types
     assert "purchase" in movement_types
     assert movement_types.count("sale") == 2
     assert "breakage" in movement_types
+    initial_purchase = next(
+        item for item in movements.json() if item["movement_type"] == "initial_purchase"
+    )
+    assert initial_purchase["reference"] == "FT-INITIAL"
 
     lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}&include_empty=true")
     assert lots.status_code == 200

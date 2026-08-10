@@ -437,6 +437,7 @@ const emptyDraft: WineDraft = {
   region: "",
   appellation: "",
   merchant: "",
+  initial_stock_reference: "",
   order_date: "",
   expected_delivery: "",
   owner_share_pct: "100",
@@ -10334,6 +10335,10 @@ export function App() {
                     <span>{t("merchant")}</span>
                     <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
                   </label>
+                  {isRestaurant && !editingId ? <label>
+                    <span>{locale === "it" ? "Riferimento acquisto" : "Purchase reference"}</span>
+                    <input value={draft.initial_stock_reference} maxLength={160} onChange={(event) => setDraft({ ...draft, initial_stock_reference: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} />
+                  </label> : null}
                 </div>
                 <div className="form-row">
                   <label>

@@ -19,6 +19,8 @@ La home ristorante comprende anche una panoramica editoriale della carta vini: r
 
 Ogni carico crea un lotto con data, fornitore, riferimento e costo unitario. Le uscite consumano i lotti in ordine FIFO; una vendita conserva sia il prezzo praticato sia il costo totale esatto dei lotti utilizzati. Modificare successivamente il vino non altera quindi i margini storici. Una vendita errata può essere annullata dal registro: le bottiglie tornano nei lotti originari e l’operazione resta tracciata.
 
+Quando si censisce una nuova referenza con quantità maggiore di zero, Vinaris registra direttamente un **Acquisto iniziale** usando data d’ordine, costo, fornitore e riferimento inseriti nella scheda. Per riordinare una referenza già censita, anche se esaurita, si usa invece **Movimenti e lotti > Acquisto**.
+
 Al primo aggiornamento, la migrazione crea automaticamente un lotto di saldo iniziale per ogni vino già in giacenza. Anche una modifica diretta della quantità dalla scheda vino genera una rettifica nel libro mastro, così il saldo aggregato e i movimenti restano coerenti.
 
 Le valute sono rendicontate separatamente e non vengono sommate. Il **margine lordo** è `ricavi - costo d’acquisto delle bottiglie`: non comprende IVA, personale, affitto, scarti o altri costi e non sostituisce la contabilità del ristorante.

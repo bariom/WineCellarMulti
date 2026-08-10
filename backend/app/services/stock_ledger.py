@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.models import Wine, WineSale, WineStockLot, WineStockMovement
 
 INBOUND_TYPES = {"purchase", "adjustment_in"}
-INBOUND_LEDGER_TYPES = INBOUND_TYPES | {"sale_void"}
+INBOUND_LEDGER_TYPES = INBOUND_TYPES | {"initial_purchase", "sale_void"}
 OUTBOUND_TYPES = {"adjustment_out", "breakage", "complimentary"}
 
 

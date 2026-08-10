@@ -22,6 +22,7 @@ class WineCreate(BaseModel):
     region: str = ""
     appellation: str = ""
     merchant: str = ""
+    initial_stock_reference: str = Field(default="", max_length=160)
     order_date: date | None = None
     expected_delivery: date | None = None
     owner_share_pct: Decimal = Field(default=Decimal("100"), ge=0, le=100)

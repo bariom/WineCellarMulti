@@ -127,6 +127,7 @@ function hasCompleteDrinkWindow(wine: Wine) {
 function stockMovementLabel(type: StockMovementType, locale: Locale) {
   const labels: Record<StockMovementType, [string, string]> = {
     opening_balance: ["Saldo iniziale", "Opening balance"],
+    initial_purchase: ["Acquisto iniziale", "Initial purchase"],
     purchase: ["Acquisto", "Purchase"],
     adjustment_in: ["Rettifica in entrata", "Inbound adjustment"],
     adjustment_out: ["Rettifica in uscita", "Outbound adjustment"],
@@ -421,10 +422,10 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     .join("|");
 
   useEffect(() => {
-    if (!stockDraft.wine_id && inventoryWines[0]) {
-      setStockDraft((current) => ({ ...current, wine_id: inventoryWines[0].id }));
+    if (!stockDraft.wine_id && wines[0]) {
+      setStockDraft((current) => ({ ...current, wine_id: wines[0].id }));
     }
-  }, [inventoryWines, stockDraft.wine_id]);
+  }, [stockDraft.wine_id, wines]);
 
   useEffect(() => {
     if (mode !== "restaurant") return;
@@ -637,7 +638,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       </summary>
       <div className="restaurant-stock-ledger-body">
         <form className="restaurant-stock-form" onSubmit={(event) => void createStockMovement(event)}>
-          <label className="restaurant-stock-wine">{locale === "it" ? "Vino" : "Wine"}<select value={stockDraft.wine_id} onChange={(event) => setStockDraft((current) => ({ ...current, wine_id: event.target.value }))} required>{inventoryWines.map((wine) => <option key={wine.id} value={wine.id}>{wine.name} {wine.vintage} · {wine.quantity} {locale === "it" ? "disp." : "available"}</option>)}</select></label>
+          <label className="restaurant-stock-wine">{locale === "it" ? "Vino" : "Wine"}<select value={stockDraft.wine_id} onChange={(event) => setStockDraft((current) => ({ ...current, wine_id: event.target.value }))} required>{wines.map((wine) => <option key={wine.id} value={wine.id}>{wine.name} {wine.vintage} · {wine.quantity} {locale === "it" ? "disp." : "available"}</option>)}</select></label>
           <label>{locale === "it" ? "Movimento" : "Movement"}<select value={stockDraft.movement_type} onChange={(event) => setStockDraft((current) => ({ ...current, movement_type: event.target.value as ManualStockMovementType }))}>
             {(["purchase", "adjustment_in", "adjustment_out", "breakage", "complimentary"] as ManualStockMovementType[]).map((type) => <option key={type} value={type}>{stockMovementLabel(type, locale)}</option>)}
           </select></label>
@@ -649,7 +650,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           </> : null}
           <label>{locale === "it" ? "Riferimento" : "Reference"}<input value={stockDraft.reference} maxLength={160} onChange={(event) => setStockDraft((current) => ({ ...current, reference: event.target.value }))} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} /></label>
           <label className="restaurant-stock-note">{locale === "it" ? "Nota" : "Note"}<input value={stockDraft.note} maxLength={1000} onChange={(event) => setStockDraft((current) => ({ ...current, note: event.target.value }))} /></label>
-          <button type="submit" disabled={stockMovementSaving || !inventoryWines.length}>{stockMovementSaving ? (locale === "it" ? "Registro…" : "Recording…") : (locale === "it" ? "Registra movimento" : "Record movement")}</button>
+          <button type="submit" disabled={stockMovementSaving || !wines.length}>{stockMovementSaving ? (locale === "it" ? "Registro…" : "Recording…") : (locale === "it" ? "Registra movimento" : "Record movement")}</button>
         </form>
         <section className="restaurant-stock-history">
           <header><div><span>{locale === "it" ? "Libro mastro" : "Ledger"}</span><h3>{locale === "it" ? "Ultimi movimenti" : "Latest movements"}</h3></div><small>{locale === "it" ? "Le vendite scaricano automaticamente i lotti più vecchi" : "Sales automatically consume the oldest lots"}</small></header>
