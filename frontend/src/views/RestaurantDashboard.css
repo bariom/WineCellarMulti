@@ -27,3 +27,69 @@
 .restaurant-collapsible>summary{position:relative;cursor:pointer;list-style:none}.restaurant-collapsible>summary::-webkit-details-marker{display:none}.restaurant-collapsible>summary::after{content:"+";position:absolute;right:0;top:50%;display:grid;place-items:center;width:1.7rem;height:1.7rem;border:1px solid var(--border);border-radius:999px;color:var(--primary);font-size:1.2rem;line-height:1;transform:translateY(-50%);transition:transform .18s ease,background .18s ease}.restaurant-collapsible[open]>summary::after{content:"−";background:color-mix(in srgb,var(--accent) 10%,var(--surface))}.restaurant-collapsible>summary:focus-visible{outline:2px solid var(--accent);outline-offset:.3rem;border-radius:.35rem}.restaurant-inventory-overview.restaurant-collapsible>.restaurant-section-title,.restaurant-performance-panel.restaurant-collapsible>.restaurant-performance-head{padding-right:2.5rem}.restaurant-panel.restaurant-collapsible>summary{display:flex;align-items:end;justify-content:space-between;gap:1rem;padding:0 .15rem .7rem;border-bottom:1px solid var(--border)}.restaurant-panel.restaurant-collapsible>summary h2{margin:0}.restaurant-panel.restaurant-collapsible>summary span{padding-right:2.2rem;font-size:.72rem;color:var(--text-muted)}.restaurant-panel.restaurant-collapsible:not([open])>summary{padding-bottom:0;border-bottom:0}.restaurant-panel.restaurant-collapsible:not([open])>summary::after{top:50%}.restaurant-sales-heading{align-items:center}.restaurant-sales-heading>.restaurant-period-selector{margin-left:auto}.restaurant-sales-heading>.restaurant-period-selector .restaurant-periods{margin:0}.restaurant-sales-heading>.restaurant-period-selector .restaurant-custom-dates{margin-top:.5rem}.restaurant-sales-heading>span{white-space:nowrap}.restaurant-period-selector{display:grid;justify-items:end;gap:.45rem}.restaurant-period-navigation{display:flex;justify-content:flex-end;gap:.35rem}.restaurant-period-navigation button{display:grid;place-items:center;min-width:2rem;min-height:2rem;padding:.1rem .45rem;font-size:1.45rem;line-height:1}
 @media(max-width:800px){.restaurant-section-title.restaurant-sales-heading{align-items:stretch;gap:.75rem}.restaurant-sales-heading>.restaurant-period-selector{margin-left:0}.restaurant-sales-heading>span{order:2}.restaurant-sales-heading>.restaurant-period-selector .restaurant-periods{gap:.35rem}.restaurant-sales-heading>.restaurant-period-selector .restaurant-periods button{padding:.5rem .65rem;font-size:.85rem}.restaurant-panel.restaurant-collapsible>summary{align-items:start;padding-right:2.25rem}.restaurant-panel.restaurant-collapsible>summary::after{right:0;top:.85rem;transform:none}.restaurant-panel.restaurant-collapsible[open]>summary::after{transform:none}}
 .restaurant-intelligence-panel.restaurant-collapsible>summary{display:flex;align-items:end;justify-content:space-between;gap:1rem;padding:.1rem 2.5rem .75rem 0;border-bottom:1px solid var(--border)}.restaurant-intelligence-panel.restaurant-collapsible>summary h3{margin:.15rem 0 0}.restaurant-intelligence-panel.restaurant-collapsible>summary>small{color:var(--text-muted);text-align:right}.restaurant-intelligence-panel.restaurant-collapsible:not([open])>summary{padding-bottom:0;border-bottom:0}.restaurant-intelligence-panel.restaurant-collapsible:not([open])>summary::after{top:50%}@media(max-width:800px){.restaurant-intelligence-panel.restaurant-collapsible>summary{align-items:start;flex-direction:column;padding-right:2.25rem}.restaurant-intelligence-panel.restaurant-collapsible>summary>small{text-align:left}.restaurant-intelligence-panel.restaurant-collapsible>summary::after{right:0;top:.85rem;transform:none}.restaurant-intelligence-panel.restaurant-collapsible[open]>summary::after{transform:none}}
+
+/* Mobile restaurant operations: preserve tap targets and information hierarchy. */
+@media (max-width: 640px) {
+  .restaurant-dashboard { gap: .75rem; min-width: 0; }
+  .restaurant-dashboard > .restaurant-dashboard-head { padding: .8rem .9rem; }
+  .restaurant-dashboard > .restaurant-dashboard-head h1 { font-size: clamp(1.65rem, 8.5vw, 2rem); }
+  .restaurant-dashboard-head h1 + p { font-size: .9rem; line-height: 1.4; }
+
+  .restaurant-dashboard-tabs { gap: .3rem; overflow-x: auto; padding: .3rem; scrollbar-width: none; }
+  .restaurant-dashboard-tabs::-webkit-scrollbar { display: none; }
+  .restaurant-dashboard-tabs button { flex: 0 0 auto; min-height: 2.45rem; padding: .45rem .7rem; white-space: nowrap; font-size: .84rem; }
+
+  .restaurant-inventory-overview,
+  .restaurant-performance-panel,
+  .restaurant-intelligence-panel { padding: .85rem; border-radius: calc(var(--radius-xl) - 3px); }
+  .restaurant-inventory-kpis,
+  .restaurant-kpis { gap: .5rem; }
+  .restaurant-inventory-kpis article,
+  .restaurant-inventory-kpis button,
+  .restaurant-kpis article { min-height: 6.45rem; padding: .75rem; }
+  .restaurant-inventory-kpis span,
+  .restaurant-kpis span { font-size: .72rem; line-height: 1.16; }
+  .restaurant-inventory-kpis strong,
+  .restaurant-kpis strong { font-size: 1.45rem; }
+  .restaurant-inventory-kpis small,
+  .restaurant-kpis small { font-size: .72rem; line-height: 1.24; }
+
+  .restaurant-inventory-values { gap: .55rem; }
+  .restaurant-inventory-values > article { padding: .85rem; }
+  .restaurant-inventory-values > article > div { align-items: start; flex-direction: column; gap: .4rem; }
+  .restaurant-inventory-values dl { gap: .55rem; }
+
+  .restaurant-period-selector { width: 100%; justify-items: stretch; }
+  .restaurant-periods { flex-wrap: nowrap; width: 100%; margin-top: 0; padding: .1rem 0 .35rem; overflow-x: auto; scrollbar-width: none; }
+  .restaurant-periods::-webkit-scrollbar { display: none; }
+  .restaurant-periods button { flex: 0 0 auto; min-height: 2.5rem; padding: .5rem .72rem; white-space: nowrap; }
+  .restaurant-period-navigation { justify-content: start; }
+  .restaurant-period-navigation button { min-width: 2.6rem; min-height: 2.4rem; }
+  .restaurant-excel-export { width: 100%; min-height: 2.55rem; }
+  .restaurant-sales-heading > span { width: 100%; padding-top: .1rem; font-size: .78rem; }
+  .restaurant-custom-dates { grid-template-columns: 1fr 1fr; gap: .5rem; }
+  .restaurant-custom-dates input { min-width: 0; width: 100%; }
+
+  .restaurant-leading-wines button { grid-template-columns: 1.2rem 2.25rem minmax(0, 1fr); gap: .55rem; padding: .65rem; }
+  .restaurant-leading-wines img,
+  .restaurant-leading-wines button > i { width: 2.25rem; height: 3.35rem; }
+  .restaurant-leading-price { grid-column: 3; padding-top: .15rem; }
+  .restaurant-leading-price strong { font-size: 1rem; }
+
+  .restaurant-proposal-card { padding: .85rem; }
+  .restaurant-proposal-card > header { align-items: center; }
+  .restaurant-proposal-card h3 { font-size: 1.16rem; }
+  .restaurant-proposal-list button { min-height: 3.5rem; }
+
+  .restaurant-maturity-grid { margin-inline: -.15rem; padding-inline: .15rem; scroll-snap-type: x proximity; }
+  .restaurant-maturity-years,
+  .restaurant-maturity-row,
+  .restaurant-capital-risk-years { min-width: 35rem; }
+  .restaurant-maturity-row button,
+  .restaurant-capital-risk-years > span { scroll-snap-align: start; }
+  .restaurant-maturity-selection { padding: .65rem; }
+
+  .restaurant-sales-list article { align-items: start; flex-direction: column; gap: .45rem; }
+  .restaurant-sales-list article > div:last-child { width: 100%; display: flex; align-items: center; justify-content: space-between; }
+  .restaurant-sales-list article > div:last-child button { min-height: 2.35rem; }
+}
