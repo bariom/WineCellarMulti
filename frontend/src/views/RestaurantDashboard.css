@@ -32,7 +32,22 @@
 
 /* Mobile restaurant operations: preserve tap targets and information hierarchy. */
 @media (max-width: 640px) {
-  .restaurant-dashboard { gap: .75rem; min-width: 0; }
+  /* The maturity map is intentionally wider than the viewport, but it must
+     scroll inside its own panel instead of widening the whole application. */
+  .restaurant-dashboard,
+  .restaurant-dashboard > *,
+  .restaurant-intelligence,
+  .restaurant-intelligence > *,
+  .restaurant-intelligence-head,
+  .restaurant-intelligence-kpis,
+  .restaurant-intelligence-panel,
+  .restaurant-maturity-grid {
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .restaurant-dashboard { width: 100%; gap: .75rem; overflow-x: clip; }
   .restaurant-dashboard > .restaurant-dashboard-head { padding: .8rem .9rem; }
   .restaurant-dashboard > .restaurant-dashboard-head h1 { font-size: clamp(1.65rem, 8.5vw, 2rem); }
   .restaurant-dashboard-head h1 + p { font-size: .9rem; line-height: 1.4; }
@@ -97,7 +112,7 @@
   .restaurant-maturity-selection { padding: .65rem; }
   .restaurant-maturity-selection > div:last-child { display: grid; width: 100%; }
   .restaurant-maturity-selection button { display: grid; width: 100%; text-align: left; }
-  .restaurant-intelligence-head h2 { font-size: clamp(1.45rem, 7.5vw, 1.9rem); line-height: 1.04; }
+  .restaurant-intelligence-head h2 { font-size: clamp(1.45rem, 7.5vw, 1.9rem); line-height: 1.04; overflow-wrap: anywhere; }
   .restaurant-intelligence-head p { font-size: .86rem; line-height: 1.4; }
   .restaurant-intelligence-kpis { width: 100%; }
   .restaurant-intelligence-kpis article { min-height: 6.15rem; }
