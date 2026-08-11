@@ -371,6 +371,8 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
   const [toDate, setToDate] = useState(isoDate(new Date()));
   const [summary, setSummary] = useState<RestaurantSalesSummary | null>(null);
   const [loading, setLoading] = useState(true);
+  const [editingSale, setEditingSale] = useState<{ id: string; sold_at: string; quantity: string; unit_sale_price: string; note: string } | null>(null);
+  const [saleSaving, setSaleSaving] = useState(false);
   const [exportingExcel, setExportingExcel] = useState(false);
   const [error, setError] = useState("");
   const [libraryPhotoUrls, setLibraryPhotoUrls] = useState<Record<string, string>>({});
@@ -510,6 +512,33 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     if (!reason?.trim()) return;
     await api(`/api/v1/sales/${saleId}/void`, { method: "POST", body: JSON.stringify({ reason: reason.trim() }) });
     await onChanged();
+  }
+
+  async function updateSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingSale) return;
+    const quantity = Number(editingSale.quantity);
+    const unitSalePrice = Number(editingSale.unit_sale_price);
+    if (!editingSale.sold_at || !Number.isInteger(quantity) || quantity < 1 || !Number.isFinite(unitSalePrice) || unitSalePrice < 0) return;
+    setSaleSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/sales/${editingSale.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          sold_at: editingSale.sold_at,
+          quantity,
+          unit_sale_price: unitSalePrice,
+          note: editingSale.note,
+        }),
+      });
+      setEditingSale(null);
+      await onChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : (locale === "it" ? "Impossibile modificare la vendita" : "Unable to update sale"));
+    } finally {
+      setSaleSaving(false);
+    }
   }
 
   async function exportExcel() {
@@ -732,7 +761,19 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       <details className="restaurant-panel restaurant-collapsible"><summary><h2>{mode === "private" ? (locale === "it" ? "Migliori vendite" : "Best sales") : (locale === "it" ? "Vini più venduti" : "Best-selling wines")}</h2></summary>{summary?.top_wines.length ? <div className="restaurant-ranking">{summary.top_wines.map((wine) => <button type="button" key={`${wine.wine_id}-${wine.currency}`} onClick={() => onOpenWine(wine.wine_id)}><span><strong>{wine.label}</strong><small>{wine.current_stock} {locale === "it" ? "ancora disponibili" : "still available"}</small></span><span className="restaurant-ranking-result"><strong>{wine.bottles} {locale === "it" ? "vendute" : "sold"}</strong><small>{formatMoney(wine.revenue, wine.currency, locale)} · {locale === "it" ? "margine" : "margin"} {formatMoney(wine.gross_margin, wine.currency, locale)}</small></span></button>)}</div> : <p className="empty-state">—</p>}</details>
       <details className="restaurant-panel restaurant-collapsible"><summary><h2>{locale === "it" ? "Invenduti o meno venduti" : "Unsold or slow-moving"}</h2></summary>{summary?.least_sold_wines.length ? <div className="restaurant-ranking restaurant-slow-movers">{summary.least_sold_wines.map((wine) => <button type="button" key={`${wine.wine_id}-${wine.currency}`} onClick={() => onOpenWine(wine.wine_id)}><span><strong>{wine.label}</strong><small>{wine.current_stock} {locale === "it" ? "in giacenza" : "in stock"}</small></span><span className="restaurant-ranking-result"><strong>{wine.bottles ? `${wine.bottles} ${locale === "it" ? "vendute" : "sold"}` : (locale === "it" ? "Invenduto" : "Unsold")}</strong><small>{wine.bottles ? formatMoney(wine.revenue, wine.currency, locale) : (locale === "it" ? "Nessuna vendita nel periodo" : "No sales in this period")}</small></span></button>)}</div> : <p className="empty-state">—</p>}</details>
     </div>
-    <details className="restaurant-panel restaurant-collapsible"><summary><h2>{locale === "it" ? "Registro vendite" : "Sales register"}</h2></summary>{summary?.recent_sales.length ? <div className="restaurant-sales-list">{summary.recent_sales.map((sale) => <article key={sale.id}><div><strong>{sale.wine_name}</strong><span>{sale.sold_at} · {sale.quantity} × {formatMoney(sale.unit_sale_price, sale.currency, locale)}</span></div><div><strong>{formatMoney(sale.gross_margin, sale.currency, locale)}</strong><button type="button" className="secondary compact" onClick={() => void voidSale(sale.id)}>{locale === "it" ? "Annulla" : "Void"}</button></div></article>)}</div> : <p className="empty-state">—</p>}</details>
+    <details className="restaurant-panel restaurant-collapsible"><summary><h2>{locale === "it" ? "Registro vendite" : "Sales register"}</h2></summary>{summary?.recent_sales.length ? <div className="restaurant-sales-list">{summary.recent_sales.map((sale) => {
+      const isEditing = editingSale?.id === sale.id;
+      return <article key={sale.id} className={isEditing ? "is-editing" : ""}>
+        {isEditing && editingSale ? <form className="restaurant-sale-edit" onSubmit={updateSale}>
+          <div><strong>{sale.wine_name}</strong><small>{sale.wine_producer} {sale.wine_vintage ? `· ${sale.wine_vintage}` : ""}</small></div>
+          <label>{locale === "it" ? "Data" : "Date"}<input type="date" value={editingSale.sold_at} onChange={(event) => setEditingSale((current) => current ? { ...current, sold_at: event.target.value } : current)} required /></label>
+          <label>{locale === "it" ? "Bottiglie" : "Bottles"}<input type="number" min="1" step="1" value={editingSale.quantity} onChange={(event) => setEditingSale((current) => current ? { ...current, quantity: event.target.value } : current)} required /></label>
+          <label>{locale === "it" ? "Prezzo unitario" : "Unit price"}<input type="number" min="0" step="0.01" value={editingSale.unit_sale_price} onChange={(event) => setEditingSale((current) => current ? { ...current, unit_sale_price: event.target.value } : current)} required /></label>
+          <label className="restaurant-sale-edit-note">{locale === "it" ? "Nota" : "Note"}<input value={editingSale.note} maxLength={1000} onChange={(event) => setEditingSale((current) => current ? { ...current, note: event.target.value } : current)} /></label>
+          <div className="restaurant-sale-edit-actions"><button type="button" className="secondary compact" disabled={saleSaving} onClick={() => setEditingSale(null)}>{locale === "it" ? "Annulla" : "Cancel"}</button><button type="submit" className="compact" disabled={saleSaving}>{saleSaving ? (locale === "it" ? "Salvo…" : "Saving…") : (locale === "it" ? "Salva vendita" : "Save sale")}</button></div>
+        </form> : <><div><strong>{sale.wine_name}</strong><span>{displayDate(sale.sold_at, locale)} · {sale.quantity} × {formatMoney(sale.unit_sale_price, sale.currency, locale)}</span></div><div><strong>{formatMoney(sale.gross_margin, sale.currency, locale)}</strong><div className="restaurant-sale-actions"><button type="button" className="secondary compact" onClick={() => setEditingSale({ id: sale.id, sold_at: sale.sold_at, quantity: String(sale.quantity), unit_sale_price: String(sale.unit_sale_price), note: sale.note || "" })}>{locale === "it" ? "Modifica" : "Edit"}</button><button type="button" className="secondary compact" onClick={() => void voidSale(sale.id)}>{locale === "it" ? "Annulla" : "Void"}</button></div></div></>}
+      </article>;
+    })}</div> : <p className="empty-state">—</p>}</details>
     </div>
   </section>;
 }

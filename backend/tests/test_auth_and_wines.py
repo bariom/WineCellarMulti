@@ -147,6 +147,59 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert client.get("/api/v1/sales/summary").json()["currencies"] == []
 
 
+def test_restaurant_sale_can_be_edited_without_losing_stock_integrity():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Editable Barbaresco",
+            "vintage": "2022",
+            "quantity": 5,
+            "price": 20,
+            "sale_price": 55,
+            "currency": "CHF",
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    sold = client.post(
+        "/api/v1/sales",
+        json={"wine_id": wine_id, "quantity": 2, "unit_sale_price": 55, "sold_at": "2026-08-04"},
+    )
+    assert sold.status_code == 201
+
+    updated = client.put(
+        f"/api/v1/sales/{sold.json()['id']}",
+        json={
+            "quantity": 3,
+            "unit_sale_price": 62,
+            "sold_at": "2026-08-06",
+            "note": "Corretto dopo chiusura cassa",
+        },
+    )
+    assert updated.status_code == 200
+    assert updated.json()["quantity"] == 3
+    assert updated.json()["unit_sale_price"] == "62.00"
+    assert updated.json()["revenue"] == "186.00"
+    assert updated.json()["sold_at"] == "2026-08-06"
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 2
+
+    reduced = client.put(
+        f"/api/v1/sales/{sold.json()['id']}",
+        json={"quantity": 1, "unit_sale_price": 60, "sold_at": "2026-08-07", "note": "Una bottiglia"},
+    )
+    assert reduced.status_code == 200
+    assert reduced.json()["quantity"] == 1
+    assert reduced.json()["revenue"] == "60.00"
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 4
+    assert client.post(
+        f"/api/v1/sales/{sold.json()['id']}/void", json={"reason": "Vendita annullata"}
+    ).status_code == 200
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 5
+
+
 def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
     client = TestClient(app)
     assert register(client).status_code == 201

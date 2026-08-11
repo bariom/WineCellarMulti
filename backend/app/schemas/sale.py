@@ -13,6 +13,13 @@ class WineSaleCreate(BaseModel):
     note: str = Field(default="", max_length=1000)
 
 
+class WineSaleUpdate(BaseModel):
+    sold_at: date
+    quantity: int = Field(ge=1, le=1000)
+    unit_sale_price: Decimal = Field(ge=0)
+    note: str = Field(default="", max_length=1000)
+
+
 class WineSaleVoid(BaseModel):
     reason: str = Field(min_length=2, max_length=300)
 

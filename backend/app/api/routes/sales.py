@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
 from app.db.session import get_db
-from app.models import Wine, WineSale
+from app.models import Wine, WineSale, WineStockLot, WineStockMovement
 from app.schemas.sale import (
     CurrencySalesSummary,
     SaleBreakdownItem,
@@ -19,6 +19,7 @@ from app.schemas.sale import (
     WineSaleCreate,
     WineSaleResponse,
     WineSalesSummaryResponse,
+    WineSaleUpdate,
     WineSaleVoid,
 )
 from app.services.restaurant_excel import build_restaurant_excel
@@ -153,6 +154,103 @@ def void_sale(
     )
     if wine.status.lower() == "sold":
         wine.status = sale.previous_wine_status
+    db.commit()
+    db.refresh(sale)
+    return sale_response(sale, wine)
+
+
+@router.put("/{sale_id}", response_model=WineSaleResponse)
+def update_sale(
+    sale_id: UUID,
+    payload: WineSaleUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> WineSaleResponse:
+    sale, wine = household_sale(db, context, sale_id)
+    if sale.voided_at is not None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Sale already voided")
+
+    source_movements = list(
+        db.scalars(
+            select(WineStockMovement)
+            .where(
+                WineStockMovement.sale_id == sale.id,
+                WineStockMovement.movement_type == "sale",
+            )
+            .order_by(WineStockMovement.created_at.asc())
+            .with_for_update()
+        )
+    )
+    tracked_quantity = sum(abs(movement.quantity_delta) for movement in source_movements)
+    if source_movements and tracked_quantity != sale.quantity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Stock ledger does not match this sale",
+        )
+
+    quantity_change = payload.quantity - sale.quantity
+    if quantity_change > 0:
+        remove_fifo_stock(
+            db,
+            wine,
+            movement_type="sale",
+            quantity=quantity_change,
+            occurred_on=payload.sold_at,
+            note=payload.note,
+            user_id=context.user.id,
+            sale=sale,
+        )
+    elif quantity_change < 0:
+        if not source_movements:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="This historical sale cannot be reduced because its stock movements are unavailable",
+            )
+        quantity_to_restore = abs(quantity_change)
+        for movement in reversed(source_movements):
+            if not quantity_to_restore:
+                break
+            restored_quantity = min(abs(movement.quantity_delta), quantity_to_restore)
+            lot = db.get(WineStockLot, movement.lot_id) if movement.lot_id else None
+            if lot is not None:
+                lot.quantity_remaining += restored_quantity
+            if restored_quantity == abs(movement.quantity_delta):
+                db.delete(movement)
+            else:
+                movement.quantity_delta += restored_quantity
+            quantity_to_restore -= restored_quantity
+        wine.quantity += abs(quantity_change)
+        if wine.quantity > 0 and wine.status.lower() == "sold":
+            wine.status = sale.previous_wine_status
+
+    sale.sold_at = payload.sold_at
+    sale.quantity = payload.quantity
+    sale.unit_sale_price = payload.unit_sale_price
+    sale.note = payload.note.strip()
+
+    active_movements = list(
+        db.scalars(
+            select(WineStockMovement)
+            .where(
+                WineStockMovement.sale_id == sale.id,
+                WineStockMovement.movement_type == "sale",
+            )
+            .with_for_update()
+        )
+    )
+    for movement in active_movements:
+        movement.occurred_on = payload.sold_at
+        movement.note = sale.note
+    if active_movements:
+        total_purchase_cost = sum(
+            (abs(movement.quantity_delta) * movement.unit_cost for movement in active_movements),
+            Decimal("0"),
+        )
+        sale.total_purchase_cost = total_purchase_cost
+        sale.unit_purchase_cost = (total_purchase_cost / payload.quantity).quantize(Decimal("0.01"))
+    else:
+        sale.total_purchase_cost = sale.unit_purchase_cost * payload.quantity
+
     db.commit()
     db.refresh(sale)
     return sale_response(sale, wine)
