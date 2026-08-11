@@ -93,7 +93,22 @@ export function ownedBottleCount(wine: Wine, session: Session | null) {
   return Math.round((wine.quantity * currentUserSharePct(wine, session)) / 100);
 }
 
-export function wineQuantityLabel(wine: Wine, session: Session | null, bottlesLabel: string, locale: Locale) {
+export function wineQuantityLabel(
+  wine: Wine,
+  session: Session | null,
+  bottlesLabel: string,
+  locale: Locale,
+  restaurantMode = false,
+) {
+  if (restaurantMode && wine.open_bottle_ml > 0) {
+    const sealedBottles = Math.max(Number(wine.quantity || 0) - 1, 0);
+    const availableGlasses = Math.floor(Number(wine.open_bottle_ml || 0) / Math.max(Number(wine.pour_size_ml || 100), 1));
+    const glassesLabel = locale === "it" ? "calici" : "glasses";
+    if (availableGlasses > 0) {
+      return `${formatBottleCount(sealedBottles, locale)} ${bottlesLabel} + ${formatBottleCount(availableGlasses, locale)} ${glassesLabel}`;
+    }
+    return `${formatBottleCount(sealedBottles, locale)} ${bottlesLabel} + ${locale === "it" ? "bottiglia aperta" : "open bottle"}`;
+  }
   const owned = ownedBottleCount(wine, session);
   const isShared = wine.owners.length > 0 || currentUserSharePct(wine, session) < 100;
   if (isShared) return `${formatBottleCount(owned, locale)} ${bottlesLabel} di ${formatBottleCount(wine.quantity, locale)} condivise`;

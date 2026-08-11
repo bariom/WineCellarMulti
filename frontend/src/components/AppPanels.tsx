@@ -1104,7 +1104,7 @@ export function WineDetail({
           </div>
           <div className="detail-hero-metric">
             <span>{t("quantity")}</span>
-            <strong>{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</strong>
+            <strong>{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, restaurantMode)}</strong>
           </div>
       </div>
 

@@ -11724,7 +11724,7 @@ export function App() {
                     </h3>
                     <p className="row-primary">
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
-                      <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale)}</span>
+                      <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, isRestaurant)}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
                       {activeView === "cellar" && isSommelierSpotlightWine(wine) ? (
                         <button
