@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import uPlot from "uplot";
 import "uplot/dist/uPlot.min.css";
 import "./TimeSeriesChart.css";
@@ -34,6 +34,22 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
   useChartReveal(chartHostRef);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 640px)").matches);
   const chartHeight = isMobileViewport && mobileHeight ? mobileHeight : height;
+  // Callers often prepare chart points inline. Keep the chart mounted when that
+  // creates a new array with the same values, otherwise uPlot is destroyed and
+  // recreated on every parent render (a visible flash on the sales dashboard).
+  const pointsKey = points.map((point) => `${point.timestampMs}:${point.value}:${point.tone || "default"}`).join("|");
+  const chartPoints = useMemo(() => {
+    const byTimestamp = new Map<number, TimeSeriesPoint>();
+    points.forEach((point) => {
+      const existing = byTimestamp.get(point.timestampMs);
+      if (existing) {
+        existing.value += point.value;
+        return;
+      }
+      byTimestamp.set(point.timestampMs, { ...point });
+    });
+    return [...byTimestamp.values()].sort((first, second) => first.timestampMs - second.timestampMs);
+  }, [pointsKey]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 640px)");
@@ -45,7 +61,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
 
   useEffect(() => {
     const chartHost = chartHostRef.current;
-    if (!chartHost || !points.length) return;
+    if (!chartHost || !chartPoints.length) return;
 
     const styles = getComputedStyle(chartHost);
     const textColor = styles.getPropertyValue("--text-muted").trim() || "#66716b";
@@ -61,8 +77,15 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       shared: resolvedColor(chartHost, "var(--accent)", "#a88538"),
       purchase: resolvedColor(chartHost, "var(--primary)", "#386d5a"),
     };
-    const timestamps = points.map((point) => point.timestampMs / 1000);
-    const values = points.map((point) => point.value);
+    const timestamps = chartPoints.map((point) => point.timestampMs / 1000);
+    const values = chartPoints.map((point) => point.value);
+    // uPlot can generate multiple intra-day ticks. Since the labels intentionally
+    // show only day/month, use a compact subset of actual sale dates instead.
+    const tickCount = Math.min(timestamps.length, 6);
+    const xAxisSplits = Array.from({ length: tickCount }, (_, index) => {
+      const pointIndex = tickCount === 1 ? 0 : Math.round((index * (timestamps.length - 1)) / (tickCount - 1));
+      return timestamps[pointIndex];
+    }).filter((timestamp, index, all) => index === 0 || timestamp !== all[index - 1]);
     const dateLocale = locale === "it" ? "it-CH" : "en-GB";
     const dateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short" });
     const tooltipDateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" });
@@ -87,6 +110,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
           font: "600 10px system-ui, -apple-system, sans-serif",
           size: 30,
           gap: 7,
+          splits: xAxisSplits,
           grid: { show: false },
           ticks: { stroke: borderColor, width: 1, size: 4 },
           values: (_chart, ticks) => ticks.map((value) => dateFormat.format(new Date(value * 1000))),
@@ -139,7 +163,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
             const ratio = window.devicePixelRatio || 1;
             const context = chart.ctx;
             context.save();
-            points.forEach((point, index) => {
+            chartPoints.forEach((point, index) => {
               const x = chart.valToPos(timestamps[index], "x", true);
               const y = chart.valToPos(point.value, "y", true);
               const color = pointColors[point.tone || "default"];
@@ -162,11 +186,11 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     };
 
     const chart = new uPlot(options, data, chartHost);
-    let keyboardIndex = points.length - 1;
+    let keyboardIndex = chartPoints.length - 1;
     const handleKeyboard = (event: KeyboardEvent) => {
       if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
       event.preventDefault();
-      keyboardIndex = Math.max(0, Math.min(points.length - 1, keyboardIndex + (event.key === "ArrowRight" ? 1 : -1)));
+      keyboardIndex = Math.max(0, Math.min(chartPoints.length - 1, keyboardIndex + (event.key === "ArrowRight" ? 1 : -1)));
       chart.setCursor({
         left: chart.valToPos(timestamps[keyboardIndex], "x"),
         top: chart.valToPos(values[keyboardIndex], "y"),
@@ -187,7 +211,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       chartHost.removeEventListener("keydown", handleKeyboard);
       chart.destroy();
     };
-  }, [ariaLabel, chartHeight, currency, locale, points]);
+  }, [ariaLabel, chartHeight, chartPoints, currency, locale, pointsKey]);
 
   return <div className="time-series-chart" ref={chartHostRef} role="img" aria-label={`${ariaLabel}. ${locale === "it" ? "Usa le frecce sinistra e destra per esplorare i valori." : "Use the left and right arrow keys to explore values."}`} tabIndex={0} />;
 }

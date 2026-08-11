@@ -33,6 +33,26 @@
 
 .restaurant-mobile-scroll-hint { display: none; }
 
+/* The sales controls are a single editorial unit: choose the period, then
+   navigate, read its range and export from the same contextual line. */
+@media (min-width: 801px) {
+  .restaurant-sales-heading { align-items: end; }
+  .restaurant-period-selector { grid-template-columns: minmax(0, 1fr); min-width: 31rem; gap: .55rem; }
+  .restaurant-period-actions { display: flex; align-items: center; justify-content: flex-end; gap: .6rem; width: 100%; }
+  .restaurant-period-actions .restaurant-period-navigation { justify-content: flex-start; margin-right: auto; }
+  .restaurant-period-range { color: var(--text-muted); font-size: .76rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .restaurant-period-actions .restaurant-excel-export { width: auto; min-height: 2rem; padding-inline: .7rem; white-space: nowrap; }
+  .restaurant-period-selector > .restaurant-custom-dates { grid-column: auto; grid-row: auto; width: 100%; }
+  .restaurant-period-selector > .restaurant-custom-dates ~ .restaurant-excel-export { grid-column: auto; grid-row: auto; justify-self: end; width: auto; }
+}
+
+@media (max-width: 800px) {
+  .restaurant-period-actions { display: grid; grid-column: 1 / -1; grid-template-columns: auto minmax(0, 1fr); gap: .35rem .5rem; width: 100%; }
+  .restaurant-period-actions .restaurant-period-navigation { grid-column: 1; grid-row: 1; }
+  .restaurant-period-range { grid-column: 2; grid-row: 1; align-self: center; overflow: hidden; color: var(--text-muted); font-size: .72rem; font-variant-numeric: tabular-nums; text-align: right; text-overflow: ellipsis; white-space: nowrap; }
+  .restaurant-period-actions .restaurant-excel-export { grid-column: 1 / -1; grid-row: 2; width: 100%; }
+}
+
 /* Mobile restaurant operations: preserve tap targets and information hierarchy. */
 @media (max-width: 640px) {
   /* The maturity map is intentionally wider than the viewport, but it must
