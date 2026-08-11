@@ -82,6 +82,40 @@ logger = logging.getLogger(__name__)
 PHOTO_SIZES = {"thumbnail": (160, 240, 512_000), "detail": (480, 720, 2_000_000)}
 
 
+def normalized_drink_window(
+    drink_from: int | None,
+    drink_peak_from: int | None,
+    drink_peak_to: int | None,
+    drink_to: int | None,
+) -> tuple[int | None, int | None, int | None, int | None]:
+    if drink_from is not None and drink_to is not None:
+        return (
+            drink_from,
+            drink_peak_from if drink_peak_from is not None else drink_from,
+            drink_peak_to if drink_peak_to is not None else drink_to,
+            drink_to,
+        )
+    return drink_from, drink_peak_from, drink_peak_to, drink_to
+
+
+def validate_drink_window(
+    drink_from: int | None,
+    drink_peak_from: int | None,
+    drink_peak_to: int | None,
+    drink_to: int | None,
+) -> None:
+    years = (drink_from, drink_peak_from, drink_peak_to, drink_to)
+    if all(year is None for year in years):
+        return
+    if any(year is None for year in years) or not (
+        drink_from <= drink_peak_from <= drink_peak_to <= drink_to
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Drink window must include a peak period within its start and end years",
+        )
+
+
 def wine_photo_path(wine: Wine, size: str) -> Path:
     return (
         Path(settings.wine_photo_storage_dir)
@@ -1093,6 +1127,17 @@ def create_wine(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     data = payload.model_dump()
+    data["drink_from"], data["drink_peak_from"], data["drink_peak_to"], data["drink_to"] = (
+        normalized_drink_window(
+            data.get("drink_from"),
+            data.get("drink_peak_from"),
+            data.get("drink_peak_to"),
+            data.get("drink_to"),
+        )
+    )
+    validate_drink_window(
+        data["drink_from"], data["drink_peak_from"], data["drink_peak_to"], data["drink_to"]
+    )
     if (
         context.household.operating_mode == "restaurant"
         and "pour_size_ml" not in payload.model_fields_set
@@ -1538,6 +1583,16 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     previous_quantity = wine.quantity
     data = payload.model_dump(exclude_unset=True)
+    window_fields = ("drink_from", "drink_peak_from", "drink_peak_to", "drink_to")
+    effective_window = normalized_drink_window(
+        data.get("drink_from", wine.drink_from),
+        data.get("drink_peak_from", wine.drink_peak_from),
+        data.get("drink_peak_to", wine.drink_peak_to),
+        data.get("drink_to", wine.drink_to),
+    )
+    validate_drink_window(*effective_window)
+    if any(field in data for field in window_fields):
+        data.update(dict(zip(window_fields, effective_window, strict=True)))
     effective_commercial_status = data.get("commercial_status", wine.commercial_status)
     if effective_commercial_status != "active":
         data["reorder_enabled"] = False
@@ -1555,6 +1610,27 @@ def update_wine(
         data["grapes_not_applicable"] = False
     if data.get("current_value") is not None:
         data["value_not_found"] = False
+    changed_fields = {
+        field
+        for field, value in data.items()
+        if field
+        in {
+            "ai_notes",
+            "drink_from",
+            "drink_peak_from",
+            "drink_peak_to",
+            "drink_to",
+            "drink_window_notes",
+            "current_value",
+            "currency",
+            "ai_value_notes",
+            "grapes",
+            "grapes_source_url",
+            "grapes_source_title",
+            "scores",
+        }
+        and getattr(wine, field) != value
+    }
     old_value = wine.current_value
     old_currency = wine.currency
     for field, value in data.items():
@@ -1578,13 +1654,19 @@ def update_wine(
         hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     local_feature_fields = {
         "notes": {"ai_notes"},
-        "drink_window": {"drink_from", "drink_peak_from", "drink_peak_to", "drink_to", "drink_window_notes"},
+        "drink_window": {
+            "drink_from",
+            "drink_peak_from",
+            "drink_peak_to",
+            "drink_to",
+            "drink_window_notes",
+        },
         "value": {"current_value", "currency", "ai_value_notes"},
         "grapes": {"grapes", "grapes_source_url", "grapes_source_title"},
         "scores": {"scores"},
     }
     for feature, fields in local_feature_fields.items():
-        if fields.intersection(data):
+        if fields.intersection(changed_fields):
             mark_local_feature(wine, feature)
     if (
         "current_value" in data

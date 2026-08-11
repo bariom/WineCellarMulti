@@ -446,6 +446,11 @@ const emptyDraft: WineDraft = {
   order_date: "",
   expected_delivery: "",
   owner_share_pct: "100",
+  drink_from: "",
+  drink_peak_from: "",
+  drink_peak_to: "",
+  drink_to: "",
+  drink_window_notes: "",
   rating: "0",
   notes: "",
   owners: [],
@@ -3947,6 +3952,22 @@ export function App() {
   async function submitWine(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!draft.name.trim()) return;
+    const optionalYear = (value: string) => {
+      const year = Number(value);
+      return value.trim() && Number.isInteger(year) ? year : null;
+    };
+    const drinkFrom = optionalYear(draft.drink_from);
+    const drinkTo = optionalYear(draft.drink_to);
+    const drinkPeakFrom = optionalYear(draft.drink_peak_from) ?? drinkFrom;
+    const drinkPeakTo = optionalYear(draft.drink_peak_to) ?? drinkTo;
+    if ((drinkFrom === null) !== (drinkTo === null)) {
+      setError(locale === "it" ? "Per impostare la finestra di beva, indica sia l'anno iniziale sia quello finale." : "Set both the start and end years for the drinking window.");
+      return;
+    }
+    if (drinkFrom !== null && drinkTo !== null && !(drinkFrom <= drinkPeakFrom! && drinkPeakFrom! <= drinkPeakTo! && drinkPeakTo! <= drinkTo)) {
+      setError(locale === "it" ? "Il picco deve rientrare nella finestra di beva." : "The peak period must fall within the drinking window.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -10423,6 +10444,38 @@ export function App() {
                   <span>{t("rating")}</span>
                   <RatingInput value={draft.rating} disabled={!canWriteWine} label={t("rating")} onChange={(value) => setDraft({ ...draft, rating: value })} />
                 </label>
+                <div className="drink-window-editor">
+                  <div className="drink-window-editor-heading">
+                    <div>
+                      <span>{locale === "it" ? "Finestra di beva" : "Drinking window"}</span>
+                      <small>{locale === "it" ? "Impostazione manuale" : "Manual setting"}</small>
+                    </div>
+                    <small>{locale === "it" ? "Il picco è facoltativo" : "Peak is optional"}</small>
+                  </div>
+                  <div className="drink-window-editor-grid">
+                    <label>
+                      <span>{locale === "it" ? "Da" : "From"}</span>
+                      <input type="number" min="1900" max="2200" step="1" inputMode="numeric" value={draft.drink_from} onChange={(event) => setDraft({ ...draft, drink_from: event.target.value })} disabled={!canWriteWine} placeholder="2028" />
+                    </label>
+                    <label>
+                      <span>{locale === "it" ? "Picco da" : "Peak from"}</span>
+                      <input type="number" min="1900" max="2200" step="1" inputMode="numeric" value={draft.drink_peak_from} onChange={(event) => setDraft({ ...draft, drink_peak_from: event.target.value })} disabled={!canWriteWine} placeholder="2030" />
+                    </label>
+                    <label>
+                      <span>{locale === "it" ? "Picco fino a" : "Peak to"}</span>
+                      <input type="number" min="1900" max="2200" step="1" inputMode="numeric" value={draft.drink_peak_to} onChange={(event) => setDraft({ ...draft, drink_peak_to: event.target.value })} disabled={!canWriteWine} placeholder="2034" />
+                    </label>
+                    <label>
+                      <span>{locale === "it" ? "Fino a" : "To"}</span>
+                      <input type="number" min="1900" max="2200" step="1" inputMode="numeric" value={draft.drink_to} onChange={(event) => setDraft({ ...draft, drink_to: event.target.value })} disabled={!canWriteWine} placeholder="2037" />
+                    </label>
+                  </div>
+                  <label>
+                    <span>{locale === "it" ? "Nota sulla finestra" : "Window note"}</span>
+                    <input value={draft.drink_window_notes} onChange={(event) => setDraft({ ...draft, drink_window_notes: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Es. conservazione in cantina ideale" : "E.g. ideally cellar-stored"} />
+                  </label>
+                  <small className="form-hint">{locale === "it" ? "Lascia vuoto il picco per usare l'intera finestra come periodo ideale. Per rimuovere la finestra, svuota gli anni e salva." : "Leave the peak empty to use the entire window as the ideal period. Clear the years and save to remove it."}</small>
+                </div>
                 </section>
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`}>
                   <button type="button" className="wine-editor-disclosure-toggle" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>

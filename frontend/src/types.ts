@@ -244,6 +244,11 @@ export type WineDraft = {
   order_date: string;
   expected_delivery: string;
   owner_share_pct: string;
+  drink_from: string;
+  drink_peak_from: string;
+  drink_peak_to: string;
+  drink_to: string;
+  drink_window_notes: string;
   rating: string;
   notes: string;
   owners: Array<{ name: string; email: string; share_pct: string }>;

@@ -26,6 +26,11 @@ export function wineToDraft(wine: Wine): WineDraft {
     order_date: wine.order_date || "",
     expected_delivery: wine.expected_delivery || "",
     owner_share_pct: String(wine.owner_share_pct || "100"),
+    drink_from: wine.drink_from === null ? "" : String(wine.drink_from),
+    drink_peak_from: wine.drink_peak_from === null ? "" : String(wine.drink_peak_from),
+    drink_peak_to: wine.drink_peak_to === null ? "" : String(wine.drink_peak_to),
+    drink_to: wine.drink_to === null ? "" : String(wine.drink_to),
+    drink_window_notes: wine.drink_window_notes || "",
     rating: String(wine.rating || 0),
     notes: wine.notes,
     owners: wine.owners.map((owner) => ({ name: owner.name || "", email: owner.email || "", share_pct: String(owner.share_pct || "") })),
@@ -40,6 +45,14 @@ export function wineToDraft(wine: Wine): WineDraft {
 }
 
 export function draftPayload(draft: WineDraft) {
+  const optionalYear = (value: string) => {
+    const year = Number(value);
+    return value.trim() && Number.isInteger(year) ? year : null;
+  };
+  const drinkFrom = optionalYear(draft.drink_from);
+  const drinkTo = optionalYear(draft.drink_to);
+  const drinkPeakFrom = optionalYear(draft.drink_peak_from);
+  const drinkPeakTo = optionalYear(draft.drink_peak_to);
   return {
     name: draft.name.trim(),
     producer: draft.producer.trim(),
@@ -64,6 +77,11 @@ export function draftPayload(draft: WineDraft) {
     order_date: draft.order_date || null,
     expected_delivery: draft.expected_delivery || null,
     owner_share_pct: Number(draft.owner_share_pct || 100),
+    drink_from: drinkFrom,
+    drink_peak_from: drinkFrom === null || drinkTo === null ? null : (drinkPeakFrom ?? drinkFrom),
+    drink_peak_to: drinkFrom === null || drinkTo === null ? null : (drinkPeakTo ?? drinkTo),
+    drink_to: drinkTo,
+    drink_window_notes: draft.drink_window_notes.trim(),
     rating: Number(draft.rating || 0),
     notes: draft.notes.trim(),
     owners: draft.owners

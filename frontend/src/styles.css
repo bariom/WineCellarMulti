@@ -3813,6 +3813,50 @@ textarea {
   align-content: start;
 }
 
+.drink-window-editor {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.drink-window-editor-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.drink-window-editor-heading > div {
+  display: grid;
+  gap: 2px;
+}
+
+.drink-window-editor-heading span {
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 850;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.drink-window-editor-heading small,
+.drink-window-editor > .form-hint {
+  color: var(--text-muted);
+}
+
+.drink-window-editor-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.drink-window-editor-grid > label {
+  min-width: 0;
+}
+
 .restaurant-glass-settings {
   align-items: start;
 }
@@ -13351,6 +13395,15 @@ textarea {
 @media (max-width: 520px) {
   .form-row {
     grid-template-columns: 1fr;
+  }
+
+  .drink-window-editor-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .drink-window-editor-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .restaurant-yield-preview {
