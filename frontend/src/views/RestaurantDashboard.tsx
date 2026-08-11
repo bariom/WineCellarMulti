@@ -523,7 +523,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     setSaleSaving(true);
     setError("");
     try {
-      await api(`/api/v1/sales/${editingSale.id}`, {
+      const updatedSale = await api<RestaurantSalesSummary["recent_sales"][number]>(`/api/v1/sales/${editingSale.id}`, {
         method: "PUT",
         body: JSON.stringify({
           sold_at: editingSale.sold_at,
@@ -532,8 +532,12 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           note: editingSale.note,
         }),
       });
+      setSummary((current) => current ? {
+        ...current,
+        recent_sales: current.recent_sales.map((sale) => sale.id === updatedSale.id ? updatedSale : sale),
+      } : current);
       setEditingSale(null);
-      await onChanged();
+      void onChanged();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : (locale === "it" ? "Impossibile modificare la vendita" : "Unable to update sale"));
     } finally {
@@ -771,7 +775,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           <label>{locale === "it" ? "Prezzo unitario" : "Unit price"}<input type="number" min="0" step="0.01" value={editingSale.unit_sale_price} onChange={(event) => setEditingSale((current) => current ? { ...current, unit_sale_price: event.target.value } : current)} required /></label>
           <label className="restaurant-sale-edit-note">{locale === "it" ? "Nota" : "Note"}<input value={editingSale.note} maxLength={1000} onChange={(event) => setEditingSale((current) => current ? { ...current, note: event.target.value } : current)} /></label>
           <div className="restaurant-sale-edit-actions"><button type="button" className="secondary compact" disabled={saleSaving} onClick={() => setEditingSale(null)}>{locale === "it" ? "Annulla" : "Cancel"}</button><button type="submit" className="compact" disabled={saleSaving}>{saleSaving ? (locale === "it" ? "Salvo…" : "Saving…") : (locale === "it" ? "Salva vendita" : "Save sale")}</button></div>
-        </form> : <><div><strong>{sale.wine_name}</strong><span>{displayDate(sale.sold_at, locale)} · {sale.quantity} × {formatMoney(sale.unit_sale_price, sale.currency, locale)}</span></div><div><strong>{formatMoney(sale.gross_margin, sale.currency, locale)}</strong><div className="restaurant-sale-actions"><button type="button" className="secondary compact" onClick={() => setEditingSale({ id: sale.id, sold_at: sale.sold_at, quantity: String(sale.quantity), unit_sale_price: String(sale.unit_sale_price), note: sale.note || "" })}>{locale === "it" ? "Modifica" : "Edit"}</button><button type="button" className="secondary compact" onClick={() => void voidSale(sale.id)}>{locale === "it" ? "Annulla" : "Void"}</button></div></div></>}
+        </form> : <><div><strong>{sale.wine_name}</strong><span>{displayDate(sale.sold_at, locale)} · {sale.quantity} × {formatMoney(sale.unit_sale_price, sale.currency, locale)}</span></div><div className="restaurant-sale-result"><span>{locale === "it" ? "Margine lordo" : "Gross margin"}</span><strong>{formatMoney(sale.gross_margin, sale.currency, locale)}</strong><div className="restaurant-sale-actions"><button type="button" className="secondary compact" onClick={() => setEditingSale({ id: sale.id, sold_at: sale.sold_at, quantity: String(sale.quantity), unit_sale_price: String(sale.unit_sale_price), note: sale.note || "" })}>{locale === "it" ? "Modifica" : "Edit"}</button><button type="button" className="secondary compact" onClick={() => void voidSale(sale.id)}>{locale === "it" ? "Annulla" : "Void"}</button></div></div></>}
       </article>;
     })}</div> : <p className="empty-state">—</p>}</details>
     </div>
