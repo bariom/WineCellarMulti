@@ -8346,6 +8346,10 @@ button.balance-indicator:focus-visible {
   line-height: 1.35;
 }
 
+.maturity-mobile-panel-switcher {
+  display: none;
+}
+
 .maturity-filter-pill {
   display: inline-flex;
   align-items: center;
@@ -8957,6 +8961,54 @@ button.balance-indicator:focus-visible {
 
   .maturity-heatmap-card {
     grid-column: 1;
+  }
+
+  .maturity-heatmap-card {
+    gap: 10px;
+  }
+
+  .maturity-heatmap-card .card-heading {
+    margin-bottom: 0;
+  }
+
+  .maturity-heatmap-help {
+    margin: 0;
+    font-size: 0.8rem;
+  }
+
+  .maturity-mobile-panel-switcher {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+    padding: 4px;
+    border: 1px solid color-mix(in srgb, var(--border) 76%, transparent);
+    border-radius: 12px;
+    background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+  }
+
+  .maturity-mobile-panel-switcher button {
+    min-height: 36px;
+    padding: 7px 8px;
+    border-radius: 8px;
+    font-size: 0.76rem;
+    white-space: nowrap;
+  }
+
+  .maturity-mobile-panel-switcher button.secondary {
+    border-color: transparent;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .maturity-mobile-panel-map .maturity-panorama,
+  .maturity-mobile-panel-map .maturity-filter-pill {
+    display: none;
+  }
+
+  .maturity-mobile-panel-risk .maturity-heatmap,
+  .maturity-mobile-panel-risk .maturity-filter-pill,
+  .maturity-mobile-panel-risk > .empty-state {
+    display: none;
   }
 
   .maturity-heatmap-years,

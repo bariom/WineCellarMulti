@@ -39,5 +39,12 @@
 .maturity-financial-risk-help { margin: 0; color: var(--text-muted); font-size: .72rem; line-height: 1.35; }
 @media (max-width: 820px) {
   .maturity-panorama-kpis, .maturity-stream-card, .maturity-panorama-callout { display: none; }
-  .maturity-financial-risk-summary { grid-template-columns: 1fr; }
+  .maturity-financial-risk { gap: 8px; }
+  .maturity-financial-risk-heading { align-items: center; }
+  .maturity-financial-risk-timeline { margin-inline: -2px; }
+  .maturity-financial-risk-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; }
+  .maturity-financial-risk-summary > div { padding: 8px 7px; }
+  .maturity-financial-risk-summary span { min-height: 2.2em; overflow: visible; font-size: .61rem; line-height: 1.1; white-space: normal; }
+  .maturity-financial-risk-summary strong { margin-top: 4px; font-size: .95rem; }
+  .maturity-financial-risk-help { font-size: .68rem; }
 }

@@ -89,6 +89,19 @@
   .restaurant-custom-dates { grid-template-columns: 1fr 1fr; gap: .5rem; }
   .restaurant-custom-dates input { min-width: 0; width: 100%; }
 
+  /* Sales controls and the four period KPIs are the mobile first-screen view. */
+  .restaurant-period-selector { grid-template-columns: auto minmax(0, 1fr); gap: .35rem .5rem; }
+  .restaurant-periods { grid-column: 1 / -1; }
+  .restaurant-period-navigation { grid-column: 1; grid-row: 2; }
+  .restaurant-excel-export { grid-column: 2; grid-row: 2; width: 100%; }
+  .restaurant-custom-dates { grid-column: 1 / -1; grid-row: 2; }
+  .restaurant-custom-dates ~ .restaurant-excel-export { grid-column: 1 / -1; grid-row: 3; }
+  .restaurant-currency .restaurant-kpis { gap: .4rem; }
+  .restaurant-currency .restaurant-kpis article { min-height: 5.55rem; padding: .58rem .62rem; gap: .12rem; }
+  .restaurant-currency .restaurant-kpis span { font-size: .68rem; }
+  .restaurant-currency .restaurant-kpis strong { font-size: clamp(1.2rem, 6vw, 1.45rem); line-height: 1.02; }
+  .restaurant-currency .restaurant-kpis small { font-size: .67rem; }
+
   .restaurant-leading-wines button { grid-template-columns: 1.2rem 2.25rem minmax(0, 1fr); gap: .55rem; padding: .65rem; }
   .restaurant-leading-wines img,
   .restaurant-leading-wines button > i { width: 2.25rem; height: 3.35rem; }

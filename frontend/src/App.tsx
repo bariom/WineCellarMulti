@@ -1463,6 +1463,7 @@ export function App() {
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [maturityFilter, setMaturityFilter] = useState<MaturityFilter>(null);
+  const [maturityMobilePanel, setMaturityMobilePanel] = useState<"map" | "risk">("map");
   const [regionalGapTargets, setRegionalGapTargets] = useState<RegionalGapTarget[]>(classicRegionalGapTargets);
   const [regionalGapTargetsOpen, setRegionalGapTargetsOpen] = useState(false);
   const [regionalGapDraft, setRegionalGapDraft] = useState<RegionalGapTargetDraft[]>(() => classicRegionalGapTargets.map((target) => ({ region: target.region, targetPct: String(target.targetPct) })));
@@ -7223,7 +7224,7 @@ export function App() {
 
   function renderMaturityHeatmapCard(fullWidth = false) {
     return (
-      <article className={`dashboard-card wide-card maturity-heatmap-card${fullWidth ? " maturity-heatmap-card-full" : ""}`}>
+      <article className={`dashboard-card wide-card maturity-heatmap-card maturity-mobile-panel-${maturityMobilePanel}${fullWidth ? " maturity-heatmap-card-full" : ""}`}>
         <div className="card-heading">
           <div>
             <span>{t("maturityMap")}</span>
@@ -7236,6 +7237,26 @@ export function App() {
           ) : null}
         </div>
         <p className="maturity-heatmap-help">{t("maturityHeatmapHelp")}</p>
+        <div className="maturity-mobile-panel-switcher" role="tablist" aria-label={t("drinkingWindow")}>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={maturityMobilePanel === "map"}
+            className={maturityMobilePanel === "map" ? "active" : "secondary"}
+            onClick={() => setMaturityMobilePanel("map")}
+          >
+            {locale === "it" ? "Mappa maturità" : "Maturity map"}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={maturityMobilePanel === "risk"}
+            className={maturityMobilePanel === "risk" ? "active" : "secondary"}
+            onClick={() => setMaturityMobilePanel("risk")}
+          >
+            {locale === "it" ? "Rischio capitale" : "Capital risk"}
+          </button>
+        </div>
         <Suspense fallback={<LoadingState label={t("loadingData")} />}>
           <MaturityPanorama
             points={maturityPanoramaPoints}
