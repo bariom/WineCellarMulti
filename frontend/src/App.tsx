@@ -6613,6 +6613,13 @@ export function App() {
     }
   }
 
+  function openCellarSommelierForWine(wine: Wine) {
+    cellarSommelierPromptedWineIdsRef.current.add(wine.id);
+    setCellarSommelierHighlightedWineId(wine.id);
+    setCellarSommelierVisible(true);
+    setCellarSommelierOpen(true);
+  }
+
   function openWineSalePanel(wine: Wine) {
     setSelectedWineId(wine.id);
     if (isMobileViewport && !mobileWineDetailHistoryActiveRef.current) {
@@ -11603,10 +11610,13 @@ export function App() {
                           title={t("dailySommelierTitle")}
                           onClick={(event) => {
                             event.stopPropagation();
-                            cellarSommelierPromptedWineIdsRef.current.add(wine.id);
-                            setCellarSommelierHighlightedWineId(wine.id);
-                            setCellarSommelierVisible(true);
-                            setCellarSommelierOpen(true);
+                            openCellarSommelierForWine(wine);
+                          }}
+                          onPointerUp={(event) => {
+                            if (event.pointerType !== "touch") return;
+                            event.preventDefault();
+                            event.stopPropagation();
+                            openCellarSommelierForWine(wine);
                           }}
                         >
                           <AppIcon name="glass-sparkle" variant="ai" tone="accent" size="0.9rem" />
