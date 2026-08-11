@@ -19,6 +19,7 @@ from app.schemas.sale import (
     SaleSeriesPoint,
     WineSaleCreate,
     WineSaleResponse,
+    WineSalesHistoryResponse,
     WineSalesSummaryResponse,
     WineSaleUpdate,
     WineSaleVoid,
@@ -686,6 +687,73 @@ def sales_summary(
         sales_by_region=breakdown_items(region_totals),
         sales_by_producer=breakdown_items(producer_totals),
         recent_sales=[sale_response(sale, wine) for sale, wine in rows[:20]],
+    )
+
+
+@router.get("/wine/{wine_id}/history", response_model=WineSalesHistoryResponse)
+def wine_sales_history(
+    wine_id: UUID,
+    days: int = Query(default=365, ge=30, le=730),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> WineSalesHistoryResponse:
+    if context.household.operating_mode != "restaurant":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Wine sales history is available only for restaurant cellars",
+        )
+    wine = db.scalar(
+        select(Wine).where(Wine.id == wine_id, Wine.household_id == context.household.id)
+    )
+    if wine is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+    to_date = datetime.now(UTC).date()
+    from_date = to_date - timedelta(days=days - 1)
+    rows = list(
+        db.scalars(
+            select(WineSale)
+            .where(
+                WineSale.wine_id == wine.id,
+                WineSale.household_id == context.household.id,
+                WineSale.sold_at >= from_date,
+                WineSale.sold_at <= to_date,
+                WineSale.voided_at.is_(None),
+            )
+            .order_by(WineSale.sold_at.asc(), WineSale.created_at.asc())
+        )
+    )
+    daily: dict[date, dict[str, Decimal | int]] = defaultdict(
+        lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0, "glasses": 0}
+    )
+    for sale in rows:
+        totals = daily[sale.sold_at]
+        totals["revenue"] += sale.unit_sale_price * sale.quantity
+        totals["cost"] += sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
+        totals["glasses" if sale.sale_kind == "glass" else "bottles"] += sale.quantity
+    series = [
+        SaleSeriesPoint(
+            date=sold_at,
+            currency=wine.currency.upper(),
+            revenue=Decimal(totals["revenue"]),
+            cost=Decimal(totals["cost"]),
+            gross_margin=Decimal(totals["revenue"]) - Decimal(totals["cost"]),
+            bottles=int(totals["bottles"]),
+            glasses=int(totals["glasses"]),
+        )
+        for sold_at, totals in sorted(daily.items())
+    ]
+    revenue = sum((Decimal(point.revenue) for point in series), Decimal("0"))
+    gross_margin = sum((Decimal(point.gross_margin) for point in series), Decimal("0"))
+    return WineSalesHistoryResponse(
+        wine_id=wine.id,
+        from_date=from_date,
+        to_date=to_date,
+        currency=wine.currency.upper(),
+        revenue=revenue,
+        gross_margin=gross_margin,
+        bottles=sum(point.bottles for point in series),
+        glasses=sum(point.glasses for point in series),
+        series=series,
     )
 
 

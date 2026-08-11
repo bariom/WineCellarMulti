@@ -106,3 +106,15 @@ class WineSalesSummaryResponse(BaseModel):
     sales_by_region: list[SaleBreakdownItem]
     sales_by_producer: list[SaleBreakdownItem]
     recent_sales: list[WineSaleResponse]
+
+
+class WineSalesHistoryResponse(BaseModel):
+    wine_id: UUID
+    from_date: date
+    to_date: date
+    currency: str
+    revenue: Decimal
+    gross_margin: Decimal
+    bottles: int
+    glasses: int
+    series: list[SaleSeriesPoint]

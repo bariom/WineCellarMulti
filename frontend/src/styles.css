@@ -11952,6 +11952,81 @@ button.stat-card:hover {
   font-weight: 700;
 }
 
+.restaurant-wine-sales-history {
+  display: grid;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 14px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--surface-muted) 72%, var(--accent) 6%), var(--surface));
+}
+
+.restaurant-wine-sales-history-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.restaurant-wine-sales-history-heading .eyebrow {
+  margin: 0 0 3px;
+}
+
+.restaurant-wine-sales-history-heading h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.restaurant-wine-sales-history-heading strong {
+  color: var(--accent-deep);
+  font-size: 1.35rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.restaurant-wine-sales-history-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.restaurant-wine-sales-history-kpis span {
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--surface-raised);
+  font-size: 0.79rem;
+}
+
+.restaurant-wine-sales-history-kpis b {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.restaurant-wine-sales-history-chart {
+  min-height: 176px;
+}
+
+@media (max-width: 560px) {
+  .restaurant-wine-sales-history {
+    padding: 12px;
+  }
+
+  .restaurant-wine-sales-history-heading {
+    align-items: start;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .restaurant-wine-sales-history-chart {
+    min-height: 150px;
+  }
+}
+
 .consume-panel[open] summary {
   margin-bottom: 10px;
 }

@@ -162,6 +162,18 @@ export type RestaurantSalesSummary = {
   recent_sales: WineSale[];
 };
 
+export type WineSalesHistory = {
+  wine_id: string;
+  from_date: string;
+  to_date: string;
+  currency: string;
+  revenue: string;
+  gross_margin: string;
+  bottles: number;
+  glasses: number;
+  series: Array<{ date: string; currency: string; revenue: string; cost: string; gross_margin: string; bottles: number; glasses: number }>;
+};
+
 export type StockMovementType =
   | "opening_balance"
   | "initial_purchase"

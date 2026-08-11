@@ -140,6 +140,14 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     assert summary.json()["top_wines"][0]["bottles"] == 2
     assert summary.json()["least_sold_wines"][0]["current_stock"] == 1
 
+    wine_history = client.get(f"/api/v1/sales/wine/{wine_id}/history")
+    assert wine_history.status_code == 200
+    assert wine_history.json()["revenue"] == "110.00"
+    assert wine_history.json()["gross_margin"] == "70.00"
+    assert wine_history.json()["bottles"] == 2
+    assert wine_history.json()["glasses"] == 0
+    assert wine_history.json()["series"][-1]["revenue"] == "110.00"
+
     voided = client.post(f"/api/v1/sales/{sale['id']}/void", json={"reason": "Errore cassa"})
     assert voided.status_code == 200
     assert voided.json()["voided_at"] is not None

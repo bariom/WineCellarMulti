@@ -5,7 +5,7 @@ import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, 
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
-import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
+import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
@@ -883,6 +883,8 @@ export function WineDetail({
   onUpdateRating,
   onConsume,
   restaurantMode = false,
+  salesHistory = null,
+  salesHistoryLoading = false,
   onSell,
   onUpdateCommercialStatus,
   onUpdateTastingEntry,
@@ -910,6 +912,8 @@ export function WineDetail({
   onUpdateRating: (rating: string) => Promise<void>;
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
   restaurantMode?: boolean;
+  salesHistory?: WineSalesHistory | null;
+  salesHistoryLoading?: boolean;
   onSell: (payload: WineSaleDraft) => Promise<void>;
   onUpdateCommercialStatus: (status: Wine["commercial_status"]) => Promise<void>;
   onUpdateTastingEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
@@ -1350,6 +1354,35 @@ export function WineDetail({
           </form>
         </details>
       ) : null}
+
+      {restaurantMode ? <section className="restaurant-wine-sales-history" aria-busy={salesHistoryLoading}>
+        <div className="restaurant-wine-sales-history-heading">
+          <div>
+            <p className="eyebrow">{locale === "it" ? "Andamento" : "Performance"}</p>
+            <h3>{locale === "it" ? "Vendite del vino · ultimi 12 mesi" : "Wine sales · last 12 months"}</h3>
+          </div>
+          {salesHistory ? <strong>{formatMoney(salesHistory.revenue, salesHistory.currency, locale)}</strong> : null}
+        </div>
+        {salesHistoryLoading ? <LoadingState label={locale === "it" ? "Carico lo storico vendite" : "Loading sales history"} compact /> : salesHistory?.series.length ? <>
+          <div className="restaurant-wine-sales-history-kpis">
+            <span><b>{salesHistory.bottles}</b> {locale === "it" ? "bottiglie vendute" : "bottles sold"}</span>
+            <span><b>{salesHistory.glasses}</b> {locale === "it" ? "calici serviti" : "glasses served"}</span>
+            <span><b>{formatMoney(salesHistory.gross_margin, salesHistory.currency, locale)}</b> {locale === "it" ? "margine lordo" : "gross margin"}</span>
+          </div>
+          <Suspense fallback={<div className="restaurant-wine-sales-history-chart" />}>
+            <div className="restaurant-wine-sales-history-chart">
+              <TimeSeriesChart
+                ariaLabel={locale === "it" ? "Evoluzione dei ricavi del vino" : "Wine revenue trend"}
+                locale={locale}
+                currency={salesHistory.currency}
+                height={176}
+                mobileHeight={150}
+                points={salesHistory.series.map((point) => ({ timestampMs: new Date(`${point.date}T12:00:00`).getTime(), value: Number(point.revenue), tone: "manual" as const }))}
+              />
+            </div>
+          </Suspense>
+        </> : <p className="empty-state">{locale === "it" ? "Nessuna vendita registrata negli ultimi 12 mesi." : "No sales recorded in the last 12 months."}</p>}
+      </section> : null}
 
       {canWrite && wine.quantity > 0 && !restaurantMode ? (
         <details className="detail-section consume-panel sale-panel">
