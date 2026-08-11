@@ -202,6 +202,9 @@ def list_household_memberships(
                 household_id=household.id,
                 household_name=household.name,
                 operating_mode=household.operating_mode,
+                restaurant_default_pour_size_ml=household.restaurant_default_pour_size_ml,
+                restaurant_service_loss_ml=household.restaurant_service_loss_ml,
+                restaurant_default_reorder_threshold=household.restaurant_default_reorder_threshold,
                 role=membership.role,
             ),
         )
@@ -236,6 +239,9 @@ def switch_household(
         household_id=household.id,
         household_name=household.name,
         operating_mode=household.operating_mode,
+        restaurant_default_pour_size_ml=household.restaurant_default_pour_size_ml,
+        restaurant_service_loss_ml=household.restaurant_service_loss_ml,
+        restaurant_default_reorder_threshold=household.restaurant_default_reorder_threshold,
         role=membership.role,
     )
 
@@ -274,6 +280,9 @@ def create_household(
         household_id=household.id,
         household_name=household.name,
         operating_mode=household.operating_mode,
+        restaurant_default_pour_size_ml=household.restaurant_default_pour_size_ml,
+        restaurant_service_loss_ml=household.restaurant_service_loss_ml,
+        restaurant_default_reorder_threshold=household.restaurant_default_reorder_threshold,
         role=membership.role,
     )
 
@@ -381,6 +390,24 @@ def update_active_household(
             current_household_id=context.household.id,
         )
         context.household.operating_mode = payload.operating_mode
+    restaurant_settings_changed = (
+        payload.restaurant_default_pour_size_ml is not None
+        or payload.restaurant_service_loss_ml is not None
+        or payload.restaurant_default_reorder_threshold is not None
+    )
+    if restaurant_settings_changed and context.household.operating_mode != "restaurant":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Restaurant service settings require a restaurant cellar",
+        )
+    if payload.restaurant_default_pour_size_ml is not None:
+        context.household.restaurant_default_pour_size_ml = payload.restaurant_default_pour_size_ml
+    if payload.restaurant_service_loss_ml is not None:
+        context.household.restaurant_service_loss_ml = payload.restaurant_service_loss_ml
+    if payload.restaurant_default_reorder_threshold is not None:
+        context.household.restaurant_default_reorder_threshold = (
+            payload.restaurant_default_reorder_threshold
+        )
     db.commit()
     db.refresh(context.household)
     return HouseholdMembershipResponse(
@@ -388,6 +415,9 @@ def update_active_household(
         household_id=context.household.id,
         household_name=context.household.name,
         operating_mode=context.household.operating_mode,
+        restaurant_default_pour_size_ml=context.household.restaurant_default_pour_size_ml,
+        restaurant_service_loss_ml=context.household.restaurant_service_loss_ml,
+        restaurant_default_reorder_threshold=context.household.restaurant_default_reorder_threshold,
         role=context.membership.role,
     )
 

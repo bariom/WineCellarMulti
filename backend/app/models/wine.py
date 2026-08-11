@@ -204,6 +204,8 @@ class WineSale(Base):
     quantity: Mapped[int] = mapped_column(default=1)
     sale_kind: Mapped[str] = mapped_column(String(16), default="bottle")
     pour_size_ml: Mapped[int] = mapped_column(default=0)
+    bottle_yield_ml: Mapped[int] = mapped_column(default=0)
+    discarded_volume_ml: Mapped[int] = mapped_column(default=0)
     stock_bottles_consumed: Mapped[int] = mapped_column(default=0)
     unit_sale_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     unit_purchase_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2))

@@ -1267,6 +1267,63 @@ summary:focus-visible {
   grid-column: span 2;
 }
 
+.restaurant-service-settings {
+  background:
+    radial-gradient(circle at 92% 8%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 28%),
+    var(--surface);
+}
+
+.restaurant-service-settings .settings-card-intro {
+  max-width: 760px;
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.restaurant-yield-form {
+  display: grid;
+  gap: 16px;
+}
+
+.restaurant-settings-fields {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.restaurant-yield-form label {
+  align-content: start;
+}
+
+.restaurant-yield-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 4px 18px;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--surface-raised));
+}
+
+.restaurant-yield-preview > span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.restaurant-yield-preview > strong {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 3vw, 2.35rem);
+  line-height: 1;
+}
+
+.restaurant-yield-preview > small {
+  color: var(--text-muted);
+}
+
 .settings-card-compact {
   align-self: start;
 }
@@ -3748,6 +3805,15 @@ textarea {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.restaurant-glass-settings {
+  align-items: start;
+}
+
+.restaurant-glass-settings > label {
+  min-width: 0;
+  align-content: start;
 }
 
 .form-actions,
@@ -13278,6 +13344,19 @@ textarea {
 
 @media (max-width: 520px) {
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .restaurant-yield-preview {
+    grid-template-columns: 1fr;
+  }
+
+  .restaurant-yield-preview > strong {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
+  .restaurant-settings-fields {
     grid-template-columns: 1fr;
   }
 

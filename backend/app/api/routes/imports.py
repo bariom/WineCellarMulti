@@ -870,6 +870,8 @@ def import_vinaris_json_payload(
             "quantity": quantity,
             "sale_kind": "glass" if as_str(raw_sale.get("sale_kind")) == "glass" else "bottle",
             "pour_size_ml": as_int(raw_sale.get("pour_size_ml")),
+            "bottle_yield_ml": as_int(raw_sale.get("bottle_yield_ml")),
+            "discarded_volume_ml": as_int(raw_sale.get("discarded_volume_ml")),
             "stock_bottles_consumed": as_int(raw_sale.get("stock_bottles_consumed")),
             "unit_sale_price": as_decimal(raw_sale.get("unit_sale_price"), str(wine.sale_price or 0)),
             "unit_purchase_cost": as_decimal(raw_sale.get("unit_purchase_cost"), str(wine.price or 0)),
@@ -1372,6 +1374,9 @@ def export_json(
             "id": str(context.household.id),
             "name": context.household.name,
             "operating_mode": context.household.operating_mode,
+            "restaurant_default_pour_size_ml": context.household.restaurant_default_pour_size_ml,
+            "restaurant_service_loss_ml": context.household.restaurant_service_loss_ml,
+            "restaurant_default_reorder_threshold": context.household.restaurant_default_reorder_threshold,
         },
         "included_blocks": [],
     }

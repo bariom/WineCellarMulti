@@ -154,6 +154,18 @@ def test_restaurant_sale_can_be_edited_without_losing_stock_integrity():
         client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code
         == 200
     )
+    restaurant_settings = client.patch(
+        "/api/v1/household",
+        json={
+            "restaurant_default_pour_size_ml": 100,
+            "restaurant_service_loss_ml": 50,
+            "restaurant_default_reorder_threshold": 2,
+        },
+    )
+    assert restaurant_settings.status_code == 200
+    assert restaurant_settings.json()["restaurant_default_pour_size_ml"] == 100
+    assert restaurant_settings.json()["restaurant_service_loss_ml"] == 50
+    assert restaurant_settings.json()["restaurant_default_reorder_threshold"] == 2
     created = client.post(
         "/api/v1/wines",
         json={
@@ -232,20 +244,22 @@ def test_restaurant_glass_sales_track_pours_open_bottle_and_margin():
     assert first_sale.status_code == 201
     assert first_sale.json()["sale_kind"] == "glass"
     assert first_sale.json()["pour_size_ml"] == 100
-    assert first_sale.json()["cost"] == "18.67"
+    assert first_sale.json()["bottle_yield_ml"] == 700
+    assert first_sale.json()["stock_bottles_consumed"] == 1
+    assert first_sale.json()["cost"] == "20.00"
     after_first = client.get(f"/api/v1/wines/{wine_id}").json()
-    assert after_first["quantity"] == 2
-    assert after_first["open_bottle_ml"] == 50
+    assert after_first["quantity"] == 1
+    assert after_first["open_bottle_ml"] == 0
 
     second_sale = client.post(
         "/api/v1/sales",
         json={"wine_id": wine_id, "quantity": 1, "sale_kind": "glass"},
     )
     assert second_sale.status_code == 201
-    assert second_sale.json()["stock_bottles_consumed"] == 1
+    assert second_sale.json()["stock_bottles_consumed"] == 0
     after_second = client.get(f"/api/v1/wines/{wine_id}").json()
     assert after_second["quantity"] == 1
-    assert after_second["open_bottle_ml"] == 700
+    assert after_second["open_bottle_ml"] == 600
 
     summary = client.get("/api/v1/sales/summary").json()
     assert summary["currencies"][0]["bottles"] == 0
@@ -264,14 +278,69 @@ def test_restaurant_glass_sales_track_pours_open_bottle_and_margin():
         json={"reason": "Calice registrato per errore"},
     ).status_code == 200
     after_void = client.get(f"/api/v1/wines/{wine_id}").json()
-    assert after_void["quantity"] == 2
-    assert after_void["open_bottle_ml"] == 50
+    assert after_void["quantity"] == 1
+    assert after_void["open_bottle_ml"] == 0
 
     unavailable_bottles = client.post(
         "/api/v1/sales",
         json={"wine_id": wine_id, "quantity": 2, "sale_kind": "bottle"},
     )
     assert unavailable_bottles.status_code == 409
+
+
+def test_restaurant_yield_settings_define_new_wine_pour_and_saleable_volume():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch(
+        "/api/v1/household",
+        json={"restaurant_service_loss_ml": 50},
+    ).status_code == 409
+    assert client.patch(
+        "/api/v1/household",
+        json={"operating_mode": "restaurant"},
+    ).status_code == 200
+    settings_response = client.patch(
+        "/api/v1/household",
+        json={
+            "restaurant_default_pour_size_ml": 125,
+            "restaurant_service_loss_ml": 50,
+            "restaurant_default_reorder_threshold": 4,
+        },
+    )
+    assert settings_response.status_code == 200
+
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Riesling al calice",
+            "quantity": 1,
+            "format": "Bottiglia (750ml)",
+            "price": 20,
+            "glass_price": 11,
+        },
+    )
+    assert created.status_code == 201
+    assert created.json()["pour_size_ml"] == 125
+    assert created.json()["reorder_threshold"] == 4
+
+    sold = client.post(
+        "/api/v1/sales",
+        json={"wine_id": created.json()["id"], "quantity": 5, "sale_kind": "glass"},
+    )
+    assert sold.status_code == 201
+    assert sold.json()["bottle_yield_ml"] == 700
+    assert sold.json()["discarded_volume_ml"] == 75
+    assert sold.json()["stock_bottles_consumed"] == 1
+    wine = client.get(f"/api/v1/wines/{created.json()['id']}").json()
+    assert wine["quantity"] == 0
+    assert wine["open_bottle_ml"] == 0
+    assert client.post(
+        f"/api/v1/sales/{sold.json()['id']}/void",
+        json={"reason": "Verifica resa commerciale"},
+    ).status_code == 200
+    restored = client.get(f"/api/v1/wines/{created.json()['id']}").json()
+    assert restored["quantity"] == 1
+    assert restored["open_bottle_ml"] == 0
 
 
 def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():

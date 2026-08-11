@@ -37,6 +37,8 @@ class WineSaleResponse(BaseModel):
     quantity: int
     sale_kind: Literal["bottle", "glass"] = "bottle"
     pour_size_ml: int = 0
+    bottle_yield_ml: int = 0
+    discarded_volume_ml: int = 0
     stock_bottles_consumed: int = 0
     unit_sale_price: Decimal
     unit_purchase_cost: Decimal

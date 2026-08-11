@@ -1303,6 +1303,7 @@ export function App() {
   const [exportSelection, setExportSelection] = useState<ExportSelection>(defaultExportSelection);
   const [importSelection, setImportSelection] = useState<ImportSelection>(importSelectionFromBlocks(["wines", "wishlist"]));
   const [householdNameDraft, setHouseholdNameDraft] = useState("");
+  const [restaurantSettingsDraft, setRestaurantSettingsDraft] = useState({ defaultPourDl: "1", serviceLossMl: "50", reorderThreshold: "2" });
   const [restaurantDashboardVersion, setRestaurantDashboardVersion] = useState(0);
   const [newHouseholdNameDraft, setNewHouseholdNameDraft] = useState("");
   const [deleteHouseholdConfirmDraft, setDeleteHouseholdConfirmDraft] = useState("");
@@ -2419,6 +2420,8 @@ export function App() {
       void Promise.all([loadPasskeys(true), loadBilling(true, session.is_app_admin)]).catch(reportError);
     } else if (tab === "ai") {
       void Promise.all([loadAiAudit(session.membership_role), loadAiUsage(session.membership_role), loadAiSettings(session.membership_role)]).catch(reportError);
+    } else if (tab === "restaurant") {
+      void loadHouseholdMemberships().catch(reportError);
     } else if (tab === "tags") {
       void loadTags(session.membership_role).catch(reportError);
     } else if (tab === "sharing") {
@@ -4382,6 +4385,38 @@ export function App() {
     }
   }
 
+  async function updateRestaurantSettings(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const defaultPourSizeMl = Math.round(Number(restaurantSettingsDraft.defaultPourDl) * 100);
+    const serviceLossMl = Math.round(Number(restaurantSettingsDraft.serviceLossMl));
+    const reorderThreshold = Math.round(Number(restaurantSettingsDraft.reorderThreshold));
+    if (!Number.isFinite(defaultPourSizeMl) || !Number.isFinite(serviceLossMl) || !Number.isFinite(reorderThreshold)) return;
+    setSaving(true);
+    setError("");
+    try {
+      const updatedMembership = await api<HouseholdMembership>("/api/v1/household", {
+        method: "PATCH",
+        body: JSON.stringify({
+          restaurant_default_pour_size_ml: defaultPourSizeMl,
+          restaurant_service_loss_ml: serviceLossMl,
+          restaurant_default_reorder_threshold: reorderThreshold,
+        }),
+      });
+      setHouseholdMemberships((current) => current.map((membership) =>
+        membership.household_id === updatedMembership.household_id ? updatedMembership : membership,
+      ));
+      setRestaurantSettingsDraft({
+        defaultPourDl: String(updatedMembership.restaurant_default_pour_size_ml / 100),
+        serviceLossMl: String(updatedMembership.restaurant_service_loss_ml),
+        reorderThreshold: String(updatedMembership.restaurant_default_reorder_threshold),
+      });
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update restaurant settings");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function sellWineBottles(wine: Wine, payload: WineSaleDraft) {
     setSaving(true);
     setError("");
@@ -4705,6 +4740,11 @@ export function App() {
   const hasAnotherRestaurantCellar = householdMemberships.some((membership) =>
     membership.household_id !== session?.active_household_id && membership.operating_mode === "restaurant",
   );
+  const restaurantDefaultPourMl = Math.max(Math.round(Number(restaurantSettingsDraft.defaultPourDl || 0) * 100), 1);
+  const restaurantServiceLossMl = Math.max(Math.round(Number(restaurantSettingsDraft.serviceLossMl || 0)), 0);
+  const restaurantStandardYieldMl = Math.max(750 - restaurantServiceLossMl, 0);
+  const restaurantStandardGlassCount = Math.floor(restaurantStandardYieldMl / restaurantDefaultPourMl);
+  const restaurantStandardRemainderMl = restaurantStandardYieldMl % restaurantDefaultPourMl;
   const canAccessWinePhotos = !offlineMode && Boolean(session?.authenticated);
   const canManageWinePhotos = canWriteWine && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
   const canReuseWinePhotos = canWriteWine && canAccessWinePhotos;
@@ -5866,6 +5906,15 @@ export function App() {
   };
 
   useEffect(() => {
+    if (!activeMembership) return;
+    setRestaurantSettingsDraft({
+      defaultPourDl: String((activeMembership.restaurant_default_pour_size_ml || 100) / 100),
+      serviceLossMl: String(activeMembership.restaurant_service_loss_ml ?? 50),
+      reorderThreshold: String(activeMembership.restaurant_default_reorder_threshold ?? 2),
+    });
+  }, [activeMembership?.household_id, activeMembership?.restaurant_default_pour_size_ml, activeMembership?.restaurant_service_loss_ml, activeMembership?.restaurant_default_reorder_threshold]);
+
+  useEffect(() => {
     if (isRestaurant || !(["home", "cellar"] as ViewName[]).includes(activeView) || !cellarSommelierWines.length) return;
     if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt() || !canShowAutomaticCellarSommelierPrompt()) return;
     const visitKey = `vinaris-cellar-sommelier-${activeView}`;
@@ -6237,6 +6286,7 @@ export function App() {
   const settingsTabLabels: Record<SettingsTab, string> = {
     profile: t("settingsProfile"),
     ai: t("settingsAi"),
+    restaurant: locale === "it" ? "Ristorante" : "Restaurant",
     tags: t("settingsTags"),
     sharing: t("settingsSharing"),
     users: t("settingsUsers"),
@@ -6245,7 +6295,7 @@ export function App() {
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
-    (tab) => (!needsRedeem || tab === "profile") && (tab !== "users" || canAppAdmin) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+    (tab) => (!needsRedeem || tab === "profile") && (tab !== "restaurant" || isRestaurant) && (tab !== "users" || canAppAdmin) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
   const pendingCoOwnershipAgreements = myCoOwnershipAgreements.filter((agreement) => agreement.status === "pending");
@@ -6501,7 +6551,11 @@ export function App() {
   function startAddWine() {
     clearWineRecognitionState();
     setWineRecognitionTarget("wine");
-    setDraft(emptyDraft);
+    setDraft({
+      ...emptyDraft,
+      pour_size_ml: isRestaurant ? String(activeMembership?.restaurant_default_pour_size_ml || 100) : emptyDraft.pour_size_ml,
+      reorder_threshold: isRestaurant ? String(activeMembership?.restaurant_default_reorder_threshold ?? 2) : emptyDraft.reorder_threshold,
+    });
     setOpenWineEditorSections({});
     setPendingBottlePhoto(null);
     setWinePhotoSuggestions([]);
@@ -10369,7 +10423,7 @@ export function App() {
                       type="number"
                       min="0.25"
                       max="5"
-                      step="0.1"
+                      step="0.05"
                       value={draft.pour_size_ml === "" ? "" : String(Number(draft.pour_size_ml) / 100)}
                       onChange={(event) => setDraft({ ...draft, pour_size_ml: event.target.value === "" ? "" : String(Math.round(Number(event.target.value) * 100)) })}
                       disabled={!canWriteWine}
@@ -11974,6 +12028,85 @@ export function App() {
             </div>
 
             <div className="settings-grid">
+              {settingsTab === "restaurant" && isRestaurant ? (
+                <section className="settings-card settings-card-wide restaurant-service-settings">
+                  <div className="settings-card-heading">
+                    <div>
+                      <span>{locale === "it" ? "Servizio al calice" : "Wine by the glass"}</span>
+                      <h3>{locale === "it" ? "Resa commerciale" : "Commercial yield"}</h3>
+                    </div>
+                    <AppIcon name="glass-sparkle" variant="feature" tone="accent" size="1.5rem" />
+                  </div>
+                  <p className="settings-card-intro">
+                    {locale === "it"
+                      ? "Definisci la mescita iniziale dei nuovi vini e lo sfrido medio per assaggi, fondo bottiglia e servizio."
+                      : "Set the initial pour for new wines and the average service loss from tasting, sediment and service."}
+                  </p>
+                  <form className="restaurant-yield-form" onSubmit={updateRestaurantSettings}>
+                    <div className="form-row restaurant-settings-fields">
+                      <label>
+                        <span>{locale === "it" ? "Mescita standard (dl)" : "Default pour (dl)"}</span>
+                        <input
+                          type="number"
+                          min="0.25"
+                          max="5"
+                          step="0.05"
+                          value={restaurantSettingsDraft.defaultPourDl}
+                          disabled={!canAdmin || saving}
+                          onChange={(event) => setRestaurantSettingsDraft((current) => ({ ...current, defaultPourDl: event.target.value }))}
+                        />
+                        <small>{locale === "it" ? "Applicata ai nuovi vini; resta modificabile nella singola scheda." : "Applied to new wines; it can still be changed on each wine."}</small>
+                      </label>
+                      <label>
+                        <span>{locale === "it" ? "Sfrido per bottiglia standard (ml)" : "Loss per standard bottle (ml)"}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="250"
+                          step="5"
+                          value={restaurantSettingsDraft.serviceLossMl}
+                          disabled={!canAdmin || saving}
+                          onChange={(event) => setRestaurantSettingsDraft((current) => ({ ...current, serviceLossMl: event.target.value }))}
+                        />
+                        <small>{locale === "it" ? "Sugli altri formati viene proporzionato automaticamente." : "It is scaled automatically for other bottle formats."}</small>
+                      </label>
+                      <label>
+                        <span>{locale === "it" ? "Soglia di riordino predefinita" : "Default reorder threshold"}</span>
+                        <input
+                          type="number"
+                          min="0"
+                          max="10000"
+                          step="1"
+                          value={restaurantSettingsDraft.reorderThreshold}
+                          disabled={!canAdmin || saving}
+                          onChange={(event) => setRestaurantSettingsDraft((current) => ({ ...current, reorderThreshold: event.target.value }))}
+                        />
+                        <small>{locale === "it" ? "Applicata ai nuovi vini; resta modificabile nella singola scheda." : "Applied to new wines; it can still be changed on each wine."}</small>
+                      </label>
+                    </div>
+                    <aside className="restaurant-yield-preview" aria-live="polite">
+                      <span>{locale === "it" ? "Bottiglia standard · 750 ml" : "Standard bottle · 750 ml"}</span>
+                      <strong>
+                        {restaurantStandardGlassCount} {locale === "it"
+                          ? restaurantStandardGlassCount === 1 ? "calice" : "calici"
+                          : restaurantStandardGlassCount === 1 ? "glass" : "glasses"}
+                      </strong>
+                      <small>
+                        {locale === "it"
+                          ? `${restaurantStandardYieldMl} ml vendibili a ${(restaurantDefaultPourMl / 100).toLocaleString(locale)} dl${restaurantStandardRemainderMl ? ` · residuo ${restaurantStandardRemainderMl} ml` : " · resa esatta"}`
+                          : `${restaurantStandardYieldMl} ml saleable at ${(restaurantDefaultPourMl / 100).toLocaleString(locale)} dl${restaurantStandardRemainderMl ? ` · ${restaurantStandardRemainderMl} ml remainder` : " · exact yield"}`}
+                      </small>
+                    </aside>
+                    <div className="form-actions">
+                      <button type="submit" disabled={!canAdmin || saving || restaurantStandardGlassCount < 1}>
+                        {saving ? t("saving") : t("saveSettings")}
+                      </button>
+                    </div>
+                  </form>
+                  {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
+                </section>
+              ) : null}
+
               {settingsTab === "profile" ? (
               <section className="settings-card settings-card-compact">
                 <div className="settings-card-heading">

@@ -19,6 +19,9 @@ class HouseholdMembershipResponse(BaseModel):
     household_id: UUID
     household_name: str
     operating_mode: Literal["private", "restaurant"] = "private"
+    restaurant_default_pour_size_ml: int = 100
+    restaurant_service_loss_ml: int = 50
+    restaurant_default_reorder_threshold: int = 2
     role: str
 
 
@@ -29,6 +32,9 @@ class HouseholdSwitch(BaseModel):
 class HouseholdUpdate(BaseModel):
     name: str | None = Field(default=None, min_length=1, max_length=160)
     operating_mode: Literal["private", "restaurant"] | None = None
+    restaurant_default_pour_size_ml: int | None = Field(default=None, ge=25, le=500)
+    restaurant_service_loss_ml: int | None = Field(default=None, ge=0, le=250)
+    restaurant_default_reorder_threshold: int | None = Field(default=None, ge=0, le=10000)
 
 
 class HouseholdCreate(BaseModel):

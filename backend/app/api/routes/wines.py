@@ -1089,6 +1089,16 @@ def create_wine(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     data = payload.model_dump()
+    if (
+        context.household.operating_mode == "restaurant"
+        and "pour_size_ml" not in payload.model_fields_set
+    ):
+        data["pour_size_ml"] = context.household.restaurant_default_pour_size_ml
+    if (
+        context.household.operating_mode == "restaurant"
+        and "reorder_threshold" not in payload.model_fields_set
+    ):
+        data["reorder_threshold"] = context.household.restaurant_default_reorder_threshold
     tag_names = data.pop("tags", [])
     initial_stock_reference = data.pop("initial_stock_reference", "")
     data["owners"] = normalize_owner_rows(data.get("owners", []))

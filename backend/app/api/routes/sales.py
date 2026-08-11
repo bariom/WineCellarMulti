@@ -50,6 +50,8 @@ def sale_response(sale: WineSale, wine: Wine) -> WineSaleResponse:
         quantity=sale.quantity,
         sale_kind="glass" if sale.sale_kind == "glass" else "bottle",
         pour_size_ml=sale.pour_size_ml,
+        bottle_yield_ml=sale.bottle_yield_ml,
+        discarded_volume_ml=sale.discarded_volume_ml,
         stock_bottles_consumed=sale.stock_bottles_consumed,
         unit_sale_price=sale.unit_sale_price,
         unit_purchase_cost=sale.unit_purchase_cost,
@@ -71,6 +73,12 @@ def bottle_volume_ml(wine_format: str) -> int:
     value = Decimal(match.group(1).replace(",", "."))
     multiplier = {"ml": 1, "cl": 10, "dl": 100, "l": 1000}[match.group(2)]
     return max(int(value * multiplier), 1)
+
+
+def commercial_bottle_yield_ml(wine_format: str, service_loss_ml: int) -> int:
+    volume_ml = bottle_volume_ml(wine_format)
+    scaled_loss_ml = round(max(int(service_loss_ml), 0) * volume_ml / 750)
+    return max(volume_ml - scaled_loss_ml, 1)
 
 
 def next_fifo_bottle(db: Session, wine: Wine) -> WineStockLot:
@@ -96,23 +104,51 @@ def consume_glass_volume(
     *,
     glasses: int,
     user_id: UUID,
+    service_loss_ml: int,
 ) -> Decimal:
     pour_size_ml = max(int(wine.pour_size_ml or 100), 1)
-    volume_ml = bottle_volume_ml(wine.format)
-    available_volume = wine.open_bottle_ml + max(
-        wine.quantity - (1 if wine.open_bottle_ml else 0), 0
-    ) * volume_ml
-    required_volume = glasses * pour_size_ml
-    if required_volume > available_volume:
+    volume_ml = commercial_bottle_yield_ml(wine.format, service_loss_ml)
+    sealed_bottles = max(wine.quantity - (1 if wine.open_bottle_ml else 0), 0)
+    available_glasses = wine.open_bottle_ml // pour_size_ml + sealed_bottles * (
+        volume_ml // pour_size_ml
+    )
+    if glasses > available_glasses:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Not enough wine available for these glasses",
         )
 
-    remaining_to_serve = required_volume
+    remaining_glasses = glasses
     allocated_cost = Decimal("0")
     consumed_bottles = 0
-    while remaining_to_serve > 0:
+    discarded_volume_ml = 0
+
+    def close_open_bottle() -> None:
+        nonlocal allocated_cost, consumed_bottles, discarded_volume_ml
+        discarded_volume_ml += max(wine.open_bottle_ml, 0)
+        original_cost = Decimal(wine.open_bottle_original_cost)
+        allocated_cost += Decimal(wine.open_bottle_cost_remaining)
+        _, _, fifo_total_cost = remove_fifo_stock(
+            db,
+            wine,
+            movement_type="sale",
+            quantity=1,
+            occurred_on=sale.sold_at,
+            note=sale.note,
+            user_id=user_id,
+            sale=sale,
+            preferred_lot_id=wine.open_bottle_lot_id,
+        )
+        allocated_cost += fifo_total_cost - original_cost
+        consumed_bottles += 1
+        wine.open_bottle_ml = 0
+        wine.open_bottle_cost_remaining = Decimal("0")
+        wine.open_bottle_original_cost = Decimal("0")
+        wine.open_bottle_lot_id = None
+
+    while remaining_glasses > 0:
+        if 0 < wine.open_bottle_ml < pour_size_ml:
+            close_open_bottle()
         if wine.open_bottle_ml <= 0:
             open_lot = next_fifo_bottle(db, wine)
             wine.open_bottle_ml = volume_ml
@@ -120,7 +156,7 @@ def consume_glass_volume(
             wine.open_bottle_original_cost = open_lot.unit_cost
             wine.open_bottle_cost_remaining = wine.open_bottle_original_cost
         available_before = wine.open_bottle_ml
-        served = min(remaining_to_serve, available_before)
+        served = pour_size_ml
         portion_cost = (
             Decimal(wine.open_bottle_cost_remaining) * Decimal(served) / Decimal(available_before)
         )
@@ -129,27 +165,13 @@ def consume_glass_volume(
         wine.open_bottle_cost_remaining = max(
             Decimal(wine.open_bottle_cost_remaining) - portion_cost, Decimal("0")
         )
-        remaining_to_serve -= served
-        if wine.open_bottle_ml == 0:
-            original_cost = Decimal(wine.open_bottle_original_cost)
-            _, _, fifo_total_cost = remove_fifo_stock(
-                db,
-                wine,
-                movement_type="sale",
-                quantity=1,
-                occurred_on=sale.sold_at,
-                note=sale.note,
-                user_id=user_id,
-                sale=sale,
-                preferred_lot_id=wine.open_bottle_lot_id,
-            )
-            allocated_cost += fifo_total_cost - original_cost
-            consumed_bottles += 1
-            wine.open_bottle_cost_remaining = Decimal("0")
-            wine.open_bottle_original_cost = Decimal("0")
-            wine.open_bottle_lot_id = None
+        remaining_glasses -= 1
+        if wine.open_bottle_ml < pour_size_ml:
+            close_open_bottle()
 
     sale.pour_size_ml = pour_size_ml
+    sale.bottle_yield_ml = volume_ml
+    sale.discarded_volume_ml = discarded_volume_ml
     sale.stock_bottles_consumed = consumed_bottles
     return max(allocated_cost, Decimal("0")).quantize(Decimal("0.01"))
 
@@ -213,6 +235,8 @@ def create_sale(
         quantity=payload.quantity,
         sale_kind=payload.sale_kind,
         pour_size_ml=wine.pour_size_ml if payload.sale_kind == "glass" else 0,
+        bottle_yield_ml=0,
+        discarded_volume_ml=0,
         stock_bottles_consumed=0,
         unit_sale_price=unit_sale_price,
         unit_purchase_cost=wine.price or Decimal("0"),
@@ -231,6 +255,7 @@ def create_sale(
             sale,
             glasses=payload.quantity,
             user_id=context.user.id,
+            service_loss_ml=context.household.restaurant_service_loss_ml,
         )
         sale.total_purchase_cost = glass_cost
         sale.unit_purchase_cost = (glass_cost / payload.quantity).quantize(Decimal("0.01"))
@@ -300,8 +325,12 @@ def void_sale(
                 user_id=context.user.id,
             )
             wine.open_bottle_lot_id = source_movements[0].lot_id
-        volume_ml = bottle_volume_ml(wine.format)
-        wine.open_bottle_ml += sale.quantity * sale.pour_size_ml - sale.stock_bottles_consumed * volume_ml
+        volume_ml = sale.bottle_yield_ml or bottle_volume_ml(wine.format)
+        wine.open_bottle_ml += (
+            sale.quantity * sale.pour_size_ml
+            + sale.discarded_volume_ml
+            - sale.stock_bottles_consumed * volume_ml
+        )
         wine.open_bottle_cost_remaining = max(
             Decimal(wine.open_bottle_cost_remaining)
             + Decimal(sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity)

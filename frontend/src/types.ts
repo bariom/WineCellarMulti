@@ -132,6 +132,8 @@ export type WineSale = {
   quantity: number;
   sale_kind: "bottle" | "glass";
   pour_size_ml: number;
+  bottle_yield_ml: number;
+  discarded_volume_ml: number;
   stock_bottles_consumed: number;
   unit_sale_price: string;
   unit_purchase_cost: string;
@@ -497,6 +499,9 @@ export type HouseholdMembership = {
   household_id: string;
   household_name: string;
   operating_mode: "private" | "restaurant";
+  restaurant_default_pour_size_ml: number;
+  restaurant_service_loss_ml: number;
+  restaurant_default_reorder_threshold: number;
   role: string;
 };
 
@@ -878,7 +883,7 @@ export type DashboardFocus =
   | "timeline"
   | "data";
 
-export type SettingsTab = "profile" | "ai" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
+export type SettingsTab = "profile" | "ai" | "restaurant" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
 
 export type UserActivityLogEntry = {
   id: string;
