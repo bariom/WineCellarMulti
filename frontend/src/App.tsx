@@ -5858,11 +5858,11 @@ export function App() {
     ? t("dailySommelierCellarIntro")
     : t("dailySommelierIntro");
   const isSommelierSpotlightWine = (wine: Wine) => {
-    return cellarSommelierSelectedWines.some((candidate) => candidate.id === wine.id);
+    return !isRestaurant && cellarSommelierSelectedWines.some((candidate) => candidate.id === wine.id);
   };
 
   useEffect(() => {
-    if (!(["home", "cellar"] as ViewName[]).includes(activeView) || !cellarSommelierWines.length) return;
+    if (isRestaurant || !(["home", "cellar"] as ViewName[]).includes(activeView) || !cellarSommelierWines.length) return;
     if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt() || !canShowAutomaticCellarSommelierPrompt()) return;
     const visitKey = `vinaris-cellar-sommelier-${activeView}`;
     if (window.sessionStorage.getItem(visitKey)) return;
@@ -5875,10 +5875,10 @@ export function App() {
       setCellarSommelierOpen(true);
     }, 18_000 + Math.round(Math.random() * 27_000));
     return () => window.clearTimeout(timer);
-  }, [activeView, cellarSommelierWines.length, cellarSommelierWines[0]?.id]);
+  }, [activeView, cellarSommelierWines.length, cellarSommelierWines[0]?.id, isRestaurant]);
 
   useEffect(() => {
-    if (activeView !== "cellar") return;
+    if (isRestaurant || activeView !== "cellar") return;
     if (automaticCellarSommelierPromptShownRef.current || hasShownAutomaticCellarSommelierPrompt() || !canShowAutomaticCellarSommelierPrompt()) return;
     const rows = Array.from(document.querySelectorAll<HTMLElement>("[data-sommelier-wine-id]"));
     if (!rows.length) return;
@@ -5899,7 +5899,7 @@ export function App() {
     }, { threshold: 0.72 });
     rows.forEach((row) => observer.observe(row));
     return () => observer.disconnect();
-  }, [activeView, filteredWines]);
+  }, [activeView, filteredWines, isRestaurant]);
   const dailyTonightStyleCount = new Set(
     dailyTonightWines.map((wine) => wineTone(wine.type)),
   ).size;
@@ -7617,17 +7617,17 @@ export function App() {
         style={{
           position: "fixed",
           right: isMobileViewport ? 12 : 24,
-          top: isMobileViewport ? 12 : undefined,
+          top: isMobileViewport ? "max(108px, calc(env(safe-area-inset-top, 0px) + 96px))" : undefined,
           bottom: isMobileViewport ? "auto" : 24,
-          zIndex: 75,
+          zIndex: 180,
           width: "min(360px, calc(100vw - 24px))",
-          maxHeight: "calc(100dvh - 24px)",
+          maxHeight: isMobileViewport ? "calc(100dvh - 120px)" : "calc(100dvh - 24px)",
         }}
       >
         <section
           style={{
             overflowY: isMobileViewport ? "auto" : "hidden",
-            maxHeight: "calc(100dvh - 24px)",
+            maxHeight: isMobileViewport ? "calc(100dvh - 120px)" : "calc(100dvh - 24px)",
             border: "1px solid var(--border)",
             borderRadius: 20,
             background: "color-mix(in srgb, var(--surface-raised) 86%, transparent)",
@@ -8740,7 +8740,7 @@ export function App() {
                 </details>
               </section>
 
-              {cellarSommelierVisible ? (
+              {!isRestaurant && cellarSommelierVisible ? (
                 <aside
                   aria-label={t("dailySommelierTitle")}
                   style={{
