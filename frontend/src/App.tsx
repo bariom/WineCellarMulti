@@ -11915,44 +11915,7 @@ export function App() {
                           ×
                         </button>
                       </div>
-                      <WineDetail
-                        wine={wine}
-                        session={session}
-                        auditEntries={aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id)}
-                        canGenerate={canGenerateAi}
-                        canWrite={canWriteWine}
-                        saving={saving}
-                        generating={generatingAi}
-                        onGenerate={(feature) => generateWineAi(wine, feature)}
-                        onOpenPairing={() => openDishPairingForWine(wine)}
-                        onToggleValueAiExclusion={(excluded) => setWineValueAiExclusion(wine, excluded)}
-                        onToggleGrapesAiExclusion={(excluded) => setWineGrapesAiExclusion(wine, excluded)}
-                        onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
-                        onUpdateRating={(rating) => updateWineRating(wine, rating)}
-                        onConsume={(payload) => consumeWineBottle(wine, payload)}
-                        restaurantMode={isRestaurant}
-                        onSell={(payload) => sellWineBottles(wine, payload)}
-                        onUpdateCommercialStatus={(status) => updateWineCommercialStatus(wine, status)}
-                        onUpdateTastingEntry={updateWineTastingEntry}
-                        onDeleteTastingEntry={deleteWineTastingEntry}
-                        marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
-                        onOpenMarketView={(entry) => setMarketViewContext({ kind: "wine", wine, entry })}
-                        coOwnershipSection={renderCoOwnershipSection(wine)}
-                        photoActions={canManageWinePhotos ? (
-                          <Suspense fallback={null}>
-                            <BottlePhotoCapture
-                              wine={wine}
-                              canWrite={canWriteWine}
-                              locale={locale}
-                              onSaved={(updated) => setWines((current) => current.map((item) => item.id === updated.id ? updated : item))}
-                              onError={(message) => setError(formatUserErrorMessage(message, locale))}
-                            />
-                          </Suspense>
-                        ) : null}
-                        showBottlePhoto={canAccessWinePhotos}
-                        t={t}
-                        locale={locale}
-                      />
+                      {renderWineDetail(wine)}
                       <nav className="mobile-wine-actions" aria-label={locale === "it" ? "Azioni vino" : "Wine actions"}>
                         {canGenerateAi ? (
                           <button type="button" className="secondary" onClick={() => openDishPairingForWine(wine)}>
