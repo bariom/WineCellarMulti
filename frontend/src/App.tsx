@@ -5516,6 +5516,16 @@ export function App() {
   }, [selectedWineId, isWineCollectionView, wines]);
 
   useEffect(() => {
+    if (!selectedWineId || !isWineCollectionView) return;
+    const frame = window.requestAnimationFrame(() => {
+      const detail = [...document.querySelectorAll<HTMLElement>(`[data-wine-detail-id="${selectedWineId}"]`)]
+        .find((candidate) => candidate.getClientRects().length > 0);
+      detail?.scrollTo({ top: 0 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [isWineCollectionView, selectedWineId]);
+
+  useEffect(() => {
     setWishlistPortfolioStrategy(null);
   }, [session?.active_household_id]);
 
