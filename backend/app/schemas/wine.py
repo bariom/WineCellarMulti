@@ -17,6 +17,8 @@ class WineCreate(BaseModel):
     glass_price: Decimal | None = Field(default=None, ge=0)
     pour_size_ml: int = Field(default=100, ge=25, le=500)
     reorder_threshold: int = Field(default=2, ge=0, le=10000)
+    reorder_enabled: bool = True
+    commercial_status: Literal["active", "clearing_out", "suspended", "off_list"] = "active"
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool = False
     status: str = "Ordered"
@@ -61,6 +63,8 @@ class WineUpdate(BaseModel):
     glass_price: Decimal | None = Field(default=None, ge=0)
     pour_size_ml: int | None = Field(default=None, ge=25, le=500)
     reorder_threshold: int | None = Field(default=None, ge=0, le=10000)
+    reorder_enabled: bool | None = None
+    commercial_status: Literal["active", "clearing_out", "suspended", "off_list"] | None = None
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool | None = None
     status: str | None = None
@@ -205,6 +209,8 @@ class WineResponse(BaseModel):
     glass_price: Decimal | None = None
     pour_size_ml: int = 100
     reorder_threshold: int = 2
+    reorder_enabled: bool = True
+    commercial_status: Literal["active", "clearing_out", "suspended", "off_list"] = "active"
     open_bottle_ml: int = 0
     current_value: Decimal | None = None
     value_not_found: bool = False

@@ -244,12 +244,20 @@ def build_restaurant_excel(
         "Dose (dl)" if it else "Pour (dl)",
         "Residuo aperto (dl)" if it else "Open remainder (dl)",
         "Soglia riordino" if it else "Reorder threshold",
+        "Riordino attivo" if it else "Reorder enabled",
+        "Stato commerciale" if it else "Commercial status",
         "Valuta" if it else "Currency",
         "Inizio finestra" if it else "Window start",
         "Fine finestra" if it else "Window end",
     ]
 
     def inventory_row(wine: Wine) -> list[object]:
+        commercial_status = {
+            "active": "In carta" if it else "On the list",
+            "clearing_out": "A esaurimento" if it else "Clearing out",
+            "suspended": "Sospeso" if it else "Suspended",
+            "off_list": "Fuori carta" if it else "Off list",
+        }.get(wine.commercial_status, wine.commercial_status)
         return [
             safe_text(wine.name),
             safe_text(wine.producer),
@@ -264,6 +272,8 @@ def build_restaurant_excel(
             wine.pour_size_ml / 100,
             wine.open_bottle_ml / 100 if wine.open_bottle_ml else None,
             wine.reorder_threshold,
+            "Sì" if wine.reorder_enabled and it else "Yes" if wine.reorder_enabled else "No",
+            commercial_status,
             (wine.currency or "CHF").upper(),
             wine.drink_from,
             wine.drink_to,
@@ -278,7 +288,9 @@ def build_restaurant_excel(
         (
             wine
             for wine in inventory
-            if 0 <= wine.quantity <= int(wine.reorder_threshold)
+            if wine.reorder_enabled
+            and wine.commercial_status == "active"
+            and 0 <= wine.quantity <= int(wine.reorder_threshold)
         ),
         key=lambda wine: (wine.quantity, wine.name.lower(), wine.vintage),
     )

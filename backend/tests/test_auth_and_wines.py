@@ -457,6 +457,19 @@ def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
         },
     )
     assert custom_threshold.status_code == 201
+    clearing_out = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Fine Catalogo",
+            "quantity": 1,
+            "price": 15,
+            "sale_price": 42,
+            "commercial_status": "clearing_out",
+        },
+    )
+    assert clearing_out.status_code == 201
+    assert clearing_out.json()["commercial_status"] == "clearing_out"
+    assert clearing_out.json()["reorder_enabled"] is False
     assert client.post(
         "/api/v1/wines",
         json={"name": "Missing Price", "quantity": 4, "price": 12, "currency": "CHF"},
@@ -487,7 +500,37 @@ def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
     assert workbook["Produttori"]["A2"].value == "Export Estate"
     assert workbook["Da riordinare"]["A2"].value == "Excel Barolo"
     assert workbook["Da riordinare"]["A3"].value == "Custom Reorder"
+    assert workbook["Da riordinare"]["A4"].value is None
     assert workbook["Prezzi mancanti"]["A2"].value == "Missing Price"
+
+
+def test_restaurant_commercial_status_controls_reorder_without_removing_stock():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    changed = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
+    assert changed.status_code == 200
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Carta stagionale", "quantity": 4, "reorder_threshold": 5},
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+
+    clearing_out = client.patch(
+        f"/api/v1/wines/{wine_id}",
+        json={"commercial_status": "clearing_out", "reorder_enabled": True},
+    )
+    assert clearing_out.status_code == 200
+    assert clearing_out.json()["quantity"] == 4
+    assert clearing_out.json()["commercial_status"] == "clearing_out"
+    assert clearing_out.json()["reorder_enabled"] is False
+
+    reactivated = client.patch(
+        f"/api/v1/wines/{wine_id}",
+        json={"commercial_status": "active", "reorder_enabled": True},
+    )
+    assert reactivated.status_code == 200
+    assert reactivated.json()["reorder_enabled"] is True
 
 
 def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():

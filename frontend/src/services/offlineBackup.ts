@@ -51,6 +51,10 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
     glass_price: rawNullableString(raw.glass_price),
     pour_size_ml: rawNumber(raw.pour_size_ml, 100),
     reorder_threshold: rawNumber(raw.reorder_threshold, 2),
+    reorder_enabled: raw.reorder_enabled === undefined ? true : Boolean(raw.reorder_enabled),
+    commercial_status: ["active", "clearing_out", "suspended", "off_list"].includes(rawString(raw.commercial_status))
+      ? rawString(raw.commercial_status) as Wine["commercial_status"]
+      : "active",
     open_bottle_ml: rawNumber(raw.open_bottle_ml),
     current_value: raw.current_value === null || raw.current_value === undefined ? null : rawString(raw.current_value),
     value_not_found: Boolean(raw.value_not_found),

@@ -388,9 +388,11 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     reference: "",
     note: "",
   });
-  const inventoryWines = wines.filter((wine) => wine.quantity > 0);
-  const reorderWines = wines.filter((wine) => wine.quantity <= wine.reorder_threshold);
-  const inventoryBottles = inventoryWines.reduce((total, wine) => total + wine.quantity, 0);
+  const stockWines = wines.filter((wine) => wine.quantity > 0);
+  const inventoryWines = stockWines.filter((wine) => wine.commercial_status === "active" || wine.commercial_status === "clearing_out");
+  const reorderWines = wines.filter((wine) => wine.reorder_enabled !== false && wine.commercial_status === "active" && wine.quantity <= wine.reorder_threshold);
+  const clearingOutWines = wines.filter((wine) => wine.commercial_status === "clearing_out" && wine.quantity > 0);
+  const inventoryBottles = stockWines.reduce((total, wine) => total + wine.quantity, 0);
   const missingSalePrice = inventoryWines.filter((wine) => !wine.sale_price).length;
   const lowStockWines = reorderWines.length;
   const incompleteWineData = inventoryWines.filter((wine) => !wine.type || !wine.region || !wine.format || !Array.isArray(wine.grapes) || !wine.grapes.length).length;
@@ -416,7 +418,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     .filter((wine) => Number(wine.sale_price || 0) > 0)
     .sort((first, second) => Number(second.sale_price || 0) - Number(first.sale_price || 0))
     .slice(0, 5);
-  const inventoryByCurrency = [...inventoryWines.reduce((totals, wine) => {
+  const inventoryByCurrency = [...stockWines.reduce((totals, wine) => {
     const currency = (wine.currency || "CHF").toUpperCase();
     const current = totals.get(currency) || { cost: 0, listValue: 0 };
     current.cost += Number(wine.price || 0) * wine.quantity;
@@ -623,6 +625,10 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
         <button type="button" className={missingSalePrice ? "needs-attention" : ""} disabled={!missingSalePrice || !onOpenMissingSalePriceWines} onClick={onOpenMissingSalePriceWines}><span>{locale === "it" ? "Prezzo da completare" : "Missing sale price"}</span><strong>{missingSalePrice}</strong><small>{locale === "it" ? "Referenze senza prezzo di vendita" : "Labels without a sale price"}</small></button>
         <button type="button" className={incompleteWineData ? "needs-attention" : ""} disabled={!onOpenIncompleteWines} onClick={onOpenIncompleteWines}><span>{locale === "it" ? "Dati vino da completare" : "Wine data to complete"}</span><strong>{incompleteWineData}</strong><small>{locale === "it" ? "Apri le schede e usa l’arricchimento AI" : "Open records and use AI enrichment"}</small></button>
       </div>
+      {clearingOutWines.length ? <section className="restaurant-clearing-out">
+        <header><div><span>{locale === "it" ? "Fine catalogo" : "End of list"}</span><h3>{locale === "it" ? "Vini a esaurimento" : "Wines being cleared"}</h3></div><strong>{clearingOutWines.length}</strong></header>
+        <div>{clearingOutWines.slice(0, 6).map((wine) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}><span><strong>{wine.name}</strong><small>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</small></span><b>{wine.quantity} {locale === "it" ? "rimaste" : "left"}</b></button>)}</div>
+      </section> : null}
       {inventoryByCurrency.length ? <div className="restaurant-inventory-values">
         {inventoryByCurrency.map(([currency, totals]) => <article key={currency}>
           <header><span>{locale === "it" ? `Valore potenziale di vendita · ${currency}` : `Potential sale value · ${currency}`}</span><strong>{formatMoney(totals.listValue, currency, locale)}</strong><small>{locale === "it" ? "Se tutte le bottiglie fossero vendute al prezzo di carta attuale." : "If every bottle sold at its current wine-list price."}</small></header>

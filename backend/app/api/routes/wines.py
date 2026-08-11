@@ -259,6 +259,8 @@ def wine_response(
         glass_price=wine.glass_price,
         pour_size_ml=wine.pour_size_ml,
         reorder_threshold=wine.reorder_threshold,
+        reorder_enabled=wine.reorder_enabled,
+        commercial_status=wine.commercial_status,
         open_bottle_ml=wine.open_bottle_ml,
         current_value=wine.current_value,
         value_not_found=wine.value_not_found,
@@ -480,6 +482,8 @@ def wine_copy_for_recipient(
         glass_price=source.glass_price,
         pour_size_ml=source.pour_size_ml,
         reorder_threshold=source.reorder_threshold,
+        reorder_enabled=source.reorder_enabled,
+        commercial_status=source.commercial_status,
         current_value=source.current_value,
         value_not_found=source.value_not_found,
         status=source.status,
@@ -1099,6 +1103,8 @@ def create_wine(
         and "reorder_threshold" not in payload.model_fields_set
     ):
         data["reorder_threshold"] = context.household.restaurant_default_reorder_threshold
+    if data.get("commercial_status") != "active":
+        data["reorder_enabled"] = False
     tag_names = data.pop("tags", [])
     initial_stock_reference = data.pop("initial_stock_reference", "")
     data["owners"] = normalize_owner_rows(data.get("owners", []))
@@ -1532,6 +1538,9 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     previous_quantity = wine.quantity
     data = payload.model_dump(exclude_unset=True)
+    effective_commercial_status = data.get("commercial_status", wine.commercial_status)
+    if effective_commercial_status != "active":
+        data["reorder_enabled"] = False
     if wine.open_bottle_ml and "quantity" in data and int(data["quantity"] or 0) < 1:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,

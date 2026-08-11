@@ -816,6 +816,8 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     glass_price: null,
     pour_size_ml: 100,
     reorder_threshold: 2,
+    reorder_enabled: true,
+    commercial_status: "active",
     open_bottle_ml: 0,
     current_value: null,
     value_not_found: false,
@@ -882,6 +884,7 @@ export function WineDetail({
   onConsume,
   restaurantMode = false,
   onSell,
+  onUpdateCommercialStatus,
   onUpdateTastingEntry,
   onDeleteTastingEntry,
   marketAuditEntry,
@@ -908,6 +911,7 @@ export function WineDetail({
   onConsume: (payload: ConsumeWineDraft) => Promise<void>;
   restaurantMode?: boolean;
   onSell: (payload: WineSaleDraft) => Promise<void>;
+  onUpdateCommercialStatus: (status: Wine["commercial_status"]) => Promise<void>;
   onUpdateTastingEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
   onDeleteTastingEntry: (wine: Wine, entryId: string) => Promise<void>;
   marketAuditEntry: AiAuditLog | null;
@@ -1155,6 +1159,10 @@ export function WineDetail({
       </div>
 
       <div className="detail-overview-block">
+        {restaurantMode && canWrite ? <div className="restaurant-commercial-actions">
+          {wine.commercial_status === "active" ? <button type="button" className="secondary compact" disabled={saving} onClick={() => void onUpdateCommercialStatus("clearing_out")}>{locale === "it" ? "Non riordinare più" : "Stop reordering"}</button> : null}
+          {wine.commercial_status !== "active" ? <button type="button" className="secondary compact" disabled={saving} onClick={() => void onUpdateCommercialStatus("active")}>{locale === "it" ? "Riporta in carta" : "Return to list"}</button> : null}
+        </div> : null}
         <div className="detail-grid detail-facts-grid">
           <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
           <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
@@ -1162,7 +1170,8 @@ export function WineDetail({
           <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
           {restaurantMode ? <DetailField label={locale === "it" ? "Prezzo di vendita" : "Sale price"} value={wine.sale_price ? formatMoney(wine.sale_price, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode ? <DetailField label={locale === "it" ? "Mescita" : "By the glass"} value={wine.glass_price ? `${formatMoney(wine.glass_price, wine.currency, locale)} · ${(wine.pour_size_ml / 100).toLocaleString(locale)} dl` : ""} emptyLabel={t("notSpecified")} /> : null}
-          {restaurantMode ? <DetailField label={locale === "it" ? "Soglia riordino" : "Reorder threshold"} value={`${wine.reorder_threshold} ${locale === "it" ? "bottiglie" : "bottles"}`} emptyLabel={t("notSpecified")} /> : null}
+          {restaurantMode ? <DetailField label={locale === "it" ? "Stato commerciale" : "Commercial status"} value={locale === "it" ? ({ active: "In carta", clearing_out: "A esaurimento", suspended: "Sospeso", off_list: "Fuori carta" }[wine.commercial_status] || "In carta") : ({ active: "On the list", clearing_out: "Clearing out", suspended: "Suspended", off_list: "Off list" }[wine.commercial_status] || "On the list")} emptyLabel={t("notSpecified")} /> : null}
+          {restaurantMode ? <DetailField label={locale === "it" ? "Riordino" : "Reorder"} value={wine.reorder_enabled && wine.commercial_status === "active" ? `${locale === "it" ? "Attivo" : "Enabled"} · ${wine.reorder_threshold} ${locale === "it" ? "bottiglie" : "bottles"}` : (locale === "it" ? "Disattivato" : "Disabled")} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode && wine.open_bottle_ml > 0 ? <DetailField label={locale === "it" ? "Bottiglia aperta" : "Open bottle"} value={`${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl`} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />

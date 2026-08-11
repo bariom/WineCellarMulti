@@ -433,6 +433,8 @@ const emptyDraft: WineDraft = {
   glass_price: "",
   pour_size_ml: "100",
   reorder_threshold: "2",
+  reorder_enabled: true,
+  commercial_status: "active",
   current_value: "",
   status: "Ordered",
   format: "",
@@ -4385,6 +4387,25 @@ export function App() {
     }
   }
 
+  async function updateWineCommercialStatus(wine: Wine, commercialStatus: Wine["commercial_status"]) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wine.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          commercial_status: commercialStatus,
+          reorder_enabled: commercialStatus === "active",
+        }),
+      });
+      setWines((current) => current.map((item) => item.id === updated.id ? updated : item));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Impossibile aggiornare lo stato commerciale" : "Unable to update commercial status"));
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function updateRestaurantSettings(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const defaultPourSizeMl = Math.round(Number(restaurantSettingsDraft.defaultPourDl) * 100);
@@ -7641,6 +7662,7 @@ export function App() {
         onConsume={(payload) => consumeWineBottle(wine, payload)}
         restaurantMode={isRestaurant}
         onSell={(payload) => sellWineBottles(wine, payload)}
+        onUpdateCommercialStatus={(status) => updateWineCommercialStatus(wine, status)}
         onUpdateTastingEntry={updateWineTastingEntry}
         onDeleteTastingEntry={deleteWineTastingEntry}
         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}
@@ -10436,6 +10458,25 @@ export function App() {
                     <small>{locale === "it" ? "Entra in “Da ordinare” a questa giacenza. Predefinita: 2." : "Listed under Reorder at this stock level. Default: 2."}</small>
                   </label>
                 </div> : null}
+                {isRestaurant ? <div className="restaurant-commercial-settings">
+                  <label>
+                    <span>{locale === "it" ? "Stato commerciale" : "Commercial status"}</span>
+                    <select value={draft.commercial_status} onChange={(event) => {
+                      const commercialStatus = event.target.value as WineDraft["commercial_status"];
+                      setDraft({ ...draft, commercial_status: commercialStatus, reorder_enabled: commercialStatus === "active" ? draft.reorder_enabled : false });
+                    }} disabled={!canWriteWine}>
+                      <option value="active">{locale === "it" ? "In carta" : "On the list"}</option>
+                      <option value="clearing_out">{locale === "it" ? "A esaurimento" : "Clearing out"}</option>
+                      <option value="suspended">{locale === "it" ? "Sospeso" : "Suspended"}</option>
+                      <option value="off_list">{locale === "it" ? "Fuori carta" : "Off list"}</option>
+                    </select>
+                    <small>{locale === "it" ? "A esaurimento resta vendibile, ma non viene più proposto per il riordino." : "Clearing-out wines remain sellable but are no longer suggested for reorder."}</small>
+                  </label>
+                  <label className="restaurant-reorder-toggle">
+                    <input type="checkbox" checked={draft.reorder_enabled} onChange={(event) => setDraft({ ...draft, reorder_enabled: event.target.checked })} disabled={!canWriteWine || draft.commercial_status !== "active"} />
+                    <span>{locale === "it" ? "Includi nei vini da riordinare" : "Include in wines to reorder"}</span>
+                  </label>
+                </div> : null}
                 <div className="form-row">
                   <label>
                     <span>{t("currency")}</span>
@@ -11802,6 +11843,7 @@ export function App() {
                         onConsume={(payload) => consumeWineBottle(wine, payload)}
                         restaurantMode={isRestaurant}
                         onSell={(payload) => sellWineBottles(wine, payload)}
+                        onUpdateCommercialStatus={(status) => updateWineCommercialStatus(wine, status)}
                         onUpdateTastingEntry={updateWineTastingEntry}
                         onDeleteTastingEntry={deleteWineTastingEntry}
                         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === wine.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature)) || null}

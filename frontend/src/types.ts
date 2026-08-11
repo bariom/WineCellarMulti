@@ -40,6 +40,8 @@ export type Wine = {
   glass_price: string | null;
   pour_size_ml: number;
   reorder_threshold: number;
+  reorder_enabled: boolean;
+  commercial_status: "active" | "clearing_out" | "suspended" | "off_list";
   open_bottle_ml: number;
   current_value: string | null;
   value_not_found: boolean;
@@ -229,6 +231,8 @@ export type WineDraft = {
   glass_price: string;
   pour_size_ml: string;
   reorder_threshold: string;
+  reorder_enabled: boolean;
+  commercial_status: "active" | "clearing_out" | "suspended" | "off_list";
   current_value: string;
   status: string;
   format: string;

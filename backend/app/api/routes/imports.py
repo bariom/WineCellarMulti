@@ -160,6 +160,14 @@ def as_optional_int(value: Any) -> int | None:
     return as_int(value)
 
 
+def as_bool(value: Any, default: bool = False) -> bool:
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"1", "true", "yes", "on", "sì", "si"}
+
+
 def as_decimal(value: Any, default: str = "0") -> Decimal:
     try:
         return Decimal(str(value if value not in (None, "") else default))
@@ -543,6 +551,11 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "glass_price": as_optional_decimal(raw.get("glass_price")),
         "pour_size_ml": max(as_int(raw.get("pour_size_ml"), 100), 25),
         "reorder_threshold": max(as_int(raw.get("reorder_threshold"), 2), 0),
+        "reorder_enabled": as_bool(raw.get("reorder_enabled"), True),
+        "commercial_status": as_str(raw.get("commercial_status"))
+        if as_str(raw.get("commercial_status"))
+        in {"active", "clearing_out", "suspended", "off_list"}
+        else "active",
         "current_value": as_optional_decimal(raw.get("current_value")),
         "status": as_str(raw.get("status")) or "Ordered",
         "format": as_str(raw.get("format")),

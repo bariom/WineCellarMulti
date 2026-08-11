@@ -53,6 +53,8 @@ class Wine(Base):
     glass_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     pour_size_ml: Mapped[int] = mapped_column(default=100)
     reorder_threshold: Mapped[int] = mapped_column(default=2)
+    reorder_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    commercial_status: Mapped[str] = mapped_column(String(24), default="active")
     open_bottle_ml: Mapped[int] = mapped_column(default=0)
     open_bottle_lot_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True),
