@@ -124,6 +124,27 @@ def test_parse_rss_and_remove_tracking_parameters():
     assert entries[0].summary == "Wine producers report better vineyard conditions."
 
 
+def test_parse_wordpress_json_feed():
+    payload = b'''[
+      {
+        "link": "https://example.com/story?utm_source=wordpress",
+        "title": {"rendered": "New <em>wine</em> release"},
+        "excerpt": {"rendered": "<p>A producer update.</p>"},
+        "date_gmt": "2026-08-11T08:30:00",
+        "_embedded": {"wp:featuredmedia": [{"source_url": "https://example.com/image.jpg"}]}
+      }
+    ]'''
+
+    entries = parse_feed(payload, base_url="https://example.com/wp-json/wp/v2/posts")
+
+    assert len(entries) == 1
+    assert entries[0].title == "New wine release"
+    assert entries[0].summary == "A producer update."
+    assert entries[0].url == "https://example.com/story"
+    assert entries[0].image_url == "https://example.com/image.jpg"
+    assert entries[0].published_at == datetime(2026, 8, 11, 8, 30, tzinfo=UTC)
+
+
 def test_collector_publishes_curated_article(monkeypatch):
     with TestingSessionLocal() as db:
         source = WineNewsSource(

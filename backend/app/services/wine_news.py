@@ -85,7 +85,9 @@ DEFAULT_SOURCES = (
     {
         "id": "drinks-business",
         "name": "The Drinks Business",
-        "feed_url": "https://www.thedrinksbusiness.com/feed/",
+        # The public /feed/ endpoint redirects to the HTML homepage. Their
+        # WordPress API is the publisher-supported structured source instead.
+        "feed_url": "https://www.thedrinksbusiness.com/wp-json/wp/v2/posts?per_page=40&_embed=1",
         "website_url": "https://www.thedrinksbusiness.com/",
         "language": "en",
     },
@@ -279,7 +281,58 @@ def _entry_image(element: ET.Element, base_url: str) -> str:
     return ""
 
 
+def _json_feed_text(item: dict[str, Any], key: str) -> str:
+    value = item.get(key)
+    if isinstance(value, dict):
+        value = value.get("rendered", "")
+    return str(value or "")
+
+
+def _json_feed_image(item: dict[str, Any], base_url: str) -> str:
+    embedded = item.get("_embedded")
+    if not isinstance(embedded, dict):
+        return ""
+    media = embedded.get("wp:featuredmedia")
+    if not isinstance(media, list) or not media or not isinstance(media[0], dict):
+        return ""
+    return canonicalize_url(str(media[0].get("source_url") or ""), base_url)
+
+
+def _parse_wordpress_feed(payload: bytes, *, base_url: str) -> list[FeedEntry]:
+    try:
+        items = json.loads(payload.decode("utf-8-sig"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("invalid JSON feed") from exc
+    if not isinstance(items, list):
+        raise ValueError("JSON feed must contain a list of posts")
+
+    entries: list[FeedEntry] = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        title = clean_text(_json_feed_text(item, "title"), limit=500)
+        url = canonicalize_url(str(item.get("link") or ""), base_url)
+        if not title or not url:
+            continue
+        entries.append(
+            FeedEntry(
+                url=url,
+                title=title,
+                summary=clean_text(_json_feed_text(item, "excerpt")),
+                published_at=parse_feed_datetime(
+                    str(item.get("date_gmt") or item.get("date") or "")
+                ),
+                image_url=_json_feed_image(item, base_url),
+            )
+        )
+        if len(entries) >= MAX_ARTICLES_PER_SOURCE:
+            break
+    return entries
+
+
 def parse_feed(payload: bytes, *, base_url: str) -> list[FeedEntry]:
+    if payload.lstrip().startswith((b"[", b"{")):
+        return _parse_wordpress_feed(payload, base_url=base_url)
     root = ET.fromstring(payload)
     entries: list[FeedEntry] = []
     for element in root.iter():
@@ -368,7 +421,10 @@ def sync_sources(db: Session) -> list[WineNewsSource]:
 
 def fetch_source(source: WineNewsSource) -> tuple[list[FeedEntry], str, str, bool]:
     headers = {
-        "Accept": "application/atom+xml, application/rss+xml, application/xml, text/xml;q=0.9",
+        "Accept": (
+            "application/atom+xml, application/rss+xml, application/xml, text/xml, "
+            "application/json;q=0.9"
+        ),
         "User-Agent": "VinarisWinePulse/1.0 (+https://vinaris.app)",
     }
     if source.etag:
