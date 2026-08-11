@@ -908,7 +908,14 @@ export type OperationalMetricsOverview = {
     users_blocked: number;
     users_enabled: number;
     households_total: number;
-    household_inventory: Array<{ name: string; is_demo: boolean; wine_records: number; bottles: number }>;
+    household_inventory: Array<{
+      name: string;
+      is_demo: boolean;
+      user_name: string;
+      user_email: string;
+      wine_records: number;
+      bottles: number;
+    }>;
     wines_total: number;
     bottles_total: number;
     bottles_in_cellar: number;

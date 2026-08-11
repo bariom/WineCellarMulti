@@ -672,7 +672,17 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
               <div>
                 {(overview.business.household_inventory || []).map((household) => (
                   <article key={household.name}>
-                    <span><strong>{household.name}</strong>{household.is_demo ? <em>{isItalian ? "demo" : "demo"}</em> : null}</span>
+                    <span>
+                      <span><strong>{household.name}</strong>{household.is_demo ? <em>{isItalian ? "demo" : "demo"}</em> : null}</span>
+                      {household.user_name || household.user_email ? (
+                        <small className="operations-household-user">
+                          {household.user_name || (isItalian ? "Utente senza nome" : "Unnamed user")}
+                          {household.user_email ? ` · ${household.user_email}` : ""}
+                        </small>
+                      ) : (
+                        <small className="operations-household-user muted">{isItalian ? "Nessun utente associato" : "No associated user"}</small>
+                      )}
+                    </span>
                     <small>{household.wine_records} {isItalian ? "record vino" : "wine records"}</small>
                     <b>{household.bottles} {isItalian ? "bottiglie" : "bottles"}</b>
                   </article>

@@ -733,6 +733,7 @@ def business_snapshot(db: Session) -> dict[str, object]:
     ).one()
     household_inventory = db.execute(
         select(
+            Household.id,
             Household.name,
             Household.is_demo,
             func.count(Wine.id),
@@ -743,6 +744,22 @@ def business_snapshot(db: Session) -> dict[str, object]:
         .group_by(Household.id, Household.name, Household.is_demo)
         .order_by(func.coalesce(func.sum(Wine.quantity), 0).desc(), Household.name.asc())
     ).all()
+    household_ids = [household_id for household_id, *_ in household_inventory]
+    household_users: dict[object, list[tuple[str, str]]] = {}
+    if household_ids:
+        memberships = db.execute(
+            select(Membership.household_id, User.display_name, User.email)
+            .join(User, User.id == Membership.user_id)
+            .where(Membership.household_id.in_(household_ids))
+            .order_by(
+                Membership.household_id,
+                case((Membership.role == "owner", 0), else_=1),
+                User.display_name.asc(),
+                User.email.asc(),
+            )
+        ).all()
+        for household_id, display_name, email in memberships:
+            household_users.setdefault(household_id, []).append((display_name, email))
     return {
         "users_total": users[0],
         "users_approved": users[1],
@@ -753,10 +770,12 @@ def business_snapshot(db: Session) -> dict[str, object]:
             {
                 "name": name,
                 "is_demo": is_demo,
+                "user_name": ", ".join(name for name, _email in household_users.get(household_id, [])),
+                "user_email": ", ".join(email for _name, email in household_users.get(household_id, [])),
                 "wine_records": wine_records,
                 "bottles": bottles,
             }
-            for name, is_demo, wine_records, bottles in household_inventory
+            for household_id, name, is_demo, wine_records, bottles in household_inventory
         ],
         "wines_total": wines[0],
         "bottles_total": wines[1],
