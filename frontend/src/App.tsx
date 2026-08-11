@@ -10393,7 +10393,7 @@ export function App() {
                     <input value={draft.appellation} onChange={(event) => setDraft({ ...draft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
-                  <div className="form-row">
+                  <div className="form-row vintage-companion-row">
                     <div className="vintage-field">
                       <label>
                         <span>{t("vintage")}</span>
@@ -10477,7 +10477,7 @@ export function App() {
                     <span>{locale === "it" ? "Includi nei vini da riordinare" : "Include in wines to reorder"}</span>
                   </label>
                 </div> : null}
-                <div className="form-row">
+                <div className="form-row vintage-companion-row">
                   <label>
                     <span>{t("currency")}</span>
                     <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />

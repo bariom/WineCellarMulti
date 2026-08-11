@@ -3807,6 +3807,12 @@ textarea {
   gap: 12px;
 }
 
+/* Keep the field alongside the vintage controls aligned to the label/input,
+   rather than vertically distributing it across the NV/MV helper content. */
+.vintage-companion-row > label {
+  align-content: start;
+}
+
 .restaurant-glass-settings {
   align-items: start;
 }
