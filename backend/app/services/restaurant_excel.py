@@ -61,7 +61,6 @@ def build_restaurant_excel(
     from_date: date,
     to_date: date,
     locale: str,
-    low_stock_threshold: int = 2,
 ) -> BytesIO:
     it = locale == "it"
     workbook = Workbook()
@@ -84,7 +83,7 @@ def build_restaurant_excel(
     summary["A7"].font = Font(bold=True)
 
     totals: dict[str, dict[str, Decimal | int]] = defaultdict(
-        lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0}
+        lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0, "glasses": 0}
     )
     for sale, _wine in sales_rows:
         currency = (sale.currency or "CHF").upper()
@@ -92,10 +91,11 @@ def build_restaurant_excel(
         totals[currency]["cost"] += (
             sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
         )
-        totals[currency]["bottles"] += sale.quantity
+        totals[currency]["glasses" if sale.sale_kind == "glass" else "bottles"] += sale.quantity
     summary_headers = [
         "Valuta" if it else "Currency",
         "Bottiglie vendute" if it else "Bottles sold",
+        "Calici venduti" if it else "Glasses sold",
         "Ricavi" if it else "Revenue",
         "Costo" if it else "Cost",
         "Margine lordo" if it else "Gross margin",
@@ -110,6 +110,7 @@ def build_restaurant_excel(
             [
                 currency,
                 int(values["bottles"]),
+                int(values["glasses"]),
                 money(revenue),
                 money(cost),
                 money(margin),
@@ -123,10 +124,10 @@ def build_restaurant_excel(
     for row_index, row in enumerate(summary_rows, start=9):
         for column, value in enumerate(row, start=1):
             summary.cell(row=row_index, column=column, value=value)
-        for column in (3, 4, 5):
+        for column in (4, 5, 6):
             summary.cell(row=row_index, column=column).number_format = MONEY_FORMAT
-        summary.cell(row=row_index, column=6).number_format = '0.00"%"'
-    for column, width in enumerate((12, 20, 16, 16, 18, 14), start=1):
+        summary.cell(row=row_index, column=7).number_format = '0.00"%"'
+    for column, width in enumerate((12, 20, 18, 16, 16, 18, 14), start=1):
         summary.column_dimensions[get_column_letter(column)].width = width
 
     sales_sheet = workbook.create_sheet("Vendite" if it else "Sales")
@@ -136,7 +137,9 @@ def build_restaurant_excel(
         "Produttore" if it else "Producer",
         "Annata" if it else "Vintage",
         "Tipologia" if it else "Type",
+        "Modalità" if it else "Sale type",
         "Quantità" if it else "Quantity",
+        "Dose (dl)" if it else "Pour (dl)",
         "Prezzo unitario" if it else "Unit sale price",
         "Costo unitario" if it else "Unit cost",
         "Ricavi" if it else "Revenue",
@@ -156,7 +159,13 @@ def build_restaurant_excel(
                 safe_text(wine.producer),
                 safe_text(wine.vintage),
                 safe_text(wine.type),
+                (
+                    "Calice" if it else "Glass"
+                )
+                if sale.sale_kind == "glass"
+                else ("Bottiglia" if it else "Bottle"),
                 sale.quantity,
+                sale.pour_size_ml / 100 if sale.sale_kind == "glass" else None,
                 money(sale.unit_sale_price),
                 money(sale.unit_purchase_cost),
                 money(revenue),
@@ -166,10 +175,10 @@ def build_restaurant_excel(
                 safe_text(sale.note),
             ]
         )
-    style_table(sales_sheet, sale_headers, sale_rows, {7, 8, 9, 10, 11})
+    style_table(sales_sheet, sale_headers, sale_rows, {9, 10, 11, 12, 13})
 
     producer_totals: dict[tuple[str, str], dict[str, Decimal | int]] = defaultdict(
-        lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0}
+        lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0, "glasses": 0}
     )
     for sale, wine in sales_rows:
         producer = wine.producer.strip() or ("Non indicato" if it else "Not specified")
@@ -177,11 +186,14 @@ def build_restaurant_excel(
         values = producer_totals[(producer, currency)]
         values["revenue"] += sale.unit_sale_price * sale.quantity
         values["cost"] += sale.total_purchase_cost or sale.unit_purchase_cost * sale.quantity
-        values["bottles"] += sale.quantity
+        values["glasses" if sale.sale_kind == "glass" else "bottles"] += sale.quantity
     producer_rows: list[list[object]] = []
     for (producer, currency), values in sorted(
         producer_totals.items(),
-        key=lambda item: (int(item[1]["bottles"]), Decimal(item[1]["revenue"])),
+        key=lambda item: (
+            int(item[1]["bottles"]) + int(item[1]["glasses"]),
+            Decimal(item[1]["revenue"]),
+        ),
         reverse=True,
     ):
         revenue = Decimal(values["revenue"])
@@ -192,6 +204,7 @@ def build_restaurant_excel(
                 safe_text(producer),
                 currency,
                 int(values["bottles"]),
+                int(values["glasses"]),
                 money(revenue),
                 money(cost),
                 money(margin),
@@ -205,16 +218,17 @@ def build_restaurant_excel(
             "Produttore" if it else "Producer",
             "Valuta" if it else "Currency",
             "Bottiglie vendute" if it else "Bottles sold",
+            "Calici venduti" if it else "Glasses sold",
             "Ricavi" if it else "Revenue",
             "Costo" if it else "Cost",
             "Margine lordo" if it else "Gross margin",
             "Margine %" if it else "Margin %",
         ],
         producer_rows,
-        {4, 5, 6},
+        {5, 6, 7},
     )
     for row_index in range(2, len(producer_rows) + 2):
-        producer_sheet.cell(row=row_index, column=7).number_format = '0.00"%"'
+        producer_sheet.cell(row=row_index, column=8).number_format = '0.00"%"'
 
     inventory_headers = [
         "Vino" if it else "Wine",
@@ -226,6 +240,10 @@ def build_restaurant_excel(
         "Giacenza" if it else "Stock",
         "Costo unitario" if it else "Unit cost",
         "Prezzo di vendita" if it else "Sale price",
+        "Prezzo al bicchiere" if it else "Glass price",
+        "Dose (dl)" if it else "Pour (dl)",
+        "Residuo aperto (dl)" if it else "Open remainder (dl)",
+        "Soglia riordino" if it else "Reorder threshold",
         "Valuta" if it else "Currency",
         "Inizio finestra" if it else "Window start",
         "Fine finestra" if it else "Window end",
@@ -242,6 +260,10 @@ def build_restaurant_excel(
             wine.quantity,
             money(wine.price),
             money(wine.sale_price) if wine.sale_price is not None else None,
+            money(wine.glass_price) if wine.glass_price is not None else None,
+            wine.pour_size_ml / 100,
+            wine.open_bottle_ml / 100 if wine.open_bottle_ml else None,
+            wine.reorder_threshold,
             (wine.currency or "CHF").upper(),
             wine.drink_from,
             wine.drink_to,
@@ -249,15 +271,19 @@ def build_restaurant_excel(
 
     inventory_sheet = workbook.create_sheet("Inventario" if it else "Inventory")
     inventory_rows = [inventory_row(wine) for wine in inventory]
-    style_table(inventory_sheet, inventory_headers, inventory_rows, {8, 9})
+    style_table(inventory_sheet, inventory_headers, inventory_rows, {8, 9, 10})
 
     reorder_sheet = workbook.create_sheet("Da riordinare" if it else "Reorder")
     low_stock = sorted(
-        (wine for wine in inventory if 0 < wine.quantity <= low_stock_threshold),
+        (
+            wine
+            for wine in inventory
+            if 0 <= wine.quantity <= int(wine.reorder_threshold)
+        ),
         key=lambda wine: (wine.quantity, wine.name.lower(), wine.vintage),
     )
     style_table(
-        reorder_sheet, inventory_headers, [inventory_row(wine) for wine in low_stock], {8, 9}
+        reorder_sheet, inventory_headers, [inventory_row(wine) for wine in low_stock], {8, 9, 10}
     )
 
     missing_price_sheet = workbook.create_sheet("Prezzi mancanti" if it else "Missing prices")
@@ -266,7 +292,7 @@ def build_restaurant_excel(
         missing_price_sheet,
         inventory_headers,
         [inventory_row(wine) for wine in missing_price],
-        {8, 9},
+        {8, 9, 10},
     )
 
     output = BytesIO()

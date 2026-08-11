@@ -37,6 +37,10 @@ export type Wine = {
   currency: string;
   price: string;
   sale_price: string | null;
+  glass_price: string | null;
+  pour_size_ml: number;
+  reorder_threshold: number;
+  open_bottle_ml: number;
   current_value: string | null;
   value_not_found: boolean;
   status: string;
@@ -115,6 +119,7 @@ export type WineSaleDraft = {
   quantity: string;
   unit_sale_price: string;
   note: string;
+  sale_kind: "bottle" | "glass";
 };
 
 export type WineSale = {
@@ -125,6 +130,9 @@ export type WineSale = {
   wine_vintage: string;
   sold_at: string;
   quantity: number;
+  sale_kind: "bottle" | "glass";
+  pour_size_ml: number;
+  stock_bottles_consumed: number;
   unit_sale_price: string;
   unit_purchase_cost: string;
   revenue: string;
@@ -140,13 +148,13 @@ export type WineSale = {
 export type RestaurantSalesSummary = {
   from_date: string;
   to_date: string;
-  currencies: Array<{ currency: string; revenue: string; cost: string; gross_margin: string; gross_margin_pct: string; bottles: number; average_sale_price: string }>;
-  series: Array<{ date: string; currency: string; revenue: string; cost: string; gross_margin: string; bottles: number }>;
-  top_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string; current_stock: number }>;
-  least_sold_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; currency: string; current_stock: number }>;
-  sales_by_type: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
-  sales_by_region: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
-  sales_by_producer: Array<{ label: string; currency: string; bottles: number; revenue: string; cost: string; gross_margin: string }>;
+  currencies: Array<{ currency: string; revenue: string; cost: string; gross_margin: string; gross_margin_pct: string; bottles: number; glasses: number; average_sale_price: string; average_glass_price: string }>;
+  series: Array<{ date: string; currency: string; revenue: string; cost: string; gross_margin: string; bottles: number; glasses: number }>;
+  top_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; glasses: number; currency: string; current_stock: number }>;
+  least_sold_wines: Array<{ wine_id: string; label: string; revenue: string; gross_margin: string; bottles: number; glasses: number; currency: string; current_stock: number }>;
+  sales_by_type: Array<{ label: string; currency: string; bottles: number; glasses: number; revenue: string; cost: string; gross_margin: string }>;
+  sales_by_region: Array<{ label: string; currency: string; bottles: number; glasses: number; revenue: string; cost: string; gross_margin: string }>;
+  sales_by_producer: Array<{ label: string; currency: string; bottles: number; glasses: number; revenue: string; cost: string; gross_margin: string }>;
   recent_sales: WineSale[];
 };
 
@@ -216,6 +224,9 @@ export type WineDraft = {
   currency: string;
   price: string;
   sale_price: string;
+  glass_price: string;
+  pour_size_ml: string;
+  reorder_threshold: string;
   current_value: string;
   status: string;
   format: string;

@@ -50,6 +50,22 @@ class Wine(Base):
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), default=0)
     sale_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    glass_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
+    pour_size_ml: Mapped[int] = mapped_column(default=100)
+    reorder_threshold: Mapped[int] = mapped_column(default=2)
+    open_bottle_ml: Mapped[int] = mapped_column(default=0)
+    open_bottle_lot_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey(
+            "wine_stock_lots.id",
+            ondelete="SET NULL",
+            use_alter=True,
+            name="fk_wines_open_bottle_lot_id",
+        ),
+        nullable=True,
+    )
+    open_bottle_cost_remaining: Mapped[Decimal] = mapped_column(Numeric(12, 4), default=0)
+    open_bottle_original_cost: Mapped[Decimal] = mapped_column(Numeric(12, 4), default=0)
     current_value: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     value_not_found: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String(32), default="Ordered")
@@ -186,6 +202,9 @@ class WineSale(Base):
     )
     sold_at: Mapped[date] = mapped_column(Date, index=True)
     quantity: Mapped[int] = mapped_column(default=1)
+    sale_kind: Mapped[str] = mapped_column(String(16), default="bottle")
+    pour_size_ml: Mapped[int] = mapped_column(default=0)
+    stock_bottles_consumed: Mapped[int] = mapped_column(default=0)
     unit_sale_price: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     unit_purchase_cost: Mapped[Decimal] = mapped_column(Numeric(10, 2))
     total_purchase_cost: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)

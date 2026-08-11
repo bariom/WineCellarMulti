@@ -271,7 +271,7 @@ export function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentY
   if (quickFilter === "future_deliveries") return isFutureDeliveryWine(wine, now);
   if (quickFilter === "to_collect") return isToCollectWine(wine);
   if (quickFilter === "missing_data") return !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || (wine.grapes.length === 0 && !wine.grapes_not_applicable);
-  if (quickFilter === "low_stock") return isWinePhysicallyInCellar(wine) && Number(wine.quantity || 0) >= 1 && Number(wine.quantity || 0) <= 2;
+  if (quickFilter === "low_stock") return Number(wine.quantity || 0) >= 0 && Number(wine.quantity || 0) <= Number(wine.reorder_threshold ?? 2);
   if (quickFilter === "missing_sale_price") return isWinePhysicallyInCellar(wine) && Number(wine.quantity || 0) > 0 && !wine.sale_price;
   return true;
 }

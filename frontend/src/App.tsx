@@ -430,6 +430,9 @@ const emptyDraft: WineDraft = {
   currency: "CHF",
   price: "0",
   sale_price: "",
+  glass_price: "",
+  pour_size_ml: "100",
+  reorder_threshold: "2",
   current_value: "",
   status: "Ordered",
   format: "",
@@ -4390,6 +4393,7 @@ export function App() {
           sold_at: payload.sold_at || undefined,
           quantity: Number(payload.quantity || 1),
           unit_sale_price: payload.unit_sale_price ? Number(payload.unit_sale_price) : undefined,
+          sale_kind: payload.sale_kind,
           note: payload.note.trim(),
         }),
       });
@@ -6474,7 +6478,7 @@ export function App() {
     future_deliveries: t("futureDeliveries"),
     to_collect: t("winesToCollect"),
     missing_data: t("dataQuality"),
-    low_stock: locale === "it" ? "Scorte basse" : "Low stock",
+    low_stock: locale === "it" ? "Da ordinare" : "To reorder",
     missing_sale_price: locale === "it" ? "Prezzo di vendita mancante" : "Missing sale price",
   };
   const activeCollectionFilterChips: Array<{ key: string; label: string; onRemove: () => void }> = [
@@ -10354,6 +10358,30 @@ export function App() {
                     <input type="number" min="0" step="0.01" value={draft.sale_price} onChange={(event) => setDraft({ ...draft, sale_price: event.target.value })} disabled={!canWriteWine} />
                   </label> : null}
                 </div>
+                {isRestaurant ? <div className="form-row restaurant-glass-settings">
+                  <label>
+                    <span>{locale === "it" ? "Prezzo al bicchiere" : "Price per glass"}</span>
+                    <input type="number" min="0" step="0.01" value={draft.glass_price} onChange={(event) => setDraft({ ...draft, glass_price: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  <label>
+                    <span>{locale === "it" ? "Misura mescita (dl)" : "Pour size (dl)"}</span>
+                    <input
+                      type="number"
+                      min="0.25"
+                      max="5"
+                      step="0.1"
+                      value={draft.pour_size_ml === "" ? "" : String(Number(draft.pour_size_ml) / 100)}
+                      onChange={(event) => setDraft({ ...draft, pour_size_ml: event.target.value === "" ? "" : String(Math.round(Number(event.target.value) * 100)) })}
+                      disabled={!canWriteWine}
+                    />
+                    <small>{locale === "it" ? "Dose predefinita: 1 dl." : "Default pour: 1 dl."}</small>
+                  </label>
+                  <label>
+                    <span>{locale === "it" ? "Soglia di riordino" : "Reorder threshold"}</span>
+                    <input type="number" min="0" max="10000" step="1" value={draft.reorder_threshold} onChange={(event) => setDraft({ ...draft, reorder_threshold: event.target.value })} disabled={!canWriteWine} />
+                    <small>{locale === "it" ? "Entra in “Da ordinare” a questa giacenza. Predefinita: 2." : "Listed under Reorder at this stock level. Default: 2."}</small>
+                  </label>
+                </div> : null}
                 <div className="form-row">
                   <label>
                     <span>{t("currency")}</span>

@@ -813,6 +813,10 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     currency: "CHF",
     price: "0",
     sale_price: null,
+    glass_price: null,
+    pour_size_ml: 100,
+    reorder_threshold: 2,
+    open_bottle_ml: 0,
     current_value: null,
     value_not_found: false,
     status: item.wine_status,
@@ -937,7 +941,8 @@ export function WineDetail({
         ? t("idealWindow")
         : t("youngWine");
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
-  const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
+  const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
+  const [glassSaleDraft, setGlassSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
   const [aiToolsOpen, setAiToolsOpen] = useState(!restaurantMode);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
@@ -958,7 +963,8 @@ export function WineDetail({
 
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
-    setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "" });
+    setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
+    setGlassSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
     setAiToolsOpen(!restaurantMode);
   }, [restaurantMode, wine.id]);
 
@@ -972,6 +978,12 @@ export function WineDetail({
     event.preventDefault();
     await onSell(saleDraft);
     setSaleDraft((current) => ({ ...current, quantity: "1", note: "" }));
+  }
+
+  async function submitGlassSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await onSell(glassSaleDraft);
+    setGlassSaleDraft((current) => ({ ...current, quantity: "1", note: "" }));
   }
 
   return (
@@ -1149,6 +1161,9 @@ export function WineDetail({
           {!restaurantMode ? <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
           {restaurantMode ? <DetailField label={locale === "it" ? "Prezzo di vendita" : "Sale price"} value={wine.sale_price ? formatMoney(wine.sale_price, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} /> : null}
+          {restaurantMode ? <DetailField label={locale === "it" ? "Mescita" : "By the glass"} value={wine.glass_price ? `${formatMoney(wine.glass_price, wine.currency, locale)} · ${(wine.pour_size_ml / 100).toLocaleString(locale)} dl` : ""} emptyLabel={t("notSpecified")} /> : null}
+          {restaurantMode ? <DetailField label={locale === "it" ? "Soglia riordino" : "Reorder threshold"} value={`${wine.reorder_threshold} ${locale === "it" ? "bottiglie" : "bottles"}`} emptyLabel={t("notSpecified")} /> : null}
+          {restaurantMode && wine.open_bottle_ml > 0 ? <DetailField label={locale === "it" ? "Bottiglia aperta" : "Open bottle"} value={`${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl`} emptyLabel={t("notSpecified")} /> : null}
           <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
@@ -1210,7 +1225,7 @@ export function WineDetail({
         </div>
       ) : null}
 
-      {canWrite && wine.quantity > 0 ? restaurantMode ? (
+      {canWrite && wine.quantity > 0 ? restaurantMode ? (<>
         <details className="detail-section consume-panel sale-panel">
           <summary><span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span></summary>
           <p className="consume-help">{locale === "it" ? "Registra la vendita senza creare una degustazione. Il costo d’acquisto viene salvato come fotografia storica del margine." : "Record a sale without creating a tasting. Purchase cost is snapshotted for historical margin reporting."}</p>
@@ -1224,7 +1239,27 @@ export function WineDetail({
             <div className="form-actions"><button type="submit" disabled={saving || !saleDraft.unit_sale_price}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Registra vendita" : "Record sale"} busyLabel={t("working")} /></button></div>
           </form>
         </details>
-      ) : (
+        <details className="detail-section consume-panel sale-panel glass-sale-panel">
+          <summary>
+            <span>{locale === "it" ? "Mescita al bicchiere" : "Wine by the glass"}</span>
+            <small>{(wine.pour_size_ml / 100).toLocaleString(locale)} dl</small>
+          </summary>
+          <p className="consume-help">
+            {wine.open_bottle_ml > 0
+              ? (locale === "it" ? `Bottiglia aperta: ${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl disponibili.` : `Open bottle: ${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl available.`)
+              : (locale === "it" ? "La prima mescita apre automaticamente una bottiglia e ne traccia il residuo." : "The first pour automatically opens a bottle and tracks the remaining volume.")}
+          </p>
+          <form className="consume-form" onSubmit={submitGlassSale}>
+            <div className="detail-grid consume-grid">
+              <label><span>{locale === "it" ? "Data vendita" : "Sale date"}</span><input type="date" value={glassSaleDraft.sold_at} onChange={(event) => setGlassSaleDraft({ ...glassSaleDraft, sold_at: event.target.value })} disabled={saving} required /></label>
+              <label><span>{locale === "it" ? "Calici" : "Glasses"}</span><input type="number" min="1" value={glassSaleDraft.quantity} onChange={(event) => setGlassSaleDraft({ ...glassSaleDraft, quantity: event.target.value })} disabled={saving} required /></label>
+              <label><span>{locale === "it" ? `Prezzo per calice (${wine.currency})` : `Price per glass (${wine.currency})`}</span><input type="number" min="0" step="0.01" value={glassSaleDraft.unit_sale_price} onChange={(event) => setGlassSaleDraft({ ...glassSaleDraft, unit_sale_price: event.target.value })} disabled={saving} required /></label>
+            </div>
+            <label><span>{locale === "it" ? "Nota vendita" : "Sale note"}</span><textarea rows={2} value={glassSaleDraft.note} onChange={(event) => setGlassSaleDraft({ ...glassSaleDraft, note: event.target.value })} disabled={saving} /></label>
+            <div className="form-actions"><button type="submit" disabled={saving || !glassSaleDraft.unit_sale_price}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Registra mescita" : "Record glasses"} busyLabel={t("working")} /></button></div>
+          </form>
+        </details>
+      </>) : (
         <details className="detail-section consume-panel">
           <summary>
             <span>{t("consumeBottle")}</span>

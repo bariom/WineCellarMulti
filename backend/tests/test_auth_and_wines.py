@@ -150,7 +150,10 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
 def test_restaurant_sale_can_be_edited_without_losing_stock_integrity():
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    assert (
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code
+        == 200
+    )
     created = client.post(
         "/api/v1/wines",
         json={
@@ -198,6 +201,77 @@ def test_restaurant_sale_can_be_edited_without_losing_stock_integrity():
         f"/api/v1/sales/{sold.json()['id']}/void", json={"reason": "Vendita annullata"}
     ).status_code == 200
     assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 5
+
+
+def test_restaurant_glass_sales_track_pours_open_bottle_and_margin():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert (
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code
+        == 200
+    )
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Sauvignon al calice",
+            "quantity": 2,
+            "format": "Bottiglia (750ml)",
+            "price": 20,
+            "sale_price": 54,
+            "glass_price": 12,
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    assert created.json()["pour_size_ml"] == 100
+
+    first_sale = client.post(
+        "/api/v1/sales",
+        json={"wine_id": wine_id, "quantity": 7, "sale_kind": "glass"},
+    )
+    assert first_sale.status_code == 201
+    assert first_sale.json()["sale_kind"] == "glass"
+    assert first_sale.json()["pour_size_ml"] == 100
+    assert first_sale.json()["cost"] == "18.67"
+    after_first = client.get(f"/api/v1/wines/{wine_id}").json()
+    assert after_first["quantity"] == 2
+    assert after_first["open_bottle_ml"] == 50
+
+    second_sale = client.post(
+        "/api/v1/sales",
+        json={"wine_id": wine_id, "quantity": 1, "sale_kind": "glass"},
+    )
+    assert second_sale.status_code == 201
+    assert second_sale.json()["stock_bottles_consumed"] == 1
+    after_second = client.get(f"/api/v1/wines/{wine_id}").json()
+    assert after_second["quantity"] == 1
+    assert after_second["open_bottle_ml"] == 700
+
+    summary = client.get("/api/v1/sales/summary").json()
+    assert summary["currencies"][0]["bottles"] == 0
+    assert summary["currencies"][0]["glasses"] == 8
+    assert summary["currencies"][0]["average_glass_price"] == "12.00"
+    assert summary["top_wines"][0]["glasses"] == 8
+
+    out_of_order_void = client.post(
+        f"/api/v1/sales/{first_sale.json()['id']}/void",
+        json={"reason": "Ordine di annullamento errato"},
+    )
+    assert out_of_order_void.status_code == 409
+
+    assert client.post(
+        f"/api/v1/sales/{second_sale.json()['id']}/void",
+        json={"reason": "Calice registrato per errore"},
+    ).status_code == 200
+    after_void = client.get(f"/api/v1/wines/{wine_id}").json()
+    assert after_void["quantity"] == 2
+    assert after_void["open_bottle_ml"] == 50
+
+    unavailable_bottles = client.post(
+        "/api/v1/sales",
+        json={"wine_id": wine_id, "quantity": 2, "sale_kind": "bottle"},
+    )
+    assert unavailable_bottles.status_code == 409
 
 
 def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
@@ -302,6 +376,18 @@ def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
         },
     )
     assert low_stock.status_code == 201
+    assert low_stock.json()["reorder_threshold"] == 2
+    custom_threshold = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Custom Reorder",
+            "quantity": 3,
+            "price": 18,
+            "sale_price": 48,
+            "reorder_threshold": 3,
+        },
+    )
+    assert custom_threshold.status_code == 201
     assert client.post(
         "/api/v1/wines",
         json={"name": "Missing Price", "quantity": 4, "price": 12, "currency": "CHF"},
@@ -331,6 +417,7 @@ def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
     assert workbook["Vendite"]["B2"].value == "Excel Barolo"
     assert workbook["Produttori"]["A2"].value == "Export Estate"
     assert workbook["Da riordinare"]["A2"].value == "Excel Barolo"
+    assert workbook["Da riordinare"]["A3"].value == "Custom Reorder"
     assert workbook["Prezzi mancanti"]["A2"].value == "Missing Price"
 
 

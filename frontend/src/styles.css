@@ -11816,6 +11816,26 @@ button.stat-card:hover {
   font-weight: 800;
 }
 
+.glass-sale-panel {
+  border-color: color-mix(in srgb, var(--accent) 38%, var(--border));
+}
+
+.glass-sale-panel summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.glass-sale-panel summary small {
+  padding: 4px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
 .consume-panel[open] summary {
   margin-bottom: 10px;
 }

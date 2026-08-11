@@ -256,6 +256,10 @@ def wine_response(
         currency=wine.currency,
         price=wine.price,
         sale_price=wine.sale_price,
+        glass_price=wine.glass_price,
+        pour_size_ml=wine.pour_size_ml,
+        reorder_threshold=wine.reorder_threshold,
+        open_bottle_ml=wine.open_bottle_ml,
         current_value=wine.current_value,
         value_not_found=wine.value_not_found,
         status=wine.status,
@@ -473,6 +477,9 @@ def wine_copy_for_recipient(
         currency=source.currency,
         price=source.price,
         sale_price=source.sale_price,
+        glass_price=source.glass_price,
+        pour_size_ml=source.pour_size_ml,
+        reorder_threshold=source.reorder_threshold,
         current_value=source.current_value,
         value_not_found=source.value_not_found,
         status=source.status,
@@ -1515,6 +1522,11 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     previous_quantity = wine.quantity
     data = payload.model_dump(exclude_unset=True)
+    if wine.open_bottle_ml and "quantity" in data and int(data["quantity"] or 0) < 1:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Close the open bottle before setting stock to zero",
+        )
     tag_names = data.pop("tags", None)
     if "type" in data:
         data["type"] = normalize_wine_type(data.get("type"))

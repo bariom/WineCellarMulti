@@ -14,6 +14,9 @@ class WineCreate(BaseModel):
     currency: str = "CHF"
     price: Decimal = Field(default=Decimal("0"), ge=0)
     sale_price: Decimal | None = Field(default=None, ge=0)
+    glass_price: Decimal | None = Field(default=None, ge=0)
+    pour_size_ml: int = Field(default=100, ge=25, le=500)
+    reorder_threshold: int = Field(default=2, ge=0, le=10000)
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool = False
     status: str = "Ordered"
@@ -55,6 +58,9 @@ class WineUpdate(BaseModel):
     currency: str | None = None
     price: Decimal | None = Field(default=None, ge=0)
     sale_price: Decimal | None = Field(default=None, ge=0)
+    glass_price: Decimal | None = Field(default=None, ge=0)
+    pour_size_ml: int | None = Field(default=None, ge=25, le=500)
+    reorder_threshold: int | None = Field(default=None, ge=0, le=10000)
     current_value: Decimal | None = Field(default=None, ge=0)
     value_not_found: bool | None = None
     status: str | None = None
@@ -196,6 +202,10 @@ class WineResponse(BaseModel):
     currency: str
     price: Decimal
     sale_price: Decimal | None = None
+    glass_price: Decimal | None = None
+    pour_size_ml: int = 100
+    reorder_threshold: int = 2
+    open_bottle_ml: int = 0
     current_value: Decimal | None = None
     value_not_found: bool = False
     status: str

@@ -125,6 +125,8 @@ def remove_fifo_stock(
     user_id: uuid.UUID | None,
     sale: WineSale | None = None,
     update_quantity: bool = True,
+    reserved_lot_id: uuid.UUID | None = None,
+    preferred_lot_id: uuid.UUID | None = None,
 ) -> tuple[list[WineStockMovement], Decimal, Decimal]:
     if movement_type not in OUTBOUND_TYPES | {"sale"} or quantity <= 0:
         raise ValueError("Invalid outbound stock movement")
@@ -141,7 +143,16 @@ def remove_fifo_stock(
             .with_for_update()
         )
     )
-    if sum(lot.quantity_remaining for lot in lots) < quantity:
+    if preferred_lot_id is not None:
+        lots.sort(key=lambda lot: lot.id != preferred_lot_id)
+    effective_reserved_lot_id = reserved_lot_id or (
+        wine.open_bottle_lot_id if preferred_lot_id is None else None
+    )
+    available_quantity = sum(
+        max(lot.quantity_remaining - (1 if lot.id == effective_reserved_lot_id else 0), 0)
+        for lot in lots
+    )
+    if available_quantity < quantity:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Stock ledger does not match the current bottle quantity",
@@ -152,7 +163,12 @@ def remove_fifo_stock(
     for lot in lots:
         if remaining <= 0:
             break
-        allocated = min(remaining, lot.quantity_remaining)
+        lot_available = max(
+            lot.quantity_remaining - (1 if lot.id == effective_reserved_lot_id else 0), 0
+        )
+        allocated = min(remaining, lot_available)
+        if allocated <= 0:
+            continue
         lot.quantity_remaining -= allocated
         total_cost += lot.unit_cost * allocated
         movement = WineStockMovement(
@@ -236,7 +252,7 @@ def restore_sale_stock(
         )
         db.add(movement)
         restored.append(movement)
-    wine.quantity += sale.quantity
+    wine.quantity += sum(abs(movement.quantity_delta) for movement in source_movements)
     return restored
 
 
