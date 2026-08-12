@@ -92,7 +92,7 @@ export type LandingCopy = {
     annualNote: string;
     aiNote: string;
   };
-  footer: { statement: string; privacy: string; terms: string; login: string };
+  footer: { statement: string; privacy: string; cookies: string; terms: string; login: string };
   meta: { title: string; description: string };
 };
 
@@ -205,7 +205,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       annualNote: "Due mesi risparmiati con il piano annuale",
       aiNote: "Un credito AI iniziale permette di provare le funzioni avanzate.",
     },
-    footer: { statement: "Private cellar intelligence per collezionisti di vino.", privacy: "Privacy", terms: "Condizioni d’uso", login: "Accesso" },
+    footer: { statement: "Private cellar intelligence per collezionisti di vino.", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
     meta: { title: "Vinaris · Private Cellar Intelligence", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
@@ -316,7 +316,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       annualNote: "Save two months with the annual plan",
       aiNote: "Starter AI credit lets you try the advanced features.",
     },
-    footer: { statement: "Private cellar intelligence for wine collectors.", privacy: "Privacy", terms: "Terms", login: "Log in" },
+    footer: { statement: "Private cellar intelligence for wine collectors.", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
     meta: { title: "Vinaris · Private Cellar Intelligence", description: "Manage bottles, drinking windows, value, deliveries, wishlist, and tasting memory in one private intelligent cellar." },
   },
 };

@@ -137,7 +137,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
           <h2>5. Service providers and international transfers</h2>
           <p>Depending on the enabled features, data may be processed by hosting and backup providers, Stripe for payments, OpenAI for AI requests and label recognition, transactional email providers, and mapping or network providers. Some providers may process data outside Switzerland. Appropriate contractual and technical safeguards are used where required.</p>
         </section>
-        <section>
+        <section id="cookies">
           <h2>6. Cookies and local storage</h2>
           <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, and monitor-device tokens. No advertising or behavioural analytics cookies are included in the current application.</p>
         </section>
@@ -185,7 +185,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
         <h2>5. Fornitori e trasferimenti internazionali</h2>
         <p>In base alle funzioni abilitate, i dati possono essere trattati da fornitori di hosting e backup, Stripe per i pagamenti, OpenAI per le richieste AI e il riconoscimento delle etichette, fornitori email transazionali e fornitori cartografici o di rete. Alcuni fornitori possono trattare dati fuori dalla Svizzera. Quando richiesto vengono adottate garanzie contrattuali e tecniche adeguate.</p>
       </section>
-      <section>
+      <section id="cookies">
         <h2>6. Cookie e memoria locale</h2>
         <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout e token dei dispositivi Monitor. L’applicazione attuale non include cookie pubblicitari o di analisi comportamentale.</p>
       </section>
