@@ -5278,6 +5278,41 @@ export function App() {
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
   const isWineCollectionView = activeView === "cellar" || (activeView === "history" && historySection !== "sales");
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
+  useEffect(() => {
+    if (!wineFormOpen || !isWineCollectionView) return;
+    const sectionKeys = ["identity", "value", "profile", "scores", "tags"] as const;
+    type SectionKey = typeof sectionKeys[number];
+    const moveToSection = (key: SectionKey) => {
+      if (key !== "identity") setOpenWineEditorSections({ [key]: true });
+      window.requestAnimationFrame(() => {
+        const section = wineEditorScrollRef.current?.querySelector<HTMLElement>(`[data-wine-editor-section="${key}"]`);
+        if (!section) return;
+        section.scrollIntoView({ behavior: "smooth", block: "start" });
+        const focusTarget = section.querySelector<HTMLElement>(".wine-editor-disclosure-toggle") || section;
+        focusTarget.focus({ preventScroll: true });
+      });
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      if (!event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      const directIndex = Number(event.key) - 1;
+      let targetIndex = Number.isInteger(directIndex) && directIndex >= 0 && directIndex < sectionKeys.length
+        ? directIndex
+        : -1;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const activeSection = document.activeElement?.closest<HTMLElement>("[data-wine-editor-section]");
+        const currentIndex = sectionKeys.indexOf((activeSection?.dataset.wineEditorSection || "") as SectionKey);
+        targetIndex = event.key === "ArrowDown"
+          ? Math.min(Math.max(currentIndex + 1, 0), sectionKeys.length - 1)
+          : currentIndex < 0 ? sectionKeys.length - 1 : Math.max(currentIndex - 1, 0);
+      }
+      if (targetIndex < 0) return;
+      event.preventDefault();
+      moveToSection(sectionKeys[targetIndex]);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isWineCollectionView, wineFormOpen]);
   const activeWineCollection = activeView === "history"
     ? historySection === "tastings"
       ? wines
@@ -10406,7 +10441,7 @@ export function App() {
                   </div>
                 ) : null}
                 </section>
-                <section className="wine-editor-section wine-editor-essential">
+                <section className="wine-editor-section wine-editor-essential" data-wine-editor-section="identity" tabIndex={-1}>
                   <div className="wine-editor-section-heading">
                     <div><span>01</span><strong>{locale === "it" ? "Identità del vino" : "Wine identity"}</strong></div>
                     <small>{locale === "it" ? "Nome, origine e quantità" : "Name, origin and quantity"}</small>
@@ -10533,8 +10568,8 @@ export function App() {
                   <small className="form-hint">{locale === "it" ? "Lascia vuoto il picco per usare l'intera finestra come periodo ideale. Per rimuovere la finestra, svuota gli anni e salva." : "Leave the peak empty to use the entire window as the ideal period. Clear the years and save to remove it."}</small>
                 </div>
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`}>
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
+                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+2" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
                     <div><span>02</span><strong>{locale === "it" ? "Acquisto e valore" : "Purchase and value"}</strong></div>
                     <small>{locale === "it" ? "Prezzi, stato e consegna" : "Prices, status and delivery"}</small>
                   </button>
@@ -10632,8 +10667,8 @@ export function App() {
                 </div>
                   </div> : null}
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.profile ? "is-open" : ""}`}>
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-expanded={Boolean(openWineEditorSections.profile)} onClick={() => setOpenWineEditorSections((current) => current.profile ? {} : { profile: true })}>
+                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.profile ? "is-open" : ""}`} data-wine-editor-section="profile">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+3" aria-expanded={Boolean(openWineEditorSections.profile)} onClick={() => setOpenWineEditorSections((current) => current.profile ? {} : { profile: true })}>
                     <div><span>03</span><strong>{locale === "it" ? "Profilo del vino" : "Wine profile"}</strong></div>
                     <small>{locale === "it" ? "Note e uvaggi" : "Notes and grapes"}</small>
                   </button>
@@ -10709,8 +10744,8 @@ export function App() {
                 </div>
                   </div> : null}
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.scores ? "is-open" : ""}`}>
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-expanded={Boolean(openWineEditorSections.scores)} onClick={() => setOpenWineEditorSections((current) => current.scores ? {} : { scores: true })}>
+                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.scores ? "is-open" : ""}`} data-wine-editor-section="scores">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+4" aria-expanded={Boolean(openWineEditorSections.scores)} onClick={() => setOpenWineEditorSections((current) => current.scores ? {} : { scores: true })}>
                     <div><span>04</span><strong>{locale === "it" ? "Punteggi e proprietà" : "Scores and ownership"}</strong></div>
                     <small>{locale === "it" ? "Critici, quote e comproprietari" : "Critics, shares and co-owners"}</small>
                   </button>
@@ -10775,8 +10810,8 @@ export function App() {
                 </div>
                   </div> : null}
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.tags ? "is-open" : ""}`}>
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-expanded={Boolean(openWineEditorSections.tags)} onClick={() => setOpenWineEditorSections((current) => current.tags ? {} : { tags: true })}>
+                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.tags ? "is-open" : ""}`} data-wine-editor-section="tags">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+5" aria-expanded={Boolean(openWineEditorSections.tags)} onClick={() => setOpenWineEditorSections((current) => current.tags ? {} : { tags: true })}>
                     <div><span>05</span><strong>{t("tags")}</strong></div>
                     <small>{locale === "it" ? "Occasioni e organizzazione" : "Occasions and organization"}</small>
                   </button>
