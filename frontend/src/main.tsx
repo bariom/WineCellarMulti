@@ -8,6 +8,8 @@ const App = monitorOnly
   : lazy(() => import("./App").then((module) => ({ default: module.App })));
 const MonitorApp = lazy(() => import("./MonitorApp").then((module) => ({ default: module.MonitorApp })));
 const LegalDocumentView = lazy(() => import("./legal/LegalDocumentView").then((module) => ({ default: module.LegalDocumentView })));
+const PublicRestaurantWineList = lazy(() => import("./views/PublicRestaurantWineList").then((module) => ({ default: module.PublicRestaurantWineList })));
+const publicWineListToken = window.location.pathname.match(/^\/wine-list\/([A-Za-z0-9_-]+)$/)?.[1] || null;
 const legalDocument = window.location.pathname === "/privacy"
   ? "privacy"
   : window.location.pathname === "/terms"
@@ -17,7 +19,9 @@ const legalDocument = window.location.pathname === "/privacy"
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <Suspense fallback={null}>
-      {legalDocument
+      {publicWineListToken
+        ? <PublicRestaurantWineList token={publicWineListToken} />
+        : legalDocument
         ? <LegalDocumentView kind={legalDocument} />
         : monitorOnly || window.location.pathname.startsWith("/monitor")
           ? <MonitorApp />

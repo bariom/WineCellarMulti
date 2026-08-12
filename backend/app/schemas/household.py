@@ -37,6 +37,30 @@ class HouseholdUpdate(BaseModel):
     restaurant_default_reorder_threshold: int | None = Field(default=None, ge=0, le=10000)
 
 
+class RestaurantPublicWineListResponse(BaseModel):
+    path: str
+    qr_path: str
+
+
+class PublicWineListWineResponse(BaseModel):
+    name: str
+    producer: str = ""
+    vintage: str = ""
+    type: str = ""
+    region: str = ""
+    appellation: str = ""
+    format: str = ""
+    currency: str = "CHF"
+    sale_price: float | None = None
+    glass_price: float | None = None
+    pour_size_ml: int | None = None
+
+
+class PublicWineListResponse(BaseModel):
+    restaurant_name: str
+    wines: list[PublicWineListWineResponse] = Field(default_factory=list)
+
+
 class HouseholdCreate(BaseModel):
     name: str = Field(min_length=1, max_length=160)
     operating_mode: Literal["private", "restaurant"] = "private"

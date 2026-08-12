@@ -18,3 +18,6 @@ class Household(Base):
     restaurant_default_pour_size_ml: Mapped[int] = mapped_column(Integer, default=100)
     restaurant_service_loss_ml: Mapped[int] = mapped_column(Integer, default=50)
     restaurant_default_reorder_threshold: Mapped[int] = mapped_column(Integer, default=2)
+    public_wine_list_token: Mapped[str | None] = mapped_column(
+        String(80), unique=True, nullable=True
+    )

@@ -10,6 +10,39 @@ import "./RestaurantDashboard.css";
 
 type Period = "week" | "month" | "semester" | "year" | "custom";
 type ManualStockMovementType = Extract<StockMovementType, "purchase" | "adjustment_in" | "adjustment_out" | "breakage" | "complimentary">;
+type PublicWineListSettings = { path: string; qr_path: string };
+
+function RestaurantPublicWineListManager({ locale }: { locale: Locale }) {
+  const [settings, setSettings] = useState<PublicWineListSettings | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    api<PublicWineListSettings>("/api/v1/restaurant-public-wine-list/settings")
+      .then((result) => { if (active) setSettings(result); })
+      .catch(() => { if (active) setMessage(locale === "it" ? "Impossibile preparare la carta pubblica." : "Unable to prepare the public wine list."); })
+      .finally(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, [locale]);
+
+  const publicUrl = settings ? `${window.location.origin}${settings.path}` : "";
+  async function copyLink() {
+    if (!publicUrl) return;
+    try { await navigator.clipboard.writeText(publicUrl); setMessage(locale === "it" ? "Link copiato." : "Link copied."); }
+    catch { setMessage(publicUrl); }
+  }
+  async function rotateLink() {
+    if (!window.confirm(locale === "it" ? "Rigenerare il link? Il QR precedente smetterà di funzionare." : "Generate a new link? The previous QR code will stop working.")) return;
+    setSaving(true);
+    try { const result = await api<PublicWineListSettings>("/api/v1/restaurant-public-wine-list/settings/rotate", { method: "POST" }); setSettings(result); setMessage(locale === "it" ? "Nuovo link creato." : "New link created."); }
+    catch (error) { setMessage(extractApiErrorText(error instanceof Error ? error.message : "")); }
+    finally { setSaving(false); }
+  }
+
+  return <section className="restaurant-public-wine-list"><header><div><span>{locale === "it" ? "Per gli ospiti" : "For guests"}</span><h3>{locale === "it" ? "Carta pubblicabile" : "Publishable wine list"}</h3></div><small>{locale === "it" ? "Solo vini attivi e disponibili" : "Active, available wines only"}</small></header>{loading ? <p>{locale === "it" ? "Preparazione della carta…" : "Preparing the wine list…"}</p> : settings ? <div className="restaurant-public-wine-list-body"><img src={settings.qr_path} alt={locale === "it" ? "QR della carta vini" : "Wine list QR code"} /><div><p>{locale === "it" ? "Condividi il QR al tavolo o pubblica il link: la pagina è disponibile in italiano e inglese, con stampa ottimizzata per il PDF." : "Share the QR at the table or publish the link: it is available in Italian and English, with print-ready PDF layout."}</p><code>{publicUrl}</code><div className="restaurant-public-wine-list-actions"><a className="button" href={settings.path} target="_blank" rel="noreferrer">{locale === "it" ? "Apri carta" : "Open wine list"}</a><button type="button" className="secondary" onClick={() => void copyLink()}>{locale === "it" ? "Copia link" : "Copy link"}</button><button type="button" className="secondary" disabled={saving} onClick={() => void rotateLink()}>{locale === "it" ? "Rigenera link" : "Regenerate link"}</button></div>{message ? <small className="restaurant-public-wine-list-message">{message}</small> : null}</div></div> : <p>{message}</p>}</section>;
+}
 
 function isoDate(date: Date) {
   const year = date.getFullYear();
@@ -720,6 +753,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
         <button type="button" className={missingSalePrice ? "needs-attention" : ""} disabled={!missingSalePrice || !onOpenMissingSalePriceWines} onClick={onOpenMissingSalePriceWines}><span>{locale === "it" ? "Prezzo da completare" : "Missing sale price"}</span><strong>{missingSalePrice}</strong><small>{locale === "it" ? "Referenze senza prezzo di vendita" : "Labels without a sale price"}</small></button>
         <button type="button" className={incompleteWineData ? "needs-attention" : ""} disabled={!onOpenIncompleteWines} onClick={onOpenIncompleteWines}><span>{locale === "it" ? "Dati vino da completare" : "Wine data to complete"}</span><strong>{incompleteWineData}</strong><small>{locale === "it" ? "Apri le schede e usa l’arricchimento AI" : "Open records and use AI enrichment"}</small></button>
       </div>
+      <RestaurantPublicWineListManager locale={locale} />
       {clearingOutWines.length ? <section className="restaurant-clearing-out">
         <header><div><span>{locale === "it" ? "Fine catalogo" : "End of list"}</span><h3>{locale === "it" ? "Vini a esaurimento" : "Wines being cleared"}</h3></div><strong>{clearingOutWines.length}</strong></header>
         <div>{clearingOutWines.slice(0, 6).map((wine) => <button type="button" key={wine.id} onClick={() => onOpenWine(wine.id)}><span><strong>{wine.name}</strong><small>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</small></span><b>{wine.quantity} {locale === "it" ? "rimaste" : "left"}</b></button>)}</div>
