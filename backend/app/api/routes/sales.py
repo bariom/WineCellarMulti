@@ -6,7 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
@@ -501,6 +501,17 @@ def sales_summary(
         )
         .order_by(WineSale.sold_at.desc(), WineSale.created_at.desc())
     ).all()
+    voided_rows = db.execute(
+        select(WineSale, Wine)
+        .join(Wine, Wine.id == WineSale.wine_id)
+        .where(
+            WineSale.household_id == context.household.id,
+            WineSale.voided_at.is_not(None),
+            func.date(WineSale.voided_at) >= from_date,
+            func.date(WineSale.voided_at) <= to_date,
+        )
+        .order_by(WineSale.voided_at.desc())
+    ).all()
     currency_totals: dict[str, dict[str, Decimal | int]] = defaultdict(
         lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0, "glasses": 0, "bottle_revenue": Decimal("0"), "glass_revenue": Decimal("0")}
     )
@@ -687,6 +698,7 @@ def sales_summary(
         sales_by_region=breakdown_items(region_totals),
         sales_by_producer=breakdown_items(producer_totals),
         recent_sales=[sale_response(sale, wine) for sale, wine in rows[:20]],
+        voided_sales=[sale_response(sale, wine) for sale, wine in voided_rows[:20]],
     )
 
 

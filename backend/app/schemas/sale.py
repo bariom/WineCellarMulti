@@ -106,6 +106,7 @@ class WineSalesSummaryResponse(BaseModel):
     sales_by_region: list[SaleBreakdownItem]
     sales_by_producer: list[SaleBreakdownItem]
     recent_sales: list[WineSaleResponse]
+    voided_sales: list[WineSaleResponse]
 
 
 class WineSalesHistoryResponse(BaseModel):

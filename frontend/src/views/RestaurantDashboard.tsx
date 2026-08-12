@@ -536,6 +536,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           sales_by_region: Array.isArray(result.sales_by_region) ? result.sales_by_region : [],
           sales_by_producer: Array.isArray(result.sales_by_producer) ? result.sales_by_producer : [],
           recent_sales: Array.isArray(result.recent_sales) ? result.recent_sales : [],
+          voided_sales: Array.isArray(result.voided_sales) ? result.voided_sales : [],
         });
         setError("");
       })
@@ -549,7 +550,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     let active = true;
     setDailyClosureLoading(true);
     api<RestaurantSalesSummary>(`/api/v1/sales/summary?from_date=${dailyClosureDate}&to_date=${dailyClosureDate}`)
-      .then((result) => { if (active) setDailyClosure({ ...result, currencies: Array.isArray(result.currencies) ? result.currencies : [] }); })
+      .then((result) => { if (active) setDailyClosure({ ...result, currencies: Array.isArray(result.currencies) ? result.currencies : [], voided_sales: Array.isArray(result.voided_sales) ? result.voided_sales : [] }); })
       .catch(() => { if (active) setDailyClosure(null); })
       .finally(() => { if (active) setDailyClosureLoading(false); });
     return () => { active = false; };
@@ -891,7 +892,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
           <div className="restaurant-sale-edit-actions"><button type="button" className="secondary compact" disabled={saleSaving} onClick={() => setEditingSale(null)}>{locale === "it" ? "Annulla" : "Cancel"}</button><button type="submit" className="compact" disabled={saleSaving}>{saleSaving ? (locale === "it" ? "Salvo…" : "Saving…") : (locale === "it" ? "Salva vendita" : "Save sale")}</button></div>
         </form> : <><div><strong>{sale.wine_name}</strong><span>{displayDate(sale.sold_at, locale)} · {sale.quantity} {sale.sale_kind === "glass" ? (locale === "it" ? `calici da ${(sale.pour_size_ml / 100).toLocaleString(locale)} dl` : `${(sale.pour_size_ml / 100).toLocaleString(locale)} dl glasses`) : (locale === "it" ? "bottiglie" : "bottles")} × {formatMoney(sale.unit_sale_price, sale.currency, locale)}</span></div><div className="restaurant-sale-result"><span>{locale === "it" ? "Margine lordo" : "Gross margin"}</span><strong>{formatMoney(sale.gross_margin, sale.currency, locale)}</strong><div className="restaurant-sale-actions"><button type="button" className="secondary compact" onClick={() => setEditingSale({ id: sale.id, sold_at: sale.sold_at, quantity: String(sale.quantity), unit_sale_price: String(sale.unit_sale_price), note: sale.note || "" })}>{locale === "it" ? "Modifica" : "Edit"}</button><button type="button" className="secondary compact" onClick={() => void voidSale(sale.id)}>{locale === "it" ? "Annulla" : "Void"}</button></div></div></>}
       </article>;
-    })}</div> : <p className="empty-state">—</p>}</details>
+    })}</div> : <p className="empty-state">—</p>}{mode === "restaurant" ? <details className="restaurant-voided-sales" open><summary><span>{locale === "it" ? "Annullamenti" : "Voided sales"}</span><strong>{summary?.voided_sales.length || 0}</strong></summary>{summary?.voided_sales.length ? <div>{summary.voided_sales.map((sale) => <article key={sale.id}><div><strong>{sale.wine_name}</strong><small>{locale === "it" ? `Vendita del ${displayDate(sale.sold_at, locale)} · annullata ${sale.voided_at ? displayDate(sale.voided_at.slice(0, 10), locale) : ""}` : `Sold ${displayDate(sale.sold_at, locale)} · voided ${sale.voided_at ? displayDate(sale.voided_at.slice(0, 10), locale) : ""}`}</small><p>{sale.void_reason}</p></div><span><strong>{formatMoney(sale.revenue, sale.currency, locale)}</strong><small>{locale === "it" ? "ricavo stornato" : "revenue voided"}</small></span></article>)}</div> : <p className="restaurant-voided-sales-empty">{locale === "it" ? "Nessun annullamento nel periodo selezionato." : "No voided sales in the selected period."}</p>}</details> : null}</details>
     </div>
   </section>;
 }

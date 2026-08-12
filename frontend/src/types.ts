@@ -160,6 +160,7 @@ export type RestaurantSalesSummary = {
   sales_by_region: Array<{ label: string; currency: string; bottles: number; glasses: number; revenue: string; cost: string; gross_margin: string }>;
   sales_by_producer: Array<{ label: string; currency: string; bottles: number; glasses: number; revenue: string; cost: string; gross_margin: string }>;
   recent_sales: WineSale[];
+  voided_sales: WineSale[];
 };
 
 export type WineSalesHistory = {
