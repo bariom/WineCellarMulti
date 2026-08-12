@@ -20,6 +20,16 @@ type PublicLandingProps = {
 };
 
 const iconNames = ["search", "window", "insights"] as const;
+const restaurantContactCodePoints = [105, 110, 102, 111, 64, 118, 105, 110, 97, 114, 105, 115, 46, 97, 112, 112];
+
+function RestaurantContactButton({ label }: { label: string }) {
+  const openContact = () => {
+    const address = String.fromCodePoint(...restaurantContactCodePoints);
+    window.location.assign(`mailto:${address}`);
+  };
+
+  return <button type="button" className="marketing-button secondary compact" onClick={openContact}>{label}</button>;
+}
 
 function ensureMeta(name: string, content: string, property = false) {
   const selector = property ? `meta[property="${name}"]` : `meta[name="${name}"]`;
@@ -144,6 +154,21 @@ export default function PublicLanding({
             <p>{copy.insights.body}</p>
           </div>
           <div data-reveal><InsightsVisual copy={copy} locale={locale} /></div>
+        </section>
+
+        <section className="marketing-section marketing-restaurant-section" data-reveal>
+          <div className="marketing-restaurant-copy">
+            <p className="marketing-kicker">{copy.restaurant.eyebrow}</p>
+            <h2>{copy.restaurant.title}</h2>
+            <p>{copy.restaurant.body}</p>
+          </div>
+          <aside>
+            <span>{copy.restaurant.availability}</span>
+            <RestaurantContactButton label={copy.restaurant.contact} />
+          </aside>
+          <figure className="marketing-restaurant-dashboard">
+            <img src="/landing/restaurant-dashboard-preview.png" alt={copy.restaurant.dashboardAlt} width="1536" height="1024" loading="lazy" />
+          </figure>
         </section>
 
         <section id="access" className="marketing-closing-section" data-reveal>

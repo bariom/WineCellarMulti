@@ -67,6 +67,14 @@ export type LandingCopy = {
     growth: string;
     regionNames: [string, string, string];
   };
+  restaurant: {
+    eyebrow: string;
+    title: string;
+    body: string;
+    availability: string;
+    contact: string;
+    dashboardAlt: string;
+  };
   features: {
     eyebrow: string;
     title: string;
@@ -163,6 +171,14 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       deliveries: "Consegne attese",
       growth: "Evoluzione collezione",
       regionNames: ["Toscana", "Bordeaux", "Piemonte"],
+    },
+    restaurant: {
+      eyebrow: "Per il servizio del vino",
+      title: "Vinaris anche per il ristorante.",
+      body: "Gestisci carta vini, giacenze, mescite, vendite, ricavi e margini in un unico spazio operativo.",
+      availability: "La modalità ristorante è disponibile solo su richiesta.",
+      contact: "Contatta Vinaris per informazioni",
+      dashboardAlt: "Anteprima della dashboard operativa Vinaris per ristoranti",
     },
     features: {
       eyebrow: "Il resto, nello stesso sistema",
@@ -265,6 +281,14 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       deliveries: "Expected deliveries",
       growth: "Collection evolution",
       regionNames: ["Tuscany", "Bordeaux", "Piedmont"],
+    },
+    restaurant: {
+      eyebrow: "For wine service",
+      title: "Vinaris for restaurants, too.",
+      body: "Manage your wine list, stock, by-the-glass service, sales, revenue, and margins in one operational space.",
+      availability: "Restaurant mode is available by request only.",
+      contact: "Contact Vinaris for information",
+      dashboardAlt: "Preview of the Vinaris restaurant operations dashboard",
     },
     features: {
       eyebrow: "Everything else, connected",

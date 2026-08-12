@@ -973,7 +973,7 @@ export function WineDetail({
     setConsumeDraft(emptyConsumeWineDraft());
     setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
     setGlassSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
-    setAiToolsOpen(!restaurantMode);
+    setAiToolsOpen(false);
   }, [restaurantMode, wine.id]);
 
   async function submitConsume(event: FormEvent<HTMLFormElement>) {
