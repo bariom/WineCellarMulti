@@ -395,6 +395,15 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
   const [period, setPeriod] = useState<Period>("month");
   const [restaurantDashboardView, setRestaurantDashboardView] = useState<"performance" | "inventory" | "stock" | "sales" | "intelligence">("performance");
   const [restaurantMenuOpen, setRestaurantMenuOpen] = useState(false);
+  const [quickSaleWineId, setQuickSaleWineId] = useState("");
+  const [quickSaleQuery, setQuickSaleQuery] = useState("");
+  const [quickSaleKind, setQuickSaleKind] = useState<"bottle" | "glass">("glass");
+  const [quickSaleQuantity, setQuickSaleQuantity] = useState("1");
+  const [quickSalePrice, setQuickSalePrice] = useState("");
+  const [quickSaleSaving, setQuickSaleSaving] = useState(false);
+  const [dailyClosureDate, setDailyClosureDate] = useState(isoDate(new Date()));
+  const [dailyClosure, setDailyClosure] = useState<RestaurantSalesSummary | null>(null);
+  const [dailyClosureLoading, setDailyClosureLoading] = useState(false);
   const [fromDate, setFromDate] = useState(periodStart("month"));
   const [toDate, setToDate] = useState(isoDate(new Date()));
   const [summary, setSummary] = useState<RestaurantSalesSummary | null>(null);
@@ -465,6 +474,23 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     }
   }, [stockDraft.wine_id, wines]);
 
+  const quickSaleWines = inventoryWines.filter((wine) => quickSaleKind === "glass"
+    ? Boolean(numberValue(wine.glass_price))
+    : Boolean(numberValue(wine.sale_price)));
+  const quickSaleWine = quickSaleWines.find((wine) => wine.id === quickSaleWineId) || null;
+  const quickSaleMatches = quickSaleQuery.trim()
+    ? quickSaleWines.filter((wine) => [wine.name, wine.producer, wine.vintage].join(" ").toLocaleLowerCase().includes(quickSaleQuery.trim().toLocaleLowerCase())).slice(0, 8)
+    : [];
+  const quickSaleWineLabel = (wine: Wine) => [wine.name, wine.vintage].filter(Boolean).join(" ");
+
+  useEffect(() => {
+    if (!quickSaleWine) {
+      setQuickSalePrice("");
+      return;
+    }
+    setQuickSalePrice(String(quickSaleKind === "glass" ? quickSaleWine.glass_price || "" : quickSaleWine.sale_price || ""));
+  }, [quickSaleKind, quickSaleWine?.id]);
+
   useEffect(() => {
     if (mode !== "restaurant") return;
     let active = true;
@@ -517,6 +543,17 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [fromDate, refreshKey, toDate]);
+
+  useEffect(() => {
+    if (mode !== "restaurant") return;
+    let active = true;
+    setDailyClosureLoading(true);
+    api<RestaurantSalesSummary>(`/api/v1/sales/summary?from_date=${dailyClosureDate}&to_date=${dailyClosureDate}`)
+      .then((result) => { if (active) setDailyClosure({ ...result, currencies: Array.isArray(result.currencies) ? result.currencies : [] }); })
+      .catch(() => { if (active) setDailyClosure(null); })
+      .finally(() => { if (active) setDailyClosureLoading(false); });
+    return () => { active = false; };
+  }, [dailyClosureDate, mode, refreshKey]);
 
   useEffect(() => {
     const targets = leadingWines.filter((wine) =>
@@ -576,11 +613,32 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
     }
   }
 
-  async function exportExcel() {
+  async function createQuickSale(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const quantity = Number(quickSaleQuantity);
+    const unitSalePrice = Number(quickSalePrice);
+    if (!quickSaleWine || !Number.isInteger(quantity) || quantity < 1 || !Number.isFinite(unitSalePrice) || unitSalePrice < 0) return;
+    setQuickSaleSaving(true);
+    setError("");
+    try {
+      await api("/api/v1/sales", {
+        method: "POST",
+        body: JSON.stringify({ wine_id: quickSaleWine.id, quantity, unit_sale_price: unitSalePrice, sale_kind: quickSaleKind }),
+      });
+      setQuickSaleQuantity("1");
+      await onChanged();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : (locale === "it" ? "Impossibile registrare la vendita" : "Unable to record the sale"));
+    } finally {
+      setQuickSaleSaving(false);
+    }
+  }
+
+  async function exportExcel(range = { fromDate, toDate }) {
     setExportingExcel(true);
     setError("");
     try {
-      const query = new URLSearchParams({ from_date: fromDate, to_date: toDate, locale });
+      const query = new URLSearchParams({ from_date: range.fromDate, to_date: range.toDate, locale });
       const response = await fetch(`/api/v1/sales/export.xlsx?${query.toString()}`, { credentials: "include" });
       if (!response.ok) {
         const message = extractApiErrorText(await response.text());
@@ -589,7 +647,7 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       const url = URL.createObjectURL(await response.blob());
       const link = document.createElement("a");
       link.href = url;
-      link.download = `vinaris-ristorante-${fromDate}-${toDate}.xlsx`;
+      link.download = `vinaris-ristorante-${range.fromDate}-${range.toDate}.xlsx`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -808,7 +866,20 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       <details className="restaurant-panel restaurant-collapsible" open={mode === "restaurant"}><summary><h2>{mode === "private" ? (locale === "it" ? "Migliori vendite" : "Best sales") : (locale === "it" ? "Vini più venduti" : "Best-selling wines")}</h2></summary>{summary?.top_wines.length ? <div className="restaurant-ranking">{summary.top_wines.map((wine) => <button type="button" key={`${wine.wine_id}-${wine.currency}`} onClick={() => onOpenWine(wine.wine_id)}><span><strong>{wine.label}</strong><small>{wine.current_stock} {locale === "it" ? "ancora disponibili" : "still available"}</small></span><span className="restaurant-ranking-result"><strong>{wine.bottles} {locale === "it" ? "bt." : "btl."} · {wine.glasses} {locale === "it" ? "calici" : "glasses"}</strong><small>{formatMoney(wine.revenue, wine.currency, locale)} · {locale === "it" ? "margine" : "margin"} {formatMoney(wine.gross_margin, wine.currency, locale)}</small></span></button>)}</div> : <p className="empty-state">—</p>}</details>
       <details className="restaurant-panel restaurant-collapsible" open={mode === "restaurant"}><summary><h2>{locale === "it" ? "Invenduti o meno venduti" : "Unsold or slow-moving"}</h2></summary>{summary?.least_sold_wines.length ? <div className="restaurant-ranking restaurant-slow-movers">{summary.least_sold_wines.map((wine) => <button type="button" key={`${wine.wine_id}-${wine.currency}`} onClick={() => onOpenWine(wine.wine_id)}><span><strong>{wine.label}</strong><small>{wine.current_stock} {locale === "it" ? "in giacenza" : "in stock"}</small></span><span className="restaurant-ranking-result"><strong>{wine.bottles ? `${wine.bottles} ${locale === "it" ? "vendute" : "sold"}` : (locale === "it" ? "Invenduto" : "Unsold")}</strong><small>{wine.bottles ? formatMoney(wine.revenue, wine.currency, locale) : (locale === "it" ? "Nessuna vendita nel periodo" : "No sales in this period")}</small></span></button>)}</div> : <p className="empty-state">—</p>}</details>
     </div>
-    <details className="restaurant-panel restaurant-collapsible" open={mode === "restaurant"}><summary><h2>{locale === "it" ? "Registro vendite" : "Sales register"}</h2></summary>{summary?.recent_sales.length ? <div className="restaurant-sales-list">{summary.recent_sales.map((sale) => {
+    <details className="restaurant-panel restaurant-collapsible" open={mode === "restaurant"}><summary><h2>{locale === "it" ? "Registro vendite" : "Sales register"}</h2></summary>{mode === "restaurant" ? <div className="restaurant-sales-tools">
+      <form className="restaurant-quick-sale" onSubmit={(event) => void createQuickSale(event)}>
+        <header><div><span>{locale === "it" ? "Vendita rapida" : "Quick sale"}</span><h3>{locale === "it" ? "Registra dal servizio" : "Record from service"}</h3></div><small>{locale === "it" ? "Aggiorna subito giacenza e margine" : "Updates stock and margin immediately"}</small></header>
+        <div className="restaurant-quick-sale-kind" role="group" aria-label={locale === "it" ? "Tipo vendita" : "Sale type"}><button type="button" className={quickSaleKind === "glass" ? "" : "secondary"} onClick={() => { setQuickSaleKind("glass"); setQuickSaleWineId(""); setQuickSaleQuery(""); }}>{locale === "it" ? "Calice" : "Glass"}</button><button type="button" className={quickSaleKind === "bottle" ? "" : "secondary"} onClick={() => { setQuickSaleKind("bottle"); setQuickSaleWineId(""); setQuickSaleQuery(""); }}>{locale === "it" ? "Bottiglia" : "Bottle"}</button></div>
+        <label className="restaurant-quick-sale-wine">{locale === "it" ? "Vino" : "Wine"}<input type="search" value={quickSaleQuery} placeholder={locale === "it" ? "Cerca nome, produttore o annata" : "Search name, producer, or vintage"} onChange={(event) => { setQuickSaleQuery(event.target.value); setQuickSaleWineId(""); }} disabled={!quickSaleWines.length} autoComplete="off" />{quickSaleQuery.trim() && !quickSaleWine ? <div className="restaurant-quick-sale-results" role="listbox" aria-label={locale === "it" ? "Risultati ricerca vino" : "Wine search results"}>{quickSaleMatches.length ? quickSaleMatches.map((wine) => <button type="button" key={wine.id} role="option" onClick={() => { setQuickSaleWineId(wine.id); setQuickSaleQuery(quickSaleWineLabel(wine)); }}><span><strong>{quickSaleWineLabel(wine)}</strong><small>{wine.producer || (locale === "it" ? "Produttore non indicato" : "Producer not specified")}</small></span><b>{wine.quantity} {locale === "it" ? "disp." : "available"}</b></button>) : <p>{locale === "it" ? "Nessun vino trovato." : "No wine found."}</p>}</div> : null}</label>
+        <label>{quickSaleKind === "glass" ? (locale === "it" ? "Calici" : "Glasses") : (locale === "it" ? "Bottiglie" : "Bottles")}<input type="number" min="1" step="1" value={quickSaleQuantity} onChange={(event) => setQuickSaleQuantity(event.target.value)} required /></label>
+        <label>{locale === "it" ? "Prezzo unitario" : "Unit price"}<input type="number" min="0" step="0.01" value={quickSalePrice} onChange={(event) => setQuickSalePrice(event.target.value)} required /></label>
+        <button type="submit" disabled={quickSaleSaving || !quickSaleWine}>{quickSaleSaving ? (locale === "it" ? "Registro…" : "Recording…") : (locale === "it" ? "Registra vendita" : "Record sale")}</button>
+      </form>
+      <section className="restaurant-daily-closure">
+        <header><div><span>{locale === "it" ? "Chiusura giornaliera" : "Daily close"}</span><h3>{locale === "it" ? "Riepilogo del servizio" : "Service summary"}</h3></div><label>{locale === "it" ? "Data" : "Date"}<input type="date" max={isoDate(new Date())} value={dailyClosureDate} onChange={(event) => setDailyClosureDate(event.target.value)} /></label></header>
+        {dailyClosureLoading ? <p>{locale === "it" ? "Aggiorno il riepilogo…" : "Updating summary…"}</p> : dailyClosure?.currencies.length ? <><div className="restaurant-daily-closure-totals">{dailyClosure.currencies.map((totals) => <article key={totals.currency}><span>{totals.currency}</span><strong>{formatMoney(totals.revenue, totals.currency, locale)}</strong><small>{locale === "it" ? `${totals.bottles} bottiglie · ${totals.glasses} calici` : `${totals.bottles} bottles · ${totals.glasses} glasses`}</small><b>{locale === "it" ? "Margine" : "Margin"} {formatMoney(totals.gross_margin, totals.currency, locale)} · {Number(totals.gross_margin_pct).toLocaleString(locale, { maximumFractionDigits: 1 })}%</b></article>)}</div><button type="button" className="secondary compact" disabled={exportingExcel} onClick={() => void exportExcel({ fromDate: dailyClosureDate, toDate: dailyClosureDate })}>{exportingExcel ? (locale === "it" ? "Preparo Excel…" : "Preparing Excel…") : (locale === "it" ? "Esporta chiusura" : "Export daily close")}</button></> : <p>{locale === "it" ? "Nessuna vendita registrata in questa data." : "No sales recorded on this date."}</p>}
+      </section>
+    </div> : null}{summary?.recent_sales.length ? <div className="restaurant-sales-list">{summary.recent_sales.map((sale) => {
       const isEditing = editingSale?.id === sale.id;
       return <article key={sale.id} className={isEditing ? "is-editing" : ""}>
         {isEditing && editingSale ? <form className="restaurant-sale-edit" onSubmit={updateSale}>
