@@ -164,10 +164,11 @@ export default function PublicLanding({
           </div>
           <aside>
             <span>{copy.restaurant.availability}</span>
+            <small>{copy.restaurant.initialFee}</small>
             <RestaurantContactButton label={copy.restaurant.contact} />
           </aside>
           <figure className="marketing-restaurant-dashboard">
-            <img src="/landing/restaurant-dashboard-preview.png" alt={copy.restaurant.dashboardAlt} width="1536" height="1024" loading="lazy" />
+            <img src={locale === "it" ? "/landing/restaurant-dashboard-preview.png" : "/landing/restaurant-dashboard-preview-en.png"} alt={copy.restaurant.dashboardAlt} width="1536" height="1024" loading="lazy" />
           </figure>
         </section>
 

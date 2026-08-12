@@ -299,6 +299,7 @@
 .marketing-restaurant-copy > p:last-child { max-width: 58ch; color: var(--mk-muted); font-size: clamp(1rem, 1.35vw, 1.14rem); line-height: 1.65; }
 .marketing-restaurant-section aside { display: grid; justify-items: start; gap: 16px; padding: clamp(24px, 3vw, 34px); border: 1px solid rgba(173, 131, 57, .48); border-radius: 20px; background: linear-gradient(135deg, #f2e9d8, #fbf8f0); box-shadow: 0 12px 28px rgba(40, 28, 19, .06); }
 .marketing-restaurant-section aside > span { color: var(--mk-wine-deep); font-family: Georgia, "Times New Roman", serif; font-size: clamp(1.3rem, 2vw, 1.75rem); line-height: 1.08; }
+.marketing-restaurant-section aside > small { color: var(--mk-muted); font-size: .86rem; line-height: 1.5; }
 .marketing-restaurant-dashboard { grid-column: 1 / -1; margin: 0; overflow: hidden; border: 1px solid var(--mk-line); border-radius: 20px; background: #fbf8f0; box-shadow: var(--mk-shadow); }
 .marketing-restaurant-dashboard img { display: block; width: 100%; height: auto; }
 

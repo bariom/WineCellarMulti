@@ -72,6 +72,7 @@ export type LandingCopy = {
     title: string;
     body: string;
     availability: string;
+    initialFee: string;
     contact: string;
     dashboardAlt: string;
   };
@@ -177,6 +178,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       title: "Vinaris anche per il ristorante.",
       body: "Gestisci carta vini, giacenze, mescite, vendite, ricavi e margini in un unico spazio operativo.",
       availability: "La modalità ristorante è disponibile solo su richiesta.",
+      initialFee: "Richiede un abbonamento annuale e una quota iniziale una tantum.",
       contact: "Contatta Vinaris per informazioni",
       dashboardAlt: "Anteprima della dashboard operativa Vinaris per ristoranti",
     },
@@ -287,6 +289,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       title: "Vinaris for restaurants, too.",
       body: "Manage your wine list, stock, by-the-glass service, sales, revenue, and margins in one operational space.",
       availability: "Restaurant mode is available by request only.",
+      initialFee: "It requires an annual subscription and a one-time initial fee.",
       contact: "Contact Vinaris for information",
       dashboardAlt: "Preview of the Vinaris restaurant operations dashboard",
     },
