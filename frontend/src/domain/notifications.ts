@@ -16,9 +16,19 @@ function notificationSubject(title: string, prefix: string): string {
  * interface language instead of exposing the language used when they were made.
  */
 export function localizedNotification(notification: UserNotification, locale: Locale): NotificationCopy {
-  if (locale === "it") return notification;
-
   const count = firstNumber(notification.message);
+
+  if (locale === "it") {
+    if (notification.kind === "wine_pulse_edition" && count) {
+      const singular = count === "1";
+      const noun = singular ? "nuova storia" : "nuove storie";
+      return {
+        title: notification.title,
+        message: `${count} ${noun} dal mondo del vino, ${singular ? "selezionata" : "selezionate"} da Vinaris.`,
+      };
+    }
+    return notification;
+  }
 
   switch (notification.kind) {
     case "wine_pulse_edition":

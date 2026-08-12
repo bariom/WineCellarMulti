@@ -690,8 +690,11 @@ def notify_wine_pulse_edition(
         italian = user.locale.lower().startswith("it")
         title = "Wine Pulse \u00e8 aggiornato" if italian else "Wine Pulse is updated"
         if italian:
-            noun = "storia" if published_count == 1 else "storie"
-            message = f"{published_count} nuove {noun} dal mondo del vino, selezionate da Vinaris."
+            message = (
+                f"{published_count} nuova storia dal mondo del vino, selezionata da Vinaris."
+                if published_count == 1
+                else f"{published_count} nuove storie dal mondo del vino, selezionate da Vinaris."
+            )
         else:
             noun = "story" if published_count == 1 else "stories"
             message = f"{published_count} new wine-world {noun}, selected by Vinaris."

@@ -5868,6 +5868,11 @@ export function App() {
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
+  const incompleteCellarWineCount = cellarWines.filter(
+    (wine) => !wine.current_value || !wine.drink_from || !wine.drink_to
+      || (wine.scores.length === 0 && !wine.scores_not_applicable)
+      || (wine.grapes.length === 0 && !wine.grapes_not_applicable),
+  ).length;
   const peakNowWines = cellarWines
     .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
@@ -9586,7 +9591,7 @@ export function App() {
                       <span>{t("incompleteData")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("missing_data")}</i>{t("dataQuality")}</h2>
                     </div>
-                      <strong>{cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores}</strong>
+                      <strong>{incompleteCellarWineCount}</strong>
                   </div>
                   <div className="action-list">
                     {incompleteWines.length ? incompleteWines.map((wine) => (
