@@ -951,7 +951,7 @@ export function WineDetail({
   const [consumeDraft, setConsumeDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
   const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
   const [glassSaleDraft, setGlassSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
-  const [aiToolsOpen, setAiToolsOpen] = useState(!restaurantMode);
+  const [aiToolsOpen, setAiToolsOpen] = useState(false);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
   const sharedFeatureLabels: Record<Wine["shared_data_features"][number], string> = {
@@ -1111,6 +1111,35 @@ export function WineDetail({
             <strong>{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, restaurantMode)}</strong>
           </div>
       </div>
+
+      {restaurantMode ? <section className="restaurant-wine-sales-history" aria-busy={salesHistoryLoading}>
+        <div className="restaurant-wine-sales-history-heading">
+          <div>
+            <p className="eyebrow">{locale === "it" ? "Andamento" : "Performance"}</p>
+            <h3>{locale === "it" ? "Vendite del vino · ultimi 12 mesi" : "Wine sales · last 12 months"}</h3>
+          </div>
+          {salesHistory ? <strong>{formatMoney(salesHistory.revenue, salesHistory.currency, locale)}</strong> : null}
+        </div>
+        {salesHistoryLoading ? <LoadingState label={locale === "it" ? "Carico lo storico vendite" : "Loading sales history"} compact /> : salesHistory?.series.length ? <>
+          <div className="restaurant-wine-sales-history-kpis">
+            <span><b>{salesHistory.bottles}</b> {locale === "it" ? "bottiglie vendute" : "bottles sold"}</span>
+            <span><b>{salesHistory.glasses}</b> {locale === "it" ? "calici serviti" : "glasses served"}</span>
+            <span><b>{formatMoney(salesHistory.gross_margin, salesHistory.currency, locale)}</b> {locale === "it" ? "margine lordo" : "gross margin"}</span>
+          </div>
+          <Suspense fallback={<div className="restaurant-wine-sales-history-chart" />}>
+            <div className="restaurant-wine-sales-history-chart">
+              <TimeSeriesChart
+                ariaLabel={locale === "it" ? "Evoluzione dei ricavi del vino" : "Wine revenue trend"}
+                locale={locale}
+                currency={salesHistory.currency}
+                height={176}
+                mobileHeight={150}
+                points={salesHistory.series.map((point) => ({ timestampMs: new Date(`${point.date}T12:00:00`).getTime(), value: Number(point.revenue), tone: "manual" as const }))}
+              />
+            </div>
+          </Suspense>
+        </> : <p className="empty-state">{locale === "it" ? "Nessuna vendita registrata negli ultimi 12 mesi." : "No sales recorded in the last 12 months."}</p>}
+      </section> : null}
 
       {(wine.drink_from || wine.drink_to) ? (
           <div className="drink-window detail-hero-window">
@@ -1354,35 +1383,6 @@ export function WineDetail({
           </form>
         </details>
       ) : null}
-
-      {restaurantMode ? <section className="restaurant-wine-sales-history" aria-busy={salesHistoryLoading}>
-        <div className="restaurant-wine-sales-history-heading">
-          <div>
-            <p className="eyebrow">{locale === "it" ? "Andamento" : "Performance"}</p>
-            <h3>{locale === "it" ? "Vendite del vino · ultimi 12 mesi" : "Wine sales · last 12 months"}</h3>
-          </div>
-          {salesHistory ? <strong>{formatMoney(salesHistory.revenue, salesHistory.currency, locale)}</strong> : null}
-        </div>
-        {salesHistoryLoading ? <LoadingState label={locale === "it" ? "Carico lo storico vendite" : "Loading sales history"} compact /> : salesHistory?.series.length ? <>
-          <div className="restaurant-wine-sales-history-kpis">
-            <span><b>{salesHistory.bottles}</b> {locale === "it" ? "bottiglie vendute" : "bottles sold"}</span>
-            <span><b>{salesHistory.glasses}</b> {locale === "it" ? "calici serviti" : "glasses served"}</span>
-            <span><b>{formatMoney(salesHistory.gross_margin, salesHistory.currency, locale)}</b> {locale === "it" ? "margine lordo" : "gross margin"}</span>
-          </div>
-          <Suspense fallback={<div className="restaurant-wine-sales-history-chart" />}>
-            <div className="restaurant-wine-sales-history-chart">
-              <TimeSeriesChart
-                ariaLabel={locale === "it" ? "Evoluzione dei ricavi del vino" : "Wine revenue trend"}
-                locale={locale}
-                currency={salesHistory.currency}
-                height={176}
-                mobileHeight={150}
-                points={salesHistory.series.map((point) => ({ timestampMs: new Date(`${point.date}T12:00:00`).getTime(), value: Number(point.revenue), tone: "manual" as const }))}
-              />
-            </div>
-          </Suspense>
-        </> : <p className="empty-state">{locale === "it" ? "Nessuna vendita registrata negli ultimi 12 mesi." : "No sales recorded in the last 12 months."}</p>}
-      </section> : null}
 
       {canWrite && wine.quantity > 0 && !restaurantMode ? (
         <details className="detail-section consume-panel sale-panel">
