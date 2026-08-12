@@ -1298,6 +1298,7 @@ export function App() {
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [emailVerificationConfirmed, setEmailVerificationConfirmed] = useState(false);
   const [registrationEmail, setRegistrationEmail] = useState("");
+  const [resendVerificationEmail, setResendVerificationEmail] = useState("");
   const [passwordResetToken, setPasswordResetToken] = useState("");
   const [coOwnershipToken, setCoOwnershipToken] = useState("");
   const [coOwnershipAgreements, setCoOwnershipAgreements] = useState<CoOwnershipAgreement[]>([]);
@@ -2737,6 +2738,7 @@ export function App() {
       if (authMode === "register") {
         setEmailVerificationConfirmed(false);
         setRegistrationEmail(authDraft.email.trim());
+        setResendVerificationEmail(authDraft.email.trim());
       }
       if (nextSession.authenticated) {
         applySessionPreferences(nextSession, true);
@@ -2780,6 +2782,25 @@ export function App() {
       setAuthModalOpen(true);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to confirm email");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resendEmailVerification() {
+    const email = resendVerificationEmail.trim();
+    if (!email) return;
+    setSaving(true);
+    setError("");
+    setNotice("");
+    try {
+      await api<void>("/api/v1/auth/verify-email/resend", {
+        method: "POST",
+        body: JSON.stringify({ email }),
+      });
+      setNotice(locale === "it" ? "Se l'account richiede la conferma, abbiamo inviato un nuovo link." : "If this account requires confirmation, we sent a new link.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to resend verification email");
     } finally {
       setSaving(false);
     }
@@ -5095,6 +5116,8 @@ export function App() {
           <button type="button" onClick={confirmEmailVerification} disabled={saving}>
             {saving ? t("working") : t("confirmEmail")}
           </button>
+          <label className="email-verification-resend">{locale === "it" ? "Link scaduto? Inserisci la tua email" : "Link expired? Enter your email"}<input type="email" autoComplete="email" value={resendVerificationEmail} onChange={(event) => setResendVerificationEmail(event.target.value)} placeholder={registrationEmail || "name@example.com"} /></label>
+          <button type="button" className="secondary" onClick={() => void resendEmailVerification()} disabled={saving || !resendVerificationEmail.trim()}>{saving ? t("working") : (locale === "it" ? "Reinvia email di conferma" : "Resend confirmation email")}</button>
         </div>
       ) : null}
       {emailVerificationConfirmed ? (
@@ -5116,6 +5139,8 @@ export function App() {
             <li>{t("verificationOpenLink")}</li>
             <li>{t("verificationReturnToLogin")}</li>
           </ol>
+          <label className="email-verification-resend">{locale === "it" ? "Indirizzo email" : "Email address"}<input type="email" autoComplete="email" value={resendVerificationEmail} onChange={(event) => setResendVerificationEmail(event.target.value)} placeholder={registrationEmail || "name@example.com"} required /></label>
+          <button type="button" className="secondary" onClick={() => void resendEmailVerification()} disabled={saving || !resendVerificationEmail.trim()}>{saving ? t("working") : (locale === "it" ? "Reinvia email di conferma" : "Resend confirmation email")}</button>
         </div>
       ) : null}
       {!emailVerificationToken && !session?.pending_email_verification ? <>

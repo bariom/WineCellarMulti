@@ -28,6 +28,8 @@ class Settings(BaseSettings):
     rate_limit_register_window_seconds: int = 3600
     rate_limit_verify_email_attempts: int = 10
     rate_limit_verify_email_window_seconds: int = 900
+    rate_limit_resend_verification_attempts: int = 3
+    rate_limit_resend_verification_window_seconds: int = 900
     rate_limit_password_reset_attempts: int = 5
     rate_limit_password_reset_window_seconds: int = 900
     rate_limit_coownership_response_attempts: int = 10

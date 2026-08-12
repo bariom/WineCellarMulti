@@ -69,6 +69,7 @@ from app.models import (
 from app.schemas.auth import (
     AccountDeletionRequest,
     EmailVerificationRequest,
+    EmailVerificationResendRequest,
     LegalAcceptanceRequest,
     LoginRequest,
     PasskeyLoginVerifyRequest,
@@ -777,6 +778,49 @@ def confirm_email(payload: EmailVerificationRequest, request: Request, db: Sessi
     )
     verify_email_token(payload, db)
     return {"status": "verified"}
+
+
+@router.post("/verify-email/resend", status_code=status.HTTP_204_NO_CONTENT)
+def resend_email_verification(
+    payload: EmailVerificationResendRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Response:
+    enforce_rate_limit(
+        request,
+        scope="auth:resend-verification:ip",
+        limit=settings.rate_limit_resend_verification_attempts,
+        window_seconds=settings.rate_limit_resend_verification_window_seconds,
+    )
+    enforce_rate_limit(
+        request,
+        scope="auth:resend-verification:account",
+        limit=settings.rate_limit_resend_verification_attempts,
+        window_seconds=settings.rate_limit_resend_verification_window_seconds,
+        subject=str(payload.email),
+    )
+    if not settings.email_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Email verification requires email delivery configuration",
+        )
+    user = db.scalar(select(User).where(User.email == str(payload.email).lower()))
+    if user is None or not user.is_approved or not user_requires_email_verification(user):
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    token = new_email_verification_token()
+    user.email_verification_token_hash = hash_email_verification_token(token)
+    user.email_verification_expires_at = datetime.now(UTC) + timedelta(
+        hours=max(settings.email_verification_ttl_hours, 1)
+    )
+    verification_url = f"{request_origin(request)}/?email_verify_token={token}"
+    if not notify_user_email_verification(user, verification_url):
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to send email verification link",
+        )
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/password-reset/request", status_code=status.HTTP_204_NO_CONTENT)
