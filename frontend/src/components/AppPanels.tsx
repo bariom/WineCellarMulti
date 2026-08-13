@@ -5,7 +5,7 @@ import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, 
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
-import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
+import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WinePhotoSuggestion, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
@@ -893,6 +893,9 @@ export function WineDetail({
   onOpenMarketView,
   coOwnershipSection,
   photoActions,
+  photoSuggestion,
+  onUseSuggestedPhoto,
+  onDismissSuggestedPhoto,
   showBottlePhoto = false,
   t,
   locale,
@@ -922,6 +925,9 @@ export function WineDetail({
   onOpenMarketView: (entry: AiAuditLog) => void;
   coOwnershipSection?: ReactNode;
   photoActions?: ReactNode;
+  photoSuggestion?: WinePhotoSuggestion | null;
+  onUseSuggestedPhoto?: (sourceWineId: string) => void;
+  onDismissSuggestedPhoto?: () => void;
   showBottlePhoto?: boolean;
   t: (key: TranslationKey) => string;
   locale: Locale;
@@ -1038,6 +1044,17 @@ export function WineDetail({
               {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
               <strong>{detailValue}</strong>
             </div> : <>{photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}</>}
+            {photoSuggestion ? <aside className="detail-photo-suggestion" aria-label={locale === "it" ? "Foto disponibile" : "Available photo"}>
+              <img src={photoSuggestion.thumbnail_url} alt={locale === "it" ? `Foto proposta per ${wine.name}` : `Suggested photo for ${wine.name}`} />
+              <div>
+                <strong>{locale === "it" ? "Foto già disponibile" : "Photo already available"}</strong>
+                <small>{locale === "it" ? "Trovata nella libreria Vinaris per questo vino." : "Found in the Vinaris library for this wine."}</small>
+              </div>
+              <div className="detail-photo-suggestion-actions">
+                <button type="button" className="secondary compact" disabled={saving} onClick={onDismissSuggestedPhoto}>{locale === "it" ? "Non ora" : "Not now"}</button>
+                <button type="button" className="compact" disabled={saving} onClick={() => onUseSuggestedPhoto?.(photoSuggestion.source_wine_id)}>{locale === "it" ? "Usa foto" : "Use photo"}</button>
+              </div>
+            </aside> : null}
           </div>
           {!restaurantMode ? <strong>{detailValue}</strong> : null}
         </div>

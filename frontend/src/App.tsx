@@ -1396,6 +1396,10 @@ export function App() {
   const [winePhotoSuggestions, setWinePhotoSuggestions] = useState<WinePhotoSuggestion[]>([]);
   const [winePhotoSuggestionIndex, setWinePhotoSuggestionIndex] = useState(0);
   const [selectedSuggestedPhotoId, setSelectedSuggestedPhotoId] = useState<string | null>(null);
+  const [detailWinePhotoSuggestion, setDetailWinePhotoSuggestion] = useState<WinePhotoSuggestion | null>(null);
+  const [detailWinePhotoSuggestionWineId, setDetailWinePhotoSuggestionWineId] = useState<string | null>(null);
+  const detailWinePhotoSuggestionCacheRef = useRef(new Map<string, WinePhotoSuggestion | null>());
+  const dismissedDetailWinePhotoSuggestionsRef = useRef(new Set<string>());
   const [wishlistFormOpen, setWishlistFormOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
@@ -4869,23 +4873,30 @@ export function App() {
 
   const winePhotoSuggestion = winePhotoSuggestions[winePhotoSuggestionIndex] || null;
 
+  async function reuseWinePhoto(wineId: string, sourceWineId: string) {
+    setSaving(true);
+    setError("");
+    try {
+      const updated = await api<Wine>(`/api/v1/wines/${wineId}/photo/reuse/${sourceWineId}`, { method: "POST" });
+      setWines((current) => current.map((wine) => wine.id === updated.id ? updated : wine));
+      setSelectedWineId(updated.id);
+      detailWinePhotoSuggestionCacheRef.current.set(wineId, null);
+      setDetailWinePhotoSuggestion(null);
+      setDetailWinePhotoSuggestionWineId(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to reuse bottle photo");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function reuseSuggestedWinePhoto(sourceWineId: string) {
     if (!editingId) {
       setPendingBottlePhoto(null);
       setSelectedSuggestedPhotoId((current) => current === sourceWineId ? null : sourceWineId);
       return;
     }
-    setSaving(true);
-    setError("");
-    try {
-      const updated = await api<Wine>(`/api/v1/wines/${editingId}/photo/reuse/${sourceWineId}`, { method: "POST" });
-      setWines((current) => current.map((wine) => wine.id === updated.id ? updated : wine));
-      setSelectedWineId(updated.id);
-    } catch (nextError) {
-      setError(nextError instanceof Error ? nextError.message : "Unable to reuse bottle photo");
-    } finally {
-      setSaving(false);
-    }
+    await reuseWinePhoto(editingId, sourceWineId);
   }
 
   const canGenerateAi =
@@ -5279,6 +5290,55 @@ export function App() {
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
   const isWineCollectionView = activeView === "cellar" || (activeView === "history" && historySection !== "sales");
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
+
+  useEffect(() => {
+    setDetailWinePhotoSuggestion(null);
+    setDetailWinePhotoSuggestionWineId(null);
+    if (
+      !selectedWine ||
+      !isWineCollectionView ||
+      !canReuseWinePhotos ||
+      selectedWine.photo_thumbnail_url ||
+      selectedWine.photo_detail_url ||
+      selectedWine.name.trim().length < 2 ||
+      !selectedWine.producer.trim() ||
+      dismissedDetailWinePhotoSuggestionsRef.current.has(selectedWine.id)
+    ) return;
+
+    const cachedSuggestion = detailWinePhotoSuggestionCacheRef.current.get(selectedWine.id);
+    if (cachedSuggestion !== undefined) {
+      if (cachedSuggestion) {
+        setDetailWinePhotoSuggestion(cachedSuggestion);
+        setDetailWinePhotoSuggestionWineId(selectedWine.id);
+      }
+      return;
+    }
+
+    let active = true;
+    const controller = new AbortController();
+    const wineId = selectedWine.id;
+    const query = new URLSearchParams({ name: selectedWine.name.trim(), producer: selectedWine.producer.trim() });
+    const timer = window.setTimeout(() => {
+      api<WinePhotoSuggestion[]>(`/api/v1/wines/photo/suggestions?${query.toString()}`, { signal: controller.signal })
+        .then((suggestions) => {
+          const suggestion = suggestions[0] || null;
+          detailWinePhotoSuggestionCacheRef.current.set(wineId, suggestion);
+          if (active && suggestion) {
+            setDetailWinePhotoSuggestion(suggestion);
+            setDetailWinePhotoSuggestionWineId(wineId);
+          }
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) detailWinePhotoSuggestionCacheRef.current.set(wineId, null);
+        });
+    }, 0);
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+      controller.abort();
+    };
+  }, [canReuseWinePhotos, isWineCollectionView, selectedWine?.id, selectedWine?.name, selectedWine?.producer, selectedWine?.photo_thumbnail_url, selectedWine?.photo_detail_url]);
+
   useEffect(() => {
     if (!wineFormOpen || !isWineCollectionView) return;
     const sectionKeys = ["identity", "logistics", "value", "profile", "scores", "tags"] as const;
@@ -7802,6 +7862,13 @@ export function App() {
             />
           </Suspense>
         ) : null}
+        photoSuggestion={detailWinePhotoSuggestionWineId === wine.id ? detailWinePhotoSuggestion : null}
+        onUseSuggestedPhoto={(sourceWineId) => void reuseWinePhoto(wine.id, sourceWineId)}
+        onDismissSuggestedPhoto={() => {
+          dismissedDetailWinePhotoSuggestionsRef.current.add(wine.id);
+          setDetailWinePhotoSuggestion(null);
+          setDetailWinePhotoSuggestionWineId(null);
+        }}
         showBottlePhoto={canAccessWinePhotos}
         t={t}
         locale={locale}
