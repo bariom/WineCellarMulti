@@ -59,7 +59,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
     <header ref={headerRef} className={`marketing-header${scrolled ? " is-scrolled" : ""}`}>
       <a className="marketing-brand" href="#top" aria-label="Vinaris">
         <img src="/icons/icon-192.png" alt="" width="42" height="42" fetchPriority="high" />
-        <span><strong>Vinaris</strong><small>Private cellar intelligence</small></span>
+        <span><strong>Vinaris</strong><small>Vinaris - Private Cellar Intelligence</small></span>
       </a>
       <button
         type="button"

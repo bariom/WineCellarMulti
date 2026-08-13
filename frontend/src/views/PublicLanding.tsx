@@ -42,6 +42,37 @@ function ensureMeta(name: string, content: string, property = false) {
   element.content = content;
 }
 
+const seoContent = {
+  it: {
+    eyebrow: "Enciclopedia della cantina",
+    title: "Cantina vino digitale per collezionisti e sommelier",
+    body: "Vinaris è una cantina digitale privata per organizzare bottiglie, annate, produttori, valore e finestre di beva. È pensata per chi cerca un wine cellar moderno, per il collezionista e per chi vuole un sommelier AI che conosca davvero i vini presenti in cantina.",
+    regionsTitle: "Regioni vinicole e denominazioni",
+    regionsBody: "Organizza la tua collezione per regione produttrice e scopri l’equilibrio della cantina tra grandi classici italiani e internazionali.",
+    regions: ["Ticino", "Piemonte", "Toscana", "Veneto", "Borgogna", "Bordeaux", "Champagne", "Rodano", "Rioja", "Napa Valley"],
+    faqTitle: "Domande frequenti su Vinaris",
+    faq: [
+      ["Che cos’è Vinaris?", "Vinaris è un’app per gestire una cantina di vino privata: inventario, maturità, valore, wishlist, degustazioni e consigli del sommelier AI."],
+      ["Vinaris è una cantina digitale o un wine cellar manager?", "Entrambe le cose: Vinaris è una cantina digitale per collezionisti di vino, disponibile sul web e progettata per seguire ogni bottiglia nel tempo."],
+      ["Posso organizzare i vini per regione, incluso il Ticino?", "Sì. Puoi catalogare i vini per paese, regione e denominazione, inclusi Ticino, Piemonte, Toscana, Bordeaux, Borgogna, Champagne, Rioja e Napa Valley."],
+    ],
+  },
+  en: {
+    eyebrow: "Cellar knowledge",
+    title: "Digital wine cellar for collectors and sommeliers",
+    body: "Vinaris is a private digital wine cellar for organising bottles, vintages, producers, value, and drinking windows. It is built for collectors and for anyone who wants an AI sommelier that understands the wines in their own cellar.",
+    regionsTitle: "Wine regions and classic appellations",
+    regionsBody: "Organise your collection by producing region and understand the balance between classic Italian and international wines.",
+    regions: ["Ticino", "Piedmont", "Tuscany", "Veneto", "Burgundy", "Bordeaux", "Champagne", "Rhône", "Rioja", "Napa Valley"],
+    faqTitle: "Frequently asked questions about Vinaris",
+    faq: [
+      ["What is Vinaris?", "Vinaris is a private wine cellar app for inventory, maturity, value, wishlist, tasting notes, and AI sommelier recommendations."],
+      ["Is Vinaris a digital cellar or a wine cellar manager?", "Both: Vinaris is a digital wine cellar for collectors, available on the web and designed to follow every bottle over time."],
+      ["Can I organise wines by region, including Ticino?", "Yes. Catalogue wines by country, region, and appellation, including Ticino, Piedmont, Tuscany, Bordeaux, Burgundy, Champagne, Rioja, and Napa Valley."],
+    ],
+  },
+} as const;
+
 export default function PublicLanding({
   locale,
   onLocaleChange,
@@ -51,6 +82,7 @@ export default function PublicLanding({
   demoLoading = false,
 }: PublicLandingProps) {
   const copy = landingCopy[locale];
+  const seo = seoContent[locale];
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
 
   useEffect(() => {
@@ -60,7 +92,28 @@ export default function PublicLanding({
     ensureMeta("og:title", copy.meta.title, true);
     ensureMeta("og:description", copy.meta.description, true);
     ensureMeta("og:type", "website", true);
+    ensureMeta("og:url", "https://vinaris.app/", true);
+    ensureMeta("og:image", "https://vinaris.app/landing/demo-dashboard-desktop.webp", true);
+    ensureMeta("twitter:title", copy.meta.title);
+    ensureMeta("twitter:description", copy.meta.description);
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
+    }
+    canonical.href = "https://vinaris.app/";
   }, [copy.meta.description, copy.meta.title, locale]);
+
+  const structuredData = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: seo.faq.map(([question, answer]) => ({
+      "@type": "Question",
+      name: question,
+      acceptedAnswer: { "@type": "Answer", text: answer },
+    })),
+  };
 
   return (
     <div className="marketing-site">
@@ -172,6 +225,23 @@ export default function PublicLanding({
           </figure>
         </section>
 
+        <section className="marketing-section marketing-seo-section" aria-labelledby="seo-title" data-reveal>
+          <div className="marketing-section-copy">
+            <p className="marketing-kicker">{seo.eyebrow}</p>
+            <h2 id="seo-title">{seo.title}</h2>
+            <p>{seo.body}</p>
+          </div>
+          <div className="marketing-seo-regions">
+            <h3>{seo.regionsTitle}</h3>
+            <p>{seo.regionsBody}</p>
+            <ul>{seo.regions.map((region) => <li key={region}>{region}</li>)}</ul>
+          </div>
+          <div className="marketing-seo-faq">
+            <h3>{seo.faqTitle}</h3>
+            {seo.faq.map(([question, answer]) => <details key={question}><summary>{question}</summary><p>{answer}</p></details>)}
+          </div>
+        </section>
+
         <section id="access" className="marketing-closing-section" data-reveal>
           <div>
             <p className="marketing-kicker">{copy.closing.eyebrow}</p>
@@ -200,6 +270,7 @@ export default function PublicLanding({
         </nav>
         <small>© {new Date().getFullYear()} Vinaris</small>
       </footer>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }} />
     </div>
   );
 }

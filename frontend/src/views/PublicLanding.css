@@ -313,3 +313,33 @@
   .marketing-site *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; }
   .marketing-landing [data-reveal] { opacity: 1; transform: none; }
 }
+.marketing-seo-section {
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 2rem;
+}
+
+.marketing-seo-section > .marketing-section-copy { grid-column: 1 / -1; }
+.marketing-seo-regions, .marketing-seo-faq { min-width: 0; }
+.marketing-seo-regions h3, .marketing-seo-faq h3 { margin: 0 0 .65rem; }
+.marketing-seo-regions p { margin-top: 0; }
+.marketing-seo-regions ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+}
+.marketing-seo-regions li {
+  border: 1px solid rgba(16, 35, 29, .18);
+  border-radius: 999px;
+  padding: .4rem .75rem;
+}
+.marketing-seo-faq details { border-top: 1px solid rgba(16, 35, 29, .16); padding: .8rem 0; }
+.marketing-seo-faq summary { cursor: pointer; font-weight: 700; }
+.marketing-seo-faq details p { margin: .55rem 0 0; }
+
+@media (max-width: 700px) {
+  .marketing-seo-section { grid-template-columns: 1fr; }
+}

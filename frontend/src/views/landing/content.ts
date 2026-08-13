@@ -206,7 +206,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       aiNote: "Un credito AI iniziale permette di provare le funzioni avanzate.",
     },
     footer: { statement: "Private cellar intelligence per collezionisti di vino.", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
-    meta: { title: "Vinaris · Private Cellar Intelligence", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
+    meta: { title: "Vinaris - Private Cellar Intelligence", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
     nav: { product: "Product", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access" },
@@ -317,6 +317,6 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       aiNote: "Starter AI credit lets you try the advanced features.",
     },
     footer: { statement: "Private cellar intelligence for wine collectors.", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
-    meta: { title: "Vinaris · Private Cellar Intelligence", description: "Manage bottles, drinking windows, value, deliveries, wishlist, and tasting memory in one private intelligent cellar." },
+    meta: { title: "Vinaris - Private Cellar Intelligence", description: "Manage bottles, drinking windows, value, deliveries, wishlist, and tasting memory in one private intelligent cellar." },
   },
 };

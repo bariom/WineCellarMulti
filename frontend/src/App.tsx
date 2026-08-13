@@ -1522,7 +1522,11 @@ export function App() {
     });
     return () => window.cancelAnimationFrame(frame);
   }, [regionalGapAiSuggestion, regionalGapTargetsOpen]);
-  const [locale, setLocale] = useState<Locale>(() => (navigator.language.toLowerCase().startsWith("it") ? "it" : "en"));
+  const [locale, setLocale] = useState<Locale>(() => {
+    const requestedLocale = new URLSearchParams(window.location.search).get("lang");
+    if (requestedLocale === "it" || requestedLocale === "en") return requestedLocale;
+    return navigator.language.toLowerCase().startsWith("it") ? "it" : "en";
+  });
   const demoCtaLabel = locale === "it" ? "Esplora la cantina demo" : "Explore the demo cellar";
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
