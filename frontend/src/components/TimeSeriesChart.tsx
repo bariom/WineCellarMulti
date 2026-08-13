@@ -31,13 +31,13 @@ function resolvedColor(host: HTMLElement, value: string, fallback: string) {
 
 export default function TimeSeriesChart({ points, ariaLabel, locale, currency = "", height = 190, mobileHeight }: TimeSeriesChartProps) {
   const chartHostRef = useRef<HTMLDivElement | null>(null);
-  useChartReveal(chartHostRef);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 640px)").matches);
   const chartHeight = isMobileViewport && mobileHeight ? mobileHeight : height;
   // Callers often prepare chart points inline. Keep the chart mounted when that
   // creates a new array with the same values, otherwise uPlot is destroyed and
   // recreated on every parent render (a visible flash on the sales dashboard).
   const pointsKey = points.map((point) => `${point.timestampMs}:${point.value}:${point.tone || "default"}`).join("|");
+  useChartReveal(chartHostRef, pointsKey);
   const chartPoints = useMemo(() => {
     const byTimestamp = new Map<number, TimeSeriesPoint>();
     points.forEach((point) => {
