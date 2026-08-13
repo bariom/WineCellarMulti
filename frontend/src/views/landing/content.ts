@@ -102,7 +102,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     header: { login: "Accedi", register: "Inizia", menu: "Apri menu", close: "Chiudi menu", language: "Lingua" },
     hero: {
       eyebrow: "Private Cellar Intelligence",
-      title: "Sai cosa bere. Sai cosa aspettare.",
+      title: "Il vino giusto. Al momento giusto.",
       lead: "Gestisci la cantina, segui la maturità di ogni bottiglia e ricevi indicazioni costruite sui vini che possiedi davvero.",
       primary: "Crea la tua cantina",
       secondary: "Scopri come funziona",
