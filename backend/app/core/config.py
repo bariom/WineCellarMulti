@@ -77,6 +77,7 @@ class Settings(BaseSettings):
     openai_score_model: str = "gpt-5.4-mini"
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"
+    cellar_ai_assistant_enabled: bool = True
     openai_cellar_command_model: str = "gpt-5.6-luna"
     openai_default_model: str = "gpt-5.5"
     openai_economy_model: str = "gpt-5.6-luna"

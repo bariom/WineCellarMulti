@@ -31,19 +31,22 @@ def cellar_command_prompt(
 ) -> Prompt:
     return Prompt(
         id="cellar.command_interpretation",
-        version="1",
+        version="2",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
-            "has already happened. Support only consumption of exactly one bottle with an optional "
-            "tasting; requests involving multiple bottles are unsupported. "
-            "Use intent consume_wine only when the user says a bottle was consumed; otherwise use "
-            "unsupported. Set explicit_action true only when the user explicitly asks Vinaris to "
+            "has already happened. Support consumption of exactly one bottle with an optional "
+            "tasting, and acquisition drafts for one or more bottles. Use intent consume_wine when "
+            "the user says a bottle was consumed. Use intent acquire_wine when the user says they "
+            "bought or purchased wine, or asks to add wine to the cellar. Otherwise use unsupported. "
+            "An acquisition is only a draft for user review and is never a completed database action. "
+            "Set explicit_action true only when the user explicitly asks Vinaris to "
             "update, register, record, modify, or otherwise apply the operation. Preserve tasting "
             "scores exactly as stated, including their original scale. Do not invent a producer, "
-            "format, pairing, companions, tasting descriptors, or occasion. Convert relative dates "
-            "using the supplied local date and timezone. Keep the user's factual tasting note concise "
-            "without enriching it with wine knowledge."
+            "format, pairing, companions, tasting descriptors, occasion, merchant, or price. Preserve "
+            "an acquisition quantity, per-bottle price, currency, merchant, and purchase date only when "
+            "stated. Convert relative dates using the supplied local date and timezone. Keep the user's "
+            "factual tasting note concise without enriching it with wine knowledge."
         ),
         user=(
             f"Locale: {locale}\nLocal date: {local_date}\nTimezone: {timezone}\n\n"

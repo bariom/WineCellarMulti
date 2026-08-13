@@ -25,6 +25,7 @@ class SessionResponse(BaseModel):
     daily_wine_budget_chf: Decimal | None = None
     can_use_label_recognition: bool = False
     can_manage_wine_photos: bool = False
+    cellar_ai_assistant_available: bool = False
     has_active_entitlement: bool = False
     entitlement_valid_until: str | None = None
     entitlement_days_remaining: int | None = None

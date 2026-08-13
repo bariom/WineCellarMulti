@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, require_write_context
 from app.api.routes.billing import stripe_ai_credit_amount
+from app.api.routes.catalog import search_catalog_entries
 from app.api.routes.wines import (
     get_household_wine,
     record_wine_value_history,
@@ -70,8 +71,10 @@ from app.schemas.ai import (
     BuyingAdviceRequest,
     BuyingAdviceResponse,
     BuyingRecommendation,
+    CellarCommandCatalogCandidate,
     CellarCommandEnjoyment,
     CellarCommandExecuteRequest,
+    CellarCommandPurchaseDraft,
     CellarCommandRequest,
     CellarCommandResponse,
     CellarCommandStatus,
@@ -969,6 +972,76 @@ def cellar_command_tasting(parsed: dict[str, Any]) -> CellarCommandTasting:
     )
 
 
+def cellar_command_catalog_candidate(entry: Any) -> CellarCommandCatalogCandidate:
+    return CellarCommandCatalogCandidate(
+        catalog_entry_id=entry.id,
+        name=entry.name,
+        producer=entry.producer or "",
+        region=entry.region or "",
+        appellation=entry.appellation or "",
+        type=entry.type or "",
+        format=entry.format or "",
+        country=entry.country or "",
+        grapes_text=entry.grapes_text or "",
+    )
+
+
+def cellar_command_purchase_draft(parsed: dict[str, Any]) -> CellarCommandPurchaseDraft:
+    catalog_match = parsed.get("catalog_match") or {}
+    price_present = bool(parsed.get("purchase_price_present"))
+    return CellarCommandPurchaseDraft(
+        catalog_entry_id=catalog_match.get("catalog_entry_id"),
+        lookup_source="catalog" if parsed.get("catalog_lookup") == "catalog" else "ai_required",
+        name=str(catalog_match.get("name") or parsed.get("wine_name") or "").strip(),
+        producer=str(catalog_match.get("producer") or parsed.get("producer") or "").strip(),
+        vintage=str(parsed.get("vintage") or "").strip(),
+        quantity=max(1, int(parsed.get("quantity") or 1)),
+        format=str(parsed.get("format") or catalog_match.get("format") or "").strip(),
+        region=str(catalog_match.get("region") or "").strip(),
+        appellation=str(catalog_match.get("appellation") or "").strip(),
+        type=str(catalog_match.get("type") or "").strip(),
+        country=str(catalog_match.get("country") or "").strip(),
+        grapes_text=str(catalog_match.get("grapes_text") or "").strip(),
+        price=(
+            Decimal(str(parsed.get("purchase_price") or 0)) if price_present else None
+        ),
+        currency=str(parsed.get("currency") or "").strip().upper(),
+        merchant=str(parsed.get("merchant") or "").strip(),
+        order_date=str(parsed.get("purchase_date") or "").strip(),
+    )
+
+
+def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tuple[Any, float]]:
+    name = str(parsed.get("wine_name") or "").strip()
+    producer = str(parsed.get("producer") or "").strip()
+    if not name:
+        return []
+    queries = [f"{producer} {name}".strip(), name]
+    entries: dict[UUID, Any] = {}
+    for query in queries:
+        for entry in search_catalog_entries(db, query, 10):
+            entries[entry.id] = entry
+        if entries:
+            break
+    normalized_name = normalize_cellar_command_identity(name)
+    normalized_producer = normalize_cellar_command_identity(producer)
+    ranked: list[tuple[Any, float]] = []
+    for entry in entries.values():
+        name_score = SequenceMatcher(
+            None, normalized_name, normalize_cellar_command_identity(entry.name)
+        ).ratio()
+        if normalized_producer:
+            producer_score = SequenceMatcher(
+                None, normalized_producer, normalize_cellar_command_identity(entry.producer)
+            ).ratio()
+            score = name_score * 75 + producer_score * 25
+        else:
+            score = name_score * 85
+        if score >= 62:
+            ranked.append((entry, score))
+    return sorted(ranked, key=lambda item: (-item[1], item[0].name.casefold()))[:5]
+
+
 def cellar_command_response(
     db: Session,
     context: CurrentContext,
@@ -986,6 +1059,9 @@ def cellar_command_response(
     localized_message = message or {
         "processing": "Comando in elaborazione.",
         "needs_confirmation": "Scegli la bottiglia da aggiornare.",
+        "catalog_selection": "Ho trovato più vini nel catalogo: scegli quello corretto.",
+        "draft_ready": "Vino trovato nel catalogo. La scheda è pronta da verificare.",
+        "ai_research_required": "Vino non trovato nel catalogo. Avvio la ricerca AI.",
         "not_found": "Non trovo una bottiglia disponibile corrispondente.",
         "unsupported": "Questo comando non è ancora supportato.",
         "executed": "Aggiornamento già eseguito.",
@@ -998,8 +1074,17 @@ def cellar_command_response(
         intent=command.intent,
         message=localized_message,
         candidates=[cellar_command_candidate(wine) for wine, _ in ranked],
+        catalog_candidates=[
+            CellarCommandCatalogCandidate(**item)
+            for item in parsed.get("catalog_candidates") or []
+        ],
         matched_wine=cellar_command_candidate(matched) if matched is not None else None,
         tasting=cellar_command_tasting(parsed) if command.intent == "consume_wine" else None,
+        purchase_draft=(
+            cellar_command_purchase_draft(parsed)
+            if command.intent == "acquire_wine"
+            else None
+        ),
         previous_quantity=command.previous_quantity,
         new_quantity=matched.quantity if matched is not None else None,
         model=command.model,
@@ -1097,14 +1182,22 @@ CELLAR_COMMAND_SCHEMA = {
         "type": "object",
         "additionalProperties": False,
         "properties": {
-            "intent": {"type": "string", "enum": ["consume_wine", "unsupported"]},
+            "intent": {
+                "type": "string",
+                "enum": ["consume_wine", "acquire_wine", "unsupported"],
+            },
             "explicit_action": {"type": "boolean"},
             "wine_name": {"type": "string"},
             "producer": {"type": "string"},
             "vintage": {"type": "string"},
             "format": {"type": "string"},
-            "quantity": {"type": "integer", "const": 1},
+            "quantity": {"type": "integer", "minimum": 1, "maximum": 10000},
             "consumed_at": {"type": "string"},
+            "purchase_date": {"type": "string"},
+            "purchase_price_present": {"type": "boolean"},
+            "purchase_price": {"type": "number", "minimum": 0},
+            "currency": {"type": "string"},
+            "merchant": {"type": "string"},
             "note": {"type": "string"},
             "score_present": {"type": "boolean"},
             "score_value": {"type": "number", "minimum": 0, "maximum": 100},
@@ -1116,11 +1209,21 @@ CELLAR_COMMAND_SCHEMA = {
         },
         "required": [
             "intent", "explicit_action", "wine_name", "producer", "vintage", "format",
-            "quantity", "consumed_at", "note", "score_present", "score_value",
+            "quantity", "consumed_at", "purchase_date", "purchase_price_present",
+            "purchase_price", "currency", "merchant", "note", "score_present", "score_value",
             "score_scale", "enjoyment", "occasion", "pairing", "companions",
         ],
     },
 }
+
+
+def ensure_cellar_ai_assistant_available(context: CurrentContext) -> None:
+    if settings.cellar_ai_assistant_enabled or context.user.is_app_admin:
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="The AI cellar assistant is currently disabled",
+    )
 
 
 @router.post("/cellar-commands", response_model=CellarCommandResponse)
@@ -1129,6 +1232,7 @@ def create_cellar_ai_command(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> CellarCommandResponse:
+    ensure_cellar_ai_assistant_available(context)
     existing = db.get(CellarAiCommand, payload.request_id)
     if existing is not None:
         if existing.household_id != context.household.id:
@@ -1175,9 +1279,12 @@ def create_cellar_ai_command(
         db.commit()
         raise
 
-    if not str(parsed.get("consumed_at") or "").strip():
+    parsed_intent = str(parsed.get("intent") or "unsupported")
+    if parsed_intent == "consume_wine" and not str(parsed.get("consumed_at") or "").strip():
         parsed["consumed_at"] = local_today.isoformat()
-    command.intent = str(parsed.get("intent") or "unsupported")
+    if parsed_intent == "acquire_wine" and not str(parsed.get("purchase_date") or "").strip():
+        parsed["purchase_date"] = local_today.isoformat()
+    command.intent = parsed_intent
     command.parsed_payload = parsed
     command.model = response.model or settings.openai_cellar_command_model
     command.reasoning_effort = response.reasoning_effort or "none"
@@ -1185,7 +1292,9 @@ def create_cellar_ai_command(
     score_present = bool(parsed.get("score_present"))
     score_value = Decimal(str(parsed.get("score_value") or 0))
     score_scale = int(parsed.get("score_scale") or 0)
-    if score_present and (score_scale <= 0 or score_value > score_scale):
+    if command.intent == "consume_wine" and score_present and (
+        score_scale <= 0 or score_value > score_scale
+    ):
         command.status = "failed"
         db.commit()
         return cellar_command_response(
@@ -1203,6 +1312,55 @@ def create_cellar_ai_command(
         usage=response.usage,
         provider_source=provider_source,
     )
+    if command.intent == "acquire_wine":
+        if not str(parsed.get("wine_name") or "").strip():
+            command.status = "failed"
+            command.parsed_payload = parsed
+            db.commit()
+            return cellar_command_response(
+                db, context, command, message="Indica il nome del vino da aggiungere."
+            )
+        catalog_matches = acquisition_catalog_matches(db, parsed)
+        if not catalog_matches:
+            parsed["catalog_lookup"] = "ai_required"
+            command.status = "ai_research_required"
+            command.parsed_payload = parsed
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message="Non trovo questo vino nel catalogo. Cerco ora i dati con l’AI.",
+            )
+        best_entry, best_score = catalog_matches[0]
+        clear_lead = len(catalog_matches) == 1 or best_score - catalog_matches[1][1] >= 15
+        parsed["catalog_lookup"] = "catalog"
+        if best_score >= 80 and clear_lead:
+            parsed["catalog_match"] = cellar_command_catalog_candidate(best_entry).model_dump(
+                mode="json"
+            )
+            command.status = "draft_ready"
+            command.parsed_payload = parsed
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message="Vino trovato nel catalogo. Ho precompilato la scheda da verificare.",
+            )
+        parsed["catalog_candidates"] = [
+            cellar_command_catalog_candidate(entry).model_dump(mode="json")
+            for entry, _ in catalog_matches
+        ]
+        command.status = "catalog_selection"
+        command.parsed_payload = parsed
+        db.commit()
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message="Ho trovato più risultati possibili nel catalogo. Scegli il vino corretto.",
+        )
     if command.intent != "consume_wine":
         command.status = "unsupported"
         db.commit()
@@ -1210,7 +1368,16 @@ def create_cellar_ai_command(
             db,
             context,
             command,
-            message="Per ora posso registrare soltanto il consumo di una bottiglia.",
+            message="Posso registrare una bevuta oppure preparare l’aggiunta di un vino.",
+        )
+    if int(parsed.get("quantity") or 1) != 1:
+        command.status = "unsupported"
+        db.commit()
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message="Il consumo tramite assistente supporta una bottiglia alla volta.",
         )
     ranked = matching_cellar_command_wines(db, context, parsed)
     if not ranked:
@@ -1244,6 +1411,7 @@ def confirm_cellar_ai_command(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> CellarCommandResponse:
+    ensure_cellar_ai_assistant_available(context)
     command = db.scalar(
         select(CellarAiCommand)
         .where(
@@ -1269,6 +1437,7 @@ def undo_cellar_ai_command(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> CellarCommandResponse:
+    ensure_cellar_ai_assistant_available(context)
     command = db.scalar(
         select(CellarAiCommand)
         .where(

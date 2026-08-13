@@ -19,6 +19,7 @@ export type Session = {
   daily_wine_budget_chf: string | null;
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
+  cellar_ai_assistant_available: boolean;
   has_active_entitlement: boolean;
   entitlement_valid_until: string | null;
   entitlement_days_remaining: number | null;
@@ -1079,12 +1080,44 @@ export type CellarCommandWineCandidate = {
   quantity: number;
 };
 
+export type CellarCommandCatalogCandidate = {
+  catalog_entry_id: string;
+  name: string;
+  producer: string;
+  region: string;
+  appellation: string;
+  type: string;
+  format: string;
+  country: string;
+  grapes_text: string;
+};
+
+export type CellarCommandPurchaseDraft = {
+  catalog_entry_id: string | null;
+  lookup_source: "catalog" | "ai_required";
+  name: string;
+  producer: string;
+  vintage: string;
+  quantity: number;
+  format: string;
+  region: string;
+  appellation: string;
+  type: string;
+  country: string;
+  grapes_text: string;
+  price: number | string | null;
+  currency: string;
+  merchant: string;
+  order_date: string;
+};
+
 export type CellarCommandResult = {
   command_id: string;
-  status: "processing" | "needs_confirmation" | "not_found" | "unsupported" | "executed" | "undone" | "failed";
+  status: "processing" | "needs_confirmation" | "catalog_selection" | "draft_ready" | "ai_research_required" | "not_found" | "unsupported" | "executed" | "undone" | "failed";
   intent: string;
   message: string;
   candidates: CellarCommandWineCandidate[];
+  catalog_candidates: CellarCommandCatalogCandidate[];
   matched_wine: CellarCommandWineCandidate | null;
   tasting: {
     consumed_at: string;
@@ -1096,6 +1129,7 @@ export type CellarCommandResult = {
     pairing: string;
     companions: string;
   } | null;
+  purchase_draft: CellarCommandPurchaseDraft | null;
   previous_quantity: number | null;
   new_quantity: number | null;
   model: string;

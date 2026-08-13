@@ -19447,9 +19447,15 @@ tbody tr:hover {
 }
 
 .wine-editor-form .wine-editor-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  flex: 0 0 auto;
   margin: 2px -16px -16px;
   padding: 11px 16px calc(11px + env(safe-area-inset-bottom, 0px));
+  border-top: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent));
   background: color-mix(in srgb, var(--surface) 94%, transparent);
+  backdrop-filter: blur(16px) saturate(1.08);
   box-shadow: 0 -10px 24px color-mix(in srgb, var(--collector-depth) 24%, transparent);
 }
 
@@ -19457,6 +19463,7 @@ tbody tr:hover {
   .wine-side-panel:has(> .wine-editor-form) {
     grid-template-rows: auto minmax(0, 1fr);
     height: calc(100dvh - 24px);
+    max-height: calc(100dvh - 24px);
     overflow: hidden;
   }
 
@@ -19485,8 +19492,9 @@ tbody tr:hover {
   }
 
   .wine-side-panel > .wine-editor-form .wine-editor-actions {
-    position: relative;
-    z-index: 8;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
     margin: 0;
     border-top: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent));
     background: color-mix(in srgb, var(--surface-raised) 96%, transparent);
@@ -19646,8 +19654,9 @@ tbody tr:hover {
   }
 
   .wine-side-panel > .wine-editor-form .wine-editor-actions {
-    position: static;
-    z-index: 8;
+    position: sticky;
+    bottom: 0;
+    z-index: 20;
     width: 100%;
     margin: 0;
     border: 0;

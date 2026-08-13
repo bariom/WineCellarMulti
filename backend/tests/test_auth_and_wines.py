@@ -3587,6 +3587,235 @@ def test_cellar_ai_command_requires_selection_for_ambiguous_wines(monkeypatch):
     assert executed.json()["matched_wine"]["wine_id"] == selected["wine_id"]
 
 
+def test_cellar_ai_purchase_uses_catalog_and_only_returns_a_review_draft(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "acquire_wine",
+                        "explicit_action": True,
+                        "wine_name": "Sassicaia",
+                        "producer": "Tenuta San Guido",
+                        "vintage": "2021",
+                        "format": "",
+                        "quantity": 6,
+                        "consumed_at": "",
+                        "purchase_date": "2026-08-13",
+                        "purchase_price_present": True,
+                        "purchase_price": 245,
+                        "currency": "CHF",
+                        "merchant": "Enoteca Pinchiorri",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=320, output_tokens=90, total_tokens=410),
+            ),
+            "user_key",
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Ho comprato 6 Sassicaia 2021 a 245 CHF. Aggiungili alla cantina.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "draft_ready"
+    assert result["intent"] == "acquire_wine"
+    assert result["purchase_draft"] == {
+        "catalog_entry_id": result["purchase_draft"]["catalog_entry_id"],
+        "lookup_source": "catalog",
+        "name": "Sassicaia",
+        "producer": "Tenuta San Guido",
+        "vintage": "2021",
+        "quantity": 6,
+        "format": "Bottle (750ml)",
+        "region": "Tuscany",
+        "appellation": "Bolgheri Sassicaia",
+        "type": "Red",
+        "country": "",
+        "grapes_text": "",
+        "price": "245",
+        "currency": "CHF",
+        "merchant": "Enoteca Pinchiorri",
+        "order_date": "2026-08-13",
+    }
+    assert result["purchase_draft"]["catalog_entry_id"]
+    assert client.get("/api/v1/wines").json() == []
+
+
+def test_cellar_ai_global_flag_keeps_admin_access_and_blocks_regular_users(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    monkeypatch.setattr(settings, "cellar_ai_assistant_enabled", False)
+    client = TestClient(app)
+    registered = register(client)
+    assert registered.status_code == 201
+    assert registered.json()["is_app_admin"] is True
+    assert registered.json()["cellar_ai_assistant_available"] is True
+    provider_calls = 0
+
+    def fake_create_ai_response(*args, **kwargs):
+        nonlocal provider_calls
+        provider_calls += 1
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "acquire_wine",
+                        "explicit_action": True,
+                        "wine_name": "Sassicaia",
+                        "producer": "Tenuta San Guido",
+                        "vintage": "2021",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": "",
+                        "purchase_date": "2026-08-13",
+                        "purchase_price_present": False,
+                        "purchase_price": 0,
+                        "currency": "",
+                        "merchant": "",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=250, output_tokens=70, total_tokens=320),
+            ),
+            "user_key",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    admin_command = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Aggiungi Sassicaia 2021 alla cantina.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert admin_command.status_code == 200
+    assert admin_command.json()["status"] == "draft_ready"
+    assert provider_calls == 1
+
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User))
+        assert user is not None
+        user.is_app_admin = False
+        user.access_override_until = datetime.now(UTC) + timedelta(days=1)
+        db.commit()
+
+    regular_session = client.get("/api/v1/session")
+    assert regular_session.status_code == 200
+    assert regular_session.json()["cellar_ai_assistant_available"] is False
+    blocked = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Aggiungi Sassicaia 2021 alla cantina.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert blocked.status_code == 403
+    assert provider_calls == 1
+
+
+def test_cellar_ai_purchase_requests_ai_research_when_catalog_has_no_match(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "acquire_wine",
+                        "explicit_action": True,
+                        "wine_name": "Nebula Riserva Unica",
+                        "producer": "Cantina Immaginaria",
+                        "vintage": "2024",
+                        "format": "",
+                        "quantity": 2,
+                        "consumed_at": "",
+                        "purchase_date": "",
+                        "purchase_price_present": False,
+                        "purchase_price": 0,
+                        "currency": "",
+                        "merchant": "",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=280, output_tokens=80, total_tokens=360),
+            ),
+            "credits",
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Aggiungi due bottiglie di Nebula Riserva Unica 2024.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+
+    assert response.status_code == 200
+    result = response.json()
+    assert result["status"] == "ai_research_required"
+    assert result["purchase_draft"]["lookup_source"] == "ai_required"
+    assert result["purchase_draft"]["quantity"] == 2
+    assert result["purchase_draft"]["order_date"] == "2026-08-13"
+    assert result["catalog_candidates"] == []
+    assert client.get("/api/v1/wines").json() == []
+
+
 def test_tasting_archive_reads_paginated_normalized_entries():
     client = TestClient(app)
     assert register(client).status_code == 201

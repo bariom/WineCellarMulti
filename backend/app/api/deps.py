@@ -70,6 +70,7 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "daily_wine_budget_chf": None,
             "can_use_label_recognition": False,
             "can_manage_wine_photos": False,
+            "cellar_ai_assistant_available": False,
             "has_active_entitlement": False,
             "entitlement_valid_until": None,
             "entitlement_days_remaining": None,
@@ -102,6 +103,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "daily_wine_budget_chf": context.user.daily_wine_budget_chf,
         "can_use_label_recognition": context.user.can_use_label_recognition,
         "can_manage_wine_photos": context.user.can_manage_wine_photos,
+        "cellar_ai_assistant_available": settings.cellar_ai_assistant_enabled
+        or context.user.is_app_admin,
         "has_active_entitlement": context.household.is_demo or context.has_active_entitlement,
         "entitlement_valid_until": context.entitlement_valid_until.isoformat()
         if context.entitlement_valid_until

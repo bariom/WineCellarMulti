@@ -6,7 +6,7 @@ import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
@@ -2979,6 +2979,7 @@ export function App() {
       daily_wine_budget_chf: null,
       can_use_label_recognition: false,
       can_manage_wine_photos: false,
+      cellar_ai_assistant_available: false,
       has_active_entitlement: false,
       entitlement_valid_until: null,
       entitlement_days_remaining: null,
@@ -3711,6 +3712,7 @@ export function App() {
         daily_wine_budget_chf: dailyWineBudgetDraft.trim() || null,
         can_use_label_recognition: false,
         can_manage_wine_photos: false,
+        cellar_ai_assistant_available: false,
         has_active_entitlement: true,
         entitlement_valid_until: null,
         entitlement_days_remaining: null,
@@ -4824,6 +4826,13 @@ export function App() {
   const canManageWinePhotos = canWriteWine && Boolean(session?.is_app_admin || session?.can_manage_wine_photos);
   const canReuseWinePhotos = canWriteWine && canAccessWinePhotos;
   const canUseLabelRecognition = canWriteWine && Boolean(session?.can_use_label_recognition);
+  const canAccessCellarAssistant = !offlineMode && Boolean(session?.cellar_ai_assistant_available);
+
+  useEffect(() => {
+    if (activeView === "assistant" && session?.authenticated && !canAccessCellarAssistant) {
+      setActiveView("home");
+    }
+  }, [activeView, canAccessCellarAssistant, session?.authenticated]);
 
   useEffect(() => {
     if (offlineMode || !session?.authenticated || !isRestaurant || !selectedWineId) {
@@ -6777,6 +6786,39 @@ export function App() {
     setWinePhotoSuggestionIndex(0);
     setSelectedSuggestedPhotoId(null);
     setEditingId(null);
+    setWineFormOpen(true);
+  }
+
+  function prepareAssistantPurchaseDraft(purchase: CellarCommandPurchaseDraft) {
+    clearWineRecognitionState();
+    setWineRecognitionTarget("wine");
+    setDraft({
+      ...emptyDraft,
+      name: purchase.name,
+      producer: purchase.producer,
+      vintage: purchase.vintage,
+      quantity: String(purchase.quantity || 1),
+      currency: purchase.currency || emptyDraft.currency,
+      price: purchase.price === null ? emptyDraft.price : String(purchase.price),
+      format: purchase.format,
+      type: normalizeWineType(purchase.type),
+      region: purchase.region,
+      appellation: purchase.appellation,
+      merchant: purchase.merchant,
+      order_date: purchase.order_date,
+      grapes: purchase.grapes_text ? grapesFromText(purchase.grapes_text) : [],
+      pour_size_ml: isRestaurant ? String(activeMembership?.restaurant_default_pour_size_ml || 100) : emptyDraft.pour_size_ml,
+      reorder_threshold: isRestaurant ? String(activeMembership?.restaurant_default_reorder_threshold ?? 2) : emptyDraft.reorder_threshold,
+    });
+    setOpenWineEditorSections({});
+    setPendingBottlePhoto(null);
+    setWinePhotoSuggestions([]);
+    setWinePhotoSuggestionIndex(0);
+    setSelectedSuggestedPhotoId(null);
+    setEditingId(null);
+    setSelectedWineId(null);
+    setWishlistFormOpen(false);
+    setActiveView("cellar");
     setWineFormOpen(true);
   }
 
@@ -8901,7 +8943,7 @@ export function App() {
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
-            {!isRestaurant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
+            {!isRestaurant && canAccessCellarAssistant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {locale === "it" ? "Assistente AI" : "AI Assistant"}
             </button> : null}
@@ -10237,10 +10279,11 @@ export function App() {
 
           {activeView === "pulse" ? <WinePulseView locale={locale} /> : null}
 
-          {activeView === "assistant" ? (
+          {activeView === "assistant" && canAccessCellarAssistant ? (
             <CellarAssistantView
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
+              onPreparePurchase={prepareAssistantPurchaseDraft}
               onCellarChanged={async () => {
                 await loadWines();
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
