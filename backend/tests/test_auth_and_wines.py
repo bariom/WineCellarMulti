@@ -3417,6 +3417,176 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
     assert no_more.status_code == 400
 
 
+def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Ornellaia",
+            "producer": "Tenuta dell'Ornellaia",
+            "vintage": "2015",
+            "quantity": 2,
+            "status": "Delivered",
+        },
+    )
+    assert wine.status_code == 201
+    provider_calls = 0
+
+    def fake_create_ai_response(*args, **kwargs):
+        nonlocal provider_calls
+        provider_calls += 1
+        assert kwargs["model"] == "gpt-5.6-luna"
+        assert kwargs["reasoning_effort"] == "none"
+        assert kwargs["task_type"] == "cellar_command"
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "consume_wine",
+                        "explicit_action": True,
+                        "wine_name": "Ornellaia",
+                        "producer": "",
+                        "vintage": "2015",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": "2026-08-12",
+                        "note": "Era eccellente",
+                        "score_present": True,
+                        "score_value": 9,
+                        "score_scale": 10,
+                        "enjoyment": "positive",
+                        "occasion": "Cena",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=400, output_tokens=100, total_tokens=500),
+                charged_cost_usd=Decimal("0.000300"),
+            ),
+            "credits",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    request_id = str(uuid.uuid4())
+    payload = {
+        "request_id": request_id,
+        "text": "Ieri a cena ho bevuto una bottiglia di Ornellaia 2015 ed era eccellente, 9 su 10! Aggiorna la cantina.",
+        "locale": "it",
+        "timezone": "Europe/Zurich",
+    }
+    command = client.post("/api/v1/ai/cellar-commands", json=payload)
+    assert command.status_code == 200
+    assert command.json()["status"] == "executed"
+    assert command.json()["matched_wine"]["wine_id"] == wine.json()["id"]
+    assert command.json()["previous_quantity"] == 2
+    assert command.json()["new_quantity"] == 1
+    assert provider_calls == 1
+
+    updated = client.get(f"/api/v1/wines/{wine.json()['id']}")
+    assert updated.status_code == 200
+    tasting = updated.json()["tasting_history"][0]
+    assert updated.json()["quantity"] == 1
+    assert tasting["note"] == "Era eccellente"
+    assert Decimal(str(tasting["score_value"])) == Decimal("9")
+    assert tasting["score_scale"] == 10
+    assert tasting["occasion"] == "Cena"
+    assert tasting["source"] == "ai_command"
+    assert "Aggiorna la cantina" in tasting["source_text"]
+
+    repeated = client.post("/api/v1/ai/cellar-commands", json=payload)
+    assert repeated.status_code == 200
+    assert repeated.json()["status"] == "executed"
+    assert provider_calls == 1
+    assert client.get(f"/api/v1/wines/{wine.json()['id']}").json()["quantity"] == 1
+
+    undone = client.post(f"/api/v1/ai/cellar-commands/{request_id}/undo")
+    assert undone.status_code == 200
+    assert undone.json()["status"] == "undone"
+    restored = client.get(f"/api/v1/wines/{wine.json()['id']}").json()
+    assert restored["quantity"] == 2
+    assert restored["status"] == "Delivered"
+    assert restored["tasting_history"] == []
+
+
+def test_cellar_ai_command_requires_selection_for_ambiguous_wines(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    for wine_format in ("Bottle 0.75L", "Magnum 1.5L"):
+        created = client.post(
+            "/api/v1/wines",
+            json={
+                "name": "Ornellaia",
+                "producer": "Tenuta dell'Ornellaia",
+                "vintage": "2015",
+                "format": wine_format,
+                "quantity": 1,
+            },
+        )
+        assert created.status_code == 201
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "consume_wine",
+                        "explicit_action": True,
+                        "wine_name": "Ornellaia",
+                        "producer": "",
+                        "vintage": "2015",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": "2026-08-12",
+                        "note": "Molto buono",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "positive",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=300, output_tokens=80, total_tokens=380),
+            ),
+            "user_key",
+        ),
+    )
+    request_id = str(uuid.uuid4())
+    interpreted = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": request_id,
+            "text": "Ho bevuto Ornellaia 2015, aggiorna la cantina",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert interpreted.status_code == 200
+    assert interpreted.json()["status"] == "needs_confirmation"
+    assert len(interpreted.json()["candidates"]) == 2
+
+    selected = interpreted.json()["candidates"][0]
+    executed = client.post(
+        f"/api/v1/ai/cellar-commands/{request_id}/execute",
+        json={"wine_id": selected["wine_id"]},
+    )
+    assert executed.status_code == 200
+    assert executed.json()["status"] == "executed"
+    assert executed.json()["matched_wine"]["wine_id"] == selected["wine_id"]
+
+
 def test_tasting_archive_reads_paginated_normalized_entries():
     client = TestClient(app)
     assert register(client).status_code == 201

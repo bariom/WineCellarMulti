@@ -3,6 +3,7 @@
 from app.prompts.library import (
     Prompt,
     ai_notes_prompt,
+    cellar_command_prompt,
     drink_window_prompt,
     grape_composition_prompt,
     wine_full_enrichment_prompt,
@@ -18,6 +19,7 @@ from app.prompts.library import (
 __all__ = [
     "Prompt",
     "ai_notes_prompt",
+    "cellar_command_prompt",
     "drink_window_prompt",
     "grape_composition_prompt",
     "wine_full_enrichment_prompt",

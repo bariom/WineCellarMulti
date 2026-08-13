@@ -8,6 +8,7 @@ from app.models.billing import (
     UserAiCreditTransaction,
     UserEntitlement,
 )
+from app.models.cellar_ai_command import CellarAiCommand
 from app.models.coownership import CoOwnershipAgreement, CoOwnershipParticipant, CoOwnershipPayment
 from app.models.demo import DemoWineSelection
 from app.models.household import Household
@@ -48,6 +49,7 @@ from app.models.wishlist import WishlistItem, WishlistList
 __all__ = [
     "AiAuditLog",
     "AppAiPricing",
+    "CellarAiCommand",
     "CoOwnershipAgreement",
     "CoOwnershipParticipant",
     "CoOwnershipPayment",

@@ -717,7 +717,9 @@ export function TastingHistorySection({
               <div className="section-heading tasting-history-head">
                 <div>
                   <strong>{formatDisplayDate(entry.consumed_at)}</strong>
-                  {entry.rating ? <span>{t("tastingRating")}: {entry.rating}/6</span> : null}
+                  {entry.score_value !== null && entry.score_value !== undefined && entry.score_scale
+                    ? <span>{t("tastingRating")}: {entry.score_value}/{entry.score_scale}</span>
+                    : entry.rating ? <span>{t("tastingRating")}: {entry.rating}/6</span> : null}
                   <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
                 </div>
                 {canWrite ? (

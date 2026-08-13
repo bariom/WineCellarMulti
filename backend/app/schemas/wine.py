@@ -102,10 +102,14 @@ class WineTastingEntryResponse(BaseModel):
     consumed_at: date
     note: str
     rating: int = Field(default=0, ge=0, le=6)
+    score_value: Decimal | None = Field(default=None, ge=0)
+    score_scale: int | None = Field(default=None, ge=1, le=100)
     enjoyment: Literal["", "positive", "negative"] = ""
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    source: str = "manual"
+    source_text: str = ""
     sommelier_feedback: str = ""
     sommelier_pairing_score: int | None = Field(default=None, ge=1, le=10)
     sommelier_pairing_advice: str = ""
@@ -127,10 +131,14 @@ class TastingArchiveItemResponse(BaseModel):
     consumed_at: date
     note: str = ""
     rating: int = Field(default=0, ge=0, le=6)
+    score_value: Decimal | None = Field(default=None, ge=0)
+    score_scale: int | None = Field(default=None, ge=1, le=100)
     enjoyment: Literal["", "positive", "negative"] = ""
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+    source: str = "manual"
+    source_text: str = ""
     sommelier_feedback: str = ""
     sommelier_pairing_score: int | None = Field(default=None, ge=1, le=10)
     sommelier_pairing_advice: str = ""

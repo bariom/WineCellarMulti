@@ -19,6 +19,7 @@ SIMPLE_TASKS = {
     "label_enrichment",
     "score_summary",
     "structured_extraction",
+    "cellar_command",
     "wine_news_editorial",
 }
 ADVANCED_TASKS = {
@@ -36,6 +37,7 @@ TASK_REASONING_EFFORT = {
     "score_summary": "low",
     "wine_news_editorial": "low",
     "wine_value": "low",
+    "cellar_command": "none",
     "wishlist_value": "low",
     # Interpretation and decisions that benefit from a moderate reasoning budget.
     "wine_full_enrichment": "medium",
@@ -117,6 +119,15 @@ def select_ai_model(
     requested_model: str | None = None,
 ) -> ModelSelection:
     requested = requested_model.strip() if requested_model else None
+    normalized_task = task_type.strip().lower()
+
+    # Cellar commands are an isolated GPT-5.6 Luna workload. This does not
+    # opt unrelated AI features into the broader GPT-5.6 rollout flag.
+    cellar_command_model = settings.openai_cellar_command_model.strip()
+    if normalized_task == "cellar_command" and requested == cellar_command_model:
+        return ModelSelection(
+            requested_model=requested, model=cellar_command_model, role="economy"
+        )
 
     # This is the immediate rollback switch and intentionally overrides every
     # stored/user model preference.
@@ -138,7 +149,6 @@ def select_ai_model(
         return ModelSelection(requested_model=None, model=model, role="legacy")
 
     normalized_complexity = (complexity or "").strip().lower()
-    normalized_task = task_type.strip().lower()
     if (
         normalized_complexity in {"advanced", "complex", "high"}
         or normalized_task in ADVANCED_TASKS

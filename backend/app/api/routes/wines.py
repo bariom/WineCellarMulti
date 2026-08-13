@@ -69,11 +69,17 @@ from app.services.stock_ledger import (
     add_inbound_stock,
     reconcile_direct_quantity_change,
 )
+from app.services.wine_consumption import (
+    NoBottlesAvailableError,
+    normalize_tasting_history,
+    record_wine_consumption,
+)
 from app.services.wine_photo_library import (
     archive_wine_photo,
     copy_library_photo,
     library_photo_path,
     normalize_photo_identity,
+    reuse_best_matching_photo,
 )
 
 router = APIRouter()
@@ -391,32 +397,6 @@ def normalize_owner_rows(raw_owners: list[dict]) -> list[dict]:
     return owners
 
 
-def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
-    entries: list[dict] = []
-    for raw_entry in raw_entries or []:
-        consumed_at = str(raw_entry.get("consumed_at") or "").strip()
-        created_at = str(raw_entry.get("created_at") or "").strip()
-        enjoyment = str(raw_entry.get("enjoyment") or "").strip()
-        if enjoyment not in {"positive", "negative"}:
-            enjoyment = ""
-        if not consumed_at or not created_at:
-            continue
-        entries.append(
-            {
-                "id": str(raw_entry.get("id") or uuid.uuid4()),
-                "consumed_at": consumed_at,
-                "note": str(raw_entry.get("note") or "").strip(),
-                "rating": max(0, min(int(raw_entry.get("rating") or 0), 6)),
-                "enjoyment": enjoyment,
-                "occasion": str(raw_entry.get("occasion") or "").strip(),
-                "pairing": str(raw_entry.get("pairing") or "").strip(),
-                "companions": str(raw_entry.get("companions") or "").strip(),
-                "created_at": created_at,
-            },
-        )
-    return entries
-
-
 def tasting_archive_entry_matches(entry: dict, wine: Wine, query: str) -> bool:
     if not query:
         return True
@@ -450,10 +430,14 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
         consumed_at=entry.consumed_at,
         note=entry.note,
         rating=entry.rating,
+        score_value=entry.score_value,
+        score_scale=entry.score_scale,
         enjoyment=cast(Literal["", "positive", "negative"], entry.enjoyment),
         occasion=entry.occasion,
         pairing=entry.pairing,
         companions=entry.companions,
+        source=entry.source,
+        source_text=entry.source_text,
         sommelier_feedback=entry.sommelier_feedback,
         sommelier_pairing_score=entry.sommelier_pairing_score,
         sommelier_pairing_advice=entry.sommelier_pairing_advice,
@@ -1185,6 +1169,9 @@ def create_wine(
     shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
     set_user_wine_tags(db, context, wine, tag_names)
+    # Reuse a catalog/reference photo automatically when the user did not
+    # upload a private bottle photo. The frontend can still replace it later.
+    reuse_best_matching_photo(db, wine)
     db.commit()
     db.refresh(wine)
     return wine_response(wine, tag_names, wine_value_history_by_wine(db, [wine.id]).get(wine.id))
@@ -1695,48 +1682,23 @@ def consume_wine_bottle(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
-    if wine.quantity <= 0:
+    try:
+        record_wine_consumption(
+            db,
+            wine,
+            consumed_at=payload.consumed_at or datetime.now(UTC).date(),
+            note=payload.note,
+            rating=payload.tasting_rating,
+            enjoyment=payload.tasting_enjoyment,
+            occasion=payload.tasting_occasion,
+            pairing=payload.tasting_pairing,
+            companions=payload.tasting_companions,
+            created_by_user_id=context.user.id,
+        )
+    except NoBottlesAvailableError as error:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="No bottles left to consume"
-        )
-
-    tasting_entry = {
-        "id": str(uuid.uuid4()),
-        "consumed_at": (payload.consumed_at or datetime.now(UTC).date()).isoformat(),
-        "note": payload.note.strip(),
-        "rating": payload.tasting_rating,
-        "enjoyment": payload.tasting_enjoyment,
-        "occasion": payload.tasting_occasion.strip(),
-        "pairing": payload.tasting_pairing.strip(),
-        "companions": payload.tasting_companions.strip(),
-        "created_at": datetime.now(UTC).isoformat(),
-    }
-    wine.tasting_history = normalize_tasting_history([*(wine.tasting_history or []), tasting_entry])
-    db.add(
-        WineTastingEntry(
-            id=UUID(tasting_entry["id"]),
-            wine_id=wine.id,
-            household_id=wine.household_id,
-            consumed_at=date.fromisoformat(tasting_entry["consumed_at"]),
-            note=tasting_entry["note"],
-            rating=tasting_entry["rating"],
-            enjoyment=tasting_entry["enjoyment"],
-            occasion=tasting_entry["occasion"],
-            pairing=tasting_entry["pairing"],
-            companions=tasting_entry["companions"],
-            purchase_price_at_consumption=wine.price,
-            market_value_at_consumption=wine.current_value,
-            currency_at_consumption=wine.currency,
-            created_at=datetime.fromisoformat(tasting_entry["created_at"]),
-        )
-    )
-    wine.quantity = max(wine.quantity - 1, 0)
-    if payload.tasting_rating > 0:
-        wine.rating = payload.tasting_rating
-    if wine.quantity == 0:
-        wine.status = "Consumed"
-    elif wine.status.lower() not in {"delivered", "consegnato", "consumed", "bevuto"}:
-        wine.status = "Delivered"
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)
+        ) from error
 
     db.commit()
     db.refresh(wine)

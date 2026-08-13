@@ -5,7 +5,7 @@ import uuid
 from hashlib import sha256
 from pathlib import Path
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -106,3 +106,54 @@ def copy_library_photo(photo: WinePhotoLibraryEntry, target: Wine) -> None:
         for temporary in temporary_paths:
             temporary.unlink(missing_ok=True)
     target.photo_version = uuid.uuid4().hex
+
+
+def reuse_best_matching_photo(db: Session, target: Wine) -> bool:
+    """Attach the best shared reference photo to a newly created wine.
+
+    Reference photos are deliberately copied into the target household's own
+    storage. The source image remains a catalog asset and no source household
+    data is exposed to the target user.
+    """
+    normalized_name = normalize_photo_identity(target.name)
+    normalized_producer = normalize_photo_identity(target.producer)
+    if not normalized_name or not normalized_producer:
+        return False
+
+    library_photos = list(
+        db.scalars(
+            select(WinePhotoLibraryEntry)
+            .where(
+                WinePhotoLibraryEntry.normalized_name == normalized_name,
+                WinePhotoLibraryEntry.normalized_producer == normalized_producer,
+            )
+            .order_by(WinePhotoLibraryEntry.created_at.desc())
+        )
+    )
+    for photo in library_photos:
+        if all(library_photo_path(photo, size).is_file() for size in PHOTO_FILE_NAMES):
+            copy_library_photo(photo, target)
+            return True
+
+    # Older records may have a photo but not yet have been promoted to the
+    # shared library. Promote one matching record lazily, then reuse it.
+    candidates = list(
+        db.scalars(
+            select(Wine)
+            .where(
+                Wine.id != target.id,
+                Wine.photo_version != "",
+                func.lower(func.trim(Wine.name)) == normalized_name,
+                func.lower(func.trim(Wine.producer)) == normalized_producer,
+            )
+            .order_by(Wine.created_at.desc())
+        )
+    )
+    for source in candidates:
+        photo = archive_wine_photo(db, source)
+        if photo is not None and all(
+            library_photo_path(photo, size).is_file() for size in PHOTO_FILE_NAMES
+        ):
+            copy_library_photo(photo, target)
+            return True
+    return False

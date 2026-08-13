@@ -1,8 +1,20 @@
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
+
+CellarCommandEnjoyment = Literal["", "positive", "negative"]
+CellarCommandStatus = Literal[
+    "processing",
+    "needs_confirmation",
+    "not_found",
+    "unsupported",
+    "executed",
+    "undone",
+    "failed",
+]
 
 
 class AiAuditLogResponse(BaseModel):
@@ -84,6 +96,51 @@ class AiGenerationRequest(BaseModel):
     locale: str = Field(default="it", pattern="^(it|en)$")
     model: str | None = Field(default=None, max_length=120)
     force_refresh: bool = False
+
+
+class CellarCommandRequest(BaseModel):
+    request_id: UUID
+    text: str = Field(min_length=3, max_length=2000)
+    locale: str = Field(default="it", pattern="^(it|en)$")
+    timezone: str = Field(default="Europe/Zurich", min_length=1, max_length=80)
+
+
+class CellarCommandExecuteRequest(BaseModel):
+    wine_id: UUID
+
+
+class CellarCommandWineCandidate(BaseModel):
+    wine_id: UUID
+    name: str
+    producer: str = ""
+    vintage: str = ""
+    format: str = ""
+    quantity: int
+
+
+class CellarCommandTasting(BaseModel):
+    consumed_at: str = ""
+    note: str = ""
+    score_value: Decimal | None = None
+    score_scale: int | None = None
+    enjoyment: CellarCommandEnjoyment = ""
+    occasion: str = ""
+    pairing: str = ""
+    companions: str = ""
+
+
+class CellarCommandResponse(BaseModel):
+    command_id: UUID
+    status: CellarCommandStatus
+    intent: str = "unsupported"
+    message: str
+    candidates: list[CellarCommandWineCandidate] = Field(default_factory=list)
+    matched_wine: CellarCommandWineCandidate | None = None
+    tasting: CellarCommandTasting | None = None
+    previous_quantity: int | None = None
+    new_quantity: int | None = None
+    model: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")
 
 
 class WineLabelEnrichmentRequest(AiGenerationRequest):

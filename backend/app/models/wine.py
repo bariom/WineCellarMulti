@@ -157,13 +157,20 @@ class WineTastingEntry(Base):
     household_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
     )
+    created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     consumed_at: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(Text, default="")
     rating: Mapped[int] = mapped_column(default=0)
+    score_value: Mapped[Decimal | None] = mapped_column(Numeric(6, 2), nullable=True)
+    score_scale: Mapped[int | None] = mapped_column(nullable=True)
     enjoyment: Mapped[str] = mapped_column(String(16), default="")
     occasion: Mapped[str] = mapped_column(String(200), default="")
     pairing: Mapped[str] = mapped_column(String(300), default="")
     companions: Mapped[str] = mapped_column(String(300), default="")
+    source: Mapped[str] = mapped_column(String(32), default="manual")
+    source_text: Mapped[str] = mapped_column(Text, default="")
     sommelier_feedback: Mapped[str] = mapped_column(Text, default="")
     sommelier_pairing_score: Mapped[int | None] = mapped_column(nullable=True)
     sommelier_pairing_advice: Mapped[str] = mapped_column(Text, default="")

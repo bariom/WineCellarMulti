@@ -3,11 +3,14 @@ from __future__ import annotations
 import json
 import math
 import re
+import unicodedata
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
-from typing import Any
+from difflib import SequenceMatcher
+from typing import Any, cast
 from uuid import UUID, uuid4
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
@@ -37,6 +40,7 @@ from app.db.session import get_db
 from app.models import (
     AiAuditLog,
     AppAiPricing,
+    CellarAiCommand,
     User,
     UserAiCreditTransaction,
     UserAiSettings,
@@ -46,6 +50,7 @@ from app.models import (
 )
 from app.prompts import (
     ai_notes_prompt,
+    cellar_command_prompt,
     drink_window_prompt,
     grape_composition_prompt,
     wine_full_enrichment_prompt,
@@ -65,6 +70,13 @@ from app.schemas.ai import (
     BuyingAdviceRequest,
     BuyingAdviceResponse,
     BuyingRecommendation,
+    CellarCommandEnjoyment,
+    CellarCommandExecuteRequest,
+    CellarCommandRequest,
+    CellarCommandResponse,
+    CellarCommandStatus,
+    CellarCommandTasting,
+    CellarCommandWineCandidate,
     PairingCellarMatch,
     PairingDishRecommendation,
     PairingMarketWine,
@@ -99,6 +111,11 @@ from app.services.shared_wine_data import (
     hydrate_wine_from_shared,
     mark_local_feature,
     publish_shared_fact,
+)
+from app.services.wine_consumption import (
+    NoBottlesAvailableError,
+    normalize_tasting_history,
+    record_wine_consumption,
 )
 
 router = APIRouter(prefix="/ai")
@@ -579,7 +596,14 @@ def create_ai_response(
     # A per-feature model selected in Settings is an explicit user preference.
     # Routing remains the fallback only when a caller deliberately provides no model.
     requested_model = model
-    if requested_model and requested_model not in available_model_options():
+    if (
+        requested_model
+        and requested_model not in available_model_options()
+        and not (
+            task_type == "cellar_command"
+            and requested_model == settings.openai_cellar_command_model.strip()
+        )
+    ):
         requested_model = ""
     effective_tool_limit = max_tool_calls if max_tool_calls is not None else (4 if web_search else 0)
     configured_limit = max_output_tokens if max_output_tokens is not None else parameters_for_model(requested_model or model).max_output_tokens
@@ -853,6 +877,459 @@ def update_ai_settings(
     db.commit()
     db.refresh(user_settings)
     return ai_settings_response(db, context, user_settings)
+
+
+def normalize_cellar_command_identity(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", value.casefold())
+    return " ".join(
+        "".join(character for character in normalized if not unicodedata.combining(character))
+        .replace("'", " ")
+        .replace("’", " ")
+        .split()
+    )
+
+
+def cellar_command_match_score(parsed: dict[str, Any], wine: Wine) -> float:
+    query = normalize_cellar_command_identity(str(parsed.get("wine_name") or ""))
+    if not query:
+        return 0
+    name = normalize_cellar_command_identity(wine.name)
+    producer = normalize_cellar_command_identity(wine.producer)
+    combined = " ".join(part for part in (name, producer) if part)
+    vintage = str(parsed.get("vintage") or "").strip().casefold()
+    if vintage and wine.vintage.strip().casefold() != vintage:
+        return 0
+    requested_producer = normalize_cellar_command_identity(str(parsed.get("producer") or ""))
+    if requested_producer and requested_producer not in producer and producer not in requested_producer:
+        if SequenceMatcher(None, requested_producer, producer).ratio() < 0.78:
+            return 0
+    requested_format = normalize_cellar_command_identity(str(parsed.get("format") or ""))
+    wine_format = normalize_cellar_command_identity(wine.format)
+    if requested_format and requested_format not in wine_format and wine_format not in requested_format:
+        return 0
+
+    if query == name:
+        score = 100.0
+    elif query == producer:
+        score = 88.0
+    elif query in name or name in query:
+        score = 82.0
+    elif query in combined:
+        score = 76.0
+    else:
+        score = SequenceMatcher(None, query, name).ratio() * 72.0
+    if vintage:
+        score += 25.0
+    if requested_producer:
+        score += 12.0
+    if requested_format:
+        score += 8.0
+    return score
+
+
+def cellar_command_candidate(wine: Wine) -> CellarCommandWineCandidate:
+    return CellarCommandWineCandidate(
+        wine_id=wine.id,
+        name=wine.name,
+        producer=wine.producer,
+        vintage=wine.vintage,
+        format=wine.format,
+        quantity=wine.quantity,
+    )
+
+
+def matching_cellar_command_wines(
+    db: Session, context: CurrentContext, parsed: dict[str, Any]
+) -> list[tuple[Wine, float]]:
+    wines = list(
+        db.scalars(select(Wine).where(Wine.household_id == context.household.id))
+    )
+    ranked = [
+        (wine, cellar_command_match_score(parsed, wine))
+        for wine in wines
+        if wine.quantity > 0 and user_can_see_wine(context, wine)
+    ]
+    return sorted(
+        ((wine, score) for wine, score in ranked if score >= 65),
+        key=lambda item: (-item[1], item[0].name.casefold(), item[0].vintage),
+    )[:5]
+
+
+def cellar_command_tasting(parsed: dict[str, Any]) -> CellarCommandTasting:
+    score_present = bool(parsed.get("score_present"))
+    return CellarCommandTasting(
+        consumed_at=str(parsed.get("consumed_at") or ""),
+        note=str(parsed.get("note") or "").strip(),
+        score_value=Decimal(str(parsed.get("score_value") or 0)) if score_present else None,
+        score_scale=int(parsed.get("score_scale") or 0) if score_present else None,
+        enjoyment=cast(CellarCommandEnjoyment, str(parsed.get("enjoyment") or "")),
+        occasion=str(parsed.get("occasion") or "").strip(),
+        pairing=str(parsed.get("pairing") or "").strip(),
+        companions=str(parsed.get("companions") or "").strip(),
+    )
+
+
+def cellar_command_response(
+    db: Session,
+    context: CurrentContext,
+    command: CellarAiCommand,
+    *,
+    message: str | None = None,
+) -> CellarCommandResponse:
+    parsed = command.parsed_payload or {}
+    ranked = (
+        matching_cellar_command_wines(db, context, parsed)
+        if command.status == "needs_confirmation"
+        else []
+    )
+    matched = db.get(Wine, command.matched_wine_id) if command.matched_wine_id else None
+    localized_message = message or {
+        "processing": "Comando in elaborazione.",
+        "needs_confirmation": "Scegli la bottiglia da aggiornare.",
+        "not_found": "Non trovo una bottiglia disponibile corrispondente.",
+        "unsupported": "Questo comando non è ancora supportato.",
+        "executed": "Aggiornamento già eseguito.",
+        "undone": "Aggiornamento annullato.",
+        "failed": "Non sono riuscito a interpretare il comando.",
+    }.get(command.status, "Comando elaborato.")
+    return CellarCommandResponse(
+        command_id=command.id,
+        status=cast(CellarCommandStatus, command.status),
+        intent=command.intent,
+        message=localized_message,
+        candidates=[cellar_command_candidate(wine) for wine, _ in ranked],
+        matched_wine=cellar_command_candidate(matched) if matched is not None else None,
+        tasting=cellar_command_tasting(parsed) if command.intent == "consume_wine" else None,
+        previous_quantity=command.previous_quantity,
+        new_quantity=matched.quantity if matched is not None else None,
+        model=command.model,
+        estimated_cost_usd=command.estimated_cost_usd,
+    )
+
+
+def parsed_cellar_command_date(parsed: dict[str, Any], local_today: date) -> date:
+    raw_date = str(parsed.get("consumed_at") or "").strip()
+    if not raw_date:
+        return local_today
+    try:
+        consumed_at = date.fromisoformat(raw_date)
+    except ValueError as error:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="The cellar command contains an invalid consumption date",
+        ) from error
+    if consumed_at > local_today:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="A consumed bottle cannot have a future date",
+        )
+    return consumed_at
+
+
+def execute_cellar_ai_command(
+    db: Session,
+    context: CurrentContext,
+    command: CellarAiCommand,
+    wine_id: UUID,
+    *,
+    local_today: date,
+) -> CellarCommandResponse:
+    if command.status not in {"needs_confirmation", "not_found"}:
+        if command.status == "executed":
+            return cellar_command_response(db, context, command, message="Comando già eseguito.")
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Command cannot be executed")
+    wine = db.scalar(
+        select(Wine)
+        .where(Wine.id == wine_id, Wine.household_id == context.household.id)
+        .with_for_update()
+    )
+    if wine is None or not user_can_see_wine(context, wine):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+    if cellar_command_match_score(command.parsed_payload or {}, wine) < 65:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Selected wine does not match the command",
+        )
+    tasting = cellar_command_tasting(command.parsed_payload or {})
+    try:
+        result = record_wine_consumption(
+            db,
+            wine,
+            consumed_at=parsed_cellar_command_date(command.parsed_payload or {}, local_today),
+            note=tasting.note,
+            score_value=tasting.score_value,
+            score_scale=tasting.score_scale,
+            enjoyment=tasting.enjoyment,
+            occasion=tasting.occasion,
+            pairing=tasting.pairing,
+            companions=tasting.companions,
+            source="ai_command",
+            source_text=command.raw_text,
+            created_by_user_id=context.user.id,
+        )
+    except NoBottlesAvailableError as error:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    command.status = "executed"
+    command.matched_wine_id = wine.id
+    command.tasting_id = result.tasting_id
+    command.previous_quantity = result.previous_quantity
+    command.previous_status = result.previous_status
+    command.previous_rating = result.previous_rating
+    command.executed_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(command)
+    db.refresh(wine)
+    score_label = (
+        f", {tasting.score_value:g}/{tasting.score_scale}"
+        if tasting.score_value is not None and tasting.score_scale
+        else ""
+    )
+    message = (
+        f"Fatto. {wine.name} {wine.vintage}: {result.previous_quantity} → {wine.quantity} "
+        f"bottiglie. Degustazione registrata il {tasting.consumed_at}{score_label}."
+    )
+    return cellar_command_response(db, context, command, message=message)
+
+
+CELLAR_COMMAND_SCHEMA = {
+    "name": "cellar_command",
+    "schema": {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "intent": {"type": "string", "enum": ["consume_wine", "unsupported"]},
+            "explicit_action": {"type": "boolean"},
+            "wine_name": {"type": "string"},
+            "producer": {"type": "string"},
+            "vintage": {"type": "string"},
+            "format": {"type": "string"},
+            "quantity": {"type": "integer", "const": 1},
+            "consumed_at": {"type": "string"},
+            "note": {"type": "string"},
+            "score_present": {"type": "boolean"},
+            "score_value": {"type": "number", "minimum": 0, "maximum": 100},
+            "score_scale": {"type": "integer", "minimum": 0, "maximum": 100},
+            "enjoyment": {"type": "string", "enum": ["", "positive", "negative"]},
+            "occasion": {"type": "string"},
+            "pairing": {"type": "string"},
+            "companions": {"type": "string"},
+        },
+        "required": [
+            "intent", "explicit_action", "wine_name", "producer", "vintage", "format",
+            "quantity", "consumed_at", "note", "score_present", "score_value",
+            "score_scale", "enjoyment", "occasion", "pairing", "companions",
+        ],
+    },
+}
+
+
+@router.post("/cellar-commands", response_model=CellarCommandResponse)
+def create_cellar_ai_command(
+    payload: CellarCommandRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarCommandResponse:
+    existing = db.get(CellarAiCommand, payload.request_id)
+    if existing is not None:
+        if existing.household_id != context.household.id:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Request ID already used")
+        return cellar_command_response(db, context, existing)
+    try:
+        timezone = ZoneInfo(payload.timezone)
+    except ZoneInfoNotFoundError as error:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid timezone") from error
+    local_today = datetime.now(timezone).date()
+    command = CellarAiCommand(
+        id=payload.request_id,
+        household_id=context.household.id,
+        user_id=context.user.id,
+        raw_text=payload.text.strip(),
+        status="processing",
+        parsed_payload={},
+    )
+    db.add(command)
+    db.commit()
+    user_settings = get_or_create_user_ai_settings(db, context)
+    prompt = cellar_command_prompt(
+        locale=payload.locale,
+        command_text=payload.text,
+        local_date=local_today.isoformat(),
+        timezone=payload.timezone,
+    )
+    try:
+        response, provider_source = create_ai_response(
+            db,
+            context,
+            user_settings,
+            model=settings.openai_cellar_command_model,
+            task_type="cellar_command",
+            system_prompt=prompt.system,
+            user_prompt=prompt.user,
+            json_schema=CELLAR_COMMAND_SCHEMA,
+            reasoning_effort="none",
+            max_output_tokens=600,
+        )
+        parsed = parse_json_response(response.text)
+    except Exception:
+        command.status = "failed"
+        db.commit()
+        raise
+
+    if not str(parsed.get("consumed_at") or "").strip():
+        parsed["consumed_at"] = local_today.isoformat()
+    command.intent = str(parsed.get("intent") or "unsupported")
+    command.parsed_payload = parsed
+    command.model = response.model or settings.openai_cellar_command_model
+    command.reasoning_effort = response.reasoning_effort or "none"
+    command.estimated_cost_usd = response.charged_cost_usd
+    score_present = bool(parsed.get("score_present"))
+    score_value = Decimal(str(parsed.get("score_value") or 0))
+    score_scale = int(parsed.get("score_scale") or 0)
+    if score_present and (score_scale <= 0 or score_value > score_scale):
+        command.status = "failed"
+        db.commit()
+        return cellar_command_response(
+            db, context, command, message="Il punteggio indicato non è valido."
+        )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="cellar_command",
+        entity_id=command.id,
+        feature="cellar_command_interpretation",
+        model=command.model,
+        reasoning_effort=command.reasoning_effort,
+        summary=f"{command.intent}: {str(parsed.get('wine_name') or '')[:120]}",
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    if command.intent != "consume_wine":
+        command.status = "unsupported"
+        db.commit()
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message="Per ora posso registrare soltanto il consumo di una bottiglia.",
+        )
+    ranked = matching_cellar_command_wines(db, context, parsed)
+    if not ranked:
+        command.status = "not_found"
+        db.commit()
+        return cellar_command_response(
+            db, context, command, message="Non trovo una bottiglia disponibile corrispondente."
+        )
+    best_wine, best_score = ranked[0]
+    clear_lead = len(ranked) == 1 or best_score - ranked[1][1] >= 20
+    command.status = "needs_confirmation"
+    db.commit()
+    if bool(parsed.get("explicit_action")) and best_score >= 100 and clear_lead:
+        return execute_cellar_ai_command(
+            db, context, command, best_wine.id, local_today=local_today
+        )
+    return cellar_command_response(
+        db,
+        context,
+        command,
+        message="Ho trovato più possibilità: scegli la bottiglia da aggiornare."
+        if len(ranked) > 1
+        else "Ho preparato l’aggiornamento: conferma la bottiglia.",
+    )
+
+
+@router.post("/cellar-commands/{command_id}/execute", response_model=CellarCommandResponse)
+def confirm_cellar_ai_command(
+    command_id: UUID,
+    payload: CellarCommandExecuteRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarCommandResponse:
+    command = db.scalar(
+        select(CellarAiCommand)
+        .where(
+            CellarAiCommand.id == command_id,
+            CellarAiCommand.household_id == context.household.id,
+        )
+        .with_for_update()
+    )
+    if command is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Command not found")
+    return execute_cellar_ai_command(
+        db,
+        context,
+        command,
+        payload.wine_id,
+        local_today=datetime.now(UTC).date(),
+    )
+
+
+@router.post("/cellar-commands/{command_id}/undo", response_model=CellarCommandResponse)
+def undo_cellar_ai_command(
+    command_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarCommandResponse:
+    command = db.scalar(
+        select(CellarAiCommand)
+        .where(
+            CellarAiCommand.id == command_id,
+            CellarAiCommand.household_id == context.household.id,
+        )
+        .with_for_update()
+    )
+    if command is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Command not found")
+    if command.status == "undone":
+        return cellar_command_response(db, context, command, message="Comando già annullato.")
+    if command.status != "executed" or command.matched_wine_id is None or command.tasting_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Command cannot be undone")
+    wine = db.scalar(
+        select(Wine)
+        .where(
+            Wine.id == command.matched_wine_id,
+            Wine.household_id == context.household.id,
+        )
+        .with_for_update()
+    )
+    if wine is None or not user_can_see_wine(context, wine):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+    expected_quantity = max((command.previous_quantity or 1) - 1, 0)
+    if wine.quantity != expected_quantity:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="The wine changed after this command and cannot be safely restored",
+        )
+    tasting = db.scalar(
+        select(WineTastingEntry).where(
+            WineTastingEntry.id == command.tasting_id,
+            WineTastingEntry.household_id == context.household.id,
+        )
+    )
+    if tasting is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Tasting no longer exists")
+    db.delete(tasting)
+    wine.tasting_history = normalize_tasting_history(
+        [
+            dict(entry)
+            for entry in (wine.tasting_history or [])
+            if str(entry.get("id") or "") != str(command.tasting_id)
+        ]
+    )
+    wine.quantity = command.previous_quantity or wine.quantity + 1
+    wine.status = command.previous_status
+    if command.previous_rating is not None:
+        wine.rating = command.previous_rating
+    command.status = "undone"
+    command.undone_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(command)
+    db.refresh(wine)
+    return cellar_command_response(
+        db,
+        context,
+        command,
+        message=f"Annullato. {wine.name} {wine.vintage} è tornato a {wine.quantity} bottiglie.",
+    )
 
 
 def wine_market_context(wine: Wine) -> str:

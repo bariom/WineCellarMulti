@@ -92,6 +92,12 @@ def user_activity_action(method: str, path: str) -> str | None:
         return "ai_wishlist_analysis"
     if path == "/api/v1/ai/regional-gap-targets":
         return "ai_regional_gap_analysis"
+    if path.startswith("/api/v1/ai/cellar-commands"):
+        if path.endswith("/undo"):
+            return "ai_cellar_command_undone"
+        if path.endswith("/execute"):
+            return "ai_cellar_command_executed"
+        return "ai_cellar_command"
     if path.startswith("/api/v1/ai/"):
         return "ai_generation"
     if path.startswith("/api/v1/wines"):

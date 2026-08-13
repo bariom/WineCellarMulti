@@ -1,10 +1,28 @@
 from app.prompts import (
     ai_notes_prompt,
+    cellar_command_prompt,
     grape_composition_prompt,
     wine_value_prompt,
     wine_vineyard_location_prompt,
     wishlist_value_prompt,
 )
+
+
+def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
+    prompt = cellar_command_prompt(
+        locale="it",
+        command_text="Ieri ho bevuto Ornellaia 2015, 9 su 10. Aggiorna la cantina.",
+        local_date="2026-08-13",
+        timezone="Europe/Zurich",
+    )
+
+    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "1")
+    assert "never choose database IDs" in prompt.system
+    assert "Support only consumption" in prompt.system
+    assert "Preserve tasting scores exactly" in prompt.system
+    assert "2026-08-13" in prompt.user
+    assert "Europe/Zurich" in prompt.user
+    assert "Ornellaia 2015" in prompt.user
 
 
 def test_notes_prompt_is_versioned_localized_and_contains_context():

@@ -26,6 +26,32 @@ def language_instruction(locale: str) -> str:
     )
 
 
+def cellar_command_prompt(
+    *, locale: str, command_text: str, local_date: str, timezone: str
+) -> Prompt:
+    return Prompt(
+        id="cellar.command_interpretation",
+        version="1",
+        system=(
+            "You extract one safe cellar operation from the user's text and return only the "
+            "required JSON schema. You never choose database IDs and never claim that an action "
+            "has already happened. Support only consumption of exactly one bottle with an optional "
+            "tasting; requests involving multiple bottles are unsupported. "
+            "Use intent consume_wine only when the user says a bottle was consumed; otherwise use "
+            "unsupported. Set explicit_action true only when the user explicitly asks Vinaris to "
+            "update, register, record, modify, or otherwise apply the operation. Preserve tasting "
+            "scores exactly as stated, including their original scale. Do not invent a producer, "
+            "format, pairing, companions, tasting descriptors, or occasion. Convert relative dates "
+            "using the supplied local date and timezone. Keep the user's factual tasting note concise "
+            "without enriching it with wine knowledge."
+        ),
+        user=(
+            f"Locale: {locale}\nLocal date: {local_date}\nTimezone: {timezone}\n\n"
+            f"User command:\n{command_text.strip()}"
+        ),
+    )
+
+
 def wine_image_recognition_prompt(
     *, locale: str, known_text: str = "", known_context: str = ""
 ) -> Prompt:

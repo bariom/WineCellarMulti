@@ -92,10 +92,14 @@ export type Wine = {
     consumed_at: string;
     note: string;
     rating: number;
+    score_value?: number | string | null;
+    score_scale?: number | null;
     enjoyment: TastingEnjoyment;
     occasion: string;
     pairing: string;
     companions: string;
+    source?: string;
+    source_text?: string;
     sommelier_feedback: string;
     sommelier_pairing_score: number | null;
     sommelier_pairing_advice: string;
@@ -363,10 +367,14 @@ export type TastingArchiveApiItem = {
   consumed_at: string;
   note: string;
   rating: number;
+  score_value?: number | string | null;
+  score_scale?: number | null;
   enjoyment: TastingEnjoyment;
   occasion: string;
   pairing: string;
   companions: string;
+  source?: string;
+  source_text?: string;
   sommelier_feedback: string;
   sommelier_pairing_score: number | null;
   sommelier_pairing_advice: string;
@@ -1062,7 +1070,39 @@ export type OperationalWinePhotos = {
   items: OperationalWinePhoto[];
 };
 
-export type ViewName = "home" | "cellar" | "history" | "wishlist" | "pairing" | "pulse" | "buying" | "help" | "settings";
+export type CellarCommandWineCandidate = {
+  wine_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  format: string;
+  quantity: number;
+};
+
+export type CellarCommandResult = {
+  command_id: string;
+  status: "processing" | "needs_confirmation" | "not_found" | "unsupported" | "executed" | "undone" | "failed";
+  intent: string;
+  message: string;
+  candidates: CellarCommandWineCandidate[];
+  matched_wine: CellarCommandWineCandidate | null;
+  tasting: {
+    consumed_at: string;
+    note: string;
+    score_value: number | string | null;
+    score_scale: number | null;
+    enjoyment: TastingEnjoyment;
+    occasion: string;
+    pairing: string;
+    companions: string;
+  } | null;
+  previous_quantity: number | null;
+  new_quantity: number | null;
+  model: string;
+  estimated_cost_usd: number | string;
+};
+
+export type ViewName = "home" | "cellar" | "history" | "wishlist" | "assistant" | "pairing" | "pulse" | "buying" | "help" | "settings";
 
 export type WineNewsCategory = "wine_world" | "regions_vintages" | "producers" | "market" | "climate_vineyards" | "events_awards";
 
@@ -1142,10 +1182,14 @@ export type TastingArchiveEntry = {
   consumed_at: string;
   note: string;
   rating: number;
+  score_value?: number | string | null;
+  score_scale?: number | null;
   enjoyment: TastingEnjoyment;
   occasion: string;
   pairing: string;
   companions: string;
+  source?: string;
+  source_text?: string;
   sommelier_feedback: string;
   sommelier_pairing_score: number | null;
   sommelier_pairing_advice: string;

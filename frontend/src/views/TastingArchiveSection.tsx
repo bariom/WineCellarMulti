@@ -21,6 +21,8 @@ type TastingArchiveEntry = {
   consumed_at: string;
   note: string;
   rating: number;
+  score_value?: number | string | null;
+  score_scale?: number | null;
   enjoyment: TastingEnjoyment;
   occasion: string;
   pairing: string;
@@ -310,7 +312,9 @@ export default function TastingArchiveSection({
                     {locale === "it" ? "Valuta con AI" : "Evaluate with AI"}
                   </button>
                 ) : null}
-                {entry.rating ? <strong>{entry.rating}/6</strong> : null}
+                {entry.score_value !== null && entry.score_value !== undefined && entry.score_scale
+                  ? <strong>{entry.score_value}/{entry.score_scale}</strong>
+                  : entry.rating ? <strong>{entry.rating}/6</strong> : null}
                 <TastingEnjoymentBadge value={entry.enjoyment} t={t} />
               </div>
             </div>

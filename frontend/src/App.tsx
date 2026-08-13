@@ -25,6 +25,7 @@ import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import { useChartReveal } from "./components/chartMotion";
 import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
+import CellarAssistantView from "./views/CellarAssistantView";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import "./styles.css";
 
@@ -4920,7 +4921,7 @@ export function App() {
     : "viewer";
   const contextualHelpArticle = selectedWineId
     ? "wine-detail"
-    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", pairing: "pairing", pulse: "wine-pulse", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
+    : ({ home: "dashboard", cellar: "cellar-filters", history: "consumption", wishlist: "wishlist", assistant: "consumption", pairing: "pairing", pulse: "wine-pulse", buying: "buying-advice", settings: "roles-cellars" } as Partial<Record<ViewName, string>>)[activeView] || "onboarding";
 
   function updateHelpLocation(slug: string | null, replace = false) {
     const path = slug ? `/help/${encodeURIComponent(slug)}` : "/help";
@@ -5556,10 +5557,14 @@ export function App() {
         consumed_at: entry.consumed_at,
         note: entry.note,
         rating: entry.rating,
+        score_value: entry.score_value,
+        score_scale: entry.score_scale,
         enjoyment: entry.enjoyment,
         occasion: entry.occasion,
         pairing: entry.pairing,
         companions: entry.companions,
+        source: entry.source,
+        source_text: entry.source_text,
         sommelier_feedback: entry.sommelier_feedback,
         sommelier_pairing_score: entry.sommelier_pairing_score,
         sommelier_pairing_advice: entry.sommelier_pairing_advice,
@@ -5582,10 +5587,14 @@ export function App() {
       consumed_at: item.consumed_at,
       note: item.note,
       rating: item.rating,
+      score_value: item.score_value,
+      score_scale: item.score_scale,
       enjoyment: tastingEnjoymentValue(item.enjoyment),
       occasion: item.occasion,
       pairing: item.pairing,
       companions: item.companions,
+      source: item.source,
+      source_text: item.source_text,
       sommelier_feedback: item.sommelier_feedback,
       sommelier_pairing_score: item.sommelier_pairing_score,
       sommelier_pairing_advice: item.sommelier_pairing_advice,
@@ -8868,7 +8877,7 @@ export function App() {
           className={`workspace ${
             activeView === "settings"
               ? "settings-workspace"
-              : activeView === "home" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
+              : activeView === "home" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
@@ -8892,6 +8901,10 @@ export function App() {
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
+            {!isRestaurant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
+              <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
+              {locale === "it" ? "Assistente AI" : "AI Assistant"}
+            </button> : null}
             <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
@@ -10223,6 +10236,17 @@ export function App() {
           ) : null}
 
           {activeView === "pulse" ? <WinePulseView locale={locale} /> : null}
+
+          {activeView === "assistant" ? (
+            <CellarAssistantView
+              locale={locale}
+              disabled={!canGenerateAi || !canWriteWine}
+              onCellarChanged={async () => {
+                await loadWines();
+                if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
+              }}
+            />
+          ) : null}
 
           {activeView === "pairing" ? (
             <section className="pairing-view">
