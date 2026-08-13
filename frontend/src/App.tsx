@@ -1257,6 +1257,7 @@ export function App() {
   const [aiModelAdvice, setAiModelAdvice] = useState<AiModelAdviceState | null>(null);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [openWineEditorSections, setOpenWineEditorSections] = useState<{
+    logistics?: boolean;
     value?: boolean;
     profile?: boolean;
     scores?: boolean;
@@ -5280,7 +5281,7 @@ export function App() {
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
   useEffect(() => {
     if (!wineFormOpen || !isWineCollectionView) return;
-    const sectionKeys = ["identity", "value", "profile", "scores", "tags"] as const;
+    const sectionKeys = ["identity", "logistics", "value", "profile", "scores", "tags"] as const;
     type SectionKey = typeof sectionKeys[number];
     const moveToSection = (key: SectionKey) => {
       if (key !== "identity") setOpenWineEditorSections({ [key]: true });
@@ -10568,83 +10569,12 @@ export function App() {
                   <small className="form-hint">{locale === "it" ? "Lascia vuoto il picco per usare l'intera finestra come periodo ideale. Per rimuovere la finestra, svuota gli anni e salva." : "Leave the peak empty to use the entire window as the ideal period. Clear the years and save to remove it."}</small>
                 </div>
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+2" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
-                    <div><span>02</span><strong>{locale === "it" ? "Acquisto e valore" : "Purchase and value"}</strong></div>
-                    <small>{locale === "it" ? "Prezzi, stato e consegna" : "Prices, status and delivery"}</small>
+                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.logistics ? "is-open" : ""}`} data-wine-editor-section="logistics">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+2" aria-expanded={Boolean(openWineEditorSections.logistics)} onClick={() => setOpenWineEditorSections((current) => current.logistics ? {} : { logistics: true })}>
+                    <div><span>02</span><strong>{locale === "it" ? "Logistica" : "Logistics"}</strong></div>
+                    <small>{isRestaurant ? (locale === "it" ? "Stato, carta, riordino e consegna" : "Status, wine list, reorder and delivery") : (locale === "it" ? "Stato, fornitore e consegna" : "Status, supplier and delivery")}</small>
                   </button>
-                  {openWineEditorSections.value ? <div className="wine-editor-section-body is-visible">
-                <div className="form-row">
-                  <label>
-                    <span>{t("purchasePrice")}</span>
-                    <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  <label>
-                    <span>{t("currentValue")}</span>
-                    <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  {isRestaurant ? <label>
-                    <span>{locale === "it" ? "Prezzo di vendita" : "Sale price"}</span>
-                    <input type="number" min="0" step="0.01" value={draft.sale_price} onChange={(event) => setDraft({ ...draft, sale_price: event.target.value })} disabled={!canWriteWine} />
-                  </label> : null}
-                </div>
-                {isRestaurant ? <div className="form-row restaurant-glass-settings">
-                  <label>
-                    <span>{locale === "it" ? "Prezzo al bicchiere" : "Price per glass"}</span>
-                    <input type="number" min="0" step="0.01" value={draft.glass_price} onChange={(event) => setDraft({ ...draft, glass_price: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  <label>
-                    <span>{locale === "it" ? "Misura mescita (dl)" : "Pour size (dl)"}</span>
-                    <input
-                      type="number"
-                      min="0.25"
-                      max="5"
-                      step="0.05"
-                      value={draft.pour_size_ml === "" ? "" : String(Number(draft.pour_size_ml) / 100)}
-                      onChange={(event) => setDraft({ ...draft, pour_size_ml: event.target.value === "" ? "" : String(Math.round(Number(event.target.value) * 100)) })}
-                      disabled={!canWriteWine}
-                    />
-                    <small>{locale === "it" ? "Dose predefinita: 1 dl." : "Default pour: 1 dl."}</small>
-                  </label>
-                  <label>
-                    <span>{locale === "it" ? "Soglia di riordino" : "Reorder threshold"}</span>
-                    <input type="number" min="0" max="10000" step="1" value={draft.reorder_threshold} onChange={(event) => setDraft({ ...draft, reorder_threshold: event.target.value })} disabled={!canWriteWine} />
-                    <small>{locale === "it" ? "Entra in “Da ordinare” a questa giacenza. Predefinita: 2." : "Listed under Reorder at this stock level. Default: 2."}</small>
-                  </label>
-                </div> : null}
-                {isRestaurant ? <div className="restaurant-commercial-settings">
-                  <label>
-                    <span>{locale === "it" ? "Stato commerciale" : "Commercial status"}</span>
-                    <select value={draft.commercial_status} onChange={(event) => {
-                      const commercialStatus = event.target.value as WineDraft["commercial_status"];
-                      setDraft({ ...draft, commercial_status: commercialStatus, reorder_enabled: commercialStatus === "active" ? draft.reorder_enabled : false });
-                    }} disabled={!canWriteWine}>
-                      <option value="active">{locale === "it" ? "In carta" : "On the list"}</option>
-                      <option value="clearing_out">{locale === "it" ? "A esaurimento" : "Clearing out"}</option>
-                      <option value="suspended">{locale === "it" ? "Sospeso" : "Suspended"}</option>
-                      <option value="off_list">{locale === "it" ? "Fuori carta" : "Off list"}</option>
-                    </select>
-                    <small>{locale === "it" ? "A esaurimento resta vendibile, ma non viene più proposto per il riordino." : "Clearing-out wines remain sellable but are no longer suggested for reorder."}</small>
-                  </label>
-                  <label className="restaurant-reorder-toggle">
-                    <input type="checkbox" checked={draft.reorder_enabled} onChange={(event) => setDraft({ ...draft, reorder_enabled: event.target.checked })} disabled={!canWriteWine || draft.commercial_status !== "active"} />
-                    <span>{locale === "it" ? "Includi nei vini da riordinare" : "Include in wines to reorder"}</span>
-                  </label>
-                </div> : null}
-                <div className="form-row vintage-companion-row">
-                  <label>
-                    <span>{t("currency")}</span>
-                    <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  <label>
-                    <span>{t("merchant")}</span>
-                    <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  {isRestaurant && !editingId ? <label>
-                    <span>{locale === "it" ? "Riferimento acquisto" : "Purchase reference"}</span>
-                    <input value={draft.initial_stock_reference} maxLength={160} onChange={(event) => setDraft({ ...draft, initial_stock_reference: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} />
-                  </label> : null}
-                </div>
+                  {openWineEditorSections.logistics ? <div className="wine-editor-section-body is-visible">
                 <div className="form-row">
                   <label>
                     <span>{t("status")}</span>
@@ -10665,11 +10595,82 @@ export function App() {
                     <input type="date" value={draft.expected_delivery} onChange={(event) => setDraft({ ...draft, expected_delivery: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
+                {isRestaurant ? <div className="restaurant-commercial-settings">
+                  <label>
+                    <span>{locale === "it" ? "Stato in carta" : "Wine list status"}</span>
+                    <select value={draft.commercial_status} onChange={(event) => {
+                      const commercialStatus = event.target.value as WineDraft["commercial_status"];
+                      setDraft({ ...draft, commercial_status: commercialStatus, reorder_enabled: commercialStatus === "active" ? draft.reorder_enabled : false });
+                    }} disabled={!canWriteWine}>
+                      <option value="active">{locale === "it" ? "In carta" : "On the list"}</option>
+                      <option value="clearing_out">{locale === "it" ? "A esaurimento" : "Clearing out"}</option>
+                      <option value="suspended">{locale === "it" ? "Sospeso" : "Suspended"}</option>
+                      <option value="off_list">{locale === "it" ? "Fuori carta" : "Off list"}</option>
+                    </select>
+                    <small>{locale === "it" ? "Definisce la presenza del vino nella carta del ristorante." : "Controls whether this wine appears on the restaurant list."}</small>
+                  </label>
+                  <label>
+                    <span>{locale === "it" ? "Soglia di riordino" : "Reorder threshold"}</span>
+                    <input type="number" min="0" max="10000" step="1" value={draft.reorder_threshold} onChange={(event) => setDraft({ ...draft, reorder_threshold: event.target.value })} disabled={!canWriteWine} />
+                    <small>{locale === "it" ? "Entra in “Da ordinare” a questa giacenza. Predefinita: 2." : "Listed under Reorder at this stock level. Default: 2."}</small>
+                  </label>
+                  <label className="restaurant-reorder-toggle">
+                    <input type="checkbox" checked={draft.reorder_enabled} onChange={(event) => setDraft({ ...draft, reorder_enabled: event.target.checked })} disabled={!canWriteWine || draft.commercial_status !== "active"} />
+                    <span>{locale === "it" ? "Includi nei vini da riordinare" : "Include in wines to reorder"}</span>
+                  </label>
+                </div> : null}
+                <div className="form-row vintage-companion-row">
+                  <label>
+                    <span>{t("merchant")}</span>
+                    <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
+                  </label>
+                  {isRestaurant && !editingId ? <label>
+                    <span>{locale === "it" ? "Riferimento acquisto" : "Purchase reference"}</span>
+                    <input value={draft.initial_stock_reference} maxLength={160} onChange={(event) => setDraft({ ...draft, initial_stock_reference: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} />
+                  </label> : null}
+                </div>
+                  </div> : null}
+                </section>
+                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+3" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
+                    <div><span>03</span><strong>{locale === "it" ? "Prezzi e valore" : "Prices and value"}</strong></div>
+                    <small>{isRestaurant ? (locale === "it" ? "Costi, prezzi di carta e mescita" : "Costs, wine-list prices and by-the-glass service") : (locale === "it" ? "Valuta, costo e valore attuale" : "Currency, cost and current value")}</small>
+                  </button>
+                  {openWineEditorSections.value ? <div className="wine-editor-section-body is-visible">
+                    <div className="form-row">
+                      <label>
+                        <span>{t("currency")}</span>
+                        <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
+                      </label>
+                      <label>
+                        <span>{t("purchasePrice")}</span>
+                        <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
+                      </label>
+                      <label>
+                        <span>{t("currentValue")}</span>
+                        <input type="number" min="0" step="0.01" value={draft.current_value} onChange={(event) => setDraft({ ...draft, current_value: event.target.value })} disabled={!canWriteWine} />
+                      </label>
+                      {isRestaurant ? <label>
+                        <span>{locale === "it" ? "Prezzo di vendita" : "Sale price"}</span>
+                        <input type="number" min="0" step="0.01" value={draft.sale_price} onChange={(event) => setDraft({ ...draft, sale_price: event.target.value })} disabled={!canWriteWine} />
+                      </label> : null}
+                    </div>
+                    {isRestaurant ? <div className="form-row restaurant-glass-settings">
+                      <label>
+                        <span>{locale === "it" ? "Prezzo al bicchiere" : "Price per glass"}</span>
+                        <input type="number" min="0" step="0.01" value={draft.glass_price} onChange={(event) => setDraft({ ...draft, glass_price: event.target.value })} disabled={!canWriteWine} />
+                      </label>
+                      <label>
+                        <span>{locale === "it" ? "Misura mescita (dl)" : "Pour size (dl)"}</span>
+                        <input type="number" min="0.25" max="5" step="0.05" value={draft.pour_size_ml === "" ? "" : String(Number(draft.pour_size_ml) / 100)} onChange={(event) => setDraft({ ...draft, pour_size_ml: event.target.value === "" ? "" : String(Math.round(Number(event.target.value) * 100)) })} disabled={!canWriteWine} />
+                        <small>{locale === "it" ? "Dose predefinita: 1 dl." : "Default pour: 1 dl."}</small>
+                      </label>
+                    </div> : null}
                   </div> : null}
                 </section>
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.profile ? "is-open" : ""}`} data-wine-editor-section="profile">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+3" aria-expanded={Boolean(openWineEditorSections.profile)} onClick={() => setOpenWineEditorSections((current) => current.profile ? {} : { profile: true })}>
-                    <div><span>03</span><strong>{locale === "it" ? "Profilo del vino" : "Wine profile"}</strong></div>
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+4" aria-expanded={Boolean(openWineEditorSections.profile)} onClick={() => setOpenWineEditorSections((current) => current.profile ? {} : { profile: true })}>
+                    <div><span>04</span><strong>{locale === "it" ? "Profilo del vino" : "Wine profile"}</strong></div>
                     <small>{locale === "it" ? "Note e uvaggi" : "Notes and grapes"}</small>
                   </button>
                   {openWineEditorSections.profile ? <div className="wine-editor-section-body is-visible">
@@ -10745,8 +10746,8 @@ export function App() {
                   </div> : null}
                 </section>
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.scores ? "is-open" : ""}`} data-wine-editor-section="scores">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+4" aria-expanded={Boolean(openWineEditorSections.scores)} onClick={() => setOpenWineEditorSections((current) => current.scores ? {} : { scores: true })}>
-                    <div><span>04</span><strong>{locale === "it" ? "Punteggi e proprietà" : "Scores and ownership"}</strong></div>
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+5" aria-expanded={Boolean(openWineEditorSections.scores)} onClick={() => setOpenWineEditorSections((current) => current.scores ? {} : { scores: true })}>
+                    <div><span>05</span><strong>{locale === "it" ? "Punteggi e proprietà" : "Scores and ownership"}</strong></div>
                     <small>{locale === "it" ? "Critici, quote e comproprietari" : "Critics, shares and co-owners"}</small>
                   </button>
                   {openWineEditorSections.scores ? <div className="wine-editor-section-body is-visible">
@@ -10811,8 +10812,8 @@ export function App() {
                   </div> : null}
                 </section>
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.tags ? "is-open" : ""}`} data-wine-editor-section="tags">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+5" aria-expanded={Boolean(openWineEditorSections.tags)} onClick={() => setOpenWineEditorSections((current) => current.tags ? {} : { tags: true })}>
-                    <div><span>05</span><strong>{t("tags")}</strong></div>
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+6" aria-expanded={Boolean(openWineEditorSections.tags)} onClick={() => setOpenWineEditorSections((current) => current.tags ? {} : { tags: true })}>
+                    <div><span>06</span><strong>{t("tags")}</strong></div>
                     <small>{locale === "it" ? "Occasioni e organizzazione" : "Occasions and organization"}</small>
                   </button>
                   {openWineEditorSections.tags ? <div className="wine-editor-section-body is-visible">

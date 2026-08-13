@@ -968,6 +968,13 @@ export function WineDetail({
     !wine.grapes_not_applicable && (!Array.isArray(wine.grapes) || !wine.grapes.length) ? sharedFeatureLabels.grapes : "",
     !wine.scores_not_applicable && (!Array.isArray(wine.scores) || !wine.scores.length) ? sharedFeatureLabels.scores : "",
   ].filter(Boolean);
+  const commercialStatuses: Array<{ value: Wine["commercial_status"]; label: string }> = [
+    { value: "active", label: locale === "it" ? "In carta" : "On the list" },
+    { value: "clearing_out", label: locale === "it" ? "A esaurimento" : "Clearing out" },
+    { value: "suspended", label: locale === "it" ? "Sospeso" : "Suspended" },
+    { value: "off_list", label: locale === "it" ? "Fuori carta" : "Off list" },
+  ];
+  const commercialStatus = commercialStatuses.find((item) => item.value === wine.commercial_status) || commercialStatuses[0];
 
   useEffect(() => {
     setConsumeDraft(emptyConsumeWineDraft());
@@ -1018,9 +1025,21 @@ export function WineDetail({
               />
             ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null : null}
             <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
-            {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
+            {restaurantMode ? <div className="restaurant-detail-quick-actions">
+              {canWrite ? <details className={`wine-commercial-status is-${commercialStatus.value}`}>
+                <summary>{commercialStatus.label}</summary>
+                <div role="menu" aria-label={locale === "it" ? "Stato in carta" : "Wine list status"}>
+                  {commercialStatuses.map((status) => <button type="button" role="menuitemradio" aria-checked={status.value === wine.commercial_status} key={status.value} disabled={saving || status.value === wine.commercial_status} onClick={(event) => {
+                    void onUpdateCommercialStatus(status.value);
+                    event.currentTarget.closest("details")?.removeAttribute("open");
+                  }}>{status.label}</button>)}
+                </div>
+              </details> : <span className={`wine-commercial-status wine-commercial-status--readonly is-${commercialStatus.value}`}>{commercialStatus.label}</span>}
+              {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
+              <strong>{detailValue}</strong>
+            </div> : <>{photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}</>}
           </div>
-          <strong>{detailValue}</strong>
+          {!restaurantMode ? <strong>{detailValue}</strong> : null}
         </div>
 
         {wine.vineyard_latitude !== null && wine.vineyard_longitude !== null ? (
