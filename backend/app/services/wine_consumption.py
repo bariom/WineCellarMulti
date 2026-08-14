@@ -101,6 +101,7 @@ def record_wine_consumption(
     source: str = "manual",
     source_text: str = "",
     created_by_user_id: UUID | None = None,
+    storage_allocation_id: UUID | None = None,
 ) -> WineConsumptionResult:
     if wine.quantity <= 0:
         raise NoBottlesAvailableError("No bottles left to consume")
@@ -157,6 +158,7 @@ def record_wine_consumption(
         occurred_on=consumed_at,
         note=tasting_entry["note"],
         user_id=created_by_user_id,
+        storage_allocation_id=storage_allocation_id,
     )
     if rating > 0:
         wine.rating = max(0, min(int(rating), 6))

@@ -24,6 +24,7 @@ from app.models.operational_metrics import OperationalAlertState, OperationalMet
 from app.models.passkey import PasskeyChallenge, UserPasskey
 from app.models.session import UserSession
 from app.models.shared_wine_data import SharedWineFact, SharedWineIdentity
+from app.models.storage import CellarBin, CellarLocation, WineStorageAllocation, WineStorageMovement
 from app.models.tags import UserTag, UserWineTag
 from app.models.user import User, UserMonitorDeviceToken
 from app.models.user_activity import UserActivityLog
@@ -50,6 +51,8 @@ __all__ = [
     "AiAuditLog",
     "AppAiPricing",
     "CellarAiCommand",
+    "CellarBin",
+    "CellarLocation",
     "CoOwnershipAgreement",
     "CoOwnershipParticipant",
     "CoOwnershipPayment",
@@ -85,6 +88,8 @@ __all__ = [
     "WineSale",
     "WineStockLot",
     "WineStockMovement",
+    "WineStorageAllocation",
+    "WineStorageMovement",
     "WineTastingEntry",
     "WineCatalogAlias",
     "WineCatalogEntry",

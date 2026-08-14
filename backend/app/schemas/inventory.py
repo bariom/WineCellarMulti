@@ -23,6 +23,9 @@ class StockMovementCreate(BaseModel):
     supplier: str = Field(default="", max_length=160)
     reference: str = Field(default="", max_length=160)
     note: str = Field(default="", max_length=1000)
+    storage_location_id: UUID | None = None
+    storage_bin_id: UUID | None = None
+    storage_allocation_id: UUID | None = None
 
     @model_validator(mode="after")
     def validate_purchase(self) -> "StockMovementCreate":

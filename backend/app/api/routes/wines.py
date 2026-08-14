@@ -69,6 +69,11 @@ from app.services.stock_ledger import (
     add_inbound_stock,
     reconcile_direct_quantity_change,
 )
+from app.services.storage import (
+    add_to_storage,
+    allocation_responses_by_wine,
+    sync_storage_to_wine_quantity,
+)
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -273,10 +278,13 @@ def wine_response(
     value_history: list[WineValueHistory] | None = None,
     *,
     include_details: bool = True,
+    storage_allocations=None,
 ) -> WineResponse:
     if include_details:
         response = WineResponse.model_validate(wine)
         response = response.model_copy(update={"details_loaded": True, **photo_urls(wine)})
+        if storage_allocations is not None:
+            response = response.model_copy(update={"storage_allocations": storage_allocations})
         if value_history is not None:
             response = response.model_copy(update={"value_history": value_history})
         if tag_names is not None and tag_names:
@@ -293,6 +301,7 @@ def wine_response(
         producer=wine.producer,
         vintage=wine.vintage,
         quantity=wine.quantity,
+        storage_allocations=storage_allocations or [],
         currency=wine.currency,
         price=wine.price,
         sale_price=wine.sale_price,
@@ -568,7 +577,8 @@ def list_wines(
     wines = [wine for wine in wines if user_can_see_wine(context, wine)]
     wine_ids = [wine.id for wine in wines]
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
-    return [wine_response(wine, tags_by_wine.get(wine.id), include_details=False) for wine in wines]
+    storage_by_wine = allocation_responses_by_wine(db, wine_ids)
+    return [wine_response(wine, tags_by_wine.get(wine.id), include_details=False, storage_allocations=storage_by_wine.get(wine.id, [])) for wine in wines]
 
 
 @router.get("/value-history/portfolio")
@@ -1136,6 +1146,8 @@ def create_wine(
         data["reorder_enabled"] = False
     tag_names = data.pop("tags", [])
     initial_stock_reference = data.pop("initial_stock_reference", "")
+    data.pop("storage_allocations", None)
+    initial_storage_allocations = payload.storage_allocations
     data["owners"] = normalize_owner_rows(data.get("owners", []))
     data["type"] = normalize_wine_type(data.get("type"))
     if data.get("scores"):
@@ -1164,7 +1176,16 @@ def create_wine(
             note="Initial purchase",
             user_id=context.user.id,
             update_quantity=False,
+            update_storage=not bool(initial_storage_allocations),
         )
+        for allocation in initial_storage_allocations:
+            add_to_storage(
+                db,
+                wine,
+                allocation.quantity,
+                location_id=allocation.location_id,
+                bin_id=allocation.bin_id,
+            )
     ensure_catalog_entry_for_wine_data(db, data)
     shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
@@ -1174,7 +1195,7 @@ def create_wine(
     reuse_best_matching_photo(db, wine)
     db.commit()
     db.refresh(wine)
-    return wine_response(wine, tag_names, wine_value_history_by_wine(db, [wine.id]).get(wine.id))
+    return wine_response(wine, tag_names, wine_value_history_by_wine(db, [wine.id]).get(wine.id), storage_allocations=allocation_responses_by_wine(db, [wine.id]).get(wine.id, []))
 
 
 @router.get("/{wine_id}", response_model=WineResponse)
@@ -1203,6 +1224,7 @@ def get_wine(
         wine,
         user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
         wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+        storage_allocations=allocation_responses_by_wine(db, [wine.id]).get(wine.id, []),
     )
 
 
@@ -1631,6 +1653,8 @@ def update_wine(
             previous_quantity=previous_quantity,
             user_id=context.user.id,
         )
+    if "quantity" in data:
+        sync_storage_to_wine_quantity(db, wine)
     if "current_value" in data and "ai_value_estimated_at" not in data:
         wine.ai_value_estimated_at = None
     identity_fields = {"name", "producer", "vintage"}
@@ -1671,6 +1695,7 @@ def update_wine(
         if tag_names is not None
         else user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
         wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+        storage_allocations=allocation_responses_by_wine(db, [wine.id]).get(wine.id, []),
     )
 
 
@@ -1694,6 +1719,7 @@ def consume_wine_bottle(
             pairing=payload.tasting_pairing,
             companions=payload.tasting_companions,
             created_by_user_id=context.user.id,
+            storage_allocation_id=payload.storage_allocation_id,
         )
     except NoBottlesAvailableError as error:
         raise HTTPException(
@@ -1706,6 +1732,7 @@ def consume_wine_bottle(
         wine,
         user_tag_names_by_wine(db, context, [wine.id]).get(wine.id),
         wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+        storage_allocations=allocation_responses_by_wine(db, [wine.id]).get(wine.id, []),
     )
 
 

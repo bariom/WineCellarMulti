@@ -19,6 +19,7 @@ import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNu
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
 import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, coOwnershipTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
+import { CellarStorageManager, WineLocationPicker } from "./components/StoragePanels";
 import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
@@ -444,6 +445,8 @@ const emptyDraft: WineDraft = {
   appellation: "",
   merchant: "",
   initial_stock_reference: "",
+  storage_location_id: "",
+  storage_bin_id: "",
   order_date: "",
   expected_delivery: "",
   owner_share_pct: "100",
@@ -1486,6 +1489,7 @@ export function App() {
 
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [storageFilter, setStorageFilter] = useState("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [maturityFilter, setMaturityFilter] = useState<MaturityFilter>(null);
@@ -4020,7 +4024,9 @@ export function App() {
     try {
       const payload = draftPayload(draft);
       if (editingId) {
-        await api<Wine>(`/api/v1/wines/${editingId}`, { method: "PATCH", body: JSON.stringify(payload) });
+        const { storage_allocations, ...updatePayload } = payload;
+        void storage_allocations;
+        await api<Wine>(`/api/v1/wines/${editingId}`, { method: "PATCH", body: JSON.stringify(updatePayload) });
       } else {
         const created = await api<Wine>("/api/v1/wines", { method: "POST", body: JSON.stringify(payload) });
         if (pendingBottlePhoto) {
@@ -4419,6 +4425,7 @@ export function App() {
           tasting_occasion: payload.tasting_occasion.trim(),
           tasting_pairing: payload.tasting_pairing.trim(),
           tasting_companions: payload.tasting_companions.trim(),
+          storage_allocation_id: payload.storage_allocation_id || undefined,
         }),
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
@@ -4522,6 +4529,7 @@ export function App() {
           unit_sale_price: payload.unit_sale_price ? Number(payload.unit_sale_price) : undefined,
           sale_kind: payload.sale_kind,
           note: payload.note.trim(),
+          storage_allocation_id: payload.storage_allocation_id || undefined,
         }),
       });
       await loadWines();
@@ -5474,6 +5482,11 @@ export function App() {
   const wineTypeOptions = uniqueSorted(activeWineCollection.map((wine) => normalizeWineType(wine.type)));
   const wishlistTypeOptions = uniqueSorted(wishlist.map((item) => normalizeWineType(item.type)));
   const wineStatusOptions = uniqueSorted(activeWineCollection.map((wine) => wine.status));
+  const storageFilterOptions = Array.from(new Map(activeWineCollection.flatMap((wine) => (wine.storage_allocations || []).map((allocation) => {
+    const value = allocation.location_id ? `${allocation.location_id}:${allocation.bin_id || ""}` : "unassigned";
+    const label = allocation.location_id ? `${allocation.location_name}${allocation.bin_name ? ` · ${allocation.bin_name}` : ""}` : (locale === "it" ? "Da collocare" : "Unassigned");
+    return [value, label] as const;
+  })))).map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label));
   const wishlistStatusOptions = uniqueSorted(wishlist.map((item) => item.status));
   const tagOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.tags));
   const grapeOptions = uniqueSorted(activeWineCollection.flatMap((wine) => wine.grapes.map((grape) => grape.name)));
@@ -5559,6 +5572,7 @@ export function App() {
     region: regionFilter,
     type: typeFilter,
     status: statusFilter,
+    storage: storageFilter,
     minPrice: hasMinBottlePrice ? minBottlePrice : null,
     maxPrice: hasMaxBottlePrice ? maxBottlePrice : null,
     ownership: ownershipFilter,
@@ -6534,6 +6548,7 @@ export function App() {
     profile: t("settingsProfile"),
     ai: t("settingsAi"),
     restaurant: locale === "it" ? "Ristorante" : "Restaurant",
+    storage: locale === "it" ? "Collocazione" : "Storage",
     tags: t("settingsTags"),
     sharing: t("settingsSharing"),
     users: t("settingsUsers"),
@@ -6783,6 +6798,7 @@ export function App() {
     ...(regionFilter ? [{ key: "region", label: `${locale === "it" ? "Regione" : "Region"}: ${regionFilter}`, onRemove: () => setRegionFilter("") }] : []),
     ...(typeFilter ? [{ key: "type", label: displayValue(typeFilter, locale, "type"), onRemove: () => setTypeFilter("") }] : []),
     ...(statusFilter ? [{ key: "status", label: displayValue(statusFilter, locale, "status"), onRemove: () => setStatusFilter("") }] : []),
+    ...(storageFilter ? [{ key: "storage", label: storageFilterOptions.find((item) => item.value === storageFilter)?.label || storageFilter, onRemove: () => setStorageFilter("") }] : []),
     ...(ownershipFilter ? [{ key: "ownership", label: ownershipFilter === "mine" ? t("myBottles") : t("sharedBottles"), onRemove: () => setOwnershipFilter("") }] : []),
     ...(quickWineFilter ? [{ key: "quick", label: quickWineFilterLabels[quickWineFilter], onRemove: () => setQuickWineFilter("") }] : []),
     ...(maturityFilter ? [{ key: "maturity", label: `${wineToneLabel(maturityFilter.tone, locale)} ${maturityFilter.year}`, onRemove: () => setMaturityFilter(null) }] : []),
@@ -7123,6 +7139,7 @@ export function App() {
     setRegionFilter("");
     setTypeFilter("");
     setStatusFilter("");
+    setStorageFilter("");
     setOwnershipFilter("");
     setQuickWineFilter("");
     setMaturityFilter(null);
@@ -10801,6 +10818,16 @@ export function App() {
                     <input value={draft.initial_stock_reference} maxLength={160} onChange={(event) => setDraft({ ...draft, initial_stock_reference: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} />
                   </label> : null}
                 </div>
+                {!editingId ? <>
+                  <WineLocationPicker
+                    locale={locale}
+                    locationId={draft.storage_location_id}
+                    binId={draft.storage_bin_id}
+                    disabled={!canWriteWine}
+                    onChange={(locationId, binId) => setDraft({ ...draft, storage_location_id: locationId, storage_bin_id: binId })}
+                  />
+                  <small className="form-hint">{locale === "it" ? "Tutte le bottiglie iniziali saranno collocate qui; potrai dividerle dalla scheda del vino." : "All initial bottles will be placed here; you can split them from the wine detail."}</small>
+                </> : null}
                   </div> : null}
                 </section>
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
@@ -11719,6 +11746,13 @@ export function App() {
                     {activeStatusOptions.map((status) => <option key={status} value={status}>{displayValue(status, locale, "status")}</option>)}
                   </select>
                 </label>
+                {activeView === "cellar" ? <label>
+                  <span>{locale === "it" ? "Collocazione" : "Storage"}</span>
+                  <select value={storageFilter} onChange={(event) => setStorageFilter(event.target.value)}>
+                    <option value="">{locale === "it" ? "Tutte le posizioni" : "All positions"}</option>
+                    {storageFilterOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                </label> : null}
               </div>
               {isWineCollectionView ? (
                 <div className="price-filter-panel">
@@ -12044,6 +12078,13 @@ export function App() {
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
                       <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, isRestaurant)}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
+                      {wine.storage_allocations?.length ? <span className="row-chip wine-storage-chip">
+                        <AppIcon name="location" variant="action" size="0.85rem" />
+                        {wine.storage_allocations[0].location_id
+                          ? `${wine.storage_allocations[0].location_name}${wine.storage_allocations[0].bin_name ? ` · ${wine.storage_allocations[0].bin_name}` : ""}`
+                          : (locale === "it" ? "Da collocare" : "Unassigned")}
+                        {wine.storage_allocations.length > 1 ? ` +${wine.storage_allocations.length - 1}` : ""}
+                      </span> : null}
                       {activeView === "cellar" && isSommelierSpotlightWine(wine) ? (
                         <button
                           type="button"
@@ -12919,6 +12960,10 @@ export function App() {
                     <p className="empty-state">{t("noAiUsage")}</p>
                   )}
                 </section>
+              ) : null}
+
+              {settingsTab === "storage" ? (
+                <CellarStorageManager locale={locale} canWrite={canWriteWine} />
               ) : null}
 
               {settingsTab === "tags" && canWriteWine ? (

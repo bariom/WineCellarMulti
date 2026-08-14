@@ -264,6 +264,7 @@ export function wineSearchText(wine: Wine) {
     wine.status,
     wine.notes,
     wine.ai_notes,
+    (wine.storage_allocations || []).map((allocation) => `${allocation.location_name} ${allocation.bin_name}`).join(" "),
     wine.rating ? `${wine.rating} stars rating` : "",
     wine.tags.join(" "),
     wine.grapes.map((grape) => grape.name).join(" "),
@@ -296,6 +297,13 @@ export function matchesWineCollectionFilters(wine: Wine, filters: WineCollection
   if (filters.region && wine.region.trim().toLocaleLowerCase() !== filters.region.toLocaleLowerCase()) return false;
   if (filters.type && normalizeWineType(wine.type) !== filters.type) return false;
   if (filters.status && wine.status !== filters.status) return false;
+  if (filters.storage) {
+    const matchesStorage = (wine.storage_allocations || []).some((allocation) => {
+      if (filters.storage === "unassigned") return !allocation.location_id;
+      return `${allocation.location_id || ""}:${allocation.bin_id || ""}` === filters.storage;
+    });
+    if (!matchesStorage) return false;
+  }
   const bottlePrice = Number(wine.price || 0);
   if (filters.minPrice !== null && bottlePrice < filters.minPrice) return false;
   if (filters.maxPrice !== null && bottlePrice > filters.maxPrice) return false;

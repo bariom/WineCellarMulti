@@ -35,6 +35,7 @@ export type Wine = {
   producer: string;
   vintage: string;
   quantity: number;
+  storage_allocations?: StorageAllocation[];
   currency: string;
   price: string;
   sale_price: string | null;
@@ -119,6 +120,7 @@ export type ConsumeWineDraft = {
   tasting_occasion: string;
   tasting_pairing: string;
   tasting_companions: string;
+  storage_allocation_id?: string;
 };
 
 export type WineSaleDraft = {
@@ -127,6 +129,7 @@ export type WineSaleDraft = {
   unit_sale_price: string;
   note: string;
   sale_kind: "bottle" | "glass";
+  storage_allocation_id?: string;
 };
 
 export type WineSale = {
@@ -259,6 +262,8 @@ export type WineDraft = {
   appellation: string;
   merchant: string;
   initial_stock_reference: string;
+  storage_location_id: string;
+  storage_bin_id: string;
   order_date: string;
   expected_delivery: string;
   owner_share_pct: string;
@@ -553,6 +558,10 @@ export type WineStockLot = {
   note: string;
   created_at: string;
 };
+
+export type CellarBin = { id: string; location_id: string; name: string; description: string; sort_order: number; bottle_count: number };
+export type CellarLocation = { id: string; name: string; description: string; is_default: boolean; sort_order: number; bottle_count: number; bins: CellarBin[] };
+export type StorageAllocation = { id: string; wine_id: string; location_id: string | null; location_name: string; bin_id: string | null; bin_name: string; quantity: number };
 
 export type Member = {
   membership_id: string;
@@ -933,7 +942,7 @@ export type DashboardFocus =
   | "timeline"
   | "data";
 
-export type SettingsTab = "profile" | "ai" | "restaurant" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
+export type SettingsTab = "profile" | "ai" | "restaurant" | "storage" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
 
 export type UserActivityLogEntry = {
   id: string;
@@ -1276,6 +1285,7 @@ export type WineCollectionFilters = {
   region: string;
   type: string;
   status: string;
+  storage: string;
   minPrice: number | null;
   maxPrice: number | null;
   ownership: string;

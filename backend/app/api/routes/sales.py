@@ -106,6 +106,7 @@ def consume_glass_volume(
     glasses: int,
     user_id: UUID,
     service_loss_ml: int,
+    storage_allocation_id: UUID | None = None,
 ) -> Decimal:
     pour_size_ml = max(int(wine.pour_size_ml or 100), 1)
     volume_ml = commercial_bottle_yield_ml(wine.format, service_loss_ml)
@@ -139,6 +140,7 @@ def consume_glass_volume(
             user_id=user_id,
             sale=sale,
             preferred_lot_id=wine.open_bottle_lot_id,
+            storage_allocation_id=storage_allocation_id,
         )
         allocated_cost += fifo_total_cost - original_cost
         consumed_bottles += 1
@@ -257,6 +259,7 @@ def create_sale(
             glasses=payload.quantity,
             user_id=context.user.id,
             service_loss_ml=context.household.restaurant_service_loss_ml,
+            storage_allocation_id=payload.storage_allocation_id,
         )
         sale.total_purchase_cost = glass_cost
         sale.unit_purchase_cost = (glass_cost / payload.quantity).quantize(Decimal("0.01"))
@@ -271,6 +274,7 @@ def create_sale(
             user_id=context.user.id,
             sale=sale,
             reserved_lot_id=wine.open_bottle_lot_id,
+            storage_allocation_id=payload.storage_allocation_id,
         )
         sale.unit_purchase_cost = fifo_unit_cost
         sale.total_purchase_cost = fifo_total_cost

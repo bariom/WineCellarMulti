@@ -9,6 +9,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.models import Wine, WineSale, WineStockLot, WineStockMovement
+from app.services.storage import add_to_storage, remove_from_storage, sync_storage_to_wine_quantity
 
 INBOUND_TYPES = {"purchase", "adjustment_in"}
 INBOUND_LEDGER_TYPES = INBOUND_TYPES | {"initial_purchase", "sale_void"}
@@ -74,6 +75,9 @@ def add_inbound_stock(
     note: str,
     user_id: uuid.UUID | None,
     update_quantity: bool = True,
+    storage_location_id: uuid.UUID | None = None,
+    storage_bin_id: uuid.UUID | None = None,
+    update_storage: bool = True,
 ) -> list[WineStockMovement]:
     if movement_type not in INBOUND_LEDGER_TYPES or quantity <= 0:
         raise ValueError("Invalid inbound stock movement")
@@ -107,6 +111,14 @@ def add_inbound_stock(
         note=lot.note,
     )
     db.add(movement)
+    if update_storage:
+        add_to_storage(
+            db,
+            wine,
+            quantity,
+            location_id=storage_location_id,
+            bin_id=storage_bin_id,
+        )
     if update_quantity:
         wine.quantity += quantity
         if wine.quantity > 0 and wine.status.lower() == "sold":
@@ -127,6 +139,8 @@ def remove_fifo_stock(
     update_quantity: bool = True,
     reserved_lot_id: uuid.UUID | None = None,
     preferred_lot_id: uuid.UUID | None = None,
+    storage_allocation_id: uuid.UUID | None = None,
+    update_storage: bool = True,
 ) -> tuple[list[WineStockMovement], Decimal, Decimal]:
     if movement_type not in OUTBOUND_TYPES | {"sale"} or quantity <= 0:
         raise ValueError("Invalid outbound stock movement")
@@ -135,6 +149,8 @@ def remove_fifo_stock(
             status_code=status.HTTP_409_CONFLICT, detail="Not enough bottles in stock"
         )
     ensure_opening_stock(db, wine, user_id=user_id)
+    if update_storage:
+        sync_storage_to_wine_quantity(db, wine)
     lots = list(
         db.scalars(
             select(WineStockLot)
@@ -193,6 +209,8 @@ def remove_fifo_stock(
         wine.quantity -= quantity
         if wine.quantity == 0:
             wine.status = "Sold"
+    if update_storage:
+        remove_from_storage(db, wine, quantity, allocation_id=storage_allocation_id)
     return movements, (total_cost / quantity).quantize(Decimal("0.01")), total_cost
 
 

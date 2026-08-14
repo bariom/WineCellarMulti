@@ -13,6 +13,7 @@ class WineSaleCreate(BaseModel):
     unit_sale_price: Decimal | None = Field(default=None, ge=0)
     note: str = Field(default="", max_length=1000)
     sale_kind: Literal["bottle", "glass"] = "bottle"
+    storage_allocation_id: UUID | None = None
 
 
 class WineSaleUpdate(BaseModel):

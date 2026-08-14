@@ -18,6 +18,8 @@ from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import (
     AiAuditLog,
+    CellarBin,
+    CellarLocation,
     HouseholdInvite,
     Membership,
     User,
@@ -26,10 +28,18 @@ from app.models import (
     Wine,
     WineSale,
     WineShareOffer,
+    WineStorageAllocation,
     WineTastingEntry,
     WineValueHistory,
     WishlistItem,
     WishlistList,
+)
+from app.services.storage import (
+    add_to_storage,
+    allocation_responses_by_wine,
+    clean_storage_name,
+    normalized_storage_name,
+    sync_storage_to_wine_quantity,
 )
 
 router = APIRouter(prefix="/imports")
@@ -253,6 +263,7 @@ def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
         )
     )
     wine_ids = [wine.id for wine in wines]
+    storage_by_wine = allocation_responses_by_wine(db, wine_ids)
     value_history_by_wine: dict[UUID, list[dict[str, Any]]] = {wine.id: [] for wine in wines}
     if wine_ids:
         value_history = db.scalars(
@@ -267,6 +278,10 @@ def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
     for wine in wines:
         payload = model_payload(wine)
         payload["value_history"] = value_history_by_wine.get(wine.id, [])
+        payload["storage_allocations"] = [
+            allocation.model_dump(mode="json")
+            for allocation in storage_by_wine.get(wine.id, [])
+        ]
         payloads.append(payload)
     return payloads
 
@@ -774,6 +789,43 @@ def import_vinaris_json_payload(
     imported_wine_ids: dict[UUID, UUID] = {}
     imported_wishlist_ids: dict[UUID, UUID] = {}
 
+    def imported_storage_destination(raw: dict[str, Any]) -> tuple[UUID | None, UUID | None]:
+        location_name = clean_storage_name(as_str(raw.get("location_name")))
+        if not location_name:
+            return None, None
+        location = db.scalar(
+            select(CellarLocation).where(
+                CellarLocation.household_id == context.household.id,
+                CellarLocation.normalized_name == normalized_storage_name(location_name),
+            )
+        )
+        if location is None:
+            location = CellarLocation(
+                household_id=context.household.id,
+                name=location_name,
+                normalized_name=normalized_storage_name(location_name),
+            )
+            db.add(location)
+            db.flush()
+        bin_name = clean_storage_name(as_str(raw.get("bin_name")))
+        if not bin_name:
+            return location.id, None
+        cellar_bin = db.scalar(
+            select(CellarBin).where(
+                CellarBin.location_id == location.id,
+                CellarBin.normalized_name == normalized_storage_name(bin_name),
+            )
+        )
+        if cellar_bin is None:
+            cellar_bin = CellarBin(
+                location_id=location.id,
+                name=bin_name,
+                normalized_name=normalized_storage_name(bin_name),
+            )
+            db.add(cellar_bin)
+            db.flush()
+        return location.id, cellar_bin.id
+
     for raw_wine in payload_list(payload, "wines") if "wines" in blocks else []:
         data = legacy_wine_data(raw_wine, context)
         original_id = data["id"]
@@ -796,6 +848,26 @@ def import_vinaris_json_payload(
             wine_keys[key] = wine
             result.wines_imported += 1
         imported_wine_ids[original_id] = wine.id
+        db.flush()
+        raw_allocations = [
+            item for item in as_list(raw_wine.get("storage_allocations"))
+            if isinstance(item, dict) and as_int(item.get("quantity")) > 0
+        ]
+        if existing is None or mode in {"update_existing", "replace_all"}:
+            db.query(WineStorageAllocation).filter(
+                WineStorageAllocation.wine_id == wine.id
+            ).delete(synchronize_session=False)
+            db.flush()
+            for raw_allocation in raw_allocations:
+                location_id, bin_id = imported_storage_destination(raw_allocation)
+                add_to_storage(
+                    db,
+                    wine,
+                    as_int(raw_allocation.get("quantity")),
+                    location_id=location_id,
+                    bin_id=bin_id,
+                )
+            sync_storage_to_wine_quantity(db, wine)
         for raw_entry in as_list(raw_wine.get("tasting_history")):
             if not isinstance(raw_entry, dict):
                 continue

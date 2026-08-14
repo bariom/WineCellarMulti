@@ -16,6 +16,7 @@ from app.api.routes import (
     public_wine_list,
     sales,
     session,
+    storage,
     support,
     tags,
     wine_news,
@@ -37,6 +38,7 @@ api_router.include_router(operations.router, tags=["operations"])
 api_router.include_router(public_wine_list.router, tags=["restaurant public wine list"])
 api_router.include_router(sales.router, tags=["sales"])
 api_router.include_router(session.router, tags=["session"])
+api_router.include_router(storage.router, tags=["storage"])
 api_router.include_router(support.router, tags=["support"])
 api_router.include_router(tags.router, tags=["tags"])
 api_router.include_router(catalog.router, prefix="/wines", tags=["catalog"])

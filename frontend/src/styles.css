@@ -21422,3 +21422,11 @@ body,
     max-height:none;
   }
 }
+.storage-picker { align-items: end; }
+.storage-allocation-list { display: grid; gap: .55rem; margin: .75rem 0; }
+.storage-relocation-form { margin-top: .8rem; }
+.storage-location-list { display: grid; gap: .8rem; margin-top: 1rem; }
+.storage-location-list > details { border: 1px solid var(--border, rgba(120, 100, 80, .25)); border-radius: 12px; padding: .75rem; }
+.storage-location-list > details > summary { display: flex; justify-content: space-between; gap: 1rem; cursor: pointer; }
+.storage-admin-actions { display: flex; justify-content: flex-end; gap: .45rem; margin: .65rem 0; }
+.storage-manager .tag-admin-row { align-items: center; }

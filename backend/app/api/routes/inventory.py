@@ -118,6 +118,8 @@ def create_movement(
             reference=payload.reference,
             note=payload.note,
             user_id=context.user.id,
+            storage_location_id=payload.storage_location_id,
+            storage_bin_id=payload.storage_bin_id,
         )
     else:
         movements, _, _ = remove_fifo_stock(
@@ -128,6 +130,7 @@ def create_movement(
             occurred_on=occurred_on,
             note=payload.note,
             user_id=context.user.id,
+            storage_allocation_id=payload.storage_allocation_id,
         )
     db.commit()
     for movement in movements:

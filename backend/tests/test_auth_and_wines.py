@@ -93,6 +93,81 @@ def teardown_function():
     app.dependency_overrides.clear()
 
 
+def test_cellar_locations_bins_and_relocations_follow_stock():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    fridge = client.post(
+        "/api/v1/storage/locations",
+        json={"name": "Frigo vini", "is_default": True},
+    )
+    assert fridge.status_code == 201
+    fridge_id = fridge.json()["id"]
+    shelf = client.post(
+        f"/api/v1/storage/locations/{fridge_id}/bins",
+        json={"name": "Ripiano 03"},
+    )
+    assert shelf.status_code == 201
+    shelf_id = shelf.json()["id"]
+    cellar = client.post("/api/v1/storage/locations", json={"name": "Cantina"})
+    assert cellar.status_code == 201
+    cellar_id = cellar.json()["id"]
+    cellar_bin = client.post(
+        f"/api/v1/storage/locations/{cellar_id}/bins",
+        json={"name": "A-05"},
+    )
+    assert cellar_bin.status_code == 201
+
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Tignanello",
+            "vintage": "2021",
+            "quantity": 6,
+            "status": "Delivered",
+            "storage_allocations": [
+                {"location_id": fridge_id, "bin_id": shelf_id, "quantity": 6}
+            ],
+        },
+    )
+    assert created.status_code == 201, created.text
+    wine = created.json()
+    assert wine["storage_allocations"][0]["quantity"] == 6
+    source_id = wine["storage_allocations"][0]["id"]
+
+    relocated = client.post(
+        "/api/v1/storage/relocations",
+        json={
+            "wine_id": wine["id"],
+            "source_allocation_id": source_id,
+            "quantity": 2,
+            "location_id": cellar_id,
+            "bin_id": cellar_bin.json()["id"],
+        },
+    )
+    assert relocated.status_code == 200, relocated.text
+    allocations = relocated.json()
+    assert sorted(item["quantity"] for item in allocations) == [2, 4]
+    assert client.get(f"/api/v1/wines/{wine['id']}").json()["quantity"] == 6
+
+    cellar_allocation = next(item for item in allocations if item["location_id"] == cellar_id)
+    consumed = client.post(
+        f"/api/v1/wines/{wine['id']}/consume",
+        json={"storage_allocation_id": cellar_allocation["id"]},
+    )
+    assert consumed.status_code == 200, consumed.text
+    assert consumed.json()["quantity"] == 5
+    remaining = {item["location_name"]: item["quantity"] for item in consumed.json()["storage_allocations"]}
+    assert remaining == {"Cantina": 1, "Frigo vini": 4}
+
+    assert client.delete(f"/api/v1/storage/locations/{fridge_id}").status_code == 409
+    locations = client.get("/api/v1/storage/locations").json()
+    assert {item["name"]: item["bottle_count"] for item in locations} == {
+        "Cantina": 1,
+        "Frigo vini": 4,
+    }
+
+
 def test_restaurant_sale_tracks_margin_and_can_be_voided():
     client = TestClient(app)
     assert register(client).status_code == 201

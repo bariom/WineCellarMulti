@@ -3,7 +3,9 @@ from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+from app.schemas.storage import StorageAllocationInput, StorageAllocationResponse
 
 
 class WineCreate(BaseModel):
@@ -28,6 +30,7 @@ class WineCreate(BaseModel):
     appellation: str = ""
     merchant: str = ""
     initial_stock_reference: str = Field(default="", max_length=160)
+    storage_allocations: list[StorageAllocationInput] = Field(default_factory=list, max_length=100)
     order_date: date | None = None
     expected_delivery: date | None = None
     owner_share_pct: Decimal = Field(default=Decimal("100"), ge=0, le=100)
@@ -50,6 +53,15 @@ class WineCreate(BaseModel):
     grapes_not_applicable: bool = False
     scores: list[dict] = Field(default_factory=list)
     scores_not_applicable: bool = False
+
+    @model_validator(mode="after")
+    def validate_storage_total(self) -> "WineCreate":
+        if (
+            self.storage_allocations
+            and sum(item.quantity for item in self.storage_allocations) != self.quantity
+        ):
+            raise ValueError("Storage allocation quantities must equal the wine quantity")
+        return self
 
 
 class WineUpdate(BaseModel):
@@ -171,6 +183,7 @@ class TastingArchivePageResponse(BaseModel):
 
 class WineConsume(BaseModel):
     consumed_at: date | None = None
+    storage_allocation_id: UUID | None = None
     note: str = ""
     tasting_rating: int = Field(default=0, ge=0, le=6)
     tasting_enjoyment: Literal["", "positive", "negative"] = ""
@@ -211,6 +224,7 @@ class WineResponse(BaseModel):
     producer: str
     vintage: str
     quantity: int
+    storage_allocations: list[StorageAllocationResponse] = Field(default_factory=list)
     currency: str
     price: Decimal
     sale_price: Decimal | None = None

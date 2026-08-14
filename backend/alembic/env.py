@@ -14,6 +14,7 @@ from app.models import (  # noqa: F401
     operational_metrics,
     passkey,
     session,
+    storage,
     user,
     user_ai_settings,
     wine,
