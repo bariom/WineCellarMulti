@@ -3821,6 +3821,36 @@ def test_cellar_ai_purchase_status_distinguishes_ordered_and_bought_wine():
 
     assert cellar_command_acquisition_status("Ho ordinato una cassa di Sassicaia 2022 da Arvi.") == "Ordered"
     assert cellar_command_acquisition_status("Ho acquistato Sassicaia 2022 da Arvi.") == "Delivered"
+    assert cellar_command_acquisition_status("Ho prenotato Sassicaia 2022.") == "Ordered"
+    assert cellar_command_acquisition_status("Ho riservato Sassicaia 2022.") == "Ordered"
+    assert cellar_command_acquisition_status("Ho ricevuto Sassicaia 2022.") == "Delivered"
+    assert cellar_command_acquisition_status("I collected Sassicaia 2022.") == "Delivered"
+
+
+def test_cellar_ai_normalizes_arvi_merchant_dictation_variants():
+    from app.api.routes.ai import canonical_cellar_command_merchant
+
+    assert canonical_cellar_command_merchant("Ho ordinato da Arvi.", "Harvey") == "Arvi"
+    assert canonical_cellar_command_merchant("Ho ordinato da Harvey.", "Harvey") == "Arvi"
+    assert canonical_cellar_command_merchant("Ho ordinato da Arvy.", "Arvy") == "Arvi"
+    assert canonical_cellar_command_merchant("Ho ordinato da Enoteca Rossi.", "Enoteca Rossi") == "Enoteca Rossi"
+
+
+def test_cellar_ai_falls_back_to_common_action_variants_when_ai_is_uncertain():
+    from app.api.routes.ai import cellar_command_intent_hint
+
+    commands = {
+        "Metti Sassicaia 2022 in cantina.": "acquire_wine",
+        "Ho preso una cassa di Sassicaia 2022.": "acquire_wine",
+        "Ho stappato una bottiglia di Sassicaia 2022.": "consume_wine",
+        "Abbiamo degustato Sassicaia 2022 ieri.": "consume_wine",
+        "Mi hanno inviato le bottiglie di Sassicaia 2022.": "ship_wine",
+        "Il mio ordine di Sassicaia 2022 Ã¨ arrivato.": "ship_wine",
+        "Metti Sassicaia 2022 nella lista da valutare Rossi.": "add_to_wishlist",
+        "Add Sassicaia 2022 to my buy list Rossi.": "add_to_wishlist",
+    }
+
+    assert {command: cellar_command_intent_hint(command) for command in commands} == commands
 
 
 def test_cellar_ai_shipment_updates_only_matching_ordered_wine(monkeypatch):

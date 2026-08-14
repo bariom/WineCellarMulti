@@ -1070,11 +1070,65 @@ def cellar_command_case_quantity(raw_text: str) -> int | None:
 
 def cellar_command_acquisition_status(raw_text: str) -> str:
     normalized = normalize_cellar_command_identity(raw_text)
-    if re.search(r"\b(?:ordinato|ordinata|ordino|ordinare|ordered|order)\b", normalized):
+    if re.search(
+        r"\b(?:ordinato|ordinata|ordino|ordinare|prenotato|prenotata|prenoto|riservato|riservata|"
+        r"bloccato|bloccata|preordinato|preordinata|ordered|order|preordered|pre ordered|reserved|reserve)\b",
+        normalized,
+    ):
         return "Ordered"
-    if re.search(r"\b(?:acquistato|acquistata|acquisto|comprato|comprata|buy|bought|purchased)\b", normalized):
+    if re.search(
+        r"\b(?:acquistato|acquistata|acquisto|comprato|comprata|compro|preso|presa|prendo|"
+        r"ritirato|ritirata|ricevuto|ricevuta|consegnato|consegnata|arrivato|arrivata|"
+        r"buy|bought|purchased|picking up|picked up|collected|received|delivered|arrived)\b",
+        normalized,
+    ):
         return "Delivered"
     return "Ordered"
+
+
+def canonical_cellar_command_merchant(raw_text: str, merchant: str) -> str:
+    """Correct stable merchant names that speech recognition commonly mishears."""
+    normalized_merchant = normalize_cellar_command_identity(merchant)
+    normalized_text = normalize_cellar_command_identity(raw_text)
+    arvi_aliases = {"arvi", "harvey", "arvy", "arby", "a r v i"}
+    if normalized_merchant in arvi_aliases or re.search(r"\b(?:arvi|harvey|arvy|arby|a r v i)\b", normalized_text):
+        return "Arvi"
+    return merchant.strip()
+
+
+def cellar_command_intent_hint(raw_text: str) -> str | None:
+    """Recognize common assistant verbs when the model cannot classify an intent.
+
+    This intentionally acts only as a fallback for ``unsupported`` model output:
+    the model remains responsible for extracting the wine and all structured data.
+    """
+    normalized = normalize_cellar_command_identity(raw_text)
+    if re.search(
+        r"\b(?:wish\s*list|lista\s+(?:dei\s+)?desideri|lista\s+da\s+(?:comprare|valutare|cercare)|"
+        r"buy\s+list|to\s+buy\s+list)\b",
+        normalized,
+    ):
+        return "add_to_wishlist"
+    if re.search(
+        r"\b(?:mi\s+hanno\s+(?:spedito|inviato|consegnato)|(?:ordine|bottiglie?).{0,120}\b(?:spedito|inviato|"
+        r"consegnato|arrivato)|spedite|spediti|inviate|inviati|shipped|dispatched)\b",
+        normalized,
+    ):
+        return "ship_wine"
+    if re.search(
+        r"\b(?:ho\s+(?:ordinato|prenotato|riservato|comprato|acquistato|preso)|(?:aggiungi|aggiungete|"
+        r"metti|mettete|inserisci|inserite|registra|registrate)\b.{0,120}\b(?:in\s+)?cantina|"
+        r"i\s+(?:bought|purchased|ordered)|(?:add|put)\s+(?:it\s+)?(?:to\s+)?(?:my\s+)?cellar)\b",
+        normalized,
+    ):
+        return "acquire_wine"
+    if re.search(
+        r"\b(?:ho\s+bevuto|abbiamo\s+(?:bevuto|stappato|degustato|assaggiato|finito)|mi\s+sono\s+bevuto|ho\s+(?:stappato|degustato|assaggiato|finito)|"
+        r"i\s+(?:drank|had|opened|tasted|finished)|we\s+(?:drank|had|opened|tasted))\b",
+        normalized,
+    ):
+        return "consume_wine"
+    return None
 
 
 def cellar_command_wishlist_list_name(raw_text: str) -> str:
@@ -1584,6 +1638,12 @@ def create_cellar_ai_command(
         raise
 
     parsed_intent = str(parsed.get("intent") or "unsupported")
+    if parsed_intent == "unsupported":
+        parsed_intent = cellar_command_intent_hint(payload.text) or parsed_intent
+        parsed["intent"] = parsed_intent
+    parsed["merchant"] = canonical_cellar_command_merchant(
+        payload.text, str(parsed.get("merchant") or "")
+    )
     parsed["_locale"] = payload.locale
     if parsed_intent == "consume_wine" and not str(parsed.get("consumed_at") or "").strip():
         parsed["consumed_at"] = local_today.isoformat()

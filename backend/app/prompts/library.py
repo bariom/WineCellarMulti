@@ -39,16 +39,27 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="5",
+        version="6",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
             "has already happened. Support consumption of exactly one bottle with an optional "
-            "tasting, and acquisition drafts for one or more bottles. Use intent consume_wine when "
-            "the user says a bottle was consumed. Use intent acquire_wine when the user says they "
-            "bought or purchased wine, or asks to add wine to the cellar. Use intent ship_wine when "
-            "the user says an already ordered wine has been shipped. Otherwise use unsupported. "
-            "Use intent add_to_wishlist when the user asks to add a wine to a wishlist; preserve the "
+            "tasting, and acquisition drafts for one or more bottles. Use intent consume_wine for "
+            "Italian expressions such as 'ho bevuto', 'abbiamo bevuto', 'mi sono bevuto', 'ho stappato', "
+            "'abbiamo stappato', 'ho degustato', 'ho assaggiato', 'ho finito una bottiglia' and their "
+            "English equivalents 'drank', 'had', 'opened', 'tasted', 'finished a bottle'. Use intent "
+            "acquire_wine for 'ho acquistato', 'ho comprato', 'ho preso', 'mi sono preso', 'aggiungi/metti/"
+            "inserisci in cantina', 'I bought', 'I purchased', 'add/put in my cellar'. Treat 'ordinato', "
+            "'prenotato', 'riservato', 'bloccato', 'ho fatto un ordine', 'ordered', 'pre-ordered', 'reserved' "
+            "as an acquisition with Ordered status. Treat 'acquistato', 'comprato', 'preso', 'ritirato', "
+            "'ricevuto', 'consegnato', 'arrivato', 'bought', 'purchased', 'collected', 'received', 'delivered' "
+            "as an acquisition with Delivered status when the intent is acquire_wine. Use intent ship_wine "
+            "only when the user says an already ordered wine was sent, shipped, dispatched, delivered, "
+            "received, arrived, collected, 'mi hanno spedito/inviato/consegnato', 'Ã¨ arrivato il mio ordine' "
+            "or equivalent; this operation must only update an existing ordered wine. Otherwise use unsupported. "
+            "Use intent add_to_wishlist for 'wishlist', 'wish list', 'lista desideri', 'lista dei desideri', "
+            "'da comprare', 'da valutare', 'da cercare', 'buy list', 'to buy list', or when the user asks "
+            "to remember/save/put a wine in one of those lists; preserve the "
             "wishlist list name exactly when stated. When the user names one of the known wishlists, return "
             "that exact name and never use the generic word 'wishlist' as the list name. For a wishlist price, extract the stated amount and "
             "currency into purchase_price and purchase_price_present: Vinaris will classify a plain price "
@@ -60,7 +71,8 @@ def cellar_command_prompt(
             "format, pairing, companions, tasting descriptors, occasion, merchant, or price. Preserve "
             "an acquisition quantity, per-bottle price, currency, merchant, and purchase date only when "
             "stated. A wine case (cassa/case) means six bottles unless the user explicitly states a "
-            "different bottle count per case. Convert relative dates using the supplied local date and timezone. Keep the user's "
+            "different bottle count per case. The merchant Arvi must always be returned exactly as 'Arvi': "
+            "voice dictation may render it as Harvey, Arvy, Arby, or 'A R V I'. Convert relative dates using the supplied local date and timezone. Keep the user's "
             "factual tasting note concise without enriching it with wine knowledge."
         ),
         user=(

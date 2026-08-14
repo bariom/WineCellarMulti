@@ -85,6 +85,18 @@ export default function CellarAssistantView({
   const purchaseExample = isItalian
     ? "Ho acquistato 6 bottiglie di Sassicaia 2021 da Enoteca Pinchiorri a 245 CHF ciascuna. Aggiungile alla cantina."
     : "I bought 6 bottles of Sassicaia 2021 from Enoteca Pinchiorri at CHF 245 each. Add them to my cellar.";
+  const orderExample = isItalian
+    ? "Ho ordinato una cassa di Sassicaia 2022 da Arvi. Registrala come ordinata."
+    : "I ordered a case of Sassicaia 2022 from Arvi. Register it as ordered.";
+  const wishlistExample = isItalian
+    ? "Aggiungi Barolo 2021 alla wishlist Rossi, prezzo massimo 100 franchi."
+    : "Add Barolo 2021 to wishlist Rossi, maximum price CHF 100.";
+  const applyExample = (example: string) => {
+    setText(example);
+    setError("");
+    setResult(null);
+    setHelpOpen(false);
+  };
   const purchaseStatusLabel = (status: string) => {
     if (status === "Delivered") return isItalian ? "In cantina" : "In cellar";
     if (status === "Ordered") return isItalian ? "Ordinato" : "Ordered";
@@ -386,7 +398,7 @@ export default function CellarAssistantView({
         <img className="cellar-assistant-hero-illustration" src="/images/assistant-ai-sommelier.png" alt="" aria-hidden="true" />
       </header>
 
-      {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><ul>{isItalian ? <><li><strong>Bevute:</strong> “Ho bevuto una bottiglia di Ornellaia 2015, 9 su 10.” Registra data, note e voto convertito su scala 6.</li><li><strong>Acquisti:</strong> “Ho acquistato 6 Sassicaia 2022 a CHF 40 da Arvi.” Prepara la scheda o aggiunge un lotto al vino già presente.</li><li><strong>Ordini e spedizioni:</strong> “Ho ordinato una cassa…” oppure “Mi hanno spedito…” Aggiorna lo stato corretto.</li><li><strong>Wishlist:</strong> “Aggiungi Barolo 2021 alla wishlist Rossi, prezzo 100 franchi.”</li><li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li></> : <><li><strong>Drinking:</strong> records date, notes and score on Vinaris’ six-point scale.</li><li><strong>Purchases:</strong> prepares a new record or adds a purchase lot to an existing wine.</li><li><strong>Orders and shipments:</strong> updates the appropriate status.</li><li><strong>Wishlist:</strong> adds a wine to the named wishlist with an optional target price.</li><li>Always review the proposal: nothing changes without your confirmation.</li></>}</ul></section></div> : null}
+      {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><p className="cellar-assistant-help-intro">{isItalian ? "Scegli un esempio per inserirlo nel comando e personalizzarlo." : "Choose an example to place it in the command field and customize it."}</p><div className="cellar-assistant-help-examples"><button type="button" onClick={() => applyExample(consumptionExample)}><strong>{isItalian ? "Bevuta" : "Drinking"}</strong><span>{isItalian ? "Registra nota e voto su scala 6." : "Record notes and a six-point score."}</span></button><button type="button" onClick={() => applyExample(purchaseExample)}><strong>{isItalian ? "Acquisto" : "Purchase"}</strong><span>{isItalian ? "Aggiunge bottiglie o un nuovo lotto." : "Adds bottles or a new purchase lot."}</span></button><button type="button" onClick={() => applyExample(orderExample)}><strong>{isItalian ? "Ordine" : "Order"}</strong><span>{isItalian ? "Registra lo stato ordinato; spedizioni aggiornano ordini esistenti." : "Records an order; shipments update existing orders."}</span></button><button type="button" onClick={() => applyExample(wishlistExample)}><strong>Wishlist</strong><span>{isItalian ? "Salva un vino da valutare con prezzo target." : "Save a wine to evaluate with a target price."}</span></button></div><ul>{isItalian ? <li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li> : <li>Always review the proposal: nothing changes without your confirmation.</li>}</ul></section></div> : null}
 
       <form className="cellar-assistant-composer" onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Cosa è successo in cantina?" : "What happened in your cellar?"}</label>
@@ -429,16 +441,6 @@ export default function CellarAssistantView({
           </small>
         </div>
         {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
-        <div>
-          <span className="cellar-assistant-examples">
-            <button type="button" className="secondary compact" onClick={() => setText(purchaseExample)} disabled={busy}>
-              {isItalian ? "Esempio acquisto" : "Purchase example"}
-            </button>
-            <button type="button" className="secondary compact" onClick={() => setText(consumptionExample)} disabled={busy}>
-              {isItalian ? "Esempio bevuta" : "Consumption example"}
-            </button>
-          </span>
-        </div>
         <small>{isItalian
           ? voiceSupported
             ? "Puoi parlare o scrivere. Il browser gestisce la dettatura; Vinaris riceve soltanto il testo e non conserva audio. Controlla sempre la trascrizione."
