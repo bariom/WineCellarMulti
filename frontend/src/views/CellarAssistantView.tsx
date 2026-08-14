@@ -160,6 +160,8 @@ export default function CellarAssistantView({
       }
       if (transcript.trim()) {
         setVoiceMessage(isItalian ? "Testo aggiunto. Controllalo prima di continuare." : "Text added. Review it before continuing.");
+      } else {
+        setVoiceMessage(isItalian ? "Dettatura fermata." : "Dictation stopped.");
       }
     };
     recognitionRef.current = recognition;
@@ -200,6 +202,8 @@ export default function CellarAssistantView({
 
   function stopVoiceInput() {
     recognitionRef.current?.stop();
+    setListening(false);
+    setVoiceMessage(isItalian ? "Dettatura fermata." : "Dictation stopped.");
   }
 
   async function preparePurchase(
@@ -402,7 +406,7 @@ export default function CellarAssistantView({
             </button>
           ) : null}
         </div>
-        {voiceMessage ? <p className="cellar-assistant-voice-status" aria-live="polite">{voiceMessage}</p> : null}
+        {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <div>
           <span className="cellar-assistant-examples">
             <button type="button" className="secondary compact" onClick={() => setText(purchaseExample)} disabled={busy}>
