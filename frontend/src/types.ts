@@ -418,6 +418,7 @@ export type WishlistItem = {
   appellation: string;
   target_price: string;
   offer_price: string | null;
+  investment_amount: string | null;
   ai_market_price: string;
   ai_market_price_currency: string;
   currency: string;
@@ -516,6 +517,7 @@ export type WishlistDraft = {
   appellation: string;
   target_price: string;
   offer_price: string;
+  investment_amount: string;
   currency: string;
   merchant: string;
   priority: string;
@@ -857,6 +859,7 @@ export type WishlistPortfolioStrategy = {
   item_count: number;
   generated_at: string | null;
   estimated_cost_usd: string;
+  stale?: boolean;
 };
 
 export type RegionalGapProfile = "investment" | "readiness" | "daily" | "balanced";

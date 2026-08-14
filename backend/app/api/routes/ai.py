@@ -31,6 +31,7 @@ from app.api.routes.wishlist import (
     get_household_wishlist_item,
     get_household_wishlist_list,
     get_or_create_default_wishlist_list,
+    mark_wishlist_strategy_stale,
     wishlist_ai_generated_dates,
     wishlist_response,
 )
@@ -1376,6 +1377,7 @@ def execute_cellar_ai_wishlist_command(
         status_source="manual",
     )
     db.add(item)
+    mark_wishlist_strategy_stale(db, context.household.id, [wishlist_list.id])
     command.status = "executed"
     command.executed_at = datetime.now(UTC)
     parsed["wishlist_item_id"] = str(item.id)
@@ -2052,6 +2054,9 @@ def wishlist_advice_context(item: WishlistItem) -> str:
             f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}"
             if getattr(item, "offer_price", None) is not None
             else "Offer price: not provided",
+            f"Investment budget: {item.currency} {item.investment_amount} (total planned capital for this item)"
+            if item.investment_amount is not None and item.investment_amount > 0
+            else "Investment budget: not provided",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
             f"Status: {item.status}",
@@ -2113,12 +2118,24 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
     high_priority_count = sum(1 for item in items if wishlist_priority_rank(item.priority) == 0)
     ready_to_buy_count = sum(1 for item in items if wishlist_ready_to_buy(item.status))
     total_target_value = sum((Decimal(str(item.target_price or 0)) for item in items), Decimal("0"))
+    investment_totals: dict[str, Decimal] = {}
+    for item in items:
+        if item.investment_amount is None or item.investment_amount <= 0:
+            continue
+        currency = (item.currency or "CHF").upper()
+        investment_totals[currency] = investment_totals.get(currency, Decimal("0")) + Decimal(str(item.investment_amount))
+    declared_investment = (
+        ", ".join(f"{currency} {amount.quantize(Decimal('0.01'))}" for currency, amount in sorted(investment_totals.items()))
+        if investment_totals
+        else "not provided"
+    )
     lines = [
         f"Household: {household_name}",
         f"Wishlist items: {len(items)}",
         f"High priority items: {high_priority_count}",
         f"Ready to buy items: {ready_to_buy_count}",
         f"Total target value: CHF {total_target_value.quantize(Decimal('0.01'))}",
+        f"Declared investment capital: {declared_investment}",
         "",
         "Wishlist portfolio:",
     ]
@@ -2131,11 +2148,16 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
         offer_price = (
             f"{item.currency} {item.offer_price}" if item.offer_price is not None else "unknown"
         )
+        investment_budget = (
+            f"{item.currency} {Decimal(str(item.investment_amount)).quantize(Decimal('0.01'))}"
+            if item.investment_amount is not None and item.investment_amount > 0
+            else "not provided"
+        )
         lines.extend(
             [
                 (
                     f"{index}. {item.name} | Producer: {item.producer or 'Unknown'} | Vintage: {item.vintage or 'n/d'} | "
-                    f"Target ceiling: {target_ceiling} | Offer: {offer_price} | "
+                    f"Target ceiling: {target_ceiling} | Offer: {offer_price} | Investment budget: {investment_budget} | "
                     f"Priority: {item.priority or 'Unknown'} | Purpose: {item.purpose or 'Unknown'} | Status: {item.status or 'Unknown'}"
                 ),
                 f"   Region/Appellation: {item.region or 'n/d'} / {item.appellation or 'n/d'}",
@@ -4111,6 +4133,7 @@ def generate_wishlist_strategy(
     item.ai_purpose_advice = str(result["purpose_advice"])[:3000]
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.priority = str(result["recommended_priority"] or item.priority)[:32]
+    mark_wishlist_strategy_stale(db, context.household.id, [item.wishlist_list_id])
     record_ai_audit(
         db,
         context,
@@ -4168,6 +4191,7 @@ def generate_wishlist_purpose(
     item.purpose = str(result["recommended_purpose"] or item.purpose)[:32]
     item.priority = str(result["recommended_priority"] or item.priority)[:32]
     item.ai_purpose_advice = str(result["purpose_advice"])[:3000]
+    mark_wishlist_strategy_stale(db, context.household.id, [item.wishlist_list_id])
     record_ai_audit(
         db,
         context,
@@ -4272,6 +4296,7 @@ def generate_wishlist_target_price(
     item.ai_market_price_currency = result_currency
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.ai_strategy = str(result["price_advice"])[:3000]
+    mark_wishlist_strategy_stale(db, context.household.id, [item.wishlist_list_id])
     note_entry = market_note_source(result.get("market_note") or result.get("price_advice"))
     audit_sources = (
         market_sources

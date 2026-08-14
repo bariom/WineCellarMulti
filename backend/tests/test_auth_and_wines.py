@@ -5932,6 +5932,7 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
             "producer": "Tenuta San Guido",
             "vintage": "2021",
             "target_price": 235,
+            "investment_amount": 500,
             "currency": "CHF",
             "priority": "High",
             "purpose": "Cellar",
@@ -5953,12 +5954,15 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
     )
     assert first.status_code == 201
     assert second.status_code == 201
+    assert first.json()["investment_amount"] == "500.00"
 
     def fake_create_response(*args, **kwargs):
         prompt = args[2]
         assert "Wishlist portfolio" in prompt
         assert "Sassicaia" in prompt
         assert "Tignanello" in prompt
+        assert "Declared investment capital: CHF 500.00" in prompt
+        assert "Investment budget: CHF 500.00" in prompt
         assert kwargs["json_schema"]["name"] == "wishlist_portfolio_strategy"
         return OpenAIResponse(
             text=(
@@ -5994,6 +5998,12 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
     usage = client.get("/api/v1/ai/usage")
     assert usage.status_code == 200
     assert usage.json()["all_time"]["requests"] == 1
+
+    updated = client.patch(f"/api/v1/wishlist/{first.json()['id']}", json={"priority": "Medium"})
+    assert updated.status_code == 200
+    wishlist_lists = client.get("/api/v1/wishlist/lists")
+    assert wishlist_lists.status_code == 200
+    assert wishlist_lists.json()[0]["portfolio_strategy"]["stale"] is True
 
 
 def test_wine_value_audit_includes_market_sources(monkeypatch):

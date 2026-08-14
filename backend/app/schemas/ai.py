@@ -366,3 +366,4 @@ class WishlistPortfolioStrategyResponse(BaseModel):
     item_count: int = 0
     generated_at: datetime | None = None
     estimated_cost_usd: Decimal
+    stale: bool = False

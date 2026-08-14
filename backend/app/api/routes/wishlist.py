@@ -86,6 +86,7 @@ def wishlist_response(item: WishlistItem, ai_dates: dict[str, datetime] | None =
         "appellation": item.appellation,
         "target_price": item.target_price,
         "offer_price": item.offer_price,
+        "investment_amount": item.investment_amount,
         "ai_market_price": item.ai_market_price,
         "ai_market_price_currency": item.ai_market_price_currency,
         "currency": item.currency,
@@ -126,6 +127,23 @@ def get_household_wishlist_item(db: Session, context: CurrentContext, item_id: U
     if item is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wishlist item not found")
     return item
+
+
+def mark_wishlist_strategy_stale(db: Session, household_id: UUID, wishlist_list_ids: list[UUID]) -> None:
+    """Preserve the last strategy while flagging that its underlying list changed."""
+    list_ids = list(set(wishlist_list_ids))
+    if not list_ids:
+        return
+    lists = db.scalars(
+        select(WishlistList).where(
+            WishlistList.household_id == household_id,
+            WishlistList.id.in_(list_ids),
+        )
+    )
+    for wishlist_list in lists:
+        strategy = wishlist_list.portfolio_strategy
+        if isinstance(strategy, dict) and not strategy.get("stale"):
+            wishlist_list.portfolio_strategy = {**strategy, "stale": True}
 
 
 def wishlist_list_counts(db: Session, household_id: UUID) -> dict[UUID, int]:
@@ -318,6 +336,7 @@ def create_wishlist_item(
         **data,
     )
     db.add(item)
+    mark_wishlist_strategy_stale(db, context.household.id, [wishlist_list_id])
     db.commit()
     db.refresh(item)
     return wishlist_response(item)
@@ -331,6 +350,7 @@ def update_wishlist_item(
     context: CurrentContext = Depends(require_write_context),
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
+    previous_list_id = item.wishlist_list_id
     updates = payload.model_dump(exclude_unset=True)
     if "wishlist_list_id" in updates:
         get_household_wishlist_list(db, context, updates["wishlist_list_id"])
@@ -338,6 +358,7 @@ def update_wishlist_item(
         updates["type"] = normalize_wine_type(updates.get("type"))
     for field, value in updates.items():
         setattr(item, field, value)
+    mark_wishlist_strategy_stale(db, context.household.id, [previous_list_id, item.wishlist_list_id])
     db.commit()
     db.refresh(item)
     ai_dates = wishlist_ai_generated_dates(db, context, [item])
@@ -351,6 +372,7 @@ def delete_wishlist_item(
     context: CurrentContext = Depends(require_admin_context),
 ) -> Response:
     item = get_household_wishlist_item(db, context, item_id)
+    mark_wishlist_strategy_stale(db, context.household.id, [item.wishlist_list_id])
     db.delete(item)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -383,6 +405,7 @@ def convert_wishlist_item(
         notes=item.notes,
     )
     db.add(wine)
+    mark_wishlist_strategy_stale(db, context.household.id, [item.wishlist_list_id])
     db.delete(item)
     db.commit()
     db.refresh(wine)

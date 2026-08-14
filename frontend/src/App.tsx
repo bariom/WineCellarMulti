@@ -494,6 +494,7 @@ const emptyWishlistDraft: WishlistDraft = {
   appellation: "",
   target_price: "0",
   offer_price: "",
+  investment_amount: "",
   currency: "CHF",
   merchant: "",
   priority: "Medium",
@@ -4071,6 +4072,7 @@ export function App() {
       } else {
         await api<WishlistItem>("/api/v1/wishlist", { method: "POST", body: JSON.stringify(payload) });
       }
+      setWishlistPortfolioStrategy(null);
       setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
       setEditingWishlistId(null);
       setWishlistFormOpen(false);
@@ -4206,6 +4208,7 @@ export function App() {
     if (!window.confirm(`Delete ${item.name} from wishlist?`)) return;
     setError("");
     await api<void>(`/api/v1/wishlist/${item.id}`, { method: "DELETE" });
+    setWishlistPortfolioStrategy(null);
     if (editingWishlistId === item.id) {
       setEditingWishlistId(null);
       setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
@@ -4224,6 +4227,7 @@ export function App() {
     setError("");
     try {
       await api<{ wine_id: string }>(`/api/v1/wishlist/${item.id}/convert`, { method: "POST", body: JSON.stringify({ quantity }) });
+      setWishlistPortfolioStrategy(null);
       setWishlistFormOpen(false);
       setEditingWishlistId(null);
       setWishlistConversionItem(null);
@@ -4649,6 +4653,14 @@ export function App() {
         body: JSON.stringify({ locale, model }),
       });
       setWishlist((current) => current.map((nextItem) => (nextItem.id === updated.id ? updated : nextItem)));
+      setWishlistLists((current) => current.map((wishlistList) => (
+        wishlistList.id === updated.wishlist_list_id && wishlistList.portfolio_strategy
+          ? { ...wishlistList, portfolio_strategy: { ...wishlistList.portfolio_strategy, stale: true } }
+          : wishlistList
+      )));
+      setWishlistPortfolioStrategy((current) => (
+        current?.wishlist_list_id === updated.wishlist_list_id ? { ...current, stale: true } : current
+      ));
       setSelectedWishlistId(updated.id);
       const [nextAudit] = await Promise.all([loadAiAudit(), loadAiUsage()]);
       if (feature === "target-price") {
@@ -11130,6 +11142,11 @@ export function App() {
                     <span>{locale === "it" ? "Prezzo massimo" : "Maximum price"}</span>
                     <input type="number" min="0" step="0.01" value={wishlistDraft.target_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, target_price: event.target.value })} disabled={!canWriteWine} />
                   </label>
+                  <label>
+                    <span>{locale === "it" ? "Capitale da investire" : "Investment budget"}</span>
+                    <input type="number" min="0" step="0.01" value={wishlistDraft.investment_amount} onChange={(event) => setWishlistDraft({ ...wishlistDraft, investment_amount: event.target.value })} disabled={!canWriteWine} />
+                    <small className="form-hint">{locale === "it" ? "Budget totale previsto per questa voce. Facoltativo." : "Total budget planned for this item. Optional."}</small>
+                  </label>
                 </div>
                 <div className="form-row">
                   <label>
@@ -11626,21 +11643,9 @@ export function App() {
                   </select>
                 </label>
                 <div className="inline-actions">
-                  <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={createWishlistList}>{t("createWishlistList")}</button>
-                  <button type="button" className="secondary compact" disabled={!canWriteWine || saving || !selectedWishlistList} onClick={renameWishlistList}>{t("renameWishlistList")}</button>
-                  <button type="button" className="danger compact" disabled={!canAdmin || saving || wishlistLists.length <= 1 || !selectedWishlistList} onClick={deleteWishlistList}>{t("deleteWishlistList")}</button>
-                  <button
-                    type="button"
-                    className="secondary compact"
-                    disabled={!canGenerateAi || generatingAi === "wishlist-portfolio-strategy" || wishlist.length === 0}
-                    onClick={() => generateWishlistPortfolioStrategy()}
-                  >
-                    {generatingAi === "wishlist-portfolio-strategy"
-                      ? t("generating")
-                      : visibleWishlistPortfolioStrategy
-                        ? t("refreshWishlistPortfolioStrategy")
-                        : t("generateWishlistPortfolioStrategy")}
-                  </button>
+                  <button type="button" className="secondary compact wishlist-list-action wishlist-list-action-create" disabled={!canWriteWine || saving} onClick={createWishlistList}>{t("createWishlistList")}</button>
+                  <button type="button" className="secondary compact wishlist-list-action wishlist-list-action-rename" disabled={!canWriteWine || saving || !selectedWishlistList} onClick={renameWishlistList}>{t("renameWishlistList")}</button>
+                  <button type="button" className="danger compact wishlist-list-action wishlist-list-action-delete" disabled={!canAdmin || saving || wishlistLists.length <= 1 || !selectedWishlistList} onClick={deleteWishlistList}>{t("deleteWishlistList")}</button>
                 </div>
               </div>
               <section className="stats-panel">

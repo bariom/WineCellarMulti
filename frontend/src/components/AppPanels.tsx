@@ -1552,6 +1552,7 @@ export function WishlistDetail({
 }) {
   const aiMarketPrice = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
   const offerPrice = item.offer_price ? formatMoney(item.offer_price, item.currency, locale) : "";
+  const investmentAmount = item.investment_amount ? formatMoney(item.investment_amount, item.currency, locale) : "";
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const latestStrategyAudit = auditEntries
     .filter((entry) => entry.feature === "wishlist_strategy")
@@ -1603,6 +1604,7 @@ export function WishlistDetail({
         <DetailField label={t("status")} value={displayValue(item.status, locale, "status")} emptyLabel={t("notSpecified")} />
         <DetailField label={locale === "it" ? "Prezzo offerto" : "Offer price"} value={offerPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={locale === "it" ? "Prezzo massimo" : "Maximum price"} value={formatMoney(item.target_price, item.currency, locale)} emptyLabel={t("notSpecified")} />
+        <DetailField label={locale === "it" ? "Capitale da investire" : "Investment budget"} value={investmentAmount} emptyLabel={t("notSpecified")} />
         <DetailField label={t("aiMarketPrice")} value={aiMarketPrice} emptyLabel={t("notSpecified")} />
         <DetailField label={t("merchant")} value={item.merchant} emptyLabel={t("notSpecified")} />
       </div>
@@ -1666,9 +1668,12 @@ export function WishlistPortfolioStrategyPanel({
       <summary className="wishlist-strategy-summary">
         <div className="detail-title">
           <div>
-            <p className="eyebrow">{t("wishlist")}</p>
             <h2>{t("wishlistPortfolioStrategy")}</h2>
-            <span>{t("wishlistPortfolioStrategyHelp")}</span>
+            {strategy ? (
+              <span className={`wishlist-strategy-status${strategy.stale ? " is-stale" : ""}`}>
+                {strategy.stale ? `${t("wishlistStrategyOutdated")} · ${generatedAtLabel}` : generatedAtLabel}
+              </span>
+            ) : <span>{t("wishlistPortfolioStrategyHelp")}</span>}
             {strategy && !open ? (
               <div className="wishlist-strategy-preview">
                 <div className="wishlist-strategy-preview-meta">
