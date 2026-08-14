@@ -981,6 +981,27 @@ def cellar_command_tasting(parsed: dict[str, Any]) -> CellarCommandTasting:
     )
 
 
+def normalize_cellar_command_tasting_score(parsed: dict[str, Any]) -> None:
+    """Normalize an AI-extracted tasting score to Vinaris' integer six-point scale."""
+    if not bool(parsed.get("score_present")):
+        return
+    score_value = Decimal(str(parsed.get("score_value") or 0))
+    score_scale = int(parsed.get("score_scale") or 0)
+    if score_scale <= 0 or score_value < 0 or score_value > score_scale:
+        raise ValueError("invalid score")
+    converted_score = int(
+        ((score_value * Decimal("6")) / Decimal(score_scale)).to_integral_value(
+            rounding=ROUND_FLOOR
+        )
+    )
+    if score_scale != 6:
+        parsed["_original_score_value"] = str(score_value)
+        parsed["_original_score_scale"] = score_scale
+    parsed["score_value"] = converted_score
+    parsed["score_scale"] = 6
+    parsed["rating"] = converted_score
+
+
 def cellar_command_catalog_candidate(entry: Any) -> CellarCommandCatalogCandidate:
     return CellarCommandCatalogCandidate(
         catalog_entry_id=entry.id,
@@ -1188,12 +1209,21 @@ def execute_cellar_ai_wishlist_command(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wine name is required")
     catalog_matches = acquisition_catalog_matches(db, parsed)
     catalog_entry = catalog_matches[0][0] if catalog_matches and catalog_matches[0][1] >= 80 else None
+    parsed_producer = str(parsed.get("producer") or "").strip()
+    # The list name is part of the natural-language command and can be mistaken for a producer.
+    # A catalog match remains authoritative when one is available.
+    if (
+        not catalog_entry
+        and normalize_cellar_command_identity(parsed_producer)
+        == normalize_cellar_command_identity(wishlist_list.name)
+    ):
+        parsed_producer = ""
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
         wishlist_list_id=wishlist_list.id,
         name=name,
-        producer=str((catalog_entry.producer if catalog_entry else "") or parsed.get("producer") or "").strip(),
+        producer=str((catalog_entry.producer if catalog_entry else "") or parsed_producer).strip(),
         vintage=str(parsed.get("vintage") or "").strip(),
         format=str(parsed.get("format") or (catalog_entry.format if catalog_entry else "") or "").strip(),
         type=normalize_wine_type(str((catalog_entry.type if catalog_entry else "") or parsed.get("type") or "")),
@@ -1291,6 +1321,7 @@ def execute_cellar_ai_command(
             wine,
             consumed_at=parsed_cellar_command_date(command.parsed_payload or {}, local_today),
             note=tasting.note,
+            rating=int(tasting.score_value or 0),
             score_value=tasting.score_value,
             score_scale=tasting.score_scale,
             enjoyment=tasting.enjoyment,
@@ -1313,11 +1344,16 @@ def execute_cellar_ai_command(
     db.commit()
     db.refresh(command)
     db.refresh(wine)
-    score_label = (
-        f", {tasting.score_value:g}/{tasting.score_scale}"
-        if tasting.score_value is not None and tasting.score_scale
-        else ""
-    )
+    original_score_value = str((command.parsed_payload or {}).get("_original_score_value") or "").strip()
+    original_score_scale = int((command.parsed_payload or {}).get("_original_score_scale") or 0)
+    score_label = ""
+    if tasting.score_value is not None and tasting.score_scale:
+        score_label = f", punteggio {tasting.score_value:g}/{tasting.score_scale}"
+        if original_score_value and original_score_scale:
+            score_label = (
+                f", punteggio {original_score_value}/{original_score_scale} convertito in "
+                f"{tasting.score_value:g}/{tasting.score_scale}"
+            )
     message = (
         f"Fatto. {wine.name} {wine.vintage}: {result.previous_quantity} → {wine.quantity} "
         f"bottiglie. Degustazione registrata il {tasting.consumed_at}{score_label}."
@@ -1449,17 +1485,18 @@ def create_cellar_ai_command(
     command.model = response.model or settings.openai_cellar_command_model
     command.reasoning_effort = response.reasoning_effort or "none"
     command.estimated_cost_usd = response.charged_cost_usd
-    score_present = bool(parsed.get("score_present"))
-    score_value = Decimal(str(parsed.get("score_value") or 0))
-    score_scale = int(parsed.get("score_scale") or 0)
-    if command.intent == "consume_wine" and score_present and (
-        score_scale <= 0 or score_value > score_scale
-    ):
-        command.status = "failed"
-        db.commit()
-        return cellar_command_response(
-            db, context, command, message="Il punteggio indicato non è valido."
-        )
+    if command.intent == "consume_wine":
+        try:
+            normalize_cellar_command_tasting_score(parsed)
+        except (InvalidOperation, ValueError):
+            command.status = "failed"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message="Il punteggio indicato non è valido." if payload.locale == "it" else "The tasting score is invalid.",
+            )
     record_ai_audit(
         db,
         context,

@@ -3491,12 +3491,14 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     assert updated.status_code == 200
     tasting = updated.json()["tasting_history"][0]
     assert updated.json()["quantity"] == 1
+    assert updated.json()["rating"] == 5
     assert tasting["note"] == "Era eccellente"
-    assert Decimal(str(tasting["score_value"])) == Decimal("9")
-    assert tasting["score_scale"] == 10
+    assert Decimal(str(tasting["score_value"])) == Decimal("5")
+    assert tasting["score_scale"] == 6
     assert tasting["occasion"] == "Cena"
     assert tasting["source"] == "ai_command"
     assert "Aggiorna la cantina" in tasting["source_text"]
+    assert "9/10 convertito in 5/6" in command.json()["message"]
 
     repeated = client.post("/api/v1/ai/cellar-commands", json=payload)
     assert repeated.status_code == 200
@@ -3773,7 +3775,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
             OpenAIResponse(
                 text=json.dumps({
                     "intent": "add_to_wishlist", "explicit_action": True,
-                    "wine_name": "Bricco dell'Uccellone", "producer": "", "vintage": "2024",
+                    "wine_name": "Bricco dell'Uccellone", "producer": "Rossi", "vintage": "2024",
                     "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
                     "purchase_price_present": False, "purchase_price": 0, "currency": "", "merchant": "",
                     "wishlist_list_name": "Rossi, Bricco dell'Uccellone 2024", "note": "", "score_present": False,
@@ -3799,8 +3801,8 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "executed"
     items = client.get(f"/api/v1/wishlist?wishlist_list_id={wishlist_list.json()['id']}").json()
-    assert [(item["name"], item["vintage"], item["status"]) for item in items] == [
-        ("Bricco dell'Uccellone", "2024", "Evaluate")
+    assert [(item["name"], item["producer"], item["vintage"], item["status"]) for item in items] == [
+        ("Bricco dell'Uccellone", "", "2024", "Evaluate")
     ]
 
 

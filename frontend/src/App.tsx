@@ -5010,7 +5010,7 @@ export function App() {
       ? matchingTemplateSuggestions(draft.name)
       : [];
   const wishlistDraftTemplateSuggestions =
-    wishlistFormOpen && wishlistDraft.name.trim().length >= 2 && !wishlistDraft.producer.trim()
+    wishlistFormOpen && wishlistDraft.name.trim().length >= 2
       ? matchingTemplateSuggestions(wishlistDraft.name)
       : [];
   const showManualWineAiSearch =
