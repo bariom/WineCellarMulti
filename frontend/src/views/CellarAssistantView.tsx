@@ -56,6 +56,7 @@ type CellarAssistantViewProps = {
   disabled?: boolean;
   onCellarChanged: () => Promise<void> | void;
   onPreparePurchase: (draft: CellarCommandPurchaseDraft) => void;
+  onOpenWishlist: () => void;
 };
 
 export default function CellarAssistantView({
@@ -63,6 +64,7 @@ export default function CellarAssistantView({
   disabled = false,
   onCellarChanged,
   onPreparePurchase,
+  onOpenWishlist,
 }: CellarAssistantViewProps) {
   const [text, setText] = useState("");
   const [result, setResult] = useState<CellarCommandResult | null>(null);
@@ -491,6 +493,11 @@ export default function CellarAssistantView({
                 </button>
               ))}
             </div>
+          ) : null}
+          {result.intent === "add_to_wishlist" && result.status === "executed" ? (
+            <button type="button" className="secondary" onClick={onOpenWishlist}>
+              {isItalian ? "Apri wishlist e completa i dati" : "Open wishlist and complete details"}
+            </button>
           ) : null}
           {result.intent === "ship_wine" && result.status === "not_found" && result.purchase_draft ? (
             <button type="button" className="secondary" onClick={() => void prepareMissingShipment()} disabled={busy}>

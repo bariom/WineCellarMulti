@@ -1170,15 +1170,19 @@ def execute_cellar_ai_wishlist_command(
     name = str(parsed.get("wine_name") or "").strip()
     if not name:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wine name is required")
+    catalog_matches = acquisition_catalog_matches(db, parsed)
+    catalog_entry = catalog_matches[0][0] if catalog_matches and catalog_matches[0][1] >= 80 else None
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
         wishlist_list_id=wishlist_list.id,
         name=name,
-        producer=str(parsed.get("producer") or "").strip(),
+        producer=str((catalog_entry.producer if catalog_entry else "") or parsed.get("producer") or "").strip(),
         vintage=str(parsed.get("vintage") or "").strip(),
-        format=str(parsed.get("format") or "").strip(),
-        type=normalize_wine_type(str(parsed.get("type") or "")),
+        format=str(parsed.get("format") or (catalog_entry.format if catalog_entry else "") or "").strip(),
+        type=normalize_wine_type(str((catalog_entry.type if catalog_entry else "") or parsed.get("type") or "")),
+        region=str((catalog_entry.region if catalog_entry else "") or "").strip(),
+        appellation=str((catalog_entry.appellation if catalog_entry else "") or "").strip(),
         status="Evaluate",
         status_source="manual",
     )

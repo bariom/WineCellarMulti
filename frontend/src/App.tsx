@@ -5022,7 +5022,6 @@ export function App() {
   const showManualWishlistAiSearch =
     activeView === "wishlist" &&
     wishlistFormOpen &&
-    !editingWishlistId &&
     canUseIncludedWineSearch &&
     wishlistDraft.name.trim().length >= 2;
   const hasAiDraftChanges = Boolean(
@@ -10292,6 +10291,7 @@ export function App() {
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
               onPreparePurchase={prepareAssistantPurchaseDraft}
+              onOpenWishlist={() => setActiveView("wishlist")}
               onCellarChanged={async () => {
                 await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
