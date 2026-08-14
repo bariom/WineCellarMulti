@@ -1055,6 +1055,15 @@ def cellar_command_acquisition_status(raw_text: str) -> str:
     return "Ordered"
 
 
+def cellar_command_wishlist_list_name(raw_text: str) -> str:
+    match = re.search(
+        r"\b(?:alla|alla\s+mia|alla\s+nostra|to(?:\s+my)?)\s+wishlist\s+([^,;:.]+)",
+        raw_text,
+        flags=re.IGNORECASE,
+    )
+    return match.group(1).strip() if match else ""
+
+
 def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tuple[Any, float]]:
     name = str(parsed.get("wine_name") or "").strip()
     producer = str(parsed.get("producer") or "").strip()
@@ -1424,6 +1433,10 @@ def create_cellar_ai_command(
         if case_quantity is not None:
             parsed["quantity"] = case_quantity
         parsed["acquisition_status"] = cellar_command_acquisition_status(payload.text)
+    if parsed_intent == "add_to_wishlist":
+        requested_list_name = cellar_command_wishlist_list_name(payload.text)
+        if requested_list_name:
+            parsed["wishlist_list_name"] = requested_list_name
     command.intent = parsed_intent
     command.parsed_payload = parsed
     command.model = response.model or settings.openai_cellar_command_model

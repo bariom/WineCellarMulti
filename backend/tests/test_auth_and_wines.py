@@ -3776,7 +3776,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
                     "wine_name": "Bricco dell'Uccellone", "producer": "", "vintage": "2024",
                     "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
                     "purchase_price_present": False, "purchase_price": 0, "currency": "", "merchant": "",
-                    "wishlist_list_name": "Rossi", "note": "", "score_present": False,
+                    "wishlist_list_name": "Rossi, Bricco dell'Uccellone 2024", "note": "", "score_present": False,
                     "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
                     "pairing": "", "companions": "",
                 }),
@@ -3791,7 +3791,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
         "/api/v1/ai/cellar-commands",
         json={
             "request_id": str(uuid.uuid4()),
-            "text": "Aggiungi Bricco dell'Uccellone 2024 alla wishlist Rossi.",
+            "text": "Aggiungi alla wishlist Rossi, Bricco dell'Uccellone 2024.",
             "locale": "it", "timezone": "Europe/Zurich",
         },
     )
