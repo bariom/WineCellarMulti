@@ -1132,6 +1132,25 @@ def matching_cellar_command_wishlist_list(
     requested_list_name: str,
     wishlist_lists: list[WishlistList],
 ) -> WishlistList | None:
+    normalized_text = normalize_cellar_command_identity(raw_text)
+    wishlist_anchor = (
+        r"(?:alla(?:\s+(?:mia|nostra))?|in(?:\s+(?:la|mia|nostra))?|nella|sulla|"
+        r"to(?:\s+(?:my|the))?)\s+(?:lista\s+)?(?:wish[-\s]*list|"
+        r"lista\s+(?:(?:dei|de|dei\s+(?:miei|nostri)|my)\s+)?desideri)"
+    )
+    # Prefer a real list name immediately following "alla wishlist" over the
+    # generic default list named "Wishlist" appearing in the command itself.
+    anchored_lists = [
+        item
+        for item in wishlist_lists
+        if re.search(
+            rf"\b{wishlist_anchor}\s+(?:di\s+|del(?:la)?\s+|for\s+)?"
+            rf"{re.escape(normalize_cellar_command_identity(item.name))}(?!\w)",
+            normalized_text,
+        )
+    ]
+    if anchored_lists:
+        return max(anchored_lists, key=lambda item: len(item.name))
     exact_match = next(
         (
             item
@@ -1143,10 +1162,10 @@ def matching_cellar_command_wishlist_list(
     )
     if exact_match is not None:
         return exact_match
-    normalized_text = normalize_cellar_command_identity(raw_text)
     mentioned_lists = [
         item
         for item in wishlist_lists
+        if normalize_cellar_command_identity(item.name) not in {"wishlist", "wish list", "lista desideri", "lista dei desideri"}
         if re.search(
             rf"(?<!\w){re.escape(normalize_cellar_command_identity(item.name))}(?!\w)",
             normalized_text,
@@ -1509,11 +1528,13 @@ def create_cellar_ai_command(
     db.add(command)
     db.commit()
     user_settings = get_or_create_user_ai_settings(db, context)
+    wishlist_names = [item.name for item in cellar_command_wishlist_lists(db, context)]
     prompt = cellar_command_prompt(
         locale=payload.locale,
         command_text=payload.text,
         local_date=local_today.isoformat(),
         timezone=payload.timezone,
+        wishlist_names=wishlist_names,
     )
     try:
         response, provider_source = create_ai_response(

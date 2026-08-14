@@ -27,8 +27,16 @@ def language_instruction(locale: str) -> str:
 
 
 def cellar_command_prompt(
-    *, locale: str, command_text: str, local_date: str, timezone: str
+    *,
+    locale: str,
+    command_text: str,
+    local_date: str,
+    timezone: str,
+    wishlist_names: list[str] | None = None,
 ) -> Prompt:
+    known_wishlists = (
+        ", ".join(name.strip() for name in (wishlist_names or []) if name.strip()) or "(none)"
+    )
     return Prompt(
         id="cellar.command_interpretation",
         version="5",
@@ -41,7 +49,8 @@ def cellar_command_prompt(
             "bought or purchased wine, or asks to add wine to the cellar. Use intent ship_wine when "
             "the user says an already ordered wine has been shipped. Otherwise use unsupported. "
             "Use intent add_to_wishlist when the user asks to add a wine to a wishlist; preserve the "
-            "wishlist list name exactly when stated. For a wishlist price, extract the stated amount and "
+            "wishlist list name exactly when stated. When the user names one of the known wishlists, return "
+            "that exact name and never use the generic word 'wishlist' as the list name. For a wishlist price, extract the stated amount and "
             "currency into purchase_price and purchase_price_present: Vinaris will classify a plain price "
             "or a maximum/budget as a target price, and an offer or found price as an offer price. "
             "An acquisition is only a draft for user review and is never a completed database action. "
@@ -55,7 +64,7 @@ def cellar_command_prompt(
             "factual tasting note concise without enriching it with wine knowledge."
         ),
         user=(
-            f"Locale: {locale}\nLocal date: {local_date}\nTimezone: {timezone}\n\n"
+            f"Locale: {locale}\nLocal date: {local_date}\nTimezone: {timezone}\nKnown wishlist names: {known_wishlists}\n\n"
             f"User command:\n{command_text.strip()}"
         ),
     )

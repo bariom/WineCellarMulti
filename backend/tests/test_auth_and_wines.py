@@ -3778,7 +3778,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
                     "wine_name": "Castello di Morcote", "producer": "Rossi", "vintage": "2021",
                     "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
                     "purchase_price_present": True, "purchase_price": 100, "currency": "CHF", "merchant": "",
-                    "wishlist_list_name": "Rossi il vino Castello di Morcote 2021", "note": "", "score_present": False,
+                    "wishlist_list_name": "Wishlist", "note": "", "score_present": False,
                     "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
                     "pairing": "", "companions": "",
                 }),

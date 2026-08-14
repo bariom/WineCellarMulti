@@ -14,6 +14,7 @@ def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
         command_text="Ieri ho bevuto Ornellaia 2015, 9 su 10. Aggiorna la cantina.",
         local_date="2026-08-13",
         timezone="Europe/Zurich",
+        wishlist_names=["Rossi", "Wishlist"],
     )
 
     assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "5")
@@ -27,6 +28,7 @@ def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
     assert "2026-08-13" in prompt.user
     assert "Europe/Zurich" in prompt.user
     assert "Ornellaia 2015" in prompt.user
+    assert "Known wishlist names: Rossi, Wishlist" in prompt.user
 
 
 def test_notes_prompt_is_versioned_localized_and_contains_context():
