@@ -77,6 +77,8 @@ export default function CellarAssistantView({
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef("");
+  const resultRef = useRef<HTMLElement | null>(null);
+  const errorRef = useRef<HTMLParagraphElement | null>(null);
   const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
   const consumptionExample = isItalian
@@ -114,6 +116,17 @@ export default function CellarAssistantView({
     recognitionRef.current?.abort();
     if (voiceTimeoutRef.current !== null) window.clearTimeout(voiceTimeoutRef.current);
   }, []);
+
+  useEffect(() => {
+    if (!window.matchMedia("(max-width: 820px)").matches || (!result && !error)) return;
+    const target = result ? resultRef.current : errorRef.current;
+    if (!target) return;
+    const frame = window.requestAnimationFrame(() => {
+      target.focus({ preventScroll: true });
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [error, result]);
 
   function voiceErrorMessage(code: string) {
     if (code === "not-allowed" || code === "service-not-allowed") {
@@ -450,10 +463,10 @@ export default function CellarAssistantView({
             : "Dictation is unavailable in this browser. Enter the command with the keyboard."}</small>
       </form>
 
-      {error ? <p className="cellar-assistant-error" role="alert">{error}</p> : null}
+      {error ? <p ref={errorRef} className="cellar-assistant-error" role="alert" tabIndex={-1}>{error}</p> : null}
 
       {result ? (
-        <article className={`cellar-assistant-result status-${result.status}`} aria-live="polite">
+        <article ref={resultRef} className={`cellar-assistant-result status-${result.status}`} aria-live="polite" tabIndex={-1}>
           <header>
             <AppIcon name={result.status === "executed" ? "status-delivered" : "glass-sparkle"} variant={result.status === "executed" ? "status" : "ai"} />
             <div><strong>{result.message}</strong>{result.model ? <small>{result.model} · {requestCostLabel(result.estimated_cost_usd)}</small> : null}</div>

@@ -20189,6 +20189,8 @@ body,
   }
 
   .wine-side-panel > .wine-form {
+    /* The editor is a mobile sheet: keep its action bar above the app header. */
+    z-index: 380;
     inset:
       calc(58px + env(safe-area-inset-top, 0px))
       max(10px, env(safe-area-inset-right, 0px))
