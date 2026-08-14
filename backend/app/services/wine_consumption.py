@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.models import Wine, WineTastingEntry
+from app.services.stock_ledger import remove_fifo_stock
 
 
 class NoBottlesAvailableError(ValueError):
@@ -148,7 +149,15 @@ def record_wine_consumption(
             created_at=created_at,
         )
     )
-    wine.quantity = max(wine.quantity - 1, 0)
+    remove_fifo_stock(
+        db,
+        wine,
+        movement_type="consumption",
+        quantity=1,
+        occurred_on=consumed_at,
+        note=tasting_entry["note"],
+        user_id=created_by_user_id,
+    )
     if rating > 0:
         wine.rating = max(0, min(int(rating), 6))
     if wine.quantity == 0:

@@ -1151,7 +1151,7 @@ def create_wine(
     )
     db.add(wine)
     db.flush()
-    if context.household.operating_mode == "restaurant" and wine.quantity > 0:
+    if wine.quantity > 0:
         add_inbound_stock(
             db,
             wine,

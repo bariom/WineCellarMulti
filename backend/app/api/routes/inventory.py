@@ -14,14 +14,6 @@ from app.services.stock_ledger import add_inbound_stock, remove_fifo_stock
 router = APIRouter(prefix="/inventory")
 
 
-def require_restaurant(context: CurrentContext) -> None:
-    if context.household.operating_mode != "restaurant":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Stock ledger is available only for restaurant cellars",
-        )
-
-
 def movement_response(movement: WineStockMovement, wine: Wine) -> StockMovementResponse:
     return StockMovementResponse(
         id=movement.id,
@@ -51,7 +43,6 @@ def list_movements(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> list[StockMovementResponse]:
-    require_restaurant(context)
     query = (
         select(WineStockMovement, Wine)
         .join(Wine, Wine.id == WineStockMovement.wine_id)
@@ -71,7 +62,6 @@ def list_lots(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> list[StockLotResponse]:
-    require_restaurant(context)
     query = (
         select(WineStockLot, Wine)
         .join(Wine, Wine.id == WineStockLot.wine_id)
@@ -108,7 +98,6 @@ def create_movement(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
 ) -> list[StockMovementResponse]:
-    require_restaurant(context)
     wine = db.scalar(
         select(Wine)
         .where(Wine.id == payload.wine_id, Wine.household_id == context.household.id)

@@ -118,6 +118,7 @@ from app.services.shared_wine_data import (
     mark_local_feature,
     publish_shared_fact,
 )
+from app.services.stock_ledger import add_inbound_stock
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -1402,6 +1403,29 @@ def execute_cellar_ai_command(
             command,
             message=f"Done. {wine.name} {wine.vintage} is now shipped.",
         )
+    if command.intent == "acquire_wine":
+        parsed = command.parsed_payload or {}
+        purchase = cellar_command_purchase_draft(parsed)
+        if purchase.status != "Delivered":
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only delivered purchases can be added to cellar stock")
+        try:
+            acquired_on = date.fromisoformat(purchase.order_date) if purchase.order_date else local_today
+        except ValueError as error:
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="The cellar command contains an invalid purchase date") from error
+        add_inbound_stock(
+            db, wine, movement_type="purchase", quantity=purchase.quantity, occurred_on=acquired_on,
+            unit_cost=purchase.price, supplier=purchase.merchant, reference="ai_command", note=command.raw_text,
+            user_id=context.user.id,
+        )
+        command.status = "executed"
+        command.matched_wine_id = wine.id
+        command.previous_quantity = wine.quantity - purchase.quantity
+        command.previous_status = wine.status
+        command.executed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        db.refresh(wine)
+        return cellar_command_response(db, context, command, message=f"Aggiunte {purchase.quantity} bottiglie a {wine.name} {wine.vintage} come nuovo lotto.")
     tasting = cellar_command_tasting(command.parsed_payload or {})
     try:
         result = record_wine_consumption(
@@ -1611,6 +1635,11 @@ def create_cellar_ai_command(
             return cellar_command_response(
                 db, context, command, message="Indica il nome del vino da aggiungere."
             )
+        existing_matches = matching_cellar_command_wines(db, context, parsed)
+        if existing_matches and str(parsed.get("acquisition_status") or "") == "Delivered":
+            command.status = "needs_confirmation"
+            db.commit()
+            return cellar_command_response(db, context, command, message="Ho trovato questo vino in cantina. Conferma per aggiungere un nuovo lotto.")
         catalog_matches = acquisition_catalog_matches(db, parsed)
         if not catalog_matches:
             parsed["catalog_lookup"] = "ai_required"

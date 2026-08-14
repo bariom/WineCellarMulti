@@ -536,6 +536,22 @@ export type HouseholdMembership = {
   role: string;
 };
 
+export type WineStockLot = {
+  id: string;
+  wine_id: string;
+  wine_name: string;
+  acquired_on: string;
+  quantity_received: number;
+  quantity_remaining: number;
+  unit_cost: string;
+  total_remaining_cost: string;
+  currency: string;
+  supplier: string;
+  reference: string;
+  note: string;
+  created_at: string;
+};
+
 export type Member = {
   membership_id: string;
   user_id: string;

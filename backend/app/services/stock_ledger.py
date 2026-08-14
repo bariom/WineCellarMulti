@@ -12,7 +12,7 @@ from app.models import Wine, WineSale, WineStockLot, WineStockMovement
 
 INBOUND_TYPES = {"purchase", "adjustment_in"}
 INBOUND_LEDGER_TYPES = INBOUND_TYPES | {"initial_purchase", "sale_void"}
-OUTBOUND_TYPES = {"adjustment_out", "breakage", "complimentary"}
+OUTBOUND_TYPES = {"adjustment_out", "breakage", "complimentary", "consumption"}
 
 
 def ensure_opening_stock(

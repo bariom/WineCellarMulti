@@ -7910,6 +7910,7 @@ export function App() {
         onToggleScoresAiExclusion={(excluded) => setWineScoresAiExclusion(wine, excluded)}
         onUpdateRating={(rating) => updateWineRating(wine, rating)}
         onConsume={(payload) => consumeWineBottle(wine, payload)}
+        onLotsChanged={loadWines}
         restaurantMode={isRestaurant}
         salesHistory={wineSalesHistory?.wine_id === wine.id ? wineSalesHistory : null}
         salesHistoryLoading={wineSalesHistoryLoading}

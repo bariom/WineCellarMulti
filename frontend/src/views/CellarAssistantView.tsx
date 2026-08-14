@@ -73,6 +73,7 @@ export default function CellarAssistantView({
   const [listening, setListening] = useState(false);
   const [voicePreparing, setVoicePreparing] = useState(false);
   const [voiceMessage, setVoiceMessage] = useState("");
+  const [helpOpen, setHelpOpen] = useState(false);
   const recognitionRef = useRef<VoiceRecognition | null>(null);
   const voiceTimeoutRef = useRef<number | null>(null);
   const finalTranscriptRef = useRef("");
@@ -377,12 +378,14 @@ export default function CellarAssistantView({
         <span className="cellar-assistant-icon"><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /></span>
         <div>
           <p>{isItalian ? "Vinaris · GPT-5.6 Luna" : "Vinaris · GPT-5.6 Luna"}</p>
-          <h1 id="cellar-assistant-title">{isItalian ? "Assistente Cantina AI" : "AI Cellar Assistant"}</h1>
+          <div className="cellar-assistant-title-row"><h1 id="cellar-assistant-title">{isItalian ? "Assistente Cantina AI" : "AI Cellar Assistant"}</h1><button type="button" className="secondary compact cellar-assistant-help-button" onClick={() => setHelpOpen(true)} aria-label={isItalian ? "Come funziona l'assistente AI" : "How the AI assistant works"}>?</button></div>
           <span>{isItalian
             ? "Racconta cosa hai bevuto o acquistato: Vinaris identifica il vino e prepara l’aggiornamento corretto."
             : "Describe what you drank or purchased: Vinaris identifies the wine and prepares the correct update."}</span>
         </div>
       </header>
+
+      {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><ul>{isItalian ? <><li><strong>Bevute:</strong> “Ho bevuto una bottiglia di Ornellaia 2015, 9 su 10.” Registra data, note e voto convertito su scala 6.</li><li><strong>Acquisti:</strong> “Ho acquistato 6 Sassicaia 2022 a CHF 40 da Arvi.” Prepara la scheda o aggiunge un lotto al vino già presente.</li><li><strong>Ordini e spedizioni:</strong> “Ho ordinato una cassa…” oppure “Mi hanno spedito…” Aggiorna lo stato corretto.</li><li><strong>Wishlist:</strong> “Aggiungi Barolo 2021 alla wishlist Rossi, prezzo 100 franchi.”</li><li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li></> : <><li><strong>Drinking:</strong> records date, notes and score on Vinaris’ six-point scale.</li><li><strong>Purchases:</strong> prepares a new record or adds a purchase lot to an existing wine.</li><li><strong>Orders and shipments:</strong> updates the appropriate status.</li><li><strong>Wishlist:</strong> adds a wine to the named wishlist with an optional target price.</li><li>Always review the proposal: nothing changes without your confirmation.</li></>}</ul></section></div> : null}
 
       <form className="cellar-assistant-composer" onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Cosa è successo in cantina?" : "What happened in your cellar?"}</label>

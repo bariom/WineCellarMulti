@@ -3418,6 +3418,44 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
     assert no_more.status_code == 400
 
 
+def test_private_cellar_tracks_purchase_lots_and_consumes_fifo():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Vino A",
+            "vintage": "2020",
+            "quantity": 6,
+            "price": 50,
+            "currency": "CHF",
+            "status": "Delivered",
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+
+    added = client.post(
+        "/api/v1/inventory/movements",
+        json={
+            "wine_id": wine_id,
+            "movement_type": "purchase",
+            "quantity": 6,
+            "unit_cost": 40,
+            "occurred_on": "2026-08-14",
+            "supplier": "Enoteca",
+        },
+    )
+    assert added.status_code == 201
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 12
+
+    consumed = client.post(f"/api/v1/wines/{wine_id}/consume", json={})
+    assert consumed.status_code == 200
+    assert consumed.json()["quantity"] == 11
+    lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}").json()
+    assert [(item["quantity_remaining"], item["unit_cost"]) for item in lots] == [(5, "50.00"), (6, "40.00")]
+
+
 def test_tasting_history_normalization_tolerates_legacy_empty_scores():
     entries = normalize_tasting_history(
         [
