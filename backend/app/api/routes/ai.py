@@ -1422,6 +1422,10 @@ def execute_cellar_ai_command(
         )
     except NoBottlesAvailableError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
+    # Insert the tasting before storing its id on the AI command.  These two
+    # models have no ORM relationship, so PostgreSQL can otherwise issue the
+    # command update first and reject it on the foreign-key constraint.
+    db.flush()
     command.status = "executed"
     command.matched_wine_id = wine.id
     command.tasting_id = result.tasting_id

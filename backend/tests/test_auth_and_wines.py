@@ -3426,7 +3426,7 @@ def test_tasting_history_normalization_tolerates_legacy_empty_scores():
                 "consumed_at": "2026-08-13",
                 "created_at": "2026-08-13T19:30:00+00:00",
                 "note": "Legacy tasting",
-                "rating": 4,
+                "rating": "not set",
                 "score_value": "",
                 "score_scale": "not set",
             }
@@ -3434,8 +3434,95 @@ def test_tasting_history_normalization_tolerates_legacy_empty_scores():
     )
 
     assert len(entries) == 1
+    assert entries[0]["rating"] == 0
     assert entries[0]["score_value"] is None
     assert entries[0]["score_scale"] is None
+
+
+def test_cellar_ai_confirmation_handles_legacy_malformed_tasting_scores(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Blanc De Blancs",
+            "producer": "Vini Rovio",
+            "vintage": "2022",
+            "quantity": 2,
+            "status": "Delivered",
+        },
+    )
+    assert wine.status_code == 201
+    wine_id = uuid.UUID(wine.json()["id"])
+    with TestingSessionLocal() as db:
+        stored_wine = db.get(Wine, wine_id)
+        assert stored_wine is not None
+        stored_wine.tasting_history = [
+            {
+                "id": str(uuid.uuid4()),
+                "consumed_at": "2026-08-10",
+                "created_at": "2026-08-10T20:00:00+00:00",
+                "rating": "not set",
+                "score_value": "",
+                "score_scale": "unknown",
+            }
+        ]
+        db.commit()
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "consume_wine",
+                        "explicit_action": False,
+                        "wine_name": "Blanc De Blancs",
+                        "producer": "Vini Rovio",
+                        "vintage": "2022",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": datetime.now(UTC).date().isoformat(),
+                        "note": "Molto buono",
+                        "score_present": True,
+                        "score_value": 8,
+                        "score_scale": 10,
+                        "enjoyment": "positive",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=300, output_tokens=80, total_tokens=380),
+            ),
+            "user_key",
+        ),
+    )
+
+    command = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Sto bevendo una bottiglia di Blanc De Blancs 2022, la valuto 8 su 10.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert command.status_code == 200
+    assert command.json()["status"] == "needs_confirmation"
+
+    confirmed = client.post(
+        f"/api/v1/ai/cellar-commands/{command.json()['command_id']}/execute",
+        json={"wine_id": str(wine_id)},
+    )
+    assert confirmed.status_code == 200
+    assert confirmed.json()["status"] == "executed"
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 1
 
 
 def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monkeypatch):

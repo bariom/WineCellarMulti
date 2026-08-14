@@ -43,9 +43,18 @@ def optional_tasting_score_scale(value: object) -> int | None:
         return None
 
 
+def normalized_tasting_rating(value: object) -> int:
+    try:
+        return max(0, min(int(value or 0), 6))
+    except (TypeError, ValueError):
+        return 0
+
+
 def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
     entries: list[dict] = []
     for raw_entry in raw_entries or []:
+        if not isinstance(raw_entry, dict):
+            continue
         consumed_at = str(raw_entry.get("consumed_at") or "").strip()
         created_at = str(raw_entry.get("created_at") or "").strip()
         enjoyment = str(raw_entry.get("enjoyment") or "").strip()
@@ -60,7 +69,7 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
                 "id": str(raw_entry.get("id") or uuid.uuid4()),
                 "consumed_at": consumed_at,
                 "note": str(raw_entry.get("note") or "").strip(),
-                "rating": max(0, min(int(raw_entry.get("rating") or 0), 6)),
+                "rating": normalized_tasting_rating(raw_entry.get("rating")),
                 "score_value": score_value,
                 "score_scale": score_scale,
                 "enjoyment": enjoyment,
