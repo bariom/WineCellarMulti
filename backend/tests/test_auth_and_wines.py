@@ -3777,7 +3777,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
                     "intent": "add_to_wishlist", "explicit_action": True,
                     "wine_name": "Bricco dell'Uccellone", "producer": "Rossi", "vintage": "2024",
                     "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
-                    "purchase_price_present": False, "purchase_price": 0, "currency": "", "merchant": "",
+                    "purchase_price_present": True, "purchase_price": 250, "currency": "CHF", "merchant": "",
                     "wishlist_list_name": "Rossi, Bricco dell'Uccellone 2024", "note": "", "score_present": False,
                     "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
                     "pairing": "", "companions": "",
@@ -3793,7 +3793,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
         "/api/v1/ai/cellar-commands",
         json={
             "request_id": str(uuid.uuid4()),
-            "text": "Aggiungi alla wishlist Rossi, Bricco dell'Uccellone 2024.",
+            "text": "Aggiungi alla wishlist Rossi, Bricco dell'Uccellone 2024, prezzo 250 CHF.",
             "locale": "it", "timezone": "Europe/Zurich",
         },
     )
@@ -3801,8 +3801,8 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
     assert response.status_code == 200
     assert response.json()["status"] == "executed"
     items = client.get(f"/api/v1/wishlist?wishlist_list_id={wishlist_list.json()['id']}").json()
-    assert [(item["name"], item["producer"], item["vintage"], item["status"]) for item in items] == [
-        ("Bricco dell'Uccellone", "", "2024", "Evaluate")
+    assert [(item["name"], item["producer"], item["vintage"], item["target_price"], item["offer_price"], item["currency"], item["status"]) for item in items] == [
+        ("Bricco dell'Uccellone", "", "2024", "250.00", None, "CHF", "Evaluate")
     ]
 
 
@@ -3830,6 +3830,27 @@ def test_cellar_ai_extracts_wishlist_name_from_common_command_variants():
     }
 
     assert {command: cellar_command_wishlist_list_name(command) for command in commands} == commands
+
+
+def test_cellar_ai_classifies_wishlist_price_variants():
+    from app.api.routes.ai import cellar_command_wishlist_price_kind
+
+    target_commands = [
+        "Aggiungi alla wishlist Rossi, prezzo 250 CHF.",
+        "Prezzo massimo 250 CHF.",
+        "Non oltre 250 CHF.",
+        "Budget di 250 CHF.",
+        "Up to 250 CHF.",
+    ]
+    offer_commands = [
+        "L'ho trovata in offerta a 250 CHF.",
+        "Prezzo offerto 250 CHF dal venditore.",
+        "Found at 250 CHF.",
+        "Available at 250 CHF.",
+    ]
+
+    assert [cellar_command_wishlist_price_kind(command) for command in target_commands] == ["target"] * len(target_commands)
+    assert [cellar_command_wishlist_price_kind(command) for command in offer_commands] == ["offer"] * len(offer_commands)
 
 
 def test_cellar_ai_global_flag_keeps_admin_access_and_blocks_regular_users(monkeypatch):

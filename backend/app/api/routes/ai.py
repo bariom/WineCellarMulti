@@ -1096,6 +1096,26 @@ def cellar_command_wishlist_list_name(raw_text: str) -> str:
     return ""
 
 
+def cellar_command_wishlist_price_kind(raw_text: str) -> str:
+    """Classify a stated wishlist price as a target ceiling or a concrete offer."""
+    normalized = normalize_cellar_command_identity(raw_text)
+    if re.search(
+        r"\b(?:prezzo\s+(?:massimo|target|obiettivo)|massimo|al\s+massimo|non\s+(?:oltre|piu\s+di)|"
+        r"fino\s+a|budget|tetto|target\s+price|maximum\s+price|max\s+price|no\s+more\s+than|up\s+to|under)\b",
+        normalized,
+    ):
+        return "target"
+    if re.search(
+        r"\b(?:offerta|offerto|offerti|promozione|prezzo\s+offerto|prezzo\s+di\s+vendita|"
+        r"venditore|rivenditore|enoteca|merchant|seller|offer|sale|listed|quotato|trovat[oa]|"
+        r"costa|costs?|available\s+at|found\s+at)\b",
+        normalized,
+    ):
+        return "offer"
+    # A plain "prezzo" on a wishlist means the maximum the user is willing to pay.
+    return "target"
+
+
 def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tuple[Any, float]]:
     name = str(parsed.get("wine_name") or "").strip()
     producer = str(parsed.get("producer") or "").strip()
@@ -1222,6 +1242,9 @@ def execute_cellar_ai_wishlist_command(
         == normalize_cellar_command_identity(wishlist_list.name)
     ):
         parsed_producer = ""
+    price_present = bool(parsed.get("purchase_price_present"))
+    wishlist_price = Decimal(str(parsed.get("purchase_price") or 0)) if price_present else None
+    price_kind = cellar_command_wishlist_price_kind(command.raw_text) if wishlist_price is not None else ""
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -1233,6 +1256,9 @@ def execute_cellar_ai_wishlist_command(
         type=normalize_wine_type(str((catalog_entry.type if catalog_entry else "") or parsed.get("type") or "")),
         region=str((catalog_entry.region if catalog_entry else "") or "").strip(),
         appellation=str((catalog_entry.appellation if catalog_entry else "") or "").strip(),
+        target_price=wishlist_price if price_kind == "target" else Decimal("0"),
+        offer_price=wishlist_price if price_kind == "offer" else None,
+        currency=str(parsed.get("currency") or "CHF").strip().upper()[:8] or "CHF",
         status="Evaluate",
         status_source="manual",
     )
