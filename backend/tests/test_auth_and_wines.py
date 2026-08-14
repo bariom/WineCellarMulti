@@ -3804,6 +3804,23 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
     ]
 
 
+def test_cellar_ai_extracts_wishlist_name_from_common_command_variants():
+    from app.api.routes.ai import cellar_command_wishlist_list_name
+
+    commands = {
+        "Aggiungi alla wishlist Rossi, Bricco dell'Uccellone 2024.": "Rossi",
+        "Metti in wishlist Rossi, Bricco dell'Uccellone 2024.": "Rossi",
+        "Metti nella wishlist Rossi, Bricco dell'Uccellone 2024.": "Rossi",
+        "Aggiungi Bricco dell'Uccellone 2024 alla mia wishlist Rossi.": "Rossi",
+        "Inserisci il vino sulla lista dei desideri Rossi.": "Rossi",
+        "Add it to my wishlist Rossi.": "Rossi",
+        "Add it to the wish list called Rossi.": "Rossi",
+        "Aggiungi alla wishlist: Rossi, Bricco dell'Uccellone 2024.": "Rossi",
+    }
+
+    assert {command: cellar_command_wishlist_list_name(command) for command in commands} == commands
+
+
 def test_cellar_ai_global_flag_keeps_admin_access_and_blocks_regular_users(monkeypatch):
     from app.api.routes import ai as ai_routes
 

@@ -1056,12 +1056,19 @@ def cellar_command_acquisition_status(raw_text: str) -> str:
 
 
 def cellar_command_wishlist_list_name(raw_text: str) -> str:
-    match = re.search(
-        r"\b(?:alla|alla\s+mia|alla\s+nostra|to(?:\s+my)?)\s+wishlist\s+([^,;:.]+)",
-        raw_text,
-        flags=re.IGNORECASE,
+    wishlist_terms = r"(?:wishlist|wish\s*list|lista\s+(?:dei\s+)?desideri)"
+    patterns = (
+        # "alla wishlist Rossi", "in/nella wishlist Rossi", "to my wishlist Rossi".
+        rf"\b(?:alla(?:\s+(?:mia|nostra))?|in(?:\s+(?:la|mia|nostra))?|nella|sulla|to(?:\s+(?:my|the))?)\s+(?:lista\s+)?{wishlist_terms}\s*(?:chiamata|denominata|named|called)?\s*[:\-]?\s*(?P<name>[^,;:.]+)",
+        # "wishlist chiamata Rossi", "lista dei desideri: Rossi".
+        rf"\b{wishlist_terms}\s+(?:chiamata|denominata|named|called)\s+(?P<name>[^,;:.]+)",
+        rf"\b{wishlist_terms}\s*[:\-]\s*(?P<name>[^,;:.]+)",
     )
-    return match.group(1).strip() if match else ""
+    for pattern in patterns:
+        match = re.search(pattern, raw_text, flags=re.IGNORECASE)
+        if match:
+            return match.group("name").strip().strip(" \t\"'“”‘’")
+    return ""
 
 
 def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tuple[Any, float]]:
