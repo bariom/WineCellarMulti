@@ -1092,6 +1092,17 @@ def cellar_command_wishlist_list_name(raw_text: str) -> str:
     for pattern in patterns:
         match = re.search(pattern, raw_text, flags=re.IGNORECASE)
         if match:
+            name = match.group("name").strip().strip(" \t\"'")
+            # Dictation often omits "prezzo" and appends the amount directly:
+            # "wishlist Rossi Franchi 50" means wishlist Rossi, CHF 50.
+            name_without_price = re.sub(
+                r"\s+(?:(?:al\s+)?prezzo\s+(?:di\s+)?)?(?:(?:chf|franchi|franco|francs?|eur|euro|usd|dollari?|gbp|sterline?)\s*\d+(?:[.,]\d+)?|\d+(?:[.,]\d+)?\s*(?:chf|franchi|franco|francs?|eur|euro|usd|dollari?|gbp|sterline?))\s*$",
+                "",
+                name,
+                flags=re.IGNORECASE,
+            ).strip()
+            if name_without_price:
+                return name_without_price
             return match.group("name").strip().strip(" \t\"'“”‘’")
     return ""
 

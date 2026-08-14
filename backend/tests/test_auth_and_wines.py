@@ -3827,6 +3827,8 @@ def test_cellar_ai_extracts_wishlist_name_from_common_command_variants():
         "My wish list Rossi.": "Rossi",
         "Wish list di Rossi.": "Rossi",
         "Add it to wishlist for Rossi.": "Rossi",
+        "Aggiungi la bottiglia Tasta Atta 2021 alla wishlist Rossi Franchi 50.": "Rossi",
+        "Aggiungi Tasta Atta 2021 alla wishlist Rossi 50 CHF.": "Rossi",
     }
 
     assert {command: cellar_command_wishlist_list_name(command) for command in commands} == commands
