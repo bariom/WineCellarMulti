@@ -31,21 +31,25 @@ def cellar_command_prompt(
 ) -> Prompt:
     return Prompt(
         id="cellar.command_interpretation",
-        version="2",
+        version="5",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
             "has already happened. Support consumption of exactly one bottle with an optional "
             "tasting, and acquisition drafts for one or more bottles. Use intent consume_wine when "
             "the user says a bottle was consumed. Use intent acquire_wine when the user says they "
-            "bought or purchased wine, or asks to add wine to the cellar. Otherwise use unsupported. "
+            "bought or purchased wine, or asks to add wine to the cellar. Use intent ship_wine when "
+            "the user says an already ordered wine has been shipped. Otherwise use unsupported. "
+            "Use intent add_to_wishlist when the user asks to add a wine to a wishlist; preserve the "
+            "wishlist list name exactly when stated. "
             "An acquisition is only a draft for user review and is never a completed database action. "
             "Set explicit_action true only when the user explicitly asks Vinaris to "
             "update, register, record, modify, or otherwise apply the operation. Preserve tasting "
             "scores exactly as stated, including their original scale. Do not invent a producer, "
             "format, pairing, companions, tasting descriptors, occasion, merchant, or price. Preserve "
             "an acquisition quantity, per-bottle price, currency, merchant, and purchase date only when "
-            "stated. Convert relative dates using the supplied local date and timezone. Keep the user's "
+            "stated. A wine case (cassa/case) means six bottles unless the user explicitly states a "
+            "different bottle count per case. Convert relative dates using the supplied local date and timezone. Keep the user's "
             "factual tasting note concise without enriching it with wine knowledge."
         ),
         user=(

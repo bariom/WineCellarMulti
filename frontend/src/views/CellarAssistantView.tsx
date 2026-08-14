@@ -82,6 +82,11 @@ export default function CellarAssistantView({
   const purchaseExample = isItalian
     ? "Ho acquistato 6 bottiglie di Sassicaia 2021 da Enoteca Pinchiorri a 245 CHF ciascuna. Aggiungile alla cantina."
     : "I bought 6 bottles of Sassicaia 2021 from Enoteca Pinchiorri at CHF 245 each. Add them to my cellar.";
+  const purchaseStatusLabel = (status: string) => {
+    if (status === "Delivered") return isItalian ? "In cantina" : "In cellar";
+    if (status === "Ordered") return isItalian ? "Ordinato" : "Ordered";
+    return status;
+  };
 
   useEffect(() => () => {
     recognitionRef.current?.abort();
@@ -213,6 +218,7 @@ export default function CellarAssistantView({
         currency: purchaseDraft.currency,
         merchant: purchaseDraft.merchant,
         order_date: purchaseDraft.order_date,
+        status: purchaseDraft.status,
       });
       return;
     }
@@ -278,6 +284,37 @@ export default function CellarAssistantView({
     setError("");
     try {
       await preparePurchase(result.purchase_draft, candidate);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to prepare wine record");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function selectWishlistList(wishlistListId: string) {
+    if (!result || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await api<CellarCommandResult>(
+        `/api/v1/ai/cellar-commands/${result.command_id}/wishlist`,
+        { method: "POST", body: JSON.stringify({ wishlist_list_id: wishlistListId }) },
+      );
+      setResult(next);
+      await onCellarChanged();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to add wishlist item");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function prepareMissingShipment() {
+    if (!result?.purchase_draft || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await preparePurchase(result.purchase_draft);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to prepare wine record");
     } finally {
@@ -409,6 +446,7 @@ export default function CellarAssistantView({
             <dl>
               <div><dt>{isItalian ? "Vino" : "Wine"}</dt><dd>{[result.purchase_draft.producer, result.purchase_draft.name, result.purchase_draft.vintage].filter(Boolean).join(" · ")}</dd></div>
               <div><dt>{isItalian ? "Quantità" : "Quantity"}</dt><dd>{result.purchase_draft.quantity}</dd></div>
+              <div><dt>{isItalian ? "Stato" : "Status"}</dt><dd>{purchaseStatusLabel(result.purchase_draft.status)}</dd></div>
               {result.purchase_draft.price !== null ? <div><dt>{isItalian ? "Prezzo unitario" : "Unit price"}</dt><dd>{result.purchase_draft.price} {result.purchase_draft.currency}</dd></div> : null}
               {result.purchase_draft.merchant ? <div><dt>{isItalian ? "Rivenditore" : "Merchant"}</dt><dd>{result.purchase_draft.merchant}</dd></div> : null}
             </dl>
@@ -432,6 +470,21 @@ export default function CellarAssistantView({
                 </button>
               ))}
             </div>
+          ) : null}
+          {result.wishlist_lists.length ? (
+            <div className="cellar-assistant-candidates">
+              {result.wishlist_lists.map((wishlistList) => (
+                <button type="button" className="secondary" key={wishlistList.wishlist_list_id} onClick={() => void selectWishlistList(wishlistList.wishlist_list_id)} disabled={busy}>
+                  <span><strong>{wishlistList.name}</strong><small>{isItalian ? "Aggiungi a questa wishlist" : "Add to this wishlist"}</small></span>
+                  <b>{isItalian ? "Scegli" : "Choose"}</b>
+                </button>
+              ))}
+            </div>
+          ) : null}
+          {result.intent === "ship_wine" && result.status === "not_found" && result.purchase_draft ? (
+            <button type="button" className="secondary" onClick={() => void prepareMissingShipment()} disabled={busy}>
+              {isItalian ? "Aggiungi come nuovo ordine" : "Add as a new order"}
+            </button>
           ) : null}
           {result.status === "executed" ? <button type="button" className="secondary compact" onClick={() => void undo()} disabled={busy}>{isItalian ? "Annulla aggiornamento" : "Undo update"}</button> : null}
         </article>

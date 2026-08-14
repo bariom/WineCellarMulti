@@ -48,6 +48,7 @@ from app.models import (
     Wine,
     WineTastingEntry,
     WishlistItem,
+    WishlistList,
 )
 from app.prompts import (
     ai_notes_prompt,
@@ -80,6 +81,8 @@ from app.schemas.ai import (
     CellarCommandStatus,
     CellarCommandTasting,
     CellarCommandWineCandidate,
+    CellarCommandWishlistExecuteRequest,
+    CellarCommandWishlistList,
     PairingCellarMatch,
     PairingDishRecommendation,
     PairingMarketWine,
@@ -942,7 +945,11 @@ def cellar_command_candidate(wine: Wine) -> CellarCommandWineCandidate:
 
 
 def matching_cellar_command_wines(
-    db: Session, context: CurrentContext, parsed: dict[str, Any]
+    db: Session,
+    context: CurrentContext,
+    parsed: dict[str, Any],
+    *,
+    required_status: str | None = None,
 ) -> list[tuple[Wine, float]]:
     wines = list(
         db.scalars(select(Wine).where(Wine.household_id == context.household.id))
@@ -950,7 +957,9 @@ def matching_cellar_command_wines(
     ranked = [
         (wine, cellar_command_match_score(parsed, wine))
         for wine in wines
-        if wine.quantity > 0 and user_can_see_wine(context, wine)
+        if wine.quantity > 0
+        and user_can_see_wine(context, wine)
+        and (required_status is None or wine.status == required_status)
     ]
     return sorted(
         ((wine, score) for wine, score in ranked if score >= 65),
@@ -1008,7 +1017,42 @@ def cellar_command_purchase_draft(parsed: dict[str, Any]) -> CellarCommandPurcha
         currency=str(parsed.get("currency") or "").strip().upper(),
         merchant=str(parsed.get("merchant") or "").strip(),
         order_date=str(parsed.get("purchase_date") or "").strip(),
+        status=str(parsed.get("acquisition_status") or "Ordered"),
     )
+
+
+def cellar_command_case_quantity(raw_text: str) -> int | None:
+    normalized = normalize_cellar_command_identity(raw_text)
+    match = re.search(
+        r"\b(?P<count>\d+|un|una|one|two|due|three|tre)\s+"
+        r"(?P<case>cassa|casse|case|cases)\b"
+        r"(?:\s+(?:da|of)\s+(?P<size>\d+)\s+(?:bottiglie|bottiglia|bottles|bottle))?",
+        normalized,
+    )
+    if match is None:
+        return None
+    count = {
+        "un": 1,
+        "una": 1,
+        "one": 1,
+        "due": 2,
+        "two": 2,
+        "tre": 3,
+        "three": 3,
+    }.get(match.group("count"), None)
+    if count is None:
+        count = int(match.group("count"))
+    bottles_per_case = int(match.group("size") or 6)
+    return max(1, count * bottles_per_case)
+
+
+def cellar_command_acquisition_status(raw_text: str) -> str:
+    normalized = normalize_cellar_command_identity(raw_text)
+    if re.search(r"\b(?:ordinato|ordinata|ordino|ordinare|ordered|order)\b", normalized):
+        return "Ordered"
+    if re.search(r"\b(?:acquistato|acquistata|acquisto|comprato|comprata|buy|bought|purchased)\b", normalized):
+        return "Delivered"
+    return "Ordered"
 
 
 def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tuple[Any, float]]:
@@ -1042,6 +1086,16 @@ def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tup
     return sorted(ranked, key=lambda item: (-item[1], item[0].name.casefold()))[:5]
 
 
+def cellar_command_wishlist_lists(db: Session, context: CurrentContext) -> list[WishlistList]:
+    return list(
+        db.scalars(
+            select(WishlistList)
+            .where(WishlistList.household_id == context.household.id)
+            .order_by(WishlistList.name.asc(), WishlistList.id.asc())
+        )
+    )
+
+
 def cellar_command_response(
     db: Session,
     context: CurrentContext,
@@ -1051,7 +1105,12 @@ def cellar_command_response(
 ) -> CellarCommandResponse:
     parsed = command.parsed_payload or {}
     ranked = (
-        matching_cellar_command_wines(db, context, parsed)
+        matching_cellar_command_wines(
+            db,
+            context,
+            parsed,
+            required_status="Ordered" if command.intent == "ship_wine" else None,
+        )
         if command.status == "needs_confirmation"
         else []
     )
@@ -1078,17 +1137,62 @@ def cellar_command_response(
             CellarCommandCatalogCandidate(**item)
             for item in parsed.get("catalog_candidates") or []
         ],
+        wishlist_lists=(
+            [
+                CellarCommandWishlistList(wishlist_list_id=item.id, name=item.name)
+                for item in cellar_command_wishlist_lists(db, context)
+            ]
+            if command.status == "wishlist_selection"
+            else []
+        ),
         matched_wine=cellar_command_candidate(matched) if matched is not None else None,
         tasting=cellar_command_tasting(parsed) if command.intent == "consume_wine" else None,
         purchase_draft=(
             cellar_command_purchase_draft(parsed)
             if command.intent == "acquire_wine"
+            or (command.intent == "ship_wine" and command.status == "not_found")
             else None
         ),
         previous_quantity=command.previous_quantity,
         new_quantity=matched.quantity if matched is not None else None,
         model=command.model,
         estimated_cost_usd=command.estimated_cost_usd,
+    )
+
+
+def execute_cellar_ai_wishlist_command(
+    db: Session,
+    context: CurrentContext,
+    command: CellarAiCommand,
+    wishlist_list: WishlistList,
+) -> CellarCommandResponse:
+    parsed = command.parsed_payload or {}
+    name = str(parsed.get("wine_name") or "").strip()
+    if not name:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wine name is required")
+    item = WishlistItem(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        wishlist_list_id=wishlist_list.id,
+        name=name,
+        producer=str(parsed.get("producer") or "").strip(),
+        vintage=str(parsed.get("vintage") or "").strip(),
+        format=str(parsed.get("format") or "").strip(),
+        type=normalize_wine_type(str(parsed.get("type") or "")),
+        status="Evaluate",
+        status_source="manual",
+    )
+    db.add(item)
+    command.status = "executed"
+    command.executed_at = datetime.now(UTC)
+    parsed["wishlist_item_id"] = str(item.id)
+    command.parsed_payload = parsed
+    db.commit()
+    return cellar_command_response(
+        db,
+        context,
+        command,
+        message=f"Added {item.name} {item.vintage} to wishlist {wishlist_list.name}.",
     )
 
 
@@ -1134,6 +1238,26 @@ def execute_cellar_ai_command(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Selected wine does not match the command",
+        )
+    if command.intent == "ship_wine":
+        if wine.status != "Ordered":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only ordered wines can be marked as shipped",
+            )
+        command.status = "executed"
+        command.matched_wine_id = wine.id
+        command.previous_status = wine.status
+        wine.status = "Shipped"
+        command.executed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        db.refresh(wine)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=f"Done. {wine.name} {wine.vintage} is now shipped.",
         )
     tasting = cellar_command_tasting(command.parsed_payload or {})
     try:
@@ -1184,7 +1308,7 @@ CELLAR_COMMAND_SCHEMA = {
         "properties": {
             "intent": {
                 "type": "string",
-                "enum": ["consume_wine", "acquire_wine", "unsupported"],
+                "enum": ["consume_wine", "acquire_wine", "ship_wine", "add_to_wishlist", "unsupported"],
             },
             "explicit_action": {"type": "boolean"},
             "wine_name": {"type": "string"},
@@ -1198,6 +1322,7 @@ CELLAR_COMMAND_SCHEMA = {
             "purchase_price": {"type": "number", "minimum": 0},
             "currency": {"type": "string"},
             "merchant": {"type": "string"},
+            "wishlist_list_name": {"type": "string"},
             "note": {"type": "string"},
             "score_present": {"type": "boolean"},
             "score_value": {"type": "number", "minimum": 0, "maximum": 100},
@@ -1211,7 +1336,7 @@ CELLAR_COMMAND_SCHEMA = {
             "intent", "explicit_action", "wine_name", "producer", "vintage", "format",
             "quantity", "consumed_at", "purchase_date", "purchase_price_present",
             "purchase_price", "currency", "merchant", "note", "score_present", "score_value",
-            "score_scale", "enjoyment", "occasion", "pairing", "companions",
+            "score_scale", "enjoyment", "occasion", "pairing", "companions", "wishlist_list_name",
         ],
     },
 }
@@ -1284,6 +1409,11 @@ def create_cellar_ai_command(
         parsed["consumed_at"] = local_today.isoformat()
     if parsed_intent == "acquire_wine" and not str(parsed.get("purchase_date") or "").strip():
         parsed["purchase_date"] = local_today.isoformat()
+    if parsed_intent == "acquire_wine":
+        case_quantity = cellar_command_case_quantity(payload.text)
+        if case_quantity is not None:
+            parsed["quantity"] = case_quantity
+        parsed["acquisition_status"] = cellar_command_acquisition_status(payload.text)
     command.intent = parsed_intent
     command.parsed_payload = parsed
     command.model = response.model or settings.openai_cellar_command_model
@@ -1361,6 +1491,57 @@ def create_cellar_ai_command(
             command,
             message="Ho trovato più risultati possibili nel catalogo. Scegli il vino corretto.",
         )
+    if command.intent == "add_to_wishlist":
+        requested_list_name = normalize_cellar_command_identity(
+            str(parsed.get("wishlist_list_name") or "")
+        )
+        wishlist_lists = cellar_command_wishlist_lists(db, context)
+        if not wishlist_lists:
+            wishlist_lists = [get_or_create_default_wishlist_list(db, context)]
+        matching_list = next(
+            (
+                item
+                for item in wishlist_lists
+                if requested_list_name
+                and normalize_cellar_command_identity(item.name) == requested_list_name
+            ),
+            None,
+        )
+        if matching_list is not None:
+            return execute_cellar_ai_wishlist_command(db, context, command, matching_list)
+        command.status = "wishlist_selection"
+        db.commit()
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message="Non trovo la wishlist indicata. Scegli una lista esistente.",
+        )
+    if command.intent == "ship_wine":
+        ranked = matching_cellar_command_wines(db, context, parsed, required_status="Ordered")
+        if not ranked:
+            command.status = "not_found"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message="Non trovo bottiglie ordinate corrispondenti. Puoi aggiungerle come nuovo ordine.",
+            )
+        best_wine, best_score = ranked[0]
+        clear_lead = len(ranked) == 1 or best_score - ranked[1][1] >= 20
+        command.status = "needs_confirmation"
+        db.commit()
+        if best_score >= 100 and clear_lead:
+            return execute_cellar_ai_command(
+                db, context, command, best_wine.id, local_today=local_today
+            )
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message="Ho trovato piÃ¹ bottiglie ordinate possibili. Scegli quella spedita.",
+        )
     if command.intent != "consume_wine":
         command.status = "unsupported"
         db.commit()
@@ -1431,6 +1612,30 @@ def confirm_cellar_ai_command(
     )
 
 
+@router.post("/cellar-commands/{command_id}/wishlist", response_model=CellarCommandResponse)
+def choose_cellar_ai_wishlist(
+    command_id: UUID,
+    payload: CellarCommandWishlistExecuteRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarCommandResponse:
+    ensure_cellar_ai_assistant_available(context)
+    command = db.scalar(
+        select(CellarAiCommand)
+        .where(
+            CellarAiCommand.id == command_id,
+            CellarAiCommand.household_id == context.household.id,
+        )
+        .with_for_update()
+    )
+    if command is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Command not found")
+    if command.intent != "add_to_wishlist" or command.status != "wishlist_selection":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Wishlist cannot be selected")
+    wishlist_list = get_household_wishlist_list(db, context, payload.wishlist_list_id)
+    return execute_cellar_ai_wishlist_command(db, context, command, wishlist_list)
+
+
 @router.post("/cellar-commands/{command_id}/undo", response_model=CellarCommandResponse)
 def undo_cellar_ai_command(
     command_id: UUID,
@@ -1450,7 +1655,7 @@ def undo_cellar_ai_command(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Command not found")
     if command.status == "undone":
         return cellar_command_response(db, context, command, message="Comando già annullato.")
-    if command.status != "executed" or command.matched_wine_id is None or command.tasting_id is None:
+    if command.status != "executed" or command.matched_wine_id is None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Command cannot be undone")
     wine = db.scalar(
         select(Wine)
@@ -1462,6 +1667,26 @@ def undo_cellar_ai_command(
     )
     if wine is None or not user_can_see_wine(context, wine):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+    if command.intent == "ship_wine":
+        if wine.status != "Shipped":
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The wine changed after this command and cannot be safely restored",
+            )
+        wine.status = command.previous_status or "Ordered"
+        command.status = "undone"
+        command.undone_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        db.refresh(wine)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=f"Undone. {wine.name} {wine.vintage} is ordered again.",
+        )
+    if command.tasting_id is None:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Command cannot be undone")
     expected_quantity = max((command.previous_quantity or 1) - 1, 0)
     if wine.quantity != expected_quantity:
         raise HTTPException(

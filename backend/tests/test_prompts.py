@@ -16,11 +16,14 @@ def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
         timezone="Europe/Zurich",
     )
 
-    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "2")
+    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "5")
     assert "never choose database IDs" in prompt.system
     assert "acquisition drafts" in prompt.system
+    assert "intent ship_wine" in prompt.system
+    assert "intent add_to_wishlist" in prompt.system
     assert "never a completed database action" in prompt.system
     assert "Preserve tasting scores exactly" in prompt.system
+    assert "case (cassa/case) means six bottles" in prompt.system
     assert "2026-08-13" in prompt.user
     assert "Europe/Zurich" in prompt.user
     assert "Ornellaia 2015" in prompt.user

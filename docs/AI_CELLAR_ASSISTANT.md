@@ -19,6 +19,19 @@ match pre-fills the normal wine editor; ambiguous matches require a selection. W
 no match, the existing AI wine-name research fills complementary data. In every case the wine is
 created only when the user reviews the editor and submits it.
 
+For example, `Ho ordinato una cassa di Sassicaia 2022 da Arvi` prepares six bottles with status
+`Ordered` and merchant `Arvi`. A case means six bottles unless the command explicitly states a
+different bottle count per case. `Ho acquistato` or `Ho comprato` prepares status `Delivered`
+(`In cantina` in Italian).
+
+`Mi hanno spedito le bottiglie di Sassicaia 2015` checks the active cellar for a matching wine in
+status `Ordered`, then updates it to `Shipped`. If no ordered position matches, Vinaris proposes a
+new order instead of creating a duplicate automatically.
+
+`Aggiungi Bricco dell'Uccellone 2024 alla wishlist Rossi` adds an evaluation item to the exact
+named wishlist. If that wishlist does not exist, Vinaris presents the household's existing lists
+for the user to choose.
+
 ## Safety and behavior
 
 - Only active wines belonging to the current household and having available stock are candidates.

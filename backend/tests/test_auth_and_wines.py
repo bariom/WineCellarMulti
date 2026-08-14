@@ -3606,13 +3606,13 @@ def test_cellar_ai_purchase_uses_catalog_and_only_returns_a_review_draft(monkeyp
                         "producer": "Tenuta San Guido",
                         "vintage": "2021",
                         "format": "",
-                        "quantity": 6,
+                        "quantity": 1,
                         "consumed_at": "",
                         "purchase_date": "2026-08-13",
                         "purchase_price_present": True,
                         "purchase_price": 245,
                         "currency": "CHF",
-                        "merchant": "Enoteca Pinchiorri",
+                        "merchant": "Arvi",
                         "note": "",
                         "score_present": False,
                         "score_value": 0,
@@ -3635,7 +3635,7 @@ def test_cellar_ai_purchase_uses_catalog_and_only_returns_a_review_draft(monkeyp
         "/api/v1/ai/cellar-commands",
         json={
             "request_id": str(uuid.uuid4()),
-            "text": "Ho comprato 6 Sassicaia 2021 a 245 CHF. Aggiungili alla cantina.",
+            "text": "Ho ordinato una cassa di Sassicaia 2021 da Arvi.",
             "locale": "it",
             "timezone": "Europe/Zurich",
         },
@@ -3660,11 +3660,148 @@ def test_cellar_ai_purchase_uses_catalog_and_only_returns_a_review_draft(monkeyp
         "grapes_text": "",
         "price": "245",
         "currency": "CHF",
-        "merchant": "Enoteca Pinchiorri",
+        "merchant": "Arvi",
         "order_date": "2026-08-13",
+        "status": "Ordered",
     }
     assert result["purchase_draft"]["catalog_entry_id"]
     assert client.get("/api/v1/wines").json() == []
+
+
+def test_cellar_ai_purchase_status_distinguishes_ordered_and_bought_wine():
+    from app.api.routes.ai import cellar_command_acquisition_status
+
+    assert cellar_command_acquisition_status("Ho ordinato una cassa di Sassicaia 2022 da Arvi.") == "Ordered"
+    assert cellar_command_acquisition_status("Ho acquistato Sassicaia 2022 da Arvi.") == "Delivered"
+
+
+def test_cellar_ai_shipment_updates_only_matching_ordered_wine(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    ordered = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Sassicaia",
+            "producer": "Tenuta San Guido",
+            "vintage": "2015",
+            "quantity": 6,
+            "status": "Ordered",
+        },
+    )
+    assert ordered.status_code == 201
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "ship_wine",
+                        "explicit_action": False,
+                        "wine_name": "Sassicaia",
+                        "producer": "Tenuta San Guido",
+                        "vintage": "2015",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": "",
+                        "purchase_date": "",
+                        "purchase_price_present": False,
+                        "purchase_price": 0,
+                        "currency": "",
+                        "merchant": "",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=240, output_tokens=60, total_tokens=300),
+            ),
+            "credits",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    command = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Mi hanno spedito le bottiglie di Sassicaia 2015.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+
+    assert command.status_code == 200
+    assert command.json()["status"] == "executed"
+    assert command.json()["matched_wine"]["wine_id"] == ordered.json()["id"]
+    shipped = client.get(f"/api/v1/wines/{ordered.json()['id']}").json()
+    assert shipped["status"] == "Shipped"
+    assert shipped["quantity"] == 6
+
+    missing = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Mi hanno spedito le bottiglie di Sassicaia 2015.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert missing.status_code == 200
+    assert missing.json()["status"] == "not_found"
+    assert missing.json()["purchase_draft"]["status"] == "Ordered"
+
+
+def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wishlist_list = client.post("/api/v1/wishlist/lists", json={"name": "Rossi"})
+    assert wishlist_list.status_code == 201
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps({
+                    "intent": "add_to_wishlist", "explicit_action": True,
+                    "wine_name": "Bricco dell'Uccellone", "producer": "", "vintage": "2024",
+                    "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
+                    "purchase_price_present": False, "purchase_price": 0, "currency": "", "merchant": "",
+                    "wishlist_list_name": "Rossi", "note": "", "score_present": False,
+                    "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
+                    "pairing": "", "companions": "",
+                }),
+                model="gpt-5.6-luna", reasoning_effort="none",
+                usage=TokenUsage(input_tokens=220, output_tokens=60, total_tokens=280),
+            ),
+            "credits",
+        ),
+    )
+
+    response = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": str(uuid.uuid4()),
+            "text": "Aggiungi Bricco dell'Uccellone 2024 alla wishlist Rossi.",
+            "locale": "it", "timezone": "Europe/Zurich",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "executed"
+    items = client.get(f"/api/v1/wishlist?wishlist_list_id={wishlist_list.json()['id']}").json()
+    assert [(item["name"], item["vintage"], item["status"]) for item in items] == [
+        ("Bricco dell'Uccellone", "2024", "Evaluate")
+    ]
 
 
 def test_cellar_ai_global_flag_keeps_admin_access_and_blocks_regular_users(monkeypatch):

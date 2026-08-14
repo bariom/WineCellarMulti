@@ -10,6 +10,7 @@ CellarCommandStatus = Literal[
     "processing",
     "needs_confirmation",
     "catalog_selection",
+    "wishlist_selection",
     "draft_ready",
     "ai_research_required",
     "not_found",
@@ -112,6 +113,10 @@ class CellarCommandExecuteRequest(BaseModel):
     wine_id: UUID
 
 
+class CellarCommandWishlistExecuteRequest(BaseModel):
+    wishlist_list_id: UUID
+
+
 class CellarCommandWineCandidate(BaseModel):
     wine_id: UUID
     name: str
@@ -133,6 +138,11 @@ class CellarCommandCatalogCandidate(BaseModel):
     grapes_text: str = ""
 
 
+class CellarCommandWishlistList(BaseModel):
+    wishlist_list_id: UUID
+    name: str
+
+
 class CellarCommandPurchaseDraft(BaseModel):
     catalog_entry_id: UUID | None = None
     lookup_source: Literal["catalog", "ai_required"]
@@ -150,6 +160,7 @@ class CellarCommandPurchaseDraft(BaseModel):
     currency: str = ""
     merchant: str = ""
     order_date: str = ""
+    status: str = "Ordered"
 
 
 class CellarCommandTasting(BaseModel):
@@ -170,6 +181,7 @@ class CellarCommandResponse(BaseModel):
     message: str
     candidates: list[CellarCommandWineCandidate] = Field(default_factory=list)
     catalog_candidates: list[CellarCommandCatalogCandidate] = Field(default_factory=list)
+    wishlist_lists: list[CellarCommandWishlistList] = Field(default_factory=list)
     matched_wine: CellarCommandWineCandidate | None = None
     tasting: CellarCommandTasting | None = None
     purchase_draft: CellarCommandPurchaseDraft | None = None

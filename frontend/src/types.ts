@@ -1092,6 +1092,11 @@ export type CellarCommandCatalogCandidate = {
   grapes_text: string;
 };
 
+export type CellarCommandWishlistList = {
+  wishlist_list_id: string;
+  name: string;
+};
+
 export type CellarCommandPurchaseDraft = {
   catalog_entry_id: string | null;
   lookup_source: "catalog" | "ai_required";
@@ -1109,15 +1114,17 @@ export type CellarCommandPurchaseDraft = {
   currency: string;
   merchant: string;
   order_date: string;
+  status: string;
 };
 
 export type CellarCommandResult = {
   command_id: string;
-  status: "processing" | "needs_confirmation" | "catalog_selection" | "draft_ready" | "ai_research_required" | "not_found" | "unsupported" | "executed" | "undone" | "failed";
+  status: "processing" | "needs_confirmation" | "catalog_selection" | "wishlist_selection" | "draft_ready" | "ai_research_required" | "not_found" | "unsupported" | "executed" | "undone" | "failed";
   intent: string;
   message: string;
   candidates: CellarCommandWineCandidate[];
   catalog_candidates: CellarCommandCatalogCandidate[];
+  wishlist_lists: CellarCommandWishlistList[];
   matched_wine: CellarCommandWineCandidate | null;
   tasting: {
     consumed_at: string;

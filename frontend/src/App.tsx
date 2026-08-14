@@ -6807,6 +6807,7 @@ export function App() {
       appellation: purchase.appellation,
       merchant: purchase.merchant,
       order_date: purchase.order_date,
+      status: purchase.status,
       grapes: purchase.grapes_text ? grapesFromText(purchase.grapes_text) : [],
       pour_size_ml: isRestaurant ? String(activeMembership?.restaurant_default_pour_size_ml || 100) : emptyDraft.pour_size_ml,
       reorder_threshold: isRestaurant ? String(activeMembership?.restaurant_default_reorder_threshold ?? 2) : emptyDraft.reorder_threshold,
@@ -10292,7 +10293,7 @@ export function App() {
               disabled={!canGenerateAi || !canWriteWine}
               onPreparePurchase={prepareAssistantPurchaseDraft}
               onCellarChanged={async () => {
-                await loadWines();
+                await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
               }}
             />
