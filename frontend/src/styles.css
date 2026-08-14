@@ -21112,3 +21112,89 @@ body,
 }
 .restaurant-commercial-settings{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem;align-items:start;margin-top:.75rem}.restaurant-commercial-settings>label:not(.restaurant-reorder-toggle){display:grid;align-content:start;gap:.35rem;min-width:0}.restaurant-commercial-settings>label:not(.restaurant-reorder-toggle)>small{min-height:2.6rem}.restaurant-reorder-toggle{display:flex!important;align-items:center;gap:.6rem;min-height:3rem;margin-top:1.72rem;padding:.75rem;border:1px solid var(--border);border-radius:var(--radius-lg);background:color-mix(in srgb,var(--surface) 96%,var(--accent))}.restaurant-reorder-toggle input{width:1.1rem;height:1.1rem;margin:0}.restaurant-clearing-out{display:grid;gap:.7rem;padding:.9rem;border:1px solid color-mix(in srgb,var(--accent) 38%,var(--border));border-radius:var(--radius-lg);background:color-mix(in srgb,var(--accent) 5%,var(--surface))}.restaurant-clearing-out>header{display:flex;align-items:end;justify-content:space-between}.restaurant-clearing-out>header span{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}.restaurant-clearing-out h3{margin:.15rem 0 0}.restaurant-clearing-out>header>strong{font-family:var(--font-display);font-size:1.5rem}.restaurant-clearing-out>div{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:.5rem}.restaurant-clearing-out button{display:flex;justify-content:space-between;align-items:center;gap:.7rem;padding:.7rem .8rem;border:1px solid var(--border);background:var(--surface);color:inherit;text-align:left}.restaurant-clearing-out button span{display:grid;min-width:0}.restaurant-clearing-out button small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-muted)}.restaurant-clearing-out button b{white-space:nowrap;font-size:.82rem}@media(max-width:700px){.restaurant-commercial-settings{grid-template-columns:1fr}.restaurant-commercial-settings>label:not(.restaurant-reorder-toggle)>small{min-height:0}.restaurant-reorder-toggle{margin-top:0}.restaurant-clearing-out>div{grid-template-columns:1fr}}
 .restaurant-commercial-actions{display:flex;justify-content:flex-end;margin:0 0 .7rem}.restaurant-commercial-actions button{border-color:color-mix(in srgb,var(--accent) 48%,var(--border))}
+
+/* Keep collection editors self-contained: actions stay available before scrolling fields. */
+@media (min-width:821px){
+  .wine-side-panel{height:var(--wine-side-panel-height,calc(100dvh - 76px));max-height:var(--wine-side-panel-height,calc(100dvh - 76px));overflow:hidden}
+  .wine-side-panel:has(> .wine-detail),.wine-side-panel:has(> .wine-editor-form),.wine-side-panel:has(> .wishlist-editor-form){grid-template-rows:auto minmax(0,1fr)}
+  .wine-side-panel>.wine-detail{min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+  .wine-side-panel>.wishlist-editor-form{min-height:0;max-height:none;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+  .wine-side-panel>.wine-editor-form{grid-template-rows:auto minmax(0,1fr)}
+  .wine-side-panel>.wine-editor-form .wine-editor-actions{order:-1;position:sticky;top:0;bottom:auto}
+}
+.wishlist-editor-actions{position:sticky;top:0;z-index:20;justify-content:flex-end;margin:0 -18px 2px;padding:11px 18px;border-bottom:1px solid color-mix(in srgb,var(--border) 74%,var(--accent));background:color-mix(in srgb,var(--surface-raised) 96%,transparent);backdrop-filter:blur(16px) saturate(1.08);box-shadow:0 10px 24px color-mix(in srgb,var(--collector-depth) 18%,transparent)}
+@media (max-width:820px){
+  .wine-editor-form{grid-template-rows:auto minmax(0,1fr)}
+  .wine-editor-form .wine-editor-actions{order:-1;position:sticky;top:0;bottom:auto;margin:0;box-shadow:0 10px 28px color-mix(in srgb,var(--collector-depth) 28%,transparent)}
+  .wishlist-editor-actions{justify-content:stretch;margin:0 -12px 2px;padding:10px 12px}.wishlist-editor-actions button{flex:1 1 0}
+}
+
+/* Desktop collection views are a self-contained workspace: never scroll the page behind the panels. */
+@media (min-width:821px){
+  .collection-workspace-shell{
+    box-sizing:border-box;
+    display:flex;
+    flex-direction:column;
+    height:100dvh;
+    overflow:hidden;
+    padding-bottom:12px;
+  }
+  .collection-workspace-shell>.content-workspace{
+    flex:1 1 auto;
+    min-height:0;
+    height:auto;
+    margin-top:12px;
+    align-items:stretch;
+    grid-template-rows:auto minmax(0,1fr);
+    overflow:hidden;
+  }
+  .collection-workspace-shell .wine-list{
+    align-content:start;
+    grid-auto-rows:max-content;
+    min-height:0;
+    overflow-x:hidden;
+    overflow-y:auto;
+    overscroll-behavior:contain;
+    scrollbar-gutter:stable;
+  }
+  .collection-workspace-shell .wishlist-list-toolbar{
+    gap:8px;
+    margin-bottom:8px;
+  }
+  .collection-workspace-shell .wishlist-list-select{
+    gap:3px;
+  }
+  .collection-workspace-shell .wishlist-list-select span{
+    font-size:.7rem;
+  }
+  .collection-workspace-shell .wishlist-list-toolbar .inline-actions{
+    gap:6px;
+  }
+  .collection-workspace-shell .wishlist-list-toolbar .compact{
+    min-height:34px;
+    padding:6px 9px;
+  }
+  .collection-workspace-shell .stats-panel-wrapper:has(.wishlist-list-toolbar){
+    gap:8px;
+    padding:9px 12px;
+  }
+  .collection-workspace-shell .stats-panel-wrapper:has(.wishlist-list-toolbar) .stat-card{
+    gap:4px;
+    padding:9px 12px;
+  }
+  .collection-workspace-shell .wine-side-panel{
+    position:static;
+    min-height:0;
+    height:auto!important;
+    max-height:none!important;
+    overflow:hidden;
+    grid-template-rows:auto minmax(0,1fr);
+  }
+  .collection-workspace-shell .wine-side-panel>.wine-detail,
+  .collection-workspace-shell .wine-side-panel>.wishlist-editor-form,
+  .collection-workspace-shell .wine-side-panel>.wine-editor-form{
+    min-height:0;
+    height:100%;
+    max-height:none;
+  }
+}

@@ -1161,7 +1161,10 @@ function appActionSvgIcon(kind: "compare" | "edit" | "import" | "export" | "dele
 
 function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_at: string; value: string }>; label: string }) {
   const chartRef = useRef<SVGSVGElement | null>(null);
-  useChartReveal(chartRef);
+  // The history arrives asynchronously. Re-run the reveal once the SVG is
+  // actually rendered, otherwise its animated paths can remain transparent.
+  const pointsKey = points.map((point) => `${point.recorded_at}:${point.value}`).join("|");
+  useChartReveal(chartRef, pointsKey);
   const gradientId = `portfolio-value-area-${useId().replace(/:/g, "")}`;
   const values = points.map((point) => Number(point.value)).filter(Number.isFinite);
   if (values.length < 2) return null;
@@ -1246,7 +1249,6 @@ export function App() {
   const wineEditorScrollRef = useRef<HTMLDivElement | null>(null);
   const pendingKeyPositionIndexRef = useRef<number | null>(null);
   const regionalGapChartRef = useRef<HTMLDivElement | null>(null);
-  useChartReveal(regionalGapChartRef);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
   const [batchAiRunSummary, setBatchAiRunSummary] = useState<BatchAiRunSummary | null>(null);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
@@ -1368,6 +1370,9 @@ export function App() {
   const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
   const mobileAccountMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<ViewName>("home");
+  // The dashboard can mount after the initial application render or after a
+  // view change. Observe the radar again in both cases.
+  useChartReveal(regionalGapChartRef, `${activeView}:${session?.active_household_id || ""}:${wines.length}`);
   const [helpSlug, setHelpSlug] = useState<string | null>(() => helpSlugFromLocation());
   const helpReturnViewRef = useRef<ViewName>("home");
   const settingsReturnViewRef = useRef<ViewName>("home");
@@ -1844,7 +1849,13 @@ export function App() {
 
   useEffect(() => {
     if (!session?.authenticated) return;
-    const query = (wineFormOpen ? draft.name : wishlistFormOpen ? wishlistDraft.name : "").trim();
+    const query = (
+      activeView === "wishlist" && wishlistFormOpen
+        ? wishlistDraft.name
+        : wineFormOpen
+          ? draft.name
+          : ""
+    ).trim();
     if (query.length < 2) {
       setWineCatalog([]);
       return;
@@ -1861,7 +1872,7 @@ export function App() {
       window.clearTimeout(timer);
       abortController.abort();
     };
-  }, [draft.name, wishlistDraft.name, wineFormOpen, wishlistFormOpen, session?.authenticated]);
+  }, [activeView, draft.name, wishlistDraft.name, wineFormOpen, wishlistFormOpen, session?.authenticated]);
 
   async function changeLocale(nextLocale: Locale) {
     setLocale(nextLocale);
@@ -6826,6 +6837,7 @@ export function App() {
   function startAddWishlistItem() {
     clearWineRecognitionState();
     setWineRecognitionTarget("wishlist");
+    setWineFormOpen(false);
     setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
     setEditingWishlistId(null);
     setWishlistFormOpen(true);
@@ -6904,6 +6916,7 @@ export function App() {
     setSelectedWishlistId(item.id);
     setEditingWishlistId(item.id);
     setWishlistDraft(wishlistToDraft(item));
+    setWineFormOpen(false);
     setWishlistFormOpen(true);
   }
 
@@ -8028,7 +8041,7 @@ export function App() {
 
   return (
     <HelpContext.Provider value={{ openHelp }}>
-    <main className="app-shell">
+    <main className={`app-shell${isCollectionView ? " collection-workspace-shell" : ""}`}>
       {authenticated || shouldPrioritizeAuthAction ? (
       <header className="topbar" style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         <div className="topbar-brand">
@@ -11011,8 +11024,14 @@ export function App() {
                 </div>
               </form>
             ) : activeView === "wishlist" && wishlistFormOpen ? (
-              <form className="wine-form" onSubmit={submitWishlist}>
+              <form className="wine-form wishlist-editor-form" onSubmit={submitWishlist}>
                 <h2>{editingWishlistId ? t("editWishlist") : t("addWishlist")}</h2>
+                <div className="form-actions wishlist-editor-actions">
+                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingWishlistId ? t("saveChanges") : t("createWishlist")}</button>
+                  <button type="button" className="secondary" onClick={closeWishlistForm}>
+                    {t("cancel")}
+                  </button>
+                </div>
                 {!editingWishlistId && canUseLabelRecognition ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
@@ -11189,12 +11208,6 @@ export function App() {
                   <textarea value={wishlistDraft.ai_context_note} onChange={(event) => setWishlistDraft({ ...wishlistDraft, ai_context_note: event.target.value })} rows={3} disabled={!canWriteWine} />
                   <small>{t("aiContextNoteHelp")}</small>
                 </label>
-                <div className="form-actions">
-                  <button type="submit" disabled={saving || !canWriteWine}>{saving ? t("saving") : editingWishlistId ? t("saveChanges") : t("createWishlist")}</button>
-                  <button type="button" className="secondary" onClick={closeWishlistForm}>
-                    {t("cancel")}
-                  </button>
-                </div>
               </form>
             ) : isWineCollectionView && selectedVisibleWine ? (
               renderWineDetail(selectedVisibleWine)
@@ -11615,6 +11628,18 @@ export function App() {
                   <button type="button" className="secondary compact" disabled={!canWriteWine || saving} onClick={createWishlistList}>{t("createWishlistList")}</button>
                   <button type="button" className="secondary compact" disabled={!canWriteWine || saving || !selectedWishlistList} onClick={renameWishlistList}>{t("renameWishlistList")}</button>
                   <button type="button" className="danger compact" disabled={!canAdmin || saving || wishlistLists.length <= 1 || !selectedWishlistList} onClick={deleteWishlistList}>{t("deleteWishlistList")}</button>
+                  <button
+                    type="button"
+                    className="secondary compact"
+                    disabled={!canGenerateAi || generatingAi === "wishlist-portfolio-strategy" || wishlist.length === 0}
+                    onClick={() => generateWishlistPortfolioStrategy()}
+                  >
+                    {generatingAi === "wishlist-portfolio-strategy"
+                      ? t("generating")
+                      : visibleWishlistPortfolioStrategy
+                        ? t("refreshWishlistPortfolioStrategy")
+                        : t("generateWishlistPortfolioStrategy")}
+                  </button>
                 </div>
               </div>
               <section className="stats-panel">
@@ -11635,20 +11660,6 @@ export function App() {
                   <strong>{formatBottleCount(wishlistStats.readyToBuy, locale)}</strong>
                 </div>
               </section>
-              <div className="stats-panel-actions">
-                <button
-                  type="button"
-                  className="secondary compact"
-                  disabled={!canGenerateAi || generatingAi === "wishlist-portfolio-strategy" || wishlist.length === 0}
-                  onClick={() => generateWishlistPortfolioStrategy()}
-                >
-                  {generatingAi === "wishlist-portfolio-strategy"
-                    ? t("generating")
-                    : visibleWishlistPortfolioStrategy
-                      ? t("refreshWishlistPortfolioStrategy")
-                      : t("generateWishlistPortfolioStrategy")}
-                </button>
-              </div>
               {isMobileViewport && !selectedWishlistItem ? (
                 <WishlistPortfolioStrategyPanel
                   strategy={visibleWishlistPortfolioStrategy}
