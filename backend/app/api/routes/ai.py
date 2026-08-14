@@ -2040,6 +2040,7 @@ def replace_compare_placeholders(text: str, first_name: str, second_name: str) -
 
 def wishlist_advice_context(item: WishlistItem) -> str:
     """Decision fields for strategy and purpose, excluding generated prose."""
+    investment_amount = getattr(item, "investment_amount", None)
     return "\n".join(
         [
             f"Name: {item.name}",
@@ -2054,8 +2055,8 @@ def wishlist_advice_context(item: WishlistItem) -> str:
             f"Offer price: {item.currency} {getattr(item, 'offer_price', None)}"
             if getattr(item, "offer_price", None) is not None
             else "Offer price: not provided",
-            f"Investment budget: {item.currency} {item.investment_amount} (total planned capital for this item)"
-            if item.investment_amount is not None and item.investment_amount > 0
+            f"Investment budget: {item.currency} {investment_amount} (total planned capital for this item)"
+            if investment_amount is not None and investment_amount > 0
             else "Investment budget: not provided",
             f"Priority: {item.priority}",
             f"Purpose: {item.purpose}",
@@ -2120,10 +2121,11 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
     total_target_value = sum((Decimal(str(item.target_price or 0)) for item in items), Decimal("0"))
     investment_totals: dict[str, Decimal] = {}
     for item in items:
-        if item.investment_amount is None or item.investment_amount <= 0:
+        investment_amount = getattr(item, "investment_amount", None)
+        if investment_amount is None or investment_amount <= 0:
             continue
         currency = (item.currency or "CHF").upper()
-        investment_totals[currency] = investment_totals.get(currency, Decimal("0")) + Decimal(str(item.investment_amount))
+        investment_totals[currency] = investment_totals.get(currency, Decimal("0")) + Decimal(str(investment_amount))
     declared_investment = (
         ", ".join(f"{currency} {amount.quantize(Decimal('0.01'))}" for currency, amount in sorted(investment_totals.items()))
         if investment_totals
@@ -2148,9 +2150,10 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
         offer_price = (
             f"{item.currency} {item.offer_price}" if item.offer_price is not None else "unknown"
         )
+        investment_amount = getattr(item, "investment_amount", None)
         investment_budget = (
-            f"{item.currency} {Decimal(str(item.investment_amount)).quantize(Decimal('0.01'))}"
-            if item.investment_amount is not None and item.investment_amount > 0
+            f"{item.currency} {Decimal(str(investment_amount)).quantize(Decimal('0.01'))}"
+            if investment_amount is not None and investment_amount > 0
             else "not provided"
         )
         lines.extend(
