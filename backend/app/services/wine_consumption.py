@@ -4,6 +4,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, date, datetime
 from decimal import Decimal
+from math import isfinite
 from uuid import UUID
 
 from sqlalchemy.orm import Session
@@ -23,6 +24,25 @@ class WineConsumptionResult:
     previous_rating: int
 
 
+def optional_tasting_score_value(value: object) -> float | None:
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        parsed = float(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if isfinite(parsed) else None
+
+
+def optional_tasting_score_scale(value: object) -> int | None:
+    if value is None or str(value).strip() == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
     entries: list[dict] = []
     for raw_entry in raw_entries or []:
@@ -33,16 +53,16 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
             enjoyment = ""
         if not consumed_at or not created_at:
             continue
-        score_value = raw_entry.get("score_value")
-        score_scale = raw_entry.get("score_scale")
+        score_value = optional_tasting_score_value(raw_entry.get("score_value"))
+        score_scale = optional_tasting_score_scale(raw_entry.get("score_scale"))
         entries.append(
             {
                 "id": str(raw_entry.get("id") or uuid.uuid4()),
                 "consumed_at": consumed_at,
                 "note": str(raw_entry.get("note") or "").strip(),
                 "rating": max(0, min(int(raw_entry.get("rating") or 0), 6)),
-                "score_value": float(score_value) if score_value is not None else None,
-                "score_scale": int(score_scale) if score_scale is not None else None,
+                "score_value": score_value,
+                "score_scale": score_scale,
                 "enjoyment": enjoyment,
                 "occasion": str(raw_entry.get("occasion") or "").strip(),
                 "pairing": str(raw_entry.get("pairing") or "").strip(),

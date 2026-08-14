@@ -44,6 +44,7 @@ from app.models import (
 )
 from app.services.openai_client import OpenAIResponse, TokenUsage
 from app.services.wine_photo_library import library_photo_path
+from app.services.wine_consumption import normalize_tasting_history
 
 
 def recognized_bottle_payload(**updates):
@@ -3415,6 +3416,26 @@ def test_consuming_a_bottle_updates_quantity_and_preserves_tasting_history():
 
     no_more = client.post(f"/api/v1/wines/{wine_id}/consume", json={})
     assert no_more.status_code == 400
+
+
+def test_tasting_history_normalization_tolerates_legacy_empty_scores():
+    entries = normalize_tasting_history(
+        [
+            {
+                "id": str(uuid.uuid4()),
+                "consumed_at": "2026-08-13",
+                "created_at": "2026-08-13T19:30:00+00:00",
+                "note": "Legacy tasting",
+                "rating": 4,
+                "score_value": "",
+                "score_scale": "not set",
+            }
+        ]
+    )
+
+    assert len(entries) == 1
+    assert entries[0]["score_value"] is None
+    assert entries[0]["score_scale"] is None
 
 
 def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monkeypatch):
