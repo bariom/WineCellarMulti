@@ -1116,6 +1116,34 @@ def cellar_command_wishlist_price_kind(raw_text: str) -> str:
     return "target"
 
 
+def matching_cellar_command_wishlist_list(
+    raw_text: str,
+    requested_list_name: str,
+    wishlist_lists: list[WishlistList],
+) -> WishlistList | None:
+    exact_match = next(
+        (
+            item
+            for item in wishlist_lists
+            if requested_list_name
+            and normalize_cellar_command_identity(item.name) == requested_list_name
+        ),
+        None,
+    )
+    if exact_match is not None:
+        return exact_match
+    normalized_text = normalize_cellar_command_identity(raw_text)
+    mentioned_lists = [
+        item
+        for item in wishlist_lists
+        if re.search(
+            rf"(?<!\w){re.escape(normalize_cellar_command_identity(item.name))}(?!\w)",
+            normalized_text,
+        )
+    ]
+    return max(mentioned_lists, key=lambda item: len(item.name)) if mentioned_lists else None
+
+
 def acquisition_catalog_matches(db: Session, parsed: dict[str, Any]) -> list[tuple[Any, float]]:
     name = str(parsed.get("wine_name") or "").strip()
     producer = str(parsed.get("producer") or "").strip()
@@ -1595,14 +1623,10 @@ def create_cellar_ai_command(
         wishlist_lists = cellar_command_wishlist_lists(db, context)
         if not wishlist_lists:
             wishlist_lists = [get_or_create_default_wishlist_list(db, context)]
-        matching_list = next(
-            (
-                item
-                for item in wishlist_lists
-                if requested_list_name
-                and normalize_cellar_command_identity(item.name) == requested_list_name
-            ),
-            None,
+        matching_list = matching_cellar_command_wishlist_list(
+            command.raw_text,
+            requested_list_name,
+            wishlist_lists,
         )
         if matching_list is not None:
             return execute_cellar_ai_wishlist_command(db, context, command, matching_list)

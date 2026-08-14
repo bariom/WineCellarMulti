@@ -45,6 +45,17 @@
   border: 1px solid color-mix(in srgb, var(--danger) 45%, var(--border));
 }
 
+.cellar-assistant-primary-action {
+  display: grid !important;
+  gap: 0.35rem;
+  justify-items: end;
+}
+
+.cellar-assistant-primary-action small {
+  max-width: 32rem;
+  text-align: right;
+}
+
 @keyframes cellar-assistant-mic-pulse {
   50% { transform: scale(1.03); }
 }
@@ -62,6 +73,18 @@
     margin: 0.15rem 0 0;
     padding: 0.7rem 0.8rem;
     font-size: 0.92rem;
+  }
+  .cellar-assistant-primary-action {
+    justify-items: stretch;
+  }
+  .cellar-assistant-primary-action button {
+    width: 100%;
+    min-height: 48px;
+    justify-content: center;
+  }
+  .cellar-assistant-primary-action small {
+    max-width: none;
+    text-align: center;
   }
 }
 

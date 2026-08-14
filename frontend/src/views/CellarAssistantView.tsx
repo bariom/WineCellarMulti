@@ -415,6 +415,15 @@ export default function CellarAssistantView({
             </button>
           ) : null}
         </div>
+        <div className="cellar-assistant-primary-action">
+          <button type="submit" disabled={disabled || busy || listening || !text.trim()} aria-describedby="cellar-assistant-continue-help">
+            <AppIcon name="glass-sparkle" variant="ai" />
+            {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Continua" : "Continue")}
+          </button>
+          <small id="cellar-assistant-continue-help">
+            {isItalian ? "Interpreta il testo e prepara il prossimo aggiornamento della cantina." : "Interpret the text and prepare the next cellar update."}
+          </small>
+        </div>
         {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <div>
           <span className="cellar-assistant-examples">
@@ -425,10 +434,6 @@ export default function CellarAssistantView({
               {isItalian ? "Esempio bevuta" : "Consumption example"}
             </button>
           </span>
-          <button type="submit" disabled={disabled || busy || listening || !text.trim()}>
-            <AppIcon name="glass-sparkle" variant="ai" />
-            {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Interpreta e aggiorna" : "Interpret and update")}
-          </button>
         </div>
         <small>{isItalian
           ? voiceSupported

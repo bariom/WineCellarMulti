@@ -3775,10 +3775,10 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
             OpenAIResponse(
                 text=json.dumps({
                     "intent": "add_to_wishlist", "explicit_action": True,
-                    "wine_name": "Bricco dell'Uccellone", "producer": "Rossi", "vintage": "2024",
+                    "wine_name": "Castello di Morcote", "producer": "Rossi", "vintage": "2021",
                     "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
-                    "purchase_price_present": True, "purchase_price": 250, "currency": "CHF", "merchant": "",
-                    "wishlist_list_name": "Rossi, Bricco dell'Uccellone 2024", "note": "", "score_present": False,
+                    "purchase_price_present": True, "purchase_price": 100, "currency": "CHF", "merchant": "",
+                    "wishlist_list_name": "Rossi il vino Castello di Morcote 2021", "note": "", "score_present": False,
                     "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
                     "pairing": "", "companions": "",
                 }),
@@ -3793,7 +3793,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
         "/api/v1/ai/cellar-commands",
         json={
             "request_id": str(uuid.uuid4()),
-            "text": "Aggiungi alla wishlist Rossi, Bricco dell'Uccellone 2024, prezzo 250 CHF.",
+            "text": "Aggiungi alla wishlist Rossi il vino Castello di Morcote 2021 al prezzo di 100 franchi.",
             "locale": "it", "timezone": "Europe/Zurich",
         },
     )
@@ -3802,7 +3802,7 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
     assert response.json()["status"] == "executed"
     items = client.get(f"/api/v1/wishlist?wishlist_list_id={wishlist_list.json()['id']}").json()
     assert [(item["name"], item["producer"], item["vintage"], item["target_price"], item["offer_price"], item["currency"], item["status"]) for item in items] == [
-        ("Bricco dell'Uccellone", "", "2024", "250.00", None, "CHF", "Evaluate")
+        ("Castello di Morcote", "", "2021", "100.00", None, "CHF", "Evaluate")
     ]
 
 
