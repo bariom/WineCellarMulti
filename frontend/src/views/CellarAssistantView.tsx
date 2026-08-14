@@ -87,6 +87,13 @@ export default function CellarAssistantView({
     if (status === "Ordered") return isItalian ? "Ordinato" : "Ordered";
     return status;
   };
+  const requestCostLabel = (cost: number | string) => {
+    const value = Number(cost || 0);
+    const formatted = Number.isFinite(value)
+      ? value.toLocaleString(locale === "it" ? "it-CH" : "en-US", { maximumFractionDigits: 6 })
+      : "0";
+    return `${isItalian ? "Costo" : "Cost"}: $${formatted}`;
+  };
 
   useEffect(() => () => {
     recognitionRef.current?.abort();
@@ -436,7 +443,7 @@ export default function CellarAssistantView({
         <article className={`cellar-assistant-result status-${result.status}`} aria-live="polite">
           <header>
             <AppIcon name={result.status === "executed" ? "status-delivered" : "glass-sparkle"} variant={result.status === "executed" ? "status" : "ai"} />
-            <div><strong>{result.message}</strong>{result.model ? <small>{result.model}</small> : null}</div>
+            <div><strong>{result.message}</strong>{result.model ? <small>{result.model} · {requestCostLabel(result.estimated_cost_usd)}</small> : null}</div>
           </header>
           {result.tasting ? (
             <dl>

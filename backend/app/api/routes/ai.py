@@ -1188,11 +1188,16 @@ def execute_cellar_ai_wishlist_command(
     parsed["wishlist_item_id"] = str(item.id)
     command.parsed_payload = parsed
     db.commit()
+    is_italian = parsed.get("_locale") == "it"
     return cellar_command_response(
         db,
         context,
         command,
-        message=f"Added {item.name} {item.vintage} to wishlist {wishlist_list.name}.",
+        message=(
+            f"Aggiunto {item.name} {item.vintage} alla wishlist {wishlist_list.name}."
+            if is_italian
+            else f"Added {item.name} {item.vintage} to wishlist {wishlist_list.name}."
+        ),
     )
 
 
@@ -1405,6 +1410,7 @@ def create_cellar_ai_command(
         raise
 
     parsed_intent = str(parsed.get("intent") or "unsupported")
+    parsed["_locale"] = payload.locale
     if parsed_intent == "consume_wine" and not str(parsed.get("consumed_at") or "").strip():
         parsed["consumed_at"] = local_today.isoformat()
     if parsed_intent == "acquire_wine" and not str(parsed.get("purchase_date") or "").strip():
