@@ -5113,6 +5113,16 @@ export function App() {
       </div>
     </div>
   );
+  const offlineBackupPanel = canShowOfflineBackupPanel ? (
+    <section className="wine-form">
+      <h2>{t("offlineBackup")}</h2>
+      <p className="empty-state">{t("offlineBackupHelp")}</p>
+      <label>
+        <span>{t("loadBackup")}</span>
+        <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
+      </label>
+    </section>
+  ) : null;
   const publicAuthPanel = (
     <section className="auth-panel" id="auth-panel">
       {(authMode === "register" || onboardingStep === 2 || emailVerificationConfirmed) && authMode !== "forgot-password" && authMode !== "reset-password"
@@ -5129,6 +5139,7 @@ export function App() {
           </button>
         </div>
       ) : null}
+      {offlineBackupPanel}
       {acceptToken ? (
         <div className="invite-notice">
           <strong>{t("inviteLinkDetected")}</strong>
@@ -5256,16 +5267,6 @@ export function App() {
           <a href={`/terms?lang=${locale}`}>{locale === "it" ? "Condizioni d’uso" : "Terms"}</a>
         </nav>
       </> : null}
-      {canShowOfflineBackupPanel ? (
-        <section className="wine-form">
-          <h2>{t("offlineBackup")}</h2>
-          <p className="empty-state">{t("offlineBackupHelp")}</p>
-          <label>
-            <span>{t("loadBackup")}</span>
-            <input type="file" accept="application/json,.json" onChange={loadOfflineBackup} disabled={saving} />
-          </label>
-        </section>
-      ) : null}
       <ContactSupportPanel
         t={t}
         draft={contactSupportDraft}
@@ -8829,12 +8830,18 @@ export function App() {
             )}
 
         {showMobileAuthPanel ? publicAuthPanel : null}
-        {!isMobileViewport && authModalOpen ? (
-          <div className="auth-modal-overlay" onClick={() => setAuthModalOpen(false)}>
+        {!isMobileViewport && (authModalOpen || showOfflineBackupPanel) ? (
+          <div className="auth-modal-overlay" onClick={() => {
+            setAuthModalOpen(false);
+            setShowOfflineBackupPanel(false);
+          }}>
             <div className="auth-modal-card" onClick={(event) => event.stopPropagation()}>
               <div className="auth-modal-head">
-                <strong>{authMode === "register" ? t("createAccount") : t("login")}</strong>
-                <button type="button" className="secondary compact" onClick={() => setAuthModalOpen(false)}>
+                <strong>{showOfflineBackupPanel && !authModalOpen ? t("offlineBackup") : authMode === "register" ? t("createAccount") : t("login")}</strong>
+                <button type="button" className="secondary compact" onClick={() => {
+                  setAuthModalOpen(false);
+                  setShowOfflineBackupPanel(false);
+                }}>
                   {t("cancel")}
                 </button>
               </div>

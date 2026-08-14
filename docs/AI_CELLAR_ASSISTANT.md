@@ -46,3 +46,15 @@ The frontend exposes the workflow under **Assistente AI**. Set
 Set `CELLAR_AI_ASSISTANT_ENABLED=false` to disable the assistant globally for regular users.
 Application administrators retain access for testing and operations, and the backend rejects direct
 cellar-command API calls from non-admin users while the flag is disabled.
+
+## Voice input
+
+The assistant composer progressively enables free browser speech recognition. It prefers on-device
+recognition and the user's Italian or English language pack when supported. If local recognition is
+unavailable, it may use the browser's own speech service; Vinaris does not upload or store an audio
+recording. The resulting transcript is appended to the editable command field and is never submitted
+automatically. Recognition stops after one utterance or 45 seconds.
+
+Browsers without `SpeechRecognition` or `webkitSpeechRecognition` receive the unchanged keyboard
+experience and make no audio or transcription request. There is intentionally no paid transcription
+fallback.

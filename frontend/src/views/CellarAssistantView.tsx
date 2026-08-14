@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { AppIcon } from "../components/AppIcon";
 import { api } from "../services/api";
 import type {
@@ -9,6 +9,47 @@ import type {
   WineLabelEnrichment,
 } from "../types";
 import "./CellarAssistantView.css";
+import "./CellarAssistantVoice.css";
+
+type VoiceRecognitionResult = {
+  isFinal: boolean;
+  length: number;
+  [index: number]: { transcript: string };
+};
+
+type VoiceRecognitionEvent = {
+  resultIndex: number;
+  results: { length: number; [index: number]: VoiceRecognitionResult };
+};
+
+type VoiceRecognition = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  processLocally?: boolean;
+  onstart: (() => void) | null;
+  onresult: ((event: VoiceRecognitionEvent) => void) | null;
+  onerror: ((event: { error: string }) => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type VoiceRecognitionConstructor = {
+  new (): VoiceRecognition;
+  available?: (options: { langs: string[]; processLocally: boolean }) => Promise<string>;
+  install?: (options: { langs: string[]; processLocally: boolean }) => Promise<boolean>;
+};
+
+function browserVoiceRecognition(): VoiceRecognitionConstructor | null {
+  const voiceWindow = window as typeof window & {
+    SpeechRecognition?: VoiceRecognitionConstructor;
+    webkitSpeechRecognition?: VoiceRecognitionConstructor;
+  };
+  return voiceWindow.SpeechRecognition || voiceWindow.webkitSpeechRecognition || null;
+}
 
 type CellarAssistantViewProps = {
   locale: Locale;
@@ -27,6 +68,13 @@ export default function CellarAssistantView({
   const [result, setResult] = useState<CellarCommandResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [listening, setListening] = useState(false);
+  const [voicePreparing, setVoicePreparing] = useState(false);
+  const [voiceMessage, setVoiceMessage] = useState("");
+  const recognitionRef = useRef<VoiceRecognition | null>(null);
+  const voiceTimeoutRef = useRef<number | null>(null);
+  const finalTranscriptRef = useRef("");
+  const voiceSupported = Boolean(browserVoiceRecognition());
   const isItalian = locale === "it";
   const consumptionExample = isItalian
     ? "Ieri a cena ho bevuto una bottiglia di Ornellaia 2015 ed era eccellente, 9 su 10! Aggiorna la cantina."
@@ -34,6 +82,120 @@ export default function CellarAssistantView({
   const purchaseExample = isItalian
     ? "Ho acquistato 6 bottiglie di Sassicaia 2021 da Enoteca Pinchiorri a 245 CHF ciascuna. Aggiungile alla cantina."
     : "I bought 6 bottles of Sassicaia 2021 from Enoteca Pinchiorri at CHF 245 each. Add them to my cellar.";
+
+  useEffect(() => () => {
+    recognitionRef.current?.abort();
+    if (voiceTimeoutRef.current !== null) window.clearTimeout(voiceTimeoutRef.current);
+  }, []);
+
+  function voiceErrorMessage(code: string) {
+    if (code === "not-allowed" || code === "service-not-allowed") {
+      return isItalian ? "Consenti l’accesso al microfono per usare la dettatura." : "Allow microphone access to use dictation.";
+    }
+    if (code === "no-speech") return isItalian ? "Non ho rilevato la voce. Riprova." : "No speech was detected. Try again.";
+    if (code === "audio-capture") return isItalian ? "Microfono non disponibile." : "Microphone unavailable.";
+    if (code === "network") return isItalian ? "Il servizio vocale del browser non è raggiungibile." : "The browser voice service is unavailable.";
+    return isItalian ? "Dettatura non riuscita. Puoi continuare con la tastiera." : "Dictation failed. You can continue with the keyboard.";
+  }
+
+  function appendVoiceTranscript(transcript: string) {
+    const cleaned = transcript.trim();
+    if (!cleaned) return;
+    setText((current) => [current.trim(), cleaned].filter(Boolean).join(" ").slice(0, 2000));
+  }
+
+  function runVoiceRecognition(Recognition: VoiceRecognitionConstructor, processLocally: boolean) {
+    const recognition = new Recognition();
+    let retryWithBrowserService = false;
+    recognition.lang = locale === "it" ? "it-IT" : "en-US";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 3;
+    if ("processLocally" in recognition) recognition.processLocally = processLocally;
+    finalTranscriptRef.current = "";
+    recognition.onstart = () => {
+      setListening(true);
+      setVoiceMessage(isItalian ? "Ti ascolto…" : "Listening…");
+    };
+    recognition.onresult = (event) => {
+      let interimTranscript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const result = event.results[index];
+        const transcript = result[0]?.transcript || "";
+        if (result.isFinal) finalTranscriptRef.current += `${transcript} `;
+        else interimTranscript += transcript;
+      }
+      if (interimTranscript.trim()) {
+        setVoiceMessage(`${isItalian ? "Ti ascolto" : "Listening"}: ${interimTranscript.trim()}`);
+      }
+    };
+    recognition.onerror = (event) => {
+      if (processLocally && event.error === "language-not-supported") {
+        retryWithBrowserService = true;
+        setVoiceMessage(isItalian ? "Lingua locale non disponibile; uso il servizio vocale del browser…" : "Local language unavailable; using the browser voice service…");
+        return;
+      }
+      setVoiceMessage(voiceErrorMessage(event.error));
+    };
+    recognition.onend = () => {
+      if (retryWithBrowserService) {
+        recognitionRef.current = null;
+        if (voiceTimeoutRef.current !== null) window.clearTimeout(voiceTimeoutRef.current);
+        voiceTimeoutRef.current = null;
+        runVoiceRecognition(Recognition, false);
+        return;
+      }
+      const transcript = finalTranscriptRef.current;
+      appendVoiceTranscript(transcript);
+      setListening(false);
+      recognitionRef.current = null;
+      if (voiceTimeoutRef.current !== null) {
+        window.clearTimeout(voiceTimeoutRef.current);
+        voiceTimeoutRef.current = null;
+      }
+      if (transcript.trim()) {
+        setVoiceMessage(isItalian ? "Testo aggiunto. Controllalo prima di continuare." : "Text added. Review it before continuing.");
+      }
+    };
+    recognitionRef.current = recognition;
+    recognition.start();
+    voiceTimeoutRef.current = window.setTimeout(() => recognition.stop(), 45_000);
+  }
+
+  async function startVoiceInput() {
+    const Recognition = browserVoiceRecognition();
+    if (!Recognition || disabled || busy || voicePreparing) return;
+    setVoicePreparing(true);
+    setError("");
+    setVoiceMessage(isItalian ? "Preparo il microfono…" : "Preparing microphone…");
+    const language = locale === "it" ? "it-IT" : "en-US";
+    let processLocally = false;
+    if (Recognition.available && Recognition.install) {
+      try {
+        const availability = await Recognition.available({ langs: [language], processLocally: true });
+        if (availability === "available") {
+          processLocally = true;
+        } else if (availability === "downloadable" || availability === "downloading") {
+          setVoiceMessage(isItalian ? "Installazione della lingua sul dispositivo…" : "Installing the on-device language…");
+          processLocally = await Recognition.install({ langs: [language], processLocally: true });
+        }
+      } catch {
+        processLocally = false;
+      }
+    }
+    try {
+      runVoiceRecognition(Recognition, processLocally);
+    } catch {
+      setListening(false);
+      setVoiceMessage(isItalian ? "Il microfono non può essere avviato. Usa la tastiera." : "The microphone could not start. Use the keyboard.");
+    } finally {
+      setVoicePreparing(false);
+    }
+  }
+
+  function stopVoiceInput() {
+    recognitionRef.current?.stop();
+  }
 
   async function preparePurchase(
     purchaseDraft: CellarCommandPurchaseDraft,
@@ -82,7 +244,7 @@ export default function CellarAssistantView({
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!text.trim() || busy || disabled) return;
+    if (!text.trim() || busy || disabled || listening) return;
     setBusy(true);
     setError("");
     try {
@@ -174,15 +336,36 @@ export default function CellarAssistantView({
 
       <form className="cellar-assistant-composer" onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Cosa è successo in cantina?" : "What happened in your cellar?"}</label>
-        <textarea
-          id="cellar-assistant-command"
-          value={text}
-          onChange={(event) => setText(event.target.value)}
-          maxLength={2000}
-          rows={5}
-          disabled={disabled || busy}
-          placeholder={purchaseExample}
-        />
+        <div className={`cellar-assistant-voice-input${listening ? " is-listening" : ""}`}>
+          <textarea
+            id="cellar-assistant-command"
+            value={text}
+            onChange={(event) => setText(event.target.value)}
+            maxLength={2000}
+            rows={5}
+            disabled={disabled || busy}
+            placeholder={purchaseExample}
+          />
+          {voiceSupported ? (
+            <button
+              type="button"
+              className={`cellar-assistant-microphone${listening ? " is-listening" : ""}`}
+              onClick={listening ? stopVoiceInput : () => void startVoiceInput()}
+              disabled={disabled || busy || voicePreparing}
+              aria-pressed={listening}
+              aria-label={listening ? (isItalian ? "Ferma dettatura" : "Stop dictation") : (isItalian ? "Detta il comando" : "Dictate command")}
+              title={listening ? (isItalian ? "Ferma dettatura" : "Stop dictation") : (isItalian ? "Parla" : "Speak")}
+            >
+              <span aria-hidden="true">🎙</span>
+              {listening
+                ? (isItalian ? "Ferma" : "Stop")
+                : voicePreparing
+                  ? (isItalian ? "Preparo…" : "Preparing…")
+                  : (isItalian ? "Parla" : "Speak")}
+            </button>
+          ) : null}
+        </div>
+        {voiceMessage ? <p className="cellar-assistant-voice-status" aria-live="polite">{voiceMessage}</p> : null}
         <div>
           <span className="cellar-assistant-examples">
             <button type="button" className="secondary compact" onClick={() => setText(purchaseExample)} disabled={busy}>
@@ -192,14 +375,18 @@ export default function CellarAssistantView({
               {isItalian ? "Esempio bevuta" : "Consumption example"}
             </button>
           </span>
-          <button type="submit" disabled={disabled || busy || !text.trim()}>
+          <button type="submit" disabled={disabled || busy || listening || !text.trim()}>
             <AppIcon name="glass-sparkle" variant="ai" />
             {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Interpreta e aggiorna" : "Interpret and update")}
           </button>
         </div>
         <small>{isItalian
-          ? "L’AI interpreta il testo. La ricerca e la modifica avvengono soltanto nella cantina attiva."
-          : "AI interprets the text. Search and changes are restricted to the active cellar."}</small>
+          ? voiceSupported
+            ? "Puoi parlare o scrivere. Il browser gestisce la dettatura; Vinaris riceve soltanto il testo e non conserva audio. Controlla sempre la trascrizione."
+            : "La dettatura non è disponibile in questo browser. Inserisci il comando con la tastiera."
+          : voiceSupported
+            ? "Speak or type. Your browser handles dictation; Vinaris receives text only and stores no audio. Always review the transcript."
+            : "Dictation is unavailable in this browser. Enter the command with the keyboard."}</small>
       </form>
 
       {error ? <p className="cellar-assistant-error" role="alert">{error}</p> : null}

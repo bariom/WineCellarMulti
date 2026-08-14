@@ -1,0 +1,49 @@
+.cellar-assistant-voice-input {
+  position: relative;
+  display: grid;
+}
+
+.cellar-assistant-voice-input textarea {
+  padding-right: 7.8rem;
+}
+
+.cellar-assistant-microphone {
+  position: absolute;
+  right: 0.7rem;
+  bottom: 0.7rem;
+  display: inline-flex;
+  min-height: 42px;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 999px;
+}
+
+.cellar-assistant-microphone.is-listening {
+  border-color: color-mix(in srgb, var(--danger) 55%, var(--border));
+  color: var(--danger-text);
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-raised));
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--danger) 10%, transparent);
+  animation: cellar-assistant-mic-pulse 1.25s ease-in-out infinite;
+}
+
+.cellar-assistant-voice-status {
+  min-height: 1.25rem;
+  margin: -0.25rem 0 0;
+  color: var(--accent-strong);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+@keyframes cellar-assistant-mic-pulse {
+  50% { transform: scale(1.03); }
+}
+
+@media (max-width: 620px) {
+  .cellar-assistant-voice-input textarea { padding-right: 1rem; padding-bottom: 4.5rem; }
+  .cellar-assistant-microphone { right: 0.65rem; bottom: 0.65rem; width: auto !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cellar-assistant-microphone.is-listening { animation: none; }
+}
