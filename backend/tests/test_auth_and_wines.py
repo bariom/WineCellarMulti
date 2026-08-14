@@ -3755,6 +3755,14 @@ def test_cellar_ai_global_flag_keeps_admin_access_and_blocks_regular_users(monke
 def test_cellar_ai_purchase_requests_ai_research_when_catalog_has_no_match(monkeypatch):
     from app.api.routes import ai as ai_routes
 
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            fixed = datetime(2026, 8, 13, 22, 30, tzinfo=UTC)
+            return fixed if tz is None else fixed.astimezone(tz)
+
+    monkeypatch.setattr(ai_routes, "datetime", FixedDateTime)
+
     client = TestClient(app)
     assert register(client).status_code == 201
 
@@ -3811,7 +3819,7 @@ def test_cellar_ai_purchase_requests_ai_research_when_catalog_has_no_match(monke
     assert result["status"] == "ai_research_required"
     assert result["purchase_draft"]["lookup_source"] == "ai_required"
     assert result["purchase_draft"]["quantity"] == 2
-    assert result["purchase_draft"]["order_date"] == "2026-08-13"
+    assert result["purchase_draft"]["order_date"] == "2026-08-14"
     assert result["catalog_candidates"] == []
     assert client.get("/api/v1/wines").json() == []
 
