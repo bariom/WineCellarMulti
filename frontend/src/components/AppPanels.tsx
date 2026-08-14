@@ -77,6 +77,14 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
 }
 
 export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: TranslationKey) => string; locale: Locale }) {
+  const [purchaseLots, setPurchaseLots] = useState<WineStockLot[]>([]);
+  useEffect(() => {
+    let active = true;
+    void api<WineStockLot[]>(`/api/v1/inventory/lots?wine_id=${wine.id}&include_empty=true`)
+      .then((lots) => { if (active) setPurchaseLots(lots); })
+      .catch(() => { if (active) setPurchaseLots([]); });
+    return () => { active = false; };
+  }, [wine.id]);
   const historyEntries = (wine.value_history || [])
     .filter((entry) => entry.value && entry.recorded_at)
     .map((entry) => ({ ...entry, numericValue: Number(entry.value), dateMs: new Date(entry.recorded_at).getTime() }))
@@ -91,7 +99,19 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
     : historyEntries.length
       ? historyEntries[0].dateMs - 86_400_000
       : Date.now();
-  const purchaseEntry = Number.isFinite(purchasePrice) && purchasePrice > 0
+  const purchaseEntries = purchaseLots
+    .filter((lot) => Number(lot.unit_cost) > 0 && lot.acquired_on)
+    .map((lot) => ({
+      id: `purchase-${lot.id}`,
+      value: lot.unit_cost,
+      currency: lot.currency || wine.currency,
+      source: "purchase",
+      recorded_at: `${lot.acquired_on}T12:00:00.000Z`,
+      numericValue: Number(lot.unit_cost),
+      dateMs: new Date(`${lot.acquired_on}T12:00:00`).getTime(),
+    }))
+    .filter((entry) => Number.isFinite(entry.numericValue) && Number.isFinite(entry.dateMs));
+  const fallbackPurchaseEntry = Number.isFinite(purchasePrice) && purchasePrice > 0
     ? {
         id: `purchase-${wine.id}`,
         value: String(purchasePrice),
@@ -102,7 +122,7 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
         dateMs: purchaseDateMs,
       }
     : null;
-  const entries = [...(purchaseEntry ? [purchaseEntry] : []), ...historyEntries]
+  const entries = [...(purchaseEntries.length ? purchaseEntries : fallbackPurchaseEntry ? [fallbackPurchaseEntry] : []), ...historyEntries]
     .sort((first, second) => first.dateMs - second.dateMs || (first.source === "purchase" ? -1 : 1));
 
   if (entries.length === 0) return null;
