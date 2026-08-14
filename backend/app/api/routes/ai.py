@@ -1077,13 +1077,17 @@ def cellar_command_acquisition_status(raw_text: str) -> str:
 
 
 def cellar_command_wishlist_list_name(raw_text: str) -> str:
-    wishlist_terms = r"(?:wishlist|wish\s*list|lista\s+(?:dei\s+)?desideri)"
+    wishlist_terms = r"(?:wish[-\s]*list|lista\s+(?:(?:dei|de|dei\s+(?:miei|nostri)|my)\s+)?desideri)"
     patterns = (
         # "alla wishlist Rossi", "in/nella wishlist Rossi", "to my wishlist Rossi".
-        rf"\b(?:alla(?:\s+(?:mia|nostra))?|in(?:\s+(?:la|mia|nostra))?|nella|sulla|to(?:\s+(?:my|the))?)\s+(?:lista\s+)?{wishlist_terms}\s*(?:chiamata|denominata|named|called)?\s*[:\-]?\s*(?P<name>[^,;:.]+)",
+        rf"\b(?:alla(?:\s+(?:mia|nostra))?|in(?:\s+(?:la|mia|nostra))?|nella|sulla|to(?:\s+(?:my|the))?)\s+(?:lista\s+)?{wishlist_terms}\s*(?:chiamata|denominata|named|called)?\s*[:\-]?\s*(?:(?:di|del(?:la)?|for)\s+)?(?P<name>[^,;:.]+)",
         # "wishlist chiamata Rossi", "lista dei desideri: Rossi".
         rf"\b{wishlist_terms}\s+(?:chiamata|denominata|named|called)\s+(?P<name>[^,;:.]+)",
         rf"\b{wishlist_terms}\s*[:\-]\s*(?P<name>[^,;:.]+)",
+        # "wish list di Rossi", "wishlist for Rossi".
+        rf"\b{wishlist_terms}\s+(?:di|del(?:la)?|for)\s+(?P<name>[^,;:.]+)",
+        # Dictation often drops the preposition entirely: "wish list Rossi".
+        rf"\b(?:my|mia|nostra)?\s*(?:lista\s+)?{wishlist_terms}\s+(?P<name>[^,;:.]+)",
     )
     for pattern in patterns:
         match = re.search(pattern, raw_text, flags=re.IGNORECASE)

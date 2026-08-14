@@ -3818,6 +3818,15 @@ def test_cellar_ai_extracts_wishlist_name_from_common_command_variants():
         "Add it to my wishlist Rossi.": "Rossi",
         "Add it to the wish list called Rossi.": "Rossi",
         "Aggiungi alla wishlist: Rossi, Bricco dell'Uccellone 2024.": "Rossi",
+        "Aggiungi Bricco dell'Uccellone 2024 alla wish-list Rossi.": "Rossi",
+        "Metti Bricco dell'Uccellone 2024 nella lista desideri Rossi.": "Rossi",
+        "Aggiungi il vino alla lista dei miei desideri Rossi.": "Rossi",
+        "Aggiungi il vino alla lista wishlist Rossi.": "Rossi",
+        "Wish list Rossi.": "Rossi",
+        "Wishlist Rossi.": "Rossi",
+        "My wish list Rossi.": "Rossi",
+        "Wish list di Rossi.": "Rossi",
+        "Add it to wishlist for Rossi.": "Rossi",
     }
 
     assert {command: cellar_command_wishlist_list_name(command) for command in commands} == commands
