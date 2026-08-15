@@ -614,6 +614,23 @@ function appUserEntitlementStatus(user: AppUser, locale: Locale): { label: strin
   };
 }
 
+function appUserTierStatus(user: AppUser, locale: Locale): { label: string; configured: boolean } {
+  const hasActiveEntitlement = (user.entitlement_days_remaining ?? 0) > 0;
+  const tier = user.has_demo_access
+    ? (locale === "it" ? "Demo" : "Demo")
+    : user.is_app_admin
+      ? (locale === "it" ? "Riserva" : "Reserve")
+      : hasActiveEntitlement && user.can_use_restaurant_mode
+        ? (locale === "it" ? "Carta" : "Wine list")
+        : hasActiveEntitlement
+          ? (locale === "it" ? "Riserva" : "Reserve")
+          : (locale === "it" ? "Degustazione" : "Tasting");
+  return {
+    label: `${locale === "it" ? "Piano" : "Tier"} · ${tier}`,
+    configured: tier !== (locale === "it" ? "Degustazione" : "Tasting"),
+  };
+}
+
 const classicRegionalGapTargets: RegionalGapTarget[] = [
   { region: "Bordeaux", targetPct: 22 },
   { region: "Toscana", targetPct: 16 },
@@ -13224,6 +13241,7 @@ export function App() {
                       <div className="member-list settings-admin-list">
                         {adminUsersSorted.map((user) => {
                           const entitlementStatus = appUserEntitlementStatus(user, locale);
+                          const tierStatus = appUserTierStatus(user, locale);
                           return (
                             <details className="settings-admin-row settings-admin-detail-row user-admin-card" key={user.id} open={!user.is_approved}>
                             <summary className="settings-admin-row-summary">
@@ -13233,6 +13251,7 @@ export function App() {
                               </div>
                               <div className="settings-admin-summary-meta">
                                 <span className={user.is_approved ? "status-pill configured" : "status-pill"}>{user.is_approved ? "approved" : "pending"}</span>
+                                <span className={`status-pill${tierStatus.configured ? " configured" : ""}`}>{tierStatus.label}</span>
                                 {user.is_blocked ? <span className="status-pill">{t("blocked")}</span> : null}
                                 {user.is_app_admin ? <span className="status-pill">App admin</span> : null}
                                 {user.can_use_restaurant_mode ? <span className="status-pill configured">{locale === "it" ? "Ristorante abilitato" : "Restaurant enabled"}</span> : null}

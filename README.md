@@ -157,7 +157,6 @@ Production environment values:
 APP_ENV=production
 APP_DEBUG=false
 SESSION_COOKIE_SECURE=true
-TRIAL_ENTITLEMENT_DAYS=5
 FREE_TIER_LABEL_LIMIT=30
 # false: disponibile soltanto agli amministratori dell'app; true: disponibile agli utenti
 RESTAURANT_MODE_ENABLED=false

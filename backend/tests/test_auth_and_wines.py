@@ -2920,11 +2920,7 @@ def test_free_tier_has_private_features_with_40_bottle_limit_and_ai_pack_only(mo
     assert usage["all_time"]["estimated_cost_usd"] == "0.006000"
 
 
-def test_new_user_gets_single_lifetime_trial_redeem_code():
-    from app.api.routes.auth import generate_redeem_code, normalize_redeem_code
-    from app.core.crypto import encrypt_secret
-    from app.core.security import hash_redeem_code
-
+def test_new_user_starts_on_free_tier_without_redeem_code():
     admin_client = TestClient(app)
     assert register(admin_client).status_code == 201
 
@@ -2949,42 +2945,7 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
     assert user_client.get("/api/v1/wines").status_code == 200
 
     status_payload = user_client.get("/api/v1/billing/status").json()
-    assert len(status_payload["available_redeem_codes"]) == 1
-    trial_code = status_payload["available_redeem_codes"][0]
-    assert trial_code["kind"] == "trial"
-    assert trial_code["duration_days"] == 5
-    assert trial_code["max_redemptions"] == 1
-    assert trial_code["email"] == "trial@example.com"
-    assert trial_code["expires_at"] is not None
-
-    redeemed = user_client.post("/api/v1/billing/redeem", json={"code": trial_code["code"]})
-    assert redeemed.status_code == 200
-    assert redeemed.json()["has_active_entitlement"] is True
-    assert redeemed.json()["active_source"] == "trial"
-    assert user_client.get("/api/v1/wines").status_code == 200
-
-    with TestingSessionLocal() as db:
-        user = db.query(User).filter(User.email == "trial@example.com").one()
-        clear_code = generate_redeem_code()
-        normalized = normalize_redeem_code(clear_code)
-        db.add(
-            RedeemCode(
-                code_hash=hash_redeem_code(normalized),
-                code_prefix=clear_code[:8],
-                encrypted_code=encrypt_secret(clear_code),
-                kind="trial",
-                label="Second trial",
-                duration_days=5,
-                max_redemptions=1,
-                email=user.email,
-                expires_at=datetime.now(UTC) + timedelta(days=5),
-            ),
-        )
-        db.commit()
-
-    second_trial = user_client.post("/api/v1/billing/redeem", json={"code": clear_code})
-    assert second_trial.status_code == 400
-    assert "trial" in second_trial.json()["detail"].lower()
+    assert status_payload["available_redeem_codes"] == []
 
 
 def test_new_users_receive_photo_permissions_and_admin_can_disable_them():
@@ -3011,10 +2972,6 @@ def test_new_users_receive_photo_permissions_and_admin_can_disable_them():
     assert login.status_code == 200
     assert login.json()["can_use_label_recognition"] is True
     assert login.json()["can_manage_wine_photos"] is True
-    trial_code = user_client.get("/api/v1/billing/status").json()["available_redeem_codes"][0][
-        "code"
-    ]
-    assert user_client.post("/api/v1/billing/redeem", json={"code": trial_code}).status_code == 200
 
     app_user = next(
         user
@@ -3044,7 +3001,7 @@ def test_new_users_receive_photo_permissions_and_admin_can_disable_them():
     assert refreshed_login.status_code == 200
     assert refreshed_login.json()["can_use_label_recognition"] is False
     assert refreshed_login.json()["can_manage_wine_photos"] is False
-    assert refreshed_login.json()["restaurant_mode_available"] is True
+    assert refreshed_login.json()["restaurant_mode_available"] is False
     blocked = user_client.post(
         "/api/v1/wines/catalog/recognize-bottle",
         files={"image": ("label.jpg", b"fake-image", "image/jpeg")},

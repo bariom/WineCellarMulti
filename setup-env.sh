@@ -38,7 +38,6 @@ SESSION_COOKIE_NAME=winecellarmulti_session
 SESSION_COOKIE_SECURE=false
 SESSION_TTL_DAYS=30
 INVITE_TTL_DAYS=7
-TRIAL_ENTITLEMENT_DAYS=5
 RESTAURANT_MODE_ENABLED=false
 CORS_ORIGINS=https://vinaris.app,https://www.vinaris.app,https://vinaris.duckdns.org,https://winecellarmulti.duckdns.org,http://localhost:5173,http://127.0.0.1:5173
 ARCGIS_API_KEY=

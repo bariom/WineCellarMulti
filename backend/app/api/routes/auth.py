@@ -1,8 +1,6 @@
 import json
 import logging
 import math
-import secrets
-import string
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from uuid import UUID
@@ -35,14 +33,12 @@ from app.api.deps import (
     require_app_admin_context,
 )
 from app.core.config import settings
-from app.core.crypto import encrypt_secret
 from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.core.rate_limit import enforce_rate_limit
 from app.core.security import (
     hash_email_verification_token,
     hash_password,
     hash_password_reset_token,
-    hash_redeem_code,
     hash_session_token,
     new_email_verification_token,
     new_password_reset_token,
@@ -61,7 +57,6 @@ from app.models import (
     StripeCheckoutSession,
     User,
     UserActivityLog,
-    UserEntitlement,
     UserPasskey,
     UserSession,
     Wine,
@@ -100,8 +95,6 @@ router = APIRouter(prefix="/auth")
 logger = logging.getLogger(__name__)
 
 PASSKEY_CHALLENGE_TTL_MINUTES = 5
-TRIAL_REDEEM_KIND = "trial"
-CODE_ALPHABET = string.ascii_uppercase + string.digits
 
 
 def request_origin(request: Request) -> str:
@@ -196,64 +189,6 @@ def delete_user_and_orphaned_households(db: Session, user: User) -> None:
 
 def utc_datetime(value: datetime) -> datetime:
     return value.replace(tzinfo=UTC) if value.tzinfo is None else value.astimezone(UTC)
-
-
-def normalize_redeem_code(code: str) -> str:
-    return "".join(character for character in code.upper() if character.isalnum())
-
-
-def generate_redeem_code() -> str:
-    raw = "".join(secrets.choice(CODE_ALPHABET) for _ in range(16))
-    return f"WCM-{raw[:4]}-{raw[4:8]}-{raw[8:12]}-{raw[12:]}"
-
-
-def user_can_receive_trial_code(user: User) -> bool:
-    return user.is_approved and not user.is_app_admin and not user_requires_email_verification(user) and not user.is_blocked
-
-
-def ensure_trial_redeem_code(db: Session, user: User) -> RedeemCode | None:
-    if not user_can_receive_trial_code(user):
-        return None
-    existing_trial_entitlement = db.scalar(
-        select(UserEntitlement.id)
-        .where(UserEntitlement.user_id == user.id, UserEntitlement.source == TRIAL_REDEEM_KIND)
-        .order_by(UserEntitlement.created_at.desc()),
-    )
-    if existing_trial_entitlement is not None:
-        return None
-    existing_trial_code = db.scalar(
-        select(RedeemCode)
-        .where(RedeemCode.email == user.email.lower(), RedeemCode.kind == TRIAL_REDEEM_KIND)
-        .order_by(RedeemCode.created_at.desc()),
-    )
-    if existing_trial_code is not None:
-        return existing_trial_code
-
-    clear_code = generate_redeem_code()
-    normalized = normalize_redeem_code(clear_code)
-    trial_days = max(settings.trial_entitlement_days, 1)
-    trial_code = RedeemCode(
-        code_hash=hash_redeem_code(normalized),
-        code_prefix=clear_code[:8],
-        encrypted_code=encrypt_secret(clear_code),
-        kind=TRIAL_REDEEM_KIND,
-        label="Vinaris trial access",
-        duration_days=trial_days,
-        max_redemptions=1,
-        email=user.email.lower(),
-        expires_at=datetime.now(UTC) + timedelta(days=trial_days),
-    )
-    db.add(trial_code)
-    create_user_notification(
-        db,
-        user,
-        kind="trial_redeem_code",
-        title="Trial Vinaris disponibile",
-        message=f"E disponibile un codice trial da {trial_days} giorni per iniziare a usare Vinaris.",
-        action_url="/settings/profile",
-        fingerprint=f"trial-redeem-code:{user.id}",
-    )
-    return trial_code
 
 
 def store_passkey_challenge(db: Session, challenge: bytes, purpose: str, user: User | None = None) -> None:
@@ -618,7 +553,6 @@ def verify_email_token(payload: EmailVerificationRequest, db: Session) -> User:
     user.email_verified_at = datetime.now(UTC)
     user.email_verification_token_hash = ""
     user.email_verification_expires_at = None
-    ensure_trial_redeem_code(db, user)
     db.commit()
     db.refresh(user)
     return user
@@ -708,7 +642,6 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
         )
     membership = Membership(user_id=user.id, household_id=household.id, role="owner")
     db.add(membership)
-    ensure_trial_redeem_code(db, user)
     if requires_email_verification:
         verification_url = f"{request_origin(request)}/?email_verify_token={email_verification_token}"
         if not notify_user_email_verification(user, verification_url):
@@ -1159,7 +1092,6 @@ def approve_pending_user(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Pending user not found")
     user.is_approved = True
     user.approved_at = datetime.now(UTC)
-    ensure_trial_redeem_code(db, user)
     db.commit()
     db.refresh(user)
     notify_user_approved(user)
