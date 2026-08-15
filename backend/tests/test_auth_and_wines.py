@@ -3584,6 +3584,7 @@ def test_private_cellar_tracks_purchase_lots_and_consumes_fifo():
             "quantity": 6,
             "price": 50,
             "currency": "CHF",
+            "order_date": "2026-08-13",
             "status": "Delivered",
         },
     )
