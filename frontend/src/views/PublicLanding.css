@@ -61,6 +61,7 @@
 .marketing-header nav a:hover::after { transform: scaleX(1); transform-origin: left; }
 .marketing-header-actions { display: flex; align-items: center; gap: 7px; }
 .marketing-header-actions select { min-height: 42px; padding: 0 28px 0 10px; border: 0; color: var(--mk-muted); background-color: transparent; font-size: .76rem; font-weight: 800; }
+.marketing-header-login { display: none; }
 .marketing-menu-toggle { display: none; }
 
 .marketing-button {
@@ -237,6 +238,7 @@
 }
 
 @media (max-width: 1160px) {
+  .marketing-header-login { display: inline-flex; margin-left: auto; white-space: nowrap; }
   .marketing-menu-toggle { position: relative; z-index: 3; display: grid; width: 44px; min-width: 44px; height: 44px; padding: 11px; place-content: center; gap: 4px; border: 1px solid var(--mk-line); border-radius: 12px; background: #fbf8f1; }
   .marketing-menu-toggle i { display: block; width: 19px; height: 2px; border-radius: 2px; background: var(--mk-ink); transition: transform .2s ease, opacity .2s ease; }
   .marketing-menu-toggle[aria-expanded="true"] i:first-child { transform: translateY(6px) rotate(45deg); }.marketing-menu-toggle[aria-expanded="true"] i:nth-child(2) { opacity: 0; }.marketing-menu-toggle[aria-expanded="true"] i:last-child { transform: translateY(-6px) rotate(-45deg); }
