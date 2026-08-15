@@ -110,6 +110,7 @@ from app.services.ai_credits import (
     quantize_usd,
 )
 from app.services.ai_models import parameters_for_model
+from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
 from app.services.shared_wine_data import (
     SHARED_FEATURES,
@@ -131,7 +132,15 @@ router = APIRouter(prefix="/ai")
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
-MODEL_FIELDS = ["ai_notes_model", "drink_window_model", "value_model", "grape_model", "score_model", "wishlist_model", "pairing_model"]
+MODEL_FIELDS = [
+    "ai_notes_model",
+    "drink_window_model",
+    "value_model",
+    "grape_model",
+    "score_model",
+    "wishlist_model",
+    "pairing_model",
+]
 GPT56_DEFAULT_ROLE_BY_FIELD = {
     "ai_notes_model": "economy",
     "drink_window_model": "balanced",
@@ -143,17 +152,47 @@ GPT56_DEFAULT_ROLE_BY_FIELD = {
 }
 PAIRING_MAX_CANDIDATES = 25
 DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
-    "gpt-5.4-nano": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.25")},
-    "gpt-5.4-mini": {"input": Decimal("0.75"), "cached_input": Decimal("0.075"), "output": Decimal("4.50")},
-    "gpt-5.4": {"input": Decimal("2.50"), "cached_input": Decimal("0.25"), "output": Decimal("15.00")},
-    "gpt-5.5": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
-    "gpt-5.6-luna": {"input": Decimal("0.20"), "cached_input": Decimal("0.02"), "output": Decimal("1.20")},
-    "gpt-5.6-terra": {"input": Decimal("2.00"), "cached_input": Decimal("0.20"), "output": Decimal("12.00")},
-    "gpt-5.6-sol": {"input": Decimal("5.00"), "cached_input": Decimal("0.50"), "output": Decimal("30.00")},
+    "gpt-5.4-nano": {
+        "input": Decimal("0.20"),
+        "cached_input": Decimal("0.02"),
+        "output": Decimal("1.25"),
+    },
+    "gpt-5.4-mini": {
+        "input": Decimal("0.75"),
+        "cached_input": Decimal("0.075"),
+        "output": Decimal("4.50"),
+    },
+    "gpt-5.4": {
+        "input": Decimal("2.50"),
+        "cached_input": Decimal("0.25"),
+        "output": Decimal("15.00"),
+    },
+    "gpt-5.5": {
+        "input": Decimal("5.00"),
+        "cached_input": Decimal("0.50"),
+        "output": Decimal("30.00"),
+    },
+    "gpt-5.6-luna": {
+        "input": Decimal("0.20"),
+        "cached_input": Decimal("0.02"),
+        "output": Decimal("1.20"),
+    },
+    "gpt-5.6-terra": {
+        "input": Decimal("2.00"),
+        "cached_input": Decimal("0.20"),
+        "output": Decimal("12.00"),
+    },
+    "gpt-5.6-sol": {
+        "input": Decimal("5.00"),
+        "cached_input": Decimal("0.50"),
+        "output": Decimal("30.00"),
+    },
 }
 
 
-def model_pricing_usd_per_million_tokens(db: Session | None = None) -> dict[str, dict[str, Decimal]]:
+def model_pricing_usd_per_million_tokens(
+    db: Session | None = None,
+) -> dict[str, dict[str, Decimal]]:
     """Return the default price book extended by operator-supplied JSON rates.
 
     The optional OPENAI_MODEL_PRICING_USD_PER_MILLION_TOKENS value accepts a
@@ -161,7 +200,9 @@ def model_pricing_usd_per_million_tokens(db: Session | None = None) -> dict[str,
     ``input``, ``cached_input``, and ``output`` USD-per-million-token values.
     It can update an existing model or add a newly released one.
     """
-    pricing = {model: dict(rates) for model, rates in DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS.items()}
+    pricing = {
+        model: dict(rates) for model, rates in DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS.items()
+    }
     raw_overrides = str(settings.openai_model_pricing_usd_per_million_tokens or "").strip()
     if db is not None:
         app_pricing = db.get(AppAiPricing, 1)
@@ -177,31 +218,61 @@ def model_pricing_usd_per_million_tokens(db: Session | None = None) -> dict[str,
             detail="AI pricing configuration is invalid",
         ) from exc
     if not isinstance(overrides, dict):
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI pricing configuration is invalid")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI pricing configuration is invalid",
+        )
 
     for model, rates in overrides.items():
         if not isinstance(model, str) or not model.strip() or not isinstance(rates, dict):
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI pricing configuration is invalid")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI pricing configuration is invalid",
+            )
         try:
-            normalized_rates = {field: Decimal(str(rates[field])) for field in ("input", "cached_input", "output")}
+            normalized_rates = {
+                field: Decimal(str(rates[field])) for field in ("input", "cached_input", "output")
+            }
         except (KeyError, InvalidOperation, TypeError, ValueError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="AI pricing configuration is invalid",
             ) from exc
         if any(rate < Decimal("0") or not rate.is_finite() for rate in normalized_rates.values()):
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI pricing configuration is invalid")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="AI pricing configuration is invalid",
+            )
         pricing[model.strip()] = normalized_rates
     return pricing
 
 
-def ai_pack_markup_percent() -> Decimal:
+def ai_pack_markup_percent(*, free_tier: bool = False, db: Session | None = None) -> Decimal:
+    configured_markup = (
+        settings.free_tier_ai_pack_markup_percent if free_tier else settings.ai_pack_markup_percent
+    )
+    if db is not None:
+        app_pricing = db.get(AppAiPricing, 1)
+        stored_markup = (
+            app_pricing.free_tier_ai_pack_markup_percent
+            if app_pricing is not None and free_tier
+            else app_pricing.ai_pack_markup_percent
+            if app_pricing is not None
+            else ""
+        )
+        configured_markup = stored_markup.strip() or configured_markup
     try:
-        markup = Decimal(str(settings.ai_pack_markup_percent or "0"))
+        markup = Decimal(str(configured_markup or "0"))
     except (InvalidOperation, TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI Pack markup configuration is invalid") from exc
-    if markup < Decimal("0"):
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI Pack markup configuration is invalid")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI Pack markup configuration is invalid",
+        ) from exc
+    if not markup.is_finite() or markup < Decimal("0"):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI Pack markup configuration is invalid",
+        )
     return markup
 
 
@@ -216,7 +287,9 @@ def response_language_instruction(locale: str) -> str:
 
 def validate_model(model: str) -> str:
     if model not in available_model_options():
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported model: {model}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported model: {model}"
+        )
     return model
 
 
@@ -262,7 +335,10 @@ def normalize_user_ai_models(user_settings: UserAiSettings) -> bool:
 
 def validate_provider_mode(provider_mode: str) -> str:
     if provider_mode not in AI_PROVIDER_OPTIONS:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Unsupported AI provider mode: {provider_mode}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unsupported AI provider mode: {provider_mode}",
+        )
     return provider_mode
 
 
@@ -298,17 +374,25 @@ def ai_wine_response(db: Session, context: CurrentContext, wine: Wine) -> WineRe
     )
 
 
-def ai_settings_response(db: Session, context: CurrentContext, user_settings: UserAiSettings) -> AiSettingsResponse:
+def ai_settings_response(
+    db: Session, context: CurrentContext, user_settings: UserAiSettings
+) -> AiSettingsResponse:
     app_balance = ai_credit_balance(db, context.user)
     can_use_app_credits = bool(settings.openai_api_key.strip()) and app_balance > ZERO_USD
+    personal_key_allowed = not is_free_tier(context)
     return AiSettingsResponse(
-        has_openai_api_key=bool(decrypt_secret(user_settings.openai_api_key).strip()),
-        provider_mode=user_settings.provider_mode,
-        provider_options=AI_PROVIDER_OPTIONS,
+        has_openai_api_key=personal_key_allowed
+        and bool(decrypt_secret(user_settings.openai_api_key).strip()),
+        provider_mode=user_settings.provider_mode if personal_key_allowed else "credits",
+        provider_options=AI_PROVIDER_OPTIONS if personal_key_allowed else ["credits"],
+        can_use_personal_openai_key=personal_key_allowed,
         app_credit_balance_usd=app_balance,
-        ai_credit_pack_size_usd=stripe_ai_credit_amount() if settings.stripe_ai_credit_price_id else ZERO_USD,
+        ai_credit_pack_size_usd=stripe_ai_credit_amount()
+        if settings.stripe_ai_credit_price_id
+        else ZERO_USD,
         can_use_app_credits=can_use_app_credits,
-        can_use_included_wine_search=bool(settings.openai_api_key.strip()),
+        can_use_included_wine_search=bool(settings.openai_api_key.strip())
+        and not is_free_tier(context),
         ai_notes_model=user_settings.ai_notes_model,
         drink_window_model=user_settings.drink_window_model,
         value_model=user_settings.value_model,
@@ -373,15 +457,22 @@ def web_search_tool_cost_usd(call_count: int) -> Decimal:
     try:
         unit_cost = Decimal(str(settings.openai_web_search_tool_cost_usd or "0"))
     except (InvalidOperation, TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenAI web search cost configuration is invalid") from exc
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI web search cost configuration is invalid",
+        ) from exc
     if unit_cost < Decimal("0"):
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="OpenAI web search cost configuration is invalid")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="OpenAI web search cost configuration is invalid",
+        )
     return quantize_usd(unit_cost * Decimal(max(call_count, 0)))
 
 
 def maximum_billable_cost_usd(
     *,
     user_is_app_admin: bool,
+    user_has_active_entitlement: bool,
     provider_source: str,
     model: str,
     input_tokens: int,
@@ -396,10 +487,12 @@ def maximum_billable_cost_usd(
     )
     return billable_cost_usd(
         user_is_app_admin=user_is_app_admin,
+        user_has_active_entitlement=user_has_active_entitlement,
         provider_source=provider_source,
         model=model,
         usage=usage,
-        extra_cost_usd=web_search_tool_cost_usd(web_search_calls), db=db,
+        extra_cost_usd=web_search_tool_cost_usd(web_search_calls),
+        db=db,
     )
 
 
@@ -422,10 +515,14 @@ def reserve_ai_credits(
     db.scalar(select(User).where(User.id == context.user.id).with_for_update())
     balance = ai_credit_balance(db, context.user)
     if balance <= ZERO_USD:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted")
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted"
+        )
 
     schema_size = len(str(json_schema or {}))
-    prompt_token_budget = max(math.ceil((len(system_prompt) + len(user_prompt) + schema_size) / 2), 2048)
+    prompt_token_budget = max(
+        math.ceil((len(system_prompt) + len(user_prompt) + schema_size) / 2), 2048
+    )
     if web_search:
         # Search result context is provider-controlled. Keep a conservative
         # allowance in addition to the separately billed tool calls.
@@ -437,6 +534,7 @@ def reserve_ai_credits(
 
     desired_cost = maximum_billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
         provider_source="credits",
         model=model,
         input_tokens=prompt_token_budget,
@@ -449,9 +547,15 @@ def reserve_ai_credits(
 
     if desired_cost > balance:
         pricing = pricing_for_model(model, db)
-        markup_multiplier = Decimal("1") if context.user.is_app_admin else Decimal("1") + (ai_pack_markup_percent() / Decimal("100"))
+        markup_multiplier = (
+            Decimal("1")
+            if context.user.is_app_admin
+            else Decimal("1")
+            + (ai_pack_markup_percent(free_tier=is_free_tier(context), db=db) / Decimal("100"))
+        )
         fixed_cost = maximum_billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,
+            user_has_active_entitlement=context.has_active_entitlement,
             provider_source="credits",
             model=model,
             input_tokens=prompt_token_budget,
@@ -461,15 +565,25 @@ def reserve_ai_credits(
         )
         available_for_output = balance - fixed_cost
         if available_for_output <= ZERO_USD:
-            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient AI credits for this request")
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Insufficient AI credits for this request",
+            )
         affordable_output_tokens = int(
-            ((available_for_output * Decimal("1000000")) / (pricing["output"] * markup_multiplier)).to_integral_value(rounding=ROUND_FLOOR)
+            (
+                (available_for_output * Decimal("1000000"))
+                / (pricing["output"] * markup_multiplier)
+            ).to_integral_value(rounding=ROUND_FLOOR)
         )
         effective_max_output_tokens = min(max_output_tokens, affordable_output_tokens)
         if effective_max_output_tokens < 512:
-            raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Insufficient AI credits for this request")
+            raise HTTPException(
+                status_code=status.HTTP_402_PAYMENT_REQUIRED,
+                detail="Insufficient AI credits for this request",
+            )
         reserved_cost = maximum_billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,
+            user_has_active_entitlement=context.has_active_entitlement,
             provider_source="credits",
             model=model,
             input_tokens=prompt_token_budget,
@@ -504,7 +618,10 @@ def reconcile_ai_credit_reservation(
         # This should be unreachable because the reservation includes a large
         # input allowance and the provider receives the affordable output cap.
         # Refuse to create a negative balance instead of silently overbilling.
-        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="AI usage exceeded its reserved budget")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI usage exceeded its reserved budget",
+        )
     refund = quantize_usd(reserved_cost - actual_cost)
     if refund > ZERO_USD:
         create_ai_credit_transaction(
@@ -518,7 +635,14 @@ def reconcile_ai_credit_reservation(
     db.commit()
 
 
-def cancel_ai_credit_reservation(db: Session, context: CurrentContext, *, reservation_id: UUID, reserved_cost: Decimal, model: str) -> None:
+def cancel_ai_credit_reservation(
+    db: Session,
+    context: CurrentContext,
+    *,
+    reservation_id: UUID,
+    reserved_cost: Decimal,
+    model: str,
+) -> None:
     create_ai_credit_transaction(
         db,
         context.user,
@@ -530,11 +654,23 @@ def cancel_ai_credit_reservation(db: Session, context: CurrentContext, *, reserv
     db.commit()
 
 
-def billable_cost_usd(*, user_is_app_admin: bool, provider_source: str, model: str, usage: TokenUsage, extra_cost_usd: Decimal = Decimal("0"), db: Session | None = None) -> Decimal:
+def billable_cost_usd(
+    *,
+    user_is_app_admin: bool,
+    user_has_active_entitlement: bool = True,
+    provider_source: str,
+    model: str,
+    usage: TokenUsage,
+    extra_cost_usd: Decimal = Decimal("0"),
+    db: Session | None = None,
+) -> Decimal:
     base_cost = quantize_usd(estimate_cost_usd(model, usage, db) + extra_cost_usd)
     if provider_source != "credits" or user_is_app_admin:
         return base_cost
-    markup = ai_pack_markup_percent()
+    markup = ai_pack_markup_percent(
+        free_tier=not user_has_active_entitlement,
+        db=db,
+    )
     if markup <= Decimal("0"):
         return base_cost
     return quantize_usd(base_cost * (Decimal("1") + (markup / Decimal("100"))))
@@ -544,30 +680,57 @@ def user_openai_api_key(user_settings: UserAiSettings) -> str:
     return decrypt_secret(user_settings.openai_api_key)
 
 
-def select_ai_provider(db: Session, context: CurrentContext, user_settings: UserAiSettings) -> tuple[str, str]:
+def select_ai_provider(
+    db: Session, context: CurrentContext, user_settings: UserAiSettings
+) -> tuple[str, str]:
     user_key = user_openai_api_key(user_settings).strip()
     app_key = settings.openai_api_key.strip()
     balance = ai_credit_balance(db, context.user)
     mode = user_settings.provider_mode or "auto"
 
+    if is_free_tier(context):
+        if app_key and balance > ZERO_USD:
+            return ("credits", app_key)
+        if not app_key:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Application OpenAI API key is not configured",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="An AI Pack is required on the free tier",
+        )
+
     if mode == "user_key":
         if user_key:
             return ("user_key", user_key)
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="No personal OpenAI API key configured")
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="No personal OpenAI API key configured",
+        )
     if mode == "credits":
         if app_key and balance > ZERO_USD:
             return ("credits", app_key)
         if not app_key:
-            raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="Application OpenAI API key is not configured")
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Application OpenAI API key is not configured",
+            )
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted"
+        )
 
     if user_key:
         return ("user_key", user_key)
     if app_key and balance > ZERO_USD:
         return ("credits", app_key)
     if app_key and balance <= ZERO_USD:
-        raise HTTPException(status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted")
-    raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No AI provider configured")
+        raise HTTPException(
+            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="AI credits exhausted"
+        )
+    raise HTTPException(
+        status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail="No AI provider configured"
+    )
 
 
 def create_ai_response(
@@ -591,7 +754,7 @@ def create_ai_response(
     input_images: list[tuple[str, bytes]] | None = None,
     timeout_seconds: float | None = None,
 ) -> tuple[Any, str]:
-    if app_funded:
+    if app_funded and not is_free_tier(context):
         api_key = settings.openai_api_key.strip()
         if not api_key:
             raise HTTPException(
@@ -613,8 +776,14 @@ def create_ai_response(
         )
     ):
         requested_model = ""
-    effective_tool_limit = max_tool_calls if max_tool_calls is not None else (4 if web_search else 0)
-    configured_limit = max_output_tokens if max_output_tokens is not None else parameters_for_model(requested_model or model).max_output_tokens
+    effective_tool_limit = (
+        max_tool_calls if max_tool_calls is not None else (4 if web_search else 0)
+    )
+    configured_limit = (
+        max_output_tokens
+        if max_output_tokens is not None
+        else parameters_for_model(requested_model or model).max_output_tokens
+    )
     effective_output_limit = min(max(int(configured_limit or 32768), 1), 32768)
     reservation_id: UUID | None = None
     reserved_cost = ZERO_USD
@@ -652,6 +821,7 @@ def create_ai_response(
         )
         actual_cost = billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,
+            user_has_active_entitlement=context.has_active_entitlement,
             provider_source=provider_source,
             model=response.model or model,
             usage=response.usage,
@@ -679,7 +849,13 @@ def create_ai_response(
                 )
             )
             if refund_exists is None:
-                cancel_ai_credit_reservation(db, context, reservation_id=reservation_id, reserved_cost=reserved_cost, model=requested_model or model)
+                cancel_ai_credit_reservation(
+                    db,
+                    context,
+                    reservation_id=reservation_id,
+                    reserved_cost=reserved_cost,
+                    model=requested_model or model,
+                )
         raise
     return response, provider_source
 
@@ -707,6 +883,7 @@ def record_ai_audit(
         base_cost = quantize_usd(estimate_cost_usd(model, token_usage, db) + extra_cost_usd)
         billed_cost = billable_cost_usd(
             user_is_app_admin=context.user.is_app_admin,
+            user_has_active_entitlement=context.has_active_entitlement,
             provider_source=provider_source,
             model=model,
             usage=token_usage,
@@ -722,7 +899,9 @@ def record_ai_audit(
         if extra_cost_usd > ZERO_USD:
             source_metadata["external_tool_cost_usd"] = str(quantize_usd(extra_cost_usd))
         if not context.user.is_app_admin:
-            source_metadata["markup_percent"] = str(ai_pack_markup_percent())
+            source_metadata["markup_percent"] = str(
+                ai_pack_markup_percent(free_tier=is_free_tier(context), db=db)
+            )
     db.add(
         AiAuditLog(
             household_id=context.household.id,
@@ -772,7 +951,8 @@ def reuse_shared_wine_feature(
         feature=f"shared_{feature}",
         model=fact.model or default_model_for_field("ai_notes_model"),
         summary=f"Reused Vinaris data for {feature}",
-        sources=(fact.sources or []) + [
+        sources=(fact.sources or [])
+        + [
             {
                 "kind": "shared_data",
                 "verified_at": fact.verified_at.isoformat(),
@@ -793,7 +973,9 @@ def usage_bucket(entries: list[AiAuditLog]) -> AiUsageBucket:
         cached_input_tokens=sum(entry.cached_input_tokens or 0 for entry in entries),
         output_tokens=sum(entry.output_tokens or 0 for entry in entries),
         total_tokens=sum(entry.total_tokens or 0 for entry in entries),
-        estimated_cost_usd=sum((entry.estimated_cost_usd or Decimal("0") for entry in entries), Decimal("0")).quantize(Decimal("0.000001")),
+        estimated_cost_usd=sum(
+            (entry.estimated_cost_usd or Decimal("0") for entry in entries), Decimal("0")
+        ).quantize(Decimal("0.000001")),
     )
 
 
@@ -835,9 +1017,14 @@ def get_ai_usage(
     current_month = [
         entry
         for entry in entries
-        if utc_datetime(entry.created_at).year == now.year and utc_datetime(entry.created_at).month == now.month
+        if utc_datetime(entry.created_at).year == now.year
+        and utc_datetime(entry.created_at).month == now.month
     ]
-    usage = AiUsageResponse(today=usage_bucket(today), current_month=usage_bucket(current_month), all_time=usage_bucket(entries))
+    usage = AiUsageResponse(
+        today=usage_bucket(today),
+        current_month=usage_bucket(current_month),
+        all_time=usage_bucket(entries),
+    )
     usage.currency = "USD"
     usage.is_estimate = True
     return usage
@@ -861,6 +1048,18 @@ def update_ai_settings(
     context: CurrentContext = Depends(require_write_context),
 ) -> AiSettingsResponse:
     user_settings = get_or_create_user_ai_settings(db, context)
+    if is_free_tier(context):
+        if payload.openai_api_key is not None and payload.openai_api_key.strip():
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Personal OpenAI API keys are not available on the free tier",
+            )
+        if payload.provider_mode is not None and payload.provider_mode != "credits":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="The free tier can use AI only through a Vinaris AI Pack",
+            )
+        user_settings.provider_mode = "credits"
     if payload.openai_api_key is not None:
         user_settings.openai_api_key = encrypt_secret(payload.openai_api_key.strip())
     if payload.provider_mode is not None:
@@ -908,12 +1107,20 @@ def cellar_command_match_score(parsed: dict[str, Any], wine: Wine) -> float:
     if vintage and wine.vintage.strip().casefold() != vintage:
         return 0
     requested_producer = normalize_cellar_command_identity(str(parsed.get("producer") or ""))
-    if requested_producer and requested_producer not in producer and producer not in requested_producer:
+    if (
+        requested_producer
+        and requested_producer not in producer
+        and producer not in requested_producer
+    ):
         if SequenceMatcher(None, requested_producer, producer).ratio() < 0.78:
             return 0
     requested_format = normalize_cellar_command_identity(str(parsed.get("format") or ""))
     wine_format = normalize_cellar_command_identity(wine.format)
-    if requested_format and requested_format not in wine_format and wine_format not in requested_format:
+    if (
+        requested_format
+        and requested_format not in wine_format
+        and wine_format not in requested_format
+    ):
         return 0
 
     if query == name:
@@ -953,9 +1160,7 @@ def matching_cellar_command_wines(
     *,
     required_status: str | None = None,
 ) -> list[tuple[Wine, float]]:
-    wines = list(
-        db.scalars(select(Wine).where(Wine.household_id == context.household.id))
-    )
+    wines = list(db.scalars(select(Wine).where(Wine.household_id == context.household.id)))
     ranked = [
         (wine, cellar_command_match_score(parsed, wine))
         for wine in wines
@@ -1034,9 +1239,7 @@ def cellar_command_purchase_draft(parsed: dict[str, Any]) -> CellarCommandPurcha
         type=str(catalog_match.get("type") or "").strip(),
         country=str(catalog_match.get("country") or "").strip(),
         grapes_text=str(catalog_match.get("grapes_text") or "").strip(),
-        price=(
-            Decimal(str(parsed.get("purchase_price") or 0)) if price_present else None
-        ),
+        price=(Decimal(str(parsed.get("purchase_price") or 0)) if price_present else None),
         currency=str(parsed.get("currency") or "").strip().upper(),
         merchant=str(parsed.get("merchant") or "").strip(),
         order_date=str(parsed.get("purchase_date") or "").strip(),
@@ -1092,7 +1295,9 @@ def canonical_cellar_command_merchant(raw_text: str, merchant: str) -> str:
     normalized_merchant = normalize_cellar_command_identity(merchant)
     normalized_text = normalize_cellar_command_identity(raw_text)
     arvi_aliases = {"arvi", "harvey", "arvy", "arby", "a r v i"}
-    if normalized_merchant in arvi_aliases or re.search(r"\b(?:arvi|harvey|arvy|arby|a r v i)\b", normalized_text):
+    if normalized_merchant in arvi_aliases or re.search(
+        r"\b(?:arvi|harvey|arvy|arby|a r v i)\b", normalized_text
+    ):
         return "Arvi"
     return merchant.strip()
 
@@ -1133,7 +1338,9 @@ def cellar_command_intent_hint(raw_text: str) -> str | None:
 
 
 def cellar_command_wishlist_list_name(raw_text: str) -> str:
-    wishlist_terms = r"(?:wish[-\s]*list|lista\s+(?:(?:dei|de|dei\s+(?:miei|nostri)|my)\s+)?desideri)"
+    wishlist_terms = (
+        r"(?:wish[-\s]*list|lista\s+(?:(?:dei|de|dei\s+(?:miei|nostri)|my)\s+)?desideri)"
+    )
     patterns = (
         # "alla wishlist Rossi", "in/nella wishlist Rossi", "to my wishlist Rossi".
         rf"\b(?:alla(?:\s+(?:mia|nostra))?|in(?:\s+(?:la|mia|nostra))?|nella|sulla|to(?:\s+(?:my|the))?)\s+(?:lista\s+)?{wishlist_terms}\s*(?:chiamata|denominata|named|called)?\s*[:\-]?\s*(?:(?:di|del(?:la)?|for)\s+)?(?P<name>[^,;:.]+)",
@@ -1221,7 +1428,8 @@ def matching_cellar_command_wishlist_list(
     mentioned_lists = [
         item
         for item in wishlist_lists
-        if normalize_cellar_command_identity(item.name) not in {"wishlist", "wish list", "lista desideri", "lista dei desideri"}
+        if normalize_cellar_command_identity(item.name)
+        not in {"wishlist", "wish list", "lista desideri", "lista dei desideri"}
         if re.search(
             rf"(?<!\w){re.escape(normalize_cellar_command_identity(item.name))}(?!\w)",
             normalized_text,
@@ -1309,8 +1517,7 @@ def cellar_command_response(
         message=localized_message,
         candidates=[cellar_command_candidate(wine) for wine, _ in ranked],
         catalog_candidates=[
-            CellarCommandCatalogCandidate(**item)
-            for item in parsed.get("catalog_candidates") or []
+            CellarCommandCatalogCandidate(**item) for item in parsed.get("catalog_candidates") or []
         ],
         wishlist_lists=(
             [
@@ -1344,21 +1551,25 @@ def execute_cellar_ai_wishlist_command(
     parsed = command.parsed_payload or {}
     name = str(parsed.get("wine_name") or "").strip()
     if not name:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wine name is required")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wine name is required"
+        )
     catalog_matches = acquisition_catalog_matches(db, parsed)
-    catalog_entry = catalog_matches[0][0] if catalog_matches and catalog_matches[0][1] >= 80 else None
+    catalog_entry = (
+        catalog_matches[0][0] if catalog_matches and catalog_matches[0][1] >= 80 else None
+    )
     parsed_producer = str(parsed.get("producer") or "").strip()
     # The list name is part of the natural-language command and can be mistaken for a producer.
     # A catalog match remains authoritative when one is available.
-    if (
-        not catalog_entry
-        and normalize_cellar_command_identity(parsed_producer)
-        == normalize_cellar_command_identity(wishlist_list.name)
-    ):
+    if not catalog_entry and normalize_cellar_command_identity(
+        parsed_producer
+    ) == normalize_cellar_command_identity(wishlist_list.name):
         parsed_producer = ""
     price_present = bool(parsed.get("purchase_price_present"))
     wishlist_price = Decimal(str(parsed.get("purchase_price") or 0)) if price_present else None
-    price_kind = cellar_command_wishlist_price_kind(command.raw_text) if wishlist_price is not None else ""
+    price_kind = (
+        cellar_command_wishlist_price_kind(command.raw_text) if wishlist_price is not None else ""
+    )
     item = WishlistItem(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
@@ -1366,8 +1577,12 @@ def execute_cellar_ai_wishlist_command(
         name=name,
         producer=str((catalog_entry.producer if catalog_entry else "") or parsed_producer).strip(),
         vintage=str(parsed.get("vintage") or "").strip(),
-        format=str(parsed.get("format") or (catalog_entry.format if catalog_entry else "") or "").strip(),
-        type=normalize_wine_type(str((catalog_entry.type if catalog_entry else "") or parsed.get("type") or "")),
+        format=str(
+            parsed.get("format") or (catalog_entry.format if catalog_entry else "") or ""
+        ).strip(),
+        type=normalize_wine_type(
+            str((catalog_entry.type if catalog_entry else "") or parsed.get("type") or "")
+        ),
         region=str((catalog_entry.region if catalog_entry else "") or "").strip(),
         appellation=str((catalog_entry.appellation if catalog_entry else "") or "").strip(),
         target_price=wishlist_price if price_kind == "target" else Decimal("0"),
@@ -1426,7 +1641,9 @@ def execute_cellar_ai_command(
     if command.status not in {"needs_confirmation", "not_found"}:
         if command.status == "executed":
             return cellar_command_response(db, context, command, message="Comando già eseguito.")
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Command cannot be executed")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Command cannot be executed"
+        )
     wine = db.scalar(
         select(Wine)
         .where(Wine.id == wine_id, Wine.household_id == context.household.id)
@@ -1463,14 +1680,30 @@ def execute_cellar_ai_command(
         parsed = command.parsed_payload or {}
         purchase = cellar_command_purchase_draft(parsed)
         if purchase.status != "Delivered":
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Only delivered purchases can be added to cellar stock")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Only delivered purchases can be added to cellar stock",
+            )
         try:
-            acquired_on = date.fromisoformat(purchase.order_date) if purchase.order_date else local_today
+            acquired_on = (
+                date.fromisoformat(purchase.order_date) if purchase.order_date else local_today
+            )
         except ValueError as error:
-            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="The cellar command contains an invalid purchase date") from error
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="The cellar command contains an invalid purchase date",
+            ) from error
+        ensure_free_tier_label_capacity(db, context, wine=wine)
         add_inbound_stock(
-            db, wine, movement_type="purchase", quantity=purchase.quantity, occurred_on=acquired_on,
-            unit_cost=purchase.price, supplier=purchase.merchant, reference="ai_command", note=command.raw_text,
+            db,
+            wine,
+            movement_type="purchase",
+            quantity=purchase.quantity,
+            occurred_on=acquired_on,
+            unit_cost=purchase.price,
+            supplier=purchase.merchant,
+            reference="ai_command",
+            note=command.raw_text,
             user_id=context.user.id,
         )
         command.status = "executed"
@@ -1481,7 +1714,12 @@ def execute_cellar_ai_command(
         db.commit()
         db.refresh(command)
         db.refresh(wine)
-        return cellar_command_response(db, context, command, message=f"Aggiunte {purchase.quantity} bottiglie a {wine.name} {wine.vintage} come nuovo lotto.")
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=f"Aggiunte {purchase.quantity} bottiglie a {wine.name} {wine.vintage} come nuovo lotto.",
+        )
     tasting = cellar_command_tasting(command.parsed_payload or {})
     try:
         result = record_wine_consumption(
@@ -1516,7 +1754,9 @@ def execute_cellar_ai_command(
     db.commit()
     db.refresh(command)
     db.refresh(wine)
-    original_score_value = str((command.parsed_payload or {}).get("_original_score_value") or "").strip()
+    original_score_value = str(
+        (command.parsed_payload or {}).get("_original_score_value") or ""
+    ).strip()
     original_score_scale = int((command.parsed_payload or {}).get("_original_score_scale") or 0)
     score_label = ""
     if tasting.score_value is not None and tasting.score_scale:
@@ -1541,7 +1781,13 @@ CELLAR_COMMAND_SCHEMA = {
         "properties": {
             "intent": {
                 "type": "string",
-                "enum": ["consume_wine", "acquire_wine", "ship_wine", "add_to_wishlist", "unsupported"],
+                "enum": [
+                    "consume_wine",
+                    "acquire_wine",
+                    "ship_wine",
+                    "add_to_wishlist",
+                    "unsupported",
+                ],
             },
             "explicit_action": {"type": "boolean"},
             "wine_name": {"type": "string"},
@@ -1566,10 +1812,28 @@ CELLAR_COMMAND_SCHEMA = {
             "companions": {"type": "string"},
         },
         "required": [
-            "intent", "explicit_action", "wine_name", "producer", "vintage", "format",
-            "quantity", "consumed_at", "purchase_date", "purchase_price_present",
-            "purchase_price", "currency", "merchant", "note", "score_present", "score_value",
-            "score_scale", "enjoyment", "occasion", "pairing", "companions", "wishlist_list_name",
+            "intent",
+            "explicit_action",
+            "wine_name",
+            "producer",
+            "vintage",
+            "format",
+            "quantity",
+            "consumed_at",
+            "purchase_date",
+            "purchase_price_present",
+            "purchase_price",
+            "currency",
+            "merchant",
+            "note",
+            "score_present",
+            "score_value",
+            "score_scale",
+            "enjoyment",
+            "occasion",
+            "pairing",
+            "companions",
+            "wishlist_list_name",
         ],
     },
 }
@@ -1594,12 +1858,16 @@ def create_cellar_ai_command(
     existing = db.get(CellarAiCommand, payload.request_id)
     if existing is not None:
         if existing.household_id != context.household.id:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Request ID already used")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Request ID already used"
+            )
         return cellar_command_response(db, context, existing)
     try:
         timezone = ZoneInfo(payload.timezone)
     except ZoneInfoNotFoundError as error:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid timezone") from error
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid timezone"
+        ) from error
     local_today = datetime.now(timezone).date()
     command = CellarAiCommand(
         id=payload.request_id,
@@ -1675,7 +1943,9 @@ def create_cellar_ai_command(
                 db,
                 context,
                 command,
-                message="Il punteggio indicato non è valido." if payload.locale == "it" else "The tasting score is invalid.",
+                message="Il punteggio indicato non è valido."
+                if payload.locale == "it"
+                else "The tasting score is invalid.",
             )
     record_ai_audit(
         db,
@@ -1701,7 +1971,12 @@ def create_cellar_ai_command(
         if existing_matches and str(parsed.get("acquisition_status") or "") == "Delivered":
             command.status = "needs_confirmation"
             db.commit()
-            return cellar_command_response(db, context, command, message="Ho trovato questo vino in cantina. Conferma per aggiungere un nuovo lotto.")
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message="Ho trovato questo vino in cantina. Conferma per aggiungere un nuovo lotto.",
+            )
         catalog_matches = acquisition_catalog_matches(db, parsed)
         if not catalog_matches:
             parsed["catalog_lookup"] = "ai_required"
@@ -1879,7 +2154,9 @@ def choose_cellar_ai_wishlist(
     if command is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Command not found")
     if command.intent != "add_to_wishlist" or command.status != "wishlist_selection":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Wishlist cannot be selected")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="Wishlist cannot be selected"
+        )
     wishlist_list = get_household_wishlist_list(db, context, payload.wishlist_list_id)
     return execute_cellar_ai_wishlist_command(db, context, command, wishlist_list)
 
@@ -2009,8 +2286,12 @@ def compare_wine_context(wine: Wine) -> str:
             f"Format: {wine.format}",
             f"Region: {wine.region}",
             f"Appellation: {wine.appellation}",
-            f"Current value: {wine.currency} {wine.current_value}" if wine.current_value is not None else "Current value: unknown",
-            f"Drink window: {wine.drink_from}-{wine.drink_to}" if wine.drink_from or wine.drink_to else "Drink window: unknown",
+            f"Current value: {wine.currency} {wine.current_value}"
+            if wine.current_value is not None
+            else "Current value: unknown",
+            f"Drink window: {wine.drink_from}-{wine.drink_to}"
+            if wine.drink_from or wine.drink_to
+            else "Drink window: unknown",
         ],
     )
 
@@ -2125,9 +2406,14 @@ def wishlist_portfolio_context(items: list[WishlistItem], household_name: str) -
         if investment_amount is None or investment_amount <= 0:
             continue
         currency = (item.currency or "CHF").upper()
-        investment_totals[currency] = investment_totals.get(currency, Decimal("0")) + Decimal(str(investment_amount))
+        investment_totals[currency] = investment_totals.get(currency, Decimal("0")) + Decimal(
+            str(investment_amount)
+        )
     declared_investment = (
-        ", ".join(f"{currency} {amount.quantize(Decimal('0.01'))}" for currency, amount in sorted(investment_totals.items()))
+        ", ".join(
+            f"{currency} {amount.quantize(Decimal('0.01'))}"
+            for currency, amount in sorted(investment_totals.items())
+        )
         if investment_totals
         else "not provided"
     )
@@ -2557,6 +2843,7 @@ def compare_wines(
     result = parse_json_response(response.text)
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.pairing_model),
         usage=response.usage,
@@ -2782,6 +3069,7 @@ def suggest_pairing(
     cleaned.reasoning_effort = response.reasoning_effort or ""
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, selected_pairing_model),
         usage=response.usage,
@@ -2877,15 +3165,20 @@ def create_tasting_reflection(
     raw_pairing_score = parsed.get("pairing_score")
     if raw_pairing_score is None:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier pairing score was missing"
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The sommelier pairing score was missing",
         )
     try:
         pairing_score = int(raw_pairing_score)
     except (TypeError, ValueError) as exc:
-        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier pairing score was invalid") from exc
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The sommelier pairing score was invalid",
+        ) from exc
     if not feedback or not advice or pairing_score < 1 or pairing_score > 10:
         raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY, detail="The sommelier evaluation was incomplete"
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The sommelier evaluation was incomplete",
         )
 
     entry.sommelier_feedback = feedback
@@ -2895,6 +3188,7 @@ def create_tasting_reflection(
     effective_model = effective_response_model(response, selected_model)
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_model,
         usage=response.usage,
@@ -4429,6 +4723,7 @@ def suggest_regional_gap_targets(
         normalized.append(RegionalGapTarget(region=region, target_pct=pct))
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,
@@ -4544,6 +4839,7 @@ def generate_wishlist_portfolio_strategy(
     result = parse_json_response(response.text)
     charged_cost = billable_cost_usd(
         user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
         provider_source=provider_source,
         model=effective_response_model(response, user_settings.wishlist_model),
         usage=response.usage,

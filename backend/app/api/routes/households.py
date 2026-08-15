@@ -43,6 +43,7 @@ from app.schemas.household import (
     RegionalGapSettingsUpdate,
 )
 from app.services.email import send_email
+from app.services.free_tier import ensure_free_tier_cellar_capacity
 from app.services.notifications import create_user_notification
 
 router = APIRouter(prefix="/household")
@@ -51,8 +52,11 @@ router = APIRouter(prefix="/household")
 def ensure_restaurant_mode_available(context: CurrentContext, operating_mode: str) -> None:
     if (
         operating_mode == "restaurant"
-        and not context.user.can_use_restaurant_mode
         and not context.user.is_app_admin
+        and (
+            not context.has_active_entitlement
+            or not context.user.can_use_restaurant_mode
+        )
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -257,6 +261,7 @@ def create_household(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Household name is required"
         )
+    ensure_free_tier_cellar_capacity(db, context)
     ensure_restaurant_mode_available(context, payload.operating_mode)
     ensure_restaurant_cellar_limit(db, context, payload.operating_mode)
 
@@ -582,6 +587,20 @@ def accept_invite_record(
             status_code=status.HTTP_403_FORBIDDEN, detail="Invite belongs to another email"
         )
 
+    existing = db.scalar(
+        select(Membership).where(
+            Membership.user_id == context.user.id,
+            Membership.household_id == invite.household_id,
+        ),
+    )
+    if existing is not None:
+        invite.accepted_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(existing)
+        return member_response(db, existing)
+
+    ensure_free_tier_cellar_capacity(db, context)
+
     inviter = db.get(User, invite.invited_by_user_id)
     household = db.get(Household, invite.household_id)
     if inviter is not None:
@@ -601,18 +620,6 @@ def accept_invite_record(
             action_url="/settings/sharing",
             fingerprint=f"household-invite-accepted:{invite.id}",
         )
-
-    existing = db.scalar(
-        select(Membership).where(
-            Membership.user_id == context.user.id,
-            Membership.household_id == invite.household_id,
-        ),
-    )
-    if existing is not None:
-        invite.accepted_at = datetime.now(UTC)
-        db.commit()
-        db.refresh(existing)
-        return member_response(db, existing)
 
     membership = Membership(
         user_id=context.user.id,

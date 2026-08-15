@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import type { Locale } from "../types";
+import { api } from "../services/api";
 import LandingHeader from "./landing/LandingHeader";
 import { landingCopy } from "./landing/content";
 import {
@@ -21,6 +22,11 @@ type PublicLandingProps = {
 
 const iconNames = ["search", "window", "insights"] as const;
 const restaurantContactCodePoints = [105, 110, 102, 111, 64, 118, 105, 110, 97, 114, 105, 115, 46, 97, 112, 112];
+const defaultFreeTierLabelLimit = 30;
+
+type PublicAppConfig = {
+  free_tier_label_limit: number;
+};
 
 function RestaurantContactButton({ label }: { label: string }) {
   const openContact = () => {
@@ -81,16 +87,41 @@ export default function PublicLanding({
   onDemo,
   demoLoading = false,
 }: PublicLandingProps) {
+  const [freeTierLabelLimit, setFreeTierLabelLimit] = useState(defaultFreeTierLabelLimit);
   const copy = landingCopy[locale];
+  const labelLimitPattern = /\b30\b/g;
+  const dynamicCopy = {
+    ...copy,
+    hero: { ...copy.hero, signal: copy.hero.signal.replace(labelLimitPattern, String(freeTierLabelLimit)) },
+    closing: {
+      ...copy.closing,
+      tiers: copy.closing.tiers.map((tier) => ({
+        ...tier,
+        body: tier.body.replace(labelLimitPattern, String(freeTierLabelLimit)),
+      })),
+    },
+  };
   const seo = seoContent[locale];
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
 
   useEffect(() => {
+    let active = true;
+    void api<PublicAppConfig>("/api/v1/public-config")
+      .then((config) => {
+        if (active && Number.isInteger(config.free_tier_label_limit) && config.free_tier_label_limit > 0) {
+          setFreeTierLabelLimit(config.free_tier_label_limit);
+        }
+      })
+      .catch(() => undefined);
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
     document.documentElement.lang = locale;
-    document.title = copy.meta.title;
-    ensureMeta("description", copy.meta.description);
-    ensureMeta("og:title", copy.meta.title, true);
-    ensureMeta("og:description", copy.meta.description, true);
+    document.title = dynamicCopy.meta.title;
+    ensureMeta("description", dynamicCopy.meta.description);
+    ensureMeta("og:title", dynamicCopy.meta.title, true);
+    ensureMeta("og:description", dynamicCopy.meta.description, true);
     ensureMeta("og:type", "website", true);
     ensureMeta("og:url", "https://vinaris.app/", true);
     ensureMeta("og:image", "https://vinaris.app/landing/demo-dashboard-desktop.webp", true);
@@ -103,7 +134,7 @@ export default function PublicLanding({
       document.head.appendChild(canonical);
     }
     canonical.href = "https://vinaris.app/";
-  }, [copy.meta.description, copy.meta.title, locale]);
+  }, [dynamicCopy.meta.description, dynamicCopy.meta.title, locale]);
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -118,7 +149,7 @@ export default function PublicLanding({
   return (
     <div className="marketing-site">
       <LandingHeader
-        copy={copy}
+        copy={dynamicCopy}
         locale={locale}
         onLocaleChange={onLocaleChange}
         onLogin={onLogin}
@@ -139,8 +170,8 @@ export default function PublicLanding({
               </button>
             </div>
             <div className="marketing-hero-proof">
-              <span><i />{copy.hero.signal}</span>
-              <span>{copy.hero.web}</span>
+              <span><i />{dynamicCopy.hero.signal}</span>
+              <span>{dynamicCopy.hero.web}</span>
             </div>
           </div>
           <figure data-reveal className="marketing-hero-product marketing-real-product">
@@ -253,9 +284,10 @@ export default function PublicLanding({
             </div>
           </div>
           <aside aria-label={copy.nav.pricing}>
-            <div><span>{locale === "it" ? "Accesso flessibile" : "Flexible access"}</span><strong>{copy.closing.monthly}</strong></div>
-            <i />
-            <div><span>{locale === "it" ? "Scelta collezionista" : "Collector choice"}</span><strong>{copy.closing.annual}</strong><small>{copy.closing.annualNote}</small></div>
+            {dynamicCopy.closing.tiers.map((tier, index) => <div className="marketing-tier" key={tier.name}>
+              {index ? <i /> : null}
+              <span>{tier.label}</span><strong>{tier.name}</strong><small>{tier.body}</small><small>{tier.note}</small>
+            </div>)}
             <p><b>AI</b>{copy.closing.aiNote}</p>
           </aside>
         </section>

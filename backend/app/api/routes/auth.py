@@ -685,7 +685,10 @@ def register(payload: RegisterRequest, request: Request, response: Response, db:
     household = Household(name=payload.household_name.strip())
     db.add_all([user, household])
     db.flush()
-    signup_ai_credit = configured_signup_ai_credit()
+    # A free-tier account must explicitly purchase an AI Pack before making
+    # provider-backed requests. Keep the legacy signup-credit setting scoped
+    # to the bootstrap app administrator only.
+    signup_ai_credit = configured_signup_ai_credit() if user.is_app_admin else Decimal("0")
     if signup_ai_credit > Decimal("0"):
         signup_credit_entry = create_ai_credit_transaction(
             db,

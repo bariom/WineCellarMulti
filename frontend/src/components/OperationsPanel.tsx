@@ -12,7 +12,13 @@ type OperationsPanelProps = {
 };
 
 type MonitorDeviceToken = { id: string; label: string; created_at: string; last_used_at: string | null; revoked_at: string | null };
-type AiPricing = { price_book: Record<string, Record<string, string>>; custom_price_book_json: string; updated_at: string | null };
+type AiPricing = {
+  price_book: Record<string, Record<string, string>>;
+  custom_price_book_json: string;
+  ai_pack_markup_percent: string;
+  free_tier_ai_pack_markup_percent: string;
+  updated_at: string | null;
+};
 type WinePulseStatus = {
   latest_run: {
     started_at: string;
@@ -191,6 +197,8 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
   const [monitorTokens, setMonitorTokens] = useState<MonitorDeviceToken[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [aiPricingDraft, setAiPricingDraft] = useState("");
+  const [aiPackMarkupDraft, setAiPackMarkupDraft] = useState("15");
+  const [freeTierAiPackMarkupDraft, setFreeTierAiPackMarkupDraft] = useState("100");
   const [aiPricingUpdatedAt, setAiPricingUpdatedAt] = useState<string | null>(null);
   const [aiPricingBusy, setAiPricingBusy] = useState<"refresh" | "save" | "" >("");
   const [aiPricingError, setAiPricingError] = useState("");
@@ -238,6 +246,8 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
     try {
       const pricing = await api<AiPricing>("/api/v1/admin/operations/ai-pricing");
       setAiPricingDraft(JSON.stringify(pricing.price_book, null, 2));
+      setAiPackMarkupDraft(pricing.ai_pack_markup_percent);
+      setFreeTierAiPackMarkupDraft(pricing.free_tier_ai_pack_markup_percent);
       setAiPricingUpdatedAt(pricing.updated_at);
     } catch {
       setAiPricingError(isItalian ? "Impossibile caricare il listino AI." : "Unable to load the AI price book.");
@@ -361,9 +371,15 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
     try {
       const saved = await api<AiPricing>("/api/v1/admin/operations/ai-pricing", {
         method: "PUT",
-        body: JSON.stringify({ price_book_json: aiPricingDraft }),
+        body: JSON.stringify({
+          price_book_json: aiPricingDraft,
+          ai_pack_markup_percent: aiPackMarkupDraft,
+          free_tier_ai_pack_markup_percent: freeTierAiPackMarkupDraft,
+        }),
       });
       setAiPricingDraft(JSON.stringify(saved.price_book, null, 2));
+      setAiPackMarkupDraft(saved.ai_pack_markup_percent);
+      setFreeTierAiPackMarkupDraft(saved.free_tier_ai_pack_markup_percent);
       setAiPricingUpdatedAt(saved.updated_at);
       setAiPricingError("");
     } catch (error) {
@@ -470,6 +486,16 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
               {aiPricingBusy === "save" ? (isItalian ? "Salvo…" : "Saving…") : (isItalian ? "Salva listino" : "Save price book")}
             </button>
           </div>
+        </div>
+        <div className="inline-form">
+          <label>
+            <span>{isItalian ? "Margine AI Pack abbonati (%)" : "Subscriber AI Pack markup (%)"}</span>
+            <input type="number" min="0" step="0.01" value={aiPackMarkupDraft} onChange={(event) => setAiPackMarkupDraft(event.target.value)} />
+          </label>
+          <label>
+            <span>{isItalian ? "Margine AI Pack piano gratuito (%)" : "Free-tier AI Pack markup (%)"}</span>
+            <input type="number" min="0" step="0.01" value={freeTierAiPackMarkupDraft} onChange={(event) => setFreeTierAiPackMarkupDraft(event.target.value)} />
+          </label>
         </div>
         <textarea value={aiPricingDraft} onChange={(event) => setAiPricingDraft(event.target.value)} spellCheck={false} aria-label={isItalian ? "JSON listino modelli AI" : "AI model price book JSON"} />
         {aiPricingUpdatedAt ? <small>{isItalian ? "Ultimo salvataggio" : "Last saved"}: {new Date(aiPricingUpdatedAt).toLocaleString(isItalian ? "it-CH" : "en-GB")}</small> : null}

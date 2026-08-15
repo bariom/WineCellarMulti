@@ -65,10 +65,10 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
       },
       {
         title: "6. Activate AI only if you want it",
-        body: "Vinaris works without AI, but it becomes more powerful when you connect your own OpenAI key or use an in-app AI Pack.",
+        body: "Vinaris works without AI. Free-tier accounts activate AI with an AI Pack; subscribers may also connect a personal OpenAI key.",
         bullets: [
           "AI can help with tasting notes, drinking windows, price checks, grapes, wishlist strategy, pairings, and direct wine comparisons.",
-          "If you do not want to use your own key, buy an AI Pack directly in the app and let Vinaris handle the AI usage.",
+          "On the free tier, buy an AI Pack directly in the app and let Vinaris handle AI usage.",
           "Your own token is encrypted and stored securely, while AI Pack usage is tracked inside your account budget.",
           "All AI settings live in Settings > AI and remain under your control.",
         ],
@@ -171,10 +171,10 @@ export const helpGuideContentV2: Record<Locale, HelpGuide> = {
       },
       {
         title: "6. Attiva l'AI solo se ti serve",
-        body: "Vinaris funziona anche senza AI, ma diventa più potente quando colleghi la tua chiave OpenAI oppure usi un AI Pack in-app.",
+        body: "Vinaris funziona anche senza AI. Nel piano gratuito l'AI si attiva con un AI Pack; gli abbonati possono anche collegare una chiave OpenAI personale.",
         bullets: [
           "L'AI può aiutarti con note degustative, finestre di beva, controlli di valore, uvaggi, strategia wishlist, abbinamenti e confronti diretti tra vini.",
-          "Se non vuoi usare una chiave personale, puoi acquistare un AI Pack direttamente nell'app e lasciare a Vinaris la gestione dell'uso AI.",
+          "Nel piano gratuito acquista un AI Pack direttamente nell'app e lascia a Vinaris la gestione dell'uso AI.",
           "Il tuo token personale viene criptato e archiviato in modo sicuro, mentre l'AI Pack usa il budget interno del tuo account.",
           "Tutte le impostazioni AI vivono in Impostazioni > AI e restano sotto il tuo controllo.",
         ],

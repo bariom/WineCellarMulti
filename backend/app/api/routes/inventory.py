@@ -9,6 +9,7 @@ from app.api.deps import CurrentContext, get_current_context, require_write_cont
 from app.db.session import get_db
 from app.models import Wine, WineStockLot, WineStockMovement
 from app.schemas.inventory import StockLotResponse, StockMovementCreate, StockMovementResponse
+from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.stock_ledger import add_inbound_stock, remove_fifo_stock
 
 router = APIRouter(prefix="/inventory")
@@ -107,6 +108,7 @@ def create_movement(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
     occurred_on = payload.occurred_on or datetime.now(UTC).date()
     if payload.movement_type in {"purchase", "adjustment_in"}:
+        ensure_free_tier_label_capacity(db, context, wine=wine)
         movements = add_inbound_stock(
             db,
             wine,

@@ -2418,10 +2418,6 @@ export function App() {
   }
 
   async function loadAuthenticatedSessionData(nextSession: Session) {
-    if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
-      await Promise.all([loadBilling(nextSession.authenticated, nextSession.is_app_admin), loadNotifications(nextSession.authenticated), loadMyCoOwnershipAgreements(nextSession.authenticated)]);
-      return;
-    }
     const [nextLists] = await Promise.all([
       loadWishlistLists(),
       loadWines(),
@@ -2485,34 +2481,6 @@ export function App() {
           setReceivedInvites([]);
           setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
           setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
-        } else if (!nextSession.is_app_admin && !nextSession.has_active_entitlement) {
-          setWines([]);
-          setWineCatalog([]);
-          setWishlist([]);
-          setWishlistLists([]);
-          setShareOffers([]);
-          setReceivedInvites([]);
-          setNotificationCenter({ items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
-          setNotificationActiveCounts({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
-          setUserTags([]);
-          setPasskeys([]);
-          setHouseholdMemberships([]);
-          setMembers([]);
-          setInvites([]);
-          setPendingUsers([]);
-          setAppUsers([]);
-          setSelectedAppUserStats(null);
-          setUserStatsModalOpen(false);
-          setUserStatsLoading(false);
-          setUserStatsModalTitle("");
-          setPendingCatalogEntries([]);
-          setCatalogAdminResults([]);
-          setAiAudit([]);
-          setAiUsage(null);
-          setAiSettings(null);
-          setAiSettingsDraft(emptyAiSettingsDraft);
-          setTastingArchiveOverview(null);
-          await loadAuthenticatedSessionData(nextSession);
         } else {
           await loadAuthenticatedSessionData(nextSession);
         }
@@ -4836,7 +4804,6 @@ export function App() {
   }
 
   const authenticated = Boolean(session?.authenticated);
-  const needsRedeem = authenticated && !session?.is_app_admin && !session?.has_active_entitlement;
   const activeMembership =
     householdMemberships.find((membership) => membership.household_id === session?.active_household_id) ||
     householdMemberships.find((membership) => membership.household_name === session?.active_household_name);
@@ -4845,6 +4812,25 @@ export function App() {
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
   const restaurantModeAvailable = Boolean(session?.restaurant_mode_available || session?.is_app_admin);
   const isRestaurant = restaurantModeAvailable && session?.active_household_mode === "restaurant";
+  const activeTier = session?.is_demo
+    ? {
+        name: locale === "it" ? "Demo" : "Demo",
+        description: locale === "it" ? "Cantina dimostrativa in sola lettura." : "Read-only demonstration cellar.",
+      }
+    : session?.active_household_mode === "restaurant"
+      ? {
+          name: locale === "it" ? "Carta" : "Wine list",
+          description: locale === "it" ? "Piano ristorante: carta dei vini, vendite e gestione del magazzino." : "Restaurant plan: wine list, sales and inventory management.",
+        }
+      : session?.has_active_entitlement
+        ? {
+            name: locale === "it" ? "Riserva" : "Reserve",
+            description: locale === "it" ? "Collezione senza limiti, AI Pack o chiave OpenAI personale." : "Unlimited collection, AI Pack or personal OpenAI key.",
+          }
+        : {
+            name: locale === "it" ? "Degustazione" : "Tasting",
+            description: locale === "it" ? `Piano gratuito: fino a ${session?.free_tier_label_limit || 30} etichette attive. Le funzioni AI richiedono un AI Pack.` : `Free plan: up to ${session?.free_tier_label_limit || 30} active labels. AI requires an AI Pack.`,
+          };
   const hasAnotherRestaurantCellar = householdMemberships.some((membership) =>
     membership.household_id !== session?.active_household_id && membership.operating_mode === "restaurant",
   );
@@ -5332,6 +5318,10 @@ export function App() {
   const totalWishlistItemCount = wishlistLists.reduce((sum, item) => sum + item.item_count, 0);
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const cellarWines = wines.filter((wine) => wine.quantity > 0);
+  const freeTierLabelCount = new Set(
+    cellarWines.map((wine) => [wine.producer, wine.name, wine.vintage]
+      .map((part) => String(part || "").trim().toLowerCase()).join("\u0000")),
+  ).size;
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
   const isWineCollectionView = activeView === "cellar" || (activeView === "history" && historySection !== "sales");
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
@@ -6557,7 +6547,7 @@ export function App() {
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
-    (tab) => (!needsRedeem || tab === "profile") && (tab !== "restaurant" || isRestaurant) && (tab !== "users" || canAppAdmin) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+    (tab) => (tab !== "restaurant" || isRestaurant) && (tab !== "users" || canAppAdmin) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
   const pendingCoOwnershipAgreements = myCoOwnershipAgreements.filter((agreement) => agreement.status === "pending");
@@ -8079,7 +8069,13 @@ export function App() {
             <>
               <img className="topbar-brand-mark" src="/icons/icon-192.png" alt="Vinaris" width="56" height="56" fetchPriority="high" />
               <div>
-                <p className="eyebrow">Vinaris</p>
+                <div className="brand-eyebrow-row">
+                  <p className="eyebrow">Vinaris</p>
+                  <span className="tier-badge-wrap">
+                    <span className="tier-badge" tabIndex={0} aria-describedby="active-tier-description">{activeTier.name}</span>
+                    <span className="tier-tooltip" id="active-tier-description" role="tooltip">{activeTier.description}</span>
+                  </span>
+                </div>
                 <h1>{session?.active_household_name || "Vinaris"}</h1>
               </div>
             </>
@@ -8904,66 +8900,6 @@ export function App() {
             onLogout={logout}
           />
         </Suspense>
-      ) : needsRedeem && activeView !== "settings" ? (
-        <section className="auth-panel redeem-onboarding-panel">
-          {onboardingProgress(3, true)}
-          <section className="wine-form redeem-onboarding-form">
-            <div className="auth-form-heading">
-              <p className="eyebrow">{t("onboardingAccessStep")}</p>
-              <h2>{t("redeemIntroTitle")}</h2>
-              <p>{t("redeemIntroHelp")}</p>
-              <span>{session?.user_email}</span>
-            </div>
-            {trialRedeemCodes.length ? (
-              <div className="trial-redeem-list">
-                {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
-              </div>
-            ) : null}
-            {standardRedeemCodes.length ? (
-              <div className="member-list">
-                {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
-              </div>
-            ) : null}
-            <form className="inline-form redeem-code-form" onSubmit={redeemCode}>
-              <label>
-                <span>{t("redeemCode")}</span>
-                <input autoCapitalize="characters" autoCorrect="off" spellCheck={false} value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
-              </label>
-              <button type="submit" disabled={saving || !redeemInput.trim()}>
-                {saving ? t("working") : t("redeem")}
-              </button>
-            </form>
-            <details className="access-alternatives">
-              <summary>{t("accessAlternatives")}</summary>
-              <div className="access-alternatives-body">
-                <div className="invite-notice promo-notice">
-                  <strong>{t("finalBetaPromo")}</strong>
-                  <span>{t("promoMonthlyPrice")}</span>
-                  <span>{t("promoAnnualPrice")}</span>
-                </div>
-                <div className="form-actions">
-                  <button type="button" onClick={() => startCheckout("monthly")} disabled={saving}>
-                    {saving ? t("working") : t("buyMonthly")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
-                    {saving ? t("working") : t("buyAnnual")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
-                    {t("manageSubscription")}
-                  </button>
-                </div>
-                <p className="empty-state">{t("paymentHelp")}</p>
-              </div>
-            </details>
-          </section>
-          <ContactSupportPanel
-            t={t}
-            draft={contactSupportDraft}
-            setDraft={setContactSupportDraft}
-            saving={saving}
-            onSubmit={submitContactSupport}
-          />
-        </section>
       ) : (
         <section
           className={`workspace ${
@@ -8974,7 +8910,7 @@ export function App() {
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
         >
-          {!needsRedeem && activeView !== "settings" ? (
+          {activeView !== "settings" ? (
           <div className="view-tabs">
             {activeView !== "help" ? <div className="view-tabs-navigation">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
@@ -12640,6 +12576,12 @@ export function App() {
                 ) : null}
                 {billingStatus?.has_active_entitlement ? (
                   <p className="empty-state">{t("billing")}: {billingStatus.active_source} - {formatDisplayDate(billingStatus.valid_until)}</p>
+                ) : session?.is_free_tier ? (
+                  <p className="empty-state">
+                    {locale === "it"
+                      ? `Piano gratuito: ${freeTierLabelCount} di ${session.free_tier_label_limit || 30} etichette attive. Tutte le funzioni private sono incluse.`
+                      : `Free tier: ${freeTierLabelCount} of ${session.free_tier_label_limit || 30} active labels. All private features are included.`}
+                  </p>
                 ) : null}
                   {showAiBudgetPanel ? (
                     <div className="ai-budget-panel">
@@ -12743,13 +12685,13 @@ export function App() {
                       <div className="ai-settings-connection-grid">
                         <label>
                           <span>{t("aiProvider")}</span>
-                          <select value={aiSettingsDraft.provider_mode} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, provider_mode: event.target.value as AiSettingsDraft["provider_mode"] })}>
-                            <option value="auto">{t("aiProviderAuto")}</option>
-                            <option value="user_key">{t("aiProviderUserKey")}</option>
+                          <select value={aiSettingsDraft.provider_mode} onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, provider_mode: event.target.value as AiSettingsDraft["provider_mode"] })} disabled={!aiSettings?.can_use_personal_openai_key}>
+                            {aiSettings?.provider_options.includes("auto") ? <option value="auto">{t("aiProviderAuto")}</option> : null}
+                            {aiSettings?.provider_options.includes("user_key") ? <option value="user_key">{t("aiProviderUserKey")}</option> : null}
                             <option value="credits">{t("aiProviderCredits")}</option>
                           </select>
                         </label>
-                        <label>
+                        {aiSettings?.can_use_personal_openai_key ? <label>
                           <span>OpenAI API key</span>
                           <input
                             type="password"
@@ -12757,7 +12699,7 @@ export function App() {
                             onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, openai_api_key: event.target.value })}
                             placeholder={aiSettings?.has_openai_api_key ? t("configured") : "sk-..."}
                           />
-                        </label>
+                        </label> : <p className="empty-state">{locale === "it" ? "Nel piano gratuito l'AI è disponibile esclusivamente tramite un AI Pack Vinaris." : "On the free tier, AI is available exclusively through a Vinaris AI Pack."}</p>}
                       </div>
                       {aiSettingsHelpOpen ? (
                         <div className="settings-help-panel ai-settings-help" id="ai-settings-help-panel">
@@ -13045,7 +12987,9 @@ export function App() {
                         : "Restaurant mode replaces tasting with sales and enables revenue and gross-margin reporting. Existing data is preserved."}
                   </p>
                 </div> : null}
-                <form className="inline-form" onSubmit={createHousehold}>
+                {session?.is_free_tier ? <p className="empty-state">
+                  {locale === "it" ? "Il piano gratuito include una sola cantina." : "The free plan includes one cellar."}
+                </p> : <form className="inline-form" onSubmit={createHousehold}>
                   <label>
                     <span>{t("createCellar")}</span>
                     <input
@@ -13059,8 +13003,8 @@ export function App() {
                   <button type="submit" disabled={saving || !newHouseholdNameDraft.trim()}>
                     {saving ? t("saving") : t("createCellar")}
                   </button>
-                </form>
-                <p className="empty-state">{t("createCellarHelp")}</p>
+                </form>}
+                {!session?.is_free_tier ? <p className="empty-state">{t("createCellarHelp")}</p> : null}
                 <div className="token-box">
                   <strong>{t("deleteCellar")}</strong>
                   <span>{t("deleteCellarHelp")}</span>

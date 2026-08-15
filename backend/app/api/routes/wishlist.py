@@ -23,6 +23,7 @@ from app.schemas.wishlist import (
     WishlistResponse,
     WishlistUpdate,
 )
+from app.services.free_tier import ensure_free_tier_label_capacity
 
 router = APIRouter(prefix="/wishlist")
 
@@ -49,7 +50,9 @@ def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) ->
     return wishlist_list
 
 
-def wishlist_ai_generated_dates(db: Session, context: CurrentContext, items: list[WishlistItem]) -> dict[UUID, dict[str, datetime]]:
+def wishlist_ai_generated_dates(
+    db: Session, context: CurrentContext, items: list[WishlistItem]
+) -> dict[UUID, dict[str, datetime]]:
     item_ids = [item.id for item in items]
     if not item_ids:
         return {}
@@ -65,7 +68,11 @@ def wishlist_ai_generated_dates(db: Session, context: CurrentContext, items: lis
     )
     dates: dict[UUID, dict[str, datetime]] = {}
     for entity_id, feature, generated_at in rows:
-        key = "ai_purpose_generated_at" if feature == "wishlist_purpose" else "ai_strategy_generated_at"
+        key = (
+            "ai_purpose_generated_at"
+            if feature == "wishlist_purpose"
+            else "ai_strategy_generated_at"
+        )
         item_dates = dates.setdefault(entity_id, {})
         if key not in item_dates or generated_at > item_dates[key]:
             item_dates[key] = generated_at
@@ -105,7 +112,9 @@ def wishlist_response(item: WishlistItem, ai_dates: dict[str, datetime] | None =
     }
 
 
-def get_household_wishlist_list(db: Session, context: CurrentContext, list_id: UUID) -> WishlistList:
+def get_household_wishlist_list(
+    db: Session, context: CurrentContext, list_id: UUID
+) -> WishlistList:
     wishlist_list = db.scalar(
         select(WishlistList).where(
             WishlistList.id == list_id,
@@ -117,7 +126,9 @@ def get_household_wishlist_list(db: Session, context: CurrentContext, list_id: U
     return wishlist_list
 
 
-def get_household_wishlist_item(db: Session, context: CurrentContext, item_id: UUID) -> WishlistItem:
+def get_household_wishlist_item(
+    db: Session, context: CurrentContext, item_id: UUID
+) -> WishlistItem:
     item = db.scalar(
         select(WishlistItem).where(
             WishlistItem.id == item_id,
@@ -129,7 +140,9 @@ def get_household_wishlist_item(db: Session, context: CurrentContext, item_id: U
     return item
 
 
-def mark_wishlist_strategy_stale(db: Session, household_id: UUID, wishlist_list_ids: list[UUID]) -> None:
+def mark_wishlist_strategy_stale(
+    db: Session, household_id: UUID, wishlist_list_ids: list[UUID]
+) -> None:
     """Preserve the last strategy while flagging that its underlying list changed."""
     list_ids = list(set(wishlist_list_ids))
     if not list_ids:
@@ -160,7 +173,14 @@ def list_wishlist_lists(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> list[WishlistListResponse]:
-    existing_count = db.scalar(select(func.count(WishlistList.id)).where(WishlistList.household_id == context.household.id)) or 0
+    existing_count = (
+        db.scalar(
+            select(func.count(WishlistList.id)).where(
+                WishlistList.household_id == context.household.id
+            )
+        )
+        or 0
+    )
     default_list = get_or_create_default_wishlist_list(db, context)
     if existing_count == 0:
         db.commit()
@@ -231,12 +251,15 @@ def update_wishlist_list(
         wishlist_list.description = payload.description.strip()
     db.commit()
     db.refresh(wishlist_list)
-    item_count = db.scalar(
-        select(func.count(WishlistItem.id)).where(
-            WishlistItem.household_id == context.household.id,
-            WishlistItem.wishlist_list_id == wishlist_list.id,
-        ),
-    ) or 0
+    item_count = (
+        db.scalar(
+            select(func.count(WishlistItem.id)).where(
+                WishlistItem.household_id == context.household.id,
+                WishlistItem.wishlist_list_id == wishlist_list.id,
+            ),
+        )
+        or 0
+    )
     return WishlistListResponse.model_validate(
         {
             "id": wishlist_list.id,
@@ -264,20 +287,29 @@ def delete_wishlist_list(
         ),
     )
     if len(household_lists) <= 1:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="At least one wishlist must remain")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="At least one wishlist must remain",
+        )
     fallback_list = next((item for item in household_lists if item.id != wishlist_list.id), None)
     if fallback_list is None:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="No destination wishlist available")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="No destination wishlist available",
+        )
 
     db.delete(wishlist_list)
     db.commit()
 
-    item_count = db.scalar(
-        select(func.count(WishlistItem.id)).where(
-            WishlistItem.household_id == context.household.id,
-            WishlistItem.wishlist_list_id == fallback_list.id,
-        ),
-    ) or 0
+    item_count = (
+        db.scalar(
+            select(func.count(WishlistItem.id)).where(
+                WishlistItem.household_id == context.household.id,
+                WishlistItem.wishlist_list_id == fallback_list.id,
+            ),
+        )
+        or 0
+    )
     return WishlistListResponse.model_validate(
         {
             "id": fallback_list.id,
@@ -296,7 +328,14 @@ def list_wishlist(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> list[dict]:
-    existing_count = db.scalar(select(func.count(WishlistList.id)).where(WishlistList.household_id == context.household.id)) or 0
+    existing_count = (
+        db.scalar(
+            select(func.count(WishlistList.id)).where(
+                WishlistList.household_id == context.household.id
+            )
+        )
+        or 0
+    )
     default_list = get_or_create_default_wishlist_list(db, context)
     if existing_count == 0:
         db.commit()
@@ -358,7 +397,9 @@ def update_wishlist_item(
         updates["type"] = normalize_wine_type(updates.get("type"))
     for field, value in updates.items():
         setattr(item, field, value)
-    mark_wishlist_strategy_stale(db, context.household.id, [previous_list_id, item.wishlist_list_id])
+    mark_wishlist_strategy_stale(
+        db, context.household.id, [previous_list_id, item.wishlist_list_id]
+    )
     db.commit()
     db.refresh(item)
     ai_dates = wishlist_ai_generated_dates(db, context, [item])
@@ -386,13 +427,15 @@ def convert_wishlist_item(
     context: CurrentContext = Depends(require_write_context),
 ) -> dict:
     item = get_household_wishlist_item(db, context, item_id)
+    quantity = payload.quantity if payload is not None else 1
+    ensure_free_tier_label_capacity(db, context, will_be_active=quantity > 0)
     wine = Wine(
         household_id=context.household.id,
         created_by_user_id=context.user.id,
         name=item.name,
         producer=item.producer,
         vintage=item.vintage,
-        quantity=payload.quantity if payload is not None else 1,
+        quantity=quantity,
         currency=item.currency,
         price=item.target_price,
         current_value=item.target_price,

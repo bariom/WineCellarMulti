@@ -59,6 +59,7 @@ from app.services.bottle_photo_ai import (
     process_bottle_photo,
     warm_bottle_photo_worker,
 )
+from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.notifications import create_user_notification
 from app.services.shared_wine_data import (
     hydrate_wine_from_shared,
@@ -578,7 +579,15 @@ def list_wines(
     wine_ids = [wine.id for wine in wines]
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
     storage_by_wine = allocation_responses_by_wine(db, wine_ids)
-    return [wine_response(wine, tags_by_wine.get(wine.id), include_details=False, storage_allocations=storage_by_wine.get(wine.id, [])) for wine in wines]
+    return [
+        wine_response(
+            wine,
+            tags_by_wine.get(wine.id),
+            include_details=False,
+            storage_allocations=storage_by_wine.get(wine.id, []),
+        )
+        for wine in wines
+    ]
 
 
 @router.get("/value-history/portfolio")
@@ -885,6 +894,9 @@ def accept_share_offer(
     upsert_owner_share(
         wine, context.user.display_name or context.user.email, context.user.email, offer.share_pct
     )
+    ensure_free_tier_label_capacity(
+        db, context, will_be_active=wine.quantity > 0, household_id=target_household.id
+    )
     copied_wine = wine_copy_for_recipient(wine, target_household, context.user, offer.share_pct)
     db.add(copied_wine)
     db.flush()
@@ -1121,6 +1133,7 @@ def create_wine(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     data = payload.model_dump()
+    ensure_free_tier_label_capacity(db, context, will_be_active=bool(data.get("quantity", 0)))
     data["drink_from"], data["drink_peak_from"], data["drink_peak_to"], data["drink_to"] = (
         normalized_drink_window(
             data.get("drink_from"),
@@ -1195,7 +1208,12 @@ def create_wine(
     reuse_best_matching_photo(db, wine)
     db.commit()
     db.refresh(wine)
-    return wine_response(wine, tag_names, wine_value_history_by_wine(db, [wine.id]).get(wine.id), storage_allocations=allocation_responses_by_wine(db, [wine.id]).get(wine.id, []))
+    return wine_response(
+        wine,
+        tag_names,
+        wine_value_history_by_wine(db, [wine.id]).get(wine.id),
+        storage_allocations=allocation_responses_by_wine(db, [wine.id]).get(wine.id, []),
+    )
 
 
 @router.get("/{wine_id}", response_model=WineResponse)
@@ -1374,12 +1392,16 @@ def suggest_wine_photos(
     normalized_producer = normalize_photo_identity(producer)
     if not normalized_name or not normalized_producer:
         return []
-    library_photos = list(db.scalars(
-        select(WinePhotoLibraryEntry).where(
-            WinePhotoLibraryEntry.normalized_name == normalized_name,
-            WinePhotoLibraryEntry.normalized_producer == normalized_producer,
-        ).order_by(WinePhotoLibraryEntry.created_at.desc())
-    ))
+    library_photos = list(
+        db.scalars(
+            select(WinePhotoLibraryEntry)
+            .where(
+                WinePhotoLibraryEntry.normalized_name == normalized_name,
+                WinePhotoLibraryEntry.normalized_producer == normalized_producer,
+            )
+            .order_by(WinePhotoLibraryEntry.created_at.desc())
+        )
+    )
     suggestions = [
         photo_suggestion_response(photo)
         for photo in library_photos
@@ -1398,11 +1420,13 @@ def suggest_wine_photos(
     )
     if wine is None or not all(wine_photo_path(wine, size).is_file() for size in PHOTO_SIZES):
         return []
-    return [{
-        "source_wine_id": str(wine.id),
-        "thumbnail_url": f"/api/v1/wines/photo/library/{wine.id}/thumbnail?v={wine.photo_version}",
-        "detail_url": f"/api/v1/wines/photo/library/{wine.id}/detail?v={wine.photo_version}",
-    }]
+    return [
+        {
+            "source_wine_id": str(wine.id),
+            "thumbnail_url": f"/api/v1/wines/photo/library/{wine.id}/thumbnail?v={wine.photo_version}",
+            "detail_url": f"/api/v1/wines/photo/library/{wine.id}/detail?v={wine.photo_version}",
+        }
+    ]
 
 
 @router.get("/photo/suggestion")
@@ -1592,6 +1616,10 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     previous_quantity = wine.quantity
     data = payload.model_dump(exclude_unset=True)
+    if "quantity" in data:
+        ensure_free_tier_label_capacity(
+            db, context, wine=wine, will_be_active=int(data["quantity"] or 0) > 0
+        )
     window_fields = ("drink_from", "drink_peak_from", "drink_peak_to", "drink_to")
     effective_window = normalized_drink_window(
         data.get("drink_from", wine.drink_from),
@@ -1722,9 +1750,7 @@ def consume_wine_bottle(
             storage_allocation_id=payload.storage_allocation_id,
         )
     except NoBottlesAvailableError as error:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)
-        ) from error
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
     db.commit()
     db.refresh(wine)

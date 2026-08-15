@@ -20,6 +20,9 @@ export type Session = {
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
   cellar_ai_assistant_available: boolean;
+  is_free_tier?: boolean;
+  free_tier_label_limit?: number;
+  can_use_personal_openai_key?: boolean;
   has_active_entitlement: boolean;
   entitlement_valid_until: string | null;
   entitlement_days_remaining: number | null;
@@ -777,6 +780,7 @@ export type AiUsage = {
 
 export type AiSettings = {
   has_openai_api_key: boolean;
+  can_use_personal_openai_key: boolean;
   provider_mode: "auto" | "user_key" | "credits";
   provider_options: string[];
   app_credit_balance_usd: string;

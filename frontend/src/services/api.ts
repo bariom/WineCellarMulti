@@ -85,10 +85,22 @@ export function formatUserErrorMessage(message: string, locale: Locale) {
       : "No sufficiently reliable live market sources were found for this wine. Check name, producer, and vintage, then try again.";
   }
 
+  if (normalized.includes("an ai pack is required on the free tier")) {
+    return locale === "it"
+      ? "Per usare le funzioni AI con il piano gratuito devi acquistare un AI Pack."
+      : "To use AI features on the free tier, buy a Vinaris AI Pack.";
+  }
+
+  if (normalized.includes("free tier label limit exceeded")) {
+    return locale === "it"
+      ? "Hai raggiunto il limite di 30 etichette attive del piano gratuito. Rimuovi un'etichetta oppure attiva un abbonamento."
+      : "You reached the free tier's 30 active-label limit. Remove a label or activate a subscription.";
+  }
+
   if (normalized.includes("ai credits exhausted")) {
     return locale === "it"
-      ? "Il saldo AI Pack e' esaurito. Acquista un nuovo AI Pack oppure usa la tua chiave OpenAI."
-      : "Your AI Pack balance is exhausted. Buy a new AI Pack or use your personal OpenAI key.";
+      ? "Il saldo AI Pack è esaurito. Acquista un nuovo AI Pack."
+      : "Your AI Pack balance is exhausted. Buy a new AI Pack.";
   }
 
   if (normalized.includes("no personal openai api key configured")) {

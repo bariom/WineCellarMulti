@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     session_ttl_days: int = 30
     invite_ttl_days: int = 7
     trial_entitlement_days: int = 5
+    free_tier_label_limit: int = 30
     email_verification_ttl_hours: int = 48
     password_reset_ttl_minutes: int = 30
     coownership_invite_ttl_days: int = 30
@@ -133,8 +134,9 @@ class Settings(BaseSettings):
     stripe_ai_credit_price_id: str = ""
     stripe_ai_credit_amount_usd: str = "5.00"
     stripe_ai_credit_label: str = "Vinaris AI Pack"
-    signup_ai_credit_usd: str = "0.50"
+    signup_ai_credit_usd: str = "0"
     ai_pack_markup_percent: str = "15"
+    free_tier_ai_pack_markup_percent: str = "100"
     stripe_payment_amount_cents: int = 0
     stripe_payment_currency: str = "chf"
     stripe_payment_label: str = "Vinaris access"

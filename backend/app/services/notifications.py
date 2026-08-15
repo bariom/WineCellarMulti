@@ -186,16 +186,16 @@ def ensure_smart_notifications(db: Session, context: CurrentContext) -> int:
     today = now_utc().date()
     current_year = today.year
 
-    if context.user.is_app_admin or context.has_active_entitlement:
-        wines = list(
-            db.scalars(
-                select(Wine).where(
-                    Wine.household_id == context.household.id,
-                    Wine.quantity > 0,
-                )
+    wines = list(
+        db.scalars(
+            select(Wine).where(
+                Wine.household_id == context.household.id,
+                Wine.quantity > 0,
             )
         )
+    )
 
+    if wines:
         drink_now_count = sum(
             1
             for wine in wines

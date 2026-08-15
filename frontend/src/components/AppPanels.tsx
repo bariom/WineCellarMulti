@@ -10,8 +10,8 @@ import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 import { api } from "../services/api";
-import type { CellarLocation, WineStockLot } from "../types";
-import { WineStorageSection } from "./StoragePanels";
+import type { WineStockLot } from "../types";
+import { WineLocationPicker, WineStorageSection } from "./StoragePanels";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
 
@@ -894,22 +894,15 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
 
 function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: Wine; canWrite: boolean; saving: boolean; locale: Locale; onChanged: () => Promise<void> | void }) {
   const [lots, setLots] = useState<WineStockLot[]>([]);
-  const [locations, setLocations] = useState<CellarLocation[]>([]);
   const [draft, setDraft] = useState({ quantity: "", unit_cost: "", acquired_on: new Date().toISOString().slice(0, 10), supplier: "", storage_location_id: "", storage_bin_id: "" });
   const [loading, setLoading] = useState(false);
   const italian = locale === "it";
   const loadLots = async () => setLots(await api<WineStockLot[]>(`/api/v1/inventory/lots?wine_id=${wine.id}`));
   useEffect(() => {
     void loadLots().catch(() => setLots([]));
-    void api<CellarLocation[]>("/api/v1/storage/locations").then((items) => {
-      setLocations(items);
-      const defaultLocation = items.find((item) => item.is_default);
-      if (defaultLocation) setDraft((current) => ({ ...current, storage_location_id: defaultLocation.id, storage_bin_id: "" }));
-    }).catch(() => setLocations([]));
   }, [wine.id]);
   const total = lots.reduce((sum, lot) => sum + Number(lot.total_remaining_cost), 0);
   const bottles = lots.reduce((sum, lot) => sum + lot.quantity_remaining, 0);
-  const bins = locations.find((item) => item.id === draft.storage_location_id)?.bins || [];
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!canWrite || loading) return;
@@ -929,8 +922,7 @@ function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: 
       <label><span>{italian ? "Costo unitario" : "Unit cost"}</span><input type="number" min="0" step="0.01" required value={draft.unit_cost} onChange={(event) => setDraft({ ...draft, unit_cost: event.target.value })} /></label>
       <label><span>{italian ? "Data acquisto" : "Purchase date"}</span><input type="date" required value={draft.acquired_on} onChange={(event) => setDraft({ ...draft, acquired_on: event.target.value })} /></label>
       <label><span>{italian ? "Commerciante" : "Merchant"}</span><input value={draft.supplier} onChange={(event) => setDraft({ ...draft, supplier: event.target.value })} /></label>
-      <label><span>Location</span><select value={draft.storage_location_id} onChange={(event) => setDraft({ ...draft, storage_location_id: event.target.value, storage_bin_id: "" })}><option value="">{italian ? "Da collocare" : "Unassigned"}</option>{locations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label><span>Bin</span><select value={draft.storage_bin_id} disabled={!draft.storage_location_id} onChange={(event) => setDraft({ ...draft, storage_bin_id: event.target.value })}><option value="">{italian ? "Nessun bin" : "No bin"}</option>{bins.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <WineLocationPicker locale={locale} locationId={draft.storage_location_id} binId={draft.storage_bin_id} onChange={(storage_location_id, storage_bin_id) => setDraft((current) => ({ ...current, storage_location_id, storage_bin_id }))} />
     </div><div className="form-actions"><button type="submit" disabled={saving || loading}>{italian ? "Aggiungi lotto" : "Add lot"}</button></div></form> : null}
   </details>;
 }

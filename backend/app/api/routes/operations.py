@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_optional_context, require_app_admin_context
 from app.api.routes.ai import (
+    ai_pack_markup_percent,
     available_model_options,
     create_ai_response,
     default_model_for_field,
@@ -107,6 +108,10 @@ def get_ai_pricing(
     return {
         "price_book": admin_price_book(db),
         "custom_price_book_json": stored.price_book_json if stored else "",
+        "ai_pack_markup_percent": str(ai_pack_markup_percent(db=db)),
+        "free_tier_ai_pack_markup_percent": str(
+            ai_pack_markup_percent(free_tier=True, db=db)
+        ),
         "updated_at": stored.updated_at.isoformat() if stored else None,
     }
 
@@ -118,17 +123,31 @@ def save_ai_pricing(
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
     raw_price_book = str(payload.get("price_book_json") or "").strip()
+    standard_markup = str(payload.get("ai_pack_markup_percent") or "").strip()
+    free_tier_markup = str(payload.get("free_tier_ai_pack_markup_percent") or "").strip()
     stored = app_ai_pricing(db)
     if stored is None:
         stored = AppAiPricing(id=1)
         db.add(stored)
-    previous_value = stored.price_book_json
+    previous_values = (
+        stored.price_book_json,
+        stored.ai_pack_markup_percent,
+        stored.free_tier_ai_pack_markup_percent,
+    )
     stored.price_book_json = raw_price_book
+    stored.ai_pack_markup_percent = standard_markup
+    stored.free_tier_ai_pack_markup_percent = free_tier_markup
     try:
         db.flush()
         model_pricing_usd_per_million_tokens(db)
+        ai_pack_markup_percent(db=db)
+        ai_pack_markup_percent(free_tier=True, db=db)
     except HTTPException:
-        stored.price_book_json = previous_value
+        (
+            stored.price_book_json,
+            stored.ai_pack_markup_percent,
+            stored.free_tier_ai_pack_markup_percent,
+        ) = previous_values
         db.rollback()
         raise
     db.commit()
@@ -136,6 +155,10 @@ def save_ai_pricing(
     return {
         "price_book": admin_price_book(db),
         "custom_price_book_json": stored.price_book_json,
+        "ai_pack_markup_percent": str(ai_pack_markup_percent(db=db)),
+        "free_tier_ai_pack_markup_percent": str(
+            ai_pack_markup_percent(free_tier=True, db=db)
+        ),
         "updated_at": stored.updated_at.isoformat(),
     }
 

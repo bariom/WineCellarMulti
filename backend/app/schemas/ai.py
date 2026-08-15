@@ -62,6 +62,7 @@ class AiUsageResponse(BaseModel):
 
 class AiSettingsResponse(BaseModel):
     has_openai_api_key: bool
+    can_use_personal_openai_key: bool = True
     provider_mode: str
     provider_options: list[str]
     app_credit_balance_usd: Decimal = Decimal("0")

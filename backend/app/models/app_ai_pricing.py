@@ -15,6 +15,8 @@ class AppAiPricing(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, default=1)
     price_book_json: Mapped[str] = mapped_column(Text, default="")
+    ai_pack_markup_percent: Mapped[str] = mapped_column(Text, default="")
+    free_tier_ai_pack_markup_percent: Mapped[str] = mapped_column(Text, default="")
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),

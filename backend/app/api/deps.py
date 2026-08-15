@@ -71,6 +71,9 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
             "can_use_label_recognition": False,
             "can_manage_wine_photos": False,
             "cellar_ai_assistant_available": False,
+            "is_free_tier": False,
+            "free_tier_label_limit": settings.free_tier_label_limit,
+            "can_use_personal_openai_key": False,
             "has_active_entitlement": False,
             "entitlement_valid_until": None,
             "entitlement_days_remaining": None,
@@ -88,8 +91,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "active_household_id": str(context.household.id),
         "active_household_name": context.household.name,
         "active_household_mode": context.household.operating_mode,
-        "restaurant_mode_available": context.user.can_use_restaurant_mode
-        or context.user.is_app_admin,
+        "restaurant_mode_available": context.user.is_app_admin
+        or (context.has_active_entitlement and context.user.can_use_restaurant_mode),
         "membership_role": context.membership.role,
         "is_app_admin": context.user.is_app_admin,
         "is_demo": context.household.is_demo,
@@ -105,6 +108,13 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "can_manage_wine_photos": context.user.can_manage_wine_photos,
         "cellar_ai_assistant_available": settings.cellar_ai_assistant_enabled
         or context.user.is_app_admin,
+        "is_free_tier": not context.household.is_demo
+        and not context.user.is_app_admin
+        and not context.has_active_entitlement,
+        "free_tier_label_limit": settings.free_tier_label_limit,
+        "can_use_personal_openai_key": context.household.is_demo
+        or context.user.is_app_admin
+        or context.has_active_entitlement,
         "has_active_entitlement": context.household.is_demo or context.has_active_entitlement,
         "entitlement_valid_until": context.entitlement_valid_until.isoformat()
         if context.entitlement_valid_until
@@ -186,12 +196,14 @@ def get_current_context(
             detail="Current privacy policy and terms must be accepted",
         )
     if (
-        not context.household.is_demo
+        context.household.operating_mode == "restaurant"
+        and not context.household.is_demo
         and not context.user.is_app_admin
         and not context.has_active_entitlement
     ):
         raise HTTPException(
-            status_code=status.HTTP_402_PAYMENT_REQUIRED, detail="Redeem code required"
+            status_code=status.HTTP_402_PAYMENT_REQUIRED,
+            detail="An active subscription is required for restaurant mode",
         )
     return context
 

@@ -982,7 +982,7 @@ def test_register_login_session_and_logout():
     assert approved_login.status_code == 200
     assert approved_login.json()["is_app_admin"] is False
     assert approved_login.json()["has_active_entitlement"] is False
-    assert pending_client.get("/api/v1/auth/pending-users").status_code == 402
+    assert pending_client.get("/api/v1/auth/pending-users").status_code == 403
     redeem_code = create_redeem_code(client, email="pending@example.com")
     redeemed = pending_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert redeemed.status_code == 200
@@ -996,7 +996,7 @@ def test_register_login_session_and_logout():
     )
     assert promoted.status_code == 200
     assert promoted.json()["is_app_admin"] is True
-    assert promoted.json()["ai_credit_balance_usd"] == "0.500000"
+    assert promoted.json()["ai_credit_balance_usd"] == "0.000000"
     blocked = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_blocked": True})
     assert blocked.status_code == 200
     assert blocked.json()["is_blocked"] is True
@@ -1536,28 +1536,24 @@ def test_email_verification_and_passkey_options_are_rate_limited(monkeypatch):
     )
 
 
-def test_register_grants_signup_ai_credit():
+def test_register_starts_without_ai_credit():
     client = TestClient(app)
     registered = register(client)
     assert registered.status_code == 201
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "0.500000"
+    assert billing.json()["ai_credit_balance_usd"] == "0.000000"
 
     users = client.get("/api/v1/auth/users")
     assert users.status_code == 200
-    assert users.json()[0]["ai_credit_balance_usd"] == "0.500000"
+    assert users.json()[0]["ai_credit_balance_usd"] == "0.000000"
 
     with TestingSessionLocal() as db:
         credit_entries = db.query(UserAiCreditTransaction).all()
-        assert len(credit_entries) == 1
-        assert credit_entries[0].source == "signup_bonus"
-        assert credit_entries[0].amount_usd == Decimal("0.500000")
+        assert credit_entries == []
         notifications = db.query(UserNotification).all()
-        assert len(notifications) == 1
-        assert notifications[0].kind == "ai_credits"
-        assert "0.500000 USD" in notifications[0].message
+        assert notifications == []
 
 
 def test_app_admin_can_set_user_ai_credit_balance():
@@ -1574,7 +1570,7 @@ def test_app_admin_can_set_user_ai_credit_balance():
         for user in admin_client.get("/api/v1/auth/users").json()
         if user["email"] == "gifted@example.com"
     )
-    assert app_user["ai_credit_balance_usd"] == "0.500000"
+    assert app_user["ai_credit_balance_usd"] == "0.000000"
     assert (
         admin_client.post(f"/api/v1/auth/pending-users/{app_user['id']}/approve").status_code == 200
     )
@@ -1617,14 +1613,13 @@ def test_app_admin_can_set_user_ai_credit_balance():
             .filter(UserAiCreditTransaction.user_id == user.id)
             .order_by(UserAiCreditTransaction.created_at.asc())
         )
-        assert len(credit_entries) == 3
-        assert credit_entries[0].source == "signup_bonus"
+        assert len(credit_entries) == 2
+        assert credit_entries[0].source == "admin_adjustment"
+        assert credit_entries[0].amount_usd == Decimal("1.750000")
+        assert "Welcome gift" in credit_entries[0].note
         assert credit_entries[1].source == "admin_adjustment"
-        assert credit_entries[1].amount_usd == Decimal("1.250000")
-        assert "Welcome gift" in credit_entries[1].note
-        assert credit_entries[2].source == "admin_adjustment"
-        assert credit_entries[2].amount_usd == Decimal("0.250000")
-        assert "Second gift" in credit_entries[2].note
+        assert credit_entries[1].amount_usd == Decimal("0.250000")
+        assert "Second gift" in credit_entries[1].note
 
         notifications = list(
             db.query(UserNotification).filter(UserNotification.user_id == user.id).all()
@@ -1734,7 +1729,7 @@ def test_app_admin_user_stats_endpoint_summarizes_cellar_and_ai_usage():
     assert member_stats["last_activity_at"] is not None
 
     forbidden = member_client.get("/api/v1/auth/users/stats")
-    assert forbidden.status_code == 402
+    assert forbidden.status_code == 403
 
 
 def test_app_admin_can_fetch_single_user_stats():
@@ -1774,7 +1769,7 @@ def test_app_admin_can_fetch_single_user_stats():
     assert missing.status_code == 404
 
     forbidden = member_client.get(f"/api/v1/auth/users/{pending_user['id']}/stats")
-    assert forbidden.status_code == 402
+    assert forbidden.status_code == 403
 
 
 def test_register_auto_approves_when_approval_is_disabled(monkeypatch):
@@ -2134,7 +2129,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
                 == db.query(User).filter(User.email == "owner@example.com").one().id
             )
             .count()
-            == 5
+                == 4
         )
 
     drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
@@ -2148,7 +2143,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert not any(item["kind"] == "smart_drink_now" for item in refreshed_payload)
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 4
+        assert db.query(UserNotification).count() == 3
 
     regenerated = client.get(
         "/api/v1/notifications/center?category=system&view=active&item_state=all"
@@ -2156,7 +2151,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert regenerated.status_code == 200
     assert not any(item["kind"] == "smart_drink_now" for item in regenerated.json()["items"])
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 4
+        assert db.query(UserNotification).count() == 3
 
 
 def test_notification_center_history_filters_and_pagination():
@@ -2547,6 +2542,14 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
         user = db.scalar(select(User).where(User.email == "owner@example.com"))
         assert user is not None
         user.can_use_label_recognition = True
+        db.add(
+            UserAiCreditTransaction(
+                user_id=user.id,
+                amount_usd=Decimal("1.000000"),
+                source="purchase",
+                note="Seed AI budget",
+            )
+        )
         db.commit()
 
     monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
@@ -2730,7 +2733,7 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     )
     assert login.status_code == 200
     assert login.json()["has_active_entitlement"] is False
-    assert user_client.get("/api/v1/wines").status_code == 402
+    assert user_client.get("/api/v1/wines").status_code == 200
 
     redeemed = user_client.post("/api/v1/billing/redeem", json={"code": redeem_code})
     assert redeemed.status_code == 200
@@ -2750,7 +2753,7 @@ def test_app_admin_can_create_and_user_can_redeem_code():
         json={"access_override_days": 0},
     )
     assert disabled_access.status_code == 200
-    assert user_client.get("/api/v1/wines").status_code == 402
+    assert user_client.get("/api/v1/wines").status_code == 200
     restored_access = admin_client.patch(
         f"/api/v1/auth/users/{pending_user['id']}",
         json={"clear_access_override": True},
@@ -2797,6 +2800,126 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     )
 
 
+def test_free_tier_has_private_features_with_40_bottle_limit_and_ai_pack_only(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    admin_client = TestClient(app)
+    user_client = TestClient(app)
+    assert register(admin_client).status_code == 201
+    pricing = admin_client.put(
+        "/api/v1/admin/operations/ai-pricing",
+        json={
+            "price_book_json": "",
+            "ai_pack_markup_percent": "20",
+            "free_tier_ai_pack_markup_percent": "100",
+        },
+    )
+    assert pricing.status_code == 200
+    assert pricing.json()["ai_pack_markup_percent"] == "20"
+    assert pricing.json()["free_tier_ai_pack_markup_percent"] == "100"
+    assert (
+        register(user_client, email="free@example.com", password="strong-password-2").status_code
+        == 201
+    )
+    pending_user = next(
+        user
+        for user in admin_client.get("/api/v1/auth/pending-users").json()
+        if user["email"] == "free@example.com"
+    )
+    assert (
+        admin_client.post(f"/api/v1/auth/pending-users/{pending_user['id']}/approve").status_code
+        == 200
+    )
+    login = user_client.post(
+        "/api/v1/auth/login",
+        json={"email": "free@example.com", "password": "strong-password-2"},
+    )
+    assert login.status_code == 200
+    assert login.json()["is_free_tier"] is True
+    assert login.json()["free_tier_label_limit"] == 30
+    assert login.json()["can_use_personal_openai_key"] is False
+    assert login.json()["restaurant_mode_available"] is False
+    second_cellar = user_client.post("/api/v1/household", json={"name": "Second cellar"})
+    assert second_cellar.status_code == 409
+    assert "one cellar only" in second_cellar.json()["detail"]
+
+    first_wine = user_client.post("/api/v1/wines", json={"name": "Free cellar wine", "quantity": 40})
+    assert first_wine.status_code == 201
+    for index in range(2, 31):
+        assert user_client.post(
+            "/api/v1/wines", json={"name": f"Free cellar wine {index}", "quantity": 1}
+        ).status_code == 201
+    over_limit = user_client.post(
+        "/api/v1/wines", json={"name": "Label 31", "quantity": 1}
+    )
+    assert over_limit.status_code == 409
+    assert "30 of 30" in over_limit.json()["detail"]
+    reduced = user_client.patch(
+        f"/api/v1/wines/{first_wine.json()['id']}", json={"quantity": 0}
+    )
+    assert reduced.status_code == 200
+    assert user_client.post(
+        "/api/v1/wines", json={"name": "Replacement label", "quantity": 1}
+    ).status_code == 201
+    stock_increase = user_client.post(
+        "/api/v1/inventory/movements",
+        json={
+            "wine_id": first_wine.json()["id"],
+            "movement_type": "purchase",
+            "quantity": 1,
+            "unit_cost": 0,
+        },
+    )
+    assert stock_increase.status_code == 409
+
+    personal_key = user_client.patch(
+        "/api/v1/ai/settings", json={"openai_api_key": "sk-free-not-allowed"}
+    )
+    assert personal_key.status_code == 403
+    ai_settings = user_client.patch(
+        "/api/v1/ai/settings", json={"provider_mode": "credits"}
+    )
+    assert ai_settings.status_code == 200
+    assert ai_settings.json()["provider_mode"] == "credits"
+    assert ai_settings.json()["provider_options"] == ["credits"]
+    assert ai_settings.json()["can_use_personal_openai_key"] is False
+
+    monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
+    without_pack = user_client.post(f"/api/v1/ai/wines/{first_wine.json()['id']}/notes")
+    assert without_pack.status_code == 402
+    assert "AI Pack" in without_pack.json()["detail"]
+
+    with TestingSessionLocal() as db:
+        free_user = db.get(User, uuid.UUID(pending_user["id"]))
+        assert free_user is not None
+        free_user.can_use_restaurant_mode = True
+        db.add(
+            UserAiCreditTransaction(
+                user_id=uuid.UUID(pending_user["id"]),
+                amount_usd=Decimal("5.000000"),
+                source="purchase",
+                note="Purchased AI Pack",
+            )
+        )
+        db.commit()
+    restaurant_attempt = user_client.patch(
+        "/api/v1/household", json={"operating_mode": "restaurant"}
+    )
+    assert restaurant_attempt.status_code == 403
+    def fake_create_response(*_args, **_kwargs):
+        return OpenAIResponse(
+            text="Structured cellar note.",
+            usage=TokenUsage(input_tokens=1000, output_tokens=500, total_tokens=1500),
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    generated = user_client.post(f"/api/v1/ai/wines/{first_wine.json()['id']}/notes")
+    assert generated.status_code == 200
+    assert user_client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"] == "4.994000"
+    usage = user_client.get("/api/v1/ai/usage").json()
+    assert usage["all_time"]["estimated_cost_usd"] == "0.006000"
+
+
 def test_new_user_gets_single_lifetime_trial_redeem_code():
     from app.api.routes.auth import generate_redeem_code, normalize_redeem_code
     from app.core.crypto import encrypt_secret
@@ -2823,7 +2946,7 @@ def test_new_user_gets_single_lifetime_trial_redeem_code():
     )
     assert login.status_code == 200
     assert login.json()["has_active_entitlement"] is False
-    assert user_client.get("/api/v1/wines").status_code == 402
+    assert user_client.get("/api/v1/wines").status_code == 200
 
     status_payload = user_client.get("/api/v1/billing/status").json()
     assert len(status_payload["available_redeem_codes"]) == 1
@@ -3009,7 +3132,7 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert notifications.json()[0]["kind"] == "redeem_code"
     read_notification = client.post(f"/api/v1/notifications/{notifications.json()[0]['id']}/read")
     assert read_notification.status_code == 204
-    assert [item["kind"] for item in client.get("/api/v1/notifications").json()] == ["ai_credits"]
+    assert client.get("/api/v1/notifications").json() == []
 
     redeemed = client.post("/api/v1/billing/redeem", json={"code": paid_code})
     assert redeemed.status_code == 200
@@ -5770,7 +5893,7 @@ def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "5.496400"
+    assert billing.json()["ai_credit_balance_usd"] == "4.996400"
     with TestingSessionLocal() as db:
         entries = list(
             db.scalars(
@@ -5806,7 +5929,7 @@ def test_ai_pack_rejects_request_before_provider_when_balance_cannot_cover_minim
         db.add(
             UserAiCreditTransaction(
                 user_id=current_user.id,
-                amount_usd=Decimal("-0.499500"),
+                amount_usd=Decimal("0.000500"),
                 source="test_adjustment",
                 note="Leave less than the minimum safe request budget",
             )
@@ -5839,6 +5962,17 @@ def test_ai_pack_refunds_reservation_when_provider_fails(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
+    session = client.get("/api/v1/session").json()
+    with TestingSessionLocal() as db:
+        db.add(
+            UserAiCreditTransaction(
+                user_id=uuid.UUID(session["user_id"]),
+                amount_usd=Decimal("1.000000"),
+                source="purchase",
+                note="Seed AI budget",
+            )
+        )
+        db.commit()
     created = client.post("/api/v1/wines", json={"name": "Refund Wine", "quantity": 1})
     assert created.status_code == 201
     assert client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"}).status_code == 200
@@ -5900,7 +6034,7 @@ def test_ai_pack_usage_keeps_base_cost_for_app_admin(monkeypatch):
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "5.497000"
+    assert billing.json()["ai_credit_balance_usd"] == "4.997000"
 
 
 def test_wishlist_ai_features_are_separate(monkeypatch):
@@ -6788,6 +6922,14 @@ def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
         user = db.scalar(select(User).where(User.email == "owner@example.com"))
         assert user is not None
         user.can_use_label_recognition = True
+        db.add(
+            UserAiCreditTransaction(
+                user_id=user.id,
+                amount_usd=Decimal("1.000000"),
+                source="purchase",
+                note="Seed AI budget",
+            )
+        )
         db.commit()
 
     monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")

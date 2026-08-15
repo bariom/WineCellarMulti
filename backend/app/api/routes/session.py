@@ -7,9 +7,15 @@ from app.api.deps import (
     get_optional_context,
 )
 from app.core.config import settings
-from app.schemas.session import SessionResponse
+from app.schemas.session import PublicAppConfigResponse, SessionResponse
 
 router = APIRouter()
+
+
+@router.get("/public-config", response_model=PublicAppConfigResponse)
+def get_public_app_config(response: Response) -> PublicAppConfigResponse:
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return PublicAppConfigResponse(free_tier_label_limit=settings.free_tier_label_limit)
 
 
 @router.get("/session", response_model=SessionResponse)

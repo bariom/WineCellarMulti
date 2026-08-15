@@ -14438,6 +14438,62 @@ textarea {
   line-height: 1;
 }
 
+.brand-eyebrow-row {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+}
+
+.tier-badge-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.tier-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 1.25rem;
+  padding: 0 .42rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 38%, var(--border));
+  border-radius: 999px;
+  color: var(--accent-deep, var(--accent));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  font-size: .61rem;
+  font-weight: 800;
+  letter-spacing: .09em;
+  line-height: 1;
+  text-transform: uppercase;
+  cursor: help;
+}
+
+.tier-tooltip {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + .5rem);
+  left: 0;
+  width: min(19rem, calc(100vw - 3rem));
+  padding: .65rem .72rem;
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, var(--border));
+  border-radius: .65rem;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-raised) 96%, var(--surface));
+  box-shadow: 0 .75rem 1.8rem color-mix(in srgb, var(--text) 18%, transparent);
+  font-size: .76rem;
+  font-weight: 500;
+  letter-spacing: normal;
+  line-height: 1.4;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-.2rem);
+  transition: opacity 150ms ease, transform 150ms ease;
+}
+
+.tier-badge-wrap:hover .tier-tooltip,
+.tier-badge-wrap:focus-within .tier-tooltip {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .topbar h1 {
   font-size: clamp(1.25rem, 2vw, 1.72rem);
   line-height: 1.05;
@@ -21423,6 +21479,10 @@ body,
   }
 }
 .storage-picker { align-items: end; }
+.storage-create-field { display: flex; gap: .45rem; align-items: center; }
+.storage-create-field input { min-width: 0; flex: 1; }
+.storage-picker-error { grid-column: 1 / -1; margin: 0; }
+.detail-grid > .storage-picker { grid-column: span 2; }
 .storage-allocation-list { display: grid; gap: .55rem; margin: .75rem 0; }
 .storage-relocation-form { margin-top: .8rem; }
 .storage-location-list { display: grid; gap: .8rem; margin-top: 1rem; }

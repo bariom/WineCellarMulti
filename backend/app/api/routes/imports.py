@@ -34,6 +34,7 @@ from app.models import (
     WishlistItem,
     WishlistList,
 )
+from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.storage import (
     add_to_storage,
     allocation_responses_by_wine,
@@ -279,8 +280,7 @@ def export_wines(db: Session, household_id: UUID) -> list[dict[str, Any]]:
         payload = model_payload(wine)
         payload["value_history"] = value_history_by_wine.get(wine.id, [])
         payload["storage_allocations"] = [
-            allocation.model_dump(mode="json")
-            for allocation in storage_by_wine.get(wine.id, [])
+            allocation.model_dump(mode="json") for allocation in storage_by_wine.get(wine.id, [])
         ]
         payloads.append(payload)
     return payloads
@@ -836,12 +836,18 @@ def import_vinaris_json_payload(
             imported_wine_ids[original_id] = existing.id
             continue
         if mode == "update_existing" and existing is not None:
+            ensure_free_tier_label_capacity(
+                db, context, wine=existing, will_be_active=int(data.get("quantity") or 0) > 0
+            )
             for field, value in data.items():
                 if field != "id":
                     setattr(existing, field, value)
             wine = existing
             result.wines_updated += 1
         else:
+            ensure_free_tier_label_capacity(
+                db, context, will_be_active=bool(data.get("quantity") or 0)
+            )
             data["id"] = ensure_unused_id(db, Wine, data["id"], reserved_ids[Wine])
             wine = Wine(**data)
             db.add(wine)
@@ -850,13 +856,14 @@ def import_vinaris_json_payload(
         imported_wine_ids[original_id] = wine.id
         db.flush()
         raw_allocations = [
-            item for item in as_list(raw_wine.get("storage_allocations"))
+            item
+            for item in as_list(raw_wine.get("storage_allocations"))
             if isinstance(item, dict) and as_int(item.get("quantity")) > 0
         ]
         if existing is None or mode in {"update_existing", "replace_all"}:
-            db.query(WineStorageAllocation).filter(
-                WineStorageAllocation.wine_id == wine.id
-            ).delete(synchronize_session=False)
+            db.query(WineStorageAllocation).filter(WineStorageAllocation.wine_id == wine.id).delete(
+                synchronize_session=False
+            )
             db.flush()
             for raw_allocation in raw_allocations:
                 location_id, bin_id = imported_storage_destination(raw_allocation)
@@ -963,8 +970,12 @@ def import_vinaris_json_payload(
             "bottle_yield_ml": as_int(raw_sale.get("bottle_yield_ml")),
             "discarded_volume_ml": as_int(raw_sale.get("discarded_volume_ml")),
             "stock_bottles_consumed": as_int(raw_sale.get("stock_bottles_consumed")),
-            "unit_sale_price": as_decimal(raw_sale.get("unit_sale_price"), str(wine.sale_price or 0)),
-            "unit_purchase_cost": as_decimal(raw_sale.get("unit_purchase_cost"), str(wine.price or 0)),
+            "unit_sale_price": as_decimal(
+                raw_sale.get("unit_sale_price"), str(wine.sale_price or 0)
+            ),
+            "unit_purchase_cost": as_decimal(
+                raw_sale.get("unit_purchase_cost"), str(wine.price or 0)
+            ),
             "currency": as_str(raw_sale.get("currency")) or wine.currency,
             "previous_wine_status": as_str(raw_sale.get("previous_wine_status")) or wine.status,
             "note": as_str(raw_sale.get("note")),
@@ -1373,6 +1384,9 @@ def import_legacy_json(
             result.wines_skipped += 1
             continue
         if mode == "update_existing" and existing is not None:
+            ensure_free_tier_label_capacity(
+                db, context, wine=existing, will_be_active=int(data.get("quantity") or 0) > 0
+            )
             for field, value in data.items():
                 if field != "id":
                     setattr(existing, field, value)
@@ -1380,6 +1394,7 @@ def import_legacy_json(
             continue
         if mode == "add_all" and db.get(Wine, data["id"]) is not None:
             data["id"] = uuid4()
+        ensure_free_tier_label_capacity(db, context, will_be_active=bool(data.get("quantity") or 0))
         wine = Wine(**data)
         db.add(wine)
         db.flush()

@@ -26,6 +26,13 @@ class SessionResponse(BaseModel):
     can_use_label_recognition: bool = False
     can_manage_wine_photos: bool = False
     cellar_ai_assistant_available: bool = False
+    is_free_tier: bool = False
+    free_tier_label_limit: int = 30
+    can_use_personal_openai_key: bool = False
     has_active_entitlement: bool = False
     entitlement_valid_until: str | None = None
     entitlement_days_remaining: int | None = None
+
+
+class PublicAppConfigResponse(BaseModel):
+    free_tier_label_limit: int

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../services/api";
@@ -14,6 +14,12 @@ export function WineLocationPicker({ locale, locationId, binId, disabled, onChan
   onChange: (locationId: string, binId: string) => void;
 }) {
   const [locations, setLocations] = useState<CellarLocation[]>([]);
+  const [locationText, setLocationText] = useState("");
+  const [binText, setBinText] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState("");
+  const datalistId = useId().replace(/:/g, "");
+  const normaliseName = (value: string) => value.trim().replace(/\s+/g, " ").toLocaleLowerCase();
   useEffect(() => {
     void api<CellarLocation[]>("/api/v1/storage/locations").then((items) => {
       setLocations(items);
@@ -23,23 +29,52 @@ export function WineLocationPicker({ locale, locationId, binId, disabled, onChan
       }
     }).catch(() => setLocations([]));
   }, []);
-  const bins = locations.find((item) => item.id === locationId)?.bins || [];
+  const location = locations.find((item) => item.id === locationId);
+  const bins = location?.bins || [];
+  useEffect(() => { setLocationText(location?.name || ""); }, [location?.name]);
+  const bin = bins.find((item) => item.id === binId);
+  useEffect(() => { setBinText(bin?.name || ""); }, [bin?.name]);
+  const matchingLocation = locations.find((item) => normaliseName(item.name) === normaliseName(locationText));
+  const matchingBin = bins.find((item) => normaliseName(item.name) === normaliseName(binText));
+  const canCreateLocation = Boolean(locationText.trim() && !matchingLocation && !disabled);
+  const canCreateBin = Boolean(locationId && binText.trim() && !matchingBin && !disabled);
+  async function createLocation() {
+    if (!canCreateLocation || creating) return;
+    setCreating(true); setError("");
+    try {
+      const created = await api<CellarLocation>("/api/v1/storage/locations", {
+        method: "POST",
+        body: JSON.stringify({ name: locationText.trim(), is_default: locations.length === 0 }),
+      });
+      setLocations((current) => [...current, created]);
+      setLocationText(created.name); setBinText(""); onChange(created.id, "");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Impossibile creare la location" : "Unable to create location"));
+    } finally { setCreating(false); }
+  }
+  async function createBin() {
+    if (!canCreateBin || creating) return;
+    setCreating(true); setError("");
+    try {
+      const created = await api<CellarLocation["bins"][number]>(`/api/v1/storage/locations/${locationId}/bins`, {
+        method: "POST", body: JSON.stringify({ name: binText.trim() }),
+      });
+      setLocations((current) => current.map((item) => item.id === locationId ? { ...item, bins: [...item.bins, created] } : item));
+      setBinText(created.name); onChange(locationId, created.id);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Impossibile creare il bin" : "Unable to create bin"));
+    } finally { setCreating(false); }
+  }
   return <div className="form-row storage-picker">
-    <label><span>Location</span><select value={locationId} disabled={disabled} onChange={(event) => onChange(event.target.value, "")}>
-      <option value="">{locale === "it" ? "Da collocare" : "Unassigned"}</option>
-      {locations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select></label>
-    <label><span>Bin</span><select value={binId} disabled={disabled || !locationId} onChange={(event) => onChange(locationId, event.target.value)}>
-      <option value="">{locale === "it" ? "Nessun bin" : "No bin"}</option>
-      {bins.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-    </select></label>
+    <label><span>Location</span><div className="storage-create-field"><input list={`${datalistId}-locations`} value={locationText} disabled={disabled} placeholder={locale === "it" ? "Cerca o scrivi una location" : "Search or enter a location"} onChange={(event) => { const value = event.target.value; const match = locations.find((item) => normaliseName(item.name) === normaliseName(value)); setLocationText(value); setBinText(""); onChange(match?.id || "", ""); }} /><datalist id={`${datalistId}-locations`}>{locations.map((item) => <option key={item.id} value={item.name} />)}</datalist>{canCreateLocation ? <button type="button" className="secondary compact" disabled={creating} onClick={() => void createLocation()}>{locale === "it" ? "Crea" : "Create"}</button> : null}</div></label>
+    <label><span>Bin</span><div className="storage-create-field"><input list={`${datalistId}-bins`} value={binText} disabled={disabled || !locationId} placeholder={locationId ? (locale === "it" ? "Cerca o scrivi un bin" : "Search or enter a bin") : (locale === "it" ? "Scegli prima una location" : "Choose a location first")} onChange={(event) => { const value = event.target.value; const match = bins.find((item) => normaliseName(item.name) === normaliseName(value)); setBinText(value); onChange(locationId, match?.id || ""); }} /><datalist id={`${datalistId}-bins`}>{bins.map((item) => <option key={item.id} value={item.name} />)}</datalist>{canCreateBin ? <button type="button" className="secondary compact" disabled={creating} onClick={() => void createBin()}>{locale === "it" ? "Crea" : "Create"}</button> : null}</div></label>
+    {error ? <p className="form-error storage-picker-error" role="alert">{error}</p> : null}
   </div>;
 }
 
 export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
   wine: Wine; canWrite: boolean; locale: Locale; onChanged: () => Promise<void> | void;
 }) {
-  const [locations, setLocations] = useState<CellarLocation[]>([]);
   const [allocations, setAllocations] = useState<StorageAllocation[]>(wine.storage_allocations || []);
   const [sourceId, setSourceId] = useState("");
   const [locationId, setLocationId] = useState("");
@@ -48,13 +83,9 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const selectedSource = allocations.find((item) => item.id === sourceId);
-  const bins = locations.find((item) => item.id === locationId)?.bins || [];
   async function load() {
-    const [nextLocations, nextAllocations] = await Promise.all([
-      api<CellarLocation[]>("/api/v1/storage/locations"),
-      api<StorageAllocation[]>(`/api/v1/storage/allocations?wine_id=${wine.id}`),
-    ]);
-    setLocations(nextLocations); setAllocations(nextAllocations);
+    const nextAllocations = await api<StorageAllocation[]>(`/api/v1/storage/allocations?wine_id=${wine.id}`);
+    setAllocations(nextAllocations);
     setSourceId((current) => nextAllocations.some((item) => item.id === current) ? current : (nextAllocations[0]?.id || ""));
   }
   useEffect(() => { void load().catch(() => setAllocations(wine.storage_allocations || [])); }, [wine.id]);
@@ -74,8 +105,7 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
       <div className="detail-grid consume-grid">
         <label><span>{locale === "it" ? "Da" : "From"}</span><select value={sourceId} onChange={(event) => { setSourceId(event.target.value); setQuantity("1"); }}>{allocations.map((allocation) => <option key={allocation.id} value={allocation.id}>{positionLabel(allocation, locale)} ({allocation.quantity})</option>)}</select></label>
         <label><span>{locale === "it" ? "Bottiglie" : "Bottles"}</span><input type="number" min="1" max={selectedSource?.quantity || 1} value={quantity} onChange={(event) => setQuantity(event.target.value)} required /></label>
-        <label><span>Location</span><select value={locationId} onChange={(event) => { setLocationId(event.target.value); setBinId(""); }}><option value="">{locale === "it" ? "Da collocare" : "Unassigned"}</option>{locations.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-        <label><span>Bin</span><select value={binId} disabled={!locationId} onChange={(event) => setBinId(event.target.value)}><option value="">{locale === "it" ? "Nessun bin" : "No bin"}</option>{bins.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+        <WineLocationPicker locale={locale} locationId={locationId} binId={binId} onChange={(nextLocationId, nextBinId) => { setLocationId(nextLocationId); setBinId(nextBinId); }} />
       </div><div className="form-actions"><button type="submit" disabled={loading}>{loading ? (locale === "it" ? "Sposto…" : "Moving…") : (locale === "it" ? "Sposta" : "Move")}</button></div>
     </form> : null}
   </details>;

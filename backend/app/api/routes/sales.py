@@ -24,6 +24,7 @@ from app.schemas.sale import (
     WineSaleUpdate,
     WineSaleVoid,
 )
+from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.restaurant_excel import build_restaurant_excel
 from app.services.stock_ledger import ensure_opening_stock, remove_fifo_stock, restore_sale_stock
 
@@ -347,7 +348,9 @@ def void_sale(
             wine.open_bottle_ml -= volume_ml
             wine.open_bottle_cost_remaining *= Decimal(wine.open_bottle_ml) / Decimal(volume_before)
         wine.open_bottle_original_cost = (
-            Decimal(wine.open_bottle_cost_remaining) * Decimal(volume_ml) / Decimal(wine.open_bottle_ml)
+            Decimal(wine.open_bottle_cost_remaining)
+            * Decimal(volume_ml)
+            / Decimal(wine.open_bottle_ml)
             if wine.open_bottle_ml
             else Decimal("0")
         )
@@ -409,7 +412,6 @@ def update_sale(
         )
     )
 
-
     tracked_quantity = sum(abs(movement.quantity_delta) for movement in source_movements)
     if source_movements and tracked_quantity != sale.quantity:
         raise HTTPException(
@@ -437,6 +439,7 @@ def update_sale(
                 detail="This historical sale cannot be reduced because its stock movements are unavailable",
             )
         quantity_to_restore = abs(quantity_change)
+        ensure_free_tier_label_capacity(db, context, wine=wine)
         for movement in reversed(source_movements):
             if not quantity_to_restore:
                 break
@@ -517,7 +520,14 @@ def sales_summary(
         .order_by(WineSale.voided_at.desc())
     ).all()
     currency_totals: dict[str, dict[str, Decimal | int]] = defaultdict(
-        lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0, "glasses": 0, "bottle_revenue": Decimal("0"), "glass_revenue": Decimal("0")}
+        lambda: {
+            "revenue": Decimal("0"),
+            "cost": Decimal("0"),
+            "bottles": 0,
+            "glasses": 0,
+            "bottle_revenue": Decimal("0"),
+            "glass_revenue": Decimal("0"),
+        }
     )
     daily: dict[tuple[date, str], dict[str, Decimal | int]] = defaultdict(
         lambda: {"revenue": Decimal("0"), "cost": Decimal("0"), "bottles": 0, "glasses": 0}
@@ -585,10 +595,14 @@ def sales_summary(
                 else Decimal("0"),
                 bottles=bottles,
                 glasses=glasses,
-                average_sale_price=(Decimal(totals["bottle_revenue"]) / bottles).quantize(Decimal("0.01"))
+                average_sale_price=(Decimal(totals["bottle_revenue"]) / bottles).quantize(
+                    Decimal("0.01")
+                )
                 if bottles
                 else Decimal("0"),
-                average_glass_price=(Decimal(totals["glass_revenue"]) / glasses).quantize(Decimal("0.01"))
+                average_glass_price=(Decimal(totals["glass_revenue"]) / glasses).quantize(
+                    Decimal("0.01")
+                )
                 if glasses
                 else Decimal("0"),
             )
@@ -607,7 +621,10 @@ def sales_summary(
     ]
     ranked = sorted(
         wine_totals.items(),
-        key=lambda row: (int(row[1]["bottles"]) + int(row[1]["glasses"]), Decimal(row[1]["revenue"])),
+        key=lambda row: (
+            int(row[1]["bottles"]) + int(row[1]["glasses"]),
+            Decimal(row[1]["revenue"]),
+        ),
         reverse=True,
     )[:8]
     household_wines = list(
@@ -621,7 +638,9 @@ def sales_summary(
         household_wines,
         key=lambda wine: (
             int(wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get("bottles", 0))
-            + int(wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get("glasses", 0)),
+            + int(
+                wine_totals.get((wine.id, (wine.currency or "CHF").upper()), {}).get("glasses", 0)
+            ),
             -wine.quantity,
             wine.name.lower(),
         ),
@@ -632,7 +651,10 @@ def sales_summary(
     ) -> list[SaleBreakdownItem]:
         ordered = sorted(
             values.items(),
-            key=lambda row: (int(row[1]["bottles"]) + int(row[1]["glasses"]), Decimal(row[1]["revenue"])),
+            key=lambda row: (
+                int(row[1]["bottles"]) + int(row[1]["glasses"]),
+                Decimal(row[1]["revenue"]),
+            ),
             reverse=True,
         )
         return [

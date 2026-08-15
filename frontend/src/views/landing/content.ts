@@ -87,9 +87,7 @@ export type LandingCopy = {
     body: string;
     primary: string;
     demo: string;
-    monthly: string;
-    annual: string;
-    annualNote: string;
+    tiers: Array<{ label: string; name: string; body: string; note: string }>;
     aiNote: string;
   };
   footer: { statement: string; privacy: string; cookies: string; terms: string; login: string };
@@ -107,8 +105,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Crea la tua cantina",
       secondary: "Scopri come funziona",
       demo: "Esplora la cantina demo",
-      signal: "Pensato per collezioni da 20 a oltre 1.000 bottiglie",
-      web: "Web app privata · da CHF 6 al mese",
+      signal: "Gratis con tutte le funzioni private fino a 30 etichette attive",
+      web: "Web app privata · piano gratuito disponibile",
     },
     value: [
       { title: "Trova ogni bottiglia", body: "Ricerca, filtri, fotografie, formati e posizione: la collezione resta leggibile mentre cresce." },
@@ -178,7 +176,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       title: "Vinaris anche per il ristorante.",
       body: "Gestisci carta vini, giacenze, mescite, vendite, ricavi e margini in un unico spazio operativo.",
       availability: "La modalità ristorante è disponibile solo su richiesta.",
-      initialFee: "Richiede un abbonamento annuale e una quota iniziale una tantum.",
+      initialFee: "Configurazione, condizioni e disponibilità vengono definite direttamente con Vinaris.",
       contact: "Contatta Vinaris per informazioni",
       dashboardAlt: "Anteprima della dashboard operativa Vinaris per ristoranti",
     },
@@ -198,12 +196,13 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       eyebrow: "La tua storia di cantina",
       title: "La collezione esiste già. Vinaris ti aiuta a comprenderla.",
       body: "Costruisci un archivio privato che accompagna acquisti, attese, aperture e memoria nel tempo.",
-      primary: "Inizia a costruire la cantina",
+      primary: "Inizia con Degustazione",
       demo: "Guarda la cantina demo",
-      monthly: "CHF 6 / mese",
-      annual: "CHF 60 / anno",
-      annualNote: "Due mesi risparmiati con il piano annuale",
-      aiNote: "Un credito AI iniziale permette di provare le funzioni avanzate.",
+      tiers: [
+        { label: "Piano gratuito", name: "Degustazione", body: "Tutte le funzioni private, fino a 30 etichette attive.", note: "Le funzioni AI si usano con un AI Pack." },
+        { label: "Per collezionisti", name: "Riserva", body: "Per collezioni oltre 30 etichette attive e per chi desidera ancora più libertà.", note: "AI Pack o chiave OpenAI personale inclusi." },
+      ],
+      aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
     },
     footer: { statement: "Private cellar intelligence per collezionisti di vino.", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
     meta: { title: "Vinaris - Private Cellar Intelligence", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
@@ -218,8 +217,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Build your cellar",
       secondary: "See how it works",
       demo: "Explore the demo cellar",
-      signal: "Designed for collections from 20 to more than 1,000 bottles",
-      web: "Private web app · from CHF 6 per month",
+      signal: "Free with every private feature for up to 30 active labels",
+      web: "Private web app · free tier available",
     },
     value: [
       { title: "Find every bottle", body: "Search, filters, photographs, formats, and location keep the collection readable as it grows." },
@@ -289,7 +288,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       title: "Vinaris for restaurants, too.",
       body: "Manage your wine list, stock, by-the-glass service, sales, revenue, and margins in one operational space.",
       availability: "Restaurant mode is available by request only.",
-      initialFee: "It requires an annual subscription and a one-time initial fee.",
+      initialFee: "Configuration, terms and availability are defined directly with Vinaris.",
       contact: "Contact Vinaris for information",
       dashboardAlt: "Preview of the Vinaris restaurant operations dashboard",
     },
@@ -309,12 +308,13 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       eyebrow: "Your cellar story",
       title: "Your cellar already has a story. Vinaris helps you understand it.",
       body: "Build a private archive that supports purchases, patience, openings, and memory over time.",
-      primary: "Start building your cellar",
+      primary: "Start with Tasting",
       demo: "View the demo cellar",
-      monthly: "CHF 6 / month",
-      annual: "CHF 60 / year",
-      annualNote: "Save two months with the annual plan",
-      aiNote: "Starter AI credit lets you try the advanced features.",
+      tiers: [
+        { label: "Free plan", name: "Tasting", body: "Every private feature, for up to 30 active labels.", note: "AI features use an AI Pack." },
+        { label: "For collectors", name: "Reserve", body: "For collections over 30 active labels and those who want more freedom.", note: "Use an AI Pack or a personal OpenAI key." },
+      ],
+      aiNote: "An AI Pack is available whenever you need it, including with Tasting.",
     },
     footer: { statement: "Private cellar intelligence for wine collectors.", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
     meta: { title: "Vinaris - Private Cellar Intelligence", description: "Manage bottles, drinking windows, value, deliveries, wishlist, and tasting memory in one private intelligent cellar." },
