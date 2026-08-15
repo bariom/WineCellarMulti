@@ -2201,7 +2201,7 @@ export function App() {
       return;
     }
     window.requestAnimationFrame(() => {
-      document.getElementById("auth-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     });
   }
 
@@ -8434,7 +8434,7 @@ export function App() {
         </div>
       ) : null}
 
-      {!authenticated ? shouldPrioritizeAuthAction ? (
+      {!authenticated ? (shouldPrioritizeAuthAction || (isMobileViewport && showMobileAuthPanel)) ? (
         publicAuthPanel
       ) : (
         <>
@@ -8885,7 +8885,6 @@ export function App() {
               </Suspense>
             )}
 
-        {showMobileAuthPanel ? publicAuthPanel : null}
         {!isMobileViewport && (authModalOpen || showOfflineBackupPanel) ? (
           <div className="auth-modal-overlay" onClick={() => {
             setAuthModalOpen(false);
