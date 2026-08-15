@@ -2766,6 +2766,14 @@ export function App() {
       }
     } catch (nextError) {
       const nextMessage = nextError instanceof Error ? nextError.message : "Unable to authenticate";
+      const normalizedAuthError = nextMessage.toLowerCase();
+      if (
+        normalizedAuthError.includes("email verification required")
+        || (authMode === "register" && normalizedAuthError.includes("email already registered"))
+      ) {
+        setResendVerificationEmail(authDraft.email.trim());
+        if (authMode === "register") setAuthMode("login");
+      }
       if (isConnectivityError(nextMessage)) {
         setShowOfflineBackupPanel(true);
       }
@@ -5095,6 +5103,10 @@ export function App() {
   const availableRedeemCodes = billingStatus?.available_redeem_codes || [];
   const trialRedeemCodes = availableRedeemCodes.filter((code) => code.kind === "trial");
   const standardRedeemCodes = availableRedeemCodes.filter((code) => code.kind !== "trial");
+  const normalizedAuthError = error.toLowerCase();
+  const canRecoverExistingAccount =
+    normalizedAuthError.includes("email verification required")
+    || normalizedAuthError.includes("email already registered");
   const shouldPrioritizeAuthAction = !authenticated && (Boolean(emailVerificationToken) || Boolean(passwordResetToken));
   const showInlineAuthError = Boolean(visibleError) && !authenticated && (isMobileViewport || authModalOpen);
   const showMobileAuthPanel =
@@ -5211,6 +5223,21 @@ export function App() {
           </ol>
           <label className="email-verification-resend">{locale === "it" ? "Indirizzo email" : "Email address"}<input type="email" autoComplete="email" value={resendVerificationEmail} onChange={(event) => setResendVerificationEmail(event.target.value)} placeholder={registrationEmail || "name@example.com"} required /></label>
           <button type="button" className="secondary" onClick={() => void resendEmailVerification()} disabled={saving || !resendVerificationEmail.trim()}>{saving ? t("working") : (locale === "it" ? "Reinvia email di conferma" : "Resend confirmation email")}</button>
+        </div>
+      ) : null}
+      {canRecoverExistingAccount ? (
+        <div className="invite-notice email-verification-notice" role="status">
+          <strong>{normalizedAuthError.includes("email verification required")
+            ? (locale === "it" ? "Conferma la tua email" : "Confirm your email")
+            : (locale === "it" ? "Questo account esiste già" : "This account already exists")}</strong>
+          <span>{locale === "it"
+            ? "Accedi con la tua password. Se non hai ancora confermato l’indirizzo email, richiedi un nuovo link qui sotto."
+            : "Sign in with your password. If you have not confirmed your email yet, request a new link below."}</span>
+          <label className="email-verification-resend">{locale === "it" ? "Indirizzo email" : "Email address"}<input type="email" autoComplete="email" value={resendVerificationEmail} onChange={(event) => setResendVerificationEmail(event.target.value)} placeholder="name@example.com" required /></label>
+          <div className="form-actions">
+            <button type="button" className="secondary" onClick={() => void resendEmailVerification()} disabled={saving || !resendVerificationEmail.trim()}>{saving ? t("working") : (locale === "it" ? "Reinvia link di conferma" : "Resend confirmation link")}</button>
+            <button type="button" className="secondary" onClick={() => setAuthMode("forgot-password")} disabled={saving}>{t("forgotPassword")}</button>
+          </div>
         </div>
       ) : null}
       {!emailVerificationToken && !session?.pending_email_verification ? <>
