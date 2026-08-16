@@ -14073,6 +14073,19 @@ export function App() {
       ) : null}
       {loading ? <GlobalLoadingOverlay label={t("loadingData")} /> : null}
       {aiOverlayRenderMode ? <AiGenerationOverlay mode={aiOverlayVisible ? aiOverlayRenderMode : ""} t={t} locale={locale} progress={aiOverlayProgress} /> : null}
+      {canWriteWine ? (
+        <button
+          type="button"
+          className="quick-add-wine-button quick-add-wine-mobile-fab"
+          aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
+          title={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
+          onClick={startAddWineFromAnywhere}
+        >
+          <span className="quick-add-wine-artwork" aria-hidden="true">
+            <img src="/add-wine-action.png" alt="" />
+          </span>
+        </button>
+      ) : null}
       {showBackToTop ? (
         <button
           type="button"

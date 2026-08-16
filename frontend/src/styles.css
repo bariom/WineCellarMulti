@@ -1660,6 +1660,10 @@ summary:focus-visible {
   box-shadow: 0 7px 16px color-mix(in srgb, #6f0738 42%, transparent);
 }
 
+.quick-add-wine-mobile-fab {
+  display: none;
+}
+
 :root[data-theme] .view-tabs .quick-add-wine-button {
   border-color: transparent;
   background: transparent;
@@ -1668,6 +1672,10 @@ summary:focus-visible {
 
 :root[data-theme] .view-tabs .quick-add-wine-button:hover {
   background: transparent;
+}
+
+.view-tabs .quick-add-wine-button {
+  padding: 0;
 }
 
 .app-icon {
@@ -14785,10 +14793,15 @@ textarea {
 
 @media (max-width: 820px) {
   .view-tabs .quick-add-wine-button {
+    display: none;
+  }
+
+  .quick-add-wine-mobile-fab {
     position: fixed;
     right: max(18px, env(safe-area-inset-right, 0px));
-    bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
-    z-index: 39;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 22px);
+    z-index: 41;
+    display: inline-grid;
     width: 52px;
     height: 52px;
     min-height: 52px;
@@ -14799,6 +14812,10 @@ textarea {
   .quick-add-wine-artwork {
     width: 52px;
     height: 52px;
+  }
+
+  .back-to-top-button {
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 84px);
   }
 }
 
