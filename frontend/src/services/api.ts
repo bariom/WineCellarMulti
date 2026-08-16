@@ -93,8 +93,8 @@ export function formatUserErrorMessage(message: string, locale: Locale) {
 
   if (normalized.includes("free tier label limit exceeded")) {
     return locale === "it"
-      ? "Hai raggiunto il limite di 30 etichette attive del piano gratuito. Rimuovi un'etichetta oppure attiva un abbonamento."
-      : "You reached the free tier's 30 active-label limit. Remove a label or activate a subscription.";
+      ? "Hai raggiunto il limite di 15 etichette attive del piano gratuito. Rimuovi un'etichetta oppure attiva un abbonamento."
+      : "You reached the free tier's 15 active-label limit. Remove a label or activate a subscription.";
   }
 
   if (normalized.includes("ai credits exhausted")) {

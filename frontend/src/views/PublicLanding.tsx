@@ -22,7 +22,7 @@ type PublicLandingProps = {
 
 const iconNames = ["search", "window", "insights"] as const;
 const restaurantContactCodePoints = [105, 110, 102, 111, 64, 118, 105, 110, 97, 114, 105, 115, 46, 97, 112, 112];
-const defaultFreeTierLabelLimit = 30;
+const defaultFreeTierLabelLimit = 15;
 
 type PublicAppConfig = {
   free_tier_label_limit: number;
@@ -89,7 +89,7 @@ export default function PublicLanding({
 }: PublicLandingProps) {
   const [freeTierLabelLimit, setFreeTierLabelLimit] = useState(defaultFreeTierLabelLimit);
   const copy = landingCopy[locale];
-  const labelLimitPattern = /\b30\b/g;
+  const labelLimitPattern = /\b15\b/g;
   const dynamicCopy = {
     ...copy,
     hero: { ...copy.hero, signal: copy.hero.signal.replace(labelLimitPattern, String(freeTierLabelLimit)) },

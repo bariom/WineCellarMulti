@@ -2836,7 +2836,7 @@ def test_free_tier_has_private_features_with_40_bottle_limit_and_ai_pack_only(mo
     )
     assert login.status_code == 200
     assert login.json()["is_free_tier"] is True
-    assert login.json()["free_tier_label_limit"] == 30
+    assert login.json()["free_tier_label_limit"] == 15
     assert login.json()["can_use_personal_openai_key"] is False
     assert login.json()["restaurant_mode_available"] is False
     second_cellar = user_client.post("/api/v1/household", json={"name": "Second cellar"})
@@ -2845,15 +2845,15 @@ def test_free_tier_has_private_features_with_40_bottle_limit_and_ai_pack_only(mo
 
     first_wine = user_client.post("/api/v1/wines", json={"name": "Free cellar wine", "quantity": 40})
     assert first_wine.status_code == 201
-    for index in range(2, 31):
+    for index in range(2, 16):
         assert user_client.post(
             "/api/v1/wines", json={"name": f"Free cellar wine {index}", "quantity": 1}
         ).status_code == 201
     over_limit = user_client.post(
-        "/api/v1/wines", json={"name": "Label 31", "quantity": 1}
+        "/api/v1/wines", json={"name": "Label 16", "quantity": 1}
     )
     assert over_limit.status_code == 409
-    assert "30 of 30" in over_limit.json()["detail"]
+    assert "15 of 15" in over_limit.json()["detail"]
     reduced = user_client.patch(
         f"/api/v1/wines/{first_wine.json()['id']}", json={"quantity": 0}
     )

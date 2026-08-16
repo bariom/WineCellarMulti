@@ -157,7 +157,7 @@ Production environment values:
 APP_ENV=production
 APP_DEBUG=false
 SESSION_COOKIE_SECURE=true
-FREE_TIER_LABEL_LIMIT=30
+FREE_TIER_LABEL_LIMIT=15
 # false: disponibile soltanto agli amministratori dell'app; true: disponibile agli utenti
 RESTAURANT_MODE_ENABLED=false
 CORS_ORIGINS=https://vinaris.app,https://www.vinaris.app,http://localhost:5173,http://127.0.0.1:5173
@@ -296,7 +296,7 @@ customer.subscription.deleted
 
 `checkout.session.completed` is also used for one-time AI Pack purchases. When the AI Pack product is bought, the user receives a balance in USD-equivalent AI budget, and future AI requests consume that balance until it reaches zero.
 
-`AI_PACK_MARKUP_PERCENT` adds the configurable spread used for subscribed users. `FREE_TIER_AI_PACK_MARKUP_PERCENT` is the separate, normally wider spread for free-tier AI Pack usage. Both can be changed immediately from **Settings → Operations → AI model price book**; persisted console values override the environment defaults. App admins continue to consume AI budget at the base estimated OpenAI cost. Free-tier accounts cannot use a personal OpenAI key and can use AI only from a positive AI Pack balance. `FREE_TIER_LABEL_LIMIT` controls the private-cellar cap of active distinct labels (30 by default), while `SIGNUP_AI_CREDIT_USD=0` ensures AI access starts after an AI Pack purchase.
+`AI_PACK_MARKUP_PERCENT` adds the configurable spread used for subscribed users. `FREE_TIER_AI_PACK_MARKUP_PERCENT` is the separate, normally wider spread for free-tier AI Pack usage. Both can be changed immediately from **Settings → Operations → AI model price book**; persisted console values override the environment defaults. App admins continue to consume AI budget at the base estimated OpenAI cost. Free-tier accounts cannot use a personal OpenAI key and can use AI only from a positive AI Pack balance. `FREE_TIER_LABEL_LIMIT` controls the private-cellar cap of active distinct labels (15 by default), while `SIGNUP_AI_CREDIT_USD=0` ensures AI access starts after an AI Pack purchase.
 
 ### Updating AI model prices
 

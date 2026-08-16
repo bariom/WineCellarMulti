@@ -1559,6 +1559,10 @@ export function App() {
   const [themePreference, setThemePreference] = useState<ThemePreference>("system");
   const t = (key: TranslationKey) => translate(locale, key);
   const visibleError = formatUserErrorMessage(error, locale);
+  const isFreeTierLimitError = error.toLowerCase().includes("free tier label limit exceeded");
+  const freeTierLimitErrorMessage = locale === "it"
+    ? "Hai raggiunto il limite di 15 etichette attive del piano gratuito. Acquista un abbonamento per aggiungerne altre."
+    : "You reached the free plan's 15 active-label limit. Purchase a subscription to add more.";
   const aiOverlayMode = generatingAi || (compareAiLoading ? "compare" : "");
   const [aiOverlayRenderMode, setAiOverlayRenderMode] = useState("");
   const [aiOverlayVisible, setAiOverlayVisible] = useState(false);
@@ -4854,7 +4858,7 @@ export function App() {
           }
         : {
             name: locale === "it" ? "Degustazione" : "Tasting",
-            description: locale === "it" ? `Piano gratuito: fino a ${session?.free_tier_label_limit || 30} etichette attive. Le funzioni AI richiedono un AI Pack.` : `Free plan: up to ${session?.free_tier_label_limit || 30} active labels. AI requires an AI Pack.`,
+            description: locale === "it" ? `Piano gratuito: fino a ${session?.free_tier_label_limit || 15} etichette attive. Le funzioni AI richiedono un AI Pack.` : `Free plan: up to ${session?.free_tier_label_limit || 15} active labels. AI requires an AI Pack.`,
           };
   const hasAnotherRestaurantCellar = householdMemberships.some((membership) =>
     membership.household_id !== session?.active_household_id && membership.operating_mode === "restaurant",
@@ -5131,13 +5135,21 @@ export function App() {
       </li>
     </ol>
   );
-  const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => (
-    <div className={highlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
+  const renderRedeemCodeRow = (code: RedeemCode, highlighted = false) => {
+    const paymentActivationRequired = code.kind !== "trial" && code.label.startsWith("Stripe ") && !billingStatus?.has_active_entitlement;
+    const isHighlighted = highlighted || paymentActivationRequired;
+    const activationTitle = locale === "it" ? "Attiva il tuo abbonamento" : "Activate your subscription";
+    const activationHelp = locale === "it"
+      ? "Il pagamento è completato. Riscatta ora il codice per sbloccare l’accesso."
+      : "Your payment is complete. Redeem this code now to unlock access.";
+    const redeemAction = paymentActivationRequired ? (locale === "it" ? "Riscatta ora" : "Redeem now") : t("redeem");
+    return (
+    <div className={isHighlighted ? "trial-redeem-card" : "member-row"} key={code.id}>
       <div>
-        {highlighted ? <span className="trial-redeem-kicker">{t("useTrialRedeemCodeNow")}</span> : null}
-        <strong>{code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
-        <span>{highlighted ? `${t("trialRedeemCodeHelp")} ${t("trialRedeemCodeDuration")}: ${code.duration_days}d.` : `${code.label} - ${code.duration_days}d`}</span>
-        {highlighted ? (
+        {isHighlighted ? <span className="trial-redeem-kicker">{paymentActivationRequired ? (locale === "it" ? "Pagamento ricevuto · attivazione richiesta" : "Payment received · activation required") : t("useTrialRedeemCodeNow")}</span> : null}
+        <strong>{paymentActivationRequired ? activationTitle : code.kind === "trial" ? t("trialRedeemCode") : t("paidRedeemCode")}</strong>
+        <span>{paymentActivationRequired ? `${activationHelp} ${code.duration_days}d.` : highlighted ? `${t("trialRedeemCodeHelp")} ${t("trialRedeemCodeDuration")}: ${code.duration_days}d.` : `${code.label} - ${code.duration_days}d`}</span>
+        {isHighlighted ? (
           <code className="trial-redeem-token">{code.code || code.code_prefix}</code>
         ) : (
           <div className="token-box">
@@ -5153,11 +5165,12 @@ export function App() {
           </button>
         ) : null}
         <button type="button" className="compact" disabled={saving || !code.code} onClick={() => code.code && redeemCodeValue(code.code)}>
-          {t("redeem")}
+          {redeemAction}
         </button>
       </div>
     </div>
-  );
+    );
+  };
   const offlineBackupPanel = canShowOfflineBackupPanel ? (
     <section className="wine-form">
       <h2>{t("offlineBackup")}</h2>
@@ -5366,6 +5379,10 @@ export function App() {
     cellarWines.map((wine) => [wine.producer, wine.name, wine.vintage]
       .map((part) => String(part || "").trim().toLowerCase()).join("\u0000")),
   ).size;
+  const freeTierLabelLimit = session?.free_tier_label_limit || 15;
+  const freeTierAtLabelLimit = Boolean(
+    session?.is_free_tier && freeTierLabelLimit > 0 && freeTierLabelCount >= freeTierLabelLimit,
+  );
   const historyWines = wines.filter((wine) => wine.quantity <= 0);
   const isWineCollectionView = activeView === "cellar" || (activeView === "history" && historySection !== "sales");
   const isCollectionView = isWineCollectionView || activeView === "wishlist";
@@ -6860,6 +6877,14 @@ export function App() {
     setSelectedSuggestedPhotoId(null);
     setEditingId(null);
     setWineFormOpen(true);
+  }
+
+  function startAddWineFromAnywhere() {
+    leaveHelpFor("cellar");
+    setWishlistFormOpen(false);
+    setSelectedWineId(null);
+    clearFilters("cellar");
+    startAddWine();
   }
 
   function prepareAssistantPurchaseDraft(purchase: CellarCommandPurchaseDraft) {
@@ -8440,12 +8465,26 @@ export function App() {
       </header>
       ) : null}
 
-      {visibleError && !showInlineAuthError ? (
+      {(visibleError || isFreeTierLimitError) && !showInlineAuthError ? (
         <div ref={errorBannerRef} className="error-banner app-error-banner" role="alert" aria-live="assertive">
           <div className="app-error-copy">
-            <strong>{locale === "it" ? "Attenzione" : "Attention"}</strong>
-            <span>{visibleError}</span>
+            <strong>{isFreeTierLimitError ? (locale === "it" ? "Limite del piano gratuito raggiunto" : "Free-plan limit reached") : locale === "it" ? "Attenzione" : "Attention"}</strong>
+            <p className="app-error-detail">{visibleError || (isFreeTierLimitError ? freeTierLimitErrorMessage : error)}</p>
           </div>
+          {isFreeTierLimitError ? (
+            <button
+              type="button"
+              className="compact"
+              onClick={() => {
+                setError("");
+                setActiveView("settings");
+                setSettingsTab("profile");
+                loadSettingsTabData("profile");
+              }}
+            >
+              {locale === "it" ? "Vedi abbonamenti" : "View subscriptions"}
+            </button>
+          ) : null}
           <button type="button" className="secondary compact app-error-close" onClick={() => setError("")}>
             {t("close")}
           </button>
@@ -8990,6 +9029,7 @@ export function App() {
             </button>
             <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button>
             </div> : null}
+            <div className="view-tabs-quick-actions">
             <form
               className="view-tabs-quick-search"
               role="search"
@@ -9017,6 +9057,20 @@ export function App() {
                 </button>
               ) : null}
             </form>
+              {canWriteWine ? (
+              <button
+                type="button"
+                className="quick-add-wine-button"
+                aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
+                title={locale === "it" ? "Aggiungi un vino" : "Add a wine"}
+                onClick={startAddWineFromAnywhere}
+              >
+                  <span className="quick-add-wine-artwork" aria-hidden="true">
+                    <img src="/add-wine-action.png" alt="" />
+                  </span>
+              </button>
+            ) : null}
+            </div>
           </div>
           ) : null}
           {activeView === "home" && isRestaurant ? (
@@ -12519,6 +12573,80 @@ export function App() {
               <section className="settings-card settings-card-compact">
                 <div className="settings-card-heading">
                   <div>
+                    <span>{t("billing")}</span>
+                    <h3>{t("redeemCode")}</h3>
+                  </div>
+                  {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
+                </div>
+                {trialRedeemCodes.length ? (
+                  <div className="trial-redeem-list">
+                    {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
+                  </div>
+                ) : null}
+                <form className="inline-form" onSubmit={redeemCode}>
+                  <label>
+                    <span>{t("redeemCode")}</span>
+                    <input value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
+                  </label>
+                  <button type="submit" disabled={saving || !redeemInput.trim()}>
+                    {t("redeem")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startCheckout("monthly")} disabled={saving}>
+                    {t("buyMonthly")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
+                    {t("buyAnnual")}
+                  </button>
+                  <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
+                    {t("manageSubscription")}
+                  </button>
+                  {billingStatus?.can_purchase_ai_credits ? (
+                    <button type="button" className="secondary" onClick={() => startCheckout("ai_credits")} disabled={saving}>
+                      {t("buyAiCredits")}
+                    </button>
+                  ) : null}
+                </form>
+                {standardRedeemCodes.length ? (
+                  <div className="member-list">
+                    {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
+                  </div>
+                ) : null}
+                {billingStatus?.has_active_entitlement ? (
+                  <p className="empty-state">{t("membershipValidity")}: {locale === "it" ? "fino al" : "until"} {formatDisplayDate(billingStatus.valid_until)}</p>
+                ) : freeTierAtLabelLimit ? (
+                  <aside className="free-tier-limit-notice" role="status">
+                    <strong>{locale === "it" ? "Hai raggiunto il limite del piano gratuito" : "You reached the free-plan limit"}</strong>
+                    <span>{locale === "it" ? `Hai ${freeTierLabelCount} di ${freeTierLabelLimit} etichette attive. Acquista un abbonamento per aggiungerne altre.` : `You have ${freeTierLabelCount} of ${freeTierLabelLimit} active labels. Purchase a subscription to add more.`}</span>
+                  </aside>
+                ) : session?.is_free_tier ? (
+                  <p className="empty-state">
+                    {locale === "it"
+                      ? `Piano gratuito: ${freeTierLabelCount} di ${freeTierLabelLimit} etichette attive. Tutte le funzioni private sono incluse.`
+                      : `Free tier: ${freeTierLabelCount} of ${freeTierLabelLimit} active labels. All private features are included.`}
+                  </p>
+                ) : null}
+                  {showAiBudgetPanel ? (
+                    <div className="ai-budget-panel">
+                      <div className="ai-budget-head">
+                        <strong>{t("aiCreditBalance")}</strong>
+                        <span>{formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</span>
+                      </div>
+                      <div className="ai-budget-bar" aria-hidden="true">
+                        <div
+                          className="ai-budget-fill"
+                          style={{ width: `${aiBudgetFillRatio(billingStatus?.ai_credit_balance_usd || 0, billingStatus?.ai_credit_pack_size_usd || 0) * 100}%` }}
+                        />
+                      </div>
+                      <small>{t("aiBudgetUsage")}</small>
+                    </div>
+                  ) : null}
+              </section>
+              ) : null}
+
+              {settingsTab === "profile" ? (
+              <section className="settings-card settings-card-compact">
+                <div className="settings-card-heading">
+                  <div>
                     <span>{t("passkeys")}</span>
                     <h3>{t("passkey")}</h3>
                   </div>
@@ -12572,75 +12700,6 @@ export function App() {
                 ) : (
                   <p className="empty-state">{t("noPasskeys")}</p>
                 )}
-              </section>
-              ) : null}
-
-              {settingsTab === "profile" ? (
-              <section className="settings-card settings-card-compact">
-                <div className="settings-card-heading">
-                  <div>
-                    <span>{t("billing")}</span>
-                    <h3>{t("redeemCode")}</h3>
-                  </div>
-                  {billingStatus?.valid_until ? <strong>{formatDisplayDate(billingStatus.valid_until)}</strong> : null}
-                </div>
-                {trialRedeemCodes.length ? (
-                  <div className="trial-redeem-list">
-                    {trialRedeemCodes.map((code) => renderRedeemCodeRow(code, true))}
-                  </div>
-                ) : null}
-                <form className="inline-form" onSubmit={redeemCode}>
-                  <label>
-                    <span>{t("redeemCode")}</span>
-                    <input value={redeemInput} onChange={(event) => setRedeemInput(event.target.value)} placeholder="WCM-XXXX-XXXX-XXXX-XXXX" />
-                  </label>
-                  <button type="submit" disabled={saving || !redeemInput.trim()}>
-                    {t("redeem")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startCheckout("monthly")} disabled={saving}>
-                    {t("buyMonthly")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startCheckout("annual")} disabled={saving}>
-                    {t("buyAnnual")}
-                  </button>
-                  <button type="button" className="secondary" onClick={() => startBillingPortal()} disabled={saving}>
-                    {t("manageSubscription")}
-                  </button>
-                  {billingStatus?.can_purchase_ai_credits ? (
-                    <button type="button" className="secondary" onClick={() => startCheckout("ai_credits")} disabled={saving}>
-                      {t("buyAiCredits")}
-                    </button>
-                  ) : null}
-                </form>
-                {standardRedeemCodes.length ? (
-                  <div className="member-list">
-                    {standardRedeemCodes.map((code) => renderRedeemCodeRow(code))}
-                  </div>
-                ) : null}
-                {billingStatus?.has_active_entitlement ? (
-                  <p className="empty-state">{t("billing")}: {billingStatus.active_source} - {formatDisplayDate(billingStatus.valid_until)}</p>
-                ) : session?.is_free_tier ? (
-                  <p className="empty-state">
-                    {locale === "it"
-                      ? `Piano gratuito: ${freeTierLabelCount} di ${session.free_tier_label_limit || 30} etichette attive. Tutte le funzioni private sono incluse.`
-                      : `Free tier: ${freeTierLabelCount} of ${session.free_tier_label_limit || 30} active labels. All private features are included.`}
-                  </p>
-                ) : null}
-                  {showAiBudgetPanel ? (
-                    <div className="ai-budget-panel">
-                      <div className="ai-budget-head">
-                        <strong>{t("aiCreditBalance")}</strong>
-                        <span>{formatAiBudget(billingStatus?.ai_credit_balance_usd || 0)}</span>
-                      </div>
-                      <div className="ai-budget-bar" aria-hidden="true">
-                        <div
-                          className="ai-budget-fill"
-                          style={{ width: `${aiBudgetFillRatio(billingStatus?.ai_credit_balance_usd || 0, billingStatus?.ai_credit_pack_size_usd || 0) * 100}%` }}
-                        />
-                      </div>
-                      <small>{t("aiBudgetUsage")}</small>
-                    </div>
-                  ) : null}
               </section>
               ) : null}
 

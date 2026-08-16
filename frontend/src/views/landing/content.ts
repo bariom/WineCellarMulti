@@ -105,7 +105,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Crea la tua cantina",
       secondary: "Scopri come funziona",
       demo: "Esplora la cantina demo",
-      signal: "Gratis con tutte le funzioni private fino a 30 etichette attive",
+      signal: "Gratis con tutte le funzioni private fino a 15 etichette attive",
       web: "Web app privata · piano gratuito disponibile",
     },
     value: [
@@ -199,8 +199,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Inizia con Degustazione",
       demo: "Guarda la cantina demo",
       tiers: [
-        { label: "Piano gratuito", name: "Degustazione", body: "Tutte le funzioni private, fino a 30 etichette attive.", note: "Le funzioni AI si usano con un AI Pack." },
-        { label: "Per collezionisti", name: "Riserva", body: "Per collezioni oltre 30 etichette attive e per chi desidera ancora più libertà.", note: "AI Pack o chiave OpenAI personale inclusi." },
+        { label: "Piano gratuito", name: "Degustazione", body: "Tutte le funzioni private, fino a 15 etichette attive.", note: "Le funzioni AI si usano con un AI Pack." },
+        { label: "Per collezionisti", name: "Riserva", body: "Per collezioni oltre 15 etichette attive e per chi desidera ancora più libertà.", note: "AI Pack o chiave OpenAI personale inclusi." },
       ],
       aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
     },
@@ -217,7 +217,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Build your cellar",
       secondary: "See how it works",
       demo: "Explore the demo cellar",
-      signal: "Free with every private feature for up to 30 active labels",
+      signal: "Free with every private feature for up to 15 active labels",
       web: "Private web app · free tier available",
     },
     value: [
@@ -311,8 +311,8 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       primary: "Start with Tasting",
       demo: "View the demo cellar",
       tiers: [
-        { label: "Free plan", name: "Tasting", body: "Every private feature, for up to 30 active labels.", note: "AI features use an AI Pack." },
-        { label: "For collectors", name: "Reserve", body: "For collections over 30 active labels and those who want more freedom.", note: "Use an AI Pack or a personal OpenAI key." },
+        { label: "Free plan", name: "Tasting", body: "Every private feature, for up to 15 active labels.", note: "AI features use an AI Pack." },
+        { label: "For collectors", name: "Reserve", body: "For collections over 15 active labels and those who want more freedom.", note: "Use an AI Pack or a personal OpenAI key." },
       ],
       aiNote: "An AI Pack is available whenever you need it, including with Tasting.",
     },

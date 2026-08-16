@@ -11,7 +11,7 @@ class Settings(BaseSettings):
     session_cookie_secure: bool = False
     session_ttl_days: int = 30
     invite_ttl_days: int = 7
-    free_tier_label_limit: int = 30
+    free_tier_label_limit: int = 15
     email_verification_ttl_hours: int = 48
     password_reset_ttl_minutes: int = 30
     coownership_invite_ttl_days: int = 30

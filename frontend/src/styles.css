@@ -1082,10 +1082,11 @@ summary:focus-visible {
 
 .app-error-banner {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 14px;
   margin-top: 12px;
+  overflow: visible;
   box-shadow: var(--shadow-soft);
   scroll-margin-top: 18px;
 }
@@ -1096,7 +1097,9 @@ summary:focus-visible {
 
 .app-error-copy {
   display: grid;
+  flex: 1 1 auto;
   gap: 4px;
+  min-width: 0;
 }
 
 .app-error-copy strong {
@@ -1104,6 +1107,12 @@ summary:focus-visible {
 }
 
 .app-error-copy span {
+  color: inherit;
+  line-height: 1.45;
+}
+
+.app-error-detail {
+  margin: 0;
   color: inherit;
   line-height: 1.45;
 }
@@ -1609,6 +1618,56 @@ summary:focus-visible {
   padding: 4px;
   border-radius: 12px;
   overflow: hidden;
+}
+
+.quick-add-wine-button {
+  display: inline-grid;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  margin: -2px 0 -2px 2px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  box-shadow: none;
+}
+
+.quick-add-wine-artwork {
+  position: relative;
+  display: block;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
+  border-radius: 50%;
+  box-shadow: 0 5px 13px color-mix(in srgb, #6f0738 34%, transparent);
+}
+
+.quick-add-wine-artwork img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.quick-add-wine-button:hover {
+  background: transparent;
+  box-shadow: none;
+}
+
+.quick-add-wine-button:hover .quick-add-wine-artwork {
+  box-shadow: 0 7px 16px color-mix(in srgb, #6f0738 42%, transparent);
+}
+
+:root[data-theme] .view-tabs .quick-add-wine-button {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-theme] .view-tabs .quick-add-wine-button:hover {
+  background: transparent;
 }
 
 .app-icon {
@@ -4780,6 +4839,25 @@ textarea {
   gap: 12px;
 }
 
+.free-tier-limit-notice {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 58%, var(--border-strong));
+  border-left: 4px solid var(--accent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 12%, var(--surface-raised));
+}
+
+.free-tier-limit-notice strong {
+  color: var(--text);
+}
+
+.free-tier-limit-notice span {
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
 .trial-redeem-card {
   display: grid;
   gap: 18px;
@@ -5796,7 +5874,7 @@ textarea {
 
 .dashboard-analysis-switcher {
   position: relative;
-  margin-left: auto;
+  margin-left: 0;
 }
 
 .dashboard-analysis-switcher > summary {
@@ -13837,9 +13915,14 @@ textarea {
     display: none;
   }
 
-  .view-tabs .view-tabs-quick-search {
+  .view-tabs .view-tabs-quick-actions {
     width: 100%;
     margin-left: 0;
+  }
+
+  .view-tabs .view-tabs-quick-actions .view-tabs-quick-search {
+    flex: 1 1 auto;
+    width: auto;
   }
 
   .side-panel-actions {
@@ -14563,6 +14646,15 @@ textarea {
     0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent);
 }
 
+.view-tabs-quick-actions {
+  display: flex;
+  flex: 0 1 auto;
+  align-items: center;
+  min-width: 0;
+  margin-left: auto;
+  gap: 8px;
+}
+
 .view-tabs-quick-search .app-icon {
   flex: 0 0 auto;
   color: var(--text-muted);
@@ -14676,8 +14768,13 @@ textarea {
   gap: 4px;
 }
 
-.view-tabs .view-tabs-quick-search {
-  flex: 0 1 clamp(180px, 18vw, 280px);
+.view-tabs .view-tabs-quick-actions {
+  flex: 0 1 clamp(230px, 21vw, 332px);
+}
+
+.view-tabs .view-tabs-quick-actions .view-tabs-quick-search {
+  flex: 1 1 auto;
+  width: auto;
 }
 
 .view-tabs .view-tabs-quick-search-clear {
