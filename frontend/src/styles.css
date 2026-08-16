@@ -1623,10 +1623,10 @@ summary:focus-visible {
 .quick-add-wine-button {
   display: inline-grid;
   flex: 0 0 auto;
-  width: 42px;
-  height: 42px;
-  min-height: 42px;
-  margin: -2px 0 -2px 2px;
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  margin: 0;
   padding: 0;
   place-items: center;
   border: 0;
@@ -1638,8 +1638,8 @@ summary:focus-visible {
 .quick-add-wine-artwork {
   position: relative;
   display: block;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   overflow: hidden;
   border-radius: 50%;
   box-shadow: 0 5px 13px color-mix(in srgb, #6f0738 34%, transparent);
@@ -14652,7 +14652,7 @@ textarea {
   align-items: center;
   min-width: 0;
   margin-left: auto;
-  gap: 8px;
+  gap: 10px;
 }
 
 .view-tabs-quick-search .app-icon {
@@ -14769,7 +14769,7 @@ textarea {
 }
 
 .view-tabs .view-tabs-quick-actions {
-  flex: 0 1 clamp(230px, 21vw, 332px);
+  flex: 0 1 auto;
 }
 
 .view-tabs .view-tabs-quick-actions .view-tabs-quick-search {
