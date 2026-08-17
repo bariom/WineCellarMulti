@@ -62,7 +62,7 @@
 .marketing-header-actions { display: flex; align-items: center; gap: 7px; }
 .marketing-header-actions select { min-height: 42px; padding: 0 28px 0 10px; border: 0; color: var(--mk-muted); background-color: transparent; font-size: .76rem; font-weight: 800; }
 .marketing-menu-toggle { display: none; }
-.marketing-mobile-login { display: none; }
+.marketing-mobile-login { display: inline-flex; min-height: 42px; margin-left: auto; padding: 0 14px; }
 
 .marketing-button {
   display: inline-flex;
@@ -238,7 +238,6 @@
 }
 
 @media (max-width: 1160px) {
-  .marketing-mobile-login { display: inline-flex; min-height: 42px; margin-left: auto; padding: 0 14px; }
   .marketing-header-actions .marketing-menu-login { display: none; }
   .marketing-menu-toggle { position: relative; z-index: 3; display: grid; width: 44px; min-width: 44px; height: 44px; padding: 11px; place-content: center; gap: 4px; border: 1px solid var(--mk-line); border-radius: 12px; background: #fbf8f1; }
   .marketing-menu-toggle i { display: block; width: 19px; height: 2px; border-radius: 2px; background: var(--mk-ink); transition: transform .2s ease, opacity .2s ease; }

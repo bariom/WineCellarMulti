@@ -13,6 +13,7 @@ type LandingHeaderProps = {
 export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, onRegister }: LandingHeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [showMobileLogin, setShowMobileLogin] = useState(false);
   const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
@@ -47,6 +48,13 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
     return () => window.removeEventListener("resize", closeOnWideViewport);
   }, []);
 
+  useEffect(() => {
+    const updateMobileLogin = () => setShowMobileLogin(window.innerWidth <= 600);
+    updateMobileLogin();
+    window.addEventListener("resize", updateMobileLogin, { passive: true });
+    return () => window.removeEventListener("resize", updateMobileLogin);
+  }, []);
+
   const navItems = [
     ["#product", copy.nav.product],
     ["#maturity", copy.nav.maturity],
@@ -61,7 +69,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
         <img src="/icons/icon-192.png" alt="" width="42" height="42" fetchPriority="high" />
         <span><strong>Vinaris</strong><small>Vinaris - Private Cellar Intelligence</small></span>
       </a>
-      <button type="button" className="marketing-button secondary compact marketing-mobile-login" onClick={onLogin}>{copy.header.login}</button>
+      {showMobileLogin ? <button type="button" className="marketing-button secondary compact marketing-mobile-login" onClick={onLogin}>{copy.header.login}</button> : null}
       <button
         type="button"
         className="marketing-menu-toggle"
