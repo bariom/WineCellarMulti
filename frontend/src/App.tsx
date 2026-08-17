@@ -7078,7 +7078,13 @@ export function App() {
     setSaving(true);
     setError("");
     try {
-      const csvText = await file.text();
+      const bytes = await file.arrayBuffer();
+      const utf8Text = new TextDecoder("utf-8").decode(bytes);
+      // CellarTracker commonly exports CSV files in Windows-1252. Re-decode only
+      // when UTF-8 replacement characters prove that the file is not UTF-8.
+      const csvText = utf8Text.includes("\uFFFD")
+        ? new TextDecoder("windows-1252").decode(bytes)
+        : utf8Text;
       const preview = await api<ImportPreview>("/api/v1/imports/cellartracker/preview", {
         method: "POST", body: JSON.stringify({ csv_text: csvText }),
       });
@@ -13758,10 +13764,26 @@ export function App() {
                   {importPreview ? (
                     <div className="token-box">
                       <strong>{t("importReady")}: {importFileName}</strong>
-                      <span>{importPreview.format === "vinaris" ? "Vinaris export v2" : importPreview.format === "cellartracker" ? "CellarTracker My Cellar CSV" : "Legacy WineCellar JSON"}</span>
+                      <span>{importPreview.format === "vinaris" ? "Vinaris export v2" : importPreview.format === "cellartracker" ? "CellarTracker My Cellar CSV" : locale === "it" ? "JSON legacy compatibile" : "Compatible legacy JSON"}</span>
                       {importPreview.included_blocks.length ? <span>{importPreview.included_blocks.join(", ")}</span> : null}
                       <span>{t("wines")}: {importPreview.wine_new} {t("newItems")}, {importPreview.wine_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wines_total}</span>
                       <span>{t("wishlist")}: {importPreview.wishlist_new} {t("newItems")}, {importPreview.wishlist_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wishlist_total}</span>
+                      {session?.is_free_tier && typeof importPreview.free_tier_label_limit === "number" ? (
+                        <span>
+                          {(() => {
+                            const missing = Math.max(
+                              importPreview.free_tier_labels_required - Math.max(importPreview.free_tier_label_limit - importPreview.free_tier_active_labels, 0),
+                              0,
+                            );
+                            if (!missing) return locale === "it"
+                              ? `Piano gratuito: puoi importare tutti i ${importPreview.wines_total} vini.`
+                              : `Free plan: you can import all ${importPreview.wines_total} wines.`;
+                            return locale === "it"
+                              ? `Piano gratuito: importabili ${importPreview.free_tier_importable_wines ?? 0} di ${importPreview.wines_total} vini. Servono ${missing} posti aggiuntivi oppure un abbonamento.`
+                              : `Free plan: ${importPreview.free_tier_importable_wines ?? 0} of ${importPreview.wines_total} wines can be imported. ${missing} more label slots or a subscription are required.`;
+                          })()}
+                        </span>
+                      ) : null}
                       {importPreview.members_total || importPreview.invites_total || importPreview.share_offers_total || importPreview.user_tags_total || importPreview.ai_audit_total ? (
                         <small>
                           {[

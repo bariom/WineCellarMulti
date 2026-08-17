@@ -7008,6 +7008,7 @@ def test_cellartracker_csv_import_maps_cellar_data():
     assert preview.status_code == 200, preview.text
     assert preview.json()["format"] == "cellartracker"
     assert preview.json()["wine_new"] == 2
+    assert preview.json()["free_tier_label_limit"] is None
 
     response = client.post("/api/v1/imports/cellartracker?mode=skip_duplicates", json={"csv_text": csv_text})
     assert response.status_code == 200, response.text

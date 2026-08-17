@@ -36,7 +36,12 @@ from app.models import (
     WishlistItem,
     WishlistList,
 )
-from app.services.free_tier import ensure_free_tier_label_capacity
+from app.services.free_tier import (
+    ensure_free_tier_label_capacity,
+    free_tier_label_limit,
+    household_active_label_count,
+    is_free_tier,
+)
 from app.services.storage import (
     add_to_storage,
     allocation_responses_by_wine,
@@ -97,6 +102,10 @@ class LegacyImportPreview(BaseModel):
     user_tags_total: int = 0
     ai_audit_total: int = 0
     sales_total: int = 0
+    free_tier_label_limit: int | None = None
+    free_tier_active_labels: int = 0
+    free_tier_labels_required: int = 0
+    free_tier_importable_wines: int | None = None
 
 
 class CellarTrackerImportPayload(BaseModel):
@@ -713,6 +722,67 @@ def cellartracker_wine_data(row: dict[str, str], context: CurrentContext) -> dic
         "scores": cellartracker_scores(row), "tags": ["CellarTracker"],
         "vineyard_name": "" if as_str(row.get("Vineyard")).lower() == "unknown" else as_str(row.get("Vineyard")),
         "vineyard_country": as_str(row.get("Country")), "vineyard_locality": as_str(row.get("SubRegion")),
+    }
+
+
+def cellartracker_free_tier_capacity(
+    db: Session, context: CurrentContext, wines: list[dict[str, Any]]
+) -> dict[str, int | None]:
+    if not is_free_tier(context):
+        return {
+            "free_tier_label_limit": None,
+            "free_tier_active_labels": 0,
+            "free_tier_labels_required": 0,
+            "free_tier_importable_wines": None,
+        }
+    active_keys = {
+        (
+            normalize_key_part(wine.producer),
+            normalize_key_part(wine.name),
+            normalize_key_part(wine.vintage),
+        )
+        for wine in db.scalars(
+            select(Wine).where(Wine.household_id == context.household.id, Wine.quantity > 0)
+        )
+    }
+    required_keys: set[tuple[str, str, str]] = set()
+    importable_wines = 0
+    available = max(free_tier_label_limit() - household_active_label_count(db, context), 0)
+    for wine in wines:
+        if int(wine.get("quantity") or 0) <= 0:
+            importable_wines += 1
+            continue
+        key = (
+            normalize_key_part(wine.get("producer")),
+            normalize_key_part(wine.get("name")),
+            normalize_key_part(wine.get("vintage")),
+        )
+        if key in active_keys or key in required_keys:
+            importable_wines += 1
+            continue
+        if len(required_keys) >= available:
+            continue
+        required_keys.add(key)
+        importable_wines += 1
+    all_required = {
+        (
+            normalize_key_part(wine.get("producer")),
+            normalize_key_part(wine.get("name")),
+            normalize_key_part(wine.get("vintage")),
+        )
+        for wine in wines
+        if int(wine.get("quantity") or 0) > 0
+        and (
+            normalize_key_part(wine.get("producer")),
+            normalize_key_part(wine.get("name")),
+            normalize_key_part(wine.get("vintage")),
+        ) not in active_keys
+    }
+    return {
+        "free_tier_label_limit": free_tier_label_limit(),
+        "free_tier_active_labels": household_active_label_count(db, context),
+        "free_tier_labels_required": len(all_required),
+        "free_tier_importable_wines": importable_wines,
     }
 
 
@@ -1482,8 +1552,8 @@ def preview_cellartracker_import(
     rows = cellartracker_rows(payload)
     wine_keys = existing_wine_keys(db, context)
     duplicates: list[str] = []
-    for row in rows:
-        data = cellartracker_wine_data(row, context)
+    wines = [cellartracker_wine_data(row, context) for row in rows]
+    for data in wines:
         if wine_duplicate_key(data) in wine_keys:
             duplicates.append(data["name"])
     return LegacyImportPreview(
@@ -1493,6 +1563,7 @@ def preview_cellartracker_import(
         wine_duplicates=len(duplicates), wishlist_duplicates=0,
         wine_new=len(rows) - len(duplicates), wishlist_new=0,
         sample_wine_duplicates=duplicates[:5],
+        **cellartracker_free_tier_capacity(db, context, wines),
     )
 
 

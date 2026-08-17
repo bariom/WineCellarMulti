@@ -317,6 +317,10 @@ export type ImportPreview = {
   user_tags_total: number;
   ai_audit_total: number;
   sales_total: number;
+  free_tier_label_limit: number | null;
+  free_tier_active_labels: number;
+  free_tier_labels_required: number;
+  free_tier_importable_wines: number | null;
 };
 
 export type ImportResult = {
