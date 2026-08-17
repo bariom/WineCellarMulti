@@ -1386,6 +1386,8 @@ export function App() {
   const [aiSettingsHelpOpen, setAiSettingsHelpOpen] = useState(false);
   const [aiModelsHelpOpen, setAiModelsHelpOpen] = useState(false);
   const [importPayload, setImportPayload] = useState<Record<string, unknown> | null>(null);
+  const [cellarTrackerCsvText, setCellarTrackerCsvText] = useState("");
+  const [importSource, setImportSource] = useState<"vinaris" | "cellartracker">("vinaris");
   const [importFileName, setImportFileName] = useState("");
   const [importMode, setImportMode] = useState<ImportMode>("skip_duplicates");
   const [importPreview, setImportPreview] = useState<ImportPreview | null>(null);
@@ -4135,6 +4137,8 @@ export function App() {
         body: JSON.stringify(payload),
       });
       setImportPayload(payload);
+      setCellarTrackerCsvText("");
+      setImportSource("vinaris");
       setImportFileName(file.name);
       setImportPreview(preview);
       setImportSelection(importSelectionFromBlocks(preview.included_blocks));
@@ -4148,7 +4152,7 @@ export function App() {
   }
 
   async function runLegacyImport() {
-    if (!importPayload) return;
+    if (!importPayload && !cellarTrackerCsvText) return;
     if (importMode === "replace_all") {
       const firstConfirm = window.confirm("Questa operazione cancella prima tutti i vini e la wishlist della cantina attiva. Continuare?");
       if (!firstConfirm) return;
@@ -4158,16 +4162,18 @@ export function App() {
     setSaving(true);
     setError("");
     try {
-      const result = await api<ImportResult>(`/api/v1/imports/json?mode=${importMode}`, {
+      const endpoint = importSource === "cellartracker" ? "/api/v1/imports/cellartracker" : "/api/v1/imports/json";
+      const body = importSource === "cellartracker"
+        ? { csv_text: cellarTrackerCsvText }
+        : { ...importPayload, import_blocks: exportBlocks.filter(({ key }) => importSelection[key]).map(({ key }) => key) };
+      const result = await api<ImportResult>(`${endpoint}?mode=${importMode}`, {
         method: "POST",
-        body: JSON.stringify({
-          ...importPayload,
-          import_blocks: exportBlocks.filter(({ key }) => importSelection[key]).map(({ key }) => key),
-        }),
+        body: JSON.stringify(body),
       });
       setImportResult(result);
       setImportPreview(null);
       setImportPayload(null);
+      setCellarTrackerCsvText("");
       setImportFileName("");
       await Promise.all([loadWines(), loadWishlist(), loadWishlistLists(), loadHouseholdData(), loadTags(), loadAiAudit(session?.membership_role)]);
     } catch (nextError) {
@@ -7063,6 +7069,31 @@ export function App() {
         window.history.pushState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
         mobileWineDetailHistoryActiveRef.current = true;
       }
+    }
+  }
+
+  async function importCellarTrackerFile(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setSaving(true);
+    setError("");
+    try {
+      const csvText = await file.text();
+      const preview = await api<ImportPreview>("/api/v1/imports/cellartracker/preview", {
+        method: "POST", body: JSON.stringify({ csv_text: csvText }),
+      });
+      setImportPayload(null);
+      setCellarTrackerCsvText(csvText);
+      setImportSource("cellartracker");
+      setImportFileName(file.name);
+      setImportPreview(preview);
+      setImportSelection(importSelectionFromBlocks(preview.included_blocks));
+      setImportResult(null);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to import CellarTracker CSV");
+    } finally {
+      setSaving(false);
+      event.target.value = "";
     }
   }
 
@@ -13718,11 +13749,16 @@ export function App() {
                     <span>Vinaris JSON</span>
                     <input type="file" accept="application/json,.json" onChange={importLegacyFile} disabled={saving} />
                   </label>
+                  <label>
+                    <span>CellarTracker CSV</span>
+                    <input type="file" accept="text/csv,.csv" onChange={importCellarTrackerFile} disabled={saving} />
+                    <small>{locale === "it" ? "Esporta “My Cellar” da CellarTracker: l’anteprima mostra nuovi vini e duplicati prima dell’import." : "Export “My Cellar” from CellarTracker: preview new wines and duplicates before importing."}</small>
+                  </label>
                   {saving && !importPreview && !importResult ? <LoadingState label={t("loadingData")} compact /> : null}
                   {importPreview ? (
                     <div className="token-box">
                       <strong>{t("importReady")}: {importFileName}</strong>
-                      <span>{importPreview.format === "vinaris" ? "Vinaris export v2" : "Legacy WineCellar JSON"}</span>
+                      <span>{importPreview.format === "vinaris" ? "Vinaris export v2" : importPreview.format === "cellartracker" ? "CellarTracker My Cellar CSV" : "Legacy WineCellar JSON"}</span>
                       {importPreview.included_blocks.length ? <span>{importPreview.included_blocks.join(", ")}</span> : null}
                       <span>{t("wines")}: {importPreview.wine_new} {t("newItems")}, {importPreview.wine_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wines_total}</span>
                       <span>{t("wishlist")}: {importPreview.wishlist_new} {t("newItems")}, {importPreview.wishlist_duplicates} {t("probableDuplicates")} {t("of")} {importPreview.wishlist_total}</span>
@@ -13764,8 +13800,8 @@ export function App() {
                     </div>
                   ) : null}
                   <div className="inline-form">
-                    <button type="button" disabled={saving || !importPayload} onClick={runLegacyImport}>
-                      <ButtonBusyContent busy={saving && Boolean(importPayload)} idleLabel={t("importRun")} busyLabel={t("loadingData")} icon={appActionSvgIcon("import")} />
+                    <button type="button" disabled={saving || (!importPayload && !cellarTrackerCsvText)} onClick={runLegacyImport}>
+                      <ButtonBusyContent busy={saving && Boolean(importPayload || cellarTrackerCsvText)} idleLabel={t("importRun")} busyLabel={t("loadingData")} icon={appActionSvgIcon("import")} />
                     </button>
                   </div>
                   {importResult ? (

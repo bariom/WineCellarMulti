@@ -6994,3 +6994,36 @@ def test_luna_provider_error_is_non_blocking(monkeypatch):
     )
     assert response.status_code == 200
     assert response.json()["status"] == "error"
+
+
+def test_cellartracker_csv_import_maps_cellar_data():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    csv_text = (
+        '"iWine","Type","Color","Category","Size","Currency","Value","Price","Quantity","Pending","Vintage","Wine","Producer","Varietal","MasterVarietal","Vineyard","Country","Region","SubRegion","Appellation","BeginConsume","EndConsume","WindowSource","PNotes","WA","WAWeb"\n'
+        '"5693982","Red","Red","Dry","750ml","EUR","37,4331","37,4331","4","0","2021","Azienda Mondo Ronco dei Ciliegi Riserva","Azienda Mondo","Red Bordeaux Blend","Red Bordeaux Blend","Unknown","Switzerland","Ticino","Unknown","Ticino","2025","2032","Community Average","Private cellar note","94","https://example.com/wa"\n'
+        '"4298059","White - Sparkling","White","Sparkling","750ml","EUR","240","240","1","0","1001","Krug Champagne Brut Grande Cuvée Edition 170ème","Krug","Champagne Blend","Champagne Blend","Unknown","France","Champagne","Unknown","Champagne","9999","9999","Community Average","","",""\n'
+    )
+    preview = client.post("/api/v1/imports/cellartracker/preview", json={"csv_text": csv_text})
+    assert preview.status_code == 200, preview.text
+    assert preview.json()["format"] == "cellartracker"
+    assert preview.json()["wine_new"] == 2
+
+    response = client.post("/api/v1/imports/cellartracker?mode=skip_duplicates", json={"csv_text": csv_text})
+    assert response.status_code == 200, response.text
+    assert response.json()["wines_imported"] == 2
+    wines = client.get("/api/v1/wines").json()
+    mondo = next(wine for wine in wines if wine["producer"] == "Azienda Mondo")
+    assert mondo["quantity"] == 4
+    assert mondo["currency"] == "EUR"
+    assert mondo["price"] == "37.43"
+    assert mondo["current_value"] == "37.43"
+    assert mondo["format"] == "Bottle (750ml)"
+    assert mondo["type"] == "Red"
+    assert mondo["region"] == "Ticino"
+    assert mondo["appellation"] == "Ticino"
+    assert mondo["drink_from"] == 2025
+    assert mondo["drink_to"] == 2032
+    assert mondo["grapes"] == [{"name": "Red Bordeaux Blend"}]
+    assert mondo["scores"] == [{"critic": "Wine Advocate", "score": "94", "note": "https://example.com/wa"}]
+    assert next(wine for wine in wines if wine["producer"] == "Krug")["vintage"] == "NV"

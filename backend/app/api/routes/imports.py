@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import json
 from datetime import UTC, date, datetime
 from decimal import Decimal, InvalidOperation
@@ -95,6 +97,10 @@ class LegacyImportPreview(BaseModel):
     user_tags_total: int = 0
     ai_audit_total: int = 0
     sales_total: int = 0
+
+
+class CellarTrackerImportPayload(BaseModel):
+    csv_text: str = Field(min_length=1, max_length=10_000_000)
 
 
 def as_uuid(value: Any) -> UUID:
@@ -598,6 +604,115 @@ def legacy_wine_data(raw: dict[str, Any], context: CurrentContext) -> dict[str, 
         "scores": as_list(raw.get("scores")),
         "scores_not_applicable": raw.get("scores_not_applicable") in (True, "1", 1, "true", "True"),
         "tasting_history": as_list(raw.get("tasting_history")),
+    }
+
+
+CELLARTRACKER_SCORE_COLUMNS = (
+    ("WA", "Wine Advocate", "WAWeb"),
+    ("IWC", "International Wine Challenge", "IWCWeb"),
+    ("WS", "Wine Spectator", "WSWeb"),
+    ("WE", "Wine Enthusiast", "WEWeb"),
+    ("BR", "Burghound", "BRWeb"),
+    ("GV", "Gambero Rosso", "GVWeb"),
+    ("LF", "La Lettre du Vin", "LFWeb"),
+    ("LD", "Le Dom du Vin", "LDWeb"),
+    ("SJ", "Stephen Tanzer", "SJWeb"),
+    ("GA", "Gilman", "GAWeb"),
+    ("WWR", "Wine Wizard Reviews", "WWRWeb"),
+    ("TT", "The Tasting", "TTWeb"),
+    ("FP", "Fine Pickings", "FPWeb"),
+)
+
+
+def cellartracker_decimal(value: Any) -> Decimal:
+    text = as_str(value).replace("\u00a0", "").replace(" ", "")
+    if not text:
+        return Decimal("0")
+    if "," in text and "." in text:
+        if text.rfind(",") > text.rfind("."):
+            text = text.replace(".", "").replace(",", ".")
+        else:
+            text = text.replace(",", "")
+    elif "," in text:
+        text = text.replace(",", ".")
+    return as_decimal(text)
+
+
+def cellartracker_format(value: Any) -> str:
+    size = as_str(value).lower().replace(" ", "")
+    formats = {
+        "187ml": "Piccolo (187ml)", "375ml": "Mezza bottiglia (375ml)",
+        "500ml": "Bottiglia (500ml)", "750ml": "Bottle (750ml)",
+        "1.5l": "Magnum (1.5L)", "1500ml": "Magnum (1.5L)",
+        "3l": "Double Magnum (3L)", "3000ml": "Double Magnum (3L)",
+        "6l": "Imperial (6L)", "6000ml": "Imperial (6L)",
+    }
+    return formats.get(size, as_str(value))
+
+
+def cellartracker_type(row: dict[str, str]) -> str:
+    category = as_str(row.get("Category"))
+    color = as_str(row.get("Color"))
+    if category.lower() == "sparkling":
+        return "Sparkling"
+    if category.lower() == "sweet":
+        return "Sweet"
+    if category.lower() == "fortified":
+        return "Fortified"
+    return normalize_wine_type(color or row.get("Type"))
+
+
+def cellartracker_vintage(value: Any) -> str:
+    vintage = as_str(value)
+    return "NV" if vintage in {"1001", "9999", "NV", "N.V."} else vintage
+
+
+def cellartracker_scores(row: dict[str, str]) -> list[dict[str, str]]:
+    scores: list[dict[str, str]] = []
+    for score_column, critic, link_column in CELLARTRACKER_SCORE_COLUMNS:
+        score = as_str(row.get(score_column))
+        if score:
+            scores.append({"critic": critic, "score": score, "note": as_str(row.get(link_column))})
+    personal_score = as_str(row.get("PScore"))
+    if personal_score:
+        scores.append({"critic": "CellarTracker personal", "score": personal_score, "note": ""})
+    return scores
+
+
+def cellartracker_rows(payload: CellarTrackerImportPayload) -> list[dict[str, str]]:
+    try:
+        rows = list(csv.DictReader(io.StringIO(payload.csv_text.lstrip("\ufeff"))))
+    except csv.Error as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid CellarTracker CSV: {exc}") from exc
+    if not rows or "Wine" not in (rows[0] or {}):
+        raise HTTPException(status_code=400, detail="Not a CellarTracker My Cellar CSV export")
+    return [{key: as_str(value) for key, value in row.items() if key} for row in rows if as_str(row.get("Wine"))]
+
+
+def cellartracker_wine_data(row: dict[str, str], context: CurrentContext) -> dict[str, Any]:
+    pending = max(as_int(row.get("Pending")), 0)
+    notes = [as_str(row.get("PNotes"))]
+    if as_str(row.get("Vineyard")) and as_str(row.get("Vineyard")).lower() != "unknown":
+        notes.append(f"Vigneto CellarTracker: {as_str(row.get('Vineyard'))}")
+    if pending:
+        notes.append(f"CellarTracker: {pending} bottiglie ancora in ordine.")
+    window_source = as_str(row.get("WindowSource"))
+    return {
+        "id": uuid4(), "household_id": context.household.id, "created_by_user_id": context.user.id,
+        "name": as_str(row.get("Wine")) or "Unnamed wine", "producer": as_str(row.get("Producer")),
+        "vintage": cellartracker_vintage(row.get("Vintage")), "quantity": max(as_int(row.get("Quantity")), 0),
+        "currency": as_str(row.get("Currency")) or "CHF", "price": cellartracker_decimal(row.get("Price")),
+        "current_value": cellartracker_decimal(row.get("Value")) if as_str(row.get("Value")) else None,
+        "status": "Delivered", "format": cellartracker_format(row.get("Size")), "type": cellartracker_type(row),
+        "region": as_str(row.get("Region")), "appellation": as_str(row.get("Appellation")),
+        "notes": "\n".join(part for part in notes if part),
+        "drink_from": as_optional_int(row.get("BeginConsume")) if as_str(row.get("BeginConsume")) not in {"9999", ""} else None,
+        "drink_to": as_optional_int(row.get("EndConsume")) if as_str(row.get("EndConsume")) not in {"9999", ""} else None,
+        "drink_window_notes": f"Fonte finestra di beva: {window_source}" if window_source else "",
+        "grapes": ([{"name": as_str(row.get("MasterVarietal")) or as_str(row.get("Varietal"))}] if (as_str(row.get("MasterVarietal")) or as_str(row.get("Varietal"))) else []),
+        "scores": cellartracker_scores(row), "tags": ["CellarTracker"],
+        "vineyard_name": "" if as_str(row.get("Vineyard")).lower() == "unknown" else as_str(row.get("Vineyard")),
+        "vineyard_country": as_str(row.get("Country")), "vineyard_locality": as_str(row.get("SubRegion")),
     }
 
 
@@ -1356,6 +1471,70 @@ def preview_json_import(
     if is_vinaris_export(payload):
         return vinaris_preview_payload(payload, db, context)
     return preview_legacy_json(payload, db, context)
+
+
+@router.post("/cellartracker/preview", response_model=LegacyImportPreview)
+def preview_cellartracker_import(
+    payload: CellarTrackerImportPayload,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> LegacyImportPreview:
+    rows = cellartracker_rows(payload)
+    wine_keys = existing_wine_keys(db, context)
+    duplicates: list[str] = []
+    for row in rows:
+        data = cellartracker_wine_data(row, context)
+        if wine_duplicate_key(data) in wine_keys:
+            duplicates.append(data["name"])
+    return LegacyImportPreview(
+        format="cellartracker",
+        included_blocks=["wines"],
+        wines_total=len(rows), wishlist_total=0,
+        wine_duplicates=len(duplicates), wishlist_duplicates=0,
+        wine_new=len(rows) - len(duplicates), wishlist_new=0,
+        sample_wine_duplicates=duplicates[:5],
+    )
+
+
+@router.post("/cellartracker", response_model=LegacyImportResult)
+def import_cellartracker(
+    payload: CellarTrackerImportPayload,
+    mode: str = Query(default="skip_duplicates", pattern="^(add_all|skip_duplicates|update_existing|replace_all)$"),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_admin_context),
+) -> LegacyImportResult:
+    rows = cellartracker_rows(payload)
+    result = LegacyImportResult(wines_imported=0, wishlist_imported=0)
+    if mode == "replace_all":
+        result.wines_deleted, result.wishlist_deleted = clear_household_cellar(db, context)
+        db.flush()
+    wine_keys = existing_wine_keys(db, context)
+    for row in rows:
+        data = cellartracker_wine_data(row, context)
+        key = wine_duplicate_key(data)
+        existing = wine_keys.get(key)
+        if mode == "skip_duplicates" and existing is not None:
+            result.wines_skipped += 1
+            continue
+        if mode == "update_existing" and existing is not None:
+            ensure_free_tier_label_capacity(db, context, wine=existing, will_be_active=data["quantity"] > 0)
+            for field, value in data.items():
+                if field not in {"id", "household_id", "created_by_user_id"}:
+                    setattr(existing, field, value)
+            wine = existing
+            result.wines_updated += 1
+        else:
+            ensure_free_tier_label_capacity(db, context, will_be_active=data["quantity"] > 0)
+            wine = Wine(**data)
+            db.add(wine)
+            wine_keys[key] = wine
+            result.wines_imported += 1
+        db.flush()
+        set_user_wine_tags(db, context, wine, data["tags"])
+        if wine.current_value is not None:
+            db.add(WineValueHistory(wine_id=wine.id, value=wine.current_value, currency=wine.currency, source="imported"))
+    db.commit()
+    return result
 
 
 @router.post("/legacy-json", response_model=LegacyImportResult)
