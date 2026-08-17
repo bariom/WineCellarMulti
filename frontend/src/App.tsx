@@ -1442,6 +1442,7 @@ export function App() {
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
+  const [wineStorageFocus, setWineStorageFocus] = useState<{ wineId: string; requestId: number } | null>(null);
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
   const [pairingWineDetailId, setPairingWineDetailId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
@@ -7047,6 +7048,7 @@ export function App() {
   }
 
   function toggleSelectedWine(wine: Wine) {
+    setWineStorageFocus(null);
     const tone = wineTone(wine.type);
     if (selectedWineId === wine.id) {
       closeMobileWineDetail();
@@ -7054,6 +7056,20 @@ export function App() {
     }
     setOpenWineToneGroups((groups) => ({ ...groups, [tone]: true }));
     setSelectedWineId(wine.id);
+    if (isMobileViewport) {
+      if (mobileWineDetailHistoryActiveRef.current) {
+        window.history.replaceState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
+      } else {
+        window.history.pushState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
+        mobileWineDetailHistoryActiveRef.current = true;
+      }
+    }
+  }
+
+  function openWineStoragePanel(wine: Wine) {
+    setOpenWineToneGroups((groups) => ({ ...groups, [wineTone(wine.type)]: true }));
+    setSelectedWineId(wine.id);
+    setWineStorageFocus((current) => ({ wineId: wine.id, requestId: (current?.requestId || 0) + 1 }));
     if (isMobileViewport) {
       if (mobileWineDetailHistoryActiveRef.current) {
         window.history.replaceState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
@@ -7583,6 +7599,7 @@ export function App() {
   }
 
   function openWineInView(wine: Wine, view: "cellar" | "history", nextHistorySection: HistorySection = "wines") {
+    setWineStorageFocus(null);
     setActiveView(view);
     if (view === "history") {
       setHistorySection(nextHistorySection);
@@ -8063,6 +8080,7 @@ export function App() {
           setDetailWinePhotoSuggestionWineId(null);
         }}
         showBottlePhoto={canAccessWinePhotos}
+        focusStorageRequestId={wineStorageFocus?.wineId === wine.id ? wineStorageFocus.requestId : null}
         t={t}
         locale={locale}
       />
@@ -12146,13 +12164,20 @@ export function App() {
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
                       <span className="wine-quantity">{wineQuantityLabel(wine, session, t("bottles").toLowerCase(), locale, isRestaurant)}</span>
                       <WineStatusBadge status={wine.status} locale={locale} compact />
-                      {wine.storage_allocations?.length ? <span className="row-chip wine-storage-chip">
+                      {wine.storage_allocations?.length ? <button
+                        type="button"
+                        className="row-chip wine-storage-chip"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openWineStoragePanel(wine);
+                        }}
+                      >
                         <AppIcon name="location" variant="action" size="0.85rem" />
                         {wine.storage_allocations[0].location_id
                           ? `${wine.storage_allocations[0].location_name}${wine.storage_allocations[0].bin_name ? ` · ${wine.storage_allocations[0].bin_name}` : ""}`
                           : (locale === "it" ? "Da collocare" : "Unassigned")}
                         {wine.storage_allocations.length > 1 ? ` +${wine.storage_allocations.length - 1}` : ""}
-                      </span> : null}
+                      </button> : null}
                       {activeView === "cellar" && isSommelierSpotlightWine(wine) ? (
                         <button
                           type="button"

@@ -21658,3 +21658,26 @@ body,
 .storage-location-list > details > summary { display: flex; justify-content: space-between; gap: 1rem; cursor: pointer; }
 .storage-admin-actions { display: flex; justify-content: flex-end; gap: .45rem; margin: .65rem 0; }
 .storage-manager .tag-admin-row { align-items: center; }
+
+/* Keep the pairing workspace complete in a standard desktop viewport. */
+@media (min-width: 1024px) {
+  .pairing-card { gap: 10px; padding: 14px; }
+  .pairing-layout { grid-template-columns: minmax(0, 1.35fr) minmax(250px, 300px); gap: 14px; }
+  .pairing-main, .pairing-form { gap: 8px; }
+  .pairing-form { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 12px; }
+  .pairing-form > :not(.pairing-option) { grid-column: 1 / -1; }
+  .pairing-form textarea { min-height: 68px; height: 68px; line-height: 1.35; }
+  .pairing-budget-control { gap: 7px; padding: 10px 12px; }
+  .pairing-budget-head strong { font-size: 1.08rem; }
+  .pairing-budget-control input[type="range"] { min-height: 16px; }
+  .pairing-budget-fields { grid-template-columns: minmax(110px, 150px) minmax(0, 1fr); gap: 9px; }
+  .pairing-budget-presets { gap: 6px; }
+  .pairing-budget-presets button { min-height: 31px; padding: 5px 9px; font-size: 0.8rem; }
+  .pairing-budget-control small, .pairing-form > label > small { font-size: 0.72rem; line-height: 1.25; }
+  .pairing-preferences-actions { margin-top: -2px; }
+  .pairing-option { min-height: 25px; gap: 7px; font-size: 0.8rem; line-height: 1.2; }
+  .pairing-sidekick { gap: 10px; }
+  .pairing-sidekick-card { gap: 8px; padding: 10px; }
+  .pairing-sidekick-illustration img { height: 218px; object-fit: contain; }
+  .pairing-sidekick-empty { font-size: 0.8rem; line-height: 1.35; }
+}

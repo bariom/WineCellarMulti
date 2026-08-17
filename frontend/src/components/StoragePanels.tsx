@@ -1,4 +1,4 @@
-import { useEffect, useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../services/api";
@@ -72,8 +72,8 @@ export function WineLocationPicker({ locale, locationId, binId, disabled, onChan
   </div>;
 }
 
-export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
-  wine: Wine; canWrite: boolean; locale: Locale; onChanged: () => Promise<void> | void;
+export function WineStorageSection({ wine, canWrite, locale, onChanged, focusRequestId = null }: {
+  wine: Wine; canWrite: boolean; locale: Locale; onChanged: () => Promise<void> | void; focusRequestId?: number | null;
 }) {
   const [allocations, setAllocations] = useState<StorageAllocation[]>(wine.storage_allocations || []);
   const [sourceId, setSourceId] = useState("");
@@ -82,6 +82,7 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
   const [quantity, setQuantity] = useState("1");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const sectionRef = useRef<HTMLDetailsElement>(null);
   const selectedSource = allocations.find((item) => item.id === sourceId);
   async function load() {
     const nextAllocations = await api<StorageAllocation[]>(`/api/v1/storage/allocations?wine_id=${wine.id}`);
@@ -89,6 +90,11 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
     setSourceId((current) => nextAllocations.some((item) => item.id === current) ? current : (nextAllocations[0]?.id || ""));
   }
   useEffect(() => { void load().catch(() => setAllocations(wine.storage_allocations || [])); }, [wine.id]);
+  useEffect(() => {
+    if (focusRequestId === null) return;
+    const frame = window.requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusRequestId]);
   async function relocate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (!sourceId || loading) return; setLoading(true); setError("");
     try {
@@ -96,7 +102,7 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged }: {
       setAllocations(next); setSourceId(next[0]?.id || ""); setQuantity("1"); await onChanged();
     } catch (nextError) { setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Spostamento non riuscito" : "Unable to move bottles")); } finally { setLoading(false); }
   }
-  return <details className="detail-section wine-storage-section" open>
+  return <details className="detail-section wine-storage-section" open ref={sectionRef}>
     <summary><span>{locale === "it" ? "Collocazione" : "Storage"}</span><strong>{allocations.length}</strong></summary>
     <div className="storage-allocation-list">{allocations.length ? allocations.map((allocation) => <div className="detail-field" key={allocation.id}><span>{positionLabel(allocation, locale)}</span><strong>{allocation.quantity} {locale === "it" ? "bott." : "btl."}</strong></div>) : <p className="empty-state">{locale === "it" ? "Nessuna bottiglia in giacenza." : "No bottles in stock."}</p>}</div>
     {error ? <p className="form-error" role="alert">{error}</p> : null}

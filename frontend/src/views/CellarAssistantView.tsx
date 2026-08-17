@@ -399,6 +399,8 @@ export default function CellarAssistantView({
 
   return (
     <section className="cellar-assistant-view" aria-labelledby="cellar-assistant-title">
+      <div className="cellar-assistant-layout">
+      <div className="cellar-assistant-main">
       <header className="cellar-assistant-hero">
         <span className="cellar-assistant-icon"><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /></span>
         <div>
@@ -408,7 +410,6 @@ export default function CellarAssistantView({
             ? "Racconta cosa hai bevuto o acquistato: Vinaris identifica il vino e prepara l’aggiornamento corretto."
             : "Describe what you drank or purchased: Vinaris identifies the wine and prepares the correct update."}</span>
         </div>
-        <img className="cellar-assistant-hero-illustration" src="/images/assistant-ai-sommelier.png" alt="" aria-hidden="true" />
       </header>
 
       {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><p className="cellar-assistant-help-intro">{isItalian ? "Scegli un esempio per inserirlo nel comando e personalizzarlo." : "Choose an example to place it in the command field and customize it."}</p><div className="cellar-assistant-help-examples"><button type="button" onClick={() => applyExample(consumptionExample)}><strong>{isItalian ? "Bevuta" : "Drinking"}</strong><span>{isItalian ? "Registra nota e voto su scala 6." : "Record notes and a six-point score."}</span></button><button type="button" onClick={() => applyExample(purchaseExample)}><strong>{isItalian ? "Acquisto" : "Purchase"}</strong><span>{isItalian ? "Aggiunge bottiglie o un nuovo lotto." : "Adds bottles or a new purchase lot."}</span></button><button type="button" onClick={() => applyExample(orderExample)}><strong>{isItalian ? "Ordine" : "Order"}</strong><span>{isItalian ? "Registra lo stato ordinato; spedizioni aggiornano ordini esistenti." : "Records an order; shipments update existing orders."}</span></button><button type="button" onClick={() => applyExample(wishlistExample)}><strong>Wishlist</strong><span>{isItalian ? "Salva un vino da valutare con prezzo target." : "Save a wine to evaluate with a target price."}</span></button></div><ul>{isItalian ? <li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li> : <li>Always review the proposal: nothing changes without your confirmation.</li>}</ul></section></div> : null}
@@ -444,14 +445,14 @@ export default function CellarAssistantView({
             </button>
           ) : null}
         </div>
-        <div className="cellar-assistant-primary-action">
+        <div className="cellar-assistant-composer-footer">
+          <small id="cellar-assistant-continue-help">
+            {isItalian ? "Interpreta il testo e prepara il prossimo aggiornamento della cantina." : "Interpret the text and prepare the next cellar update."}
+          </small>
           <button type="submit" disabled={disabled || busy || listening || !text.trim()} aria-describedby="cellar-assistant-continue-help">
             <AppIcon name="glass-sparkle" variant="ai" />
             {busy ? (isItalian ? "Elaborazione…" : "Processing…") : (isItalian ? "Continua" : "Continue")}
           </button>
-          <small id="cellar-assistant-continue-help">
-            {isItalian ? "Interpreta il testo e prepara il prossimo aggiornamento della cantina." : "Interpret the text and prepare the next cellar update."}
-          </small>
         </div>
         {voiceMessage ? <p className={`cellar-assistant-voice-status${listening ? " is-listening" : ""}`} aria-live="polite">{voiceMessage}</p> : null}
         <small>{isItalian
@@ -531,6 +532,11 @@ export default function CellarAssistantView({
           {result.status === "executed" ? <button type="button" className="secondary compact" onClick={() => void undo()} disabled={busy}>{isItalian ? "Annulla aggiornamento" : "Undo update"}</button> : null}
         </article>
       ) : null}
+      </div>
+      <aside className="cellar-assistant-hero-art" aria-hidden="true">
+        <img className="cellar-assistant-hero-illustration" src="/images/assistant-ai-sommelier.png" alt="" />
+      </aside>
+      </div>
     </section>
   );
 }

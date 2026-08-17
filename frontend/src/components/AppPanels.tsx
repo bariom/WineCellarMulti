@@ -958,6 +958,7 @@ export function WineDetail({
   onUseSuggestedPhoto,
   onDismissSuggestedPhoto,
   showBottlePhoto = false,
+  focusStorageRequestId = null,
   t,
   locale,
 }: {
@@ -991,6 +992,7 @@ export function WineDetail({
   onUseSuggestedPhoto?: (sourceWineId: string) => void;
   onDismissSuggestedPhoto?: () => void;
   showBottlePhoto?: boolean;
+  focusStorageRequestId?: number | null;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
@@ -1507,7 +1509,7 @@ export function WineDetail({
       ) : null}
 
       {!restaurantMode ? <WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /> : null}
-      <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} />
+      <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
 
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
         <div className="notes-grid">
