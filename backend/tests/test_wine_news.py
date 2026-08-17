@@ -194,6 +194,32 @@ def test_collector_publishes_curated_article(monkeypatch):
         }
 
 
+def test_collector_records_partial_success_when_a_source_fails(monkeypatch):
+    with TestingSessionLocal() as db:
+        source = WineNewsSource(
+            id="failing-source",
+            name="Failing Wine Journal",
+            feed_url="https://example.com/failing-feed",
+            website_url="https://example.com",
+            language="en",
+            enabled=True,
+        )
+        db.add(source)
+        db.commit()
+        monkeypatch.setattr(wine_news_service, "sync_sources", lambda _db: [source])
+
+        def fail_fetch(_source):
+            raise RuntimeError("Feed unavailable")
+
+        monkeypatch.setattr(wine_news_service, "fetch_source", fail_fetch)
+
+        run = collect_wine_news(db, classifier=editorial_decision)
+
+        assert WineNewsCollectionRun.__table__.c.status.type.length == 32
+        assert run.status == "completed_with_errors"
+        assert run.stats["source_errors"] == 1
+
+
 def test_default_sources_include_broader_editorial_coverage():
     source_ids = {source["id"] for source in wine_news_service.DEFAULT_SOURCES}
 
