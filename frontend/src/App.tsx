@@ -596,12 +596,7 @@ function appUserEntitlementStatus(user: AppUser, locale: Locale): { label: strin
   }
   const days = user.entitlement_days_remaining ?? 0;
   const dayLabel = locale === "it" ? (days === 1 ? "giorno residuo" : "giorni residui") : (days === 1 ? "day remaining" : "days remaining");
-  if (days <= 0) {
-    return {
-      label: locale === "it" ? "Inattivo · nessun giorno residuo" : "Inactive · no days remaining",
-      style: { color: "var(--danger-text)", borderColor: "var(--danger)", background: "var(--danger-surface)" },
-    };
-  }
+  if (days <= 0) return null;
   if (days <= 7) {
     return {
       label: `${locale === "it" ? "In scadenza" : "Expiring"} · ${days} ${dayLabel}`,
@@ -624,10 +619,10 @@ function appUserTierStatus(user: AppUser, locale: Locale): { label: string; conf
         ? (locale === "it" ? "Carta" : "Wine list")
         : hasActiveEntitlement
           ? (locale === "it" ? "Riserva" : "Reserve")
-          : (locale === "it" ? "Degustazione" : "Tasting");
+          : (locale === "it" ? "Gratuito" : "Free");
   return {
     label: `${locale === "it" ? "Piano" : "Tier"} · ${tier}`,
-    configured: tier !== (locale === "it" ? "Degustazione" : "Tasting"),
+    configured: tier !== (locale === "it" ? "Gratuito" : "Free"),
   };
 }
 
@@ -10482,10 +10477,10 @@ export function App() {
               </div>
             ) : null}
             {isWineCollectionView ? (
-              activeView === "cellar" || (selectedVisibleWine && !wineFormOpen) || compareWineIds.length > 0 ? (
+              (activeView === "cellar" && !wineFormOpen) || (selectedVisibleWine && !wineFormOpen) || compareWineIds.length > 0 ? (
               <div className="side-panel-actions">
                 <div className="side-panel-action-buttons">
-                  {activeView === "cellar" ? (
+                  {activeView === "cellar" && !wineFormOpen ? (
                     <button type="button" className="side-panel-add-button" onClick={startAddWine} disabled={!canWriteWine}>
                       {t("addWine")}
                     </button>
