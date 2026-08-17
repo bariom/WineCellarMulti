@@ -991,6 +991,8 @@ def test_register_login_session_and_logout():
     users = client.get("/api/v1/auth/users")
     assert users.status_code == 200
     pending_record = next(user for user in users.json() if user["email"] == "pending@example.com")
+    assert pending_record["last_activity_at"] is not None
+    assert pending_record["last_activity_days_ago"] == 0
     promoted = client.patch(
         f"/api/v1/auth/users/{pending_record['id']}", json={"is_app_admin": True}
     )

@@ -317,6 +317,16 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         "incomplete_expired",
         "unpaid",
     }
+    last_activity_at = most_recent_datetime(
+        db.scalar(select(func.max(UserSession.created_at)).where(UserSession.user_id == user.id)),
+        db.scalar(select(func.max(UserActivityLog.created_at)).where(UserActivityLog.user_id == user.id)),
+        db.scalar(select(func.max(AiAuditLog.created_at)).where(AiAuditLog.user_id == user.id)),
+    )
+    last_activity_days_ago = (
+        max(math.floor((datetime.now(UTC) - last_activity_at).total_seconds() / 86400), 0)
+        if last_activity_at
+        else None
+    )
     return UserAdminResponse(
         id=str(user.id),
         email=user.email,
@@ -336,6 +346,8 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         approved_at=user.approved_at.isoformat() if user.approved_at else None,
         entitlement_valid_until=valid_until.isoformat() if valid_until else None,
         entitlement_days_remaining=max(days_remaining, 0) if days_remaining is not None else None,
+        last_activity_at=last_activity_at.isoformat() if last_activity_at else None,
+        last_activity_days_ago=last_activity_days_ago,
     )
 
 
@@ -346,10 +358,13 @@ def datetime_to_iso(value: datetime | None) -> str | None:
 
 
 def most_recent_iso(*values: datetime | None) -> str | None:
+    latest = most_recent_datetime(*values)
+    return latest.isoformat() if latest else None
+
+
+def most_recent_datetime(*values: datetime | None) -> datetime | None:
     candidates = [utc_datetime(value) for value in values if value is not None]
-    if not candidates:
-        return None
-    return max(candidates).isoformat()
+    return max(candidates) if candidates else None
 
 
 def user_admin_stats(db: Session, users: list[User]) -> list[UserAdminStatsResponse]:
@@ -404,6 +419,14 @@ def user_admin_stats(db: Session, users: list[User]) -> list[UserAdminStatsRespo
             .group_by(UserSession.user_id),
         ).all()
     }
+    last_actions = {
+        user_id: last_action_at
+        for user_id, last_action_at in db.execute(
+            select(UserActivityLog.user_id, func.max(UserActivityLog.created_at))
+            .where(UserActivityLog.user_id.is_not(None))
+            .group_by(UserActivityLog.user_id),
+        ).all()
+    }
 
     return [
         UserAdminStatsResponse(
@@ -420,7 +443,11 @@ def user_admin_stats(db: Session, users: list[User]) -> list[UserAdminStatsRespo
             ai_requests_total=ai_stats.get(user.id, (0, None))[0],
             last_sign_in_at=datetime_to_iso(last_sign_ins.get(user.id)),
             last_ai_request_at=datetime_to_iso(ai_stats.get(user.id, (0, None))[1]),
-            last_activity_at=most_recent_iso(last_sign_ins.get(user.id), ai_stats.get(user.id, (0, None))[1]),
+            last_activity_at=most_recent_iso(
+                last_sign_ins.get(user.id),
+                last_actions.get(user.id),
+                ai_stats.get(user.id, (0, None))[1],
+            ),
         )
         for user in users
     ]

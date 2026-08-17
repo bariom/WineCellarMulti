@@ -603,6 +603,8 @@ export type AppUser = PendingUser & {
   approved_at: string | null;
   entitlement_valid_until: string | null;
   entitlement_days_remaining: number | null;
+  last_activity_at: string | null;
+  last_activity_days_ago: number | null;
 };
 
 export type UserAdminStats = {

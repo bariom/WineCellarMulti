@@ -107,6 +107,8 @@ class UserAdminResponse(BaseModel):
     approved_at: str | None = None
     entitlement_valid_until: str | None = None
     entitlement_days_remaining: int | None = None
+    last_activity_at: str | None = None
+    last_activity_days_ago: int | None = None
 
 
 class UserAdminStatsResponse(BaseModel):

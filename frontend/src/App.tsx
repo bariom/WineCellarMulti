@@ -626,6 +626,44 @@ function appUserTierStatus(user: AppUser, locale: Locale): { label: string; conf
   };
 }
 
+function appUserActivityStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } {
+  const days = user.last_activity_days_ago;
+  if (days === null) {
+    return {
+      label: locale === "it" ? "Mai attivo" : "Never active",
+      style: { color: "var(--text-muted)", borderColor: "var(--border)", background: "var(--surface-muted)" },
+    };
+  }
+  if (days === 0) {
+    return {
+      label: locale === "it" ? "Attivo oggi" : "Active today",
+      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
+    };
+  }
+  if (days === 1) {
+    return {
+      label: locale === "it" ? "Attivo ieri" : "Active yesterday",
+      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
+    };
+  }
+  if (days <= 7) {
+    return {
+      label: locale === "it" ? `Attivo ${days} g fa` : `Active ${days}d ago`,
+      style: { color: "var(--primary)", borderColor: "var(--primary)", background: "var(--success-surface)" },
+    };
+  }
+  if (days <= 30) {
+    return {
+      label: locale === "it" ? `Ultima attivit\u00e0 ${days} g fa` : `Last active ${days}d ago`,
+      style: { color: "var(--accent)", borderColor: "var(--accent)", background: "color-mix(in srgb, var(--accent) 14%, var(--surface-raised))" },
+    };
+  }
+  return {
+    label: locale === "it" ? `Inattivo da ${days} g` : `Inactive ${days}d`,
+    style: { color: "var(--danger)", borderColor: "var(--danger)", background: "color-mix(in srgb, var(--danger) 10%, var(--surface-raised))" },
+  };
+}
+
 const classicRegionalGapTargets: RegionalGapTarget[] = [
   { region: "Bordeaux", targetPct: 22 },
   { region: "Toscana", targetPct: 16 },
@@ -2128,6 +2166,8 @@ export function App() {
             approved_at: null,
             entitlement_valid_until: null,
             entitlement_days_remaining: null,
+            last_activity_at: null,
+            last_activity_days_ago: null,
           })),
       ].sort((first, second) => Number(first.is_approved) - Number(second.is_approved) || first.email.localeCompare(second.email));
       setAppUsers(mergedUsers);
@@ -13322,6 +13362,7 @@ export function App() {
                         {adminUsersSorted.map((user) => {
                           const entitlementStatus = appUserEntitlementStatus(user, locale);
                           const tierStatus = appUserTierStatus(user, locale);
+                          const activityStatus = appUserActivityStatus(user, locale);
                           return (
                             <details className="settings-admin-row settings-admin-detail-row user-admin-card" key={user.id} open={!user.is_approved}>
                             <summary className="settings-admin-row-summary">
@@ -13345,6 +13386,7 @@ export function App() {
                                 {user.can_use_label_recognition ? <span className="status-pill">{t("labelRecognitionEnabled")}</span> : null}
                                 {user.can_manage_wine_photos ? <span className="status-pill">{locale === "it" ? "Caricamento foto abilitato" : "Photo uploads enabled"}</span> : null}
                                 <span className="status-pill">{formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
+                                <span className="status-pill" style={activityStatus.style}>{activityStatus.label}</span>
                                 {entitlementStatus ? <span className="status-pill" style={entitlementStatus.style}>{entitlementStatus.label}</span> : null}
                               </div>
                             </summary>
@@ -13352,6 +13394,7 @@ export function App() {
                               <div className="settings-admin-row-info">
                                 {!user.is_approved ? <span>{t("pendingApproval")}</span> : null}
                                 <span>{t("aiCreditBalance")}: {formatAiBudget(user.ai_credit_balance_usd || 0)}</span>
+                                <span>{user.last_activity_at ? `${locale === "it" ? "Ultima attivit\u00e0" : "Last activity"}: ${formatDisplayDate(user.last_activity_at)}` : (locale === "it" ? "Nessuna attivit\u00e0 registrata" : "No recorded activity")}</span>
                                 {user.entitlement_days_remaining !== null ? <span>{user.entitlement_days_remaining} {t("daysRemaining")}</span> : null}
                               </div>
                               <div className="member-actions settings-admin-actions">
