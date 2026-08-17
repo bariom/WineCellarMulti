@@ -61,6 +61,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
         <img src="/icons/icon-192.png" alt="" width="42" height="42" fetchPriority="high" />
         <span><strong>Vinaris</strong><small>Vinaris - Private Cellar Intelligence</small></span>
       </a>
+      <button type="button" className="marketing-button secondary compact marketing-mobile-login" onClick={onLogin}>{copy.header.login}</button>
       <button
         type="button"
         className="marketing-menu-toggle"
@@ -83,7 +84,7 @@ export default function LandingHeader({ copy, locale, onLocaleChange, onLogin, o
               <option value="en">EN</option>
             </select>
           </label>
-          <button type="button" className="marketing-button text" onClick={() => { setMenuOpen(false); onLogin(); }}>{copy.header.login}</button>
+          <button type="button" className="marketing-button text marketing-menu-login" onClick={() => { setMenuOpen(false); onLogin(); }}>{copy.header.login}</button>
           <button type="button" className="marketing-button primary compact" onClick={() => { setMenuOpen(false); onRegister(); }}>{copy.header.register}</button>
         </div>
       </div>
