@@ -4164,7 +4164,7 @@ export function App() {
     try {
       const endpoint = importSource === "cellartracker" ? "/api/v1/imports/cellartracker" : "/api/v1/imports/json";
       const body = importSource === "cellartracker"
-        ? { csv_text: cellarTrackerCsvText }
+        ? { csv_base64: cellarTrackerCsvText }
         : { ...importPayload, import_blocks: exportBlocks.filter(({ key }) => importSelection[key]).map(({ key }) => key) };
       const result = await api<ImportResult>(`${endpoint}?mode=${importMode}`, {
         method: "POST",
@@ -7079,17 +7079,18 @@ export function App() {
     setError("");
     try {
       const bytes = await file.arrayBuffer();
-      const utf8Text = new TextDecoder("utf-8").decode(bytes);
-      // CellarTracker commonly exports CSV files in Windows-1252. Re-decode only
-      // when UTF-8 replacement characters prove that the file is not UTF-8.
-      const csvText = utf8Text.includes("\uFFFD")
-        ? new TextDecoder("windows-1252").decode(bytes)
-        : utf8Text;
+      const byteValues = new Uint8Array(bytes);
+      let binary = "";
+      for (let start = 0; start < byteValues.length; start += 0x8000) {
+        binary += String.fromCharCode(...byteValues.subarray(start, start + 0x8000));
+      }
+      // Preserve the original bytes: CellarTracker exports are often Windows-1252.
+      const csvBase64 = btoa(binary);
       const preview = await api<ImportPreview>("/api/v1/imports/cellartracker/preview", {
-        method: "POST", body: JSON.stringify({ csv_text: csvText }),
+        method: "POST", body: JSON.stringify({ csv_base64: csvBase64 }),
       });
       setImportPayload(null);
-      setCellarTrackerCsvText(csvText);
+      setCellarTrackerCsvText(csvBase64);
       setImportSource("cellartracker");
       setImportFileName(file.name);
       setImportPreview(preview);

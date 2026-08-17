@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import csv
 import io
 import json
@@ -109,7 +110,8 @@ class LegacyImportPreview(BaseModel):
 
 
 class CellarTrackerImportPayload(BaseModel):
-    csv_text: str = Field(min_length=1, max_length=10_000_000)
+    csv_text: str = Field(default="", max_length=10_000_000)
+    csv_base64: str = Field(default="", max_length=20_000_000)
 
 
 def as_uuid(value: Any) -> UUID:
@@ -689,8 +691,20 @@ def cellartracker_scores(row: dict[str, str]) -> list[dict[str, str]]:
 
 
 def cellartracker_rows(payload: CellarTrackerImportPayload) -> list[dict[str, str]]:
+    csv_text = payload.csv_text
+    if payload.csv_base64:
+        try:
+            raw_bytes = base64.b64decode(payload.csv_base64, validate=True)
+            try:
+                csv_text = raw_bytes.decode("utf-8")
+            except UnicodeDecodeError:
+                csv_text = raw_bytes.decode("windows-1252")
+        except (ValueError, UnicodeDecodeError) as exc:
+            raise HTTPException(status_code=400, detail="Invalid CellarTracker CSV encoding") from exc
+    if not csv_text:
+        raise HTTPException(status_code=400, detail="A CellarTracker CSV file is required")
     try:
-        rows = list(csv.DictReader(io.StringIO(payload.csv_text.lstrip("\ufeff"))))
+        rows = list(csv.DictReader(io.StringIO(csv_text.lstrip("\ufeff"))))
     except csv.Error as exc:
         raise HTTPException(status_code=400, detail=f"Invalid CellarTracker CSV: {exc}") from exc
     if not rows or "Wine" not in (rows[0] or {}):

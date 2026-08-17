@@ -1,3 +1,4 @@
+import base64
 import hashlib
 import hmac
 import json
@@ -7028,3 +7029,17 @@ def test_cellartracker_csv_import_maps_cellar_data():
     assert mondo["grapes"] == [{"name": "Red Bordeaux Blend"}]
     assert mondo["scores"] == [{"critic": "Wine Advocate", "score": "94", "note": "https://example.com/wa"}]
     assert next(wine for wine in wines if wine["producer"] == "Krug")["vintage"] == "NV"
+
+
+def test_cellartracker_csv_import_decodes_windows_1252_accents():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    csv_text = (
+        '"iWine","Color","Category","Size","Currency","Quantity","Vintage","Wine","Producer"\n'
+        '"1","White","Sparkling","750ml","CHF","1","1001","Krug Champagne Brut Grande Cuvée Edition 170ème","Krug"\n'
+    )
+    payload = {"csv_base64": base64.b64encode(csv_text.encode("windows-1252")).decode("ascii")}
+    imported = client.post("/api/v1/imports/cellartracker", json=payload)
+    assert imported.status_code == 200, imported.text
+    wine = client.get("/api/v1/wines").json()[0]
+    assert wine["name"] == "Krug Champagne Brut Grande Cuvée Edition 170ème"

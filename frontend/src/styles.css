@@ -19942,6 +19942,7 @@ tbody tr:hover {
   grid-area: head;
   align-self: center;
   max-width: 100%;
+  min-width: 0;
   min-height: 184px;
   margin: 0;
   padding-right: clamp(8px, 7vw, 88px);
@@ -19961,29 +19962,28 @@ tbody tr:hover {
   font-weight: 650;
   line-height: 0.92;
   letter-spacing: -0.035em;
+  display: -webkit-box;
   overflow: hidden;
-  text-overflow: ellipsis;
-  text-wrap: nowrap;
-  white-space: nowrap;
-}
-
-.key-position-title--medium,
-.key-position-title--long {
-  overflow: visible;
-  max-height: 1.84em;
-  text-overflow: clip;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
   text-wrap: balance;
   white-space: normal;
 }
 
+.key-position-title--medium,
+.key-position-title--long {
+  max-height: 1.96em;
+}
+
 .key-position-title--medium {
-  max-width: 18ch;
-  font-size: clamp(1.94rem, 5.25cqi, 3.25rem) !important;
+  max-width: none;
+  font-size: clamp(1.7rem, 4.45cqi, 2.8rem) !important;
 }
 
 .key-position-title--long {
-  max-width: 21ch;
-  font-size: clamp(1.72rem, 4.2cqi, 2.8rem) !important;
+  max-width: none;
+  font-size: clamp(1.35rem, 3.35cqi, 2.2rem) !important;
 }
 
 .key-position-head p {
