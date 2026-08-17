@@ -179,6 +179,31 @@ def test_collector_publishes_curated_article(monkeypatch):
         assert run.status == "completed"
         assert run.stats["published"] == 1
         assert run.stats["ai_input_tokens"] == 120
+        assert run.stats["source_details"]["test-source"] == {
+            "name": "Test Wine Journal",
+            "fetched": 1,
+            "new": 1,
+            "duplicates": 0,
+            "prefiltered": 0,
+            "ai_processed": 1,
+            "accepted": 1,
+            "rejected": 0,
+            "ai_errors": 0,
+            "published": 1,
+            "error": "",
+        }
+
+
+def test_default_sources_include_broader_editorial_coverage():
+    source_ids = {source["id"] for source in wine_news_service.DEFAULT_SOURCES}
+
+    assert {
+        "wine-industry-advisor",
+        "wein-plus-news",
+        "winemag",
+        "civilta-del-bere",
+        "gambero-rosso",
+    } <= source_ids
 
 
 def test_publication_selection_excludes_unprocessed_candidates():

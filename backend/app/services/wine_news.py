@@ -91,6 +91,41 @@ DEFAULT_SOURCES = (
         "website_url": "https://www.thedrinksbusiness.com/",
         "language": "en",
     },
+    {
+        "id": "wine-industry-advisor",
+        "name": "Wine Industry Advisor",
+        "feed_url": "https://wineindustryadvisor.com/feed/",
+        "website_url": "https://wineindustryadvisor.com/",
+        "language": "en",
+    },
+    {
+        "id": "wein-plus-news",
+        "name": "wein.plus News",
+        "feed_url": "https://magazine.wein.plus/news/feed.xml",
+        "website_url": "https://magazine.wein.plus/",
+        "language": "en",
+    },
+    {
+        "id": "winemag",
+        "name": "WineMag",
+        "feed_url": "https://winemag.it/feed/",
+        "website_url": "https://winemag.it/",
+        "language": "it",
+    },
+    {
+        "id": "civilta-del-bere",
+        "name": "Civiltà del Bere",
+        "feed_url": "https://www.civiltadelbere.com/feed/",
+        "website_url": "https://www.civiltadelbere.com/",
+        "language": "it",
+    },
+    {
+        "id": "gambero-rosso",
+        "name": "Gambero Rosso",
+        "feed_url": "https://www.gamberorosso.it/feed/",
+        "website_url": "https://www.gamberorosso.it/",
+        "language": "it",
+    },
 )
 
 WINE_TERMS = {
@@ -619,6 +654,8 @@ def refresh_publication_selection(db: Session) -> list[WineNewsArticle]:
             select(func.count(WineNewsArticle.id)).where(WineNewsArticle.status == "published")
         )
     )
+    # Keep a fresh 72-hour edition while it is populated. If it would otherwise
+    # be empty, retain the best already-vetted candidates from the prior week.
     edition_start = now - timedelta(hours=72 if has_published_edition else 24 * 7)
     recent = list(
         db.scalars(
@@ -721,7 +758,7 @@ def collect_wine_news(
     run = WineNewsCollectionRun(started_at=started_at, status="running", stats={})
     db.add(run)
     db.commit()
-    stats: dict[str, int] = {
+    stats: dict[str, Any] = {
         "sources": 0,
         "source_errors": 0,
         "fetched": 0,
@@ -740,6 +777,23 @@ def collect_wine_news(
             raise RuntimeError("Wine Pulse is disabled")
         sources = sync_sources(db)
         stats["sources"] = len(sources)
+        source_stats: dict[str, dict[str, Any]] = {
+            source.id: {
+                "name": source.name,
+                "fetched": 0,
+                "new": 0,
+                "duplicates": 0,
+                "prefiltered": 0,
+                "ai_processed": 0,
+                "accepted": 0,
+                "rejected": 0,
+                "ai_errors": 0,
+                "published": 0,
+                "error": "",
+            }
+            for source in sources
+        }
+        stats["source_details"] = source_stats
         cutoff = started_at - timedelta(days=max(settings.wine_pulse_retention_days, 30))
         db.execute(delete(WineNewsArticle).where(WineNewsArticle.source_published_at < cutoff))
         for source in sources:
@@ -753,12 +807,14 @@ def collect_wine_news(
                 if not_modified:
                     continue
                 stats["fetched"] += len(entries)
+                source_stats[source.id]["fetched"] += len(entries)
                 for entry in entries:
                     existing = db.scalar(
                         select(WineNewsArticle.id).where(WineNewsArticle.canonical_url == entry.url)
                     )
                     if existing is not None:
                         stats["duplicates"] += 1
+                        source_stats[source.id]["duplicates"] += 1
                         continue
                     fingerprint = content_fingerprint(entry.title)
                     duplicate_title = db.scalar(
@@ -768,6 +824,7 @@ def collect_wine_news(
                     )
                     if duplicate_title is not None:
                         stats["duplicates"] += 1
+                        source_stats[source.id]["duplicates"] += 1
                         continue
                     article = WineNewsArticle(
                         source_id=source.id,
@@ -782,14 +839,17 @@ def collect_wine_news(
                     )
                     db.add(article)
                     stats["new"] += 1
+                    source_stats[source.id]["new"] += 1
                     if not deterministic_candidate(entry.title, entry.summary):
                         article.status = "rejected"
                         article.rejection_reason = "deterministic_prefilter"
                         stats["prefiltered"] += 1
+                        source_stats[source.id]["prefiltered"] += 1
                 db.flush()
             except Exception as exc:  # continue collecting healthy sources
                 source.last_error = clean_text(str(exc), limit=1000)
                 stats["source_errors"] += 1
+                source_stats[source.id]["error"] = source.last_error
                 logger.warning("Wine Pulse source failed source=%s error=%s", source.id, exc)
             finally:
                 db.commit()
@@ -799,6 +859,7 @@ def collect_wine_news(
                 select(WineNewsArticle, WineNewsSource)
                 .join(WineNewsSource, WineNewsSource.id == WineNewsArticle.source_id)
                 .where(
+                    WineNewsSource.enabled.is_(True),
                     WineNewsArticle.status == "candidate",
                     WineNewsArticle.ai_processed_at.is_(None),
                 )
@@ -810,16 +871,25 @@ def collect_wine_news(
                     decision = classifier(article, source)
                     apply_editorial_decision(article, decision)
                     stats["ai_processed"] += 1
+                    source_stats[article.source_id]["ai_processed"] += 1
+                    if article.status == "candidate":
+                        source_stats[article.source_id]["accepted"] += 1
+                    else:
+                        source_stats[article.source_id]["rejected"] += 1
                     stats["ai_input_tokens"] += int(decision.get("_input_tokens", 0))
                     stats["ai_output_tokens"] += int(decision.get("_output_tokens", 0))
                 except Exception as exc:  # isolate one provider/article failure from the edition
                     article.status = "failed"
                     article.rejection_reason = "ai_processing_failed"
                     stats["ai_errors"] += 1
+                    source_stats[article.source_id]["ai_errors"] += 1
                     logger.warning("Wine Pulse AI failed article=%s error=%s", article.id, exc)
                 db.commit()
         newly_published = refresh_publication_selection(db)
         stats["published"] = len(newly_published)
+        for article in newly_published:
+            if article.source_id in source_stats:
+                source_stats[article.source_id]["published"] += 1
         stats["notifications_created"] = notify_wine_pulse_edition(
             db, run, published_count=len(newly_published)
         )

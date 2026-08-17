@@ -24,7 +24,23 @@ type WinePulseStatus = {
     started_at: string;
     completed_at: string | null;
     status: string;
-    stats: Record<string, number>;
+    stats: {
+      new?: number;
+      ai_processed?: number;
+      source_details?: Record<string, {
+        name: string;
+        fetched: number;
+        new: number;
+        duplicates: number;
+        prefiltered: number;
+        ai_processed: number;
+        accepted: number;
+        rejected: number;
+        ai_errors: number;
+        published: number;
+        error: string;
+      }>;
+    };
     error: string;
   } | null;
   published: number;
@@ -467,6 +483,20 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
             <summary>{isItalian ? "Fonti da controllare" : "Sources requiring attention"}</summary>
             {winePulseStatus.sources.filter((source) => source.last_error).map((source) => (
               <p key={source.id}><strong>{source.name}</strong><span>{source.last_error}</span></p>
+            ))}
+          </details>
+        ) : null}
+        {winePulseStatus?.latest_run?.stats.source_details ? (
+          <details className="operations-wine-pulse-source-details">
+            <summary>{isItalian ? "Esito fonti ultimo ciclo" : "Latest source results"}</summary>
+            {Object.entries(winePulseStatus.latest_run.stats.source_details).map(([sourceId, source]) => (
+              <p key={sourceId}>
+                <strong>{source.name}</strong>
+                <span>{isItalian
+                  ? `${source.fetched} letti · ${source.new} nuovi · ${source.accepted} validati · ${source.rejected + source.prefiltered} scartati · ${source.published} pubblicati`
+                  : `${source.fetched} fetched · ${source.new} new · ${source.accepted} accepted · ${source.rejected + source.prefiltered} rejected · ${source.published} published`}</span>
+                {source.error ? <small>{source.error}</small> : null}
+              </p>
             ))}
           </details>
         ) : null}
