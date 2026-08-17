@@ -50,8 +50,25 @@
 }
 
 @media (max-width: 620px) {
+  .cellar-assistant-composer > .cellar-assistant-voice-input {
+    display: grid !important;
+    grid-column: 1 / -1;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    justify-self: stretch !important;
+    align-self: stretch !important;
+  }
+
   .cellar-assistant-voice-input { gap: 0.65rem; }
-  .cellar-assistant-voice-input textarea { padding: 1rem; }
+  .cellar-assistant-composer > .cellar-assistant-voice-input textarea {
+    display: block !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    box-sizing: border-box !important;
+    padding: 1rem;
+  }
   .cellar-assistant-microphone {
     position: static;
     width: 100% !important;
