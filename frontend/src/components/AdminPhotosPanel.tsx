@@ -121,7 +121,8 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
   return (
     <>
     <section className="settings-card settings-card-wide admin-demo-card">
-      <div className="settings-card-heading admin-photos-heading">
+      <details className="collapsible-panel admin-demo-panel">
+      <summary className="settings-card-heading admin-photos-heading">
         <div>
           <span>{isItalian ? "Presentazione pubblica" : "Public presentation"}</span>
           <h3>{isItalian ? "Cantina demo" : "Demo cellar"}</h3>
@@ -131,9 +132,12 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
         </div>
         <div className="admin-photos-heading-actions">
           <strong>{demoCellar?.published_count ?? "—"}</strong>
+        </div>
+      </summary>
+      <div className="admin-demo-panel-content">
+        <div className="admin-demo-panel-actions">
           <button type="button" className="secondary compact" onClick={() => void loadDemoCellar()}>{isItalian ? "Aggiorna" : "Refresh"}</button>
         </div>
-      </div>
       {demoCellar ? (
         demoCellar.candidates.length ? (
           <>
@@ -159,6 +163,8 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
           </>
         ) : <p className="admin-photos-empty">{isItalian ? "Nella cantina attiva non ci sono ancora vini con fotografia." : "The active cellar has no photographed wines yet."}</p>
       ) : <LoadingState label={isItalian ? "Caricamento cantina demo…" : "Loading demo cellar…"} compact />}
+      </div>
+      </details>
     </section>
     <section className="settings-card settings-card-wide admin-photos-card">
       <div className="settings-card-heading admin-photos-heading">

@@ -1,5 +1,11 @@
 .admin-photos-card { grid-column: 1 / -1; }
 .admin-demo-card { grid-column: 1 / -1; }
+.admin-demo-card { padding: 0; }
+.admin-demo-panel { border: 0; padding: 18px; }
+.admin-demo-panel summary { margin: 0; }
+.admin-demo-panel[open] summary { margin-bottom: 12px; }
+.admin-demo-panel-content { display: grid; gap: 12px; }
+.admin-demo-panel-actions { display: flex; justify-content: flex-end; }
 .admin-photos-heading { align-items: end; }
 .admin-photos-heading > div:first-child { display: grid; gap: 3px; }
 .admin-photos-heading small, .admin-photo-card span, .admin-photo-card small { color: var(--text-muted); font-size: 0.74rem; }
