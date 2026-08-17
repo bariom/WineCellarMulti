@@ -1,6 +1,6 @@
 """allow Wine Pulse partial-success run status
 
-Revision ID: 0097_wine_pulse_run_status_length
+Revision ID: 0097_pulse_run_status_len
 Revises: 0096_free_tier_ai_markup
 """
 
@@ -8,7 +8,7 @@ import sqlalchemy as sa
 
 from alembic import op
 
-revision = "0097_wine_pulse_run_status_length"
+revision = "0097_pulse_run_status_len"
 down_revision = "0096_free_tier_ai_markup"
 branch_labels = None
 depends_on = None
