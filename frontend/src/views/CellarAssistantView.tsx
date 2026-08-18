@@ -399,12 +399,13 @@ export default function CellarAssistantView({
 
   return (
     <section className="cellar-assistant-view" aria-labelledby="cellar-assistant-title">
+      <div className="cellar-assistant-card">
       <div className="cellar-assistant-layout">
       <div className="cellar-assistant-main">
       <header className="cellar-assistant-hero">
         <span className="cellar-assistant-icon"><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /></span>
         <div>
-          <p>{isItalian ? "Vinaris · GPT-5.6 Luna" : "Vinaris · GPT-5.6 Luna"}</p>
+          <p>{isItalian ? "Azioni guidate" : "Guided actions"}</p>
           <div className="cellar-assistant-title-row"><h1 id="cellar-assistant-title">{isItalian ? "Assistente Cantina AI" : "AI Cellar Assistant"}</h1><button type="button" className="secondary compact cellar-assistant-help-button" onClick={() => setHelpOpen(true)} aria-label={isItalian ? "Come funziona l'assistente AI" : "How the AI assistant works"}>?</button></div>
           <span>{isItalian
             ? "Racconta cosa hai bevuto o acquistato: Vinaris identifica il vino e prepara l’aggiornamento corretto."
@@ -533,9 +534,18 @@ export default function CellarAssistantView({
         </article>
       ) : null}
       </div>
-      <aside className="cellar-assistant-hero-art" aria-hidden="true">
-        <img className="cellar-assistant-hero-illustration" src="/images/assistant-ai-sommelier.png" alt="" />
+      <aside className="cellar-assistant-sidekick" aria-hidden="true">
+        <div className="cellar-assistant-sidekick-card">
+          <div className="cellar-assistant-sidekick-heading">
+            <span><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{isItalian ? "Assistente AI" : "AI Assistant"}</span>
+            <strong>{isItalian ? "Il tuo assistente cantina integrato" : "Your integrated cellar assistant"}</strong>
+          </div>
+          <div className="cellar-assistant-sidekick-illustration">
+            <img className="cellar-assistant-hero-illustration" src="/images/assistant-ai-sommelier.png" alt="" />
+          </div>
+        </div>
       </aside>
+      </div>
       </div>
     </section>
   );
