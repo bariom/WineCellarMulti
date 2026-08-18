@@ -6,6 +6,7 @@ import { displayValue, translate } from "../i18n";
 import { normalizeWineType } from "../domain/wineTypes";
 import WineGeographyMap from "./WineGeographyMap";
 import TimeSeriesChart from "../components/TimeSeriesChart";
+import { AppIcon } from "../components/AppIcon";
 import "./RestaurantDashboard.css";
 
 type Period = "week" | "month" | "semester" | "year" | "custom";
@@ -427,7 +428,6 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
 }) {
   const [period, setPeriod] = useState<Period>("month");
   const [restaurantDashboardView, setRestaurantDashboardView] = useState<"performance" | "inventory" | "stock" | "sales" | "intelligence">("performance");
-  const [restaurantMenuOpen, setRestaurantMenuOpen] = useState(false);
   const [quickSaleWineId, setQuickSaleWineId] = useState("");
   const [quickSaleQuery, setQuickSaleQuery] = useState("");
   const [quickSaleKind, setQuickSaleKind] = useState<"bottle" | "glass">("glass");
@@ -728,15 +728,13 @@ export default function RestaurantDashboard({ locale, refreshKey, onOpenWine, on
       <div><p className="eyebrow">{locale === "it" ? "Cantina privata" : "Private cellar"}</p><h1>{locale === "it" ? "Vendite della collezione" : "Collection sales"}</h1><p>{locale === "it" ? "Capitale recuperato e plusvalenze o minusvalenze realizzate nel periodo." : "Recovered capital and realized gains or losses for the selected period."}</p></div>
     </header> : null}
     {mode === "restaurant" ? <>
-      <button type="button" className="restaurant-dashboard-menu-toggle secondary" aria-expanded={restaurantMenuOpen} aria-controls="restaurant-dashboard-navigation" onClick={() => setRestaurantMenuOpen((open) => !open)}>
-        <i aria-hidden="true"><b /><b /><b /></i>{locale === "it" ? "Menu" : "Menu"}
-      </button>
-      <nav id="restaurant-dashboard-navigation" className={`restaurant-dashboard-tabs${restaurantMenuOpen ? " is-open" : ""}`} aria-label={locale === "it" ? "Vista dashboard ristorante" : "Restaurant dashboard view"}>
-        <button type="button" className={restaurantDashboardView === "performance" ? "" : "secondary"} onClick={() => { setRestaurantDashboardView("performance"); setRestaurantMenuOpen(false); }}>{locale === "it" ? "Performance" : "Performance"}</button>
-        <button type="button" className={restaurantDashboardView === "inventory" ? "" : "secondary"} onClick={() => { setRestaurantDashboardView("inventory"); setRestaurantMenuOpen(false); }}>{locale === "it" ? "Carta vini" : "Wine list"}</button>
-        <button type="button" className={restaurantDashboardView === "stock" ? "" : "secondary"} onClick={() => { setRestaurantDashboardView("stock"); setRestaurantMenuOpen(false); }}>{locale === "it" ? "Magazzino" : "Inventory"}</button>
-        <button type="button" className={restaurantDashboardView === "sales" ? "" : "secondary"} onClick={() => { setRestaurantDashboardView("sales"); setRestaurantMenuOpen(false); }}>{locale === "it" ? "Registro vendite" : "Sales register"}</button>
-        <button type="button" className={restaurantDashboardView === "intelligence" ? "" : "secondary"} onClick={() => { setRestaurantDashboardView("intelligence"); setRestaurantMenuOpen(false); }}>{locale === "it" ? "Analisi della carta" : "Wine list intelligence"}</button>
+      <nav id="restaurant-dashboard-navigation" className="restaurant-dashboard-tabs" aria-label={locale === "it" ? "Vista dashboard ristorante" : "Restaurant dashboard view"}>
+        <span className="restaurant-dashboard-tabs-label">{locale === "it" ? "Gestione ristorante" : "Restaurant operations"}</span>
+        <button type="button" className={restaurantDashboardView === "performance" ? "is-active" : ""} aria-current={restaurantDashboardView === "performance" ? "page" : undefined} onClick={() => setRestaurantDashboardView("performance")}><AppIcon name="chart" />{locale === "it" ? "Performance" : "Performance"}</button>
+        <button type="button" className={restaurantDashboardView === "inventory" ? "is-active" : ""} aria-current={restaurantDashboardView === "inventory" ? "page" : undefined} onClick={() => setRestaurantDashboardView("inventory")}><AppIcon name="grapes" />{locale === "it" ? "Carta vini" : "Wine list"}</button>
+        <button type="button" className={restaurantDashboardView === "stock" ? "is-active" : ""} aria-current={restaurantDashboardView === "stock" ? "page" : undefined} onClick={() => setRestaurantDashboardView("stock")}><AppIcon name="cellar" />{locale === "it" ? "Magazzino" : "Inventory"}</button>
+        <button type="button" className={restaurantDashboardView === "sales" ? "is-active" : ""} aria-current={restaurantDashboardView === "sales" ? "page" : undefined} onClick={() => setRestaurantDashboardView("sales")}><AppIcon name="calendar" />{locale === "it" ? "Registro vendite" : "Sales register"}</button>
+        <button type="button" className={restaurantDashboardView === "intelligence" ? "is-active" : ""} aria-current={restaurantDashboardView === "intelligence" ? "page" : undefined} onClick={() => setRestaurantDashboardView("intelligence")}><AppIcon name="dashboard" />{locale === "it" ? "Analisi della carta" : "Wine list intelligence"}</button>
       </nav>
     </> : null}
     {mode === "restaurant" && restaurantDashboardView === "intelligence" ? <RestaurantIntelligence wines={wines} locale={locale} onOpenWine={onOpenWine} /> : null}

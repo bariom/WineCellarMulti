@@ -200,3 +200,129 @@
 @media(max-width:800px){.restaurant-sales-list article.is-editing{display:block}.restaurant-sale-edit{grid-template-columns:1fr 1fr}.restaurant-sale-edit>div:first-child,.restaurant-sale-edit-note,.restaurant-sale-edit-actions{grid-column:1/-1}.restaurant-sale-edit-actions{justify-content:stretch}.restaurant-sale-edit-actions button{flex:1}.restaurant-sale-actions{width:100%;justify-content:stretch}.restaurant-sale-actions button{flex:1}}
 @media(max-width:800px){.restaurant-sales-tools{grid-template-columns:1fr;gap:.75rem;margin:.75rem 0}.restaurant-quick-sale{grid-template-columns:1fr 1fr;padding:.8rem}.restaurant-quick-sale header,.restaurant-daily-closure header{align-items:start;flex-direction:column}.restaurant-quick-sale header small{text-align:left}.restaurant-quick-sale-kind,.restaurant-quick-sale-wine,.restaurant-quick-sale>button{grid-column:1/-1}.restaurant-daily-closure{padding:.8rem}.restaurant-daily-closure header label{width:100%;min-width:0}.restaurant-daily-closure-totals article{padding:.65rem}.restaurant-daily-closure-totals article strong{font-size:1.05rem}}
 .restaurant-public-wine-list{display:grid;gap:.7rem;padding:1rem;border:1px solid color-mix(in srgb,var(--accent) 42%,var(--border));border-radius:var(--radius-lg);background:linear-gradient(135deg,color-mix(in srgb,var(--accent) 8%,var(--surface)),var(--surface))}.restaurant-public-wine-list>header{display:flex;align-items:end;justify-content:space-between;gap:1rem}.restaurant-public-wine-list header span{font-size:.72rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted)}.restaurant-public-wine-list h3{margin:.13rem 0 0;font-family:var(--font-display);font-size:1.3rem}.restaurant-public-wine-list header small{color:var(--text-muted)}.restaurant-public-wine-list-body{display:grid;grid-template-columns:7.25rem minmax(0,1fr);gap:1rem;align-items:center}.restaurant-public-wine-list-body>img{width:7.25rem;height:7.25rem;padding:.35rem;border:1px solid var(--border);border-radius:.55rem;background:#fff}.restaurant-public-wine-list-body>div{display:grid;gap:.6rem}.restaurant-public-wine-list-body p{margin:0;color:var(--text-muted);line-height:1.42}.restaurant-public-wine-list code{display:block;overflow:hidden;padding:.48rem .6rem;border-radius:.45rem;background:color-mix(in srgb,var(--surface) 80%,var(--border));font-size:.75rem;text-overflow:ellipsis;white-space:nowrap}.restaurant-public-wine-list-actions{display:flex;flex-wrap:wrap;gap:.45rem}.restaurant-public-wine-list-actions .button{display:inline-grid;align-items:center;padding:.45rem .7rem;border-radius:var(--radius-md);background:var(--primary);color:var(--surface);font-size:.82rem;font-weight:750;text-decoration:none}.restaurant-public-wine-list-message{color:var(--text-muted)}@media(max-width:620px){.restaurant-public-wine-list>header{align-items:start;flex-direction:column}.restaurant-public-wine-list-body{grid-template-columns:1fr}.restaurant-public-wine-list-body>img{width:6rem;height:6rem}}
+
+/* One navigation hierarchy: global app sidebar plus a horizontal restaurant workspace switcher. */
+@media (min-width: 961px) {
+  .restaurant-dashboard--performance,
+  .restaurant-dashboard--inventory,
+  .restaurant-dashboard--stock,
+  .restaurant-dashboard--sales,
+  .restaurant-dashboard--intelligence {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .restaurant-dashboard--performance > .restaurant-dashboard-tabs,
+  .restaurant-dashboard--inventory > .restaurant-dashboard-tabs,
+  .restaurant-dashboard--stock > .restaurant-dashboard-tabs,
+  .restaurant-dashboard--sales > .restaurant-dashboard-tabs,
+  .restaurant-dashboard--intelligence > .restaurant-dashboard-tabs {
+    position: sticky;
+    z-index: 24;
+    top: 88px;
+    display: flex;
+    grid-column: 1;
+  }
+
+  .restaurant-dashboard--performance > .restaurant-operations,
+  .restaurant-dashboard--inventory > .restaurant-operations,
+  .restaurant-dashboard--stock > .restaurant-operations,
+  .restaurant-dashboard--sales > .restaurant-operations,
+  .restaurant-dashboard--intelligence > .restaurant-intelligence {
+    grid-column: 1;
+  }
+}
+
+.restaurant-dashboard-tabs {
+  display: flex;
+  align-items: center;
+  gap: .35rem;
+  width: 100%;
+  min-width: 0;
+  padding: .42rem;
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, var(--accent));
+  border-radius: calc(var(--radius-lg) + 2px);
+  background: color-mix(in srgb, var(--surface) 94%, transparent);
+  box-shadow: 0 .55rem 1.35rem color-mix(in srgb, var(--text) 8%, transparent);
+  backdrop-filter: blur(16px) saturate(1.08);
+  scrollbar-width: none;
+}
+
+.restaurant-dashboard-tabs::-webkit-scrollbar { display: none; }
+
+.restaurant-dashboard-tabs-label {
+  flex: 0 0 auto;
+  padding: 0 .75rem 0 .45rem;
+  color: var(--text-muted);
+  font-size: .7rem;
+  font-weight: 850;
+  letter-spacing: .075em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.restaurant-dashboard-tabs button,
+.restaurant-dashboard--performance > .restaurant-dashboard-tabs button,
+.restaurant-dashboard--inventory > .restaurant-dashboard-tabs button,
+.restaurant-dashboard--stock > .restaurant-dashboard-tabs button,
+.restaurant-dashboard--sales > .restaurant-dashboard-tabs button,
+.restaurant-dashboard--intelligence > .restaurant-dashboard-tabs button {
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: .48rem;
+  width: auto;
+  min-height: 2.55rem;
+  padding: .55rem .85rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-lg) - 4px);
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  font-size: .82rem;
+  font-weight: 780;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.restaurant-dashboard-tabs button:hover,
+.restaurant-dashboard-tabs button:focus-visible {
+  border-color: color-mix(in srgb, var(--border) 76%, var(--accent));
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-muted) 84%, var(--accent));
+  transform: none;
+}
+
+.restaurant-dashboard-tabs button.is-active {
+  border-color: color-mix(in srgb, var(--primary) 72%, var(--accent));
+  color: var(--primary-contrast);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 88%, var(--accent)), var(--primary));
+  box-shadow: 0 .42rem 1rem color-mix(in srgb, var(--primary) 22%, transparent);
+}
+
+.restaurant-dashboard-tabs button.is-active .app-icon { color: var(--accent); }
+.restaurant-dashboard-menu-toggle { display: none; }
+
+@media (max-width: 1180px) {
+  .restaurant-dashboard-tabs-label { display: none; }
+}
+
+@media (max-width: 960px) {
+  .restaurant-dashboard-tabs {
+    position: sticky;
+    z-index: 24;
+    top: 0;
+    display: flex;
+    gap: .25rem;
+    padding: .32rem;
+    border-radius: 13px;
+  }
+
+  .restaurant-dashboard-tabs button {
+    flex: 0 0 auto;
+    min-height: 2.4rem;
+    padding: .48rem .68rem;
+    font-size: .78rem;
+  }
+}
