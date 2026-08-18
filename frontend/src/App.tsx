@@ -1425,6 +1425,7 @@ export function App() {
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileAccountMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<ViewName>("home");
   // The dashboard can mount after the initial application render or after a
@@ -8554,8 +8555,9 @@ export function App() {
             </button>
           </div>
         )}
-        {authenticated && activeView !== "settings" ? (
+        {authenticated && activeView !== "settings" && mobileSearchOpen ? (
           <form
+            id="mobile-topbar-search"
             className="mobile-topbar-search"
             role="search"
             onSubmit={(event) => {
@@ -8565,16 +8567,18 @@ export function App() {
           >
             <AppIcon name="search" variant="action" tone="muted" size="0.9rem" />
             <input
+              autoFocus={isMobileViewport}
               value={searchQuery}
               onChange={(event) => openQuickWineSearch(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== "Escape") return;
+                openQuickWineSearch("");
+                setMobileSearchOpen(false);
+              }}
               placeholder={t("searchPlaceholder")}
               aria-label={t("search")}
             />
-            {searchQuery ? (
-              <button type="button" onClick={() => openQuickWineSearch("")} aria-label={t("clearFilters")}>
-                ×
-              </button>
-            ) : null}
+            <button type="button" onClick={() => { openQuickWineSearch(""); setMobileSearchOpen(false); }} aria-label={locale === "it" ? "Chiudi ricerca" : "Close search"}>×</button>
           </form>
         ) : null}
       </header>
@@ -9191,6 +9195,7 @@ export function App() {
           {activeView !== "settings" ? (
             <>
               {mobileNavigationOpen ? <div className="mobile-navigation-sheet" role="dialog" aria-label={locale === "it" ? "Menu di navigazione" : "Navigation menu"}>
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
                 {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
