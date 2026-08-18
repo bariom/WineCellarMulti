@@ -8222,7 +8222,7 @@ export function App() {
 
   return (
     <HelpContext.Provider value={{ openHelp }}>
-    <main className={`app-shell${isCollectionView ? " collection-workspace-shell" : ""}`}>
+    <main className={`app-shell${authenticated ? " authenticated-app-shell" : ""}${isCollectionView ? " collection-workspace-shell" : ""}${activeView === "home" && !isRestaurant ? " home-mobile-experience" : ""}`}>
       {authenticated || shouldPrioritizeAuthAction ? (
       <header className="topbar" style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         <div className="topbar-brand">
@@ -8554,6 +8554,29 @@ export function App() {
             </button>
           </div>
         )}
+        {authenticated && activeView !== "settings" ? (
+          <form
+            className="mobile-topbar-search"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              openQuickWineSearch(searchQuery);
+            }}
+          >
+            <AppIcon name="search" variant="action" tone="muted" size="0.9rem" />
+            <input
+              value={searchQuery}
+              onChange={(event) => openQuickWineSearch(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("search")}
+            />
+            {searchQuery ? (
+              <button type="button" onClick={() => openQuickWineSearch("")} aria-label={t("clearFilters")}>
+                ×
+              </button>
+            ) : null}
+          </form>
+        ) : null}
       </header>
       ) : null}
 
@@ -10597,7 +10620,7 @@ export function App() {
               <div className="side-panel-actions">
                 <div className="side-panel-action-buttons">
                   {activeView === "cellar" && !wineFormOpen ? (
-                    <button type="button" className="side-panel-add-button" onClick={startAddWine} disabled={!canWriteWine}>
+                    <button type="button" className="side-panel-add-button mobile-redundant-add-wine" onClick={startAddWine} disabled={!canWriteWine}>
                       {t("addWine")}
                     </button>
                   ) : null}
@@ -10905,7 +10928,7 @@ export function App() {
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.logistics ? "is-open" : ""}`} data-wine-editor-section="logistics">
                   <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+2" aria-expanded={Boolean(openWineEditorSections.logistics)} onClick={() => setOpenWineEditorSections((current) => current.logistics ? {} : { logistics: true })}>
                     <div><span>02</span><strong>{locale === "it" ? "Logistica" : "Logistics"}</strong></div>
-                    <small>{isRestaurant ? (locale === "it" ? "Stato, carta, riordino e consegna" : "Status, wine list, reorder and delivery") : (locale === "it" ? "Stato, fornitore e consegna" : "Status, supplier and delivery")}</small>
+                    <small>{isRestaurant ? (locale === "it" ? "Stato, carta, riordino e consegna" : "Status, wine list, reorder and delivery") : (locale === "it" ? "Stato e consegna" : "Status and delivery")}</small>
                   </button>
                   {openWineEditorSections.logistics ? <div className="wine-editor-section-body is-visible">
                 <div className="form-row">
@@ -10952,16 +10975,12 @@ export function App() {
                     <span>{locale === "it" ? "Includi nei vini da riordinare" : "Include in wines to reorder"}</span>
                   </label>
                 </div> : null}
-                <div className="form-row vintage-companion-row">
+                {isRestaurant && !editingId ? <div className="form-row vintage-companion-row">
                   <label>
-                    <span>{t("merchant")}</span>
-                    <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  {isRestaurant && !editingId ? <label>
                     <span>{locale === "it" ? "Riferimento acquisto" : "Purchase reference"}</span>
                     <input value={draft.initial_stock_reference} maxLength={160} onChange={(event) => setDraft({ ...draft, initial_stock_reference: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} />
-                  </label> : null}
-                </div>
+                  </label>
+                </div> : null}
                 {!editingId ? <>
                   <WineLocationPicker
                     locale={locale}
@@ -10977,13 +10996,17 @@ export function App() {
                 <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
                   <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+3" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
                     <div><span>03</span><strong>{locale === "it" ? "Prezzi e valore" : "Prices and value"}</strong></div>
-                    <small>{isRestaurant ? (locale === "it" ? "Costi, prezzi di carta e mescita" : "Costs, wine-list prices and by-the-glass service") : (locale === "it" ? "Valuta, costo e valore attuale" : "Currency, cost and current value")}</small>
+                    <small>{isRestaurant ? (locale === "it" ? "Fornitore, costi, prezzi di carta e mescita" : "Merchant, costs, wine-list prices and by-the-glass service") : (locale === "it" ? "Commerciante, valuta, costo e valore attuale" : "Merchant, currency, cost and current value")}</small>
                   </button>
                   {openWineEditorSections.value ? <div className="wine-editor-section-body is-visible">
                     <div className="form-row">
                       <label>
                         <span>{t("currency")}</span>
                         <input value={draft.currency} onChange={(event) => setDraft({ ...draft, currency: event.target.value })} disabled={!canWriteWine} />
+                      </label>
+                      <label>
+                        <span>{t("merchant")}</span>
+                        <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
                       </label>
                       <label>
                         <span>{t("purchasePrice")}</span>
@@ -11851,13 +11874,16 @@ export function App() {
             </details>
             )}
             {!(activeView === "history" && historySection === "sales") ? <div className={`collection-filter-dock${activeView === "cellar" ? " collection-filter-dock--cellar" : ""}`}>
-            <details ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
+            <details id={activeView === "cellar" ? "cellar-advanced-filters" : undefined} ref={filterPanelRef} className={`filter-panel ${activeView === "cellar" ? "cellar-filter-panel" : ""}`}>
               <summary>
                 {activeView === "cellar" ? (
                   <>
                     <span className="cellar-filter-summary-main">
                       <AppIcon name="filter" />
-                      <strong>{t("search")} / {t("sort")}</strong>
+                      <strong>
+                        <span className="cellar-filter-label-desktop">{t("search")} / {t("sort")}</span>
+                        <span className="cellar-filter-label-mobile">{locale === "it" ? "Ricerca e filtri" : "Search and filters"}</span>
+                      </strong>
                       <small>{activeCollectionFilterChips.length ? `${activeCollectionFilterChips.length} ${locale === "it" ? "attivi" : "active"}` : (locale === "it" ? "Tutti i vini" : "All wines")}</small>
                     </span>
                     <span className="cellar-filter-sort-summary"><AppIcon name="sort" /> {t(sortMode === "name" ? "name" : sortMode === "vintage" ? "vintage" : sortMode === "value" ? "value" : "drinkWindow")}</span>
@@ -12078,6 +12104,23 @@ export function App() {
                       : wishlist.length
                   } {t("records")}</>}
               </span>
+              {activeView === "cellar" ? (
+                <button
+                  type="button"
+                  className="mobile-cellar-filter-trigger"
+                  aria-controls="cellar-advanced-filters"
+                  onClick={() => {
+                    const panel = filterPanelRef.current;
+                    if (!panel) return;
+                    if (panel.hasAttribute("open")) panel.removeAttribute("open");
+                    else panel.setAttribute("open", "");
+                  }}
+                >
+                  <AppIcon name="filter" />
+                  <span>{locale === "it" ? "Filtri" : "Filters"}</span>
+                  {activeCollectionFilterChips.length ? <small>{activeCollectionFilterChips.length}</small> : null}
+                </button>
+              ) : null}
             </div> : null}
             {activeView === "cellar" && maturityFilter ? (
               <div className="active-maturity-filter">
