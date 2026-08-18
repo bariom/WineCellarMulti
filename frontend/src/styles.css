@@ -1664,6 +1664,11 @@ summary:focus-visible {
   display: none;
 }
 
+.mobile-bottom-navigation,
+.mobile-navigation-sheet {
+  display: none;
+}
+
 :root[data-theme] .view-tabs .quick-add-wine-button {
   border-color: transparent;
   background: transparent;
@@ -20375,7 +20380,7 @@ body,
   .app-shell {
     padding-top: max(8px, env(safe-area-inset-top, 0px));
     padding-right: max(10px, env(safe-area-inset-right, 0px));
-    padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
     padding-left: max(10px, env(safe-area-inset-left, 0px));
   }
 
@@ -21710,4 +21715,26 @@ body,
   .pairing-sidekick-card { gap: 8px; padding: 10px; }
   .pairing-sidekick-illustration img { height: 218px; object-fit: contain; }
   .pairing-sidekick-empty { font-size: 0.8rem; line-height: 1.35; }
+}
+
+/* Touch-first application shell: compact search at the top and a persistent
+   thumb-reachable navigation bar, inspired by the native cellar experience. */
+@media (max-width: 820px) {
+  .view-tabs { position: sticky; top: 0; z-index: 45; display: block; margin-inline: 0; padding: 7px 0; overflow: visible; border: 0; background: color-mix(in srgb, var(--page) 92%, transparent); box-shadow: none; }
+  .view-tabs-navigation { display: none; }
+  .view-tabs .view-tabs-quick-actions { width: 100%; margin: 0; }
+  .view-tabs .view-tabs-quick-search { width: 100%; min-height: 42px; }
+  .view-tabs .quick-add-wine-button { display: none; }
+
+  .app-shell { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+
+  .mobile-bottom-navigation { position: fixed; z-index: 180; right: 0; bottom: 0; left: 0; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; min-height: calc(68px + env(safe-area-inset-bottom, 0px)); padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent)); background: color-mix(in srgb, var(--surface-raised) 94%, transparent); box-shadow: 0 -12px 30px color-mix(in srgb, var(--collector-depth) 24%, transparent); backdrop-filter: blur(18px) saturate(125%); }
+  .mobile-bottom-navigation button { display: grid; min-width: 0; min-height: 52px; padding: 5px 3px; place-items: center; gap: 3px; border: 0; border-radius: 12px; color: var(--text-muted); background: transparent; box-shadow: none; font-size: 0.62rem; font-weight: 750; line-height: 1.1; }
+  .mobile-bottom-navigation button .app-icon { font-size: 1.2rem; }
+  .mobile-bottom-navigation button.active { color: var(--primary); background: color-mix(in srgb, var(--primary) 9%, transparent); }
+  .mobile-bottom-navigation .mobile-bottom-navigation-add { width: 52px; height: 52px; min-height: 52px; margin: -20px auto 0; padding: 0; border: 3px solid var(--page); border-radius: 50%; color: #fff; background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 88%, var(--accent)), var(--primary)); box-shadow: 0 10px 20px color-mix(in srgb, var(--primary) 36%, transparent); font-size: 1.9rem; font-weight: 500; }
+  .mobile-bottom-navigation .mobile-bottom-navigation-add span { transform: translateY(-1px); }
+
+  .mobile-navigation-sheet { position: fixed; z-index: 179; right: 10px; bottom: calc(74px + env(safe-area-inset-bottom, 0px)); left: 10px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding: 10px; border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent)); border-radius: 18px; background: color-mix(in srgb, var(--surface-raised) 96%, transparent); box-shadow: 0 18px 42px color-mix(in srgb, var(--collector-depth) 38%, transparent); backdrop-filter: blur(18px) saturate(125%); }
+  .mobile-navigation-sheet button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 9px 10px; border-radius: 12px; color: var(--text); background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface)); box-shadow: none; font-size: 0.8rem; font-weight: 750; text-align: left; }
 }

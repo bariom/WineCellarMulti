@@ -65,4 +65,12 @@
   .cellar-assistant-sidekick-illustration .cellar-assistant-hero-illustration{height:218px;object-fit:contain}
 }
 
-@media(max-width:1023px){.cellar-assistant-sidekick{display:none}}
+@media(max-width:1023px){
+  .cellar-assistant-card{width:100%;min-width:0}
+  .cellar-assistant-layout{display:grid!important;grid-template-columns:minmax(0,1fr)!important;width:100%;min-width:0}
+  .cellar-assistant-main{grid-column:1/-1;width:100%;min-width:0}
+  .cellar-assistant-hero{grid-template-columns:auto minmax(0,1fr)!important;width:100%;min-width:0}
+  .cellar-assistant-hero>div{width:100%;min-width:0}
+  .cellar-assistant-composer{grid-template-columns:minmax(0,1fr)!important;width:100%;min-width:0}
+  .cellar-assistant-sidekick{display:none}
+}

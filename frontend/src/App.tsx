@@ -1424,6 +1424,7 @@ export function App() {
   });
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
   const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
+  const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const mobileAccountMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<ViewName>("home");
   // The dashboard can mount after the initial application render or after a
@@ -9163,6 +9164,25 @@ export function App() {
             ) : null}
             </div>
           </div>
+          ) : null}
+          {activeView !== "settings" ? (
+            <>
+              {mobileNavigationOpen ? <div className="mobile-navigation-sheet" role="dialog" aria-label={locale === "it" ? "Menu di navigazione" : "Navigation menu"}>
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button>
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
+                {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="newspaper" variant="premium" detailLevel="rich" />Wine Pulse</button>
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
+              </div> : null}
+              <nav className="mobile-bottom-navigation" aria-label={locale === "it" ? "Navigazione principale" : "Main navigation"}>
+                <button type="button" className={activeView === "home" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}><AppIcon name="dashboard" variant="navigation" detailLevel="rich" /><span>{t("home")}</span></button>
+                <button type="button" className={activeView === "cellar" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}><AppIcon name="cellar" variant="navigation" detailLevel="rich" /><span>{t("cellar")}</span></button>
+                {canWriteWine ? <button type="button" className="mobile-bottom-navigation-add" aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"} onClick={() => { setMobileNavigationOpen(false); startAddWineFromAnywhere(); }}><span>+</span></button> : <span aria-hidden="true" />}
+                <button type="button" className={activeView === "pairing" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairing")}</span></button>
+                <button type="button" className={mobileNavigationOpen ? "active" : ""} aria-expanded={mobileNavigationOpen} onClick={() => setMobileNavigationOpen((open) => !open)}><AppIcon name="settings" variant="action" detailLevel="rich" /><span>{locale === "it" ? "Menu" : "Menu"}</span></button>
+              </nav>
+            </>
           ) : null}
           {activeView === "home" && isRestaurant ? (
             <Suspense fallback={<LoadingState label={t("loadingData")} />}>
