@@ -205,16 +205,26 @@ export default function PairingView({
     })
     .slice(0, pairingPreviewLimit);
   const pairingResultCount = isWineFirstPairing ? (pairingResult?.dish_recommendations.length || 0) : pairingPreviewItems.length;
+  function selectPairingContext(marketOnly: boolean) {
+    setPairingMarketOnly(marketOnly);
+    if (!marketOnly) {
+      setPairingPreferLocal(false);
+      setPairingLocalOrigin("");
+    }
+  }
   const pairingDishSummary = pairingResult?.dish_recommendations.length
     ? pairingResult.dish_recommendations.map((dish) => dish.name).join(" · ")
     : "";
 
   return (
     <section className="pairing-card">
-      <div className="card-heading">
-        <div>
-          <span>{t("pairing")}</span>
-          <h2>{t("pairingSubmit")}</h2>
+      <div className="card-heading pairing-page-heading">
+        <div className="pairing-page-title">
+          <span className="pairing-page-icon"><FeatureIcon name="glass-sparkle" variant="ai" tone="accent" /></span>
+          <div>
+            <span>{t("pairing")}</span>
+            <h2>{t("pairingSubmit")}</h2>
+          </div>
         </div>
         {pairingResult?.estimated_cost_usd ? (
           <small className="pairing-request-cost">
@@ -237,9 +247,13 @@ export default function PairingView({
                 <button type="button" className="secondary compact" onClick={() => setPairingTargetWine(null)} disabled={generatingAi === "pairing"}>{pairingCopy.changeMode}</button>
               </div>
             ) : (
-              <label>
+              <label className="pairing-dish-field">
+                <strong className="pairing-step-title"><span>1</span>{locale === "it" ? "Cosa vuoi abbinare?" : "What would you like to pair?"}</strong>
                 <span>{t("pairingDish")}</span>
-                <textarea value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                <div className="pairing-textarea-shell">
+                  <textarea maxLength={150} value={pairingDish} onChange={(event) => setPairingDish(event.target.value)} placeholder={t("pairingPlaceholder")} rows={3} disabled={!canGenerateAi || generatingAi === "pairing"} />
+                  <small>{pairingDish.length}/150</small>
+                </div>
               </label>
             )}
             {isWineFirstPairing ? (
@@ -272,7 +286,8 @@ export default function PairingView({
                 </div>
               </details>
             ) : null}
-            {!isWineFirstPairing ? <div className="pairing-budget-control">
+            {!isWineFirstPairing ? <div className="pairing-budget-context-grid">
+            <div className="pairing-budget-control">
               <div className="pairing-budget-head">
                 <span>{t("pairingMaxPrice")}</span>
                 <strong>{hasPairingBudget ? `CHF ${activePairingBudget.toFixed(0)}` : t("pairingNoBudget")}</strong>
@@ -322,16 +337,34 @@ export default function PairingView({
                 </div>
               </div>
               <small>{t("pairingMaxPriceHelp")}</small>
+            </div>
+            <div className="pairing-context-control">
+              <span>{locale === "it" ? "Contesto" : "Context"}</span>
+              <small>{locale === "it" ? "Dove vuoi bere o scegliere il vino?" : "Where will you drink or choose the wine?"}</small>
+              <div className="pairing-context-options">
+                <button type="button" className={!pairingMarketOnly ? "selected" : ""} aria-pressed={!pairingMarketOnly} onClick={() => selectPairingContext(false)} disabled={!canGenerateAi || generatingAi === "pairing"}>
+                  <span aria-hidden="true">⌂</span>{locale === "it" ? "A casa" : "At home"}
+                </button>
+                <button type="button" className={pairingMarketOnly ? "selected" : ""} aria-pressed={pairingMarketOnly} onClick={() => selectPairingContext(true)} disabled={!canGenerateAi || generatingAi === "pairing"}>
+                  <span aria-hidden="true">♨</span>{locale === "it" ? "Ristorante" : "Restaurant"}
+                </button>
+              </div>
+            </div>
             </div> : null}
-            {!isWineFirstPairing ? <label className="pairing-preferences-field">
+            {!isWineFirstPairing ? <label className="pairing-preferences-field pairing-preferences-panel">
+              <strong className="pairing-step-title"><span>2</span>{locale === "it" ? "Le tue preferenze" : "Your preferences"}</strong>
               <span>{t("pairingPreferences")}</span>
-              <textarea
-                value={aiSettingsDraft.pairing_preferences}
-                onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
-                placeholder={t("pairingPreferencesPlaceholder")}
-                rows={4}
-                disabled={!canWriteWine || saving}
-              />
+              <div className="pairing-textarea-shell">
+                <textarea
+                  maxLength={200}
+                  value={aiSettingsDraft.pairing_preferences}
+                  onChange={(event) => setAiSettingsDraft({ ...aiSettingsDraft, pairing_preferences: event.target.value })}
+                  placeholder={t("pairingPreferencesPlaceholder")}
+                  rows={4}
+                  disabled={!canWriteWine || saving}
+                />
+                <small>{aiSettingsDraft.pairing_preferences.length}/200</small>
+              </div>
               <small>{t("pairingPreferencesHelp")}</small>
             </label> : null}
             {!isWineFirstPairing ? <div className="pairing-preferences-actions">
@@ -355,22 +388,6 @@ export default function PairingView({
             {!isWineFirstPairing ? <label className="pairing-option">
               <input type="checkbox" checked={pairingIncludeMarket} onChange={(event) => setPairingIncludeMarket(event.target.checked)} disabled={!canGenerateAi || pairingMarketOnly || generatingAi === "pairing"} />
               <span>{t("pairingIncludeMarket")}</span>
-            </label> : null}
-            {!isWineFirstPairing ? <label className="pairing-option">
-              <input
-                type="checkbox"
-                checked={pairingMarketOnly}
-                onChange={(event) => {
-                  const nextChecked = event.target.checked;
-                  setPairingMarketOnly(nextChecked);
-                  if (!nextChecked) {
-                    setPairingPreferLocal(false);
-                    setPairingLocalOrigin("");
-                  }
-                }}
-                disabled={!canGenerateAi || generatingAi === "pairing"}
-              />
-              <span>{t("pairingMarketOnly")}</span>
             </label> : null}
             {!isWineFirstPairing && pairingMarketOnly ? (
               <>
@@ -400,7 +417,7 @@ export default function PairingView({
                 ) : null}
               </>
             ) : null}
-            <button type="submit" disabled={!canGenerateAi || generatingAi === "pairing"}>
+            <button type="submit" className="pairing-submit-button" disabled={!canGenerateAi || generatingAi === "pairing"}>
               <ButtonBusyContent busy={generatingAi === "pairing"} idleLabel={t("pairingSubmit")} busyLabel={t("generating")} />
             </button>
             {generatingAi === "pairing" ? <LoadingState label={t("generating")} compact /> : null}
@@ -504,6 +521,11 @@ export default function PairingView({
             <div className="pairing-sidekick-illustration">
               <SommelierAiIllustration />
             </div>
+            <p className="pairing-sidekick-description">
+              {locale === "it"
+                ? "Ricevi suggerimenti su misura in base ai vini della tua cantina, alle tue preferenze e al piatto che vuoi abbinare."
+                : "Receive tailored suggestions based on your cellar, your preferences, and the dish you want to pair."}
+            </p>
           </div>
           <div className="pairing-sidekick-card">
             <div className="pairing-sidekick-heading">
@@ -526,6 +548,7 @@ export default function PairingView({
                   : (locale === "it" ? "Inserisci un piatto e un eventuale budget per ricevere suggerimenti contestualizzati dalla tua cantina." : "Enter a dish and an optional budget to receive contextual suggestions from your cellar.")}
               </p>
             )}
+            {!pairingResultCount ? <div className="pairing-empty-bottles" aria-hidden="true"><i /><i /><i /><i /></div> : null}
           </div>
         </aside>
       </div>
