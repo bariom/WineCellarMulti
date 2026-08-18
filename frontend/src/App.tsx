@@ -1406,7 +1406,10 @@ export function App() {
   const [showBackToTop, setShowBackToTop] = useState(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [showOfflineBackupPanel, setShowOfflineBackupPanel] = useState(() => !navigator.onLine);
-  const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<WineTone, boolean>>({
+  const [wineGroupingMode, setWineGroupingMode] = useState<"color" | "region">(() =>
+    window.sessionStorage.getItem("vinaris-wine-grouping") === "region" ? "region" : "color",
+  );
+  const [openWineToneGroups, setOpenWineToneGroups] = useState<Record<string, boolean>>({
     red: false,
     white: false,
     sparkling: false,
@@ -1414,7 +1417,7 @@ export function App() {
     sweet: false,
     other: false,
   });
-  const [wineToneRenderLimits, setWineToneRenderLimits] = useState<Record<WineTone, number>>({
+  const [wineToneRenderLimits, setWineToneRenderLimits] = useState<Record<string, number>>({
     red: WINE_TONE_PAGE_SIZE,
     white: WINE_TONE_PAGE_SIZE,
     sparkling: WINE_TONE_PAGE_SIZE,
@@ -5746,21 +5749,42 @@ export function App() {
   });
   const visibleTastingEntries = usingPagedTastingArchive ? pagedTastingEntries : filteredTastingEntries;
   const tastingArchiveTotalCount = usingPagedTastingArchive ? tastingArchivePage?.total || 0 : historyTastingEntries.length;
-  const groupedFilteredWines = wineToneOrder
-    .map((tone) => {
-      const items = filteredWines.filter((wine) => wineTone(wine.type) === tone);
-      return {
-        tone,
-        label: wineToneLabel(tone, locale),
-        items,
-        wineCount: items.length,
-        bottleCount: items.reduce(
+  const groupedFilteredWines = wineGroupingMode === "color"
+    ? wineToneOrder
+      .map((tone) => {
+        const items = filteredWines.filter((wine) => wineTone(wine.type) === tone);
+        return {
+          key: tone,
+          tone,
+          label: wineToneLabel(tone, locale),
+          items,
+          wineCount: items.length,
+          bottleCount: items.reduce(
+            (sum, wine) => sum + (activeView === "history" ? Math.max(wine.tasting_history.length, 1) : Number(wine.quantity || 0)),
+            0,
+          ),
+        };
+      })
+      .filter((group) => group.items.length > 0)
+    : Array.from(
+      filteredWines.reduce((groups, wine) => {
+        const label = wine.region?.trim() || (locale === "it" ? "Regione non specificata" : "Region not specified");
+        const key = `region:${label.toLocaleLowerCase(locale)}`;
+        const current = groups.get(key);
+        if (current) current.items.push(wine);
+        else groups.set(key, { key, tone: wineTone(wine.type), label, items: [wine] });
+        return groups;
+      }, new Map<string, { key: string; tone: WineTone; label: string; items: Wine[] }>()),
+    )
+      .map(([, group]) => ({
+        ...group,
+        wineCount: group.items.length,
+        bottleCount: group.items.reduce(
           (sum, wine) => sum + (activeView === "history" ? Math.max(wine.tasting_history.length, 1) : Number(wine.quantity || 0)),
           0,
         ),
-      };
-    })
-    .filter((group) => group.items.length > 0);
+      }))
+      .sort((first, second) => first.label.localeCompare(second.label, locale));
   const filteredWishlist = wishlist
     .filter((item) => !normalizedQuery || wishlistSearchText(item).includes(normalizedQuery))
     .filter((item) => !typeFilter || normalizeWineType(item.type) === typeFilter)
@@ -5782,6 +5806,10 @@ export function App() {
   const filteredWineBottleCount = filteredWines.reduce((sum, wine) => sum + Math.max(Number(wine.quantity || 0), 0), 0);
 
   useEffect(() => {
+    window.sessionStorage.setItem("vinaris-wine-grouping", wineGroupingMode);
+  }, [wineGroupingMode]);
+
+  useEffect(() => {
     setWineToneRenderLimits({
       red: WINE_TONE_PAGE_SIZE,
       white: WINE_TONE_PAGE_SIZE,
@@ -5790,18 +5818,18 @@ export function App() {
       sweet: WINE_TONE_PAGE_SIZE,
       other: WINE_TONE_PAGE_SIZE,
     });
-  }, [activeView, historySection, searchQuery, typeFilter, statusFilter, ownershipFilter, quickWineFilter, maturityFilter, tagFilter, grapeFilter, sortMode]);
+  }, [activeView, historySection, searchQuery, typeFilter, statusFilter, ownershipFilter, quickWineFilter, maturityFilter, tagFilter, grapeFilter, sortMode, wineGroupingMode]);
 
   useEffect(() => {
     if (!selectedWineId || !isWineCollectionView) return;
     const selectedIndex = filteredWines.findIndex((wine) => wine.id === selectedWineId);
     if (selectedIndex < 0) return;
-    const tone = wineTone(filteredWines[selectedIndex].type);
-    const toneIndex = groupedFilteredWines.find((group) => group.tone === tone)?.items.findIndex((wine) => wine.id === selectedWineId) ?? -1;
-    if (toneIndex < 0) return;
-    setWineToneRenderLimits((current) => current[tone] > toneIndex
+    const selectedGroup = groupedFilteredWines.find((group) => group.items.some((wine) => wine.id === selectedWineId));
+    const groupIndex = selectedGroup?.items.findIndex((wine) => wine.id === selectedWineId) ?? -1;
+    if (!selectedGroup || groupIndex < 0) return;
+    setWineToneRenderLimits((current) => (current[selectedGroup.key] || WINE_TONE_PAGE_SIZE) > groupIndex
       ? current
-      : { ...current, [tone]: Math.ceil((toneIndex + 1) / WINE_TONE_PAGE_SIZE) * WINE_TONE_PAGE_SIZE });
+      : { ...current, [selectedGroup.key]: Math.ceil((groupIndex + 1) / WINE_TONE_PAGE_SIZE) * WINE_TONE_PAGE_SIZE });
   }, [filteredWines, groupedFilteredWines, isWineCollectionView, selectedWineId]);
 
   useEffect(() => {
@@ -5831,9 +5859,10 @@ export function App() {
     if (!selectedWineId || !isWineCollectionView) return;
     const selectedWine = filteredWines.find((wine) => wine.id === selectedWineId);
     if (!selectedWine) return;
-    const tone = wineTone(selectedWine.type);
-    setOpenWineToneGroups((current) => (current[tone] ? current : { ...current, [tone]: true }));
-  }, [selectedWineId, isWineCollectionView, wines]);
+    const selectedGroup = groupedFilteredWines.find((group) => group.items.some((wine) => wine.id === selectedWine.id));
+    if (!selectedGroup) return;
+    setOpenWineToneGroups((current) => (current[selectedGroup.key] ? current : { ...current, [selectedGroup.key]: true }));
+  }, [selectedWineId, isWineCollectionView, wines, groupedFilteredWines]);
 
   useEffect(() => {
     if (!selectedWineId || !isWineCollectionView) return;
@@ -8245,6 +8274,35 @@ export function App() {
             publicBrandLockup
           )}
         </div>
+        {authenticated && activeView !== "settings" ? (
+          <form
+            className="desktop-topbar-search"
+            role="search"
+            onSubmit={(event) => {
+              event.preventDefault();
+              openQuickWineSearch(searchQuery);
+            }}
+          >
+            <AppIcon name="search" variant="action" tone="muted" size="0.95rem" />
+            <input
+              value={searchQuery}
+              onChange={(event) => openQuickWineSearch(event.target.value)}
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("search")}
+            />
+            {searchQuery ? (
+              <button
+                type="button"
+                className="view-tabs-quick-search-clear"
+                onClick={() => openQuickWineSearch("")}
+                aria-label={t("clearFilters")}
+                title={t("clearFilters")}
+              >
+                Ã—
+              </button>
+            ) : null}
+          </form>
+        ) : null}
         {authenticated ? (
           <div
             ref={mobileAccountMenuRef}
@@ -9113,7 +9171,7 @@ export function App() {
         >
           {activeView !== "settings" ? (
           <div className="view-tabs">
-            {activeView !== "help" ? <div className="view-tabs-navigation">
+            <div className="view-tabs-navigation">
             <button type="button" className={activeView === "home" ? "" : "secondary"} onClick={() => { leaveHelpFor("home"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("home"); }}>
               <AppIcon name="dashboard" variant="navigation" detailLevel="rich" />
               {t("home")}
@@ -9142,12 +9200,12 @@ export function App() {
               <AppIcon name="newspaper" variant="premium" detailLevel="rich" />
               Wine Pulse
             </button>
-            <button type="button" className="secondary" onClick={() => openHelp()}>
+            <button type="button" className={activeView === "help" ? "" : "secondary"} onClick={() => openHelp()}>
               <AppIcon name="grapes" variant="premium" detailLevel="rich" />
               {t("help")}
             </button>
             <button type="button" className="secondary compact help-context-trigger" aria-label={locale === "it" ? "Apri assistenza contestuale" : "Open contextual help"} title={locale === "it" ? "Assistenza per questa vista" : "Help for this view"} onClick={() => openHelp(contextualHelpArticle)}>?</button>
-            </div> : null}
+            </div>
             <div className="view-tabs-quick-actions">
             <form
               className="view-tabs-quick-search"
@@ -12122,7 +12180,8 @@ export function App() {
                   }}
                 >
                   <AppIcon name="filter" />
-                  <span>{locale === "it" ? "Filtri" : "Filters"}</span>
+                  <span className="cellar-filter-trigger-label-short">{locale === "it" ? "Filtri" : "Filters"}</span>
+                  <span className="cellar-filter-trigger-label-wide">{locale === "it" ? "Ricerca e filtri" : "Search and filters"}</span>
                   {activeCollectionFilterChips.length ? <small>{activeCollectionFilterChips.length}</small> : null}
                 </button>
               ) : null}
@@ -12230,25 +12289,37 @@ export function App() {
             ) : null}
             {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && groupedFilteredWines.length ? (
               <div className="wine-tone-groups">
-                <p className="list-header list-header-inline">{t("groupedByColor")}</p>
+                <div className="list-header list-header-inline wine-grouping-header">
+                  <strong>{wineGroupingMode === "color"
+                    ? t("groupedByColor")
+                    : (locale === "it" ? "Raggruppati per regione" : "Grouped by region")}</strong>
+                  <div className="wine-grouping-switch" role="group" aria-label={locale === "it" ? "Raggruppamento vini" : "Wine grouping"}>
+                    <button type="button" className={wineGroupingMode === "color" ? "active" : ""} aria-pressed={wineGroupingMode === "color"} onClick={() => setWineGroupingMode("color")}>
+                      {locale === "it" ? "Colore" : "Color"}
+                    </button>
+                    <button type="button" className={wineGroupingMode === "region" ? "active" : ""} aria-pressed={wineGroupingMode === "region"} onClick={() => setWineGroupingMode("region")}>
+                      {locale === "it" ? "Regione" : "Region"}
+                    </button>
+                  </div>
+                </div>
                 {groupedFilteredWines.map((group) => (
                   <section
-                    className={`wine-tone-group tone-${group.tone}${openWineToneGroups[group.tone] ? " open" : ""}`}
-                    key={group.tone}
+                    className={`wine-tone-group${wineGroupingMode === "color" ? ` tone-${group.tone}` : " wine-region-group"}${openWineToneGroups[group.key] ? " open" : ""}`}
+                    key={group.key}
                   >
                     <button
                       type="button"
                       className="wine-tone-group-toggle"
-                      aria-expanded={openWineToneGroups[group.tone]}
-                      onClick={() => setOpenWineToneGroups((current) => ({ ...current, [group.tone]: !current[group.tone] }))}
+                      aria-expanded={Boolean(openWineToneGroups[group.key])}
+                      onClick={() => setOpenWineToneGroups((current) => ({ ...current, [group.key]: !current[group.key] }))}
                     >
-                      <span className={`wine-tone-pill tone-${group.tone}`}>{group.label}</span>
+                      <span className={wineGroupingMode === "color" ? `wine-tone-pill tone-${group.tone}` : "wine-tone-pill wine-region-pill"}>{group.label}</span>
                       <span className="wine-tone-group-summary">
                         {formatBottleCount(group.wineCount, locale)} {t("winesLabel")} • {formatBottleCount(group.bottleCount, locale)} {t("bottles").toLowerCase()}
                       </span>
                       <span className="wine-tone-group-chevron" aria-hidden="true">›</span>
                     </button>
-                    {openWineToneGroups[group.tone] ? group.items.slice(0, wineToneRenderLimits[group.tone]).map((wine) => (
+                    {openWineToneGroups[group.key] ? group.items.slice(0, wineToneRenderLimits[group.key] || WINE_TONE_PAGE_SIZE).map((wine) => (
               <div
                 className="list-item-block"
                 key={wine.id}
@@ -12428,18 +12499,18 @@ export function App() {
                 ) : null}
               </div>
                     )) : null}
-                    {openWineToneGroups[group.tone] && group.items.length > wineToneRenderLimits[group.tone] ? (
+                    {openWineToneGroups[group.key] && group.items.length > (wineToneRenderLimits[group.key] || WINE_TONE_PAGE_SIZE) ? (
                       <button
                         type="button"
                         className="secondary wine-tone-load-more"
                         onClick={() => setWineToneRenderLimits((current) => ({
                           ...current,
-                          [group.tone]: current[group.tone] + WINE_TONE_PAGE_SIZE,
+                          [group.key]: (current[group.key] || WINE_TONE_PAGE_SIZE) + WINE_TONE_PAGE_SIZE,
                         }))}
                       >
                         {locale === "it"
-                          ? `Mostra altri ${Math.min(WINE_TONE_PAGE_SIZE, group.items.length - wineToneRenderLimits[group.tone])} vini`
-                          : `Show ${Math.min(WINE_TONE_PAGE_SIZE, group.items.length - wineToneRenderLimits[group.tone])} more wines`}
+                          ? `Mostra altri ${Math.min(WINE_TONE_PAGE_SIZE, group.items.length - (wineToneRenderLimits[group.key] || WINE_TONE_PAGE_SIZE))} vini`
+                          : `Show ${Math.min(WINE_TONE_PAGE_SIZE, group.items.length - (wineToneRenderLimits[group.key] || WINE_TONE_PAGE_SIZE))} more wines`}
                       </button>
                     ) : null}
                   </section>
