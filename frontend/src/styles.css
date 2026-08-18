@@ -10874,11 +10874,12 @@ button.stat-card:hover {
   position: relative;
   overflow: hidden;
   min-height: min(620px, calc(100vh - 190px));
-  align-content: end;
+  grid-template-rows: auto min-content 1fr;
+  align-content: start;
   gap: 0;
   padding: 0;
   text-align: left;
-  background: #1c100c;
+  background: var(--surface-raised);
 }
 
 .empty-detail::before {
@@ -10894,11 +10895,12 @@ button.stat-card:hover {
 }
 
 .empty-detail-image {
-  position: absolute;
-  inset: 0;
-  min-height: 100%;
+  position: relative;
+  grid-row: 1;
+  min-height: 0;
+  aspect-ratio: 1122 / 1402;
   overflow: hidden;
-  border-bottom: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
   background: #1c100c;
 }
 
@@ -10916,25 +10918,23 @@ button.stat-card:hover {
   display: block;
   width: 100%;
   height: 100%;
-  min-height: min(620px, calc(100vh - 190px));
-  object-fit: cover;
+  min-height: 0;
+  object-fit: contain;
   object-position: center;
   filter: brightness(1.24) contrast(0.96) saturate(1.08);
 }
 
 .empty-detail-copy {
-  position: relative;
-  z-index: 1;
+  grid-row: 2;
   display: grid;
   gap: 10px;
-  margin: 18px;
+  margin: 0;
   padding: 14px 16px;
-  border: 1px solid rgba(255, 238, 218, 0.22);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgba(255, 247, 237, 0.84), rgba(246, 230, 215, 0.72));
-  box-shadow: 0 14px 30px rgba(26, 11, 6, 0.22);
-  backdrop-filter: blur(14px);
+  border: 0;
+  border-radius: 0;
+  background: var(--surface-raised);
+  box-shadow: none;
+  backdrop-filter: none;
 }
 
 .empty-detail h2 {
