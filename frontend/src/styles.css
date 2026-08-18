@@ -22168,4 +22168,188 @@ body,
   .home-mobile-experience .recent-wines-card .card-heading {
     min-height: 44px;
   }
+
+  .home-mobile-experience .dashboard-grid {
+    align-items: stretch;
+  }
+
+  .home-mobile-experience .dashboard-grid > .dashboard-card {
+    align-self: stretch;
+  }
+
+  .home-mobile-experience .dashboard-bottle-tile .key-position-bottle-visual,
+  .home-mobile-experience .dashboard-bottle-list .dashboard-bottle-tile .key-position-bottle-visual {
+    top: 0;
+    align-self: center;
+    overflow: visible;
+  }
+
+  .home-mobile-experience .dashboard-bottle-tile .key-position-bottle-visual {
+    width: 44px;
+    height: 72px;
+  }
+
+  .home-mobile-experience .dashboard-bottle-list .dashboard-bottle-tile .key-position-bottle-visual {
+    width: 39px;
+    height: 60px;
+  }
+
+  .home-mobile-experience .dashboard-bottle-tile .key-position-bottle-visual img {
+    width: 100%;
+    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    object-position: center;
+  }
+
+  .home-mobile-experience .key-position-card {
+    gap: 8px;
+  }
+
+  .home-mobile-experience .key-position-card-heading {
+    padding: 12px 16px 0;
+  }
+
+  .home-mobile-experience .key-position-button {
+    grid-template-columns: 88px minmax(0, 1fr);
+    gap: 10px 12px;
+    padding: 10px 16px 14px;
+  }
+
+  .home-mobile-experience .key-position-head {
+    min-height: 112px;
+  }
+
+  .home-mobile-experience .key-position-bottle-visual {
+    width: 84px;
+    height: 126px;
+  }
+
+  .home-mobile-experience .key-position-metrics {
+    gap: 7px;
+  }
+
+  .home-mobile-experience .key-position-metric {
+    min-height: 64px;
+    padding: 8px 10px;
+    border-radius: 13px;
+  }
+
+  .home-mobile-experience .key-position-trend {
+    min-height: 68px;
+    padding: 8px 12px;
+    border-radius: 14px;
+  }
+
+  .home-mobile-experience .key-position-trend svg {
+    min-height: 34px;
+  }
+
+  .home-mobile-experience .key-position-maturity {
+    gap: 2px;
+  }
+
+  .home-mobile-experience .key-position-maturity-heading strong {
+    font-size: 0.7rem;
+  }
+
+  .home-mobile-experience .key-position-maturity-track {
+    height: 7px;
+  }
+
+  .home-mobile-experience .key-position-maturity-current {
+    height: 16px;
+  }
+
+  .home-mobile-experience .key-position-maturity-current i {
+    display: none;
+  }
+
+  .home-mobile-experience .key-position-maturity-years {
+    min-height: 1.5em;
+    padding-top: 9px;
+    font-size: 0.58rem;
+  }
+
+  .home-mobile-experience .key-position-maturity-years span {
+    top: 9px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact {
+    gap: 7px;
+    padding: 12px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .card-heading {
+    min-height: 40px;
+    padding-bottom: 7px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .card-heading h2 {
+    font-size: 0.92rem;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .card-heading button {
+    min-height: 32px;
+    padding: 5px 8px;
+    font-size: 0.7rem;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact > .regional-gap-help {
+    margin: 0;
+    font-size: 0.72rem;
+    line-height: 1.25;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-profile-mobile-select {
+    min-height: 34px;
+    padding-block: 4px;
+    font-size: 0.76rem;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-profile-status {
+    min-width: 0;
+    overflow: hidden;
+    font-size: 0.68rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-gap-layout {
+    gap: 5px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-radar-wrap {
+    gap: 5px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-radar {
+    width: min(100%, 230px);
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-radar-legend {
+    gap: 7px;
+    font-size: 0.64rem;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-radar-legend i {
+    width: 14px;
+    height: 6px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-gap-suggestions {
+    gap: 5px;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-gap-suggestions summary {
+    min-height: 32px;
+    font-size: 0.76rem;
+  }
+
+  .home-mobile-experience .regional-gap-card-compact .regional-gap-suggestions summary::after {
+    width: 21px;
+    height: 21px;
+  }
 }
