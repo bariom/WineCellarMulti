@@ -226,6 +226,39 @@ def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
     ]
 
 
+def test_consume_multiple_bottles_from_intelligence_action():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Barbera", "quantity": 4, "status": "Delivered"},
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    assert client.put(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations",
+        json={"allocations": [{"purpose": "drink", "quantity": 3}]},
+    ).status_code == 200
+
+    consumed = client.post(
+        f"/api/v1/wines/{wine_id}/consume",
+        json={"quantity": 2, "note": "Cellar Intelligence action"},
+    )
+    assert consumed.status_code == 200, consumed.text
+    assert consumed.json()["quantity"] == 2
+    assert len(consumed.json()["tasting_history"]) == 2
+    remaining_allocations = client.get(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations"
+    ).json()
+    assert [(item["purpose"], item["quantity"]) for item in remaining_allocations] == [
+        ("drink", 1)
+    ]
+
+    rejected = client.post(f"/api/v1/wines/{wine_id}/consume", json={"quantity": 3})
+    assert rejected.status_code == 400
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 2
+
+
 def test_cellar_intelligence_rejects_overallocation():
     client = TestClient(app)
     assert register(client).status_code == 201

@@ -182,6 +182,7 @@ class TastingArchivePageResponse(BaseModel):
 
 
 class WineConsume(BaseModel):
+    quantity: int = Field(default=1, ge=1, le=100000)
     consumed_at: date | None = None
     storage_allocation_id: UUID | None = None
     note: str = ""

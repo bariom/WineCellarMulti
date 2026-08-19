@@ -10,10 +10,12 @@ export default function CellarIntelligenceView({
   locale,
   disabled,
   onOpenWine,
+  onCellarChanged,
 }: {
   locale: Locale;
   disabled: boolean;
   onOpenWine: (wineId: string) => void;
+  onCellarChanged: () => Promise<void>;
 }) {
   const it = locale === "it";
   const [snapshot, setSnapshot] = useState<CellarIntelligenceSnapshot | null>(null);
@@ -24,17 +26,26 @@ export default function CellarIntelligenceView({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [applyingRecommendation, setApplyingRecommendation] = useState("");
+  const [appliedRecommendations, setAppliedRecommendations] = useState<Set<string>>(() => new Set());
+  const [editingRecommendation, setEditingRecommendation] = useState("");
+  const [pendingDrinkRecommendation, setPendingDrinkRecommendation] = useState<{
+    key: string;
+    recommendation: CellarIntelligencePlan["recommendations"][number];
+    wine: CellarIntelligenceWine;
+  } | null>(null);
+  const [actionNotice, setActionNotice] = useState("");
   const [error, setError] = useState("");
 
-  async function loadSnapshot() {
-    setLoading(true);
+  async function loadSnapshot(showLoading = true) {
+    if (showLoading) setLoading(true);
     setError("");
     try {
       setSnapshot(await api<CellarIntelligenceSnapshot>("/api/v1/intelligence/cellar"));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   }
 
@@ -44,8 +55,9 @@ export default function CellarIntelligenceView({
   const drinkCandidates = snapshot?.wines.filter((wine) => wine.purposes.drink && ["ready", "peak", "late"].includes(wine.readiness)) || [];
   const decisionCandidates = snapshot?.wines.filter((wine) => wine.unallocated_quantity > 0) || [];
 
-  function beginEdit(wine: CellarIntelligenceWine) {
+  function beginEdit(wine: CellarIntelligenceWine, recommendationKey = "") {
     setEditing(wine);
+    setEditingRecommendation(recommendationKey);
     setQuantities({
       drink: wine.purposes.drink || 0,
       maturation: wine.purposes.maturation || 0,
@@ -71,9 +83,14 @@ export default function CellarIntelligenceView({
           allocations: PURPOSES.filter((purpose) => quantities[purpose] > 0).map((purpose) => ({ purpose, quantity: quantities[purpose] })),
         }),
       });
+      if (editingRecommendation) {
+        setAppliedRecommendations((current) => new Set(current).add(editingRecommendation));
+        setActionNotice(it ? "Azione applicata alla strategia della cantina." : "Action applied to the cellar strategy.");
+      }
       setEditing(null);
-      setPlan(null);
-      await loadSnapshot();
+      setEditingRecommendation("");
+      if (!editingRecommendation) setPlan(null);
+      await loadSnapshot(false);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
     } finally {
@@ -84,6 +101,8 @@ export default function CellarIntelligenceView({
   async function generatePlan() {
     setGenerating(true);
     setError("");
+    setActionNotice("");
+    setAppliedRecommendations(new Set());
     try {
       setPlan(await api<CellarIntelligencePlan>("/api/v1/ai/cellar-intelligence", {
         method: "POST",
@@ -96,6 +115,55 @@ export default function CellarIntelligenceView({
     }
   }
 
+  async function refreshRecommendationValue(
+    recommendation: CellarIntelligencePlan["recommendations"][number],
+    key: string,
+  ) {
+    setApplyingRecommendation(key);
+    setError("");
+    setActionNotice("");
+    try {
+      await api(`/api/v1/ai/wines/${recommendation.wine_id}/value`, {
+        method: "POST",
+        body: JSON.stringify({ locale, force_refresh: true }),
+      });
+      await Promise.all([loadSnapshot(false), onCellarChanged()]);
+      setAppliedRecommendations((current) => new Set(current).add(key));
+      setActionNotice(it ? "Valore attuale aggiornato." : "Current value updated.");
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : String(requestError));
+    } finally {
+      setApplyingRecommendation("");
+    }
+  }
+
+  async function confirmDrinkRecommendation() {
+    if (!pendingDrinkRecommendation) return;
+    const { key, recommendation } = pendingDrinkRecommendation;
+    setApplyingRecommendation(key);
+    setError("");
+    setActionNotice("");
+    try {
+      await api(`/api/v1/wines/${recommendation.wine_id}/consume`, {
+        method: "POST",
+        body: JSON.stringify({
+          quantity: recommendation.quantity,
+          note: it ? "Azione applicata da Intelligence" : "Action applied from Intelligence",
+        }),
+      });
+      await Promise.all([loadSnapshot(false), onCellarChanged()]);
+      setAppliedRecommendations((current) => new Set(current).add(key));
+      setPendingDrinkRecommendation(null);
+      setActionNotice(it
+        ? `${recommendation.quantity} ${recommendation.quantity === 1 ? "bottiglia registrata come bevuta" : "bottiglie registrate come bevute"}.`
+        : `${recommendation.quantity} ${recommendation.quantity === 1 ? "bottle" : "bottles"} recorded as consumed.`);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : String(requestError));
+    } finally {
+      setApplyingRecommendation("");
+    }
+  }
+
   const purposeLabel = (purpose: WineStrategyPurpose) => ({
     drink: it ? "Bere" : "Drink",
     maturation: it ? "Maturazione" : "Maturation",
@@ -103,6 +171,22 @@ export default function CellarIntelligenceView({
     special_occasion: it ? "Occasione speciale" : "Special occasion",
     undecided: it ? "Da decidere" : "Undecided",
   })[purpose];
+
+  const formatUnitValue = (totalValue: string, currency: string, quantity: number) => {
+    const amount = Number(totalValue);
+    if (!Number.isFinite(amount) || amount <= 0 || quantity <= 0) {
+      return it ? "Non disponibile" : "Not available";
+    }
+    const unitValue = amount / quantity;
+    try {
+      return new Intl.NumberFormat(it ? "it-CH" : "en-CH", {
+        style: "currency",
+        currency: currency || "CHF",
+      }).format(unitValue);
+    } catch {
+      return `${currency || "CHF"} ${unitValue.toFixed(2)}`;
+    }
+  };
 
   if (loading) return <section className="cellar-intelligence"><p>{it ? "Analisi della cantina…" : "Analysing cellar…"}</p></section>;
 
@@ -143,13 +227,41 @@ export default function CellarIntelligenceView({
         <p className="plan-overview">{plan.overview}</p>
         <p><strong>{it ? "Prima azione:" : "First action:"}</strong> {plan.immediate_action}</p>
         {plan.risk_note ? <p className="plan-risk">{plan.risk_note}</p> : null}
+        {actionNotice ? <p className="intelligence-action-notice" role="status">{actionNotice}</p> : null}
         <div className="plan-recommendations">{plan.recommendations.map((item, index) => {
           const wine = wineNames.get(item.wine_id);
-          return <button type="button" key={`${item.wine_id}-${index}`} onClick={() => onOpenWine(item.wine_id)}>
-            <span className={`priority priority-${item.priority}`}>{item.priority}</span>
-            <strong>{item.quantity}× {wine?.name || item.wine_id}</strong>
-            <span>{item.reason}</span>
-          </button>;
+          const recommendationKey = `${item.wine_id}-${item.action}-${index}`;
+          const applied = appliedRecommendations.has(recommendationKey);
+          const busy = applyingRecommendation === recommendationKey;
+          const actionLabel = ({
+            drink: it ? "Bere ora" : "Drink now",
+            hold: it ? "Mantenere" : "Hold",
+            monitor: it ? "Monitorare" : "Monitor",
+            decide: it ? "Decidere" : "Decide",
+          })[item.action];
+          return <article className={`plan-recommendation${applied ? " is-applied" : ""}`} key={recommendationKey}>
+            <button type="button" className="plan-recommendation-main" onClick={() => onOpenWine(item.wine_id)}>
+              <span className={`priority priority-${item.priority}`}>{item.priority}</span>
+              <strong>{item.quantity}× {wine?.name || item.wine_id}</strong>
+              <span>{item.reason}</span>
+            </button>
+            <footer>
+              <span className={`plan-action plan-action-${item.action}`}>{actionLabel}</span>
+              {applied ? <strong className="plan-action-applied">{it ? "Applicata" : "Applied"}</strong> : item.action === "drink" ? (
+                <button type="button" disabled={disabled || !wine || Boolean(applyingRecommendation)} onClick={() => wine && setPendingDrinkRecommendation({ key: recommendationKey, recommendation: item, wine })}>
+                  {busy ? (it ? "Applicazione…" : "Applying…") : (it ? "Registra bevuta" : "Record consumed")}
+                </button>
+              ) : item.action === "monitor" ? (
+                <button type="button" disabled={disabled || Boolean(applyingRecommendation)} onClick={() => void refreshRecommendationValue(item, recommendationKey)}>
+                  {busy ? (it ? "Aggiornamento…" : "Updating…") : (it ? "Aggiorna valore con AI" : "Update value with AI")}
+                </button>
+              ) : (
+                <button type="button" disabled={!wine || Boolean(applyingRecommendation)} onClick={() => wine && beginEdit(wine, recommendationKey)}>
+                  {item.action === "decide" ? (it ? "Definisci obiettivo" : "Set purpose") : (it ? "Rivedi maturazione" : "Review maturation")}
+                </button>
+              )}
+            </footer>
+          </article>;
         })}</div>
         <small>{plan.model} · ${Number(plan.estimated_cost_usd).toFixed(6)}</small>
       </article> : null}
@@ -169,19 +281,39 @@ export default function CellarIntelligenceView({
               <strong>{wine.name} {wine.vintage}</strong>
               <span className="intelligence-wine-producer">{wine.producer || (it ? "Produttore non specificato" : "Producer not specified")}</span>
               <small>{wine.unallocated_quantity} {it ? "senza obiettivo su" : "without purpose of"} {wine.quantity}</small>
+              <span className="intelligence-wine-values">
+                <span>
+                  <small>{it ? "Prezzo d'acquisto" : "Purchase price"}</small>
+                  <strong>{formatUnitValue(wine.purchase_value, wine.currency, wine.quantity)}</strong>
+                </span>
+                <span>
+                  <small>{it ? "Valore attuale" : "Current value"}</small>
+                  <strong>{wine.signals.includes("market_value_missing") ? (it ? "Non disponibile" : "Not available") : formatUnitValue(wine.current_value, wine.currency, wine.quantity)}</strong>
+                </span>
+              </span>
             </button>
             <button type="button" onClick={() => beginEdit(wine)}>{it ? "Definisci" : "Define"}</button>
           </div>) : <p className="intelligence-empty">{it ? "Tutte le bottiglie hanno un obiettivo." : "Every bottle has a purpose."}</p>}
         </article>
       </div>
 
-      {editing ? <div className="intelligence-modal-backdrop" role="presentation" onMouseDown={() => setEditing(null)}>
+      {pendingDrinkRecommendation ? <div className="intelligence-modal-backdrop" role="presentation" onMouseDown={() => setPendingDrinkRecommendation(null)}>
+        <section className="intelligence-modal intelligence-action-confirm" role="dialog" aria-modal="true" aria-labelledby="intelligence-consume-title" onMouseDown={(event) => event.stopPropagation()}>
+          <header><div><span className="intelligence-kicker">{it ? "CONFERMA AZIONE" : "CONFIRM ACTION"}</span><h2 id="intelligence-consume-title">{it ? "Registrare il consumo?" : "Record consumption?"}</h2></div><button type="button" className="secondary" onClick={() => setPendingDrinkRecommendation(null)}>×</button></header>
+          <p>{it
+            ? `Verranno registrate come bevute ${pendingDrinkRecommendation.recommendation.quantity} bottiglie di ${pendingDrinkRecommendation.wine.name}. La giacenza e gli obiettivi saranno aggiornati.`
+            : `${pendingDrinkRecommendation.recommendation.quantity} bottles of ${pendingDrinkRecommendation.wine.name} will be recorded as consumed. Stock and purposes will be updated.`}</p>
+          <footer><button type="button" className="secondary" onClick={() => setPendingDrinkRecommendation(null)}>{it ? "Annulla" : "Cancel"}</button><button type="button" disabled={Boolean(applyingRecommendation)} onClick={() => void confirmDrinkRecommendation()}>{applyingRecommendation ? (it ? "Registrazione…" : "Recording…") : (it ? "Conferma consumo" : "Confirm consumption")}</button></footer>
+        </section>
+      </div> : null}
+
+      {editing ? <div className="intelligence-modal-backdrop" role="presentation" onMouseDown={() => { setEditing(null); setEditingRecommendation(""); }}>
         <section className="intelligence-modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
-          <header><div><span className="intelligence-kicker">{it ? "OBIETTIVI BOTTIGLIE" : "BOTTLE PURPOSES"}</span><h2>{editing.name} {editing.vintage}</h2></div><button type="button" className="secondary" onClick={() => setEditing(null)}>×</button></header>
+          <header><div><span className="intelligence-kicker">{it ? "OBIETTIVI BOTTIGLIE" : "BOTTLE PURPOSES"}</span><h2>{editing.name} {editing.vintage}</h2></div><button type="button" className="secondary" onClick={() => { setEditing(null); setEditingRecommendation(""); }}>×</button></header>
           <p>{it ? `Distribuisci fino a ${editing.quantity} bottiglie. Puoi lasciare una parte non assegnata.` : `Allocate up to ${editing.quantity} bottles. You may leave some unassigned.`}</p>
           <div className="purpose-grid">{PURPOSES.map((purpose) => <label key={purpose}><span>{purposeLabel(purpose)}</span><input type="number" min="0" max={editing.quantity} value={quantities[purpose]} onChange={(event) => setQuantities((current) => ({ ...current, [purpose]: Math.max(Number(event.target.value) || 0, 0) }))} /></label>)}</div>
           <div className="allocation-total"><span>{it ? "Assegnate" : "Allocated"}</span><strong>{PURPOSES.reduce((sum, purpose) => sum + quantities[purpose], 0)} / {editing.quantity}</strong></div>
-          <footer><button type="button" className="secondary" onClick={() => setEditing(null)}>{it ? "Annulla" : "Cancel"}</button><button type="button" disabled={saving} onClick={saveAllocations}>{saving ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva obiettivi" : "Save purposes")}</button></footer>
+          <footer><button type="button" className="secondary" onClick={() => { setEditing(null); setEditingRecommendation(""); }}>{it ? "Annulla" : "Cancel"}</button><button type="button" disabled={saving} onClick={saveAllocations}>{saving ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva obiettivi" : "Save purposes")}</button></footer>
         </section>
       </div> : null}
     </section>

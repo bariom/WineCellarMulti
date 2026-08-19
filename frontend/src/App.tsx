@@ -10722,6 +10722,7 @@ export function App() {
                   const wine = wines.find((item) => item.id === wineId);
                   if (wine) openWineFromDashboard(wine);
                 }}
+                onCellarChanged={loadWines}
               />
             </Suspense>
           ) : null}

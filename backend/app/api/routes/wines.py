@@ -1735,20 +1735,26 @@ def consume_wine_bottle(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
-    try:
-        record_wine_consumption(
-            db,
-            wine,
-            consumed_at=payload.consumed_at or datetime.now(UTC).date(),
-            note=payload.note,
-            rating=payload.tasting_rating,
-            enjoyment=payload.tasting_enjoyment,
-            occasion=payload.tasting_occasion,
-            pairing=payload.tasting_pairing,
-            companions=payload.tasting_companions,
-            created_by_user_id=context.user.id,
-            storage_allocation_id=payload.storage_allocation_id,
+    if payload.quantity > wine.quantity:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Not enough bottles left to consume",
         )
+    try:
+        for _ in range(payload.quantity):
+            record_wine_consumption(
+                db,
+                wine,
+                consumed_at=payload.consumed_at or datetime.now(UTC).date(),
+                note=payload.note,
+                rating=payload.tasting_rating,
+                enjoyment=payload.tasting_enjoyment,
+                occasion=payload.tasting_occasion,
+                pairing=payload.tasting_pairing,
+                companions=payload.tasting_companions,
+                created_by_user_id=context.user.id,
+                storage_allocation_id=payload.storage_allocation_id,
+            )
     except NoBottlesAvailableError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
