@@ -39,7 +39,7 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="7",
+        version="8",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
@@ -71,6 +71,10 @@ def cellar_command_prompt(
             "and undecided for 'da decidere', 'da valutare' or 'non so ancora'. Set quantity_present true "
             "only when the user explicitly states a bottle quantity; otherwise false. A strategy operation "
             "is always a proposal requiring confirmation and must never silently replace existing objectives. "
+            "A strategy may target a group selected by a unit-value rule such as 'vini sotto 40 CHF' or "
+            "'bottiglie a meno di 40 franchi'. In that case use set_strategy, leave wine_name empty, preserve "
+            "the requested strategy purpose, and do not invent a specific wine. Vinaris applies the numeric "
+            "filter to verified cellar values and prepares the matching list for confirmation. "
             "An acquisition is only a draft for user review and is never a completed database action. "
             "Set explicit_action true only when the user explicitly asks Vinaris to "
             "update, register, record, modify, or otherwise apply the operation. Preserve tasting "

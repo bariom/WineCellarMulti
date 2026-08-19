@@ -1116,6 +1116,9 @@ export type CellarCommandWineCandidate = {
   vintage: string;
   format: string;
   quantity: number;
+  unit_value: number | string | null;
+  currency: string;
+  value_source: "current" | "purchase" | "";
 };
 
 export type CellarCommandCatalogCandidate = {
@@ -1177,6 +1180,7 @@ export type CellarCommandResult = {
   purchase_draft: CellarCommandPurchaseDraft | null;
   strategy_purpose: WineStrategyPurpose | null;
   strategy_quantity: number | null;
+  strategy_bulk: boolean;
   previous_quantity: number | null;
   new_quantity: number | null;
   model: string;

@@ -111,7 +111,8 @@ class CellarCommandRequest(BaseModel):
 
 
 class CellarCommandExecuteRequest(BaseModel):
-    wine_id: UUID
+    wine_id: UUID | None = None
+    confirm_all: bool = False
 
 
 class CellarCommandWishlistExecuteRequest(BaseModel):
@@ -125,6 +126,9 @@ class CellarCommandWineCandidate(BaseModel):
     vintage: str = ""
     format: str = ""
     quantity: int
+    unit_value: Decimal | None = None
+    currency: str = ""
+    value_source: Literal["current", "purchase", ""] = ""
 
 
 class CellarCommandCatalogCandidate(BaseModel):
@@ -190,6 +194,7 @@ class CellarCommandResponse(BaseModel):
         "drink", "maturation", "investment", "special_occasion", "undecided"
     ] | None = None
     strategy_quantity: int | None = None
+    strategy_bulk: bool = False
     previous_quantity: int | None = None
     new_quantity: int | None = None
     model: str = ""

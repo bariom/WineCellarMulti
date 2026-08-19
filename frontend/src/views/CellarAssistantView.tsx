@@ -10,6 +10,7 @@ import type {
 } from "../types";
 import "./CellarAssistantView.css";
 import "./CellarAssistantVoice.css";
+import "./CellarAssistantStrategy.css";
 
 type VoiceRecognitionResult = {
   isFinal: boolean;
@@ -389,6 +390,24 @@ export default function CellarAssistantView({
     }
   }
 
+  async function executeBulkStrategy() {
+    if (!result || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const next = await api<CellarCommandResult>(
+        `/api/v1/ai/cellar-commands/${result.command_id}/execute`,
+        { method: "POST", body: JSON.stringify({ confirm_all: true }) },
+      );
+      setResult(next);
+      await onCellarChanged();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to execute command");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function undo() {
     if (!result || busy) return;
     setBusy(true);
@@ -509,11 +528,15 @@ export default function CellarAssistantView({
           {result.candidates.length ? (
             <div className="cellar-assistant-candidates">
               {result.candidates.map((candidate) => (
-                <button type="button" className="secondary" key={candidate.wine_id} onClick={() => void execute(candidate.wine_id)} disabled={busy}>
+                result.strategy_bulk ? <div className="cellar-assistant-candidate-preview" key={candidate.wine_id}>
+                  <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.format].filter(Boolean).join(" · ")}</small></span>
+                  <b>{candidate.unit_value} {candidate.currency}<small>{candidate.value_source === "purchase" ? (isItalian ? "Prezzo d’acquisto" : "Purchase price") : (isItalian ? "Valore attuale" : "Current value")}</small></b>
+                </div> : <button type="button" className="secondary" key={candidate.wine_id} onClick={() => void execute(candidate.wine_id)} disabled={busy}>
                   <span><strong>{candidate.name}</strong><small>{[candidate.producer, candidate.vintage, candidate.format].filter(Boolean).join(" · ")}</small></span>
                   <b>{candidate.quantity} {isItalian ? "bott." : "btl."}</b>
                 </button>
               ))}
+              {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? "Conferma tutti come da bere" : "Confirm all for drinking"}</button> : null}
             </div>
           ) : null}
           {result.catalog_candidates.length ? (
