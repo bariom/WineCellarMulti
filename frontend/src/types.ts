@@ -569,6 +569,7 @@ export type WineStockLot = {
 export type CellarBin = { id: string; location_id: string; name: string; description: string; sort_order: number; bottle_count: number };
 export type CellarLocation = { id: string; name: string; description: string; is_default: boolean; sort_order: number; bottle_count: number; bins: CellarBin[] };
 export type StorageAllocation = { id: string; wine_id: string; location_id: string | null; location_name: string; bin_id: string | null; bin_name: string; quantity: number };
+export type WineStrategyAllocation = { id: string; wine_id: string; purpose: WineStrategyPurpose; quantity: number; horizon_year: number | null; note: string };
 
 export type Member = {
   membership_id: string;
@@ -1241,6 +1242,7 @@ export type CellarIntelligencePlan = {
     reason: string;
     recommended_purpose: WineStrategyPurpose | null;
   }>;
+  applied_recommendation_keys: string[];
   generated_at: string;
   estimated_cost_usd: string;
 };

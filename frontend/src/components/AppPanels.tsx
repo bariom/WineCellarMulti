@@ -11,7 +11,7 @@ import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } 
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
 import { api } from "../services/api";
 import type { WineStockLot } from "../types";
-import { WineLocationPicker, WineStorageSection } from "./StoragePanels";
+import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./StoragePanels";
 import LocalizedDateInput from "./LocalizedDateInput";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
@@ -1505,6 +1505,7 @@ export function WineDetail({
       ) : null}
 
       {!restaurantMode ? <WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /> : null}
+      {!restaurantMode ? <WineStrategySection wine={wine} locale={locale} /> : null}
       <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
 
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (

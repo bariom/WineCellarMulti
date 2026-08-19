@@ -69,6 +69,7 @@ export default function CellarIntelligenceView({
       ]);
       setSnapshot(nextSnapshot);
       setPlan(savedPlan);
+      setAppliedRecommendations(new Set(savedPlan?.applied_recommendation_keys || []));
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
     } finally {
@@ -144,7 +145,7 @@ export default function CellarIntelligenceView({
         }),
       });
       if (editingRecommendation) {
-        setAppliedRecommendations((current) => new Set(current).add(editingRecommendation));
+        await saveAppliedRecommendation(editingRecommendation);
         setActionNotice(it ? "Azione applicata alla strategia della cantina." : "Action applied to the cellar strategy.");
       }
       setEditing(null);
@@ -178,6 +179,19 @@ export default function CellarIntelligenceView({
     }
   }
 
+  async function saveAppliedRecommendation(recommendationKey: string) {
+    const appliedKeys = Array.from(new Set([...appliedRecommendations, recommendationKey]));
+    setAppliedRecommendations(new Set(appliedKeys));
+    try {
+      setPlan(await api<CellarIntelligencePlan>("/api/v1/ai/cellar-intelligence/latest", {
+        method: "PUT",
+        body: JSON.stringify({ applied_recommendation_keys: appliedKeys }),
+      }));
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : String(requestError));
+    }
+  }
+
   async function refreshRecommendationValue(
     recommendation: CellarIntelligencePlan["recommendations"][number],
     key: string,
@@ -191,7 +205,7 @@ export default function CellarIntelligenceView({
         body: JSON.stringify({ locale, force_refresh: true }),
       });
       await Promise.all([loadSnapshot(false), onCellarChanged()]);
-      setAppliedRecommendations((current) => new Set(current).add(key));
+      await saveAppliedRecommendation(key);
       setActionNotice(it ? "Valore attuale aggiornato." : "Current value updated.");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
@@ -215,7 +229,7 @@ export default function CellarIntelligenceView({
         }),
       });
       await Promise.all([loadSnapshot(false), onCellarChanged()]);
-      setAppliedRecommendations((current) => new Set(current).add(key));
+      await saveAppliedRecommendation(key);
       setPendingDrinkRecommendation(null);
       setActionNotice(it
         ? `${recommendation.quantity} ${recommendation.quantity === 1 ? "bottiglia registrata come bevuta" : "bottiglie registrate come bevute"}.`
@@ -326,7 +340,7 @@ export default function CellarIntelligenceView({
             reclassify: it ? "Riclassificare" : "Reclassify",
           })[item.action];
           const proposedPurposeLabel = item.recommended_purpose ? purposeLabel(item.recommended_purpose) : "";
-          const displayedActionLabel = item.action === "decide" && proposedPurposeLabel
+          const displayedActionLabel = (item.action === "decide" || item.action === "reclassify") && proposedPurposeLabel
             ? (it ? `${proposedPurposeLabel} consigliata` : `Suggested: ${proposedPurposeLabel}`)
             : actionLabel;
           return <article className={`plan-recommendation${applied ? " is-applied" : ""}`} key={recommendationKey}>
@@ -347,7 +361,7 @@ export default function CellarIntelligenceView({
                 </button>
               ) : (
                 <button type="button" disabled={!wine || Boolean(applyingRecommendation)} onClick={() => wine && beginEdit(wine, recommendationKey, item.recommended_purpose, item.quantity, item.action === "decide")}>
-                  {item.action === "decide" ? (proposedPurposeLabel ? `${it ? "Imposta" : "Set"} ${proposedPurposeLabel}` : (it ? "Definisci obiettivo" : "Set purpose")) : item.action === "reclassify" ? `${it ? "Rivedi come" : "Review as"} ${proposedPurposeLabel}` : (it ? "Rivedi maturazione" : "Review maturation")}
+                  {item.action === "decide" || item.action === "reclassify" ? (proposedPurposeLabel ? `${it ? "Imposta" : "Set"} ${proposedPurposeLabel}` : (it ? "Definisci obiettivo" : "Set purpose")) : (it ? "Rivedi maturazione" : "Review maturation")}
                 </button>
               )}
             </footer>

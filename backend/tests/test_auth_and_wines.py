@@ -352,6 +352,68 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     saved_plan = client.get("/api/v1/ai/cellar-intelligence/latest")
     assert saved_plan.status_code == 200, saved_plan.text
     assert saved_plan.json() == response.json()
+    applied_plan = client.put(
+        "/api/v1/ai/cellar-intelligence/latest",
+        json={"applied_recommendation_keys": ["test-recommendation"]},
+    )
+    assert applied_plan.status_code == 200, applied_plan.text
+    assert applied_plan.json()["applied_recommendation_keys"] == ["test-recommendation"]
+    assert client.get("/api/v1/ai/cellar-intelligence/latest").json()[
+        "applied_recommendation_keys"
+    ] == ["test-recommendation"]
+
+
+def test_cellar_intelligence_keeps_wine_at_start_of_long_peak(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    current_year = datetime.now(UTC).year
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Testamatta",
+            "quantity": 2,
+            "status": "Delivered",
+            "drink_from": current_year - 3,
+            "drink_peak_from": current_year,
+            "drink_peak_to": current_year + 8,
+            "drink_to": current_year + 14,
+        },
+    )
+    wine_id = created.json()["id"]
+    assert client.put(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations",
+        json={"allocations": [{"purpose": "drink", "quantity": 2}]},
+    ).status_code == 200
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "overview": "Piano.",
+                        "immediate_action": "Bevi Testamatta.",
+                        "risk_note": "Nota.",
+                        "recommendations": [
+                            {"wine_id": wine_id, "action": "drink", "priority": "medium", "quantity": 2, "reason": "Al picco.", "recommended_purpose": ""},
+                        ],
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            ),
+            "user_key",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    response = client.post("/api/v1/ai/cellar-intelligence", json={"locale": "it"})
+    assert response.status_code == 200, response.text
+    recommendation = response.json()["recommendations"][0]
+    assert recommendation["action"] == "reclassify"
+    assert recommendation["recommended_purpose"] == "maturation"
+    assert "inizio di un picco lungo" in recommendation["reason"]
 
 
 def test_restaurant_sale_tracks_margin_and_can_be_voided():

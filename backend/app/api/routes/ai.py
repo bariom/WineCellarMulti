@@ -88,6 +88,7 @@ from app.schemas.ai import (
     CellarCommandWishlistList,
     CellarIntelligencePlanRequest,
     CellarIntelligencePlanResponse,
+    CellarIntelligencePlanStateUpdate,
     CellarIntelligenceRecommendation,
     PairingCellarMatch,
     PairingDishRecommendation,
@@ -5487,6 +5488,17 @@ def generate_wishlist_portfolio_strategy(
     return strategy_response
 
 
+def cellar_intelligence_is_early_peak(wine: Any) -> bool:
+    current_year = datetime.now(UTC).year
+    if wine.drink_peak_from is None or wine.drink_peak_to is None:
+        return False
+    return (
+        wine.drink_peak_from <= current_year <= wine.drink_peak_to
+        and current_year <= wine.drink_peak_from + 1
+        and wine.drink_peak_to - current_year >= 3
+    )
+
+
 @router.get(
     "/cellar-intelligence/latest",
     response_model=CellarIntelligencePlanResponse | None,
@@ -5518,6 +5530,42 @@ def latest_cellar_intelligence_plan(
         except ValueError:
             return None
     return None
+
+
+@router.put(
+    "/cellar-intelligence/latest",
+    response_model=CellarIntelligencePlanResponse,
+)
+def update_latest_cellar_intelligence_plan(
+    payload: CellarIntelligencePlanStateUpdate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarIntelligencePlanResponse:
+    audit = db.scalar(
+        select(AiAuditLog)
+        .where(
+            AiAuditLog.household_id == context.household.id,
+            AiAuditLog.feature == "cellar_intelligence_plan",
+            AiAuditLog.outcome == "success",
+        )
+        .order_by(AiAuditLog.created_at.desc())
+        .limit(1)
+    )
+    if audit is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saved cellar plan")
+    sources = list(audit.sources or [])
+    for index, source in enumerate(sources):
+        if source.get("kind") != "cellar_intelligence_plan" or not isinstance(source.get("plan"), dict):
+            continue
+        plan = dict(source["plan"])
+        plan["applied_recommendation_keys"] = list(
+            dict.fromkeys(payload.applied_recommendation_keys)
+        )
+        sources[index] = {**source, "plan": plan}
+        audit.sources = sources
+        db.commit()
+        return CellarIntelligencePlanResponse.model_validate(plan)
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saved cellar plan")
 
 
 @router.post("/cellar-intelligence", response_model=CellarIntelligencePlanResponse)
@@ -5622,6 +5670,8 @@ def generate_cellar_intelligence_plan(
             "For every decide action, recommended_purpose must be non-empty and quantity must cover the bottles to classify. "
             "When a selected wine is already classified, reassess its purpose from its maturity window and supplied values. "
             "Use action reclassify and recommended_purpose only when a different purpose is justified; otherwise use hold or monitor. "
+            "Treat the first one or two years of a long peak window as an early peak, not as a reason to drink now: "
+            "recommend maturation or holding until closer to the middle of the peak unless the wine is late. "
             "Do not claim guaranteed investment returns or invent market facts. "
             "Make overview one plain-language sentence that explains the strategy without repeating recommendation counts. "
             "Make immediate_action one short imperative sentence with a concrete first step. "
@@ -5649,6 +5699,11 @@ def generate_cellar_intelligence_plan(
             wine_id = UUID(str(raw.get("wine_id") or ""))
             wine = known[wine_id]
             action = str(raw.get("action") or "decide")
+            recommended_purpose = str(raw.get("recommended_purpose") or "")
+            early_peak_reclassification = action == "drink" and cellar_intelligence_is_early_peak(wine)
+            if early_peak_reclassification:
+                action = "reclassify"
+                recommended_purpose = "maturation"
             maximum = (
                 wine.quantity
                 if action == "reclassify"
@@ -5663,7 +5718,6 @@ def generate_cellar_intelligence_plan(
             )
             if maximum <= 0:
                 continue
-            recommended_purpose = str(raw.get("recommended_purpose") or "")
             if action in {"decide", "reclassify"} and recommended_purpose not in STRATEGY_PURPOSES:
                 recommended_purpose = (
                     "maturation"
@@ -5683,7 +5737,13 @@ def generate_cellar_intelligence_plan(
                     action=cast(Literal["drink", "hold", "monitor", "decide", "reclassify"], action),
                     priority=cast(Literal["high", "medium", "low"], normalized_priority),
                     quantity=min(max(int(raw.get("quantity") or 1), 1), maximum),
-                    reason=str(raw.get("reason") or "").strip(),
+                    reason=(
+                        "È all'inizio di un picco lungo: meglio maturare ancora e rivalutare più vicino al centro della finestra."
+                        if early_peak_reclassification and payload.locale == "it"
+                        else "It is at the start of a long peak window: keep maturing it and reassess closer to the middle of the window."
+                        if early_peak_reclassification
+                        else str(raw.get("reason") or "").strip()
+                    ),
                     recommended_purpose=cast(Any, recommended_purpose or None),
                 )
             )

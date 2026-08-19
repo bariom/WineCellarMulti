@@ -2,7 +2,19 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
 
 import { api } from "../services/api";
-import type { CellarLocation, Locale, StorageAllocation, Wine } from "../types";
+import type { CellarLocation, Locale, StorageAllocation, Wine, WineStrategyAllocation, WineStrategyPurpose } from "../types";
+
+const STRATEGY_PURPOSES: WineStrategyPurpose[] = ["drink", "maturation", "investment", "special_occasion", "undecided"];
+
+function strategyPurposeLabel(purpose: WineStrategyPurpose, locale: Locale) {
+  return ({
+    drink: locale === "it" ? "Bere" : "Drink",
+    maturation: locale === "it" ? "Maturazione" : "Maturation",
+    investment: locale === "it" ? "Investimento" : "Investment",
+    special_occasion: locale === "it" ? "Occasione speciale" : "Special occasion",
+    undecided: locale === "it" ? "Da decidere" : "Undecided",
+  })[purpose];
+}
 
 function positionLabel(allocation: StorageAllocation, locale: Locale) {
   if (!allocation.location_id) return locale === "it" ? "Da collocare" : "Unassigned";
@@ -114,6 +126,26 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
         <WineLocationPicker locale={locale} locationId={locationId} binId={binId} onChange={(nextLocationId, nextBinId) => { setLocationId(nextLocationId); setBinId(nextBinId); }} />
       </div><div className="form-actions"><button type="submit" disabled={loading}>{loading ? (locale === "it" ? "Sposto…" : "Moving…") : (locale === "it" ? "Sposta" : "Move")}</button></div>
     </form> : null}
+  </details>;
+}
+
+export function WineStrategySection({ wine, locale }: {
+  wine: Wine; locale: Locale;
+}) {
+  const [allocations, setAllocations] = useState<WineStrategyAllocation[]>([]);
+  const quantities = STRATEGY_PURPOSES.reduce<Record<WineStrategyPurpose, number>>((result, purpose) => {
+    result[purpose] = allocations.filter((item) => item.purpose === purpose).reduce((total, item) => total + item.quantity, 0);
+    return result;
+  }, { drink: 0, maturation: 0, investment: 0, special_occasion: 0, undecided: 0 });
+  const allocated = Object.values(quantities).reduce((total, quantity) => total + quantity, 0);
+  async function load() {
+    setAllocations(await api<WineStrategyAllocation[]>(`/api/v1/intelligence/wines/${wine.id}/allocations`));
+  }
+  useEffect(() => { void load().catch(() => setAllocations([])); }, [wine.id]);
+  return <details className="detail-section wine-strategy-section" open>
+    <summary><span>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</span><strong>{allocated} / {wine.quantity}</strong></summary>
+    <p className="consume-help">{allocated ? (locale === "it" ? "Distribuzione strategica delle bottiglie definita in Intelligence." : "Strategic bottle allocation defined in Intelligence.") : (locale === "it" ? "Nessun obiettivo ancora assegnato a queste bottiglie." : "No purpose has been assigned to these bottles yet.")}</p>
+    <div className="storage-allocation-list">{STRATEGY_PURPOSES.filter((purpose) => quantities[purpose]).map((purpose) => <div className="detail-field" key={purpose}><span>{strategyPurposeLabel(purpose, locale)}</span><strong>{quantities[purpose]} {locale === "it" ? "bott." : "btl."}</strong></div>)}</div>
   </details>;
 }
 

@@ -402,5 +402,10 @@ class CellarIntelligencePlanResponse(BaseModel):
     immediate_action: str
     risk_note: str
     recommendations: list[CellarIntelligenceRecommendation] = Field(default_factory=list)
+    applied_recommendation_keys: list[str] = Field(default_factory=list, max_length=24)
     generated_at: datetime
     estimated_cost_usd: Decimal
+
+
+class CellarIntelligencePlanStateUpdate(BaseModel):
+    applied_recommendation_keys: list[str] = Field(default_factory=list, max_length=24)
