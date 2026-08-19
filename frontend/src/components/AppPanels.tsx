@@ -12,6 +12,7 @@ import { rawNullableString, rawNumber, rawString } from "../services/offlineBack
 import { api } from "../services/api";
 import type { WineStockLot } from "../types";
 import { WineLocationPicker, WineStorageSection } from "./StoragePanels";
+import LocalizedDateInput from "./LocalizedDateInput";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
 
@@ -573,6 +574,7 @@ export function TastingEntryEditor({
   setDraft,
   saving,
   t,
+  locale,
   onSave,
   onCancel,
   onDelete,
@@ -581,6 +583,7 @@ export function TastingEntryEditor({
   setDraft: Dispatch<SetStateAction<ConsumeWineDraft>>;
   saving: boolean;
   t: (key: TranslationKey) => string;
+  locale: Locale;
   onSave: () => Promise<void>;
   onCancel: () => void;
   onDelete: () => Promise<void>;
@@ -590,12 +593,7 @@ export function TastingEntryEditor({
       <div className="detail-grid consume-grid">
         <label>
           <span>{t("tastingDate")}</span>
-          <input
-            type="date"
-            value={draft.consumed_at}
-            onChange={(event) => setDraft((current) => ({ ...current, consumed_at: event.target.value }))}
-            disabled={saving}
-          />
+          <LocalizedDateInput value={draft.consumed_at} onChange={(consumed_at) => setDraft((current) => ({ ...current, consumed_at }))} locale={locale} disabled={saving} />
         </label>
         <label>
           <span>{t("tastingRating")}</span>
@@ -708,6 +706,7 @@ export function TastingHistorySection({
   onUpdateEntry,
   onDeleteEntry,
   t,
+  locale,
 }: {
   wine: Wine;
   entries: Wine["tasting_history"];
@@ -716,6 +715,7 @@ export function TastingHistorySection({
   onUpdateEntry: (wine: Wine, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
   onDeleteEntry: (wine: Wine, entryId: string) => Promise<void>;
   t: (key: TranslationKey) => string;
+  locale: Locale;
 }) {
   const orderedEntries = [...entries].sort((first, second) => second.consumed_at.localeCompare(first.consumed_at));
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -767,6 +767,7 @@ export function TastingHistorySection({
                   setDraft={setEditDraft}
                   saving={saving}
                   t={t}
+                  locale={locale}
                   onSave={async () => {
                     await onUpdateEntry(wine, entry.id, editDraft);
                     setEditingId(null);
@@ -1417,12 +1418,7 @@ export function WineDetail({
             <div className="detail-grid consume-grid">
               <label>
                 <span>{t("tastingDate")}</span>
-                <input
-                  type="date"
-                  value={consumeDraft.consumed_at}
-                  onChange={(event) => setConsumeDraft({ ...consumeDraft, consumed_at: event.target.value })}
-                  disabled={saving}
-                />
+                <LocalizedDateInput value={consumeDraft.consumed_at} onChange={(consumed_at) => setConsumeDraft({ ...consumeDraft, consumed_at })} locale={locale} disabled={saving} />
               </label>
               {storageOptions.length > 1 ? <label><span>{locale === "it" ? "Preleva da" : "Take from"}</span><select value={consumeDraft.storage_allocation_id || ""} onChange={(event) => setConsumeDraft({ ...consumeDraft, storage_allocation_id: event.target.value })} required><option value="">—</option>{storageOptions.map((allocation) => <option key={allocation.id} value={allocation.id}>{storageOptionLabel(allocation)}</option>)}</select></label> : null}
               <label>
@@ -1529,6 +1525,7 @@ export function WineDetail({
         onUpdateEntry={onUpdateTastingEntry}
         onDeleteEntry={onDeleteTastingEntry}
         t={t}
+        locale={locale}
       /> : null}
 
       <details className="detail-section ai-audit-detail">

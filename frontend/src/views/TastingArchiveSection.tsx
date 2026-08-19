@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { AppIcon, AppIconName } from "../components/AppIcon";
+import LocalizedDateInput from "../components/LocalizedDateInput";
 import TastingArchiveInsights from "./TastingArchiveInsights";
 
 type TastingEnjoyment = "" | "positive" | "negative";
@@ -154,6 +155,7 @@ function TastingEntryEditor({
   setDraft,
   saving,
   t,
+  locale,
   onSave,
   onCancel,
   onDelete,
@@ -162,6 +164,7 @@ function TastingEntryEditor({
   setDraft: (updater: (current: ConsumeWineDraft) => ConsumeWineDraft) => void;
   saving: boolean;
   t: (key: any) => string;
+  locale: "en" | "it";
   onSave: () => Promise<void>;
   onCancel: () => void;
   onDelete: () => Promise<void>;
@@ -171,12 +174,7 @@ function TastingEntryEditor({
       <div className="detail-grid consume-grid">
         <label>
           <span>{t("tastingDate")}</span>
-          <input
-            type="date"
-            value={draft.consumed_at}
-            onChange={(event) => setDraft((current) => ({ ...current, consumed_at: event.target.value }))}
-            disabled={saving}
-          />
+          <LocalizedDateInput value={draft.consumed_at} onChange={(consumed_at) => setDraft((current) => ({ ...current, consumed_at }))} locale={locale} disabled={saving} />
         </label>
         <label>
           <span>{t("tastingRating")}</span>
@@ -329,6 +327,7 @@ export default function TastingArchiveSection({
               setDraft={setEditDraft}
               saving={saving}
               t={t}
+              locale={locale}
               onSave={async () => {
                 await onUpdateEntry(entry.wine, entry.id, editDraft);
                 setEditingId(null);

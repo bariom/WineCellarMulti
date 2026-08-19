@@ -1,0 +1,52 @@
+.localized-date-input {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.localized-date-input > input[type="text"] {
+  width: 100%;
+  padding-right: 2.75rem;
+}
+
+.localized-date-native-picker {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  right: 1.35rem;
+  bottom: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.localized-date-picker-button {
+  position: absolute;
+  top: 50%;
+  right: .65rem;
+  width: 1.8rem;
+  height: 1.8rem;
+  min-height: 0;
+  padding: .25rem;
+  border: 0;
+  border-radius: .35rem;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  transform: translateY(-50%);
+}
+
+.localized-date-picker-button:hover:not(:disabled) {
+  background: var(--surface-soft);
+  color: var(--text);
+}
+
+.localized-date-picker-button svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
