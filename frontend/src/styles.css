@@ -21790,6 +21790,155 @@ body,
   }
 }
 
+/* Cellar workspace: category rail and persistent overview inspired by the desktop collection mock. */
+.desktop-cellar-add-button { display: none; }
+
+.empty-detail-kpis {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface-raised));
+}
+
+.empty-detail-kpis article {
+  display: grid;
+  min-width: 0;
+  min-height: 108px;
+  place-items: center;
+  align-content: center;
+  gap: 5px;
+  padding: 10px 7px;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
+  border-radius: 12px;
+  background: var(--surface-raised);
+  text-align: center;
+}
+
+.empty-detail-kpis .app-icon { color: var(--accent); font-size: 1.25rem; }
+.empty-detail-kpis strong { max-width: 100%; overflow: hidden; font-family: var(--font-display); font-size: 1rem; text-overflow: ellipsis; white-space: nowrap; }
+.empty-detail-kpis span { color: var(--text-muted); font-size: 0.68rem; line-height: 1.25; }
+
+.wine-category-rail {
+  display: flex;
+  gap: 7px;
+  min-width: 0;
+  padding: 10px;
+  overflow-x: auto;
+  border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+  scrollbar-width: none;
+}
+
+.wine-category-rail::-webkit-scrollbar { display: none; }
+
+.wine-category-rail > button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 9px;
+  min-width: 116px;
+  min-height: 54px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  border-radius: 10px;
+  color: var(--text);
+  background: var(--surface-raised);
+  box-shadow: none;
+  text-align: left;
+}
+
+.wine-category-rail > button > span:not(.wine-category-name) {
+  display: grid;
+  gap: 2px;
+}
+
+.wine-category-rail .wine-category-name { font-size: 0.78rem; font-weight: 850; white-space: nowrap; }
+.wine-category-rail small { color: var(--text-muted); font-size: 0.67rem; font-weight: 650; white-space: nowrap; }
+.wine-category-rail > button.active { border-color: var(--primary); color: var(--primary); background: color-mix(in srgb, var(--primary) 7%, var(--surface-raised)); }
+.wine-category-rail > button.active small { color: color-mix(in srgb, var(--primary) 72%, var(--text-muted)); }
+.wine-category-rail .wine-dot { flex: 0 0 auto; width: 10px; height: 10px; }
+
+.wine-category-results > .wine-tone-group-toggle { display: none; }
+.operational-workspace .wine-category-results { gap: 10px; padding: 0; border: 0; background: transparent; }
+
+@media (min-width: 1100px) {
+  .authenticated-app-shell .wine-list > .cellar-list-header {
+    grid-template-columns: auto auto minmax(24px, 1fr) auto auto;
+    align-items: center;
+    gap: 8px 14px;
+    padding-block: 4px 12px;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header h2 { grid-column: 1; }
+  .authenticated-app-shell .wine-list > .cellar-list-header > span { grid-column: 2; color: var(--primary); }
+  .authenticated-app-shell .wine-list > .cellar-list-header .mobile-cellar-filter-trigger { grid-column: 4; }
+
+  .authenticated-app-shell .desktop-cellar-add-button {
+    grid-column: 5;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    min-height: 38px;
+    padding: 7px 14px;
+    border-radius: 9px;
+    white-space: nowrap;
+  }
+
+  .authenticated-app-shell .desktop-cellar-add-button > span { font-size: 1.25rem; font-weight: 400; line-height: 1; }
+  .authenticated-app-shell .operational-workspace:has(.cellar-list-header) .side-panel-add-button.mobile-redundant-add-wine { display: none; }
+  .authenticated-app-shell .operational-workspace:has(.cellar-list-header) .side-panel-actions:has(.mobile-redundant-add-wine:only-child) { display: none; }
+
+  .authenticated-app-shell .wine-tone-groups .cellar-wine-grouping-header {
+    justify-content: flex-start;
+    padding: 0 2px;
+    border: 0;
+  }
+
+  .authenticated-app-shell .cellar-wine-grouping-header > strong { color: var(--text); font-size: 0.78rem; }
+  .authenticated-app-shell .cellar-wine-grouping-header .wine-grouping-switch { margin-left: 4px; }
+
+  .authenticated-app-shell .wine-category-rail { position: relative; }
+
+  .authenticated-app-shell .wine-detail.empty-detail:has(.empty-detail-kpis) {
+    grid-template-rows: minmax(0, 1fr) auto auto;
+    height: 100%;
+  }
+
+  .authenticated-app-shell .wine-detail.empty-detail:has(.empty-detail-kpis) .empty-detail-image { aspect-ratio: auto; min-height: 0; }
+  .authenticated-app-shell .wine-detail.empty-detail:has(.empty-detail-kpis) .empty-detail-image img { object-fit: contain; }
+  .authenticated-app-shell .wine-detail.empty-detail:has(.empty-detail-kpis) .empty-detail-copy { justify-items: center; padding: 18px 22px; text-align: center; }
+  .authenticated-app-shell .wine-detail.empty-detail:has(.empty-detail-kpis) .empty-detail-copy p { text-align: center; }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) {
+    justify-self: end;
+    width: auto;
+    min-width: 150px;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) > summary {
+    min-height: 34px;
+    padding: 6px 10px;
+    border: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent));
+    border-radius: 999px;
+    background: var(--surface-raised);
+  }
+}
+
+@media (max-width: 820px) {
+  .wine-category-rail { margin-inline: -2px; padding: 7px; }
+  .wine-category-rail > button { min-width: 104px; min-height: 48px; padding: 7px 10px; }
+  .wine-category-rail small { font-size: 0.63rem; }
+  .empty-detail-kpis { display: none; }
+}
+
 /* Mobile wishlist: present the selected list, its controls and each wine as one clear flow. */
 @media (max-width:820px){
   .stats-panel-wrapper:has(.wishlist-list-toolbar){
