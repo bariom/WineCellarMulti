@@ -25,8 +25,10 @@ function pwaPrecachePlugin(): Plugin {
           "/icons/icon-512.png",
           "/icons/maskable-512.png",
           "/icons/logo.png",
-          "/landing/demo-dashboard-desktop.webp",
-          "/landing/demo-dashboard-mobile.webp",
+          "/landing/vinaris-demo-desktop-it.png",
+          "/landing/vinaris-demo-desktop-en.png",
+          "/landing/vinaris-demo-mobile-it.png",
+          "/landing/vinaris-demo-mobile-en.png",
           ...entryAssets,
         ]));
       await writeFile(serviceWorkerUrl, generatedSource, "utf8");

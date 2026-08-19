@@ -102,6 +102,10 @@ export default function PublicLanding({
     },
   };
   const seo = seoContent[locale];
+  const desktopDemoImage = locale === "it" ? "/landing/vinaris-demo-desktop-it.png" : "/landing/vinaris-demo-desktop-en.png";
+  const mobileDemoImage = locale === "it" ? "/landing/vinaris-demo-mobile-it.png" : "/landing/vinaris-demo-mobile-en.png";
+  const desktopDemoSize = locale === "it" ? { width: 1675, height: 938 } : { width: 1668, height: 936 };
+  const mobileDemoSize = locale === "it" ? { width: 361, height: 782 } : { width: 363, height: 783 };
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
 
   useEffect(() => {
@@ -124,7 +128,7 @@ export default function PublicLanding({
     ensureMeta("og:description", dynamicCopy.meta.description, true);
     ensureMeta("og:type", "website", true);
     ensureMeta("og:url", "https://vinaris.app/", true);
-    ensureMeta("og:image", "https://vinaris.app/landing/demo-dashboard-desktop.webp", true);
+    ensureMeta("og:image", `https://vinaris.app${desktopDemoImage}`, true);
     ensureMeta("twitter:title", copy.meta.title);
     ensureMeta("twitter:description", copy.meta.description);
     let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
@@ -134,7 +138,7 @@ export default function PublicLanding({
       document.head.appendChild(canonical);
     }
     canonical.href = "https://vinaris.app/";
-  }, [dynamicCopy.meta.description, dynamicCopy.meta.title, locale]);
+  }, [desktopDemoImage, dynamicCopy.meta.description, dynamicCopy.meta.title, locale]);
 
   const structuredData = {
     "@context": "https://schema.org",
@@ -177,10 +181,10 @@ export default function PublicLanding({
           <figure data-reveal className="marketing-hero-product marketing-real-product">
             <picture>
               <img
-                src="/landing/demo-dashboard-desktop.webp"
+                src={desktopDemoImage}
                 alt={copy.origin.desktopAlt}
-                width="1440"
-                height="920"
+                width={desktopDemoSize.width}
+                height={desktopDemoSize.height}
                 fetchPriority="high"
               />
             </picture>
@@ -205,7 +209,7 @@ export default function PublicLanding({
             <p className="marketing-origin-signature">{copy.origin.signature}</p>
           </div>
           <figure className="marketing-origin-device" data-reveal>
-            <img src="/landing/demo-dashboard-mobile.webp" alt={copy.origin.mobileAlt} width="390" height="844" />
+            <img src={mobileDemoImage} alt={copy.origin.mobileAlt} width={mobileDemoSize.width} height={mobileDemoSize.height} />
             <figcaption><span>{copy.origin.demoLabel}</span>{copy.origin.mobileCaption}</figcaption>
           </figure>
         </section>

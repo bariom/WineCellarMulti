@@ -21829,8 +21829,12 @@ body,
   border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
   border-radius: 14px;
   background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+  cursor: grab;
   scrollbar-width: none;
+  user-select: none;
 }
+
+.wine-category-rail.is-dragging { cursor: grabbing; }
 
 .wine-category-rail::-webkit-scrollbar { display: none; }
 
@@ -23078,6 +23082,86 @@ body,
 /* The wide desktop shell scrolls as one page; the legacy collection viewport
    would otherwise clip the cellar list to the height of the side panel. */
 @media (min-width: 1100px) {
+  /* Keep the cellar heading and every primary action on one compact row. */
+  .authenticated-app-shell .wine-list:has(> .cellar-list-header) {
+    grid-template-columns: auto auto minmax(24px, 1fr) auto auto;
+    align-items: center;
+    column-gap: 14px;
+  }
+
+  .authenticated-app-shell .wine-list:has(> .cellar-list-header) > * {
+    grid-column: 1 / -1;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header {
+    display: contents;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header h2 {
+    grid-column: 1;
+    grid-row: 1;
+    margin: 0;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header > span {
+    grid-column: 2;
+    grid-row: 1;
+    color: var(--primary);
+    white-space: nowrap;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header .mobile-cellar-filter-trigger {
+    grid-column: 4;
+    grid-row: 1;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header .desktop-cellar-add-button {
+    grid-column: 5;
+    grid-row: 1;
+    min-height: 38px;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    align-self: center;
+    justify-self: stretch;
+    width: 100%;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    border-top: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .authenticated-app-shell .wine-list > .cellar-list-header .mobile-cellar-filter-trigger,
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) > summary {
+    min-height: 38px;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) > .cellar-stats-summary {
+    justify-content: flex-end;
+    gap: 7px;
+    padding: 5px 2px 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    white-space: nowrap;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) > .cellar-stats-summary .app-icon {
+    padding: 0;
+    color: var(--primary);
+    background: transparent;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard)[open] {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
   .authenticated-app-shell .collection-filter-dock--cellar {
     position: static;
     margin: 0;

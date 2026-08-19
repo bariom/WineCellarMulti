@@ -1497,6 +1497,8 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [regionFilter, setRegionFilter] = useState("");
   const filterPanelRef = useRef<HTMLDetailsElement>(null);
+  const wineCategoryRailRef = useRef<HTMLDivElement>(null);
+  const wineCategoryDragRef = useRef({ pointerId: -1, startX: 0, startScrollLeft: 0, moved: false });
   const mobileWineDetailHistoryActiveRef = useRef(false);
 
   useEffect(() => {
@@ -5849,6 +5851,23 @@ export function App() {
     window.sessionStorage.setItem("vinaris-wine-grouping", wineGroupingMode);
     setWineGroupSelection("all");
   }, [wineGroupingMode]);
+
+  useEffect(() => {
+    const rail = wineCategoryRailRef.current;
+    if (!rail || activeView !== "cellar") return;
+    const handleWheel = (event: WheelEvent) => {
+      if (rail.scrollWidth <= rail.clientWidth) return;
+      const delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
+      const canScroll = delta > 0
+        ? rail.scrollLeft + rail.clientWidth < rail.scrollWidth - 1
+        : rail.scrollLeft > 0;
+      if (!canScroll) return;
+      event.preventDefault();
+      rail.scrollBy({ left: delta, behavior: "auto" });
+    };
+    rail.addEventListener("wheel", handleWheel, { passive: false });
+    return () => rail.removeEventListener("wheel", handleWheel);
+  }, [activeView, wineGroupingMode]);
 
   useEffect(() => {
     if (wineGroupSelection === "all" || groupedFilteredWines.some((group) => group.key === wineGroupSelection)) return;
@@ -11590,8 +11609,9 @@ export function App() {
           <section className="wine-list" aria-busy={loading}>
             {activeView === "cellar" ? (
             <details className="stats-panel-wrapper">
-              <summary>
-                {t("cellarStats")}
+              <summary className="cellar-stats-summary">
+                <AppIcon name="chart" />
+                <strong>{t("cellarStats")}</strong>
                 {quickWineFilter ? <span>{quickWineFilterLabels[quickWineFilter]}</span> : null}
                 {maturityFilter ? <span>{t("maturityFilter")}: {wineToneLabel(maturityFilter.tone, locale)} {maturityFilter.year}</span> : null}
               </summary>
@@ -12375,7 +12395,53 @@ export function App() {
                     </button>
                   </div>
                 </div>
-                {activeView === "cellar" ? <div className="wine-category-rail" role="tablist" aria-label={wineGroupingMode === "color" ? t("groupedByColor") : (locale === "it" ? "Regioni" : "Regions")}>
+                {activeView === "cellar" ? <div
+                  ref={wineCategoryRailRef}
+                  className="wine-category-rail"
+                  role="tablist"
+                  aria-label={wineGroupingMode === "color" ? t("groupedByColor") : (locale === "it" ? "Regioni" : "Regions")}
+                  onPointerDown={(event) => {
+                    if (event.button !== 0) return;
+                    const rail = event.currentTarget;
+                    const drag = wineCategoryDragRef.current;
+                    drag.pointerId = event.pointerId;
+                    drag.startX = event.clientX;
+                    drag.startScrollLeft = rail.scrollLeft;
+                    drag.moved = false;
+                    rail.setPointerCapture(event.pointerId);
+                  }}
+                  onPointerMove={(event) => {
+                    const drag = wineCategoryDragRef.current;
+                    if (drag.pointerId !== event.pointerId) return;
+                    const distance = event.clientX - drag.startX;
+                    if (Math.abs(distance) < 4 && !drag.moved) return;
+                    drag.moved = true;
+                    event.preventDefault();
+                    event.currentTarget.classList.add("is-dragging");
+                    event.currentTarget.scrollLeft = drag.startScrollLeft - distance;
+                  }}
+                  onPointerUp={(event) => {
+                    const drag = wineCategoryDragRef.current;
+                    if (drag.pointerId !== event.pointerId) return;
+                    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+                    event.currentTarget.classList.remove("is-dragging");
+                    drag.pointerId = -1;
+                  }}
+                  onPointerCancel={(event) => {
+                    const drag = wineCategoryDragRef.current;
+                    if (drag.pointerId !== event.pointerId) return;
+                    event.currentTarget.classList.remove("is-dragging");
+                    drag.pointerId = -1;
+                    drag.moved = false;
+                  }}
+                  onClickCapture={(event) => {
+                    const drag = wineCategoryDragRef.current;
+                    if (!drag.moved) return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    drag.moved = false;
+                  }}
+                >
                   <button type="button" role="tab" className={wineGroupSelection === "all" ? "active" : ""} aria-selected={wineGroupSelection === "all"} onClick={() => setWineGroupSelection("all")}>
                     <span className="wine-category-name">{locale === "it" ? "Tutti" : "All"}</span>
                     <small>{formatBottleCount(filteredWines.length, locale)}</small>
