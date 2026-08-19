@@ -42,6 +42,9 @@
 }
 
 .time-series-tooltip strong { color: var(--text); font-size: 0.78rem; }
+.time-series-tooltip > span:not(:first-child) { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; }
+.time-series-tooltip > span:not(:first-child) > span { color: var(--text-muted); }
+.time-series-tooltip > span:not(:first-child) > strong { font-variant-numeric: tabular-nums; }
 .time-series-tooltip.visible { opacity: 1; }
 
 @keyframes chart-fade-in { from { opacity: 0; } to { opacity: 1; } }

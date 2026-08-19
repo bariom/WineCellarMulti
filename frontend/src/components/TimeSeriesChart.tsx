@@ -12,11 +12,15 @@ export type TimeSeriesPoint = {
 
 type TimeSeriesChartProps = {
   points: TimeSeriesPoint[];
+  secondaryPoints?: TimeSeriesPoint[];
   ariaLabel: string;
   locale: "it" | "en";
   currency?: string;
   height?: number;
   mobileHeight?: number;
+  primaryLabel?: string;
+  secondaryLabel?: string;
+  timeUnit?: "day" | "week" | "month";
 };
 
 function resolvedColor(host: HTMLElement, value: string, fallback: string) {
@@ -29,14 +33,29 @@ function resolvedColor(host: HTMLElement, value: string, fallback: string) {
   return color;
 }
 
-export default function TimeSeriesChart({ points, ariaLabel, locale, currency = "", height = 190, mobileHeight }: TimeSeriesChartProps) {
+export default function TimeSeriesChart({
+  points,
+  secondaryPoints = [],
+  ariaLabel,
+  locale,
+  currency = "",
+  height = 190,
+  mobileHeight,
+  primaryLabel,
+  secondaryLabel,
+  timeUnit = "day",
+}: TimeSeriesChartProps) {
   const chartHostRef = useRef<HTMLDivElement | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 640px)").matches);
   const chartHeight = isMobileViewport && mobileHeight ? mobileHeight : height;
   // Callers often prepare chart points inline. Keep the chart mounted when that
   // creates a new array with the same values, otherwise uPlot is destroyed and
   // recreated on every parent render (a visible flash on the sales dashboard).
-  const pointsKey = points.map((point) => `${point.timestampMs}:${point.value}:${point.tone || "default"}`).join("|");
+  const secondaryPointsKey = secondaryPoints.map((point) => `${point.timestampMs}:${point.value}`).join("|");
+  const pointsKey = [
+    points.map((point) => `${point.timestampMs}:${point.value}:${point.tone || "default"}`).join("|"),
+    secondaryPointsKey,
+  ].join("::");
   useChartReveal(chartHostRef, pointsKey);
   const chartPoints = useMemo(() => {
     const byTimestamp = new Map<number, TimeSeriesPoint>();
@@ -50,6 +69,13 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     });
     return [...byTimestamp.values()].sort((first, second) => first.timestampMs - second.timestampMs);
   }, [pointsKey]);
+  const chartSecondaryPoints = useMemo(() => {
+    const byTimestamp = new Map<number, number>();
+    secondaryPoints.forEach((point) => byTimestamp.set(point.timestampMs, point.value));
+    return [...byTimestamp.entries()]
+      .map(([timestampMs, value]) => ({ timestampMs, value }))
+      .sort((first, second) => first.timestampMs - second.timestampMs);
+  }, [secondaryPointsKey]);
 
   useEffect(() => {
     const media = window.matchMedia("(max-width: 640px)");
@@ -67,6 +93,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     const textColor = styles.getPropertyValue("--text-muted").trim() || "#66716b";
     const borderColor = styles.getPropertyValue("--border").trim() || "#d9d5c8";
     const lineColor = resolvedColor(chartHost, "var(--primary)", "#386d5a");
+    const secondaryLineColor = resolvedColor(chartHost, "color-mix(in srgb, var(--accent) 72%, var(--text-muted))", "#aa8a54");
     const fillColor = resolvedColor(chartHost, "color-mix(in srgb, var(--primary) 12%, transparent)", "rgba(56, 109, 90, 0.12)");
     const surfaceColor = resolvedColor(chartHost, "var(--surface)", "#ffffff");
     const pointColors = {
@@ -79,6 +106,8 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
     };
     const timestamps = chartPoints.map((point) => point.timestampMs / 1000);
     const values = chartPoints.map((point) => point.value);
+    const secondaryByTimestamp = new Map(chartSecondaryPoints.map((point) => [point.timestampMs, point.value]));
+    const secondaryValues = chartPoints.map((point) => secondaryByTimestamp.get(point.timestampMs) ?? null);
     // uPlot can generate multiple intra-day ticks. Since the labels intentionally
     // show only day/month, use a compact subset of actual sale dates instead.
     const tickCount = Math.min(timestamps.length, 6);
@@ -87,18 +116,32 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       return timestamps[pointIndex];
     }).filter((timestamp, index, all) => index === 0 || timestamp !== all[index - 1]);
     const dateLocale = locale === "it" ? "it-CH" : "en-GB";
-    const dateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short" });
-    const tooltipDateFormat = new Intl.DateTimeFormat(dateLocale, { day: "2-digit", month: "short", year: "numeric" });
+    const dateFormat = new Intl.DateTimeFormat(dateLocale, timeUnit === "month"
+      ? { month: "short", year: "2-digit" }
+      : { day: "2-digit", month: "short" });
+    const tooltipDateFormat = new Intl.DateTimeFormat(dateLocale, timeUnit === "month"
+      ? { month: "long", year: "numeric" }
+      : { day: "2-digit", month: "short", year: "numeric" });
     const valueFormat = new Intl.NumberFormat(dateLocale, { maximumFractionDigits: 0 });
     const splinePath = uPlot.paths.spline?.();
-    const data: uPlot.AlignedData = [timestamps, values];
+    const data: uPlot.AlignedData = chartSecondaryPoints.length
+      ? [timestamps, values, secondaryValues]
+      : [timestamps, values];
     const tooltip = document.createElement("div");
     tooltip.className = "time-series-tooltip";
     tooltip.setAttribute("role", "status");
     tooltip.setAttribute("aria-live", "polite");
     const tooltipDate = document.createElement("span");
-    const tooltipValue = document.createElement("strong");
-    tooltip.append(tooltipDate, tooltipValue);
+    const tooltipPrimary = document.createElement("span");
+    const tooltipPrimaryLabel = document.createElement("span");
+    const tooltipPrimaryValue = document.createElement("strong");
+    tooltipPrimary.append(tooltipPrimaryLabel, tooltipPrimaryValue);
+    const tooltipSecondary = document.createElement("span");
+    const tooltipSecondaryLabel = document.createElement("span");
+    const tooltipSecondaryValue = document.createElement("strong");
+    tooltipSecondary.append(tooltipSecondaryLabel, tooltipSecondaryValue);
+    tooltip.append(tooltipDate, tooltipPrimary);
+    if (chartSecondaryPoints.length) tooltip.append(tooltipSecondary);
     const options: uPlot.Options = {
       width: Math.floor(chartHost.clientWidth) || 520,
       height: chartHeight,
@@ -129,7 +172,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       series: [
         {},
         {
-          label: ariaLabel,
+          label: primaryLabel || ariaLabel,
           stroke: lineColor,
           fill: fillColor,
           width: 2.5,
@@ -137,6 +180,14 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
           points: { show: false },
           value: (_chart, value) => value === null || value === undefined ? "—" : `${currency} ${valueFormat.format(Number(value))}`.trim(),
         },
+        ...(chartSecondaryPoints.length ? [{
+          label: secondaryLabel || (locale === "it" ? "Media mobile" : "Moving average"),
+          stroke: secondaryLineColor,
+          width: 1.5,
+          dash: [8, 6],
+          points: { show: false },
+          value: (_chart: uPlot, value: number) => `${currency} ${valueFormat.format(value)}`.trim(),
+        }] : []),
       ],
       legend: { show: false },
       cursor: { show: true, drag: { x: false, y: false, setScale: false }, points: { size: 7 } },
@@ -149,10 +200,19 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
               tooltip.classList.remove("visible");
               return;
             }
-            tooltipDate.textContent = tooltipDateFormat.format(new Date(timestamps[index] * 1000));
-            tooltipValue.textContent = `${currency} ${valueFormat.format(values[index])}`.trim();
+            const formattedDate = tooltipDateFormat.format(new Date(timestamps[index] * 1000));
+            tooltipDate.textContent = timeUnit === "week"
+              ? `${locale === "it" ? "Settimana del" : "Week of"} ${formattedDate}`
+              : formattedDate;
+            tooltipPrimaryLabel.textContent = primaryLabel || (locale === "it" ? "Ricavi" : "Revenue");
+            tooltipPrimaryValue.textContent = `${currency} ${valueFormat.format(values[index])}`.trim();
+            if (chartSecondaryPoints.length) {
+              tooltipSecondaryLabel.textContent = secondaryLabel || (locale === "it" ? "Media mobile" : "Moving average");
+              const secondaryValue = secondaryValues[index];
+              tooltipSecondaryValue.textContent = secondaryValue === null ? "—" : `${currency} ${valueFormat.format(secondaryValue)}`.trim();
+            }
             const left = chart.valToPos(timestamps[index], "x");
-            const top = chart.valToPos(values[index], "y");
+            const top = chart.valToPos(Math.max(values[index], secondaryValues[index] ?? values[index]), "y");
             tooltip.style.left = `${Math.max(48, Math.min(chart.over.clientWidth - 48, left))}px`;
             tooltip.style.top = `${Math.max(34, top)}px`;
             tooltip.classList.add("visible");
@@ -211,7 +271,7 @@ export default function TimeSeriesChart({ points, ariaLabel, locale, currency = 
       chartHost.removeEventListener("keydown", handleKeyboard);
       chart.destroy();
     };
-  }, [ariaLabel, chartHeight, chartPoints, currency, locale, pointsKey]);
+  }, [ariaLabel, chartHeight, chartPoints, chartSecondaryPoints, currency, locale, pointsKey, primaryLabel, secondaryLabel, timeUnit]);
 
   return <div className="time-series-chart" ref={chartHostRef} role="img" aria-label={`${ariaLabel}. ${locale === "it" ? "Usa le frecce sinistra e destra per esplorare i valori." : "Use the left and right arrow keys to explore values."}`} tabIndex={0} />;
 }

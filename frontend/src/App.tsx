@@ -5032,6 +5032,12 @@ export function App() {
   }, [activeView, canAccessCellarAssistant, session?.authenticated]);
 
   useEffect(() => {
+    if (isRestaurant && activeView === "history") {
+      setActiveView("home");
+    }
+  }, [activeView, isRestaurant]);
+
+  useEffect(() => {
     if (offlineMode || !session?.authenticated || !isRestaurant || !selectedWineId) {
       setWineSalesHistory(null);
       setWineSalesHistoryLoading(false);
@@ -9329,10 +9335,10 @@ export function App() {
               <AppIcon name="cellar" variant="navigation" detailLevel="rich" />
               {t("cellar")} ({cellarWines.length})
             </button>
-            <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
+            {!isRestaurant ? <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
               <AppIcon name="calendar" variant="navigation" />
               {t("history")}
-            </button>
+            </button> : null}
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
@@ -9407,7 +9413,7 @@ export function App() {
             <>
               {mobileNavigationOpen ? <div className="mobile-navigation-sheet" role="dialog" aria-label={locale === "it" ? "Menu di navigazione" : "Navigation menu"}>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button>
+                {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button> : null}
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
                 {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
                 {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
