@@ -8,7 +8,7 @@ from dataclasses import replace
 from datetime import UTC, date, datetime
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from difflib import SequenceMatcher
-from typing import Any, cast
+from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 from app.api.deps import CurrentContext, require_write_context
 from app.api.routes.billing import stripe_ai_credit_amount
 from app.api.routes.catalog import search_catalog_entries
+from app.api.routes.intelligence import build_cellar_intelligence_snapshot
 from app.api.routes.wines import (
     get_household_wine,
     record_wine_value_history,
@@ -84,6 +85,9 @@ from app.schemas.ai import (
     CellarCommandWineCandidate,
     CellarCommandWishlistExecuteRequest,
     CellarCommandWishlistList,
+    CellarIntelligencePlanRequest,
+    CellarIntelligencePlanResponse,
+    CellarIntelligenceRecommendation,
     PairingCellarMatch,
     PairingDishRecommendation,
     PairingMarketWine,
@@ -4887,3 +4891,166 @@ def generate_wishlist_portfolio_strategy(
     )
     db.commit()
     return strategy_response
+
+
+@router.post("/cellar-intelligence", response_model=CellarIntelligencePlanResponse)
+def generate_cellar_intelligence_plan(
+    payload: CellarIntelligencePlanRequest = CellarIntelligencePlanRequest(),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarIntelligencePlanResponse:
+    snapshot = build_cellar_intelligence_snapshot(db, context)
+    if not snapshot.wines:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cellar is empty"
+        )
+    user_settings = get_or_create_user_ai_settings(db, context)
+    candidates = sorted(
+        snapshot.wines,
+        key=lambda item: (
+            item.readiness not in {"late", "peak", "ready"},
+            -item.unallocated_quantity,
+            item.name.lower(),
+        ),
+    )[:120]
+    compact_snapshot = [
+        {
+            "wine_id": str(item.wine_id),
+            "name": item.name,
+            "producer": item.producer,
+            "vintage": item.vintage,
+            "quantity": item.quantity,
+            "unallocated": item.unallocated_quantity,
+            "purposes": item.purposes,
+            "readiness": item.readiness,
+            "drink_window": [
+                item.drink_from,
+                item.drink_peak_from,
+                item.drink_peak_to,
+                item.drink_to,
+            ],
+            "purchase_value": str(item.purchase_value),
+            "current_value": str(item.current_value),
+            "signals": item.signals,
+        }
+        for item in candidates
+    ]
+    schema = {
+        "name": "cellar_intelligence_plan",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "overview": {"type": "string"},
+                "immediate_action": {"type": "string"},
+                "risk_note": {"type": "string"},
+                "recommendations": {
+                    "type": "array",
+                    "maxItems": 12,
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": False,
+                        "properties": {
+                            "wine_id": {"type": "string"},
+                            "action": {"type": "string", "enum": ["drink", "hold", "monitor", "decide"]},
+                            "priority": {"type": "string", "enum": ["high", "medium", "low"]},
+                            "quantity": {"type": "integer", "minimum": 1},
+                            "reason": {"type": "string"},
+                        },
+                        "required": ["wine_id", "action", "priority", "quantity", "reason"],
+                    },
+                },
+            },
+            "required": ["overview", "immediate_action", "risk_note", "recommendations"],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=request_model(payload, user_settings.wishlist_model),
+        task_type="portfolio_strategy",
+        system_prompt=(
+            "You are Vinaris Private Cellar Intelligence. Return JSON only. "
+            "Prioritize actions using only the supplied deterministic cellar data. "
+            "Respect the owner's bottle-purpose allocations: never recommend drinking a bottle allocated to investment, "
+            "maturation, or a special occasion. Unallocated bottles require a decision, not an invented purpose. "
+            "Do not claim guaranteed investment returns or invent market facts. Be concise and operational. "
+            f"{response_language_instruction(payload.locale)}"
+        ),
+        user_prompt=(
+            f"Create a {payload.focus} cellar action plan. The snapshot contains {snapshot.bottle_count} bottles, "
+            f"with {snapshot.allocation_coverage_pct}% purpose coverage. Select at most 12 concrete actions. "
+            "Recommendation quantity must not exceed the quantity assigned to the relevant purpose; for decide actions "
+            "it must not exceed unallocated quantity. Use only wine_id values in the data.\n\n"
+            + json.dumps(compact_snapshot, ensure_ascii=False, separators=(",", ":"))
+        ),
+        json_schema=schema,
+        max_output_tokens=2200,
+    )
+    result = parse_json_response(response.text)
+    known = {item.wine_id: item for item in snapshot.wines}
+    recommendations: list[CellarIntelligenceRecommendation] = []
+    for raw in result.get("recommendations", []):
+        try:
+            wine_id = UUID(str(raw.get("wine_id") or ""))
+            wine = known[wine_id]
+            action = str(raw.get("action") or "decide")
+            maximum = (
+                wine.unallocated_quantity
+                if action == "decide"
+                else wine.purposes.get(
+                    {"drink": "drink", "hold": "maturation", "monitor": "investment"}.get(action, ""),
+                    0,
+                )
+            )
+            if maximum <= 0:
+                continue
+            normalized_priority = str(raw.get("priority") or "medium")
+            if normalized_priority not in {"high", "medium", "low"}:
+                normalized_priority = "medium"
+            recommendations.append(
+                CellarIntelligenceRecommendation(
+                    wine_id=wine_id,
+                    action=cast(Literal["drink", "hold", "monitor", "decide"], action),
+                    priority=cast(Literal["high", "medium", "low"], normalized_priority),
+                    quantity=min(max(int(raw.get("quantity") or 1), 1), maximum),
+                    reason=str(raw.get("reason") or "").strip(),
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    model = effective_response_model(response, user_settings.wishlist_model)
+    charged_cost = billable_cost_usd(
+        user_is_app_admin=context.user.is_app_admin,
+        user_has_active_entitlement=context.has_active_entitlement,
+        provider_source=provider_source,
+        model=model,
+        usage=response.usage,
+        db=db,
+    )
+    plan = CellarIntelligencePlanResponse(
+        model=model,
+        reasoning_effort=response.reasoning_effort or "",
+        overview=str(result.get("overview") or "").strip(),
+        immediate_action=str(result.get("immediate_action") or "").strip(),
+        risk_note=str(result.get("risk_note") or "").strip(),
+        recommendations=recommendations,
+        generated_at=datetime.now(UTC),
+        estimated_cost_usd=charged_cost,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="household",
+        entity_id=context.household.id,
+        feature="cellar_intelligence_plan",
+        model=model,
+        reasoning_effort=response.reasoning_effort or "",
+        summary=f"{plan.overview} Next: {plan.immediate_action}",
+        sources=[{"kind": "cellar_snapshot", "wine_count": snapshot.wine_count, "bottle_count": snapshot.bottle_count}],
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return plan

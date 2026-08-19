@@ -77,6 +77,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const PublicLanding = lazy(() => import("./views/PublicLanding"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
@@ -9312,7 +9313,7 @@ export function App() {
           className={`workspace ${
             activeView === "settings"
               ? "settings-workspace"
-              : activeView === "home" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
+              : activeView === "home" || activeView === "intelligence" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
           } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
@@ -9336,6 +9337,10 @@ export function App() {
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
+            {!isRestaurant ? <button type="button" className={activeView === "intelligence" ? "" : "secondary"} onClick={() => { leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}>
+              <AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />
+              {locale === "it" ? "Intelligence" : "Intelligence"}
+            </button> : null}
             {!isRestaurant && canAccessCellarAssistant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {locale === "it" ? "Assistente AI" : "AI Assistant"}
@@ -9404,6 +9409,7 @@ export function App() {
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
+                {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
                 {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="newspaper" variant="premium" detailLevel="rich" />Wine Pulse</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
@@ -10706,6 +10712,19 @@ export function App() {
           ) : null}
 
           {activeView === "pulse" ? <WinePulseView locale={locale} /> : null}
+
+          {activeView === "intelligence" && !isRestaurant ? (
+            <Suspense fallback={<LoadingState label={t("loadingData")} />}>
+              <CellarIntelligenceView
+                locale={locale}
+                disabled={!canGenerateAi || !canWriteWine}
+                onOpenWine={(wineId) => {
+                  const wine = wines.find((item) => item.id === wineId);
+                  if (wine) openWineFromDashboard(wine);
+                }}
+              />
+            </Suspense>
+          ) : null}
 
           {activeView === "assistant" && canAccessCellarAssistant ? (
             <CellarAssistantView

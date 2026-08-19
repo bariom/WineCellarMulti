@@ -368,3 +368,26 @@ class WishlistPortfolioStrategyResponse(BaseModel):
     generated_at: datetime | None = None
     estimated_cost_usd: Decimal
     stale: bool = False
+
+
+class CellarIntelligencePlanRequest(AiGenerationRequest):
+    focus: Literal["balanced", "drink", "maturation", "investment"] = "balanced"
+
+
+class CellarIntelligenceRecommendation(BaseModel):
+    wine_id: UUID
+    action: Literal["drink", "hold", "monitor", "decide"]
+    priority: Literal["high", "medium", "low"]
+    quantity: int = Field(ge=1)
+    reason: str
+
+
+class CellarIntelligencePlanResponse(BaseModel):
+    model: str
+    reasoning_effort: str = ""
+    overview: str
+    immediate_action: str
+    risk_note: str
+    recommendations: list[CellarIntelligenceRecommendation] = Field(default_factory=list)
+    generated_at: datetime
+    estimated_cost_usd: Decimal

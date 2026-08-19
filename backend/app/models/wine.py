@@ -256,6 +256,33 @@ class WineStockLot(Base):
     )
 
 
+class WineStrategyAllocation(Base):
+    __tablename__ = "wine_strategy_allocations"
+    __table_args__ = (
+        Index("ix_wine_strategy_allocations_household_wine", "household_id", "wine_id"),
+        Index("ix_wine_strategy_allocations_lot", "stock_lot_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    stock_lot_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wine_stock_lots.id", ondelete="CASCADE"), nullable=True
+    )
+    purpose: Mapped[str] = mapped_column(String(32), index=True)
+    quantity: Mapped[int] = mapped_column()
+    horizon_year: Mapped[int | None] = mapped_column(nullable=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
 class WineStockMovement(Base):
     __tablename__ = "wine_stock_movements"
     __table_args__ = (

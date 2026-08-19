@@ -169,6 +169,136 @@ def test_cellar_locations_bins_and_relocations_follow_stock():
     }
 
 
+def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Sassicaia",
+            "producer": "Tenuta San Guido",
+            "vintage": "2020",
+            "quantity": 6,
+            "price": 200,
+            "current_value": 260,
+            "status": "Delivered",
+            "drink_from": 2025,
+            "drink_peak_from": 2028,
+            "drink_peak_to": 2038,
+            "drink_to": 2045,
+        },
+    )
+    assert created.status_code == 201, created.text
+    wine_id = created.json()["id"]
+
+    allocations = client.put(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations",
+        json={
+            "allocations": [
+                {"purpose": "drink", "quantity": 2},
+                {"purpose": "investment", "quantity": 4, "horizon_year": 2032},
+            ]
+        },
+    )
+    assert allocations.status_code == 200, allocations.text
+    assert sorted((item["purpose"], item["quantity"]) for item in allocations.json()) == [
+        ("drink", 2),
+        ("investment", 4),
+    ]
+
+    snapshot = client.get("/api/v1/intelligence/cellar")
+    assert snapshot.status_code == 200, snapshot.text
+    result = snapshot.json()
+    assert result["bottle_count"] == 6
+    assert result["allocation_coverage_pct"] == 100
+    assert result["purpose_totals"]["drink"] == 2
+    assert result["purpose_totals"]["investment"] == 4
+    assert result["wines"][0]["unallocated_quantity"] == 0
+
+    consumed = client.post(f"/api/v1/wines/{wine_id}/consume", json={})
+    assert consumed.status_code == 200, consumed.text
+    remaining_allocations = client.get(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations"
+    ).json()
+    assert sorted((item["purpose"], item["quantity"]) for item in remaining_allocations) == [
+        ("drink", 1),
+        ("investment", 4),
+    ]
+
+
+def test_cellar_intelligence_rejects_overallocation():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={"name": "Ornellaia", "vintage": "2019", "quantity": 3, "status": "Delivered"},
+    )
+    assert created.status_code == 201
+    response = client.put(
+        f"/api/v1/intelligence/wines/{created.json()['id']}/allocations",
+        json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 2}]},
+    )
+    assert response.status_code == 422
+    assert "exceed available bottles" in response.text
+
+
+def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Sassicaia",
+            "vintage": "2020",
+            "quantity": 6,
+            "status": "Delivered",
+            "drink_from": 2025,
+            "drink_to": 2045,
+        },
+    )
+    wine_id = created.json()["id"]
+    assert client.put(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations",
+        json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 4}]},
+    ).status_code == 200
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "overview": "Cantina ben allocata.",
+                        "immediate_action": "Valuta una delle due bottiglie da bere.",
+                        "risk_note": "Nessun rendimento è garantito.",
+                        "recommendations": [
+                            {"wine_id": wine_id, "action": "drink", "priority": "high", "quantity": 5, "reason": "Finestra aperta."},
+                            {"wine_id": wine_id, "action": "monitor", "priority": "medium", "quantity": 4, "reason": "Controlla il valore."},
+                            {"wine_id": wine_id, "action": "decide", "priority": "low", "quantity": 1, "reason": "Non valida perché tutto allocato."},
+                        ],
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=300, output_tokens=100, total_tokens=400),
+            ),
+            "user_key",
+        ),
+    )
+    response = client.post(
+        "/api/v1/ai/cellar-intelligence", json={"locale": "it", "focus": "balanced"}
+    )
+    assert response.status_code == 200, response.text
+    recommendations = response.json()["recommendations"]
+    assert [(item["action"], item["quantity"]) for item in recommendations] == [
+        ("drink", 2),
+        ("monitor", 4),
+    ]
+
+
 def test_restaurant_sale_tracks_margin_and_can_be_voided():
     client = TestClient(app)
     assert register(client).status_code == 201

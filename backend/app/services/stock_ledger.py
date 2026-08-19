@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Wine, WineSale, WineStockLot, WineStockMovement
 from app.services.storage import add_to_storage, remove_from_storage, sync_storage_to_wine_quantity
+from app.services.wine_strategy import consume_strategy_allocations
 
 INBOUND_TYPES = {"purchase", "adjustment_in"}
 INBOUND_LEDGER_TYPES = INBOUND_TYPES | {"initial_purchase", "sale_void"}
@@ -209,6 +210,7 @@ def remove_fifo_stock(
         wine.quantity -= quantity
         if wine.quantity == 0:
             wine.status = "Sold"
+    consume_strategy_allocations(db, wine, movements)
     if update_storage:
         remove_from_storage(db, wine, quantity, allocation_id=storage_allocation_id)
     return movements, (total_cost / quantity).quantize(Decimal("0.01")), total_cost

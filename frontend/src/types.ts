@@ -1181,7 +1181,61 @@ export type CellarCommandResult = {
   estimated_cost_usd: number | string;
 };
 
-export type ViewName = "home" | "cellar" | "history" | "wishlist" | "assistant" | "pairing" | "pulse" | "buying" | "help" | "settings";
+export type ViewName = "home" | "cellar" | "history" | "wishlist" | "intelligence" | "assistant" | "pairing" | "pulse" | "buying" | "help" | "settings";
+
+export type WineStrategyPurpose = "drink" | "maturation" | "investment" | "special_occasion" | "undecided";
+
+export type CellarIntelligenceWine = {
+  wine_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  region: string;
+  quantity: number;
+  allocated_quantity: number;
+  unallocated_quantity: number;
+  currency: string;
+  purchase_value: string;
+  current_value: string;
+  drink_from: number | null;
+  drink_peak_from: number | null;
+  drink_peak_to: number | null;
+  drink_to: number | null;
+  readiness: "unknown" | "too_young" | "ready" | "peak" | "late";
+  purposes: Partial<Record<WineStrategyPurpose, number>>;
+  signals: string[];
+};
+
+export type CellarIntelligenceSnapshot = {
+  generated_at: string;
+  wine_count: number;
+  bottle_count: number;
+  allocated_bottle_count: number;
+  allocation_coverage_pct: number;
+  purpose_totals: Record<WineStrategyPurpose, number>;
+  drink_now_count: number;
+  maturation_count: number;
+  investment_count: number;
+  undecided_count: number;
+  wines: CellarIntelligenceWine[];
+};
+
+export type CellarIntelligencePlan = {
+  model: string;
+  reasoning_effort: string;
+  overview: string;
+  immediate_action: string;
+  risk_note: string;
+  recommendations: Array<{
+    wine_id: string;
+    action: "drink" | "hold" | "monitor" | "decide";
+    priority: "high" | "medium" | "low";
+    quantity: number;
+    reason: string;
+  }>;
+  generated_at: string;
+  estimated_cost_usd: string;
+};
 
 export type WineNewsCategory = "wine_world" | "regions_vintages" | "producers" | "market" | "climate_vineyards" | "events_awards";
 

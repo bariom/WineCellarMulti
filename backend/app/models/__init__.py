@@ -34,6 +34,7 @@ from app.models.wine import (
     WineSale,
     WineStockLot,
     WineStockMovement,
+    WineStrategyAllocation,
     WineTastingEntry,
     WineValueHistory,
 )
@@ -88,6 +89,7 @@ __all__ = [
     "WineSale",
     "WineStockLot",
     "WineStockMovement",
+    "WineStrategyAllocation",
     "WineStorageAllocation",
     "WineStorageMovement",
     "WineTastingEntry",
