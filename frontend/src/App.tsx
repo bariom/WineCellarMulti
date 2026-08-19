@@ -882,31 +882,107 @@ function BreakdownDonut({
   items,
   mode,
   locale,
-  onSelect,
 }: {
   items: ValueBreakdownItem[];
   mode: "type" | "region";
   locale: Locale;
-  onSelect?: (item: ValueBreakdownItem) => void;
 }) {
   const segments = breakdownDonutSegments(items, mode);
   if (!segments.length) return null;
   const background = `conic-gradient(${segments.map((segment) => `${segment.color} ${segment.start}% ${segment.end}%`).join(", ")})`;
   return (
     <div className="breakdown-donut-wrap">
-      <button
-        type="button"
+      <div
         className="breakdown-donut"
         style={{ background }}
-        onClick={() => onSelect?.(segments[0])}
-        aria-label={`${segments[0].label} drill-down`}
+        role="img"
+        aria-label={translate(locale, mode === "type" ? "typesLabel" : "regionsLabel")}
       >
         <div className="breakdown-donut-hole">
           <strong>{segments.length}</strong>
           <span>{translate(locale, mode === "type" ? "typesLabel" : "regionsLabel")}</span>
         </div>
-      </button>
+      </div>
     </div>
+  );
+}
+
+function CellarDonutAnalytics({
+  eyebrow,
+  title,
+  items,
+  locale,
+  metric,
+  onSelect,
+}: {
+  eyebrow: string;
+  title: string;
+  items: ValueBreakdownItem[];
+  locale: Locale;
+  metric: "value" | "bottles";
+  onSelect: (item: ValueBreakdownItem) => void;
+}) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  return (
+    <article className="cellar-analytics-card cellar-donut-card">
+      <div className="cellar-analytics-heading"><span>{eyebrow}</span><h3>{title}</h3></div>
+      <div className="cellar-donut-layout">
+        <BreakdownDonut items={items} mode="type" locale={locale} />
+        <div className="cellar-analytics-legend">
+          {items.map((item, index) => {
+            const pct = total ? (item.value / total) * 100 : 0;
+            const label = displayValue(item.label, locale, "type");
+            const formattedMetric = metric === "value" ? formatMoney(item.value, "CHF", locale) : formatBottleCount(item.value, locale);
+            return (
+              <button type="button" key={item.label} title={`${label}: ${formatPercentage(pct, locale, 1)} · ${formattedMetric}`} onClick={() => onSelect(item)}>
+                <i style={{ backgroundColor: breakdownColor(item.label, index, "type") }} aria-hidden="true" />
+                <span>{label}</span>
+                <strong>{formatPercentage(pct, locale, 0)}</strong>
+                <small>{formattedMetric}</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </article>
+  );
+}
+
+function CellarBarAnalytics({
+  eyebrow,
+  title,
+  items,
+  locale,
+  metric,
+  onSelect,
+}: {
+  eyebrow: string;
+  title: string;
+  items: ValueBreakdownItem[];
+  locale: Locale;
+  metric: "value" | "wines";
+  onSelect: (item: ValueBreakdownItem) => void;
+}) {
+  const total = items.reduce((sum, item) => sum + item.value, 0);
+  const maximum = Math.max(...items.map((item) => item.value), 1);
+  return (
+    <article className="cellar-analytics-card cellar-bars-card">
+      <div className="cellar-analytics-heading"><span>{eyebrow}</span><h3>{title}</h3></div>
+      <div className="cellar-horizontal-bars">
+        {items.map((item, index) => {
+          const pct = total ? (item.value / total) * 100 : 0;
+          const formattedMetric = metric === "value" ? formatMoney(item.value, "CHF", locale) : formatBottleCount(item.value, locale);
+          return (
+            <button type="button" key={item.label} title={`${item.label}: ${formatPercentage(pct, locale, 1)} · ${formattedMetric}`} onClick={() => onSelect(item)}>
+              <span className="cellar-bar-label">{item.label}</span>
+              <strong>{formatPercentage(pct, locale, 0)}</strong>
+              <small>{formattedMetric}</small>
+              <span className="cellar-bar-track"><i style={{ width: `${Math.max((item.value / maximum) * 100, 4)}%`, backgroundColor: breakdownColor(item.label, index, "region") }} /></span>
+            </button>
+          );
+        })}
+      </div>
+    </article>
   );
 }
 
@@ -6111,10 +6187,6 @@ export function App() {
     { label: t("missingGrapes"), count: cellarStats.missingGrapes },
     { label: t("missingScores"), count: cellarStats.missingScores },
   ];
-  const valueByTypeTotal = valueByType.reduce((sum, item) => sum + item.value, 0);
-  const valueByRegionTotal = valueByRegion.reduce((sum, item) => sum + item.value, 0);
-  const bottlesByTypeTotal = bottlesByType.reduce((sum, item) => sum + item.value, 0);
-  const winesByRegionTotal = winesByRegion.reduce((sum, item) => sum + item.value, 0);
   const breakdownWines = breakdownDrilldown
     ? cellarWines.filter((wine) => wineGroupValue(wine, breakdownDrilldown.dimension) === breakdownDrilldown.label)
     : [];
@@ -11616,6 +11688,13 @@ export function App() {
                 {maturityFilter ? <span>{t("maturityFilter")}: {wineToneLabel(maturityFilter.tone, locale)} {maturityFilter.year}</span> : null}
               </summary>
               <section className="stats-panel cellar-stats-dashboard">
+                <header className="cellar-stats-page-heading">
+                  <div>
+                    <span>{locale === "it" ? "Private cellar intelligence" : "Private cellar intelligence"}</span>
+                    <h2>{t("cellarStats")}</h2>
+                    <p>{locale === "it" ? "Panoramica completa della tua collezione" : "A complete overview of your collection"}</p>
+                  </div>
+                </header>
                 <div className="cellar-kpi-grid">
                   <button type="button" className={`cellar-kpi-card cellar-kpi-card--value ${quickWineFilter === "" ? "active" : ""}`} onClick={() => applyQuickWineFilter("")}>
                     <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("total")}</i>
@@ -11670,205 +11749,108 @@ export function App() {
                   </button>
                 </div>
 
-                <div className="cellar-stats-body">
-                  <div className="cellar-distribution-grid">
-                    {valueByType.length ? (
-                      <article className="stacked-distribution-card">
-                        <div className="stacked-card-heading">
-                          <span>{t("distributionByValue")}</span>
-                          <strong>{t("valueByType")}</strong>
-                        </div>
-                        <div className="stacked-progress-bar" aria-label={t("valueByType")}>
-                          {valueByType.map((item, index) => {
-                            const pct = valueByTypeTotal ? (item.value / valueByTypeTotal) * 100 : 0;
-                            return (
-                              <button
-                                type="button"
-                                key={item.label}
-                                className="stacked-progress-segment"
-                                style={{ flexBasis: `${pct}%`, backgroundColor: breakdownColor(item.label, index, "type") }}
-                                title={`${displayValue(item.label, locale, "type")} ${formatPercentage(pct, locale, 1)}`}
-                                onClick={() => openBreakdownDrilldown("valueByType", "type", "value", item.label)}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="stacked-legend">
-                          {valueByType.map((item, index) => {
-                            const pct = valueByTypeTotal ? (item.value / valueByTypeTotal) * 100 : 0;
-                            return (
-                              <button type="button" key={item.label} onClick={() => openBreakdownDrilldown("valueByType", "type", "value", item.label)}>
-                                <i style={{ backgroundColor: breakdownColor(item.label, index, "type") }} />
-                                <span>{displayValue(item.label, locale, "type")}</span>
-                                <strong>{formatPercentage(pct, locale, 0)}</strong>
-                                <small>{formatMoney(item.value, "CHF", locale)}</small>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    ) : null}
-                    {isMobileViewport ? renderBreakdownDrilldown("valueByType") : null}
+                <div className="cellar-analytics-grid">
+                  {valueByType.length ? (
+                    <CellarDonutAnalytics
+                      eyebrow={t("distributionByValue")}
+                      title={t("valueByType")}
+                      items={valueByType}
+                      locale={locale}
+                      metric="value"
+                      onSelect={(item) => openBreakdownDrilldown("valueByType", "type", "value", item.label)}
+                    />
+                  ) : null}
+                  {valueByRegion.length ? (
+                    <CellarBarAnalytics
+                      eyebrow={t("distributionByValue")}
+                      title={t("topRegions")}
+                      items={valueByRegion}
+                      locale={locale}
+                      metric="value"
+                      onSelect={(item) => openBreakdownDrilldown("topRegions", "region", "value", item.label)}
+                    />
+                  ) : null}
 
-                    {valueByRegion.length ? (
-                      <article className="stacked-distribution-card">
-                        <div className="stacked-card-heading">
-                          <span>{t("distributionByValue")}</span>
-                          <strong>{t("topRegions")}</strong>
-                        </div>
-                        <div className="stacked-progress-bar" aria-label={t("topRegions")}>
-                          {valueByRegion.map((item, index) => {
-                            const pct = valueByRegionTotal ? (item.value / valueByRegionTotal) * 100 : 0;
-                            return (
-                              <button
-                                type="button"
-                                key={item.label}
-                                className="stacked-progress-segment"
-                                style={{ flexBasis: `${pct}%`, backgroundColor: breakdownColor(item.label, index, "region") }}
-                                title={`${item.label} ${formatPercentage(pct, locale, 1)}`}
-                                onClick={() => openBreakdownDrilldown("topRegions", "region", "value", item.label)}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="stacked-legend">
-                          {valueByRegion.map((item, index) => {
-                            const pct = valueByRegionTotal ? (item.value / valueByRegionTotal) * 100 : 0;
-                            return (
-                              <button type="button" key={item.label} onClick={() => openBreakdownDrilldown("topRegions", "region", "value", item.label)}>
-                                <i style={{ backgroundColor: breakdownColor(item.label, index, "region") }} />
-                                <span>{item.label}</span>
-                                <strong>{formatPercentage(pct, locale, 0)}</strong>
-                                <small>{formatMoney(item.value, "CHF", locale)}</small>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    ) : null}
-                    {isMobileViewport ? renderBreakdownDrilldown("topRegions") : null}
-                    {!isMobileViewport ? renderBreakdownDrilldown("valueByType") : null}
-                    {!isMobileViewport ? renderBreakdownDrilldown("topRegions") : null}
-
-                    {bottlesByType.length ? (
-                      <article className="stacked-distribution-card">
-                        <div className="stacked-card-heading">
-                          <span>{t("distributionByStock")}</span>
-                          <strong>{t("bottlesByType")}</strong>
-                        </div>
-                        <div className="stacked-progress-bar" aria-label={t("bottlesByType")}>
-                          {bottlesByType.map((item, index) => {
-                            const pct = bottlesByTypeTotal ? (item.value / bottlesByTypeTotal) * 100 : 0;
-                            return (
-                              <button
-                                type="button"
-                                key={item.label}
-                                className="stacked-progress-segment"
-                                style={{ flexBasis: `${pct}%`, backgroundColor: breakdownColor(item.label, index, "type") }}
-                                title={`${displayValue(item.label, locale, "type")} ${formatPercentage(pct, locale, 1)}`}
-                                onClick={() => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="stacked-legend">
-                          {bottlesByType.map((item, index) => {
-                            const pct = bottlesByTypeTotal ? (item.value / bottlesByTypeTotal) * 100 : 0;
-                            return (
-                              <button type="button" key={item.label} onClick={() => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)}>
-                                <i style={{ backgroundColor: breakdownColor(item.label, index, "type") }} />
-                                <span>{displayValue(item.label, locale, "type")}</span>
-                                <strong>{formatPercentage(pct, locale, 0)}</strong>
-                                <small>{formatBottleCount(item.value, locale)}</small>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    ) : null}
-                    {isMobileViewport ? renderBreakdownDrilldown("bottlesByType") : null}
-
-                    {winesByRegion.length ? (
-                      <article className="stacked-distribution-card">
-                        <div className="stacked-card-heading">
-                          <span>{t("distributionByStock")}</span>
-                          <strong>{t("winesByRegion")}</strong>
-                        </div>
-                        <div className="stacked-progress-bar" aria-label={t("winesByRegion")}>
-                          {winesByRegion.map((item, index) => {
-                            const pct = winesByRegionTotal ? (item.value / winesByRegionTotal) * 100 : 0;
-                            return (
-                              <button
-                                type="button"
-                                key={item.label}
-                                className="stacked-progress-segment"
-                                style={{ flexBasis: `${pct}%`, backgroundColor: breakdownColor(item.label, index, "region") }}
-                                title={`${item.label} ${formatPercentage(pct, locale, 1)}`}
-                                onClick={() => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)}
-                              />
-                            );
-                          })}
-                        </div>
-                        <div className="stacked-legend">
-                          {winesByRegion.map((item, index) => {
-                            const pct = winesByRegionTotal ? (item.value / winesByRegionTotal) * 100 : 0;
-                            return (
-                              <button type="button" key={item.label} onClick={() => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)}>
-                                <i style={{ backgroundColor: breakdownColor(item.label, index, "region") }} />
-                                <span>{item.label}</span>
-                                <strong>{formatPercentage(pct, locale, 0)}</strong>
-                                <small>{formatBottleCount(item.value, locale)}</small>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </article>
-                    ) : null}
-                    {isMobileViewport ? renderBreakdownDrilldown("winesByRegion") : null}
-                    {!isMobileViewport ? renderBreakdownDrilldown("bottlesByType") : null}
-                    {!isMobileViewport ? renderBreakdownDrilldown("winesByRegion") : null}
-                  </div>
-
-                  <aside className="collection-state-card">
+                  <article className="cellar-analytics-card collection-state-card collection-state-card--analytics">
                     <div className="collection-state-heading">
                       <span>{t("recommendedActions")}</span>
                       <strong>{t("collectionStatus")}</strong>
                     </div>
-                    <div
-                      className="collection-gauge"
-                      style={{ "--collection-completion": `${cellarDataCompleteness}%` } as CSSProperties}
-                      aria-label={`${t("dataCompleteness")} ${formatPercentage(cellarDataCompleteness, locale)}`}
-                    >
-                      <div>
-                        <strong>{formatPercentage(cellarDataCompleteness, locale)}</strong>
-                        <span>{t("dataCompleteness")}</span>
+                    <div className="collection-state-layout">
+                      <div
+                        className="collection-gauge"
+                        style={{ "--collection-completion": `${cellarDataCompleteness}%` } as CSSProperties}
+                        aria-label={`${t("dataCompleteness")} ${formatPercentage(cellarDataCompleteness, locale)}`}
+                      >
+                        <div><strong>{formatPercentage(cellarDataCompleteness, locale)}</strong><span>{t("dataCompleteness")}</span></div>
                       </div>
-                    </div>
-                    <div className="collection-health-list">
-                      <button type="button" onClick={() => applyQuickWineFilter("missing_data")} className={quickWineFilter === "missing_data" ? "active" : ""}>
-                        <span>{t("missingDataToFix")}</span>
-                        <strong>{formatBottleCount(cellarMissingDataCount, locale)}</strong>
-                      </button>
-                      <div>
-                        <span>{t("aiReadiness")}</span>
-                        <strong>{formatPercentage(cellarAiReadiness, locale)}</strong>
-                      </div>
-                      <div>
-                        <span>{t("completeRecords")}</span>
-                        <strong>{formatBottleCount(Math.max(cellarDataCheckCount - cellarMissingDataCount, 0), locale)} / {formatBottleCount(cellarDataCheckCount, locale)}</strong>
-                      </div>
-                    </div>
-                    <div className="collection-action-list">
-                      {cellarActionItems.map((item) => (
-                        <button type="button" key={item.label} onClick={() => applyQuickWineFilter("missing_data")}>
-                          <span>{item.label}</span>
-                          <strong>{formatBottleCount(item.count, locale)}</strong>
+                      <div className="collection-health-list collection-health-list--compact">
+                        <button type="button" onClick={() => applyQuickWineFilter("missing_data")} className={cellarMissingDataCount ? "needs-attention" : "is-complete"}>
+                          <span>{t("missingDataToFix")}</span><strong>{formatBottleCount(cellarMissingDataCount, locale)}</strong>
                         </button>
-                      ))}
+                        <div className={cellarAiReadiness < 100 ? "needs-attention" : "is-complete"}>
+                          <span>{t("aiReadiness")}</span><strong>{formatPercentage(cellarAiReadiness, locale)}</strong>
+                        </div>
+                        <div className="is-complete">
+                          <span>{t("completeRecords")}</span><strong>{formatBottleCount(Math.max(cellarDataCheckCount - cellarMissingDataCount, 0), locale)} / {formatBottleCount(cellarDataCheckCount, locale)}</strong>
+                        </div>
+                        {cellarActionItems.map((item) => (
+                          <button type="button" key={item.label} className={item.count ? "needs-attention" : "is-complete"} onClick={() => applyQuickWineFilter("missing_data")}>
+                            <span>{item.label}</span><strong>{formatBottleCount(item.count, locale)}</strong>
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                    <p>{t("aiReadinessHelp")}</p>
-                  </aside>
+                  </article>
+
+                  {bottlesByType.length ? (
+                    <CellarDonutAnalytics
+                      eyebrow={t("distributionByStock")}
+                      title={t("bottlesByType")}
+                      items={bottlesByType}
+                      locale={locale}
+                      metric="bottles"
+                      onSelect={(item) => openBreakdownDrilldown("bottlesByType", "type", "bottles", item.label)}
+                    />
+                  ) : null}
+                  {winesByRegion.length ? (
+                    <CellarBarAnalytics
+                      eyebrow={t("distributionByStock")}
+                      title={t("winesByRegion")}
+                      items={winesByRegion}
+                      locale={locale}
+                      metric="wines"
+                      onSelect={(item) => openBreakdownDrilldown("winesByRegion", "region", "wines", item.label)}
+                    />
+                  ) : null}
+                  {portfolioValuePoints.length >= 2 ? (
+                    <article className="cellar-analytics-card cellar-value-trend-card">
+                      <div className="cellar-analytics-heading">
+                        <span>{locale === "it" ? "Trend valore cantina" : "Cellar value trend"}</span>
+                        <h3>{t("valueEvolution")}</h3>
+                      </div>
+                      <Suspense fallback={<div className="portfolio-value-chart-loading" aria-label={t("valueEvolution")} />}>
+                        <div className="cellar-stats-value-chart">
+                          <TimeSeriesChart
+                            ariaLabel={t("valueEvolution")}
+                            locale={locale}
+                            currency="CHF"
+                            height={230}
+                            mobileHeight={220}
+                            points={portfolioValuePoints.map((point) => ({ timestampMs: point.timestampMs, value: point.numericValue }))}
+                          />
+                        </div>
+                      </Suspense>
+                    </article>
+                  ) : null}
                 </div>
+                <div className="cellar-analytics-drilldowns">
+                  {renderBreakdownDrilldown("valueByType")}
+                  {renderBreakdownDrilldown("topRegions")}
+                  {renderBreakdownDrilldown("bottlesByType")}
+                  {renderBreakdownDrilldown("winesByRegion")}
+                </div>
+
               </section>
             </details>
             ) : activeView === "history" ? (
