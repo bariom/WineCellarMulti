@@ -137,6 +137,7 @@ router = APIRouter(prefix="/ai")
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
+CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS = 8192
 MODEL_FIELDS = [
     "ai_notes_model",
     "drink_window_model",
@@ -5497,9 +5498,21 @@ def generate_cellar_intelligence_plan(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Cellar is empty"
         )
+    selected_wine_ids = set(payload.wine_ids)
+    known_wine_ids = {item.wine_id for item in snapshot.wines}
+    unknown_wine_ids = selected_wine_ids - known_wine_ids
+    if unknown_wine_ids:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="One or more selected wines are not available in the cellar",
+        )
     user_settings = get_or_create_user_ai_settings(db, context)
     candidates = sorted(
-        snapshot.wines,
+        (
+            item
+            for item in snapshot.wines
+            if not selected_wine_ids or item.wine_id in selected_wine_ids
+        ),
         key=lambda item: (
             item.readiness not in {"late", "peak", "ready"},
             -item.unallocated_quantity,
@@ -5545,12 +5558,16 @@ def generate_cellar_intelligence_plan(
                         "additionalProperties": False,
                         "properties": {
                             "wine_id": {"type": "string"},
-                            "action": {"type": "string", "enum": ["drink", "hold", "monitor", "decide"]},
+                            "action": {"type": "string", "enum": ["drink", "hold", "monitor", "decide", "reclassify"]},
                             "priority": {"type": "string", "enum": ["high", "medium", "low"]},
                             "quantity": {"type": "integer", "minimum": 1},
                             "reason": {"type": "string"},
+                            "recommended_purpose": {
+                                "type": "string",
+                                "enum": ["", "drink", "maturation", "investment", "special_occasion", "undecided"],
+                            },
                         },
-                        "required": ["wine_id", "action", "priority", "quantity", "reason"],
+                        "required": ["wine_id", "action", "priority", "quantity", "reason", "recommended_purpose"],
                     },
                 },
             },
@@ -5568,21 +5585,26 @@ def generate_cellar_intelligence_plan(
             "Prioritize actions using only the supplied deterministic cellar data. "
             "Respect the owner's bottle-purpose allocations: never recommend drinking a bottle allocated to investment, "
             "maturation, or a special occasion. Unallocated bottles require a decision, not an invented purpose. "
+            "When a selected wine is already classified, reassess its purpose from its maturity window and supplied values. "
+            "Use action reclassify and recommended_purpose only when a different purpose is justified; otherwise use hold or monitor. "
             "Do not claim guaranteed investment returns or invent market facts. Be concise and operational. "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
-            f"Create a {payload.focus} cellar action plan. The snapshot contains {snapshot.bottle_count} bottles, "
+            f"Create a {payload.focus} cellar action plan for the {len(candidates)} supplied wines. "
+            f"The full cellar contains {snapshot.bottle_count} bottles, "
             f"with {snapshot.allocation_coverage_pct}% purpose coverage. Select at most 12 concrete actions. "
             "Recommendation quantity must not exceed the quantity assigned to the relevant purpose; for decide actions "
             "it must not exceed unallocated quantity. Use only wine_id values in the data.\n\n"
             + json.dumps(compact_snapshot, ensure_ascii=False, separators=(",", ":"))
         ),
         json_schema=schema,
-        max_output_tokens=2200,
+        # High reasoning effort and up to 12 structured recommendations can
+        # exceed the former 2,200-token cap before the JSON object is closed.
+        max_output_tokens=CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS,
     )
     result = parse_json_response(response.text)
-    known = {item.wine_id: item for item in snapshot.wines}
+    known = {item.wine_id: item for item in candidates}
     recommendations: list[CellarIntelligenceRecommendation] = []
     for raw in result.get("recommendations", []):
         try:
@@ -5590,14 +5612,21 @@ def generate_cellar_intelligence_plan(
             wine = known[wine_id]
             action = str(raw.get("action") or "decide")
             maximum = (
-                wine.unallocated_quantity
-                if action == "decide"
-                else wine.purposes.get(
-                    {"drink": "drink", "hold": "maturation", "monitor": "investment"}.get(action, ""),
-                    0,
+                wine.quantity
+                if action == "reclassify"
+                else (
+                    wine.unallocated_quantity
+                    if action == "decide"
+                    else wine.purposes.get(
+                        {"drink": "drink", "hold": "maturation", "monitor": "investment"}.get(action, ""),
+                        0,
+                    )
                 )
             )
             if maximum <= 0:
+                continue
+            recommended_purpose = str(raw.get("recommended_purpose") or "")
+            if action == "reclassify" and recommended_purpose not in STRATEGY_PURPOSES:
                 continue
             normalized_priority = str(raw.get("priority") or "medium")
             if normalized_priority not in {"high", "medium", "low"}:
@@ -5605,10 +5634,11 @@ def generate_cellar_intelligence_plan(
             recommendations.append(
                 CellarIntelligenceRecommendation(
                     wine_id=wine_id,
-                    action=cast(Literal["drink", "hold", "monitor", "decide"], action),
+                    action=cast(Literal["drink", "hold", "monitor", "decide", "reclassify"], action),
                     priority=cast(Literal["high", "medium", "low"], normalized_priority),
                     quantity=min(max(int(raw.get("quantity") or 1), 1), maximum),
                     reason=str(raw.get("reason") or "").strip(),
+                    recommended_purpose=cast(Any, recommended_purpose or None),
                 )
             )
         except (KeyError, TypeError, ValueError):
@@ -5641,7 +5671,12 @@ def generate_cellar_intelligence_plan(
         model=model,
         reasoning_effort=response.reasoning_effort or "",
         summary=f"{plan.overview} Next: {plan.immediate_action}",
-        sources=[{"kind": "cellar_snapshot", "wine_count": snapshot.wine_count, "bottle_count": snapshot.bottle_count}],
+        sources=[{
+            "kind": "cellar_snapshot",
+            "wine_count": len(candidates),
+            "bottle_count": sum(item.quantity for item in candidates),
+            "selected": bool(selected_wine_ids),
+        }],
         usage=response.usage,
         provider_source=provider_source,
     )

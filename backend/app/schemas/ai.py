@@ -381,14 +381,18 @@ class WishlistPortfolioStrategyResponse(BaseModel):
 
 class CellarIntelligencePlanRequest(AiGenerationRequest):
     focus: Literal["balanced", "drink", "maturation", "investment"] = "balanced"
+    wine_ids: list[UUID] = Field(default_factory=list, max_length=120)
 
 
 class CellarIntelligenceRecommendation(BaseModel):
     wine_id: UUID
-    action: Literal["drink", "hold", "monitor", "decide"]
+    action: Literal["drink", "hold", "monitor", "decide", "reclassify"]
     priority: Literal["high", "medium", "low"]
     quantity: int = Field(ge=1)
     reason: str
+    recommended_purpose: Literal[
+        "drink", "maturation", "investment", "special_occasion", "undecided"
+    ] | None = None
 
 
 class CellarIntelligencePlanResponse(BaseModel):

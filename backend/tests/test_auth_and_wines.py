@@ -292,15 +292,21 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
         },
     )
     wine_id = created.json()["id"]
+    other = client.post(
+        "/api/v1/wines",
+        json={"name": "Wine outside selection", "quantity": 1, "status": "Delivered"},
+    )
+    assert other.status_code == 201
     assert client.put(
         f"/api/v1/intelligence/wines/{wine_id}/allocations",
         json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 4}]},
     ).status_code == 200
 
-    monkeypatch.setattr(
-        ai_routes,
-        "create_ai_response",
-        lambda *args, **kwargs: (
+    captured_request: dict = {}
+
+    def fake_create_ai_response(*args, **kwargs):
+        captured_request.update(kwargs)
+        return (
             OpenAIResponse(
                 text=json.dumps(
                     {
@@ -310,6 +316,8 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
                         "recommendations": [
                             {"wine_id": wine_id, "action": "drink", "priority": "high", "quantity": 5, "reason": "Finestra aperta."},
                             {"wine_id": wine_id, "action": "monitor", "priority": "medium", "quantity": 4, "reason": "Controlla il valore."},
+                            {"wine_id": wine_id, "action": "reclassify", "priority": "medium", "quantity": 3, "reason": "La finestra e il valore suggeriscono di rivalutare l'obiettivo.", "recommended_purpose": "maturation"},
+                            {"wine_id": other.json()["id"], "action": "reclassify", "priority": "high", "quantity": 1, "reason": "Fuori selezione.", "recommended_purpose": "drink"},
                             {"wine_id": wine_id, "action": "decide", "priority": "low", "quantity": 1, "reason": "Non valida perché tutto allocato."},
                         ],
                     }
@@ -319,16 +327,23 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
                 usage=TokenUsage(input_tokens=300, output_tokens=100, total_tokens=400),
             ),
             "user_key",
-        ),
-    )
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
     response = client.post(
-        "/api/v1/ai/cellar-intelligence", json={"locale": "it", "focus": "balanced"}
+        "/api/v1/ai/cellar-intelligence",
+        json={"locale": "it", "focus": "balanced", "wine_ids": [wine_id]},
     )
     assert response.status_code == 200, response.text
+    assert captured_request["max_output_tokens"] == ai_routes.CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS
+    assert captured_request["max_output_tokens"] >= 8192
+    assert "Sassicaia" in captured_request["user_prompt"]
+    assert "Wine outside selection" not in captured_request["user_prompt"]
     recommendations = response.json()["recommendations"]
-    assert [(item["action"], item["quantity"]) for item in recommendations] == [
-        ("drink", 2),
-        ("monitor", 4),
+    assert [(item["action"], item["quantity"], item["recommended_purpose"]) for item in recommendations] == [
+        ("drink", 2, None),
+        ("monitor", 4, None),
+        ("reclassify", 3, "maturation"),
     ]
 
 

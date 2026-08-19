@@ -1234,10 +1234,11 @@ export type CellarIntelligencePlan = {
   risk_note: string;
   recommendations: Array<{
     wine_id: string;
-    action: "drink" | "hold" | "monitor" | "decide";
+    action: "drink" | "hold" | "monitor" | "decide" | "reclassify";
     priority: "high" | "medium" | "low";
     quantity: number;
     reason: string;
+    recommended_purpose: WineStrategyPurpose | null;
   }>;
   generated_at: string;
   estimated_cost_usd: string;
