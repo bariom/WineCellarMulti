@@ -12416,7 +12416,6 @@ export function App() {
                     drag.startX = event.clientX;
                     drag.startScrollLeft = rail.scrollLeft;
                     drag.moved = false;
-                    rail.setPointerCapture(event.pointerId);
                   }}
                   onPointerMove={(event) => {
                     const drag = wineCategoryDragRef.current;
@@ -12424,6 +12423,9 @@ export function App() {
                     const distance = event.clientX - drag.startX;
                     if (Math.abs(distance) < 4 && !drag.moved) return;
                     drag.moved = true;
+                    if (!event.currentTarget.hasPointerCapture(event.pointerId)) {
+                      event.currentTarget.setPointerCapture(event.pointerId);
+                    }
                     event.preventDefault();
                     event.currentTarget.classList.add("is-dragging");
                     event.currentTarget.scrollLeft = drag.startScrollLeft - distance;
