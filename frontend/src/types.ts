@@ -1194,6 +1194,7 @@ export type WineStrategyPurpose = "drink" | "maturation" | "investment" | "speci
 export type CellarIntelligenceWine = {
   wine_id: string;
   name: string;
+  photo_thumbnail_url: string;
   producer: string;
   vintage: string;
   region: string;

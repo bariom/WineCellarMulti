@@ -5,6 +5,13 @@ import { api } from "../services/api";
 import "./CellarIntelligenceView.css";
 
 const PURPOSES: WineStrategyPurpose[] = ["drink", "maturation", "investment", "special_occasion", "undecided"];
+const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
+
+function BottleThumbnail({ wine, prominent = false }: { wine: CellarIntelligenceWine; prominent?: boolean }) {
+  return <span className={`intelligence-bottle-thumbnail${prominent ? " prominent" : ""}`} aria-hidden="true">
+    {wine.photo_thumbnail_url ? <img src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : <span className="intelligence-bottle-placeholder" />}
+  </span>;
+}
 
 export default function CellarIntelligenceView({
   locale,
@@ -52,7 +59,24 @@ export default function CellarIntelligenceView({
     }
   }
 
-  useEffect(() => { void loadSnapshot(); }, []);
+  async function loadInitialData() {
+    setLoading(true);
+    setError("");
+    try {
+      const [nextSnapshot, savedPlan] = await Promise.all([
+        api<CellarIntelligenceSnapshot>("/api/v1/intelligence/cellar"),
+        api<CellarIntelligencePlan | null>("/api/v1/ai/cellar-intelligence/latest"),
+      ]);
+      setSnapshot(nextSnapshot);
+      setPlan(savedPlan);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : String(requestError));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => { void loadInitialData(); }, []);
 
   const wineNames = useMemo(() => new Map(snapshot?.wines.map((wine) => [wine.wine_id, wine]) || []), [snapshot]);
   const drinkCandidates = snapshot?.wines.filter((wine) => wine.purposes.drink && ["ready", "peak", "late"].includes(wine.readiness)) || [];
@@ -72,6 +96,7 @@ export default function CellarIntelligenceView({
     recommendationKey = "",
     recommendedPurpose: WineStrategyPurpose | null = null,
     recommendedQuantity = 0,
+    allocateUnassigned = false,
   ) {
     setEditing(wine);
     setEditingRecommendation(recommendationKey);
@@ -83,6 +108,11 @@ export default function CellarIntelligenceView({
       undecided: wine.purposes.undecided || 0,
     };
     if (recommendedPurpose && recommendedQuantity > 0) {
+      if (allocateUnassigned) {
+        nextQuantities[recommendedPurpose] += Math.min(recommendedQuantity, wine.unallocated_quantity);
+        setQuantities(nextQuantities);
+        return;
+      }
       const sourcePurposes = PURPOSES
         .filter((purpose) => purpose !== recommendedPurpose)
         .sort((left, right) => nextQuantities[right] - nextQuantities[left]);
@@ -264,39 +294,26 @@ export default function CellarIntelligenceView({
         <article className={snapshot?.undecided_count ? "attention" : ""}><small>{it ? "Senza decisione" : "Needs decision"}</small><strong>{snapshot?.undecided_count || 0}</strong><span>{it ? "bottiglie" : "bottles"}</span></article>
       </div>
 
-      <article className="intelligence-selection">
-        <header>
-          <div><span className="intelligence-kicker">{it ? "RICLASSIFICAZIONE" : "RECLASSIFICATION"}</span><h2>{it ? "Rivaluta vini classificati" : "Reassess classified wines"}</h2><p>{it ? "Seleziona un gruppo: l’AI confronterà maturazione, valore e obiettivo attuale." : "Select a group: AI will compare maturity, value, and current purpose."}</p></div>
-          <strong>{selectedWineIds.size} {it ? "selezionati" : "selected"}</strong>
-        </header>
-        <div className="intelligence-selection-controls">
-          <input type="search" value={selectionQuery} onChange={(event) => setSelectionQuery(event.target.value)} placeholder={it ? "Cerca vino, produttore o regione" : "Search wine, producer, or region"} />
-          <select value={selectionPurpose} onChange={(event) => setSelectionPurpose(event.target.value as WineStrategyPurpose | "all")} aria-label={it ? "Filtra per obiettivo" : "Filter by purpose"}>
-            <option value="all">{it ? "Tutti gli obiettivi" : "All purposes"}</option>
-            {PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}
-          </select>
-          <button type="button" className="secondary" disabled={!visibleClassifiedWines.length} onClick={() => setSelectedWineIds((current) => new Set([...current, ...visibleClassifiedWines.map((wine) => wine.wine_id)]))}>{it ? "Seleziona visibili" : "Select visible"}</button>
-          <button type="button" className="secondary" disabled={!selectedWineIds.size} onClick={() => setSelectedWineIds(new Set())}>{it ? "Azzera" : "Clear"}</button>
-        </div>
-        <div className="intelligence-selection-list">
-          {visibleClassifiedWines.map((wine) => <label className={selectedWineIds.has(wine.wine_id) ? "is-selected" : ""} key={wine.wine_id}>
-            <input type="checkbox" checked={selectedWineIds.has(wine.wine_id)} onChange={() => toggleWineSelection(wine.wine_id)} />
-            <span><strong>{wine.name} {wine.vintage}</strong><small>{wine.producer || wine.region || (it ? "Dati essenziali" : "Essential data")}</small></span>
-            <span className="intelligence-purpose-tags">{PURPOSES.filter((purpose) => wine.purposes[purpose]).map((purpose) => <small key={purpose}>{purposeLabel(purpose)} · {wine.purposes[purpose]}</small>)}</span>
-            <span className="intelligence-selection-value"><small>{it ? "Valore attuale" : "Current value"}</small><strong>{wine.signals.includes("market_value_missing") ? (it ? "Non disponibile" : "Not available") : formatUnitValue(wine.current_value, wine.currency, wine.quantity)}</strong></span>
-          </label>)}
-          {!visibleClassifiedWines.length ? <p className="intelligence-empty">{it ? "Nessun vino classificato corrisponde ai filtri." : "No classified wines match these filters."}</p> : null}
-        </div>
-        <footer><small>{it ? "Le proposte non modificano la cantina finché non le confermi." : "Suggestions do not change the cellar until you confirm them."}</small><button type="button" disabled={disabled || generating || !selectedWineIds.size} onClick={() => void generatePlan([...selectedWineIds])}>{generating ? (it ? "Analisi in corso…" : "Analysing…") : `${it ? "Analizza selezione" : "Analyse selection"} (${selectedWineIds.size})`}</button></footer>
-      </article>
-
       {plan ? <article className="intelligence-ai-plan">
-        <div><span className="intelligence-kicker">VINARIS AI</span><h2>{it ? "Piano d’azione" : "Action plan"}</h2></div>
-        <p className="plan-overview">{plan.overview}</p>
-        <p><strong>{it ? "Prima azione:" : "First action:"}</strong> {plan.immediate_action}</p>
-        {plan.risk_note ? <p className="plan-risk">{plan.risk_note}</p> : null}
+        <header className="plan-heading">
+          <div><span className="intelligence-kicker">VINARIS AI</span><h2>{it ? "Piano d’azione" : "Action plan"}</h2></div>
+          <span className="plan-action-count">{plan.recommendations.length} {it ? "azioni proposte" : "suggested actions"}</span>
+        </header>
+        <section className="plan-first-action">
+          <span className="plan-step-number">1</span>
+          <div><small>{it ? "DA FARE ADESSO" : "DO THIS NOW"}</small><strong>{plan.immediate_action}</strong></div>
+        </section>
+        <div className="plan-summary-grid">
+          <section><small>{it ? "STRATEGIA" : "STRATEGY"}</small><p>{plan.overview}</p></section>
+          <div className="plan-metrics">
+            <span><strong>{plan.recommendations.filter((item) => item.priority === "high").length}</strong><small>{it ? "alta priorità" : "high priority"}</small></span>
+            <span><strong>{plan.recommendations.reduce((total, item) => total + item.quantity, 0)}</strong><small>{it ? "bottiglie coinvolte" : "bottles involved"}</small></span>
+          </div>
+        </div>
+        {plan.risk_note ? <aside className="plan-risk"><strong>{it ? "Da tenere presente" : "Keep in mind"}</strong><span>{plan.risk_note}</span></aside> : null}
         {actionNotice ? <p className="intelligence-action-notice" role="status">{actionNotice}</p> : null}
-        <div className="plan-recommendations">{plan.recommendations.map((item, index) => {
+        <div className="plan-recommendations-heading"><div><small>{it ? "AZIONI SUI VINI" : "WINE ACTIONS"}</small><h3>{it ? "Procedi in questo ordine" : "Follow this order"}</h3></div><span>{it ? "Apri il vino o applica direttamente la proposta" : "Open the wine or apply the suggestion directly"}</span></div>
+        <div className="plan-recommendations">{[...plan.recommendations].sort((left, right) => PRIORITY_ORDER[left.priority] - PRIORITY_ORDER[right.priority]).map((item, index) => {
           const wine = wineNames.get(item.wine_id);
           const recommendationKey = `${item.wine_id}-${item.action}-${index}`;
           const applied = appliedRecommendations.has(recommendationKey);
@@ -308,14 +325,18 @@ export default function CellarIntelligenceView({
             decide: it ? "Decidere" : "Decide",
             reclassify: it ? "Riclassificare" : "Reclassify",
           })[item.action];
+          const proposedPurposeLabel = item.recommended_purpose ? purposeLabel(item.recommended_purpose) : "";
+          const displayedActionLabel = item.action === "decide" && proposedPurposeLabel
+            ? (it ? `${proposedPurposeLabel} consigliata` : `Suggested: ${proposedPurposeLabel}`)
+            : actionLabel;
           return <article className={`plan-recommendation${applied ? " is-applied" : ""}`} key={recommendationKey}>
             <button type="button" className="plan-recommendation-main" onClick={() => onOpenWine(item.wine_id)}>
-              <span className={`priority priority-${item.priority}`}>{item.priority}</span>
-              <strong>{item.quantity}× {wine?.name || item.wine_id}</strong>
+              <span className="plan-recommendation-top"><strong>{index + 1}</strong><span className={`priority priority-${item.priority}`}>{item.priority === "high" ? (it ? "Alta" : "High") : item.priority === "medium" ? (it ? "Media" : "Medium") : (it ? "Bassa" : "Low")}</span></span>
+              <span className="plan-recommendation-wine">{wine ? <BottleThumbnail wine={wine} prominent /> : null}<span><strong>{wine?.name || item.wine_id}</strong><small>{item.quantity} {item.quantity === 1 ? (it ? "bottiglia" : "bottle") : (it ? "bottiglie" : "bottles")} · {displayedActionLabel}</small></span></span>
               <span>{item.reason}</span>
             </button>
             <footer>
-              <span className={`plan-action plan-action-${item.action}`}>{actionLabel}</span>
+              <span className={`plan-action plan-action-${item.action}`}>{displayedActionLabel}</span>
               {applied ? <strong className="plan-action-applied">{it ? "Applicata" : "Applied"}</strong> : item.action === "drink" ? (
                 <button type="button" disabled={disabled || !wine || Boolean(applyingRecommendation)} onClick={() => wine && setPendingDrinkRecommendation({ key: recommendationKey, recommendation: item, wine })}>
                   {busy ? (it ? "Applicazione…" : "Applying…") : (it ? "Registra bevuta" : "Record consumed")}
@@ -325,8 +346,8 @@ export default function CellarIntelligenceView({
                   {busy ? (it ? "Aggiornamento…" : "Updating…") : (it ? "Aggiorna valore con AI" : "Update value with AI")}
                 </button>
               ) : (
-                <button type="button" disabled={!wine || Boolean(applyingRecommendation)} onClick={() => wine && beginEdit(wine, recommendationKey, item.recommended_purpose, item.quantity)}>
-                  {item.action === "decide" ? (it ? "Definisci obiettivo" : "Set purpose") : item.action === "reclassify" ? `${it ? "Rivedi come" : "Review as"} ${item.recommended_purpose ? purposeLabel(item.recommended_purpose) : ""}` : (it ? "Rivedi maturazione" : "Review maturation")}
+                <button type="button" disabled={!wine || Boolean(applyingRecommendation)} onClick={() => wine && beginEdit(wine, recommendationKey, item.recommended_purpose, item.quantity, item.action === "decide")}>
+                  {item.action === "decide" ? (proposedPurposeLabel ? `${it ? "Imposta" : "Set"} ${proposedPurposeLabel}` : (it ? "Definisci obiettivo" : "Set purpose")) : item.action === "reclassify" ? `${it ? "Rivedi come" : "Review as"} ${proposedPurposeLabel}` : (it ? "Rivedi maturazione" : "Review maturation")}
                 </button>
               )}
             </footer>
@@ -335,10 +356,40 @@ export default function CellarIntelligenceView({
         <small>{plan.model} · ${Number(plan.estimated_cost_usd).toFixed(6)}</small>
       </article> : null}
 
+      <details className="intelligence-selection">
+        <summary>
+          <div><span className="intelligence-kicker">{it ? "RICLASSIFICAZIONE" : "RECLASSIFICATION"}</span><h2>{it ? "Rivaluta vini classificati" : "Reassess classified wines"}</h2><p>{it ? "Seleziona un gruppo: l’AI confronterà maturazione, valore e obiettivo attuale." : "Select a group: AI will compare maturity, value, and current purpose."}</p></div>
+          <span className="intelligence-selection-summary"><strong>{selectedWineIds.size} {it ? "selezionati" : "selected"}</strong><span aria-hidden="true">⌄</span></span>
+        </summary>
+        <div className="intelligence-selection-body">
+          <div className="intelligence-selection-controls">
+            <input type="search" value={selectionQuery} onChange={(event) => setSelectionQuery(event.target.value)} placeholder={it ? "Cerca vino, produttore o regione" : "Search wine, producer, or region"} />
+            <select value={selectionPurpose} onChange={(event) => setSelectionPurpose(event.target.value as WineStrategyPurpose | "all")} aria-label={it ? "Filtra per obiettivo" : "Filter by purpose"}>
+              <option value="all">{it ? "Tutti gli obiettivi" : "All purposes"}</option>
+              {PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}
+            </select>
+            <button type="button" className="secondary" disabled={!visibleClassifiedWines.length} onClick={() => setSelectedWineIds((current) => new Set([...current, ...visibleClassifiedWines.map((wine) => wine.wine_id)]))}>{it ? "Seleziona visibili" : "Select visible"}</button>
+            <button type="button" className="secondary" disabled={!selectedWineIds.size} onClick={() => setSelectedWineIds(new Set())}>{it ? "Azzera" : "Clear"}</button>
+          </div>
+          <div className="intelligence-selection-list">
+            {visibleClassifiedWines.map((wine) => <label className={selectedWineIds.has(wine.wine_id) ? "is-selected" : ""} key={wine.wine_id}>
+              <input type="checkbox" checked={selectedWineIds.has(wine.wine_id)} onChange={() => toggleWineSelection(wine.wine_id)} />
+              <BottleThumbnail wine={wine} />
+              <span><strong>{wine.name} {wine.vintage}</strong><small>{wine.producer || wine.region || (it ? "Dati essenziali" : "Essential data")}</small></span>
+              <span className="intelligence-purpose-tags">{PURPOSES.filter((purpose) => wine.purposes[purpose]).map((purpose) => <small key={purpose}>{purposeLabel(purpose)} · {wine.purposes[purpose]}</small>)}</span>
+              <span className="intelligence-selection-value"><small>{it ? "Valore attuale" : "Current value"}</small><strong>{wine.signals.includes("market_value_missing") ? (it ? "Non disponibile" : "Not available") : formatUnitValue(wine.current_value, wine.currency, wine.quantity)}</strong></span>
+            </label>)}
+            {!visibleClassifiedWines.length ? <p className="intelligence-empty">{it ? "Nessun vino classificato corrisponde ai filtri." : "No classified wines match these filters."}</p> : null}
+          </div>
+          <footer><small>{it ? "Le proposte non modificano la cantina finché non le confermi." : "Suggestions do not change the cellar until you confirm them."}</small><button type="button" disabled={disabled || generating || !selectedWineIds.size} onClick={() => void generatePlan([...selectedWineIds])}>{generating ? (it ? "Analisi in corso…" : "Analysing…") : `${it ? "Analizza selezione" : "Analyse selection"} (${selectedWineIds.size})`}</button></footer>
+        </div>
+      </details>
+
       <div className="intelligence-columns">
         <article className="intelligence-list">
           <header><div><span className="intelligence-kicker">{it ? "PRIORITÀ" : "PRIORITY"}</span><h2>{it ? "Da bere ora" : "Drink now"}</h2></div><strong>{drinkCandidates.length}</strong></header>
           {drinkCandidates.length ? drinkCandidates.slice(0, 8).map((wine) => <div className="intelligence-wine-row" key={wine.wine_id}>
+            <BottleThumbnail wine={wine} />
             <button type="button" className="wine-main" onClick={() => onOpenWine(wine.wine_id)}><strong>{wine.name} {wine.vintage}</strong><span>{wine.producer} · {wine.readiness === "peak" ? (it ? "al picco" : "at peak") : wine.readiness}</span></button>
             <button type="button" className="secondary" onClick={() => beginEdit(wine)}>{it ? "Obiettivi" : "Purposes"}</button>
           </div>) : <p className="intelligence-empty">{it ? "Assegna bottiglie all’obiettivo Bere per ricevere priorità attendibili." : "Assign bottles to Drink to receive reliable priorities."}</p>}
@@ -346,6 +397,7 @@ export default function CellarIntelligenceView({
         <article className="intelligence-list">
           <header><div><span className="intelligence-kicker">{it ? "DECISIONI" : "DECISIONS"}</span><h2>{it ? "Bottiglie da classificare" : "Bottles to classify"}</h2></div><strong>{decisionCandidates.length}</strong></header>
           {decisionCandidates.length ? decisionCandidates.slice(0, 8).map((wine) => <div className="intelligence-wine-row" key={wine.wine_id}>
+            <BottleThumbnail wine={wine} />
             <button type="button" className="wine-main" onClick={() => onOpenWine(wine.wine_id)}>
               <strong>{wine.name} {wine.vintage}</strong>
               <span className="intelligence-wine-producer">{wine.producer || (it ? "Produttore non specificato" : "Producer not specified")}</span>

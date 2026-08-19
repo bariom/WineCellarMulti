@@ -1,6 +1,7 @@
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -8,6 +9,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
+from app.api.routes.wines import photo_urls
 from app.db.session import get_db
 from app.models import Wine, WineStockLot, WineStrategyAllocation
 from app.schemas.intelligence import (
@@ -25,7 +27,7 @@ def _allocation_response(item: WineStrategyAllocation) -> WineStrategyAllocation
     return WineStrategyAllocationResponse(
         id=item.id,
         wine_id=item.wine_id,
-        purpose=item.purpose,
+        purpose=cast(Any, item.purpose),
         quantity=item.quantity,
         stock_lot_id=item.stock_lot_id,
         horizon_year=item.horizon_year,
@@ -197,6 +199,7 @@ def build_cellar_intelligence_snapshot(
             CellarIntelligenceWine(
                 wine_id=wine.id,
                 name=wine.name,
+                photo_thumbnail_url=photo_urls(wine)["photo_thumbnail_url"],
                 producer=wine.producer,
                 vintage=wine.vintage,
                 region=wine.region,

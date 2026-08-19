@@ -32,6 +32,7 @@ class WineStrategyAllocationUpdate(BaseModel):
 class CellarIntelligenceWine(BaseModel):
     wine_id: UUID
     name: str
+    photo_thumbnail_url: str = ""
     producer: str = ""
     vintage: str = ""
     region: str = ""

@@ -16,7 +16,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.deps import CurrentContext, require_write_context
+from app.api.deps import CurrentContext, get_current_context, require_write_context
 from app.api.routes.billing import stripe_ai_credit_amount
 from app.api.routes.catalog import search_catalog_entries
 from app.api.routes.intelligence import build_cellar_intelligence_snapshot
@@ -5487,6 +5487,39 @@ def generate_wishlist_portfolio_strategy(
     return strategy_response
 
 
+@router.get(
+    "/cellar-intelligence/latest",
+    response_model=CellarIntelligencePlanResponse | None,
+)
+def latest_cellar_intelligence_plan(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> CellarIntelligencePlanResponse | None:
+    audit = db.scalar(
+        select(AiAuditLog)
+        .where(
+            AiAuditLog.household_id == context.household.id,
+            AiAuditLog.feature == "cellar_intelligence_plan",
+            AiAuditLog.outcome == "success",
+        )
+        .order_by(AiAuditLog.created_at.desc())
+        .limit(1)
+    )
+    if audit is None:
+        return None
+    for source in audit.sources or []:
+        if source.get("kind") != "cellar_intelligence_plan":
+            continue
+        plan = source.get("plan")
+        if not isinstance(plan, dict):
+            continue
+        try:
+            return CellarIntelligencePlanResponse.model_validate(plan)
+        except ValueError:
+            return None
+    return None
+
+
 @router.post("/cellar-intelligence", response_model=CellarIntelligencePlanResponse)
 def generate_cellar_intelligence_plan(
     payload: CellarIntelligencePlanRequest = CellarIntelligencePlanRequest(),
@@ -5584,10 +5617,15 @@ def generate_cellar_intelligence_plan(
             "You are Vinaris Private Cellar Intelligence. Return JSON only. "
             "Prioritize actions using only the supplied deterministic cellar data. "
             "Respect the owner's bottle-purpose allocations: never recommend drinking a bottle allocated to investment, "
-            "maturation, or a special occasion. Unallocated bottles require a decision, not an invented purpose. "
+            "maturation, or a special occasion. For every unallocated wine, use action decide and recommend a concrete "
+            "purpose from the supplied maturity window, values, and signals. For a too-young wine, normally recommend maturation. "
+            "For every decide action, recommended_purpose must be non-empty and quantity must cover the bottles to classify. "
             "When a selected wine is already classified, reassess its purpose from its maturity window and supplied values. "
             "Use action reclassify and recommended_purpose only when a different purpose is justified; otherwise use hold or monitor. "
-            "Do not claim guaranteed investment returns or invent market facts. Be concise and operational. "
+            "Do not claim guaranteed investment returns or invent market facts. "
+            "Make overview one plain-language sentence that explains the strategy without repeating recommendation counts. "
+            "Make immediate_action one short imperative sentence with a concrete first step. "
+            "Make risk_note one short sentence containing only the main caveat. Be concise and operational. "
             f"{response_language_instruction(payload.locale)}"
         ),
         user_prompt=(
@@ -5626,7 +5664,15 @@ def generate_cellar_intelligence_plan(
             if maximum <= 0:
                 continue
             recommended_purpose = str(raw.get("recommended_purpose") or "")
-            if action == "reclassify" and recommended_purpose not in STRATEGY_PURPOSES:
+            if action in {"decide", "reclassify"} and recommended_purpose not in STRATEGY_PURPOSES:
+                recommended_purpose = (
+                    "maturation"
+                    if action == "decide" and wine.readiness == "too_young"
+                    else "drink"
+                    if action == "decide" and wine.readiness in {"ready", "peak", "late"}
+                    else ""
+                )
+            if action == "reclassify" and not recommended_purpose:
                 continue
             normalized_priority = str(raw.get("priority") or "medium")
             if normalized_priority not in {"high", "medium", "low"}:
@@ -5671,12 +5717,18 @@ def generate_cellar_intelligence_plan(
         model=model,
         reasoning_effort=response.reasoning_effort or "",
         summary=f"{plan.overview} Next: {plan.immediate_action}",
-        sources=[{
-            "kind": "cellar_snapshot",
-            "wine_count": len(candidates),
-            "bottle_count": sum(item.quantity for item in candidates),
-            "selected": bool(selected_wine_ids),
-        }],
+        sources=[
+            {
+                "kind": "cellar_snapshot",
+                "wine_count": len(candidates),
+                "bottle_count": sum(item.quantity for item in candidates),
+                "selected": bool(selected_wine_ids),
+            },
+            {
+                "kind": "cellar_intelligence_plan",
+                "plan": plan.model_dump(mode="json"),
+            },
+        ],
         usage=response.usage,
         provider_source=provider_source,
     )

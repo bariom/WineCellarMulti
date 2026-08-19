@@ -280,6 +280,9 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
+    empty_saved_plan = client.get("/api/v1/ai/cellar-intelligence/latest")
+    assert empty_saved_plan.status_code == 200
+    assert empty_saved_plan.json() is None
     created = client.post(
         "/api/v1/wines",
         json={
@@ -287,7 +290,7 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
             "vintage": "2020",
             "quantity": 6,
             "status": "Delivered",
-            "drink_from": 2025,
+            "drink_from": 2034,
             "drink_to": 2045,
         },
     )
@@ -299,7 +302,7 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     assert other.status_code == 201
     assert client.put(
         f"/api/v1/intelligence/wines/{wine_id}/allocations",
-        json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 4}]},
+        json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 3}]},
     ).status_code == 200
 
     captured_request: dict = {}
@@ -318,7 +321,7 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
                             {"wine_id": wine_id, "action": "monitor", "priority": "medium", "quantity": 4, "reason": "Controlla il valore."},
                             {"wine_id": wine_id, "action": "reclassify", "priority": "medium", "quantity": 3, "reason": "La finestra e il valore suggeriscono di rivalutare l'obiettivo.", "recommended_purpose": "maturation"},
                             {"wine_id": other.json()["id"], "action": "reclassify", "priority": "high", "quantity": 1, "reason": "Fuori selezione.", "recommended_purpose": "drink"},
-                            {"wine_id": wine_id, "action": "decide", "priority": "low", "quantity": 1, "reason": "Non valida perché tutto allocato."},
+                            {"wine_id": wine_id, "action": "decide", "priority": "low", "quantity": 1, "reason": "Da destinare alla maturazione."},
                         ],
                     }
                 ),
@@ -342,9 +345,13 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     recommendations = response.json()["recommendations"]
     assert [(item["action"], item["quantity"], item["recommended_purpose"]) for item in recommendations] == [
         ("drink", 2, None),
-        ("monitor", 4, None),
+        ("monitor", 3, None),
         ("reclassify", 3, "maturation"),
+        ("decide", 1, "maturation"),
     ]
+    saved_plan = client.get("/api/v1/ai/cellar-intelligence/latest")
+    assert saved_plan.status_code == 200, saved_plan.text
+    assert saved_plan.json() == response.json()
 
 
 def test_restaurant_sale_tracks_margin_and_can_be_voided():
