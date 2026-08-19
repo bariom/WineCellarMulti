@@ -191,10 +191,22 @@ function KpiPeriodComparison({ current, previous, locale, neutral = false }: {
 
 type SalesBreakdownItem = RestaurantSalesSummary["sales_by_type"][number];
 
+function restaurantWineTypeColor(type: string) {
+  const colors: Record<string, string> = {
+    Red: "#8f2039",
+    White: "#d6b448",
+    Sparkling: "#b9a05d",
+    Rose: "#d78394",
+    Sweet: "#c9822c",
+    Fortified: "#74462f",
+    Other: "#789086",
+  };
+  return colors[normalizeWineType(type)] || colors.Other;
+}
+
 function RestaurantTypeSalesDonut({ items, locale }: { items: SalesBreakdownItem[]; locale: Locale }) {
   const visibleItems = items.slice(0, 5);
   const total = visibleItems.reduce((sum, item) => sum + numberValue(item.revenue), 0);
-  const colors = ["var(--primary)", "var(--accent)", "#b16845", "#d0aa6b", "#a44652"];
   let offset = 0;
   const currency = visibleItems[0]?.currency || "CHF";
 
@@ -202,18 +214,18 @@ function RestaurantTypeSalesDonut({ items, locale }: { items: SalesBreakdownItem
     <div className="restaurant-type-donut">
       <svg viewBox="0 0 42 42" aria-label={locale === "it" ? "Ripartizione dei ricavi per tipologia" : "Revenue split by wine type"}>
         <circle className="restaurant-type-donut-track" cx="21" cy="21" r="15.9155" />
-        {visibleItems.map((item, index) => {
+        {visibleItems.map((item) => {
           const share = total ? (numberValue(item.revenue) / total) * 100 : 0;
           const dashOffset = offset;
           offset += share;
-          return <circle key={`${item.label}-${item.currency}`} className="restaurant-type-donut-segment" cx="21" cy="21" r="15.9155" pathLength="100" stroke={colors[index % colors.length]} strokeDasharray={`${share} ${100 - share}`} strokeDashoffset={-dashOffset} />;
+          return <circle key={`${item.label}-${item.currency}`} className="restaurant-type-donut-segment" cx="21" cy="21" r="15.9155" pathLength="100" stroke={restaurantWineTypeColor(item.label)} strokeDasharray={`${share} ${100 - share}`} strokeDashoffset={-dashOffset} />;
         })}
       </svg>
       <span><strong>{formatMoney(total, currency, locale)}</strong><small>{locale === "it" ? "Ricavi" : "Revenue"}</small></span>
     </div>
     <div className="restaurant-type-legend">
-      {visibleItems.map((item, index) => <div className="restaurant-type-legend-row" key={`${item.label}-${item.currency}`}>
-        <i style={{ background: colors[index % colors.length] }} />
+      {visibleItems.map((item) => <div className="restaurant-type-legend-row" key={`${item.label}-${item.currency}`}>
+        <i style={{ background: restaurantWineTypeColor(item.label) }} />
         <span><strong>{displayValue(item.label, locale, "type") || item.label}</strong><small>{item.bottles} {locale === "it" ? "bt." : "btl."} · {item.glasses} {locale === "it" ? "calici" : "glasses"}</small></span>
         <b>{total ? ((numberValue(item.revenue) / total) * 100).toLocaleString(locale, { maximumFractionDigits: 1 }) : 0}%</b>
       </div>)}
