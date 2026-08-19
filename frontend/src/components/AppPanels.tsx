@@ -1296,6 +1296,8 @@ export function WineDetail({
         ) : null}
       </div>
 
+      {!restaurantMode ? <WineStrategySection wine={wine} locale={locale} /> : null}
+
       <div className="detail-overview-block">
         {restaurantMode && canWrite ? <div className="restaurant-commercial-actions">
           {wine.commercial_status === "active" ? <button type="button" className="secondary compact" disabled={saving} onClick={() => void onUpdateCommercialStatus("clearing_out")}>{locale === "it" ? "Non riordinare più" : "Stop reordering"}</button> : null}
@@ -1505,7 +1507,6 @@ export function WineDetail({
       ) : null}
 
       {!restaurantMode ? <WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /> : null}
-      {!restaurantMode ? <WineStrategySection wine={wine} locale={locale} /> : null}
       <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
 
       {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
