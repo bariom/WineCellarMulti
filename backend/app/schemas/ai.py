@@ -186,6 +186,10 @@ class CellarCommandResponse(BaseModel):
     matched_wine: CellarCommandWineCandidate | None = None
     tasting: CellarCommandTasting | None = None
     purchase_draft: CellarCommandPurchaseDraft | None = None
+    strategy_purpose: Literal[
+        "drink", "maturation", "investment", "special_occasion", "undecided"
+    ] | None = None
+    strategy_quantity: int | None = None
     previous_quantity: int | None = None
     new_quantity: int | None = None
     model: str = ""

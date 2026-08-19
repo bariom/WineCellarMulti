@@ -93,6 +93,16 @@ export default function CellarAssistantView({
   const wishlistExample = isItalian
     ? "Aggiungi Barolo 2021 alla wishlist Rossi, prezzo massimo 100 franchi."
     : "Add Barolo 2021 to wishlist Rossi, maximum price CHF 100.";
+  const strategyExample = isItalian
+    ? "Considera Arcadia Brut da bere."
+    : "Mark Arcadia Brut for drinking.";
+  const strategyPurposeLabel = (purpose: string) => ({
+    drink: isItalian ? "Da bere" : "For drinking",
+    maturation: isItalian ? "Da maturare" : "For maturation",
+    investment: isItalian ? "Investimento" : "Investment",
+    special_occasion: isItalian ? "Occasione speciale" : "Special occasion",
+    undecided: isItalian ? "Da decidere" : "Undecided",
+  }[purpose] || purpose);
   const applyExample = (example: string) => {
     setText(example);
     setError("");
@@ -408,12 +418,12 @@ export default function CellarAssistantView({
           <p>{isItalian ? "Azioni guidate" : "Guided actions"}</p>
           <div className="cellar-assistant-title-row"><h1 id="cellar-assistant-title">{isItalian ? "Assistente Cantina AI" : "AI Cellar Assistant"}</h1><button type="button" className="secondary compact cellar-assistant-help-button" onClick={() => setHelpOpen(true)} aria-label={isItalian ? "Come funziona l'assistente AI" : "How the AI assistant works"}>?</button></div>
           <span>{isItalian
-            ? "Racconta cosa hai bevuto o acquistato: Vinaris identifica il vino e prepara l’aggiornamento corretto."
-            : "Describe what you drank or purchased: Vinaris identifies the wine and prepares the correct update."}</span>
+            ? "Racconta cosa hai bevuto, acquistato o deciso per le bottiglie: Vinaris prepara l’aggiornamento corretto."
+            : "Describe what you drank, purchased, or decided for your bottles: Vinaris prepares the correct update."}</span>
         </div>
       </header>
 
-      {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><p className="cellar-assistant-help-intro">{isItalian ? "Scegli un esempio per inserirlo nel comando e personalizzarlo." : "Choose an example to place it in the command field and customize it."}</p><div className="cellar-assistant-help-examples"><button type="button" onClick={() => applyExample(consumptionExample)}><strong>{isItalian ? "Bevuta" : "Drinking"}</strong><span>{isItalian ? "Registra nota e voto su scala 6." : "Record notes and a six-point score."}</span></button><button type="button" onClick={() => applyExample(purchaseExample)}><strong>{isItalian ? "Acquisto" : "Purchase"}</strong><span>{isItalian ? "Aggiunge bottiglie o un nuovo lotto." : "Adds bottles or a new purchase lot."}</span></button><button type="button" onClick={() => applyExample(orderExample)}><strong>{isItalian ? "Ordine" : "Order"}</strong><span>{isItalian ? "Registra lo stato ordinato; spedizioni aggiornano ordini esistenti." : "Records an order; shipments update existing orders."}</span></button><button type="button" onClick={() => applyExample(wishlistExample)}><strong>Wishlist</strong><span>{isItalian ? "Salva un vino da valutare con prezzo target." : "Save a wine to evaluate with a target price."}</span></button></div><ul>{isItalian ? <li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li> : <li>Always review the proposal: nothing changes without your confirmation.</li>}</ul></section></div> : null}
+      {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><p className="cellar-assistant-help-intro">{isItalian ? "Scegli un esempio per inserirlo nel comando e personalizzarlo." : "Choose an example to place it in the command field and customize it."}</p><div className="cellar-assistant-help-examples"><button type="button" onClick={() => applyExample(consumptionExample)}><strong>{isItalian ? "Bevuta" : "Drinking"}</strong><span>{isItalian ? "Registra nota e voto su scala 6." : "Record notes and a six-point score."}</span></button><button type="button" onClick={() => applyExample(purchaseExample)}><strong>{isItalian ? "Acquisto" : "Purchase"}</strong><span>{isItalian ? "Aggiunge bottiglie o un nuovo lotto." : "Adds bottles or a new purchase lot."}</span></button><button type="button" onClick={() => applyExample(orderExample)}><strong>{isItalian ? "Ordine" : "Order"}</strong><span>{isItalian ? "Registra lo stato ordinato; spedizioni aggiornano ordini esistenti." : "Records an order; shipments update existing orders."}</span></button><button type="button" onClick={() => applyExample(wishlistExample)}><strong>Wishlist</strong><span>{isItalian ? "Salva un vino da valutare con prezzo target." : "Save a wine to evaluate with a target price."}</span></button><button type="button" onClick={() => applyExample(strategyExample)}><strong>Intelligence</strong><span>{isItalian ? "Assegna bottiglie a consumo, maturazione, investimento o occasioni speciali." : "Assign bottles to drinking, maturation, investment, or special occasions."}</span></button></div><ul>{isItalian ? <li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li> : <li>Always review the proposal: nothing changes without your confirmation.</li>}</ul></section></div> : null}
 
       <form className="cellar-assistant-composer" onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Cosa è successo in cantina?" : "What happened in your cellar?"}</label>
@@ -488,6 +498,12 @@ export default function CellarAssistantView({
               <div><dt>{isItalian ? "Stato" : "Status"}</dt><dd>{purchaseStatusLabel(result.purchase_draft.status)}</dd></div>
               {result.purchase_draft.price !== null ? <div><dt>{isItalian ? "Prezzo unitario" : "Unit price"}</dt><dd>{result.purchase_draft.price} {result.purchase_draft.currency}</dd></div> : null}
               {result.purchase_draft.merchant ? <div><dt>{isItalian ? "Rivenditore" : "Merchant"}</dt><dd>{result.purchase_draft.merchant}</dd></div> : null}
+            </dl>
+          ) : null}
+          {result.strategy_purpose ? (
+            <dl>
+              <div><dt>{isItalian ? "Obiettivo" : "Objective"}</dt><dd>{strategyPurposeLabel(result.strategy_purpose)}</dd></div>
+              {result.strategy_quantity !== null ? <div><dt>{isItalian ? "Bottiglie" : "Bottles"}</dt><dd>{result.strategy_quantity}</dd></div> : null}
             </dl>
           ) : null}
           {result.candidates.length ? (

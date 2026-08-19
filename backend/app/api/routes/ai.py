@@ -48,6 +48,7 @@ from app.models import (
     UserAiCreditTransaction,
     UserAiSettings,
     Wine,
+    WineStrategyAllocation,
     WineTastingEntry,
     WishlistItem,
     WishlistList,
@@ -1338,6 +1339,32 @@ def cellar_command_intent_hint(raw_text: str) -> str | None:
         normalized,
     ):
         return "consume_wine"
+    if cellar_command_strategy_purpose(raw_text) is not None:
+        return "set_strategy"
+    return None
+
+
+STRATEGY_PURPOSES = {
+    "drink",
+    "maturation",
+    "investment",
+    "special_occasion",
+    "undecided",
+}
+
+
+def cellar_command_strategy_purpose(raw_text: str) -> str | None:
+    normalized = normalize_cellar_command_identity(raw_text)
+    patterns = (
+        ("special_occasion", r"\b(?:per\s+(?:un[' ]?)?(?:anniversario|celebrazione)|occasione\s+speciale|for\s+(?:an?\s+)?special\s+occasion)\b"),
+        ("investment", r"\b(?:da|come|per)\s+(?:l[' ]?)?investimento\b|\binvestment\b|\bda\s+rivalutare\b"),
+        ("maturation", r"\b(?:da|in|per)\s+(?:maturare|maturazione|invecchiare|affinare)\b|\bda\s+tenere\b|\b(?:age|aging|mature)\b"),
+        ("drink", r"\b(?:da|per)\s+bere\b|\bda\s+consumare\b|\bconsumo\b|\b(?:to\s+drink|for\s+drinking)\b"),
+        ("undecided", r"\b(?:da\s+decidere|da\s+valutare|non\s+so\s+ancora|undecided|to\s+decide)\b"),
+    )
+    for purpose, pattern in patterns:
+        if re.search(pattern, normalized):
+            return purpose
     return None
 
 
@@ -1539,6 +1566,17 @@ def cellar_command_response(
             or (command.intent == "ship_wine" and command.status == "not_found")
             else None
         ),
+        strategy_purpose=(
+            cast(Any, parsed.get("strategy_purpose"))
+            if command.intent == "set_strategy"
+            and parsed.get("strategy_purpose") in STRATEGY_PURPOSES
+            else None
+        ),
+        strategy_quantity=(
+            int(parsed.get("_strategy_quantity") or 0)
+            if command.intent == "set_strategy" and parsed.get("_strategy_quantity") is not None
+            else None
+        ),
         previous_quantity=command.previous_quantity,
         new_quantity=matched.quantity if matched is not None else None,
         model=command.model,
@@ -1660,6 +1698,104 @@ def execute_cellar_ai_command(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Selected wine does not match the command",
         )
+    if command.intent == "set_strategy":
+        parsed = dict(command.parsed_payload or {})
+        purpose = str(parsed.get("strategy_purpose") or "")
+        if purpose not in STRATEGY_PURPOSES:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Invalid cellar strategy purpose",
+            )
+        allocations = list(
+            db.scalars(
+                select(WineStrategyAllocation)
+                .where(
+                    WineStrategyAllocation.household_id == context.household.id,
+                    WineStrategyAllocation.wine_id == wine.id,
+                )
+                .with_for_update()
+            )
+        )
+        parsed["_previous_strategy_allocations"] = [
+            {
+                "stock_lot_id": str(item.stock_lot_id) if item.stock_lot_id else None,
+                "purpose": item.purpose,
+                "quantity": item.quantity,
+                "horizon_year": item.horizon_year,
+                "note": item.note,
+            }
+            for item in allocations
+        ]
+        allocated = sum(item.quantity for item in allocations)
+        unallocated = max(wine.quantity - allocated, 0)
+        undecided = [item for item in allocations if item.purpose == "undecided"]
+        available = unallocated + sum(item.quantity for item in undecided)
+        requested = (
+            int(parsed.get("quantity") or 1)
+            if bool(parsed.get("quantity_present"))
+            else available
+        )
+        if requested < 1 or requested > available:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="The requested quantity is no longer available for this objective",
+            )
+        remaining = requested
+        if purpose != "undecided":
+            for item in undecided:
+                moved = min(item.quantity, remaining)
+                if moved <= 0:
+                    break
+                if moved == item.quantity:
+                    item.purpose = purpose
+                else:
+                    item.quantity -= moved
+                    db.add(
+                        WineStrategyAllocation(
+                            wine_id=wine.id,
+                            household_id=context.household.id,
+                            stock_lot_id=item.stock_lot_id,
+                            purpose=purpose,
+                            quantity=moved,
+                            horizon_year=item.horizon_year,
+                            note=item.note,
+                        )
+                    )
+                remaining -= moved
+        else:
+            remaining = max(requested - sum(item.quantity for item in undecided), 0)
+        if remaining:
+            db.add(
+                WineStrategyAllocation(
+                    wine_id=wine.id,
+                    household_id=context.household.id,
+                    purpose=purpose,
+                    quantity=remaining,
+                    note="",
+                )
+            )
+        parsed["_strategy_quantity"] = requested
+        command.parsed_payload = parsed
+        command.status = "executed"
+        command.matched_wine_id = wine.id
+        command.executed_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        labels = {
+            "drink": ("da bere", "for drinking"),
+            "maturation": ("da maturare", "for maturation"),
+            "investment": ("da investimento", "for investment"),
+            "special_occasion": ("per un'occasione speciale", "for a special occasion"),
+            "undecided": ("da decidere", "undecided"),
+        }
+        italian = parsed.get("_locale") == "it"
+        label = labels[purpose][0 if italian else 1]
+        message = (
+            f"Fatto. {requested} bottiglie di {wine.name} {wine.vintage} sono ora {label}."
+            if italian
+            else f"Done. {requested} bottles of {wine.name} {wine.vintage} are now {label}."
+        )
+        return cellar_command_response(db, context, command, message=message)
     if command.intent == "ship_wine":
         if wine.status != "Ordered":
             raise HTTPException(
@@ -1790,6 +1926,7 @@ CELLAR_COMMAND_SCHEMA = {
                     "acquire_wine",
                     "ship_wine",
                     "add_to_wishlist",
+                    "set_strategy",
                     "unsupported",
                 ],
             },
@@ -1799,6 +1936,18 @@ CELLAR_COMMAND_SCHEMA = {
             "vintage": {"type": "string"},
             "format": {"type": "string"},
             "quantity": {"type": "integer", "minimum": 1, "maximum": 10000},
+            "quantity_present": {"type": "boolean"},
+            "strategy_purpose": {
+                "type": "string",
+                "enum": [
+                    "",
+                    "drink",
+                    "maturation",
+                    "investment",
+                    "special_occasion",
+                    "undecided",
+                ],
+            },
             "consumed_at": {"type": "string"},
             "purchase_date": {"type": "string"},
             "purchase_price_present": {"type": "boolean"},
@@ -1823,6 +1972,8 @@ CELLAR_COMMAND_SCHEMA = {
             "vintage",
             "format",
             "quantity",
+            "quantity_present",
+            "strategy_purpose",
             "consumed_at",
             "purchase_date",
             "purchase_price_present",
@@ -1932,6 +2083,10 @@ def create_cellar_ai_command(
         requested_list_name = cellar_command_wishlist_list_name(payload.text)
         if requested_list_name:
             parsed["wishlist_list_name"] = requested_list_name
+    if parsed_intent == "set_strategy":
+        inferred_purpose = cellar_command_strategy_purpose(payload.text)
+        if inferred_purpose is not None:
+            parsed["strategy_purpose"] = inferred_purpose
     command.intent = parsed_intent
     command.parsed_payload = parsed
     command.model = response.model or settings.openai_cellar_command_model
@@ -2043,6 +2198,81 @@ def create_cellar_ai_command(
             context,
             command,
             message="Non trovo la wishlist indicata. Scegli una lista esistente.",
+        )
+    if command.intent == "set_strategy":
+        purpose = str(parsed.get("strategy_purpose") or "")
+        if purpose not in STRATEGY_PURPOSES:
+            command.status = "failed"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    "Indica se il vino è da bere, maturare, investimento, occasione speciale o da decidere."
+                    if payload.locale == "it"
+                    else "Choose drinking, maturation, investment, special occasion, or undecided."
+                ),
+            )
+        ranked = matching_cellar_command_wines(db, context, parsed)
+        if not ranked:
+            command.status = "not_found"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    "Non trovo un vino in cantina che corrisponda alla richiesta."
+                    if payload.locale == "it"
+                    else "I cannot find a matching wine in the cellar."
+                ),
+            )
+        if len(ranked) == 1:
+            candidate = ranked[0][0]
+            allocations = list(
+                db.scalars(
+                    select(WineStrategyAllocation).where(
+                        WineStrategyAllocation.household_id == context.household.id,
+                        WineStrategyAllocation.wine_id == candidate.id,
+                    )
+                )
+            )
+            available = max(candidate.quantity - sum(item.quantity for item in allocations), 0)
+            available += sum(
+                item.quantity for item in allocations if item.purpose == "undecided"
+            )
+            requested = (
+                int(parsed.get("quantity") or 1)
+                if bool(parsed.get("quantity_present"))
+                else available
+            )
+            if requested < 1 or requested > available:
+                command.status = "failed"
+                db.commit()
+                return cellar_command_response(
+                    db,
+                    context,
+                    command,
+                    message=(
+                        "Non ci sono abbastanza bottiglie non assegnate per questo obiettivo."
+                        if payload.locale == "it"
+                        else "There are not enough unassigned bottles for this objective."
+                    ),
+                )
+            parsed["_strategy_quantity"] = requested
+            command.parsed_payload = parsed
+        command.status = "needs_confirmation"
+        db.commit()
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                "Ho preparato la decisione Intelligence: controlla vino, obiettivo e quantità, poi conferma."
+                if payload.locale == "it"
+                else "The Intelligence decision is ready: review wine, objective and quantity, then confirm."
+            ),
         )
     if command.intent == "ship_wine":
         ranked = matching_cellar_command_wines(db, context, parsed, required_status="Ordered")
@@ -2196,6 +2426,53 @@ def undo_cellar_ai_command(
     )
     if wine is None or not user_can_see_wine(context, wine):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
+    if command.intent == "set_strategy":
+        parsed = dict(command.parsed_payload or {})
+        previous = parsed.get("_previous_strategy_allocations")
+        if not isinstance(previous, list):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Strategy allocation snapshot is unavailable",
+            )
+        current = list(
+            db.scalars(
+                select(WineStrategyAllocation)
+                .where(
+                    WineStrategyAllocation.household_id == context.household.id,
+                    WineStrategyAllocation.wine_id == wine.id,
+                )
+                .with_for_update()
+            )
+        )
+        for allocation in current:
+            db.delete(allocation)
+        db.flush()
+        for item in previous:
+            db.add(
+                WineStrategyAllocation(
+                    wine_id=wine.id,
+                    household_id=context.household.id,
+                    stock_lot_id=(UUID(item["stock_lot_id"]) if item.get("stock_lot_id") else None),
+                    purpose=str(item["purpose"]),
+                    quantity=int(item["quantity"]),
+                    horizon_year=item.get("horizon_year"),
+                    note=str(item.get("note") or ""),
+                )
+            )
+        command.status = "undone"
+        command.undone_at = datetime.now(UTC)
+        db.commit()
+        db.refresh(command)
+        return cellar_command_response(
+            db,
+            context,
+            command,
+            message=(
+                f"Annullato. Gli obiettivi di {wine.name} {wine.vintage} sono stati ripristinati."
+                if parsed.get("_locale") == "it"
+                else f"Undone. Objectives for {wine.name} {wine.vintage} were restored."
+            ),
+        )
     if command.intent == "ship_wine":
         if wine.status != "Shipped":
             raise HTTPException(

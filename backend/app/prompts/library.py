@@ -39,7 +39,7 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="6",
+        version="7",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
@@ -64,6 +64,13 @@ def cellar_command_prompt(
             "that exact name and never use the generic word 'wishlist' as the list name. For a wishlist price, extract the stated amount and "
             "currency into purchase_price and purchase_price_present: Vinaris will classify a plain price "
             "or a maximum/budget as a target price, and an offer or found price as an offer price. "
+            "Use intent set_strategy when the user assigns bottles to a cellar objective. Return "
+            "strategy_purpose drink for 'da bere', 'da consumare' or 'for drinking'; maturation for "
+            "'da maturare', 'da tenere', 'da invecchiare' or 'aging'; investment for 'da investimento' "
+            "or 'da rivalutare'; special_occasion for an anniversary, celebration or special occasion; "
+            "and undecided for 'da decidere', 'da valutare' or 'non so ancora'. Set quantity_present true "
+            "only when the user explicitly states a bottle quantity; otherwise false. A strategy operation "
+            "is always a proposal requiring confirmation and must never silently replace existing objectives. "
             "An acquisition is only a draft for user review and is never a completed database action. "
             "Set explicit_action true only when the user explicitly asks Vinaris to "
             "update, register, record, modify, or otherwise apply the operation. Preserve tasting "

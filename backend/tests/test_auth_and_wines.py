@@ -3950,6 +3950,115 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     assert restored["tasting_history"] == []
 
 
+def test_cellar_ai_command_assigns_intelligence_objective_without_overwriting_and_can_undo(
+    monkeypatch,
+):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    wine = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Arcadia Brut",
+            "producer": "Cantina Arcadia",
+            "vintage": "2021",
+            "quantity": 6,
+            "status": "Delivered",
+        },
+    )
+    assert wine.status_code == 201
+    wine_id = wine.json()["id"]
+    existing = client.put(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations",
+        json={
+            "allocations": [
+                {"purpose": "investment", "quantity": 2},
+                {"purpose": "undecided", "quantity": 1},
+            ]
+        },
+    )
+    assert existing.status_code == 200, existing.text
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "set_strategy",
+                        "explicit_action": True,
+                        "wine_name": "Arcadia Brut",
+                        "producer": "",
+                        "vintage": "2021",
+                        "format": "",
+                        "quantity": 1,
+                        "quantity_present": False,
+                        "strategy_purpose": "drink",
+                        "consumed_at": "",
+                        "purchase_date": "",
+                        "purchase_price_present": False,
+                        "purchase_price": 0,
+                        "currency": "",
+                        "merchant": "",
+                        "wishlist_list_name": "",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=240, output_tokens=60, total_tokens=300),
+            ),
+            "credits",
+        ),
+    )
+    request_id = str(uuid.uuid4())
+    prepared = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": request_id,
+            "text": "Considera Arcadia Brut 2021 da bere.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert prepared.status_code == 200, prepared.text
+    assert prepared.json()["status"] == "needs_confirmation"
+    assert prepared.json()["strategy_purpose"] == "drink"
+    assert prepared.json()["strategy_quantity"] == 4
+
+    confirmed = client.post(
+        f"/api/v1/ai/cellar-commands/{request_id}/execute",
+        json={"wine_id": wine_id},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "executed"
+    allocations = client.get(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations"
+    ).json()
+    assert sorted((item["purpose"], item["quantity"]) for item in allocations) == [
+        ("drink", 1),
+        ("drink", 3),
+        ("investment", 2),
+    ]
+
+    undone = client.post(f"/api/v1/ai/cellar-commands/{request_id}/undo")
+    assert undone.status_code == 200, undone.text
+    restored = client.get(f"/api/v1/intelligence/wines/{wine_id}/allocations").json()
+    assert sorted((item["purpose"], item["quantity"]) for item in restored) == [
+        ("investment", 2),
+        ("undecided", 1),
+    ]
+
+
 def test_cellar_ai_command_requires_selection_for_ambiguous_wines(monkeypatch):
     from app.api.routes import ai as ai_routes
 
@@ -4137,6 +4246,9 @@ def test_cellar_ai_falls_back_to_common_action_variants_when_ai_is_uncertain():
         "Il mio ordine di Sassicaia 2022 Ã¨ arrivato.": "ship_wine",
         "Metti Sassicaia 2022 nella lista da valutare Rossi.": "add_to_wishlist",
         "Add Sassicaia 2022 to my buy list Rossi.": "add_to_wishlist",
+        "Considera Sassicaia 2022 da bere.": "set_strategy",
+        "Tieni Sassicaia 2022 come investimento.": "set_strategy",
+        "Destina Sassicaia 2022 a un'occasione speciale.": "set_strategy",
     }
 
     assert {command: cellar_command_intent_hint(command) for command in commands} == commands

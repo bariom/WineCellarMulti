@@ -1175,6 +1175,8 @@ export type CellarCommandResult = {
     companions: string;
   } | null;
   purchase_draft: CellarCommandPurchaseDraft | null;
+  strategy_purpose: WineStrategyPurpose | null;
+  strategy_quantity: number | null;
   previous_quantity: number | null;
   new_quantity: number | null;
   model: string;

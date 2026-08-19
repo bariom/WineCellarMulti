@@ -165,7 +165,11 @@ export default function CellarIntelligenceView({
         <article className="intelligence-list">
           <header><div><span className="intelligence-kicker">{it ? "DECISIONI" : "DECISIONS"}</span><h2>{it ? "Bottiglie da classificare" : "Bottles to classify"}</h2></div><strong>{decisionCandidates.length}</strong></header>
           {decisionCandidates.length ? decisionCandidates.slice(0, 8).map((wine) => <div className="intelligence-wine-row" key={wine.wine_id}>
-            <button type="button" className="wine-main" onClick={() => onOpenWine(wine.wine_id)}><strong>{wine.name} {wine.vintage}</strong><span>{wine.unallocated_quantity} {it ? "senza obiettivo su" : "without purpose of"} {wine.quantity}</span></button>
+            <button type="button" className="wine-main" onClick={() => onOpenWine(wine.wine_id)}>
+              <strong>{wine.name} {wine.vintage}</strong>
+              <span className="intelligence-wine-producer">{wine.producer || (it ? "Produttore non specificato" : "Producer not specified")}</span>
+              <small>{wine.unallocated_quantity} {it ? "senza obiettivo su" : "without purpose of"} {wine.quantity}</small>
+            </button>
             <button type="button" onClick={() => beginEdit(wine)}>{it ? "Definisci" : "Define"}</button>
           </div>) : <p className="intelligence-empty">{it ? "Tutte le bottiglie hanno un obiettivo." : "Every bottle has a purpose."}</p>}
         </article>
