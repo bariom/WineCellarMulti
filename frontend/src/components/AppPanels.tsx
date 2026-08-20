@@ -1631,7 +1631,7 @@ export function WineDetail({
       <details className="detail-section ai-audit-detail" data-wine-detail-section="07" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">
           <div><span>07</span><strong>{t("aiAudit")}</strong></div>
-          <strong>{auditEntries.length}</strong>
+          <small>{auditEntries.length}</small>
         </summary>
         {auditEntries.length ? (
           <div className="audit-list">

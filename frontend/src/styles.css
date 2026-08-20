@@ -19942,7 +19942,7 @@ tbody tr:hover {
 .wine-detail-quick-actions > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .wine-detail-quick-actions button { min-height: 2.3rem; padding: .48rem .72rem; }
 .wine-detail-group { display: grid; gap: 12px; }
-.wine-detail-group > summary small { color: var(--text-muted); font-size: .72rem; font-weight: 650; }
+.wine-detail-group > summary small { color: var(--text-muted); font-size: .72rem; font-weight: 400; }
 .wine-detail .wine-strategy-section,
 .wine-detail .wine-detail-group,
 .wine-detail .ai-audit-detail {
@@ -24579,6 +24579,22 @@ body,
 .wine-detail-structured-summary > small {
   color: var(--text-muted);
   font-size: 0.72rem;
+}
+
+/* Audit uses the same three-column header geometry as the other detail
+   sections: title on the left, count before the disclosure control. */
+.wine-detail .ai-audit-detail > .wine-detail-structured-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  font-weight: 400;
+}
+
+.wine-detail .ai-audit-detail > .wine-detail-structured-summary::after {
+  content: "+";
+}
+
+.wine-detail .ai-audit-detail[open] > .wine-detail-structured-summary::after {
+  content: "−";
 }
 
 @container wine-detail-shell (max-width: 620px) {
