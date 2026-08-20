@@ -1512,6 +1512,7 @@ export function App() {
   const [wishlistPortfolioStrategyOpen, setWishlistPortfolioStrategyOpen] = useState(false);
   const [compareAiLoading, setCompareAiLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const backToTopVisibleRef = useRef(false);
   const [isOnline, setIsOnline] = useState(() => navigator.onLine);
   const [showOfflineBackupPanel, setShowOfflineBackupPanel] = useState(() => !navigator.onLine);
   const [wineGroupingMode, setWineGroupingMode] = useState<"color" | "region">(() =>
@@ -2837,10 +2838,23 @@ export function App() {
   }, []);
 
   useEffect(() => {
-    const syncScrollState = () => setShowBackToTop(window.scrollY > 520);
+    let frame = 0;
+    const syncScrollState = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const nextVisible = window.scrollY > 520;
+        if (nextVisible === backToTopVisibleRef.current) return;
+        backToTopVisibleRef.current = nextVisible;
+        setShowBackToTop(nextVisible);
+      });
+    };
     syncScrollState();
     window.addEventListener("scroll", syncScrollState, { passive: true });
-    return () => window.removeEventListener("scroll", syncScrollState);
+    return () => {
+      window.removeEventListener("scroll", syncScrollState);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
   }, []);
 
   useEffect(() => {

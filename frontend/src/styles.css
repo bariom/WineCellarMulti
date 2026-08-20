@@ -4490,8 +4490,15 @@ textarea {
 .list-item-block {
   display: grid;
   gap: 10px;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 190px;
+}
+
+/* Wine rows remain paintable while the collection is being scrolled. Some
+   Chromium builds briefly omit an entire list when content containment and
+   fast wheel scrolling are combined. */
+.wine-list .list-item-block {
+  content-visibility: visible;
+  contain: none;
+  contain-intrinsic-size: auto;
 }
 
 .mobile-inline-detail {
@@ -15715,6 +15722,18 @@ textarea:hover {
   contain: none;
   animation: none;
   transform: none;
+}
+
+/* Fixed and sticky elements with backdrop blur can make Chromium temporarily
+   drop the scrolling content layer under fast wheel scrolling. Keep the
+   authenticated chrome opaque: it is visually equivalent but paint-stable. */
+.authenticated-app-shell .topbar,
+.authenticated-app-shell .back-to-top-button {
+  backdrop-filter: none;
+}
+
+.authenticated-app-shell .back-to-top-button {
+  background: var(--surface-raised);
 }
 
 @keyframes micro-soft-enter {
