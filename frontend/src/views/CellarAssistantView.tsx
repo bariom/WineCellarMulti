@@ -536,7 +536,7 @@ export default function CellarAssistantView({
                   <b>{candidate.quantity} {isItalian ? "bott." : "btl."}</b>
                 </button>
               ))}
-              {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? "Conferma tutti come da bere" : "Confirm all for drinking"}</button> : null}
+              {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? `Conferma tutti come ${strategyPurposeLabel(result.strategy_purpose || "")}` : `Confirm all ${strategyPurposeLabel(result.strategy_purpose || "")}`}</button> : null}
             </div>
           ) : null}
           {result.catalog_candidates.length ? (

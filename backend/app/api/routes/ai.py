@@ -1105,15 +1105,17 @@ def normalize_cellar_command_identity(value: str) -> str:
 
 def cellar_command_match_score(parsed: dict[str, Any], wine: Wine) -> float:
     query = normalize_cellar_command_identity(str(parsed.get("wine_name") or ""))
-    if not query:
-        return 0
     name = normalize_cellar_command_identity(wine.name)
     producer = normalize_cellar_command_identity(wine.producer)
+    requested_producer = normalize_cellar_command_identity(str(parsed.get("producer") or ""))
+    if not query:
+        query = requested_producer
+    if not query:
+        return 0
     combined = " ".join(part for part in (name, producer) if part)
     vintage = str(parsed.get("vintage") or "").strip().casefold()
     if vintage and wine.vintage.strip().casefold() != vintage:
         return 0
-    requested_producer = normalize_cellar_command_identity(str(parsed.get("producer") or ""))
     if (
         requested_producer
         and requested_producer not in producer
@@ -1147,6 +1149,44 @@ def cellar_command_match_score(parsed: dict[str, Any], wine: Wine) -> float:
     if requested_format:
         score += 8.0
     return score
+
+
+def cellar_command_producer_matches(requested_producer: str, wine_producer: str) -> bool:
+    requested = normalize_cellar_command_identity(requested_producer)
+    producer = normalize_cellar_command_identity(wine_producer)
+    if not requested or not producer:
+        return False
+    if requested in producer or producer in requested:
+        return True
+    ignored = {"azienda", "cantina", "domaine", "estate", "tenuta", "winery"}
+    requested_tokens = set(requested.split()) - ignored
+    producer_tokens = set(producer.split()) - ignored
+    return bool(requested_tokens) and requested_tokens.issubset(producer_tokens)
+
+
+def matching_cellar_command_producer_wines(
+    db: Session,
+    context: CurrentContext,
+    requested_producer: str,
+) -> list[Wine]:
+    wines = list(
+        db.scalars(
+            select(Wine).where(
+                Wine.household_id == context.household.id,
+                Wine.quantity > 0,
+                Wine.status == "Delivered",
+            )
+        )
+    )
+    return sorted(
+        (
+            wine
+            for wine in wines
+            if user_can_see_wine(context, wine)
+            and cellar_command_producer_matches(requested_producer, wine.producer)
+        ),
+        key=lambda wine: (wine.producer.casefold(), wine.name.casefold(), wine.vintage),
+    )
 
 
 def cellar_command_candidate(wine: Wine) -> CellarCommandWineCandidate:
@@ -1741,11 +1781,18 @@ def execute_bulk_cellar_strategy_command(
     purpose = str(parsed.get("strategy_purpose") or "")
     wine_ids = [UUID(value) for value in parsed.get("_strategy_wine_ids") or []]
     value_filter = parsed.get("_strategy_value_filter")
-    if purpose not in STRATEGY_PURPOSES or not wine_ids or not isinstance(value_filter, dict):
+    producer_filter = str(parsed.get("_strategy_producer_filter") or "")
+    if (
+        purpose not in STRATEGY_PURPOSES
+        or not wine_ids
+        or (not isinstance(value_filter, dict) and not producer_filter)
+    ):
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Bulk strategy is invalid")
-    threshold = Decimal(str(value_filter["threshold"]))
-    currency = str(value_filter["currency"])
-    operator = str(value_filter["operator"])
+    threshold = Decimal("0")
+    currency = str(value_filter["currency"]) if isinstance(value_filter, dict) else ""
+    operator = str(value_filter["operator"]) if isinstance(value_filter, dict) else ""
+    if isinstance(value_filter, dict):
+        threshold = Decimal(str(value_filter["threshold"]))
     wines = list(
         db.scalars(
             select(Wine)
@@ -1760,21 +1807,25 @@ def execute_bulk_cellar_strategy_command(
         if (
             wine.quantity < 1
             or wine.status != "Delivered"
-            or wine.currency.upper() != currency
             or not user_can_see_wine(context, wine)
         ):
             continue
-        unit_value = (
-            wine.current_value
-            if wine.current_value is not None and wine.current_value > 0
-            else wine.price
-            if wine.price is not None and wine.price > 0
-            else None
-        )
-        if unit_value is None:
-            continue
-        matches = unit_value < threshold if operator == "lt" else unit_value <= threshold
-        if not matches:
+        if isinstance(value_filter, dict):
+            if wine.currency.upper() != currency:
+                continue
+            unit_value = (
+                wine.current_value
+                if wine.current_value is not None and wine.current_value > 0
+                else wine.price
+                if wine.price is not None and wine.price > 0
+                else None
+            )
+            if unit_value is None:
+                continue
+            matches = unit_value < threshold if operator == "lt" else unit_value <= threshold
+            if not matches:
+                continue
+        elif not cellar_command_producer_matches(producer_filter, wine.producer):
             continue
         allocations = list(
             db.scalars(
@@ -1821,7 +1872,7 @@ def execute_bulk_cellar_strategy_command(
     if not applied_wines:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="No wines still match the confirmed value rule",
+            detail="No wines still match the confirmed strategy rule",
         )
     parsed["_previous_strategy_allocations_by_wine"] = snapshots
     parsed["_strategy_wine_ids"] = [str(wine.id) for wine in applied_wines]
@@ -2463,6 +2514,68 @@ def create_cellar_ai_command(
                     f"Ho trovato {len(filtered_wines)} vini, per {total_quantity} bottiglie disponibili sotto {threshold:g} {currency}. Controlla l’elenco e conferma l’assegnazione a Da bere."
                     if payload.locale == "it"
                     else f"I found {len(filtered_wines)} wines and {total_quantity} available bottles below {threshold:g} {currency}. Review the list and confirm For drinking."
+                ),
+            )
+        producer_filter = str(parsed.get("producer") or "").strip()
+        wine_name = str(parsed.get("wine_name") or "").strip()
+        if producer_filter and not wine_name:
+            producer_wines = matching_cellar_command_producer_wines(db, context, producer_filter)
+            if not producer_wines:
+                command.status = "not_found"
+                db.commit()
+                return cellar_command_response(
+                    db,
+                    context,
+                    command,
+                    message=(
+                        f"Non trovo vini disponibili della cantina {producer_filter}."
+                        if payload.locale == "it"
+                        else f"I found no available wines from {producer_filter}."
+                    ),
+                )
+            available_wines: list[Wine] = []
+            total_quantity = 0
+            for wine in producer_wines:
+                allocations = list(
+                    db.scalars(
+                        select(WineStrategyAllocation).where(
+                            WineStrategyAllocation.household_id == context.household.id,
+                            WineStrategyAllocation.wine_id == wine.id,
+                        )
+                    )
+                )
+                available = wine_strategy_available_quantity(allocations, wine)
+                if available < 1:
+                    continue
+                available_wines.append(wine)
+                total_quantity += available
+            if not available_wines:
+                command.status = "not_found"
+                db.commit()
+                return cellar_command_response(
+                    db,
+                    context,
+                    command,
+                    message=(
+                        f"Non ci sono bottiglie disponibili della cantina {producer_filter}."
+                        if payload.locale == "it"
+                        else f"There are no available bottles from {producer_filter}."
+                    ),
+                )
+            parsed["_strategy_producer_filter"] = producer_filter
+            parsed["_strategy_wine_ids"] = [str(wine.id) for wine in available_wines]
+            parsed["_strategy_quantity"] = total_quantity
+            command.parsed_payload = parsed
+            command.status = "needs_confirmation"
+            db.commit()
+            return cellar_command_response(
+                db,
+                context,
+                command,
+                message=(
+                    f"Ho trovato {len(available_wines)} vini della cantina {producer_filter}, per {total_quantity} bottiglie disponibili. Controlla l’elenco e conferma l’assegnazione."
+                    if payload.locale == "it"
+                    else f"I found {len(available_wines)} wines from {producer_filter}, with {total_quantity} available bottles. Review the list and confirm the assignment."
                 ),
             )
         ranked = matching_cellar_command_wines(db, context, parsed)

@@ -4338,6 +4338,127 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
     ).json() == []
 
 
+def test_cellar_ai_command_proposes_all_available_wines_from_a_producer(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    first = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Blanc de Blancs",
+            "producer": "Lantieri de Paratico",
+            "vintage": "2022",
+            "quantity": 2,
+            "status": "Delivered",
+        },
+    ).json()
+    second = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Arcadia Brut",
+            "producer": "Lantieri de Paratico",
+            "vintage": "2021",
+            "quantity": 1,
+            "status": "Delivered",
+        },
+    ).json()
+    client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Escluso",
+            "producer": "Altra Cantina",
+            "vintage": "2021",
+            "quantity": 4,
+            "status": "Delivered",
+        },
+    )
+    client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Ordinato",
+            "producer": "Lantieri de Paratico",
+            "vintage": "2023",
+            "quantity": 3,
+            "status": "Ordered",
+        },
+    )
+
+    monkeypatch.setattr(
+        ai_routes,
+        "create_ai_response",
+        lambda *args, **kwargs: (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "intent": "set_strategy",
+                        "explicit_action": True,
+                        "wine_name": "",
+                        "producer": "Lantieri",
+                        "vintage": "",
+                        "format": "",
+                        "quantity": 1,
+                        "quantity_present": False,
+                        "strategy_purpose": "drink",
+                        "consumed_at": "",
+                        "purchase_date": "",
+                        "purchase_price_present": False,
+                        "purchase_price": 0,
+                        "currency": "",
+                        "merchant": "",
+                        "wishlist_list_name": "",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=220, output_tokens=55, total_tokens=275),
+            ),
+            "credits",
+        ),
+    )
+
+    request_id = str(uuid.uuid4())
+    prepared = client.post(
+        "/api/v1/ai/cellar-commands",
+        json={
+            "request_id": request_id,
+            "text": "Imposta i vini di Lantieri come da bere.",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
+        },
+    )
+    assert prepared.status_code == 200, prepared.text
+    result = prepared.json()
+    assert result["status"] == "needs_confirmation"
+    assert result["strategy_bulk"] is True
+    assert result["strategy_quantity"] == 3
+    assert {candidate["wine_id"] for candidate in result["candidates"]} == {
+        first["id"],
+        second["id"],
+    }
+
+    confirmed = client.post(
+        f"/api/v1/ai/cellar-commands/{request_id}/execute",
+        json={"confirm_all": True},
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["status"] == "executed"
+    assert [(item["purpose"], item["quantity"]) for item in client.get(
+        f"/api/v1/intelligence/wines/{first['id']}/allocations"
+    ).json()] == [("drink", 2)]
+    assert [(item["purpose"], item["quantity"]) for item in client.get(
+        f"/api/v1/intelligence/wines/{second['id']}/allocations"
+    ).json()] == [("drink", 1)]
+
+
 def test_cellar_ai_command_requires_selection_for_ambiguous_wines(monkeypatch):
     from app.api.routes import ai as ai_routes
 
