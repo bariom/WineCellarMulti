@@ -831,6 +831,7 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
     details_loaded: false,
     shared_data_features: [],
     shared_data_updated_at: null,
+    strategy_purposes: [],
     household_id: "",
     name: item.wine_name,
     producer: item.wine_producer,

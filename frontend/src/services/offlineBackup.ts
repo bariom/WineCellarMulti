@@ -38,6 +38,12 @@ export function offlineWine(raw: Record<string, unknown>, index: number): Wine {
       )
       : [],
     shared_data_updated_at: rawNullableString(raw.shared_data_updated_at),
+    strategy_purposes: Array.isArray(raw.strategy_purposes)
+      ? raw.strategy_purposes.filter(
+        (purpose): purpose is Wine["strategy_purposes"][number] =>
+          ["drink", "maturation", "investment", "special_occasion", "undecided"].includes(String(purpose)),
+      )
+      : [],
     photo_thumbnail_url: rawString(raw.photo_thumbnail_url),
     photo_detail_url: rawString(raw.photo_detail_url),
     household_id: rawString(raw.household_id, "offline"),

@@ -20,6 +20,8 @@ import { Martini } from "@phosphor-icons/react/dist/csr/Martini";
 import { List } from "@phosphor-icons/react/dist/csr/List";
 import { Package } from "@phosphor-icons/react/dist/csr/Package";
 import { PencilSimple } from "@phosphor-icons/react/dist/csr/PencilSimple";
+import { Pulse } from "@phosphor-icons/react/dist/csr/Pulse";
+import { Robot } from "@phosphor-icons/react/dist/csr/Robot";
 import { Scan } from "@phosphor-icons/react/dist/csr/Scan";
 import { SignOut } from "@phosphor-icons/react/dist/csr/SignOut";
 import { Smiley } from "@phosphor-icons/react/dist/csr/Smiley";
@@ -38,7 +40,7 @@ export type AppIconName =
   | "bottle" | "cellar" | "dashboard" | "dashboard-cards" | "wishlist" | "search" | "filter" | "sort"
   | "edit" | "delete" | "import" | "export" | "compare" | "camera" | "chevron-left" | "chevron-right"
   | "sentiment-positive" | "sentiment-negative" | "status-delivered" | "status-pickup" | "status-shipped" | "status-ordered"
-  | "glass-sparkle" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes" | "menu" | "newspaper";
+  | "glass-sparkle" | "assistant" | "calendar" | "chart" | "star" | "users" | "settings" | "logout" | "bell" | "location" | "grapes" | "menu" | "newspaper" | "pulse";
 
 type IconVariant = "action" | "navigation" | "feature" | "premium" | "ai" | "status";
 type IconTone = "default" | "muted" | "accent" | "success" | "warning" | "danger" | "ai";
@@ -59,9 +61,9 @@ const icons: Record<AppIconName, typeof Wine> = {
   import: DownloadSimple, export: UploadSimple, compare: ChartLineUp, camera: Camera,
   "chevron-left": CaretLeft, "chevron-right": CaretRight, "sentiment-positive": Smiley,
   "sentiment-negative": SmileySad, "status-delivered": CheckCircle, "status-pickup": Package,
-  "status-shipped": Truck, "status-ordered": CalendarBlank, "glass-sparkle": Martini,
+  "status-shipped": Truck, "status-ordered": CalendarBlank, "glass-sparkle": Martini, assistant: Robot,
   calendar: CalendarBlank, chart: ChartLineUp, star: StarFour, users: UsersThree, settings: GearSix,
-  logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine, menu: List, newspaper: NewspaperClipping,
+  logout: SignOut, bell: BellRinging, location: MapPin, grapes: Wine, menu: List, newspaper: NewspaperClipping, pulse: Pulse,
 };
 
 /** Vinaris adapter over Phosphor: duotone section icons and precise operational controls. */
