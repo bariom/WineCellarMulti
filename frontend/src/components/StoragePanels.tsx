@@ -129,23 +129,89 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
   </details>;
 }
 
-export function WineStrategySection({ wine, locale }: {
-  wine: Wine; locale: Locale;
+export function WineStrategySection({ wine, locale, canWrite, onChanged }: {
+  wine: Wine; locale: Locale; canWrite: boolean; onChanged: () => Promise<void> | void;
 }) {
   const [allocations, setAllocations] = useState<WineStrategyAllocation[]>([]);
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
   const quantities = STRATEGY_PURPOSES.reduce<Record<WineStrategyPurpose, number>>((result, purpose) => {
     result[purpose] = allocations.filter((item) => item.purpose === purpose).reduce((total, item) => total + item.quantity, 0);
     return result;
   }, { drink: 0, maturation: 0, investment: 0, special_occasion: 0, undecided: 0 });
+  const [draftQuantities, setDraftQuantities] = useState<Record<WineStrategyPurpose, number>>(quantities);
   const allocated = Object.values(quantities).reduce((total, quantity) => total + quantity, 0);
+  const draftAllocated = Object.values(draftQuantities).reduce((total, quantity) => total + quantity, 0);
   async function load() {
     setAllocations(await api<WineStrategyAllocation[]>(`/api/v1/intelligence/wines/${wine.id}/allocations`));
   }
-  useEffect(() => { void load().catch(() => setAllocations([])); }, [wine.id]);
-  return <details className="detail-section wine-strategy-section" open>
-    <summary><span>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</span><strong>{allocated} / {wine.quantity}</strong></summary>
-    <p className="consume-help">{allocated ? (locale === "it" ? "Distribuzione strategica delle bottiglie definita in Intelligence." : "Strategic bottle allocation defined in Intelligence.") : (locale === "it" ? "Nessun obiettivo ancora assegnato a queste bottiglie." : "No purpose has been assigned to these bottles yet.")}</p>
-    <div className="storage-allocation-list">{STRATEGY_PURPOSES.filter((purpose) => quantities[purpose]).map((purpose) => <div className="detail-field" key={purpose}><span>{strategyPurposeLabel(purpose, locale)}</span><strong>{quantities[purpose]} {locale === "it" ? "bott." : "btl."}</strong></div>)}</div>
+  useEffect(() => {
+    setEditing(false);
+    setError("");
+    void load().catch(() => setAllocations([]));
+  }, [wine.id]);
+  function beginEdit() {
+    setDraftQuantities(quantities);
+    setError("");
+    setEditing(true);
+  }
+  async function save() {
+    if (draftAllocated > wine.quantity) {
+      setError(locale === "it" ? "Le quantit\u00e0 non possono superare le bottiglie disponibili." : "Quantities cannot exceed the available bottles.");
+      return;
+    }
+    setSaving(true);
+    setError("");
+    try {
+      const remaining = { ...draftQuantities };
+      const retainedAllocations = allocations.flatMap((allocation) => {
+        const quantity = Math.min(allocation.quantity, remaining[allocation.purpose]);
+        remaining[allocation.purpose] -= quantity;
+        return quantity ? [{
+          purpose: allocation.purpose,
+          quantity,
+          stock_lot_id: allocation.stock_lot_id,
+          horizon_year: allocation.horizon_year,
+          note: allocation.note,
+        }] : [];
+      });
+      const next = await api<WineStrategyAllocation[]>(`/api/v1/intelligence/wines/${wine.id}/allocations`, {
+        method: "PUT",
+        body: JSON.stringify({
+          allocations: [
+            ...retainedAllocations,
+            ...STRATEGY_PURPOSES
+              .filter((purpose) => remaining[purpose] > 0)
+              .map((purpose) => ({ purpose, quantity: remaining[purpose] })),
+          ],
+        }),
+      });
+      setAllocations(next);
+      setEditing(false);
+      await onChanged();
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : (locale === "it" ? "Impossibile aggiornare l'obiettivo." : "Unable to update the cellar purpose."));
+    } finally {
+      setSaving(false);
+    }
+  }
+  return <details className="detail-section wine-strategy-section" data-wine-detail-section="04" tabIndex={-1}>
+    <summary className="wine-detail-structured-summary">
+      <div><span>04</span><strong>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</strong></div>
+      <small>{allocated} / {wine.quantity}</small>
+    </summary>
+    {editing ? <div className="wine-strategy-editor">
+      <p className="consume-help">{locale === "it" ? "Distribuisci le bottiglie tra gli obiettivi. Puoi lasciare alcune bottiglie senza obiettivo." : "Distribute bottles across purposes. You can leave bottles without a purpose."}</p>
+      <div className="detail-grid consume-grid">{STRATEGY_PURPOSES.map((purpose) => <label key={purpose}><span>{strategyPurposeLabel(purpose, locale)}</span><input type="number" min="0" max={wine.quantity} value={draftQuantities[purpose]} disabled={saving} onChange={(event) => setDraftQuantities((current) => ({ ...current, [purpose]: Math.max(0, Number(event.target.value) || 0) }))} /></label>)}</div>
+      <p className="consume-help">{locale === "it" ? `${draftAllocated} di ${wine.quantity} bottiglie allocate.` : `${draftAllocated} of ${wine.quantity} bottles allocated.`}</p>
+      {error ? <p className="form-error" role="alert">{error}</p> : null}
+      <div className="form-actions"><button type="button" className="secondary" disabled={saving} onClick={() => { setEditing(false); setError(""); }}>{locale === "it" ? "Annulla" : "Cancel"}</button><button type="button" disabled={saving} onClick={() => void save()}>{saving ? (locale === "it" ? "Salvoâ€¦" : "Savingâ€¦") : (locale === "it" ? "Salva obiettivo" : "Save purpose")}</button></div>
+    </div> : <>
+      <p className="consume-help">{allocated ? (locale === "it" ? "Distribuzione strategica delle bottiglie definita in Intelligence." : "Strategic bottle allocation defined in Intelligence.") : (locale === "it" ? "Nessun obiettivo ancora assegnato a queste bottiglie." : "No purpose has been assigned to these bottles yet.")}</p>
+      <div className="storage-allocation-list">{STRATEGY_PURPOSES.filter((purpose) => quantities[purpose]).map((purpose) => <div className="detail-field" key={purpose}><span>{strategyPurposeLabel(purpose, locale)}</span><strong>{quantities[purpose]} {locale === "it" ? "bott." : "btl."}</strong></div>)}</div>
+      {canWrite ? <div className="form-actions"><button type="button" className="secondary" onClick={beginEdit}>{locale === "it" ? "Modifica obiettivo" : "Edit purpose"}</button></div> : null}
+    </>}
   </details>;
 }
 

@@ -102,6 +102,10 @@ chmod +x dev.sh
 
 ## Code quality
 
+Frontend E2E guardrails and scope-aware test selection are documented in
+[`docs/FRONTEND_E2E.md`](docs/FRONTEND_E2E.md). The focused Wine Detail command
+is `npm run test:e2e:wine-detail` from `frontend/`.
+
 Install the backend development dependencies and activate its virtual environment:
 
 ```bash

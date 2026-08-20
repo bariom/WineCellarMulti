@@ -6,7 +6,7 @@ import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
-import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft } from "./types";
+import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
 import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
@@ -625,6 +625,13 @@ function appUserTierStatus(user: AppUser, locale: Locale): { label: string; conf
     label: `${locale === "it" ? "Piano" : "Tier"} · ${tier}`,
     configured: tier !== (locale === "it" ? "Gratuito" : "Free"),
   };
+}
+
+function strategyPurposeLabel(purpose: WineStrategyPurpose, locale: Locale) {
+  const labels = locale === "it"
+    ? { drink: "Da bere", maturation: "Da affinare", investment: "Investimento", special_occasion: "Occasione speciale", undecided: "Da decidere" }
+    : { drink: "Drink", maturation: "Maturation", investment: "Investment", special_occasion: "Special occasion", undecided: "Undecided" };
+  return labels[purpose];
 }
 
 function appUserActivityStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } {
@@ -1652,6 +1659,7 @@ export function App() {
   const [typeFilter, setTypeFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [storageFilter, setStorageFilter] = useState("");
+  const [strategyPurposeFilter, setStrategyPurposeFilter] = useState<WineStrategyPurpose | "">("");
   const [ownershipFilter, setOwnershipFilter] = useState("");
   const [quickWineFilter, setQuickWineFilter] = useState<QuickWineFilter>("");
   const [maturityFilter, setMaturityFilter] = useState<MaturityFilter>(null);
@@ -5781,6 +5789,7 @@ export function App() {
     type: typeFilter,
     status: statusFilter,
     storage: storageFilter,
+    strategyPurpose: strategyPurposeFilter,
     minPrice: hasMinBottlePrice ? minBottlePrice : null,
     maxPrice: hasMaxBottlePrice ? maxBottlePrice : null,
     ownership: ownershipFilter,
@@ -7078,6 +7087,7 @@ export function App() {
     ...(typeFilter ? [{ key: "type", label: displayValue(typeFilter, locale, "type"), onRemove: () => setTypeFilter("") }] : []),
     ...(statusFilter ? [{ key: "status", label: displayValue(statusFilter, locale, "status"), onRemove: () => setStatusFilter("") }] : []),
     ...(storageFilter ? [{ key: "storage", label: storageFilterOptions.find((item) => item.value === storageFilter)?.label || storageFilter, onRemove: () => setStorageFilter("") }] : []),
+    ...(strategyPurposeFilter ? [{ key: "strategy-purpose", label: `${locale === "it" ? "Obiettivo" : "Purpose"}: ${strategyPurposeLabel(strategyPurposeFilter, locale)}`, onRemove: () => setStrategyPurposeFilter("") }] : []),
     ...(ownershipFilter ? [{ key: "ownership", label: ownershipFilter === "mine" ? t("myBottles") : t("sharedBottles"), onRemove: () => setOwnershipFilter("") }] : []),
     ...(quickWineFilter ? [{ key: "quick", label: quickWineFilterLabels[quickWineFilter], onRemove: () => setQuickWineFilter("") }] : []),
     ...(maturityFilter ? [{ key: "maturity", label: `${wineToneLabel(maturityFilter.tone, locale)} ${maturityFilter.year}`, onRemove: () => setMaturityFilter(null) }] : []),
@@ -7474,6 +7484,7 @@ export function App() {
     setTypeFilter("");
     setStatusFilter("");
     setStorageFilter("");
+    setStrategyPurposeFilter("");
     setOwnershipFilter("");
     setQuickWineFilter("");
     setMaturityFilter(null);
@@ -12078,6 +12089,13 @@ export function App() {
                     {storageFilterOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
                 </label> : null}
+                {activeView === "cellar" ? <label>
+                  <span>{locale === "it" ? "Obiettivo cantina" : "Cellar purpose"}</span>
+                  <select value={strategyPurposeFilter} onChange={(event) => setStrategyPurposeFilter(event.target.value as WineStrategyPurpose | "")}>
+                    <option value="">{locale === "it" ? "Tutti gli obiettivi" : "All purposes"}</option>
+                    {(["drink", "maturation", "investment", "special_occasion", "undecided"] as WineStrategyPurpose[]).map((purpose) => <option key={purpose} value={purpose}>{strategyPurposeLabel(purpose, locale)}</option>)}
+                  </select>
+                </label> : null}
               </div>
               {isWineCollectionView ? (
                 <div className="price-filter-panel">
@@ -12492,7 +12510,7 @@ export function App() {
                 data-wine-row-id={wine.id}
                 data-sommelier-wine-id={activeView === "cellar" && isSommelierSpotlightWine(wine) ? wine.id : undefined}
               >
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${canAccessWinePhotos && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${isMobileViewport ? " wine-row--mobile" : ""}${canAccessWinePhotos && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
                   {canAccessWinePhotos && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
                   <div className="wine-row-main">
                     <h3>
@@ -12501,7 +12519,6 @@ export function App() {
                         <span className="wine-title">{wine.name}</span>
                         {wine.vintage ? <span className="vintage-label vintage-label--small"><span>{wine.vintage}</span></span> : null}
                       </span>
-                      {wine.notes ? <span className="note-indicator" title={t("notes")} aria-label={t("notes")}>✎</span> : null}
                     </h3>
                     <p className="row-primary">
                       <span className="wine-producer">{wine.producer || t("noProducer")}</span>
@@ -12627,28 +12644,6 @@ export function App() {
                           <button type="button" className="secondary" onClick={() => openDishPairingForWine(wine)}>
                             <AppIcon name="glass-sparkle" variant="ai" />
                             <span>{t("pairing")}</span>
-                          </button>
-                        ) : null}
-                        {canWriteWine && wine.quantity > 0 ? (
-                          <button type="button" onClick={(event) => {
-                            const panel = event.currentTarget.closest(".mobile-detail-sheet")?.querySelector<HTMLDetailsElement>(".consume-panel");
-                            if (!panel) return;
-                            panel.open = true;
-                            window.requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
-                          }}>
-                            <span className="action-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</span>
-                            <span>{isRestaurant ? (locale === "it" ? "Venduta 1" : "Sell bottles") : t("consumeBottle")}</span>
-                          </button>
-                        ) : null}
-                        {canWriteWine && wine.quantity > 0 && !isRestaurant ? (
-                          <button type="button" className="secondary" onClick={(event) => {
-                            const panel = event.currentTarget.closest(".mobile-detail-sheet")?.querySelector<HTMLDetailsElement>(".sale-panel");
-                            if (!panel) return;
-                            panel.open = true;
-                            window.requestAnimationFrame(() => panel.scrollIntoView({ behavior: "smooth", block: "start" }));
-                          }}>
-                            <span className="action-icon" aria-hidden="true">€</span>
-                            <span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span>
                           </button>
                         ) : null}
                         {!isRestaurant ? <button type="button" className={compareWineIds.includes(wine.id) ? "" : "secondary"} aria-pressed={compareWineIds.includes(wine.id)} onClick={() => toggleCompareWine(wine)}>

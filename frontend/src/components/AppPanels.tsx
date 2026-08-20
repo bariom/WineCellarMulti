@@ -1023,8 +1023,20 @@ export function WineDetail({
   const [saleDraft, setSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
   const [glassSaleDraft, setGlassSaleDraft] = useState<WineSaleDraft>({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
   const [aiToolsOpen, setAiToolsOpen] = useState(false);
+  const [activeOperation, setActiveOperation] = useState<"consume" | "sale" | "glass" | null>(null);
+  const [drinkNotesExpanded, setDrinkNotesExpanded] = useState(false);
+  const [originMapOpenRequest, setOriginMapOpenRequest] = useState(0);
+  const consumePanelRef = useRef<HTMLDetailsElement>(null);
+  const salePanelRef = useRef<HTMLDetailsElement>(null);
+  const glassSalePanelRef = useRef<HTMLDetailsElement>(null);
+  const wineDetailRef = useRef<HTMLElement>(null);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
+  const originPreview = (wine.vineyard_latitude !== null && wine.vineyard_longitude !== null) || wine.region || wine.appellation ? <button type="button" className="wine-origin-preview" onClick={() => setOriginMapOpenRequest((current) => current + 1)}>
+    <span aria-hidden="true">⌖</span>
+    <span>{locale === "it" ? "Origine" : "Origin"}</span>
+  </button> : null;
+  const photoOriginActions = photoActions || originPreview ? <div className="detail-photo-actions detail-photo-origin-actions">{photoActions}{originPreview}</div> : null;
   const sharedFeatureLabels: Record<Wine["shared_data_features"][number], string> = {
     notes: locale === "it" ? "note" : "notes",
     drink_window: locale === "it" ? "finestra di beva" : "drink window",
@@ -1056,28 +1068,79 @@ export function WineDetail({
     setSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.sale_price || "", note: "", sale_kind: "bottle" });
     setGlassSaleDraft({ sold_at: new Date().toISOString().slice(0, 10), quantity: "1", unit_sale_price: wine.glass_price || "", note: "", sale_kind: "glass" });
     setAiToolsOpen(false);
+    setActiveOperation(null);
+    setDrinkNotesExpanded(false);
+    setOriginMapOpenRequest(0);
   }, [restaurantMode, wine.id]);
 
   async function submitConsume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onConsume(consumeDraft);
     setConsumeDraft(emptyConsumeWineDraft());
+    setActiveOperation(null);
   }
 
   async function submitSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onSell(saleDraft);
     setSaleDraft((current) => ({ ...current, quantity: "1", note: "" }));
+    setActiveOperation(null);
   }
 
   async function submitGlassSale(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     await onSell(glassSaleDraft);
     setGlassSaleDraft((current) => ({ ...current, quantity: "1", note: "" }));
+    setActiveOperation(null);
   }
 
+  function revealAction(operation: "consume" | "sale" | "glass", panel: { current: HTMLDetailsElement | null }) {
+    setActiveOperation(operation);
+    window.requestAnimationFrame(() => {
+      panel.current?.setAttribute("open", "");
+      panel.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const wineDetail = wineDetailRef.current;
+      if (!wineDetail || !event.altKey || event.ctrlKey || event.metaKey || event.shiftKey || target?.closest("input, textarea, select, [contenteditable='true']")) return;
+
+      const sections = Array.from(wineDetail.querySelectorAll<HTMLElement>("[data-wine-detail-section]"))
+        .sort((left, right) => Number(left.dataset.wineDetailSection) - Number(right.dataset.wineDetailSection));
+      const requestedNumber = Number(event.key);
+      let targetSection = Number.isInteger(requestedNumber)
+        ? sections.find((section) => Number(section.dataset.wineDetailSection) === requestedNumber)
+        : undefined;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        const current = target?.closest<HTMLElement>("[data-wine-detail-section]");
+        const currentIndex = current ? sections.indexOf(current) : -1;
+        const nextIndex = event.key === "ArrowDown"
+          ? Math.min(currentIndex + 1, sections.length - 1)
+          : currentIndex < 0 ? sections.length - 1 : Math.max(currentIndex - 1, 0);
+        targetSection = sections[nextIndex];
+      }
+      if (!targetSection) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (targetSection instanceof HTMLDetailsElement) targetSection.open = true;
+      window.requestAnimationFrame(() => {
+        if (targetSection && wineDetail) {
+          const detailRect = wineDetail.getBoundingClientRect();
+          const sectionRect = targetSection.getBoundingClientRect();
+          wineDetail.scrollTo({ top: wineDetail.scrollTop + sectionRect.top - detailRect.top - 12, behavior: "smooth" });
+        }
+        targetSection?.querySelector<HTMLElement>("summary")?.focus({ preventScroll: true });
+      });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [wine.id]);
+
   return (
-    <section className={`wine-detail tone-${wineTone(wine.type)}`} data-wine-detail-id={wine.id}>
+    <section ref={wineDetailRef} className={`wine-detail tone-${wineTone(wine.type)}`} data-wine-detail-id={wine.id}>
       <div className="detail-hero">
         <div className="detail-title">
           {showBottlePhoto && wine.photo_detail_url ? (
@@ -1110,9 +1173,9 @@ export function WineDetail({
                   }}>{status.label}</button>)}
                 </div>
               </details> : <span className={`wine-commercial-status wine-commercial-status--readonly is-${commercialStatus.value}`}>{commercialStatus.label}</span>}
-              {photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}
+              {photoOriginActions}
               <strong>{detailValue}</strong>
-            </div> : <>{photoActions ? <div className="detail-photo-actions">{photoActions}</div> : null}</>}
+            </div> : null}
             {photoSuggestion ? <aside className="detail-photo-suggestion" aria-label={locale === "it" ? "Foto disponibile" : "Available photo"}>
               <img src={photoSuggestion.thumbnail_url} alt={locale === "it" ? `Foto proposta per ${wine.name}` : `Suggested photo for ${wine.name}`} />
               <div>
@@ -1125,14 +1188,13 @@ export function WineDetail({
               </div>
             </aside> : null}
           </div>
-          {!restaurantMode ? <strong>{detailValue}</strong> : null}
+          {!restaurantMode ? <strong className="detail-current-value"><span>{t("currentValue")}</span>{detailValue}</strong> : null}
         </div>
+        {!restaurantMode ? photoOriginActions : null}
 
-        {wine.vineyard_latitude !== null && wine.vineyard_longitude !== null ? (
-          <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
-            <VineyardMap wine={wine} locale={locale} />
-          </Suspense>
-        ) : null}
+        <Suspense fallback={<LoadingState label={locale === "it" ? "Carico la mappa" : "Loading map"} compact />}>
+          <VineyardMap wine={wine} locale={locale} openRequestId={originMapOpenRequest} />
+        </Suspense>
 
         <details className="wine-ai-tools" open={aiToolsOpen} onToggle={(event) => setAiToolsOpen(event.currentTarget.open)}>
           <summary>{restaurantMode ? (locale === "it" ? "Completa i dati del vino con l’AI" : "Complete wine data with AI") : (locale === "it" ? "Strumenti AI" : "AI tools")}</summary>
@@ -1291,14 +1353,30 @@ export function WineDetail({
                 <span>{drinkEnd}</span>
               </div>
             </div>
-            {wine.drink_window_notes ? <p>{wine.drink_window_notes}</p> : null}
+            {wine.drink_window_notes ? <div className={`drink-window-copy${drinkNotesExpanded ? " is-expanded" : ""}`}>
+              <p>{wine.drink_window_notes}</p>
+              {wine.drink_window_notes.length > 180 ? <button type="button" className="secondary compact drink-window-copy-toggle" aria-expanded={drinkNotesExpanded} onClick={() => setDrinkNotesExpanded((current) => !current)}>
+                {drinkNotesExpanded ? (locale === "it" ? "Mostra meno" : "Show less") : (locale === "it" ? "Mostra altro" : "Show more")}
+              </button> : null}
+            </div> : null}
           </div>
         ) : null}
       </div>
 
-      {!restaurantMode ? <WineStrategySection wine={wine} locale={locale} /> : null}
+      {canWrite && wine.quantity > 0 ? <section className="wine-detail-quick-actions" aria-label={locale === "it" ? "Azioni sul vino" : "Wine actions"}>
+        <div><span>{locale === "it" ? "Azioni rapide" : "Quick actions"}</span><strong>{locale === "it" ? "Cosa vuoi registrare?" : "What would you like to record?"}</strong></div>
+        <div>
+          {!restaurantMode ? <button type="button" onClick={() => revealAction("consume", consumePanelRef)}>{locale === "it" ? "Registra bevuta" : "Record tasting"}</button> : null}
+          <button type="button" className={restaurantMode ? "" : "secondary"} onClick={() => revealAction("sale", salePanelRef)}>{locale === "it" ? "Registra vendita" : "Record sale"}</button>
+          {restaurantMode ? <button type="button" className="secondary" onClick={() => revealAction("glass", glassSalePanelRef)}>{locale === "it" ? "Registra mescita" : "Record glasses"}</button> : null}
+        </div>
+      </section> : null}
 
-      <div className="detail-overview-block">
+      <details className="detail-overview-block wine-detail-view-section" data-wine-detail-section="01" tabIndex={-1}>
+        <summary className="wine-detail-structured-summary">
+          <div><span>01</span><strong>{locale === "it" ? "Identit\u00e0 e disponibilit\u00e0" : "Identity and availability"}</strong></div>
+          <small>{locale === "it" ? "Formato, tipologia, acquisto e giacenza" : "Format, type, purchase and stock"}</small>
+        </summary>
         {restaurantMode && canWrite ? <div className="restaurant-commercial-actions">
           {wine.commercial_status === "active" ? <button type="button" className="secondary compact" disabled={saving} onClick={() => void onUpdateCommercialStatus("clearing_out")}>{locale === "it" ? "Non riordinare più" : "Stop reordering"}</button> : null}
           {wine.commercial_status !== "active" ? <button type="button" className="secondary compact" disabled={saving} onClick={() => void onUpdateCommercialStatus("active")}>{locale === "it" ? "Riporta in carta" : "Return to list"}</button> : null}
@@ -1307,18 +1385,25 @@ export function WineDetail({
           <DetailField label={t("format")} value={displayValue(wine.format, locale, "format")} emptyLabel={t("notSpecified")} />
           <DetailField label={t("type")} value={displayValue(wine.type, locale, "type")} emptyLabel={t("notSpecified")} />
           {!restaurantMode ? <DetailField label={t("rating")} value={wine.rating ? `${wine.rating}/6` : ""} emptyLabel={t("notSpecified")} /> : null}
-          <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
           {restaurantMode ? <DetailField label={locale === "it" ? "Prezzo di vendita" : "Sale price"} value={wine.sale_price ? formatMoney(wine.sale_price, wine.currency, locale) : ""} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode ? <DetailField label={locale === "it" ? "Mescita" : "By the glass"} value={wine.glass_price ? `${formatMoney(wine.glass_price, wine.currency, locale)} · ${(wine.pour_size_ml / 100).toLocaleString(locale)} dl` : ""} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode ? <DetailField label={locale === "it" ? "Stato commerciale" : "Commercial status"} value={locale === "it" ? ({ active: "In carta", clearing_out: "A esaurimento", suspended: "Sospeso", off_list: "Fuori carta" }[wine.commercial_status] || "In carta") : ({ active: "On the list", clearing_out: "Clearing out", suspended: "Suspended", off_list: "Off list" }[wine.commercial_status] || "On the list")} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode ? <DetailField label={locale === "it" ? "Riordino" : "Reorder"} value={wine.reorder_enabled && wine.commercial_status === "active" ? `${locale === "it" ? "Attivo" : "Enabled"} · ${wine.reorder_threshold} ${locale === "it" ? "bottiglie" : "bottles"}` : (locale === "it" ? "Disattivato" : "Disabled")} emptyLabel={t("notSpecified")} /> : null}
           {restaurantMode && wine.open_bottle_ml > 0 ? <DetailField label={locale === "it" ? "Bottiglia aperta" : "Open bottle"} value={`${(wine.open_bottle_ml / 100).toLocaleString(locale)} dl`} emptyLabel={t("notSpecified")} /> : null}
-          <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
-      </div>
+      </details>
 
-      <div className="detail-market-block">
+      <details className="detail-market-block wine-detail-view-section" data-wine-detail-section="02" tabIndex={-1}>
+        <summary className="wine-detail-structured-summary">
+          <div><span>02</span><strong>{locale === "it" ? "Prezzi e valore" : "Prices and value"}</strong></div>
+          <small>{locale === "it" ? "Costo d'acquisto e andamento del valore" : "Purchase cost and value history"}</small>
+        </summary>
+        <div className="detail-grid detail-facts-grid">
+          <DetailField label={t("purchasePrice")} value={formatMoney(wine.price, wine.currency, locale)} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("currentValue")} value={detailValue} emptyLabel={t("notSpecified")} />
+          <DetailField label={t("merchant")} value={wine.merchant} emptyLabel={t("notSpecified")} />
+        </div>
         <ValueHistoryChart wine={wine} t={t} locale={locale} />
         {marketAuditEntry && hasMarketEvidence ? (
           <div className="market-view-bar">
@@ -1327,10 +1412,14 @@ export function WineDetail({
             </button>
           </div>
         ) : null}
-      </div>
+      </details>
 
       {(wine.scores.length || wine.grapes.length || wine.tags.length) ? (
-        <div className="detail-technical-block">
+        <details className="detail-technical-block wine-detail-view-section" data-wine-detail-section="03" tabIndex={-1}>
+          <summary className="wine-detail-structured-summary">
+            <div><span>03</span><strong>{locale === "it" ? "Profilo e riconoscimenti" : "Profile and ratings"}</strong></div>
+            <small>{locale === "it" ? "Uvaggi, punteggi e tag" : "Grapes, scores and tags"}</small>
+          </summary>
           {wine.scores.length ? (
             <div className="detail-section">
               <h3>{t("scores")}</h3>
@@ -1371,12 +1460,15 @@ export function WineDetail({
             </div>
           ) : null}
 
-        </div>
+        </details>
       ) : null}
 
-      {canWrite && wine.quantity > 0 ? restaurantMode ? (<>
-        <details className="detail-section consume-panel sale-panel">
-          <summary><span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span></summary>
+      {!restaurantMode ? <WineStrategySection wine={wine} locale={locale} canWrite={canWrite} onChanged={onLotsChanged} /> : null}
+
+      {canWrite && wine.quantity > 0 ? <section className="wine-detail-operations" hidden={!activeOperation}>
+        {restaurantMode ? (<>
+        <details className="detail-section consume-panel sale-panel" ref={salePanelRef} hidden={activeOperation !== "sale"}>
+          <summary><span>{locale === "it" ? "Registra vendita" : "Record sale"}</span></summary>
           <p className="consume-help">{locale === "it" ? "Registra la vendita senza creare una degustazione. Il costo d’acquisto viene salvato come fotografia storica del margine." : "Record a sale without creating a tasting. Purchase cost is snapshotted for historical margin reporting."}</p>
           <form className="consume-form" onSubmit={submitSale}>
             <div className="detail-grid consume-grid">
@@ -1389,7 +1481,7 @@ export function WineDetail({
             <div className="form-actions"><button type="submit" disabled={saving || !saleDraft.unit_sale_price}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Registra vendita" : "Record sale"} busyLabel={t("working")} /></button></div>
           </form>
         </details>
-        <details className="detail-section consume-panel sale-panel glass-sale-panel">
+        <details className="detail-section consume-panel sale-panel glass-sale-panel" ref={glassSalePanelRef} hidden={activeOperation !== "glass"}>
           <summary>
             <span>{locale === "it" ? "Mescita al bicchiere" : "Wine by the glass"}</span>
             <small>{(wine.pour_size_ml / 100).toLocaleString(locale)} dl</small>
@@ -1411,9 +1503,9 @@ export function WineDetail({
           </form>
         </details>
       </>) : (
-        <details className="detail-section consume-panel">
+        <details className="detail-section consume-panel" ref={consumePanelRef} hidden={activeOperation !== "consume"}>
           <summary>
-            <span>{t("consumeBottle")}</span>
+            <span>{locale === "it" ? "Registra bevuta" : "Record tasting"}</span>
           </summary>
           <p className="consume-help">{t("consumeBottleHelp")}</p>
           <form className="consume-form" onSubmit={submitConsume}>
@@ -1487,11 +1579,11 @@ export function WineDetail({
             </div>
           </form>
         </details>
-      ) : null}
+      )}
 
-      {canWrite && wine.quantity > 0 && !restaurantMode ? (
-        <details className="detail-section consume-panel sale-panel">
-          <summary><span>{locale === "it" ? "Venduta 1" : "Sell bottles"}</span></summary>
+      {!restaurantMode ? (
+        <details className="detail-section consume-panel sale-panel" ref={salePanelRef} hidden={activeOperation !== "sale"}>
+          <summary><span>{locale === "it" ? "Registra vendita" : "Record sale"}</span></summary>
           <p className="consume-help">{locale === "it" ? "Registra una o più bottiglie vendute. La quantità iniziale è 1 e non può superare la giacenza disponibile." : "Record one or more sold bottles. Quantity starts at 1 and cannot exceed available stock."}</p>
           <form className="consume-form" onSubmit={submitSale}>
             <div className="detail-grid consume-grid">
@@ -1505,21 +1597,25 @@ export function WineDetail({
           </form>
         </details>
       ) : null}
+      </section> : null}
 
-      {!restaurantMode ? <WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /> : null}
-      <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
+      <details className="detail-section wine-detail-group wine-detail-group--stock" data-wine-detail-section="05" tabIndex={-1}>
+        <summary className="wine-detail-structured-summary"><div><span>05</span><strong>{locale === "it" ? "Giacenza e acquisti" : "Stock and purchases"}</strong></div><small>{locale === "it" ? "Posizione, lotti e costi" : "Location, lots and costs"}</small></summary>
+        <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
+        {!restaurantMode ? <WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /> : null}
+      </details>
 
-      {wine.ai_notes || wine.ai_value_notes || wine.notes ? (
-        <div className="notes-grid">
+      {(wine.ai_notes || wine.ai_value_notes || wine.notes || coOwnershipSection || (!restaurantMode && wine.tasting_history?.length)) ? <details className="detail-section wine-detail-group wine-detail-group--history" data-wine-detail-section="06" tabIndex={-1}>
+        <summary className="wine-detail-structured-summary"><div><span>06</span><strong>{locale === "it" ? "Note e storia" : "Notes and history"}</strong></div><small>{locale === "it" ? "Degustazioni, appunti e propriet\u00e0" : "Tastings, notes and ownership"}</small></summary>
+        {wine.ai_notes || wine.ai_value_notes || wine.notes ? <div className="notes-grid">
           {wine.notes ? <DetailNote title={t("notes")}>{wine.notes}</DetailNote> : null}
           {wine.ai_notes ? <DetailNote title={t("aiNotes")}>{wine.ai_notes}</DetailNote> : null}
           {wine.ai_value_notes ? <DetailNote title={t("value")}>{wine.ai_value_notes}</DetailNote> : null}
-        </div>
-      ) : null}
+        </div> : null}
 
-      {coOwnershipSection}
+        {coOwnershipSection}
 
-      {!restaurantMode ? <TastingHistorySection
+        {!restaurantMode ? <TastingHistorySection
         wine={wine}
         entries={wine.tasting_history || []}
         canWrite={canWrite}
@@ -1528,11 +1624,12 @@ export function WineDetail({
         onDeleteEntry={onDeleteTastingEntry}
         t={t}
         locale={locale}
-      /> : null}
+        /> : null}
+      </details> : null}
 
-      <details className="detail-section ai-audit-detail">
-        <summary>
-          <span>{t("aiAudit")}</span>
+      <details className="detail-section ai-audit-detail" data-wine-detail-section="07" tabIndex={-1}>
+        <summary className="wine-detail-structured-summary">
+          <div><span>07</span><strong>{t("aiAudit")}</strong></div>
           <strong>{auditEntries.length}</strong>
         </summary>
         {auditEntries.length ? (

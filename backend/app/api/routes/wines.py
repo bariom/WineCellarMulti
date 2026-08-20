@@ -36,6 +36,7 @@ from app.models import (
     Wine,
     WinePhotoLibraryEntry,
     WineShareOffer,
+    WineStrategyAllocation,
     WineTastingEntry,
     WineValueHistory,
 )
@@ -90,6 +91,13 @@ from app.services.wine_photo_library import (
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+WineStrategyPurpose = Literal[
+    "drink", "maturation", "investment", "special_occasion", "undecided"
+]
+WINE_STRATEGY_PURPOSES = frozenset({
+    "drink", "maturation", "investment", "special_occasion", "undecided"
+})
 
 PHOTO_SIZES = {"thumbnail": (160, 240, 512_000), "detail": (480, 720, 2_000_000)}
 
@@ -280,12 +288,15 @@ def wine_response(
     *,
     include_details: bool = True,
     storage_allocations=None,
+    strategy_purposes: list[WineStrategyPurpose] | None = None,
 ) -> WineResponse:
     if include_details:
         response = WineResponse.model_validate(wine)
         response = response.model_copy(update={"details_loaded": True, **photo_urls(wine)})
         if storage_allocations is not None:
             response = response.model_copy(update={"storage_allocations": storage_allocations})
+        if strategy_purposes is not None:
+            response = response.model_copy(update={"strategy_purposes": strategy_purposes})
         if value_history is not None:
             response = response.model_copy(update={"value_history": value_history})
         if tag_names is not None and tag_names:
@@ -303,6 +314,7 @@ def wine_response(
         vintage=wine.vintage,
         quantity=wine.quantity,
         storage_allocations=storage_allocations or [],
+        strategy_purposes=strategy_purposes or [],
         currency=wine.currency,
         price=wine.price,
         sale_price=wine.sale_price,
@@ -361,6 +373,26 @@ def wine_response(
         tasting_history=[],
         value_history=[],
     )
+
+
+def strategy_purposes_by_wine(
+    db: Session, household_id: UUID, wine_ids: list[UUID]
+) -> dict[UUID, list[WineStrategyPurpose]]:
+    result: dict[UUID, list[WineStrategyPurpose]] = {wine_id: [] for wine_id in wine_ids}
+    if not wine_ids:
+        return result
+    rows = db.execute(
+        select(WineStrategyAllocation.wine_id, WineStrategyAllocation.purpose)
+        .where(
+            WineStrategyAllocation.household_id == household_id,
+            WineStrategyAllocation.wine_id.in_(wine_ids),
+        )
+        .order_by(WineStrategyAllocation.purpose.asc())
+    ).all()
+    for wine_id, purpose in rows:
+        if purpose in WINE_STRATEGY_PURPOSES and purpose not in result[wine_id]:
+            result[wine_id].append(cast(WineStrategyPurpose, purpose))
+    return result
 
 
 def share_offer_response(db: Session, offer: WineShareOffer) -> WineShareOfferResponse:
@@ -579,12 +611,14 @@ def list_wines(
     wine_ids = [wine.id for wine in wines]
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
     storage_by_wine = allocation_responses_by_wine(db, wine_ids)
+    strategy_by_wine = strategy_purposes_by_wine(db, context.household.id, wine_ids)
     return [
         wine_response(
             wine,
             tags_by_wine.get(wine.id),
             include_details=False,
             storage_allocations=storage_by_wine.get(wine.id, []),
+            strategy_purposes=strategy_by_wine.get(wine.id, []),
         )
         for wine in wines
     ]

@@ -226,6 +226,9 @@ class WineResponse(BaseModel):
     vintage: str
     quantity: int
     storage_allocations: list[StorageAllocationResponse] = Field(default_factory=list)
+    strategy_purposes: list[
+        Literal["drink", "maturation", "investment", "special_occasion", "undecided"]
+    ] = Field(default_factory=list)
     currency: str
     price: Decimal
     sale_price: Decimal | None = None

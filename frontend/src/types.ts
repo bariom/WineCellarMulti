@@ -39,6 +39,7 @@ export type Wine = {
   vintage: string;
   quantity: number;
   storage_allocations?: StorageAllocation[];
+  strategy_purposes: WineStrategyPurpose[];
   currency: string;
   price: string;
   sale_price: string | null;
@@ -569,7 +570,7 @@ export type WineStockLot = {
 export type CellarBin = { id: string; location_id: string; name: string; description: string; sort_order: number; bottle_count: number };
 export type CellarLocation = { id: string; name: string; description: string; is_default: boolean; sort_order: number; bottle_count: number; bins: CellarBin[] };
 export type StorageAllocation = { id: string; wine_id: string; location_id: string | null; location_name: string; bin_id: string | null; bin_name: string; quantity: number };
-export type WineStrategyAllocation = { id: string; wine_id: string; purpose: WineStrategyPurpose; quantity: number; horizon_year: number | null; note: string };
+export type WineStrategyAllocation = { id: string; wine_id: string; stock_lot_id: string | null; purpose: WineStrategyPurpose; quantity: number; horizon_year: number | null; note: string };
 
 export type Member = {
   membership_id: string;
@@ -1360,6 +1361,7 @@ export type WineCollectionFilters = {
   type: string;
   status: string;
   storage: string;
+  strategyPurpose: WineStrategyPurpose | "";
   minPrice: number | null;
   maxPrice: number | null;
   ownership: string;

@@ -304,6 +304,7 @@ export function matchesWineCollectionFilters(wine: Wine, filters: WineCollection
     });
     if (!matchesStorage) return false;
   }
+  if (filters.strategyPurpose && !(wine.strategy_purposes || []).includes(filters.strategyPurpose)) return false;
   const bottlePrice = Number(wine.price || 0);
   if (filters.minPrice !== null && bottlePrice < filters.minPrice) return false;
   if (filters.maxPrice !== null && bottlePrice > filters.maxPrice) return false;

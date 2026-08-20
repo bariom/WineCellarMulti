@@ -102,8 +102,8 @@ function hasPreciseVineyardLocation(wine: Wine) {
   return wine.vineyard_precision === "manual" || wine.vineyard_precision === "vineyard";
 }
 
-function VineyardLocationMap({ wine, className, locale, fullscreen = false }: { wine: Wine; className: string; locale: Locale; fullscreen?: boolean }) {
-  const position: [number, number] = [wine.vineyard_latitude as number, wine.vineyard_longitude as number];
+function VineyardLocationMap({ wine, location, className, locale, fullscreen = false }: { wine: Wine; location: WineRegionLocation; className: string; locale: Locale; fullscreen?: boolean }) {
+  const position: [number, number] = [location.latitude, location.longitude];
   const zoom = vineyardMapZoom(wine);
   const precise = hasPreciseVineyardLocation(wine);
   return (
@@ -125,7 +125,7 @@ function VineyardLocationMap({ wine, className, locale, fullscreen = false }: { 
   );
 }
 
-export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
+export function VineyardMap({ wine, locale, openRequestId = 0 }: { wine: Wine; locale: Locale; openRequestId?: number }) {
   const [fullscreen, setFullscreen] = useState(false);
   const lastTriggerRef = useRef<HTMLButtonElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -155,7 +155,14 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
     };
   }, [fullscreen]);
 
-  if (wine.vineyard_latitude === null || wine.vineyard_longitude === null) return null;
+  useEffect(() => {
+    if (openRequestId) setFullscreen(true);
+  }, [openRequestId]);
+
+  const location = wine.vineyard_latitude !== null && wine.vineyard_longitude !== null
+    ? { latitude: wine.vineyard_latitude, longitude: wine.vineyard_longitude }
+    : wineRegionLocation(wine);
+  if (!location) return null;
 
   const sourceLink = wine.vineyard_source_url ? (
     <a href={wine.vineyard_source_url} target="_blank" rel="noreferrer">
@@ -191,7 +198,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
           {place ? <span>{place}</span> : null}
           {wine.vineyard_notes ? <p>{wine.vineyard_notes}</p> : null}
         </div>
-        <VineyardLocationMap wine={wine} className="vineyard-detail-map" locale={locale} />
+        <VineyardLocationMap wine={wine} location={location} className="vineyard-detail-map" locale={locale} />
         {sourceLink ? <small className="vineyard-map-source">{sourceLink}</small> : null}
       </section>
       {fullscreen ? createPortal(
@@ -206,7 +213,7 @@ export function VineyardMap({ wine, locale }: { wine: Wine; locale: Locale }) {
               <span>{[place, precisionDisplay].filter(Boolean).join(" · ")}</span>
             </div>
           </header>
-          <VineyardLocationMap wine={wine} className="vineyard-fullscreen-map" locale={locale} fullscreen />
+          <VineyardLocationMap wine={wine} location={location} className="vineyard-fullscreen-map" locale={locale} fullscreen />
           <footer className="vineyard-fullscreen-card">
             <div>
               <span>{locale === "it" ? "PROVENIENZA" : "ORIGIN"}</span>

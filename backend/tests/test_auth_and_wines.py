@@ -205,6 +205,9 @@ def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
         ("drink", 2),
         ("investment", 4),
     ]
+    listed = client.get("/api/v1/wines")
+    assert listed.status_code == 200, listed.text
+    assert listed.json()[0]["strategy_purposes"] == ["drink", "investment"]
 
     snapshot = client.get("/api/v1/intelligence/cellar")
     assert snapshot.status_code == 200, snapshot.text
