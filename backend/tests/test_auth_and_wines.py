@@ -278,6 +278,58 @@ def test_cellar_intelligence_rejects_overallocation():
     assert "exceed available bottles" in response.text
 
 
+def test_cellar_intelligence_preferences_and_bulk_assignment_are_household_scoped():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    first = client.post(
+        "/api/v1/wines",
+        json={"name": "Barolo", "producer": "Test", "quantity": 3, "status": "Delivered"},
+    )
+    second = client.post(
+        "/api/v1/wines",
+        json={"name": "Brunello", "producer": "Test", "quantity": 2, "status": "Delivered"},
+    )
+    assert first.status_code == 201
+    assert second.status_code == 201
+
+    preferences = client.put(
+        "/api/v1/intelligence/preferences",
+        json={
+            "annual_drink_target": 36,
+            "protected_capital_pct": 70,
+            "special_occasion_target": 8,
+            "planning_horizon_years": 7,
+            "refresh_interval_days": 14,
+        },
+    )
+    assert preferences.status_code == 200, preferences.text
+    assert client.get("/api/v1/intelligence/preferences").json()["annual_drink_target"] == 36
+
+    assigned = client.put(
+        "/api/v1/intelligence/allocations/bulk",
+        json={
+            "wine_ids": [first.json()["id"], second.json()["id"]],
+            "purpose": "maturation",
+        },
+    )
+    assert assigned.status_code == 200, assigned.text
+    assert assigned.json() == {
+        "changed_wines": 2,
+        "assigned_bottles": 5,
+        "purpose": "maturation",
+    }
+    snapshot = client.get("/api/v1/intelligence/cellar").json()
+    assert snapshot["purpose_totals"]["maturation"] == 5
+    assert snapshot["preferences"]["planning_horizon_years"] == 7
+    assert len(snapshot["fingerprint"]) == 24
+
+    missing = client.put(
+        "/api/v1/intelligence/allocations/bulk",
+        json={"wine_ids": [str(uuid.uuid4())], "purpose": "drink"},
+    )
+    assert missing.status_code == 404
+
+
 def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     from app.api.routes import ai as ai_routes
 
@@ -358,6 +410,14 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
         response.json()["immediate_action"]
         == "Classifica subito le 4 bottiglie Sassicaia 2020 per maturazione."
     )
+    assert response.json()["input_fingerprint"]
+    assert recommendations[0]["confidence"] == "low"
+    assert recommendations[0]["data_quality_score"] == 52
+    assert set(recommendations[0]["missing_inputs"]) == {
+        "producer",
+        "current_value",
+        "purchase_price",
+    }
     saved_plan = client.get("/api/v1/ai/cellar-intelligence/latest")
     assert saved_plan.status_code == 200, saved_plan.text
     assert saved_plan.json() == response.json()
@@ -370,6 +430,14 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     assert client.get("/api/v1/ai/cellar-intelligence/latest").json()[
         "applied_recommendation_keys"
     ] == ["test-recommendation"]
+    changed = client.patch(f"/api/v1/wines/{wine_id}", json={"current_value": 275})
+    assert changed.status_code == 200, changed.text
+    stale_plan = client.get("/api/v1/ai/cellar-intelligence/latest").json()
+    assert stale_plan["stale"] is True
+    assert "cellar_data_changed" in stale_plan["stale_reasons"]
+    history = client.get("/api/v1/ai/cellar-intelligence/history").json()
+    assert len(history) == 1
+    assert history[0]["generated_at"] == response.json()["generated_at"]
 
 
 def test_cellar_intelligence_keeps_wine_at_start_of_long_peak(monkeypatch):

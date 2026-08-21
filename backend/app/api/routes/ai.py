@@ -56,6 +56,7 @@ from app.models import (
 from app.prompts import (
     ai_notes_prompt,
     cellar_command_prompt,
+    cellar_intelligence_plan_prompt,
     drink_window_prompt,
     grape_composition_prompt,
     wine_full_enrichment_prompt,
@@ -5638,6 +5639,88 @@ def cellar_intelligence_display_text(
     return CELLAR_INTELLIGENCE_WINE_ID_PATTERN.sub(replace_wine_id, str(value or "").strip())
 
 
+def cellar_intelligence_recommendation_quality(wine: Any) -> tuple[str, int, list[str]]:
+    missing_inputs: list[str] = []
+    if not wine.producer:
+        missing_inputs.append("producer")
+    if not wine.vintage:
+        missing_inputs.append("vintage")
+    if wine.drink_from is None or wine.drink_to is None:
+        missing_inputs.append("drink_window")
+    if "market_value_missing" in wine.signals:
+        missing_inputs.append("current_value")
+    if Decimal(wine.purchase_value or 0) <= 0:
+        missing_inputs.append("purchase_price")
+    score = max(20, 100 - len(missing_inputs) * 16)
+    confidence = "high" if score >= 84 else "medium" if score >= 60 else "low"
+    return confidence, score, missing_inputs
+
+
+def cellar_intelligence_plan_freshness(
+    plan: CellarIntelligencePlanResponse,
+    snapshot: Any,
+) -> CellarIntelligencePlanResponse:
+    reasons: list[str] = []
+    if not plan.input_fingerprint or plan.input_fingerprint != snapshot.fingerprint:
+        reasons.append("cellar_data_changed")
+    generated_at = plan.generated_at
+    if generated_at.tzinfo is None:
+        generated_at = generated_at.replace(tzinfo=UTC)
+    if (datetime.now(UTC) - generated_at).days >= snapshot.preferences.refresh_interval_days:
+        reasons.append("refresh_interval_elapsed")
+    return plan.model_copy(update={"stale": bool(reasons), "stale_reasons": reasons})
+
+
+def cellar_intelligence_saved_plans(
+    db: Session,
+    context: CurrentContext,
+    *,
+    limit: int,
+) -> list[CellarIntelligencePlanResponse]:
+    audits = db.scalars(
+        select(AiAuditLog)
+        .where(
+            AiAuditLog.household_id == context.household.id,
+            AiAuditLog.feature == "cellar_intelligence_plan",
+            AiAuditLog.outcome == "success",
+        )
+        .order_by(AiAuditLog.created_at.desc())
+        .limit(limit)
+    ).all()
+    plans: list[CellarIntelligencePlanResponse] = []
+    for audit in audits:
+        for source in audit.sources or []:
+            if source.get("kind") != "cellar_intelligence_plan":
+                continue
+            raw_plan = source.get("plan")
+            if not isinstance(raw_plan, dict):
+                continue
+            try:
+                plans.append(CellarIntelligencePlanResponse.model_validate(raw_plan))
+            except ValueError:
+                pass
+            break
+    return plans
+
+
+@router.get(
+    "/cellar-intelligence/history",
+    response_model=list[CellarIntelligencePlanResponse],
+)
+def cellar_intelligence_plan_history(
+    limit: int = 5,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> list[CellarIntelligencePlanResponse]:
+    snapshot = build_cellar_intelligence_snapshot(db, context)
+    return [
+        cellar_intelligence_plan_freshness(plan, snapshot)
+        for plan in cellar_intelligence_saved_plans(
+            db, context, limit=max(1, min(limit, 10))
+        )
+    ]
+
+
 @router.get(
     "/cellar-intelligence/latest",
     response_model=CellarIntelligencePlanResponse | None,
@@ -5646,29 +5729,12 @@ def latest_cellar_intelligence_plan(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> CellarIntelligencePlanResponse | None:
-    audit = db.scalar(
-        select(AiAuditLog)
-        .where(
-            AiAuditLog.household_id == context.household.id,
-            AiAuditLog.feature == "cellar_intelligence_plan",
-            AiAuditLog.outcome == "success",
-        )
-        .order_by(AiAuditLog.created_at.desc())
-        .limit(1)
-    )
-    if audit is None:
+    plans = cellar_intelligence_saved_plans(db, context, limit=1)
+    if not plans:
         return None
-    for source in audit.sources or []:
-        if source.get("kind") != "cellar_intelligence_plan":
-            continue
-        plan = source.get("plan")
-        if not isinstance(plan, dict):
-            continue
-        try:
-            return CellarIntelligencePlanResponse.model_validate(plan)
-        except ValueError:
-            return None
-    return None
+    return cellar_intelligence_plan_freshness(
+        plans[0], build_cellar_intelligence_snapshot(db, context)
+    )
 
 
 @router.put(
@@ -5703,7 +5769,10 @@ def update_latest_cellar_intelligence_plan(
         sources[index] = {**source, "plan": plan}
         audit.sources = sources
         db.commit()
-        return CellarIntelligencePlanResponse.model_validate(plan)
+        saved_plan = CellarIntelligencePlanResponse.model_validate(plan)
+        return cellar_intelligence_plan_freshness(
+            saved_plan, build_cellar_intelligence_snapshot(db, context)
+        )
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saved cellar plan")
 
 
@@ -5761,6 +5830,21 @@ def generate_cellar_intelligence_plan(
         }
         for item in candidates
     ]
+    prompt = cellar_intelligence_plan_prompt(
+        locale=payload.locale,
+        focus=payload.focus,
+        candidate_count=len(candidates),
+        bottle_count=snapshot.bottle_count,
+        allocation_coverage_pct=snapshot.allocation_coverage_pct,
+        preferences_context=json.dumps(
+            snapshot.preferences.model_dump(mode="json"),
+            ensure_ascii=False,
+            separators=(",", ":"),
+        ),
+        cellar_context=json.dumps(
+            compact_snapshot, ensure_ascii=False, separators=(",", ":")
+        ),
+    )
     schema = {
         "name": "cellar_intelligence_plan",
         "schema": {
@@ -5800,31 +5884,8 @@ def generate_cellar_intelligence_plan(
         user_settings,
         model=request_model(payload, user_settings.wishlist_model),
         task_type="portfolio_strategy",
-        system_prompt=(
-            "You are Vinaris Private Cellar Intelligence. Return JSON only. "
-            "Prioritize actions using only the supplied deterministic cellar data. "
-            "Respect the owner's bottle-purpose allocations: never recommend drinking a bottle allocated to investment, "
-            "maturation, or a special occasion. For every unallocated wine, use action decide and recommend a concrete "
-            "purpose from the supplied maturity window, values, and signals. For a too-young wine, normally recommend maturation. "
-            "For every decide action, recommended_purpose must be non-empty and quantity must cover the bottles to classify. "
-            "When a selected wine is already classified, reassess its purpose from its maturity window and supplied values. "
-            "Use action reclassify and recommended_purpose only when a different purpose is justified; otherwise use hold or monitor. "
-            "Treat the first one or two years of a long peak window as an early peak, not as a reason to drink now: "
-            "recommend maturation or holding until closer to the middle of the peak unless the wine is late. "
-            "Do not claim guaranteed investment returns or invent market facts. "
-            "Make overview one plain-language sentence that explains the strategy without repeating recommendation counts. "
-            "Make immediate_action one short imperative sentence with a concrete first step. "
-            "Make risk_note one short sentence containing only the main caveat. Be concise and operational. "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            f"Create a {payload.focus} cellar action plan for the {len(candidates)} supplied wines. "
-            f"The full cellar contains {snapshot.bottle_count} bottles, "
-            f"with {snapshot.allocation_coverage_pct}% purpose coverage. Select at most 12 concrete actions. "
-            "Recommendation quantity must not exceed the quantity assigned to the relevant purpose; for decide actions "
-            "it must not exceed unallocated quantity. Use only wine_id values in the data.\n\n"
-            + json.dumps(compact_snapshot, ensure_ascii=False, separators=(",", ":"))
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
         # High reasoning effort and up to 12 structured recommendations can
         # exceed the former 2,200-token cap before the JSON object is closed.
@@ -5870,6 +5931,9 @@ def generate_cellar_intelligence_plan(
             normalized_priority = str(raw.get("priority") or "medium")
             if normalized_priority not in {"high", "medium", "low"}:
                 normalized_priority = "medium"
+            confidence, data_quality_score, missing_inputs = (
+                cellar_intelligence_recommendation_quality(wine)
+            )
             recommendations.append(
                 CellarIntelligenceRecommendation(
                     wine_id=wine_id,
@@ -5886,6 +5950,9 @@ def generate_cellar_intelligence_plan(
                         )
                     ),
                     recommended_purpose=cast(Any, recommended_purpose or None),
+                    confidence=cast(Literal["high", "medium", "low"], confidence),
+                    data_quality_score=data_quality_score,
+                    missing_inputs=missing_inputs,
                 )
             )
         except (KeyError, TypeError, ValueError):
@@ -5908,6 +5975,9 @@ def generate_cellar_intelligence_plan(
         ),
         risk_note=cellar_intelligence_display_text(result.get("risk_note"), known, locale=payload.locale),
         recommendations=recommendations,
+        input_fingerprint=snapshot.fingerprint,
+        stale=False,
+        stale_reasons=[],
         generated_at=datetime.now(UTC),
         estimated_cost_usd=charged_cost,
     )
@@ -5921,6 +5991,7 @@ def generate_cellar_intelligence_plan(
         reasoning_effort=response.reasoning_effort or "",
         summary=f"{plan.overview} Next: {plan.immediate_action}",
         sources=[
+            {"kind": "prompt", "id": prompt.id, "version": prompt.version},
             {
                 "kind": "cellar_snapshot",
                 "wine_count": len(candidates),

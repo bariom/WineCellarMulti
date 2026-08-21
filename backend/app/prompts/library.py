@@ -98,6 +98,52 @@ def cellar_command_prompt(
     )
 
 
+def cellar_intelligence_plan_prompt(
+    *,
+    locale: str,
+    focus: str,
+    candidate_count: int,
+    bottle_count: int,
+    allocation_coverage_pct: int,
+    preferences_context: str,
+    cellar_context: str,
+) -> Prompt:
+    return Prompt(
+        id="cellar.intelligence_plan",
+        version="1",
+        system=(
+            "You are Vinaris Private Cellar Intelligence. Return JSON only. Prioritize actions "
+            "using only the supplied deterministic cellar data and owner preferences. Respect "
+            "the owner's bottle-purpose allocations: never recommend drinking a bottle allocated "
+            "to investment, maturation, or a special occasion. For every unallocated wine, use "
+            "action decide and recommend a concrete purpose from the supplied maturity window, "
+            "values, signals, and planning goals. For a too-young wine, normally recommend "
+            "maturation. For every decide action, recommended_purpose must be non-empty and "
+            "quantity must cover the bottles to classify. When a selected wine is already "
+            "classified, reassess its purpose from its maturity window, supplied values, and goals. "
+            "Use action reclassify and recommended_purpose only when a different purpose is "
+            "justified; otherwise use hold or monitor. Treat the first one or two years of a long "
+            "peak window as an early peak, not as a reason to drink now: recommend maturation or "
+            "holding until closer to the middle of the peak unless the wine is late. Do not claim "
+            "guaranteed investment returns or invent market facts. Never put wine_id values in "
+            "overview, immediate_action, risk_note, or reason; use wine names in prose. Make "
+            "overview one plain-language sentence that explains the strategy without repeating "
+            "recommendation counts. Make immediate_action one short imperative sentence with a "
+            "concrete first step. Make risk_note one short sentence containing only the main caveat. "
+            f"Be concise and operational. {language_instruction(locale)}"
+        ),
+        user=(
+            f"Create a {focus} cellar action plan for the {candidate_count} supplied wines. "
+            f"The full cellar contains {bottle_count} bottles, with {allocation_coverage_pct}% "
+            "purpose coverage. Select at most 12 concrete actions. Recommendation quantity must "
+            "not exceed the quantity assigned to the relevant purpose; for decide actions it must "
+            "not exceed unallocated quantity. Use only wine_id values in the structured wine_id "
+            "field.\n\nOwner planning preferences:\n"
+            f"{preferences_context}\n\nCellar data:\n{cellar_context}"
+        ),
+    )
+
+
 def wine_image_recognition_prompt(
     *, locale: str, known_text: str = "", known_context: str = ""
 ) -> Prompt:

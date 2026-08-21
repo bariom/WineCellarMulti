@@ -1,6 +1,7 @@
 from app.prompts import (
     ai_notes_prompt,
     cellar_command_prompt,
+    cellar_intelligence_plan_prompt,
     grape_composition_prompt,
     wine_value_prompt,
     wine_vineyard_location_prompt,
@@ -40,6 +41,24 @@ def test_notes_prompt_is_versioned_localized_and_contains_context():
     assert "Italian" in prompt.system
     assert "Do not invent exact facts" in prompt.system
     assert "Producer: Test winery" in prompt.user
+
+
+def test_cellar_intelligence_prompt_uses_goals_without_exposing_ids_in_prose():
+    prompt = cellar_intelligence_plan_prompt(
+        locale="it",
+        focus="balanced",
+        candidate_count=2,
+        bottle_count=12,
+        allocation_coverage_pct=75,
+        preferences_context='{"annual_drink_target":24}',
+        cellar_context='[{"wine_id":"test-id","name":"Sassicaia"}]',
+    )
+
+    assert (prompt.id, prompt.version) == ("cellar.intelligence_plan", "1")
+    assert "owner preferences" in prompt.system
+    assert "Never put wine_id values" in prompt.system
+    assert "annual_drink_target" in prompt.user
+    assert "Sassicaia" in prompt.user
 
 
 def test_grape_prompt_requires_exact_source_backed_composition():

@@ -390,6 +390,9 @@ class CellarIntelligenceRecommendation(BaseModel):
     priority: Literal["high", "medium", "low"]
     quantity: int = Field(ge=1)
     reason: str
+    confidence: Literal["high", "medium", "low"] = "medium"
+    data_quality_score: int = Field(default=0, ge=0, le=100)
+    missing_inputs: list[str] = Field(default_factory=list)
     recommended_purpose: Literal[
         "drink", "maturation", "investment", "special_occasion", "undecided"
     ] | None = None
@@ -403,6 +406,9 @@ class CellarIntelligencePlanResponse(BaseModel):
     risk_note: str
     recommendations: list[CellarIntelligenceRecommendation] = Field(default_factory=list)
     applied_recommendation_keys: list[str] = Field(default_factory=list, max_length=24)
+    input_fingerprint: str = ""
+    stale: bool = False
+    stale_reasons: list[str] = Field(default_factory=list)
     generated_at: datetime
     estimated_cost_usd: Decimal
 

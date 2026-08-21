@@ -99,12 +99,72 @@ const session = {
   entitlement_days_remaining: null,
 };
 
+const intelligenceSnapshot = {
+  generated_at: "2026-08-21T12:00:00Z",
+  fingerprint: "snapshot-current",
+  preferences: { annual_drink_target: 24, protected_capital_pct: 50, special_occasion_target: 6, next_special_occasion_date: null, planning_horizon_years: 5, refresh_interval_days: 30 },
+  wine_count: 1,
+  bottle_count: 4,
+  allocated_bottle_count: 0,
+  allocation_coverage_pct: 0,
+  purpose_totals: { drink: 0, maturation: 0, investment: 0, special_occasion: 0, undecided: 0 },
+  drink_now_count: 0,
+  maturation_count: 0,
+  investment_count: 0,
+  undecided_count: 4,
+  wines: [{
+    wine_id: wine.id,
+    name: wine.name,
+    photo_thumbnail_url: wine.photo_thumbnail_url,
+    producer: wine.producer,
+    vintage: wine.vintage,
+    region: wine.region,
+    type: wine.type,
+    quantity: wine.quantity,
+    allocated_quantity: 0,
+    unallocated_quantity: wine.quantity,
+    currency: wine.currency,
+    purchase_value: "168.00",
+    current_value: "192.00",
+    drink_from: wine.drink_from,
+    drink_peak_from: wine.drink_peak_from,
+    drink_peak_to: wine.drink_peak_to,
+    drink_to: wine.drink_to,
+    readiness: "ready",
+    purposes: {},
+    signals: [],
+  }],
+};
+
+const intelligencePlan = {
+  model: "test-model",
+  reasoning_effort: "low",
+  overview: "Piano di test per la cantina.",
+  immediate_action: "Rivedi Nebbiolo di Test.",
+  risk_note: "Controlla i dati mancanti.",
+  recommendations: [{ wine_id: wine.id, action: "decide", priority: "high", quantity: 4, reason: "La finestra è aperta.", recommended_purpose: "drink", confidence: "medium", data_quality_score: 68, missing_inputs: ["current_value", "purchase_price"] }],
+  applied_recommendation_keys: [],
+  input_fingerprint: "snapshot-old",
+  stale: true,
+  stale_reasons: ["cellar_data_changed"],
+  generated_at: "2026-08-20T12:00:00Z",
+  estimated_cost_usd: "0.001",
+};
+
+const previousIntelligencePlan = {
+  ...intelligencePlan,
+  recommendations: [{ ...intelligencePlan.recommendations[0], action: "monitor", recommended_purpose: null, quantity: 2 }],
+  stale: false,
+  stale_reasons: [],
+  generated_at: "2026-08-10T12:00:00Z",
+};
+
 async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
 async function mockApi(page: Page, strategyAllocations: unknown[] = []) {
-  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations }) => {
+  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -113,6 +173,9 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = []) {
       const path = url.pathname;
       let body: unknown = [];
       if (path.endsWith("/session")) body = fixtureSession;
+      else if (path.endsWith("/intelligence/cellar")) body = fixtureIntelligenceSnapshot;
+      else if (path.endsWith("/ai/cellar-intelligence/latest")) body = fixtureIntelligencePlan;
+      else if (path.endsWith("/ai/cellar-intelligence/history")) body = [fixtureIntelligencePlan, fixturePreviousIntelligencePlan];
       else if (path.includes("/intelligence/wines/")) body = fixtureStrategyAllocations;
       else if (path.includes("/storage/allocations")) body = [];
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
@@ -129,12 +192,17 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = []) {
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations });
+  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname;
     if (path.endsWith("/session")) return fulfillJson(route, session);
+    if (path.endsWith("/intelligence/cellar")) return fulfillJson(route, intelligenceSnapshot);
+    if (path.endsWith("/ai/cellar-intelligence/latest")) return fulfillJson(route, intelligencePlan);
+    if (path.endsWith("/ai/cellar-intelligence/history")) return fulfillJson(route, [intelligencePlan, previousIntelligencePlan]);
+    if (path.endsWith("/intelligence/preferences")) return fulfillJson(route, intelligenceSnapshot.preferences);
+    if (path.endsWith("/intelligence/allocations/bulk")) return fulfillJson(route, { changed_wines: 1, assigned_bottles: 4, purpose: "maturation" });
     if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
     if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
@@ -210,6 +278,52 @@ test.describe("Wine Detail compact/mobile", () => {
     const qualityCard = page.getByRole("heading", { name: "Obiettivo cantina", exact: true }).locator("..").locator("..").locator("..");
     await expect(qualityCard.getByText("Obiettivo cantina mancante", { exact: true })).toBeVisible();
     await expect(qualityCard.getByRole("button", { name: "Assegna", exact: true })).toBeVisible();
+  });
+
+  test("explains Intelligence modes in a responsive help dialog", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Come usare Intelligence", exact: true }).click();
+    const dialog = page.getByRole("dialog", { name: "Come usare Intelligence" });
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("Equilibrata", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Cosa bere", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Maturazione", { exact: true })).toBeVisible();
+    await expect(dialog.getByText("Investimento", { exact: true })).toBeVisible();
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+  });
+
+  test("shows Intelligence confidence, history, simulation, goals and group actions", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+
+    await expect(page.getByText("Il piano deve essere aggiornato", { exact: true })).toBeVisible();
+    await expect(page.getByText("Affidabilità 68%", { exact: true })).toBeVisible();
+    await expect(page.getByText("DAL PIANO PRECEDENTE", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Simula", exact: true }).click();
+    const simulation = page.getByRole("dialog", { name: /Nebbiolo di Test/ });
+    await expect(simulation.getByText("BERE", { exact: true })).toBeVisible();
+    await expect(simulation.getByText("MANTENERE", { exact: true })).toBeVisible();
+    await expect(simulation.getByText("PROPOSTA INTELLIGENCE", { exact: true })).toBeVisible();
+    await simulation.getByRole("button", { name: "Chiudi simulazione", exact: true }).click();
+
+    await page.getByText("Imposta la strategia della cantina", { exact: true }).click();
+    await expect(page.getByText("Bottiglie da bere all’anno", { exact: true })).toBeVisible();
+    await page.getByText("Seleziona e gestisci più vini", { exact: true }).click();
+    await expect(page.getByLabel("Filtra per produttore")).toBeVisible();
+    await expect(page.getByLabel("Filtra per regione")).toBeVisible();
+    await expect(page.getByLabel("Filtra per tipologia")).toBeVisible();
   });
 
   test("keeps the expanded wine editor above the cellar list", async ({ page }) => {

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import Boolean, Integer, String, Uuid
+from sqlalchemy import JSON, Boolean, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -18,6 +18,7 @@ class Household(Base):
     restaurant_default_pour_size_ml: Mapped[int] = mapped_column(Integer, default=100)
     restaurant_service_loss_ml: Mapped[int] = mapped_column(Integer, default=50)
     restaurant_default_reorder_threshold: Mapped[int] = mapped_column(Integer, default=2)
+    cellar_intelligence_preferences: Mapped[dict] = mapped_column(JSON, default=dict)
     public_wine_list_token: Mapped[str | None] = mapped_column(
         String(80), unique=True, nullable=True
     )

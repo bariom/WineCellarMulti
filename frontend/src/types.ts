@@ -1193,6 +1193,15 @@ export type ViewName = "home" | "cellar" | "history" | "wishlist" | "intelligenc
 
 export type WineStrategyPurpose = "drink" | "maturation" | "investment" | "special_occasion" | "undecided";
 
+export type CellarIntelligencePreferences = {
+  annual_drink_target: number;
+  protected_capital_pct: number;
+  special_occasion_target: number;
+  next_special_occasion_date: string | null;
+  planning_horizon_years: number;
+  refresh_interval_days: number;
+};
+
 export type CellarIntelligenceWine = {
   wine_id: string;
   name: string;
@@ -1200,6 +1209,7 @@ export type CellarIntelligenceWine = {
   producer: string;
   vintage: string;
   region: string;
+  type: string;
   quantity: number;
   allocated_quantity: number;
   unallocated_quantity: number;
@@ -1217,6 +1227,8 @@ export type CellarIntelligenceWine = {
 
 export type CellarIntelligenceSnapshot = {
   generated_at: string;
+  fingerprint: string;
+  preferences: CellarIntelligencePreferences;
   wine_count: number;
   bottle_count: number;
   allocated_bottle_count: number;
@@ -1242,8 +1254,14 @@ export type CellarIntelligencePlan = {
     quantity: number;
     reason: string;
     recommended_purpose: WineStrategyPurpose | null;
+    confidence: "high" | "medium" | "low";
+    data_quality_score: number;
+    missing_inputs: string[];
   }>;
   applied_recommendation_keys: string[];
+  input_fingerprint: string;
+  stale: boolean;
+  stale_reasons: string[];
   generated_at: string;
   estimated_cost_usd: string;
 };

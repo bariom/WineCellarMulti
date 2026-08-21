@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections import defaultdict
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -13,6 +15,9 @@ from app.api.routes.wines import photo_urls
 from app.db.session import get_db
 from app.models import Wine, WineStockLot, WineStrategyAllocation
 from app.schemas.intelligence import (
+    BulkStrategyAssignment,
+    BulkStrategyAssignmentResult,
+    CellarIntelligencePreferences,
     CellarIntelligenceSnapshot,
     CellarIntelligenceWine,
     WineStrategyAllocationResponse,
@@ -44,6 +49,87 @@ def _household_wine(db: Session, context: CurrentContext, wine_id: UUID) -> Wine
     if wine is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wine not found")
     return wine
+
+
+def _intelligence_preferences(context: CurrentContext) -> CellarIntelligencePreferences:
+    return CellarIntelligencePreferences.model_validate(
+        context.household.cellar_intelligence_preferences or {}
+    )
+
+
+@router.get("/preferences", response_model=CellarIntelligencePreferences)
+def cellar_intelligence_preferences(
+    context: CurrentContext = Depends(get_current_context),
+) -> CellarIntelligencePreferences:
+    return _intelligence_preferences(context)
+
+
+@router.put("/preferences", response_model=CellarIntelligencePreferences)
+def update_cellar_intelligence_preferences(
+    payload: CellarIntelligencePreferences,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> CellarIntelligencePreferences:
+    context.household.cellar_intelligence_preferences = payload.model_dump(mode="json")
+    db.commit()
+    return payload
+
+
+@router.put("/allocations/bulk", response_model=BulkStrategyAssignmentResult)
+def assign_unallocated_bottles_in_bulk(
+    payload: BulkStrategyAssignment,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> BulkStrategyAssignmentResult:
+    wine_ids = set(payload.wine_ids)
+    wines = list(
+        db.scalars(
+            select(Wine).where(
+                Wine.household_id == context.household.id,
+                Wine.id.in_(wine_ids),
+                Wine.quantity > 0,
+            )
+        )
+    )
+    if len(wines) != len(wine_ids):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="One or more wines are not available in this cellar",
+        )
+    allocations = list(
+        db.scalars(
+            select(WineStrategyAllocation).where(
+                WineStrategyAllocation.household_id == context.household.id,
+                WineStrategyAllocation.wine_id.in_(wine_ids),
+            )
+        )
+    )
+    allocated_by_wine: dict[UUID, int] = defaultdict(int)
+    for allocation in allocations:
+        allocated_by_wine[allocation.wine_id] += allocation.quantity
+    created: list[WineStrategyAllocation] = []
+    assigned_bottles = 0
+    for wine in wines:
+        available = max(wine.quantity - allocated_by_wine[wine.id], 0)
+        if not available:
+            continue
+        assigned_bottles += available
+        created.append(
+            WineStrategyAllocation(
+                household_id=context.household.id,
+                wine_id=wine.id,
+                purpose=payload.purpose,
+                quantity=available,
+                note="Bulk assignment from Cellar Intelligence",
+            )
+        )
+    db.add_all(created)
+    db.commit()
+    return BulkStrategyAssignmentResult(
+        changed_wines=len(created),
+        assigned_bottles=assigned_bottles,
+        purpose=payload.purpose,
+    )
 
 
 @router.get(
@@ -159,6 +245,7 @@ def build_cellar_intelligence_snapshot(
         purpose_totals[allocation.purpose] += allocation.quantity
 
     current_year = datetime.now(UTC).year
+    preferences = _intelligence_preferences(context)
     rows: list[CellarIntelligenceWine] = []
     for wine in wines:
         wine_allocations = by_wine.get(wine.id, [])
@@ -203,6 +290,7 @@ def build_cellar_intelligence_snapshot(
                 producer=wine.producer,
                 vintage=wine.vintage,
                 region=wine.region,
+                type=wine.type,
                 quantity=wine.quantity,
                 allocated_quantity=allocated,
                 unallocated_quantity=unallocated,
@@ -220,8 +308,28 @@ def build_cellar_intelligence_snapshot(
         )
     bottle_count = sum(wine.quantity for wine in wines)
     allocated_count = sum(row.allocated_quantity for row in rows)
+    fingerprint_payload = {
+        "preferences": preferences.model_dump(mode="json"),
+        "wines": [
+            {
+                "id": str(row.wine_id),
+                "quantity": row.quantity,
+                "purposes": row.purposes,
+                "readiness": row.readiness,
+                "window": [row.drink_from, row.drink_peak_from, row.drink_peak_to, row.drink_to],
+                "purchase_value": str(row.purchase_value),
+                "current_value": str(row.current_value),
+            }
+            for row in rows
+        ],
+    }
+    fingerprint = hashlib.sha256(
+        json.dumps(fingerprint_payload, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()[:24]
     return CellarIntelligenceSnapshot(
         generated_at=datetime.now(UTC),
+        fingerprint=fingerprint,
+        preferences=preferences,
         wine_count=len(wines),
         bottle_count=bottle_count,
         allocated_bottle_count=allocated_count,
