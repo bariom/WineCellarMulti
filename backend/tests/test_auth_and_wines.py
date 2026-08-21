@@ -7073,7 +7073,15 @@ def test_manual_score_deletion_is_not_restored_from_shared_data():
         {"critic": "Shared Critic", "score": "95", "note": "Verified"}
     ]
 
-    cleared = client.patch(f"/api/v1/wines/{wine_id}", json={"scores": []})
+    cleared = client.patch(
+        f"/api/v1/wines/{wine_id}",
+        json={
+            "name": created.json()["name"],
+            "producer": created.json()["producer"],
+            "vintage": created.json()["vintage"],
+            "scores": [],
+        },
+    )
     assert cleared.status_code == 200
     assert cleared.json()["scores"] == []
     assert cleared.json()["scores_not_applicable"] is False

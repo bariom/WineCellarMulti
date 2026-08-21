@@ -1692,6 +1692,10 @@ def update_wine(
         data["grapes_not_applicable"] = False
     if data.get("current_value") is not None:
         data["value_not_found"] = False
+    identity_fields = {"name", "producer", "vintage"}
+    identity_changed = any(
+        field in data and getattr(wine, field) != data[field] for field in identity_fields
+    )
     changed_fields = {
         field
         for field, value in data.items()
@@ -1730,12 +1734,10 @@ def update_wine(
         sync_storage_to_wine_quantity(db, wine)
     if "current_value" in data and "ai_value_estimated_at" not in data:
         wine.ai_value_estimated_at = None
-    identity_fields = {"name", "producer", "vintage"}
-    if identity_fields.intersection(data):
+    if identity_changed:
         wine.shared_data_features = []
         wine.shared_data_updated_at = None
         resolve_shared_identity(db, wine, create=False)
-        hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     local_feature_fields = {
         "notes": {"ai_notes"},
         "drink_window": {
@@ -1752,6 +1754,8 @@ def update_wine(
     for feature, fields in local_feature_fields.items():
         if fields.intersection(changed_fields):
             mark_local_feature(wine, feature)
+    if identity_changed:
+        hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     if (
         "current_value" in data
         and wine.current_value is not None
