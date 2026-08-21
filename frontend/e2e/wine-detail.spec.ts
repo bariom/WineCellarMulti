@@ -313,9 +313,10 @@ test.describe("Wine Detail compact/mobile", () => {
 
     await page.getByRole("button", { name: "Simula", exact: true }).click();
     const simulation = page.getByRole("dialog", { name: /Nebbiolo di Test/ });
-    await expect(simulation.getByText("BERE", { exact: true })).toBeVisible();
-    await expect(simulation.getByText("MANTENERE", { exact: true })).toBeVisible();
+    await expect(simulation.getByText("BERE ORA", { exact: true })).toBeVisible();
+    await expect(simulation.getByText("ATTENDERE", { exact: true })).toBeVisible();
     await expect(simulation.getByText("PROPOSTA INTELLIGENCE", { exact: true })).toBeVisible();
+    await expect(simulation.getByText(/Perdita potenziale prudenziale/)).toBeVisible();
     await simulation.getByRole("button", { name: "Chiudi simulazione", exact: true }).click();
 
     await page.getByText("Imposta la strategia della cantina", { exact: true }).click();

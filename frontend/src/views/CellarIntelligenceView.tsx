@@ -382,11 +382,35 @@ export default function CellarIntelligenceView({
     const totalValue = Number(simulation.wine.current_value) || 0;
     const unitValue = simulation.wine.quantity ? totalValue / simulation.wine.quantity : 0;
     const consumed = Math.min(simulation.recommendation.quantity, simulation.wine.quantity);
+    const horizonYear = new Date().getFullYear() + preferences.planning_horizon_years;
+    const peakEnd = simulation.wine.drink_peak_to;
+    const windowEnd = simulation.wine.drink_to;
+    const yearsPastPeak = peakEnd ? Math.max(horizonYear - peakEnd, 0) : null;
+    const yearsPastWindow = windowEnd ? Math.max(horizonYear - windowEnd, 0) : null;
+    const qualityRiskPct = yearsPastPeak === null && yearsPastWindow === null
+      ? null
+      : yearsPastWindow && yearsPastWindow > 0
+        ? Math.min(100, 70 + yearsPastWindow * 15)
+        : Math.min(80, (yearsPastPeak || 0) * 20);
+    const qualityRiskLabel = qualityRiskPct === null
+      ? (it ? "Non stimabile" : "Not assessable")
+      : qualityRiskPct === 0
+        ? (it ? "Basso" : "Low")
+        : qualityRiskPct <= 20
+          ? (it ? "Moderato" : "Moderate")
+          : qualityRiskPct <= 60
+            ? (it ? "Elevato" : "High")
+            : (it ? "Molto elevato" : "Very high");
     return {
       stockAfterDrink: simulation.wine.quantity - consumed,
       valueAfterDrink: Math.max(totalValue - unitValue * consumed, 0),
+      valueConsumed: unitValue * consumed,
       totalValue,
-      horizonYear: new Date().getFullYear() + preferences.planning_horizon_years,
+      horizonYear,
+      peakEnd,
+      qualityRiskPct,
+      qualityRiskLabel,
+      potentialLoss: qualityRiskPct === null || totalValue <= 0 ? null : totalValue * qualityRiskPct / 100,
     };
   })() : null;
 
@@ -573,13 +597,14 @@ export default function CellarIntelligenceView({
       {simulation && simulationValues ? <div className="intelligence-modal-backdrop" role="presentation" onMouseDown={() => setSimulation(null)}>
         <section className="intelligence-modal intelligence-simulation" role="dialog" aria-modal="true" aria-labelledby="intelligence-simulation-title" onMouseDown={(event) => event.stopPropagation()}>
           <header><div><span className="intelligence-kicker">{it ? "SIMULAZIONE" : "SIMULATION"}</span><h2 id="intelligence-simulation-title">{simulation.wine.name} {simulation.wine.vintage}</h2></div><button type="button" className="secondary" onClick={() => setSimulation(null)} aria-label={it ? "Chiudi" : "Close"}>×</button></header>
-          <p>{it ? "Confronto indicativo tra tre decisioni. Nessuna modifica viene salvata." : "Indicative comparison of three decisions. No changes are saved."}</p>
+          <p>{it ? "Confronto prudenziale tra consumo e attesa. Nessuna modifica viene salvata." : "Prudential comparison between drinking and waiting. No changes are saved."}</p>
           <div className="intelligence-simulation-grid">
-            <article><span>{it ? "BERE" : "DRINK"}</span><strong>{simulation.recommendation.quantity} {it ? "bottiglie" : "bottles"}</strong><small>{it ? "Giacenza residua" : "Remaining stock"}: {simulationValues.stockAfterDrink}</small><small>{it ? "Valore residuo ai valori attuali" : "Remaining value at current prices"}: {formatUnitValue(String(simulationValues.valueAfterDrink), simulation.wine.currency, 1)}</small></article>
-            <article><span>{it ? "MANTENERE" : "HOLD"}</span><strong>{simulation.wine.quantity} {it ? "bottiglie" : "bottles"}</strong><small>{it ? "Orizzonte osservato" : "Observed horizon"}: {simulationValues.horizonYear}</small><small>{it ? "Valore attuale invariato" : "Unchanged current value"}: {formatUnitValue(String(simulationValues.totalValue), simulation.wine.currency, 1)}</small></article>
+            <article><span>{it ? "BERE ORA" : "DRINK NOW"}</span><strong>{simulation.recommendation.quantity} {it ? "bottiglie" : "bottles"}</strong><small>{it ? "Giacenza residua" : "Remaining stock"}: {simulationValues.stockAfterDrink}</small><small>{it ? "Valore utilizzato oggi" : "Value enjoyed today"}: {formatUnitValue(String(simulationValues.valueConsumed), simulation.wine.currency, 1)}</small></article>
+            <article><span>{it ? "ATTENDERE" : "WAIT"}</span><strong>{simulation.wine.quantity} {it ? "bottiglie" : "bottles"}</strong><small>{it ? "Orizzonte osservato" : "Observed horizon"}: {simulationValues.horizonYear}{simulationValues.peakEnd ? ` · ${it ? "fine picco" : "peak end"} ${simulationValues.peakEnd}` : ""}</small><small>{simulationValues.qualityRiskPct === null ? (it ? "Rischio qualità: finestra incompleta" : "Quality risk: incomplete window") : `${it ? "Rischio qualità" : "Quality risk"}: ${simulationValues.qualityRiskLabel} (${simulationValues.qualityRiskPct}%)`}</small><small>{simulationValues.potentialLoss === null ? (it ? "Perdita potenziale: valore non disponibile" : "Potential loss: value unavailable") : `${it ? "Perdita potenziale prudenziale" : "Prudential potential loss"}: ${formatUnitValue(String(simulationValues.potentialLoss), simulation.wine.currency, 1)}`}</small></article>
             <article className="recommended"><span>{it ? "PROPOSTA INTELLIGENCE" : "INTELLIGENCE PROPOSAL"}</span><strong>{simulation.recommendation.recommended_purpose ? purposeLabel(simulation.recommendation.recommended_purpose) : ({ drink: it ? "Bere" : "Drink", hold: it ? "Mantenere" : "Hold", monitor: it ? "Monitorare" : "Monitor", decide: it ? "Decidere" : "Decide", reclassify: it ? "Riclassificare" : "Reclassify" }[simulation.recommendation.action])}</strong><small>{simulation.recommendation.quantity} {it ? "bottiglie coinvolte" : "bottles involved"}</small><small>{displayPlanText(simulation.recommendation.reason)}</small></article>
           </div>
-          <aside>{it ? "La simulazione non stima rivalutazioni future: mostra quantità e capitale usando esclusivamente il valore attuale registrato." : "The simulation does not estimate future appreciation: quantities and capital use only the current recorded value."}</aside>
+          <aside>{it ? "La simulazione non presume rivalutazioni: usa il valore attuale registrato come base per rendere visibile il capitale esposto all’attesa." : "The simulation does not assume appreciation: it uses the recorded current value to make capital exposed to waiting visible."}</aside>
+          <aside>{it ? "La perdita potenziale non è una previsione di mercato: è una stima prudenziale del valore esposto al deterioramento. Parte dalla fine del picco (+20% per anno, fino all’80%) e aumenta oltre la fine della finestra (+15% per anno, fino al 100%)." : "Potential loss is not a market forecast: it is a prudential estimate of value exposed to deterioration. It starts at peak end (+20% per year, up to 80%) and increases beyond drinking-window end (+15% per year, up to 100%)."}</aside>
           <footer><button type="button" onClick={() => setSimulation(null)}>{it ? "Chiudi simulazione" : "Close simulation"}</button></footer>
         </section>
       </div> : null}
@@ -601,7 +626,7 @@ export default function CellarIntelligenceView({
             <li><strong>{it ? "Definisci gli obiettivi" : "Set bottle purposes"}</strong><span>{it ? "Distribuisci le bottiglie tra Bere, Maturazione, Investimento, Occasione speciale o Da decidere." : "Allocate bottles to Drink, Maturation, Investment, Special occasion or Undecided."}</span></li>
             <li><strong>{it ? "Scegli l’ampiezza" : "Choose the scope"}</strong><span>{it ? "Analizza tutta la cantina oppure seleziona solo alcuni vini da rivalutare." : "Analyse the whole cellar or select only the wines you want to reassess."}</span></li>
             <li><strong>{it ? "Controlla e applica" : "Review and apply"}</strong><span>{it ? "Apri il vino per verificare i dati o usa il pulsante dell’azione proposta." : "Open the wine to verify its data or use the proposed action button."}</span></li>
-            <li><strong>{it ? "Simula e confronta" : "Simulate and compare"}</strong><span>{it ? "Confronta Bere, Mantenere e la proposta Intelligence; i piani successivi mostrano cosa è cambiato." : "Compare Drink, Hold and the Intelligence proposal; later plans show what has changed."}</span></li>
+            <li><strong>{it ? "Simula il rischio di attesa" : "Simulate waiting risk"}</strong><span>{it ? "Confronta il consumo con il rischio qualità e il valore potenzialmente esposto oltre il picco. Non è una previsione di mercato." : "Compare drinking with quality risk and value potentially exposed beyond peak. It is not a market forecast."}</span></li>
           </ol>
           <aside>{it ? "L’affidabilità indica quanto sono completi i dati usati. Le proposte non modificano la cantina finché non le confermi. Le analisi AI possono consumare credito; il costo è mostrato nel piano." : "Confidence reflects how complete the underlying data is. Suggestions do not change the cellar until you confirm them. AI analyses may use credit; the cost is shown in the plan."}</aside>
         </section>
