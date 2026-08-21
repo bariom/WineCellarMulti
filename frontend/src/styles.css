@@ -20188,6 +20188,41 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
 }
 
 @media (min-width: 821px) {
+  .content-workspace:has(.wine-editor-form.is-expanded) .wine-side-panel {
+    position: static;
+    z-index: auto;
+    overflow: visible;
+  }
+
+  .wine-side-panel > .wine-editor-form.is-expanded {
+    position: fixed;
+    z-index: 1250;
+    top: clamp(16px, 4vw, 52px);
+    right: max(16px, calc(50% - 590px));
+    bottom: clamp(16px, 4vw, 52px);
+    left: max(16px, calc(50% - 590px));
+    width: auto;
+    max-width: none;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0;
+    isolation: isolate;
+    border: 1px solid color-mix(in srgb, var(--border) 72%, var(--accent));
+    border-radius: 20px;
+    box-shadow:
+      0 30px 80px color-mix(in srgb, var(--collector-depth) 78%, transparent),
+      inset 0 1px 0 color-mix(in srgb, var(--collector-sheen) 74%, transparent);
+  }
+
+  .wine-side-panel > .wine-editor-form.is-expanded::before {
+    content: "";
+    position: fixed;
+    z-index: -1;
+    inset: 0;
+    background: color-mix(in srgb, var(--collector-depth) 50%, transparent);
+    backdrop-filter: blur(7px) saturate(0.78);
+  }
+
   .wine-side-panel:has(> .wine-editor-form) {
     grid-template-rows: auto minmax(0, 1fr);
     height: calc(100dvh - 24px);

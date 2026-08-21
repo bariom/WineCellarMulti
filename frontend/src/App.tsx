@@ -1561,6 +1561,7 @@ export function App() {
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [wineStorageFocus, setWineStorageFocus] = useState<{ wineId: string; requestId: number } | null>(null);
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
+  const [wineEditorExpanded, setWineEditorExpanded] = useState(false);
   const [pairingWineDetailId, setPairingWineDetailId] = useState<string | null>(null);
   const [selectedWishlistId, setSelectedWishlistId] = useState<string | null>(null);
   const [wishlistConversionItem, setWishlistConversionItem] = useState<WishlistItem | null>(null);
@@ -1633,16 +1634,21 @@ export function App() {
   }, [isMobileViewport]);
 
   useEffect(() => {
-    if (!wineDetailExpanded && !pairingWineDetailId) return;
+    if (!wineDetailExpanded && !wineEditorExpanded && !pairingWineDetailId) return;
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       setWineDetailExpanded(false);
+      setWineEditorExpanded(false);
       setPairingWineDetailId(null);
       if (activeView === "pairing") setSelectedWineId(null);
     };
     window.addEventListener("keydown", closeOnEscape);
     return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [wineDetailExpanded, pairingWineDetailId, activeView]);
+  }, [wineDetailExpanded, wineEditorExpanded, pairingWineDetailId, activeView]);
+
+  useEffect(() => {
+    if (!wineFormOpen) setWineEditorExpanded(false);
+  }, [wineFormOpen]);
 
   useEffect(() => {
     if (settingsTab !== "operations" || !session?.is_app_admin) return;
@@ -7245,6 +7251,7 @@ export function App() {
 
   function startEditWine(wine: Wine) {
     clearWineRecognitionState();
+    setWineEditorExpanded(false);
     setSelectedWineId(wine.id);
     setEditingId(wine.id);
     setDraft(wineToDraft(wine));
@@ -7482,6 +7489,7 @@ export function App() {
 
   function closeWineForm() {
     clearWineRecognitionState();
+    setWineEditorExpanded(false);
     setEditingId(null);
     setDraft(emptyDraft);
     setPendingBottlePhoto(null);
@@ -10940,7 +10948,7 @@ export function App() {
               </div>
             )}
             {isWineCollectionView && wineFormOpen ? (
-              <form className={`wine-form wine-editor-form ${editingId ? "is-editing" : "is-creating"} ${Object.values(openWineEditorSections).some(Boolean) ? "has-expanded-section" : ""}`} onSubmit={submitWine}>
+              <form className={`wine-form wine-editor-form ${editingId ? "is-editing" : "is-creating"} ${wineEditorExpanded ? "is-expanded" : ""} ${Object.values(openWineEditorSections).some(Boolean) ? "has-expanded-section" : ""}`} onSubmit={submitWine}>
                 <div className="wine-editor-scroll" ref={wineEditorScrollRef}>
                 <header className="wine-editor-heading">
                   <div>
@@ -10948,6 +10956,17 @@ export function App() {
                     <h2>{editingId ? t("editWine") : t("addWine")}</h2>
                     <p>{locale === "it" ? "Parti dai dati essenziali; potrai completare le informazioni avanzate quando vuoi." : "Start with the essentials; advanced information can be completed at any time."}</p>
                   </div>
+                  {editingId ? (
+                    <button
+                      type="button"
+                      className="secondary compact detail-expand-button"
+                      aria-label={wineEditorExpanded ? (locale === "it" ? "Riduci modifica vino" : "Reduce wine editor") : (locale === "it" ? "Espandi modifica vino" : "Expand wine editor")}
+                      title={wineEditorExpanded ? (locale === "it" ? "Riduci modifica" : "Reduce editor") : (locale === "it" ? "Espandi modifica" : "Expand editor")}
+                      onClick={() => setWineEditorExpanded((expanded) => !expanded)}
+                    >
+                      <span aria-hidden="true">{wineEditorExpanded ? "↙" : "↗"}</span>
+                    </button>
+                  ) : null}
                   <i aria-hidden="true"><AppIcon name="bottle" variant="premium" tone="accent" /></i>
                 </header>
                 {!canWriteWine ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}

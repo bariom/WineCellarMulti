@@ -198,6 +198,26 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.getByRole("heading", { name: "Nebbiolo di Test", exact: true }).first()).toBeVisible();
   });
 
+  test("keeps the expanded wine editor above the cellar list", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openWineDetail(page);
+    await page.getByRole("button", { name: "Modifica selezionato" }).click();
+
+    const editor = page.locator(".wine-editor-form");
+    await expect(editor).toBeVisible();
+    await editor.getByRole("button", { name: "Espandi modifica vino" }).click();
+    await expect(editor).toHaveClass(/is-expanded/);
+
+    const editorBox = (await editor.boundingBox())!;
+    expect(editorBox.width).toBeGreaterThan(1000);
+    expect(await page.evaluate(() => {
+      const expandedEditor = document.querySelector<HTMLElement>(".wine-editor-form.is-expanded");
+      if (!expandedEditor) return false;
+      const box = expandedEditor.getBoundingClientRect();
+      return document.elementFromPoint(box.left + 20, box.top + 20)?.closest(".wine-editor-form") === expandedEditor;
+    })).toBe(true);
+  });
+
   test("keeps the mobile layout free of horizontal overflow at supported widths", async ({ page }) => {
     for (const viewport of [{ width: 360, height: 800 }, { width: 430, height: 932 }]) {
       await page.setViewportSize(viewport);
