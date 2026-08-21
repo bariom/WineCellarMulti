@@ -1429,6 +1429,7 @@ export function App() {
     history?: boolean;
     audit?: boolean;
   }>({});
+  const [wineEditorStrategySummary, setWineEditorStrategySummary] = useState<{ wineId: string; allocated: number } | null>(null);
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
   const [contactSupportDraft, setContactSupportDraft] = useState<ContactSupportDraft>(emptyContactSupportDraft);
@@ -7257,6 +7258,7 @@ export function App() {
     setEditingId(wine.id);
     setDraft(wineToDraft(wine));
     setOpenWineEditorSections({});
+    setWineEditorStrategySummary(null);
     setPendingBottlePhoto(null);
     setWinePhotoSuggestions([]);
     setWinePhotoSuggestionIndex(0);
@@ -11453,15 +11455,22 @@ export function App() {
                 <section className={`wine-editor-section wine-editor-section--strategy wine-editor-disclosure ${openWineEditorSections.strategy ? "is-open" : ""}`} data-wine-editor-section="strategy">
                   <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+4" aria-expanded={Boolean(openWineEditorSections.strategy)} onClick={() => setOpenWineEditorSections((current) => current.strategy ? {} : { strategy: true })}>
                     <div><span>04</span><strong>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</strong></div>
-                    <small>{selectedWine ? (selectedWine.strategy_purposes || []).length : 0}</small>
+                    <small>{selectedWine ? `${wineEditorStrategySummary?.wineId === selectedWine.id ? wineEditorStrategySummary.allocated : "–"} / ${selectedWine.quantity}` : "0 / 0"}</small>
                   </button>
-                  {openWineEditorSections.strategy ? <div className="wine-editor-section-body is-visible">
+                  <div className={`wine-editor-section-body ${openWineEditorSections.strategy ? "is-visible" : "is-preloaded"}`}>
                     {editingId && selectedWine ? (
-                      <WineStrategySection wine={selectedWine} locale={locale} canWrite={canWriteWine} onChanged={loadWines} embedded />
+                      <WineStrategySection
+                        wine={selectedWine}
+                        locale={locale}
+                        canWrite={canWriteWine}
+                        onChanged={loadWines}
+                        onAllocatedChange={(allocated) => setWineEditorStrategySummary({ wineId: selectedWine.id, allocated })}
+                        embedded
+                      />
                     ) : (
                       <p className="empty-state">{locale === "it" ? "Potrai assegnare gli obiettivi dopo aver creato il vino." : "You can assign cellar purposes after creating the wine."}</p>
                     )}
-                  </div> : null}
+                  </div>
                 </section>
                 <section className={`wine-editor-section wine-editor-section--history wine-editor-disclosure ${openWineEditorSections.history ? "is-open" : ""}`} data-wine-editor-section="history">
                   <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+6" aria-expanded={Boolean(openWineEditorSections.history)} onClick={() => setOpenWineEditorSections((current) => current.history ? {} : { history: true })}>

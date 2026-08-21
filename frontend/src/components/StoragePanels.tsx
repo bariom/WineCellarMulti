@@ -129,8 +129,13 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
   </details>;
 }
 
-export function WineStrategySection({ wine, locale, canWrite, onChanged, embedded = false }: {
-  wine: Wine; locale: Locale; canWrite: boolean; onChanged: () => Promise<void> | void; embedded?: boolean;
+export function WineStrategySection({ wine, locale, canWrite, onChanged, onAllocatedChange, embedded = false }: {
+  wine: Wine;
+  locale: Locale;
+  canWrite: boolean;
+  onChanged: () => Promise<void> | void;
+  onAllocatedChange?: (allocated: number) => void;
+  embedded?: boolean;
 }) {
   const [allocations, setAllocations] = useState<WineStrategyAllocation[]>([]);
   const [editing, setEditing] = useState(false);
@@ -144,7 +149,9 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged, embedde
   const allocated = Object.values(quantities).reduce((total, quantity) => total + quantity, 0);
   const draftAllocated = Object.values(draftQuantities).reduce((total, quantity) => total + quantity, 0);
   async function load() {
-    setAllocations(await api<WineStrategyAllocation[]>(`/api/v1/intelligence/wines/${wine.id}/allocations`));
+    const next = await api<WineStrategyAllocation[]>(`/api/v1/intelligence/wines/${wine.id}/allocations`);
+    setAllocations(next);
+    onAllocatedChange?.(next.reduce((total, allocation) => total + allocation.quantity, 0));
   }
   useEffect(() => {
     setEditing(false);
@@ -188,6 +195,7 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged, embedde
         }),
       });
       setAllocations(next);
+      onAllocatedChange?.(next.reduce((total, allocation) => total + allocation.quantity, 0));
       setEditing(false);
       await onChanged();
     } catch (nextError) {
@@ -197,10 +205,10 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged, embedde
     }
   }
   return <details className={`detail-section wine-strategy-section${embedded ? " wine-strategy-section--embedded" : ""}`} data-wine-detail-section="04" tabIndex={-1} open={embedded || undefined}>
-    <summary className="wine-detail-structured-summary">
+    {!embedded ? <summary className="wine-detail-structured-summary">
       <div><span>04</span><strong>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</strong></div>
       <small>{allocated} / {wine.quantity}</small>
-    </summary>
+    </summary> : null}
     {editing ? <div className="wine-strategy-editor">
       <p className="consume-help">{locale === "it" ? "Distribuisci le bottiglie tra gli obiettivi. Puoi lasciare alcune bottiglie senza obiettivo." : "Distribute bottles across purposes. You can leave bottles without a purpose."}</p>
       <div className="detail-grid consume-grid">{STRATEGY_PURPOSES.map((purpose) => <label key={purpose}><span>{strategyPurposeLabel(purpose, locale)}</span><input type="number" min="0" max={wine.quantity} value={draftQuantities[purpose]} disabled={saving} onChange={(event) => setDraftQuantities((current) => ({ ...current, [purpose]: Math.max(0, Number(event.target.value) || 0) }))} /></label>)}</div>

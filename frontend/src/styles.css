@@ -20081,7 +20081,7 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
 .wine-editor-disclosure-toggle {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 12px;
 }
 
@@ -20102,6 +20102,7 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
 .wine-editor-disclosure-toggle > small {
   color: var(--text-muted);
   font-size: 0.7rem;
+  margin-left: auto;
   text-align: right;
 }
 
@@ -20150,6 +20151,10 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   display: grid;
   gap: 13px;
   padding: 14px;
+}
+
+.wine-editor-section-body.is-preloaded {
+  display: none;
 }
 
 .wine-editor-section-body.is-visible {

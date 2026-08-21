@@ -103,8 +103,8 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function mockApi(page: Page) {
-  await page.addInitScript(({ fixtureWine, fixtureSession }) => {
+async function mockApi(page: Page, strategyAllocations: unknown[] = []) {
+  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -113,7 +113,8 @@ async function mockApi(page: Page) {
       const path = url.pathname;
       let body: unknown = [];
       if (path.endsWith("/session")) body = fixtureSession;
-      else if (path.includes("/intelligence/wines/") || path.includes("/storage/allocations")) body = [];
+      else if (path.includes("/intelligence/wines/")) body = fixtureStrategyAllocations;
+      else if (path.includes("/storage/allocations")) body = [];
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
       else if (path.endsWith("/wines")) body = [fixtureWine];
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
@@ -128,13 +129,13 @@ async function mockApi(page: Page) {
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session });
+  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname;
     if (path.endsWith("/session")) return fulfillJson(route, session);
-    if (path.includes("/intelligence/wines/")) return fulfillJson(route, []);
+    if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
     if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
@@ -153,8 +154,8 @@ async function mockApi(page: Page) {
   await page.route("https://{a,b,c}.tile.openstreetmap.org/**", (route) => route.fulfill({ status: 204, body: "" }));
 }
 
-async function openWineDetail(page: Page) {
-  await mockApi(page);
+async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
+  await mockApi(page, strategyAllocations);
   await page.goto("/");
   await page.getByRole("button", { name: /^Cantina/ }).first().click();
   const wineRow = page.locator('[data-wine-row-id="wine-e2e-1"] article');
@@ -221,7 +222,15 @@ test.describe("Wine Detail compact/mobile", () => {
 
   test("keeps wine editor sections aligned with the detail view", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
-    await openWineDetail(page);
+    await openWineDetail(page, [{
+      id: "strategy-e2e-1",
+      wine_id: wine.id,
+      stock_lot_id: null,
+      purpose: "maturation",
+      quantity: 1,
+      horizon_year: null,
+      note: "",
+    }]);
     await page.getByRole("button", { name: "Modifica selezionato" }).click();
 
     const editor = page.locator(".wine-editor-form");
@@ -246,6 +255,18 @@ test.describe("Wine Detail compact/mobile", () => {
       return box?.y ?? -1;
     }));
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
+
+    const strategyToggle = editor.getByRole("button", { name: /Obiettivo in cantina/ });
+    const strategyCounter = strategyToggle.getByText("1 / 4", { exact: true });
+    const auditToggle = editor.getByRole("button", { name: /Audit AI/ });
+    const auditCounter = auditToggle.getByText("0", { exact: true });
+    await expect(strategyCounter).toBeVisible();
+    await expect(auditCounter).toBeVisible();
+    for (const [toggle, counter] of [[strategyToggle, strategyCounter], [auditToggle, auditCounter]]) {
+      const toggleBox = (await toggle.boundingBox())!;
+      const counterBox = (await counter.boundingBox())!;
+      expect(counterBox.x).toBeGreaterThan(toggleBox.x + toggleBox.width * 0.7);
+    }
 
     await editor.getByRole("button", { name: /Profilo e riconoscimenti/ }).click();
     await expect(editor.getByRole("heading", { name: "Punteggi" })).toBeVisible();
