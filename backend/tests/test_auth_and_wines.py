@@ -317,7 +317,9 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
                 text=json.dumps(
                     {
                         "overview": "Cantina ben allocata.",
-                        "immediate_action": "Valuta una delle due bottiglie da bere.",
+                        "immediate_action": (
+                            f"Classifica subito le 4 bottiglie {wine_id} per maturazione."
+                        ),
                         "risk_note": "Nessun rendimento è garantito.",
                         "recommendations": [
                             {"wine_id": wine_id, "action": "drink", "priority": "high", "quantity": 5, "reason": "Finestra aperta."},
@@ -352,6 +354,10 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
         ("reclassify", 3, "maturation"),
         ("decide", 1, "maturation"),
     ]
+    assert (
+        response.json()["immediate_action"]
+        == "Classifica subito le 4 bottiglie Sassicaia 2020 per maturazione."
+    )
     saved_plan = client.get("/api/v1/ai/cellar-intelligence/latest")
     assert saved_plan.status_code == 200, saved_plan.text
     assert saved_plan.json() == response.json()

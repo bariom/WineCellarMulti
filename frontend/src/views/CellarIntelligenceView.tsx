@@ -6,6 +6,7 @@ import "./CellarIntelligenceView.css";
 
 const PURPOSES: WineStrategyPurpose[] = ["drink", "maturation", "investment", "special_occasion", "undecided"];
 const PRIORITY_ORDER = { high: 0, medium: 1, low: 2 } as const;
+const WINE_ID_PATTERN = /\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b/gi;
 
 function BottleThumbnail({ wine, prominent = false }: { wine: CellarIntelligenceWine; prominent?: boolean }) {
   return <span className={`intelligence-bottle-thumbnail${prominent ? " prominent" : ""}`} aria-hidden="true">
@@ -80,6 +81,10 @@ export default function CellarIntelligenceView({
   useEffect(() => { void loadInitialData(); }, []);
 
   const wineNames = useMemo(() => new Map(snapshot?.wines.map((wine) => [wine.wine_id, wine]) || []), [snapshot]);
+  const displayPlanText = (value: string) => value.replace(WINE_ID_PATTERN, (wineId) => {
+    const wine = wineNames.get(wineId);
+    return wine ? [wine.name, wine.vintage].filter(Boolean).join(" ") : (it ? "questo vino" : "this wine");
+  });
   const drinkCandidates = snapshot?.wines.filter((wine) => wine.purposes.drink && ["ready", "peak", "late"].includes(wine.readiness)) || [];
   const decisionCandidates = snapshot?.wines.filter((wine) => wine.unallocated_quantity > 0) || [];
   const classifiedWines = useMemo(() => snapshot?.wines.filter((wine) => wine.allocated_quantity > 0) || [], [snapshot]);
@@ -315,16 +320,16 @@ export default function CellarIntelligenceView({
         </header>
         <section className="plan-first-action">
           <span className="plan-step-number">1</span>
-          <div><small>{it ? "DA FARE ADESSO" : "DO THIS NOW"}</small><strong>{plan.immediate_action}</strong></div>
+          <div><small>{it ? "DA FARE ADESSO" : "DO THIS NOW"}</small><strong>{displayPlanText(plan.immediate_action)}</strong></div>
         </section>
         <div className="plan-summary-grid">
-          <section><small>{it ? "STRATEGIA" : "STRATEGY"}</small><p>{plan.overview}</p></section>
+          <section><small>{it ? "STRATEGIA" : "STRATEGY"}</small><p>{displayPlanText(plan.overview)}</p></section>
           <div className="plan-metrics">
             <span><strong>{plan.recommendations.filter((item) => item.priority === "high").length}</strong><small>{it ? "alta priorità" : "high priority"}</small></span>
             <span><strong>{plan.recommendations.reduce((total, item) => total + item.quantity, 0)}</strong><small>{it ? "bottiglie coinvolte" : "bottles involved"}</small></span>
           </div>
         </div>
-        {plan.risk_note ? <aside className="plan-risk"><strong>{it ? "Da tenere presente" : "Keep in mind"}</strong><span>{plan.risk_note}</span></aside> : null}
+        {plan.risk_note ? <aside className="plan-risk"><strong>{it ? "Da tenere presente" : "Keep in mind"}</strong><span>{displayPlanText(plan.risk_note)}</span></aside> : null}
         {actionNotice ? <p className="intelligence-action-notice" role="status">{actionNotice}</p> : null}
         <div className="plan-recommendations-heading"><div><small>{it ? "AZIONI SUI VINI" : "WINE ACTIONS"}</small><h3>{it ? "Procedi in questo ordine" : "Follow this order"}</h3></div><span>{it ? "Apri il vino o applica direttamente la proposta" : "Open the wine or apply the suggestion directly"}</span></div>
         <div className="plan-recommendations">{[...plan.recommendations].sort((left, right) => PRIORITY_ORDER[left.priority] - PRIORITY_ORDER[right.priority]).map((item, index) => {
@@ -347,7 +352,7 @@ export default function CellarIntelligenceView({
             <button type="button" className="plan-recommendation-main" onClick={() => onOpenWine(item.wine_id)}>
               <span className="plan-recommendation-top"><strong>{index + 1}</strong><span className={`priority priority-${item.priority}`}>{item.priority === "high" ? (it ? "Alta" : "High") : item.priority === "medium" ? (it ? "Media" : "Medium") : (it ? "Bassa" : "Low")}</span></span>
               <span className="plan-recommendation-wine">{wine ? <BottleThumbnail wine={wine} prominent /> : null}<span><strong>{wine?.name || item.wine_id}</strong><small>{item.quantity} {item.quantity === 1 ? (it ? "bottiglia" : "bottle") : (it ? "bottiglie" : "bottles")} · {displayedActionLabel}</small></span></span>
-              <span>{item.reason}</span>
+              <span>{displayPlanText(item.reason)}</span>
             </button>
             <footer>
               <span className={`plan-action plan-action-${item.action}`}>{displayedActionLabel}</span>

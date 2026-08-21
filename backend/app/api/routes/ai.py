@@ -5612,6 +5612,32 @@ def cellar_intelligence_is_early_peak(wine: Any) -> bool:
     )
 
 
+CELLAR_INTELLIGENCE_WINE_ID_PATTERN = re.compile(
+    r"\b[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}\b", re.IGNORECASE
+)
+
+
+def cellar_intelligence_display_text(
+    value: object,
+    wines_by_id: dict[UUID, Any],
+    *,
+    locale: str,
+) -> str:
+    """Keep internal wine IDs out of prose returned by the AI."""
+    fallback = "questo vino" if locale == "it" else "this wine"
+
+    def replace_wine_id(match: re.Match[str]) -> str:
+        try:
+            wine = wines_by_id.get(UUID(match.group()))
+        except ValueError:
+            wine = None
+        if wine is None:
+            return fallback
+        return " ".join(part for part in (wine.name, wine.vintage) if part).strip() or fallback
+
+    return CELLAR_INTELLIGENCE_WINE_ID_PATTERN.sub(replace_wine_id, str(value or "").strip())
+
+
 @router.get(
     "/cellar-intelligence/latest",
     response_model=CellarIntelligencePlanResponse | None,
@@ -5855,7 +5881,9 @@ def generate_cellar_intelligence_plan(
                         if early_peak_reclassification and payload.locale == "it"
                         else "It is at the start of a long peak window: keep maturing it and reassess closer to the middle of the window."
                         if early_peak_reclassification
-                        else str(raw.get("reason") or "").strip()
+                        else cellar_intelligence_display_text(
+                            raw.get("reason"), known, locale=payload.locale
+                        )
                     ),
                     recommended_purpose=cast(Any, recommended_purpose or None),
                 )
@@ -5874,9 +5902,11 @@ def generate_cellar_intelligence_plan(
     plan = CellarIntelligencePlanResponse(
         model=model,
         reasoning_effort=response.reasoning_effort or "",
-        overview=str(result.get("overview") or "").strip(),
-        immediate_action=str(result.get("immediate_action") or "").strip(),
-        risk_note=str(result.get("risk_note") or "").strip(),
+        overview=cellar_intelligence_display_text(result.get("overview"), known, locale=payload.locale),
+        immediate_action=cellar_intelligence_display_text(
+            result.get("immediate_action"), known, locale=payload.locale
+        ),
+        risk_note=cellar_intelligence_display_text(result.get("risk_note"), known, locale=payload.locale),
         recommendations=recommendations,
         generated_at=datetime.now(UTC),
         estimated_cost_usd=charged_cost,
