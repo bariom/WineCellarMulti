@@ -203,6 +203,13 @@ STOP_WORDS = {
     "alle",
     "dei",
 }
+STORY_TERM_ALIASES = {
+    "masters": "master",
+    "sette": "7",
+    "seven": "7",
+    "nuovi": "new",
+    "nuove": "new",
+}
 ITALIAN_LANGUAGE_MARKERS = {
     "alla",
     "anche",
@@ -501,6 +508,39 @@ def story_cluster(title: str) -> str:
     return hashlib.sha256(signature.encode()).hexdigest()[:24]
 
 
+def story_terms(article: WineNewsArticle) -> set[str]:
+    """Return the stable, editorially-normalized terms of a news headline.
+
+    The Italian headline is preferred because it gives all sources a common
+    language after the editorial pass.  This deliberately stays lightweight:
+    the publication selector runs it locally and does not add an AI request.
+    """
+    headline = article.headline_it or article.headline_en or article.original_title
+    return {
+        STORY_TERM_ALIASES.get(token) or token
+        for token in re.findall(r"[a-z0-9Ã -Ã¿]{2,}", headline.casefold())
+        if token not in STOP_WORDS
+    }
+
+
+def is_same_story(article: WineNewsArticle, selected: WineNewsArticle) -> bool:
+    """Identify substantially overlapping editorial stories across sources.
+
+    Exact clusters still cover near-identical RSS titles.  The term-overlap
+    check catches differently worded reporting of the same announcement while
+    requiring at least three shared specific terms and half of the shorter
+    headline, so related but distinct articles remain eligible.
+    """
+    if article.story_cluster and article.story_cluster == selected.story_cluster:
+        return True
+    article_terms = story_terms(article)
+    selected_terms = story_terms(selected)
+    if not article_terms or not selected_terms:
+        return False
+    shared_terms = len(article_terms & selected_terms)
+    return shared_terms >= 3 and shared_terms / min(len(article_terms), len(selected_terms)) >= 0.5
+
+
 def deterministic_candidate(title: str, summary: str) -> bool:
     text = f"{title} {summary}".casefold()
     has_wine_term = any(re.search(rf"\b{re.escape(term)}\b", text) for term in WINE_TERMS)
@@ -676,18 +716,16 @@ def refresh_publication_selection(db: Session) -> list[WineNewsArticle]:
         article.status = "candidate"
     selected_articles: list[WineNewsArticle] = []
     source_counts: Counter[str] = Counter()
-    clusters: set[str] = set()
     limit = max(min(settings.wine_pulse_max_daily_articles, 30), 1)
     for article in recent:
         if len(selected_articles) >= limit:
             break
         if source_counts[article.source_id] >= 2:
             continue
-        if article.story_cluster and article.story_cluster in clusters:
+        if any(is_same_story(article, published) for published in selected_articles):
             continue
         article.status = "published"
         source_counts[article.source_id] += 1
-        clusters.add(article.story_cluster)
         selected_articles.append(article)
     return [article for article in selected_articles if article.id not in previously_published_ids]
 

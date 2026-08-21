@@ -125,7 +125,7 @@ def test_parse_rss_and_remove_tracking_parameters():
 
 
 def test_parse_wordpress_json_feed():
-    payload = b'''[
+    payload = b"""[
       {
         "link": "https://example.com/story?utm_source=wordpress",
         "title": {"rendered": "New <em>wine</em> release"},
@@ -133,7 +133,7 @@ def test_parse_wordpress_json_feed():
         "date_gmt": "2026-08-11T08:30:00",
         "_embedded": {"wp:featuredmedia": [{"source_url": "https://example.com/image.jpg"}]}
       }
-    ]'''
+    ]"""
 
     entries = parse_feed(payload, base_url="https://example.com/wp-json/wp/v2/posts")
 
@@ -329,6 +329,48 @@ def test_later_editions_use_a_seventy_two_hour_window():
         assert len(refresh_publication_selection(db)) == 1
         assert article.status == "published"
         assert older_article.status == "archived"
+
+
+def test_publication_selection_collapses_cross_source_rewrites_of_the_same_story():
+    with TestingSessionLocal() as db:
+        sources = [
+            WineNewsSource(
+                id=f"masters-source-{index}",
+                name=f"Masters journal {index}",
+                feed_url=f"https://example.com/masters-{index}-feed",
+                website_url="https://example.com",
+                language="it",
+                enabled=True,
+            )
+            for index in range(3)
+        ]
+        db.add_all(sources)
+        headlines = [
+            "Sette nuovi Master of Wine e una vendemmia inglese da record",
+            "Sette nuovi Masters of Wine: ecco chi sono",
+            "Sette nuovi Master of Wine portano a 11 la classe 2026",
+        ]
+        articles = [
+            WineNewsArticle(
+                source_id=source.id,
+                canonical_url=f"https://example.com/masters-{index}",
+                original_title=headline,
+                source_language="it",
+                source_published_at=datetime.now(UTC) - timedelta(hours=index),
+                content_fingerprint=f"masters-fingerprint-{index}",
+                importance_score=95 - index,
+                status="candidate",
+                headline_it=headline,
+                headline_en=headline,
+                ai_processed_at=datetime.now(UTC),
+            )
+            for index, (source, headline) in enumerate(zip(sources, headlines, strict=True))
+        ]
+        db.add_all(articles)
+        db.commit()
+
+        assert refresh_publication_selection(db) == [articles[0]]
+        assert [article.status for article in articles] == ["published", "candidate", "candidate"]
 
 
 def test_wine_pulse_notifications_are_localized_and_rate_limited():
