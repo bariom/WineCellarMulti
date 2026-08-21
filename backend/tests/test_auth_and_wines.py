@@ -397,6 +397,7 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     assert response.status_code == 200, response.text
     assert captured_request["max_output_tokens"] == ai_routes.CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS
     assert captured_request["max_output_tokens"] >= 8192
+    assert captured_request["timeout_seconds"] == ai_routes.CELLAR_INTELLIGENCE_TIMEOUT_SECONDS
     assert "Sassicaia" in captured_request["user_prompt"]
     assert "Wine outside selection" not in captured_request["user_prompt"]
     recommendations = response.json()["recommendations"]

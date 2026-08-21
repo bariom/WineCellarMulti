@@ -140,6 +140,7 @@ LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
 CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS = 8192
+CELLAR_INTELLIGENCE_TIMEOUT_SECONDS = 150
 MODEL_FIELDS = [
     "ai_notes_model",
     "drink_window_model",
@@ -5890,6 +5891,7 @@ def generate_cellar_intelligence_plan(
         # High reasoning effort and up to 12 structured recommendations can
         # exceed the former 2,200-token cap before the JSON object is closed.
         max_output_tokens=CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS,
+        timeout_seconds=CELLAR_INTELLIGENCE_TIMEOUT_SECONDS,
     )
     result = parse_json_response(response.text)
     known = {item.wine_id: item for item in candidates}
