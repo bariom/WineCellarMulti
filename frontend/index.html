@@ -8,14 +8,18 @@
     <meta name="robots" content="index, follow" />
     <meta name="keywords" content="cantina vino, wine cellar, cellar manager, sommelier AI, app vino, collezione vini, Ticino, Piemonte, Toscana, Bordeaux, Borgogna, Champagne, Rioja, Napa Valley" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Vinaris - Private Cellar Intelligence" />
-    <meta property="og:title" content="Vinaris - Private Cellar Intelligence" />
+    <meta name="author" content="Vinaris" />
+    <meta property="og:site_name" content="Vinaris" />
+    <meta property="og:locale" content="it_IT" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:title" content="Vinaris | Cantina digitale e sommelier AI per collezionisti" />
     <meta property="og:description" content="Sai cosa bere. Sai cosa aspettare. Gestisci la tua collezione di vini con maturità, valore e consigli costruiti sulla tua cantina." />
     <meta property="og:url" content="https://vinaris.app/" />
     <meta property="og:image" content="https://vinaris.app/landing/vinaris-demo-desktop-it.png" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Vinaris - Private Cellar Intelligence" />
     <meta name="twitter:description" content="Gestisci la tua collezione di vini e trova la bottiglia giusta al momento giusto." />
+    <meta name="twitter:image" content="https://vinaris.app/landing/vinaris-demo-desktop-it.png" />
     <link rel="alternate" hreflang="it" href="https://vinaris.app/?lang=it" />
     <link rel="alternate" hreflang="en" href="https://vinaris.app/?lang=en" />
     <link rel="alternate" hreflang="x-default" href="https://vinaris.app/" />
@@ -28,20 +32,33 @@
     <link rel="icon" href="/icons/icon-192.png" type="image/png" />
     <link rel="apple-touch-icon" href="/icons/icon-512.png" />
     <link rel="canonical" href="https://vinaris.app/" />
-    <title>Vinaris - Private Cellar Intelligence</title>
+    <title>Vinaris | Cantina digitale e sommelier AI per collezionisti</title>
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "SoftwareApplication",
-        "name": "Vinaris - Private Cellar Intelligence",
-        "alternateName": "Vinaris",
-        "url": "https://vinaris.app/",
-        "applicationCategory": "LifestyleApplication",
-        "operatingSystem": "Web",
-        "description": "Private cellar intelligence for wine collectors.",
-        "offers": [
-          { "@type": "Offer", "price": "6", "priceCurrency": "CHF", "description": "Monthly access" },
-          { "@type": "Offer", "price": "60", "priceCurrency": "CHF", "description": "Annual access" }
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://vinaris.app/#organization",
+            "name": "Vinaris",
+            "url": "https://vinaris.app/",
+            "logo": "https://vinaris.app/icons/icon-512.png"
+          },
+          {
+            "@type": "SoftwareApplication",
+            "name": "Vinaris",
+            "alternateName": "Private Cellar Intelligence",
+            "url": "https://vinaris.app/",
+            "applicationCategory": "LifestyleApplication",
+            "operatingSystem": "Web",
+            "inLanguage": ["it", "en"],
+            "description": "Cantina digitale per collezionisti di vino: bottiglie, maturità, valore, degustazioni e sommelier AI.",
+            "publisher": { "@id": "https://vinaris.app/#organization" },
+            "offers": [
+              { "@type": "Offer", "price": "6", "priceCurrency": "CHF", "description": "Monthly access" },
+              { "@type": "Offer", "price": "60", "priceCurrency": "CHF", "description": "Annual access" }
+            ]
+          }
         ]
       }
     </script>

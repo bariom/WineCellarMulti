@@ -2772,7 +2772,13 @@ export function App() {
       window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);
     }
     const loader = stripeCheckoutResult === "success" ? refreshAfterStripeCheckout() : loadData();
-    loader.catch((nextError) => setError(nextError instanceof Error ? nextError.message : "Unable to load data"));
+    loader.catch((nextError) => {
+      const nextMessage = nextError instanceof Error ? nextError.message : "Unable to load data";
+      if (isConnectivityError(nextMessage)) {
+        setShowOfflineBackupPanel(true);
+      }
+      setError(nextMessage);
+    });
   }, []);
 
   useEffect(() => {
@@ -9442,7 +9448,7 @@ export function App() {
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
                 {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
                 {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="newspaper" variant="premium" detailLevel="rich" />Wine Pulse</button>
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
               </div> : null}

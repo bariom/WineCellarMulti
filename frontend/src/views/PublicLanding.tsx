@@ -127,10 +127,12 @@ export default function PublicLanding({
     ensureMeta("og:title", dynamicCopy.meta.title, true);
     ensureMeta("og:description", dynamicCopy.meta.description, true);
     ensureMeta("og:type", "website", true);
+    ensureMeta("og:locale", locale === "it" ? "it_IT" : "en_US", true);
     ensureMeta("og:url", "https://vinaris.app/", true);
     ensureMeta("og:image", `https://vinaris.app${desktopDemoImage}`, true);
     ensureMeta("twitter:title", copy.meta.title);
     ensureMeta("twitter:description", copy.meta.description);
+    ensureMeta("twitter:image", `https://vinaris.app${desktopDemoImage}`);
     let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
     if (!canonical) {
       canonical = document.createElement("link");
