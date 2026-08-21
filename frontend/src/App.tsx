@@ -6154,6 +6154,7 @@ export function App() {
     missingDrinkWindow: cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to)).length,
     missingGrapes: cellarWines.filter((wine) => wine.grapes.length === 0 && !wine.grapes_not_applicable).length,
     missingScores: cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable).length,
+    missingCellarPurpose: cellarWines.filter((wine) => !(wine.strategy_purposes || []).length).length,
     aiNotes: cellarWines.filter((wine) => wine.ai_notes || wine.ai_value_notes).length,
   };
   const portfolioValuePoints = portfolioValueHistory
@@ -6219,8 +6220,8 @@ export function App() {
   const valueByRegion = topWineValueGroups(cellarWines, "region");
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
   const winesByRegion = topWineCountGroups(cellarWines, "region");
-  const cellarMissingDataCount = cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores;
-  const cellarDataCheckCount = Math.max(cellarWines.length * 4, 1);
+  const cellarMissingDataCount = cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores + cellarStats.missingCellarPurpose;
+  const cellarDataCheckCount = Math.max(cellarWines.length * 5, 1);
   const cellarDataCompleteness = Math.round(Math.max(0, Math.min(100, ((cellarDataCheckCount - cellarMissingDataCount) / cellarDataCheckCount) * 100)));
   const cellarAiReadiness = cellarWines.length
     ? Math.round(Math.max(0, Math.min(100, (cellarStats.aiNotes / cellarWines.length) * 100)))
@@ -6230,6 +6231,7 @@ export function App() {
     { label: t("missingDrinkWindow"), count: cellarStats.missingDrinkWindow },
     { label: t("missingGrapes"), count: cellarStats.missingGrapes },
     { label: t("missingScores"), count: cellarStats.missingScores },
+    { label: t("missingCellarPurpose"), count: cellarStats.missingCellarPurpose },
   ];
   const breakdownWines = breakdownDrilldown
     ? cellarWines.filter((wine) => wineGroupValue(wine, breakdownDrilldown.dimension) === breakdownDrilldown.label)
@@ -6346,17 +6348,18 @@ export function App() {
     total: deliveryTimelineItems.length,
   };
   const incompleteWines = cellarWines
-    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || (wine.grapes.length === 0 && !wine.grapes_not_applicable))
+    .filter((wine) => !wine.current_value || !wine.drink_from || !wine.drink_to || (wine.scores.length === 0 && !wine.scores_not_applicable) || (wine.grapes.length === 0 && !wine.grapes_not_applicable) || !(wine.strategy_purposes || []).length)
     .sort((first, second) => {
-      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0 && !first.scores_not_applicable) + Number(first.grapes.length === 0 && !first.grapes_not_applicable);
-      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0 && !second.scores_not_applicable) + Number(second.grapes.length === 0 && !second.grapes_not_applicable);
+      const firstMissing = Number(!first.current_value) + Number(!first.drink_from || !first.drink_to) + Number(first.scores.length === 0 && !first.scores_not_applicable) + Number(first.grapes.length === 0 && !first.grapes_not_applicable) + Number(!(first.strategy_purposes || []).length);
+      const secondMissing = Number(!second.current_value) + Number(!second.drink_from || !second.drink_to) + Number(second.scores.length === 0 && !second.scores_not_applicable) + Number(second.grapes.length === 0 && !second.grapes_not_applicable) + Number(!(second.strategy_purposes || []).length);
       return secondMissing - firstMissing;
     })
     .slice(0, 5);
   const incompleteCellarWineCount = cellarWines.filter(
     (wine) => !wine.current_value || !wine.drink_from || !wine.drink_to
       || (wine.scores.length === 0 && !wine.scores_not_applicable)
-      || (wine.grapes.length === 0 && !wine.grapes_not_applicable),
+      || (wine.grapes.length === 0 && !wine.grapes_not_applicable)
+      || !(wine.strategy_purposes || []).length,
   ).length;
   const peakNowWines = cellarWines
     .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
@@ -6800,17 +6803,20 @@ export function App() {
   const allMissingDrinkWindowWines = cellarWines.filter((wine) => hasVintageForDrinkWindow(wine) && (!wine.drink_from || !wine.drink_to));
   const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0 && !wine.grapes_not_applicable);
   const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable);
+  const allMissingCellarPurposeWines = cellarWines.filter((wine) => !(wine.strategy_purposes || []).length);
   const missingValueWines = allMissingValueWines.slice(0, 5);
   const valueRefreshWines = allValueRefreshWines.slice(0, 5);
   const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
   const missingGrapesWines = allMissingGrapesWines.slice(0, 5);
   const missingScoresWines = allMissingScoresWines;
+  const missingCellarPurposeWines = allMissingCellarPurposeWines.slice(0, 5);
   const dataQualityChartSegments = [
     { key: "complete", label: locale === "it" ? "Completi" : "Complete", icon: "status-delivered" as AppIconName, count: Math.max(cellarDataCheckCount - cellarMissingDataCount, 0), color: "#46745d" },
     { key: "window", label: t("missingDrinkWindow"), icon: "calendar" as AppIconName, count: allMissingDrinkWindowWines.length, color: "#a58a58" },
     { key: "value", label: t("missingValue"), icon: "chart" as AppIconName, count: allMissingValueWines.length, color: "#748073" },
     { key: "grapes", label: t("missingGrapes"), icon: "grapes" as AppIconName, count: allMissingGrapesWines.length, color: "#ad9561" },
     { key: "scores", label: t("missingScores"), icon: "star" as AppIconName, count: allMissingScoresWines.length, color: "#875766" },
+    { key: "purpose", label: t("missingCellarPurpose"), icon: "assistant" as AppIconName, count: allMissingCellarPurposeWines.length, color: "#596f8e" },
   ];
   let dataQualityChartCursor = 0;
   const dataQualityChartGradient = dataQualityChartSegments
@@ -6826,6 +6832,7 @@ export function App() {
     ...allMissingDrinkWindowWines,
     ...allMissingGrapesWines,
     ...allMissingScoresWines,
+    ...allMissingCellarPurposeWines,
   ].map((wine) => wine.id)).size;
   const maxRegionValue = Math.max(...valueByRegion.map((item) => item.value), 1);
   const maxProducerValue = Math.max(...valueByProducer.map((item) => item.value), 1);
@@ -10266,7 +10273,7 @@ export function App() {
                     {incompleteWines.length ? incompleteWines.map((wine) => (
                       <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                         <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                        <strong>{!wine.current_value ? t("value") : !wine.drink_from || !wine.drink_to ? t("drinkWindow") : wine.scores.length === 0 && !wine.scores_not_applicable ? t("scores") : t("grapes")}</strong>
+                        <strong>{!wine.current_value ? t("value") : !wine.drink_from || !wine.drink_to ? t("drinkWindow") : wine.scores.length === 0 && !wine.scores_not_applicable ? t("scores") : wine.grapes.length === 0 && !wine.grapes_not_applicable ? t("grapes") : t("missingCellarPurpose")}</strong>
                       </button>
                     )) : <p className="empty-state">{t("noActionItems")}</p>}
                   </div>
@@ -10749,6 +10756,28 @@ export function App() {
                               {t("noScoresNeeded")}
                             </button>
                           </div>
+                        </div>
+                      )) : <p className="empty-state">{t("noActionItems")}</p>}
+                    </div>
+                  </article>
+                  <article className="dashboard-card">
+                    <div className="card-heading">
+                      <div>
+                        <span>{t("missingCellarPurpose")}</span>
+                        <h2><i className="dashboard-section-icon" aria-hidden="true"><AppIcon name="assistant" /></i>{locale === "it" ? "Obiettivo cantina" : "Cellar purpose"}</h2>
+                      </div>
+                      <strong>{cellarStats.missingCellarPurpose}</strong>
+                    </div>
+                    <p className="dashboard-card-intro">{locale === "it" ? "Assegna un obiettivo per includere il vino nella lettura strategica della cantina." : "Assign a purpose to include the wine in your cellar’s strategic view."}</p>
+                    <div className="action-list">
+                      {missingCellarPurposeWines.length ? missingCellarPurposeWines.map((wine) => (
+                        <div className="action-row data-quality-row" key={wine.id}>
+                          <button type="button" className="row-open-action" onClick={() => openWineFromDashboard(wine)}>
+                            <i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}
+                          </button>
+                          <button type="button" className="secondary compact" onClick={() => openWineFromDashboard(wine)}>
+                            {locale === "it" ? "Assegna" : "Assign"}
+                          </button>
                         </div>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>

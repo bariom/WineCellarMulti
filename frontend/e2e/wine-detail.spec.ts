@@ -200,6 +200,18 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.getByRole("heading", { name: "Nebbiolo di Test", exact: true }).first()).toBeVisible();
   });
 
+  test("includes cellar purpose in data quality", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page);
+    await page.goto("/");
+    await page.locator(".dashboard-analysis-switcher > summary").click();
+    await page.getByRole("tab", { name: "Qualità dati", exact: true }).click();
+
+    const qualityCard = page.getByRole("heading", { name: "Obiettivo cantina", exact: true }).locator("..").locator("..").locator("..");
+    await expect(qualityCard.getByText("Obiettivo cantina mancante", { exact: true })).toBeVisible();
+    await expect(qualityCard.getByRole("button", { name: "Assegna", exact: true })).toBeVisible();
+  });
+
   test("keeps the expanded wine editor above the cellar list", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await openWineDetail(page);
