@@ -203,6 +203,10 @@ export function aiOverlayMessage(mode: string, t: (key: TranslationKey) => strin
       return t("aiMagicBuying");
     case "compare":
       return t("aiMagicCompare");
+    case "cellar-intelligence":
+      return t("aiMagicCellarIntelligence");
+    case "cellar-intelligence-selection":
+      return t("aiMagicCellarIntelligenceSelection");
     default:
       return t("aiMagicHint");
   }
@@ -235,6 +239,10 @@ export function aiOverlayLabel(mode: string, t: (key: TranslationKey) => string)
       return t("aiMagicLabelBuying");
     case "compare":
       return t("aiMagicLabelCompare");
+    case "cellar-intelligence":
+      return t("aiMagicLabelCellarIntelligence");
+    case "cellar-intelligence-selection":
+      return t("aiMagicLabelCellarIntelligenceSelection");
     default:
       return "Vinaris AI";
   }

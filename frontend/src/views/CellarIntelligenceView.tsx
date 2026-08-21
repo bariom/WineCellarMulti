@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { AiGenerationOverlay } from "../components/AppUi";
+import { translate } from "../i18n";
 import type { CellarIntelligencePlan, CellarIntelligencePreferences, CellarIntelligenceSnapshot, CellarIntelligenceWine, Locale, WineStrategyPurpose } from "../types";
 import { api } from "../services/api";
 import "./CellarIntelligenceView.css";
@@ -46,6 +48,7 @@ export default function CellarIntelligenceView({
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [generationScope, setGenerationScope] = useState<"cellar" | "selection">("cellar");
   const [applyingRecommendation, setApplyingRecommendation] = useState("");
   const [appliedRecommendations, setAppliedRecommendations] = useState<Set<string>>(() => new Set());
   const [editingRecommendation, setEditingRecommendation] = useState("");
@@ -211,6 +214,7 @@ export default function CellarIntelligenceView({
 
   async function generatePlan(wineIds: string[] = []) {
     setGenerating(true);
+    setGenerationScope(wineIds.length ? "selection" : "cellar");
     setError("");
     setActionNotice("");
     setAppliedRecommendations(new Set());
@@ -228,6 +232,7 @@ export default function CellarIntelligenceView({
         : message);
     } finally {
       setGenerating(false);
+      setGenerationScope("cellar");
     }
   }
 
@@ -621,6 +626,7 @@ export default function CellarIntelligenceView({
           <footer><button type="button" className="secondary" onClick={() => { setEditing(null); setEditingRecommendation(""); }}>{it ? "Annulla" : "Cancel"}</button><button type="button" disabled={saving} onClick={saveAllocations}>{saving ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva obiettivi" : "Save purposes")}</button></footer>
         </section>
       </div> : null}
+      {generating ? <AiGenerationOverlay mode={generationScope === "selection" ? "cellar-intelligence-selection" : "cellar-intelligence"} t={(key) => translate(locale, key)} locale={locale} progress={null} /> : null}
     </section>
   );
 }

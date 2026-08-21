@@ -163,8 +163,8 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function mockApi(page: Page, strategyAllocations: unknown[] = []) {
-  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan }) => {
+async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false) {
+  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -188,11 +188,11 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = []) {
       else if (path.includes("billing")) body = { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" };
       else if (path.includes("household/memberships")) body = [{ membership_id: "membership-e2e", household_id: "household-e2e", household_name: "Cantina E2E", role: "owner", operating_mode: "private" }];
       else if (path.includes("audit") || path.includes("tags") || path.includes("agreements") || path.includes("share-offers") || path.includes("share-offer") || path.includes("invites") || path.includes("recipients")) body = [];
-      else if (path.includes("ai/settings")) body = { provider_mode: "application", ai_notes_model: "", drink_window_model: "", value_model: "", grape_model: "", score_model: "", wishlist_model: "", model_advisor_enabled: false, pairing_preferences: "", pairing_candidate_limit: 5 };
+      else if (path.includes("ai/settings")) body = { provider_mode: fixtureAiEnabled ? "auto" : "application", has_openai_api_key: false, can_use_app_credits: fixtureAiEnabled, ai_notes_model: "", drink_window_model: "", value_model: "", grape_model: "", score_model: "", wishlist_model: "", model_advisor_enabled: false, pairing_preferences: "", pairing_candidate_limit: 5 };
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan });
+  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -324,6 +324,32 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.getByLabel("Filtra per produttore")).toBeVisible();
     await expect(page.getByLabel("Filtra per regione")).toBeVisible();
     await expect(page.getByLabel("Filtra per tipologia")).toBeVisible();
+  });
+
+  test("shows the AI animation while generating a cellar plan", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page, [], true);
+    await page.addInitScript((fixturePlan) => {
+      const currentFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(requestUrl, window.location.origin);
+        if (url.pathname === "/api/v1/ai/cellar-intelligence" && init?.method === "POST") {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          return new Response(JSON.stringify(fixturePlan), { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        return currentFetch(input, init);
+      };
+    }, intelligencePlan);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+
+    await page.getByRole("button", { name: "Analizza la cantina con AI", exact: true }).click();
+    const overlay = page.locator(".ai-generation-overlay");
+    await expect(overlay).toBeVisible();
+    await expect(overlay.getByText("Piano della cantina", { exact: true })).toBeVisible();
+    await expect(overlay.getByText("Sto analizzando l'intera cantina: obiettivi delle bottiglie, finestre di beva, valori e qualità dei dati.", { exact: true })).toBeVisible();
+    await expect(overlay).toBeHidden();
   });
 
   test("keeps the expanded wine editor above the cellar list", async ({ page }) => {
