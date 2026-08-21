@@ -35,7 +35,9 @@ secrets, or raw AI prompts in responses or logs. Document configuration in
 .env.example; keep real .env files untracked.
 
 Database changes require a new Alembic migration. Never edit an applied
-migration or rewrite production data in a route handler.
+migration or rewrite production data in a route handler. Alembic revision IDs
+must be 32 characters or fewer: production `alembic_version.version_num` is
+`varchar(32)`.
 
 Preserve API schemas and frontend type contracts together. A backend
 response change normally requires review of frontend/src/types.ts and the
