@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.models import AiAuditLog, SharedWineFact, SharedWineIdentity, Wine
 
 SHARED_FEATURES = ("notes", "drink_window", "value", "grapes", "scores")
+LOCAL_FEATURE_PREFIX = "local:"
 LOCALE_FEATURES = {"notes", "drink_window", "value"}
 FORMAT_FEATURES = {"drink_window", "value"}
 VALUE_TTL = timedelta(days=14)
@@ -170,7 +171,13 @@ def publish_shared_fact(
 
 
 def mark_shared_feature(wine: Wine, feature: str) -> None:
-    features = [item for item in (wine.shared_data_features or []) if item in SHARED_FEATURES]
+    local_marker = f"{LOCAL_FEATURE_PREFIX}{feature}"
+    features = [
+        item
+        for item in (wine.shared_data_features or [])
+        if (item in SHARED_FEATURES or item.startswith(LOCAL_FEATURE_PREFIX))
+        and item != local_marker
+    ]
     if feature not in features:
         features.append(feature)
     wine.shared_data_features = features
@@ -178,9 +185,16 @@ def mark_shared_feature(wine: Wine, feature: str) -> None:
 
 
 def mark_local_feature(wine: Wine, feature: str) -> None:
-    wine.shared_data_features = [
-        item for item in (wine.shared_data_features or []) if item != feature
+    if feature not in SHARED_FEATURES:
+        return
+    local_marker = f"{LOCAL_FEATURE_PREFIX}{feature}"
+    features = [
+        item
+        for item in (wine.shared_data_features or [])
+        if item != feature and item != local_marker
     ]
+    features.append(local_marker)
+    wine.shared_data_features = features
 
 
 def apply_shared_fact(wine: Wine, fact: SharedWineFact, *, only_missing: bool) -> bool:
@@ -266,6 +280,8 @@ def hydrate_wine_from_shared(db: Session, wine: Wine, *, locale: str) -> list[st
     db.flush()
     applied: list[str] = []
     for feature in SHARED_FEATURES:
+        if f"{LOCAL_FEATURE_PREFIX}{feature}" in (wine.shared_data_features or []):
+            continue
         if feature == "grapes" and wine.grapes_not_applicable:
             continue
         if feature == "scores" and wine.scores_not_applicable:

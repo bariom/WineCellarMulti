@@ -63,6 +63,7 @@ from app.services.bottle_photo_ai import (
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.notifications import create_user_notification
 from app.services.shared_wine_data import (
+    SHARED_FEATURES,
     hydrate_wine_from_shared,
     mark_local_feature,
     resolve_shared_identity,
@@ -292,7 +293,15 @@ def wine_response(
 ) -> WineResponse:
     if include_details:
         response = WineResponse.model_validate(wine)
-        response = response.model_copy(update={"details_loaded": True, **photo_urls(wine)})
+        response = response.model_copy(
+            update={
+                "details_loaded": True,
+                "shared_data_features": [
+                    feature for feature in (wine.shared_data_features or []) if feature in SHARED_FEATURES
+                ],
+                **photo_urls(wine),
+            }
+        )
         if storage_allocations is not None:
             response = response.model_copy(update={"storage_allocations": storage_allocations})
         if strategy_purposes is not None:
@@ -306,7 +315,9 @@ def wine_response(
     return WineResponse(
         id=wine.id,
         details_loaded=False,
-        shared_data_features=wine.shared_data_features or [],
+        shared_data_features=[
+            feature for feature in (wine.shared_data_features or []) if feature in SHARED_FEATURES
+        ],
         shared_data_updated_at=wine.shared_data_updated_at,
         household_id=wine.household_id,
         name=wine.name,

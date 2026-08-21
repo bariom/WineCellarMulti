@@ -7038,6 +7038,52 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
     ]
 
 
+def test_manual_score_deletion_is_not_restored_from_shared_data():
+    from app.services.shared_wine_data import publish_shared_fact
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Manual score override",
+            "producer": "Example Producer",
+            "vintage": "2019",
+            "quantity": 1,
+            "price": 70,
+        },
+    )
+    assert created.status_code == 201
+    wine_id = uuid.UUID(created.json()["id"])
+
+    with TestingSessionLocal() as db:
+        wine = db.get(Wine, wine_id)
+        assert wine is not None
+        publish_shared_fact(
+            db,
+            wine,
+            "scores",
+            {"scores": [{"critic": "Shared Critic", "score": "95", "note": "Verified"}]},
+        )
+        db.commit()
+
+    hydrated = client.get(f"/api/v1/wines/{wine_id}")
+    assert hydrated.status_code == 200
+    assert hydrated.json()["scores"] == [
+        {"critic": "Shared Critic", "score": "95", "note": "Verified"}
+    ]
+
+    cleared = client.patch(f"/api/v1/wines/{wine_id}", json={"scores": []})
+    assert cleared.status_code == 200
+    assert cleared.json()["scores"] == []
+    assert cleared.json()["scores_not_applicable"] is False
+    assert "local:scores" not in cleared.json()["shared_data_features"]
+
+    reopened = client.get(f"/api/v1/wines/{wine_id}")
+    assert reopened.status_code == 200
+    assert reopened.json()["scores"] == []
+
+
 def test_ai_scores_excludes_wine_when_no_scores_are_found(monkeypatch):
     from app.api.routes import ai as ai_routes
 
