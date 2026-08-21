@@ -11,6 +11,7 @@ const wine = {
   vintage: "2019",
   quantity: 4,
   storage_allocations: [],
+  strategy_purposes: [],
   currency: "CHF",
   price: "42.00",
   sale_price: "55.00",
@@ -216,6 +217,45 @@ test.describe("Wine Detail compact/mobile", () => {
       const box = expandedEditor.getBoundingClientRect();
       return document.elementFromPoint(box.left + 20, box.top + 20)?.closest(".wine-editor-form") === expandedEditor;
     })).toBe(true);
+  });
+
+  test("keeps wine editor sections aligned with the detail view", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openWineDetail(page);
+    await page.getByRole("button", { name: "Modifica selezionato" }).click();
+
+    const editor = page.locator(".wine-editor-form");
+    await expect(editor).toBeVisible();
+    const sectionKeys = ["identity", "value", "profile", "strategy", "stock", "history", "audit"];
+    const sectionTitles = [
+      "Identità e disponibilità",
+      "Prezzi e valore",
+      "Profilo e riconoscimenti",
+      "Obiettivo in cantina",
+      "Giacenza e acquisti",
+      "Note e storia",
+      "Audit AI",
+    ];
+
+    for (const title of sectionTitles) await expect(editor.getByText(title, { exact: true })).toBeVisible();
+    for (const [index, key] of sectionKeys.entries()) {
+      await expect(editor.locator(`[data-wine-editor-section="${key}"]`).getByText(String(index + 1).padStart(2, "0"), { exact: true }).first()).toBeVisible();
+    }
+    const positions = await Promise.all(sectionKeys.map(async (key) => {
+      const box = await editor.locator(`[data-wine-editor-section="${key}"]`).boundingBox();
+      return box?.y ?? -1;
+    }));
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+
+    await editor.getByRole("button", { name: /Profilo e riconoscimenti/ }).click();
+    await expect(editor.getByRole("heading", { name: "Punteggi" })).toBeVisible();
+    await expect(editor.getByText("Tag", { exact: true }).first()).toBeVisible();
+    await editor.getByRole("button", { name: /Profilo e riconoscimenti/ }).click();
+
+    for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
+      await page.setViewportSize(viewport);
+      expect(await editor.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
   });
 
   test("keeps the mobile layout free of horizontal overflow at supported widths", async ({ page }) => {

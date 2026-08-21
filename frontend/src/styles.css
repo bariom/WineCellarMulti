@@ -20539,6 +20539,24 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   white-space: normal;
 }
 
+.wine-editor-section--identity { order: 1; }
+.wine-editor-section--value { order: 2; }
+.wine-editor-section--profile { order: 3; }
+.wine-editor-section--strategy { order: 4; }
+.wine-editor-section--stock { order: 5; }
+.wine-editor-section--history { order: 6; }
+.wine-editor-section--audit { order: 7; }
+
+.wine-editor-section--strategy .wine-strategy-section--embedded {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.wine-editor-section--strategy .wine-strategy-section--embedded > summary {
+  display: none;
+}
+
 .key-position-title--medium,
 .key-position-title--long {
   max-height: 1.96em;

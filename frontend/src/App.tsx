@@ -19,7 +19,7 @@ import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNu
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
 import { wineToDraft, draftPayload, wishlistToDraft, wishlistPayload } from "./domain/drafts";
 import { tokenFromUrl, stripeCheckoutResultFromUrl, emailVerificationResultFromUrl, emailVerificationTokenFromUrl, passwordResetTokenFromUrl, coOwnershipTokenFromUrl, STRIPE_CHECKOUT_PLAN_KEY, STRIPE_CHECKOUT_BALANCE_KEY, inviteLink } from "./utils/location";
-import { CellarStorageManager, WineLocationPicker } from "./components/StoragePanels";
+import { CellarStorageManager, WineLocationPicker, WineStrategySection } from "./components/StoragePanels";
 import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
@@ -1422,11 +1422,12 @@ export function App() {
   const [aiModelAdvice, setAiModelAdvice] = useState<AiModelAdviceState | null>(null);
   const [draft, setDraft] = useState<WineDraft>(emptyDraft);
   const [openWineEditorSections, setOpenWineEditorSections] = useState<{
-    logistics?: boolean;
     value?: boolean;
     profile?: boolean;
-    scores?: boolean;
-    tags?: boolean;
+    strategy?: boolean;
+    stock?: boolean;
+    history?: boolean;
+    audit?: boolean;
   }>({});
   const [wishlistDraft, setWishlistDraft] = useState<WishlistDraft>(emptyWishlistDraft);
   const [authDraft, setAuthDraft] = useState<AuthDraft>(emptyAuthDraft);
@@ -5628,7 +5629,7 @@ export function App() {
 
   useEffect(() => {
     if (!wineFormOpen || !isWineCollectionView) return;
-    const sectionKeys = ["identity", "logistics", "value", "profile", "scores", "tags"] as const;
+    const sectionKeys = ["identity", "value", "profile", "strategy", "stock", "history", "audit"] as const;
     type SectionKey = typeof sectionKeys[number];
     const moveToSection = (key: SectionKey) => {
       if (key !== "identity") setOpenWineEditorSections({ [key]: true });
@@ -11085,10 +11086,10 @@ export function App() {
                   </div>
                 ) : null}
                 </section>
-                <section className="wine-editor-section wine-editor-essential" data-wine-editor-section="identity" tabIndex={-1}>
+                <section className="wine-editor-section wine-editor-essential wine-editor-section--identity" data-wine-editor-section="identity" tabIndex={-1}>
                   <div className="wine-editor-section-heading">
-                    <div><span>01</span><strong>{locale === "it" ? "Identità del vino" : "Wine identity"}</strong></div>
-                    <small>{locale === "it" ? "Nome, origine e quantità" : "Name, origin and quantity"}</small>
+                    <div><span>01</span><strong>{locale === "it" ? "Identità e disponibilità" : "Identity and availability"}</strong></div>
+                    <small>{locale === "it" ? "Formato, tipologia, acquisto e giacenza" : "Format, type, purchase and stock"}</small>
                   </div>
                 <label>
                   <span>{t("name")}</span>
@@ -11212,12 +11213,12 @@ export function App() {
                   <small className="form-hint">{locale === "it" ? "Lascia vuoto il picco per usare l'intera finestra come periodo ideale. Per rimuovere la finestra, svuota gli anni e salva." : "Leave the peak empty to use the entire window as the ideal period. Clear the years and save to remove it."}</small>
                 </div>
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.logistics ? "is-open" : ""}`} data-wine-editor-section="logistics">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+2" aria-expanded={Boolean(openWineEditorSections.logistics)} onClick={() => setOpenWineEditorSections((current) => current.logistics ? {} : { logistics: true })}>
-                    <div><span>02</span><strong>{locale === "it" ? "Logistica" : "Logistics"}</strong></div>
-                    <small>{isRestaurant ? (locale === "it" ? "Stato, carta, riordino e consegna" : "Status, wine list, reorder and delivery") : (locale === "it" ? "Stato e consegna" : "Status and delivery")}</small>
+                <section className={`wine-editor-section wine-editor-section--stock wine-editor-disclosure ${openWineEditorSections.stock ? "is-open" : ""}`} data-wine-editor-section="stock">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+5" aria-expanded={Boolean(openWineEditorSections.stock)} onClick={() => setOpenWineEditorSections((current) => current.stock ? {} : { stock: true })}>
+                    <div><span>05</span><strong>{locale === "it" ? "Giacenza e acquisti" : "Stock and purchases"}</strong></div>
+                    <small>{locale === "it" ? "Posizione, lotti e costi" : "Location, lots and costs"}</small>
                   </button>
-                  {openWineEditorSections.logistics ? <div className="wine-editor-section-body is-visible">
+                  {openWineEditorSections.stock ? <div className="wine-editor-section-body is-visible">
                 <div className="form-row">
                   <label>
                     <span>{t("status")}</span>
@@ -11280,10 +11281,10 @@ export function App() {
                 </> : null}
                   </div> : null}
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+3" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
-                    <div><span>03</span><strong>{locale === "it" ? "Prezzi e valore" : "Prices and value"}</strong></div>
-                    <small>{isRestaurant ? (locale === "it" ? "Fornitore, costi, prezzi di carta e mescita" : "Merchant, costs, wine-list prices and by-the-glass service") : (locale === "it" ? "Commerciante, valuta, costo e valore attuale" : "Merchant, currency, cost and current value")}</small>
+                <section className={`wine-editor-section wine-editor-section--value wine-editor-disclosure ${openWineEditorSections.value ? "is-open" : ""}`} data-wine-editor-section="value">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+2" aria-expanded={Boolean(openWineEditorSections.value)} onClick={() => setOpenWineEditorSections((current) => current.value ? {} : { value: true })}>
+                    <div><span>02</span><strong>{locale === "it" ? "Prezzi e valore" : "Prices and value"}</strong></div>
+                    <small>{locale === "it" ? "Costo d'acquisto e andamento del valore" : "Purchase cost and value history"}</small>
                   </button>
                   {openWineEditorSections.value ? <div className="wine-editor-section-body is-visible">
                     <div className="form-row">
@@ -11321,16 +11322,12 @@ export function App() {
                     </div> : null}
                   </div> : null}
                 </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.profile ? "is-open" : ""}`} data-wine-editor-section="profile">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+4" aria-expanded={Boolean(openWineEditorSections.profile)} onClick={() => setOpenWineEditorSections((current) => current.profile ? {} : { profile: true })}>
-                    <div><span>04</span><strong>{locale === "it" ? "Profilo del vino" : "Wine profile"}</strong></div>
-                    <small>{locale === "it" ? "Note e uvaggi" : "Notes and grapes"}</small>
+                <section className={`wine-editor-section wine-editor-section--profile wine-editor-disclosure ${openWineEditorSections.profile ? "is-open" : ""}`} data-wine-editor-section="profile">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+3" aria-expanded={Boolean(openWineEditorSections.profile)} onClick={() => setOpenWineEditorSections((current) => current.profile ? {} : { profile: true })}>
+                    <div><span>03</span><strong>{locale === "it" ? "Profilo e riconoscimenti" : "Profile and ratings"}</strong></div>
+                    <small>{locale === "it" ? "Uvaggi, punteggi e tag" : "Grapes, scores and tags"}</small>
                   </button>
                   {openWineEditorSections.profile ? <div className="wine-editor-section-body is-visible">
-                <label>
-                  <span>{t("notes")}</span>
-                  <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
-                </label>
                 <div className="ownership-editor">
                   <div className="section-heading">
                     <h3><i className="dashboard-section-icon" aria-hidden="true">{grapesSvgIcon()}</i>{t("grapes")}</h3>
@@ -11396,14 +11393,6 @@ export function App() {
                     <p className="empty-state">{t("missingGrapes")}</p>
                   )}
                 </div>
-                  </div> : null}
-                </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.scores ? "is-open" : ""}`} data-wine-editor-section="scores">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+5" aria-expanded={Boolean(openWineEditorSections.scores)} onClick={() => setOpenWineEditorSections((current) => current.scores ? {} : { scores: true })}>
-                    <div><span>05</span><strong>{locale === "it" ? "Punteggi e proprietà" : "Scores and ownership"}</strong></div>
-                    <small>{locale === "it" ? "Critici, quote e comproprietari" : "Critics, shares and co-owners"}</small>
-                  </button>
-                  {openWineEditorSections.scores ? <div className="wine-editor-section-body is-visible">
                 <div className="ownership-editor">
                   <div className="section-heading">
                     <h3>{t("scores")}</h3>
@@ -11432,44 +11421,6 @@ export function App() {
                     <p className="empty-state">{t("missingScores")}</p>
                   )}
                 </div>
-                <div className="ownership-editor">
-                  <div className="section-heading">
-                    <h3>{t("multiOwnership")}</h3>
-                    <button
-                      type="button"
-                      className="secondary compact"
-                      disabled={!canWriteWine}
-                      onClick={() => {
-                        setDraft({ ...draft, owners: [...draft.owners, { name: "", email: "", share_pct: "" }] });
-                        revealLatestWineEditorField();
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
-                  <label>
-                    <span>{t("ownerShare")}</span>
-                    <input type="number" min="0" max="100" step="0.01" value={draft.owner_share_pct} onChange={(event) => setDraft({ ...draft, owner_share_pct: event.target.value })} disabled={!canWriteWine} />
-                  </label>
-                  {draft.owners.map((owner, index) => (
-                    <div className="ownership-edit-row" key={index}>
-                      <input value={owner.name} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} placeholder={t("name")} disabled={!canWriteWine} />
-                      <input type="email" value={owner.email} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item) })} placeholder={t("ownerEmail")} disabled={!canWriteWine} />
-                      <input type="number" min="0" max="100" step="0.01" value={owner.share_pct} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, share_pct: event.target.value } : item) })} placeholder="%" disabled={!canWriteWine} />
-                      <button type="button" className="danger compact" disabled={!canWriteWine} onClick={() => setDraft({ ...draft, owners: draft.owners.filter((_, itemIndex) => itemIndex !== index) })}>
-                        {t("delete")}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                  </div> : null}
-                </section>
-                <section className={`wine-editor-section wine-editor-disclosure ${openWineEditorSections.tags ? "is-open" : ""}`} data-wine-editor-section="tags">
-                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+6" aria-expanded={Boolean(openWineEditorSections.tags)} onClick={() => setOpenWineEditorSections((current) => current.tags ? {} : { tags: true })}>
-                    <div><span>06</span><strong>{t("tags")}</strong></div>
-                    <small>{locale === "it" ? "Occasioni e organizzazione" : "Occasions and organization"}</small>
-                  </button>
-                  {openWineEditorSections.tags ? <div className="wine-editor-section-body is-visible">
                 <div className="tag-picker">
                   <span>{t("tags")}</span>
                   {wineFormTagOptions.length ? (
@@ -11497,6 +11448,71 @@ export function App() {
                     </button>
                   </div>
                 </div>
+                  </div> : null}
+                </section>
+                <section className={`wine-editor-section wine-editor-section--strategy wine-editor-disclosure ${openWineEditorSections.strategy ? "is-open" : ""}`} data-wine-editor-section="strategy">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+4" aria-expanded={Boolean(openWineEditorSections.strategy)} onClick={() => setOpenWineEditorSections((current) => current.strategy ? {} : { strategy: true })}>
+                    <div><span>04</span><strong>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</strong></div>
+                    <small>{selectedWine ? (selectedWine.strategy_purposes || []).length : 0}</small>
+                  </button>
+                  {openWineEditorSections.strategy ? <div className="wine-editor-section-body is-visible">
+                    {editingId && selectedWine ? (
+                      <WineStrategySection wine={selectedWine} locale={locale} canWrite={canWriteWine} onChanged={loadWines} embedded />
+                    ) : (
+                      <p className="empty-state">{locale === "it" ? "Potrai assegnare gli obiettivi dopo aver creato il vino." : "You can assign cellar purposes after creating the wine."}</p>
+                    )}
+                  </div> : null}
+                </section>
+                <section className={`wine-editor-section wine-editor-section--history wine-editor-disclosure ${openWineEditorSections.history ? "is-open" : ""}`} data-wine-editor-section="history">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+6" aria-expanded={Boolean(openWineEditorSections.history)} onClick={() => setOpenWineEditorSections((current) => current.history ? {} : { history: true })}>
+                    <div><span>06</span><strong>{locale === "it" ? "Note e storia" : "Notes and history"}</strong></div>
+                    <small>{locale === "it" ? "Degustazioni, appunti e proprietà" : "Tastings, notes and ownership"}</small>
+                  </button>
+                  {openWineEditorSections.history ? <div className="wine-editor-section-body is-visible">
+                    <label>
+                      <span>{t("notes")}</span>
+                      <textarea value={draft.notes} onChange={(event) => setDraft({ ...draft, notes: event.target.value })} rows={3} disabled={!canWriteWine} />
+                    </label>
+                    <div className="ownership-editor">
+                      <div className="section-heading">
+                        <h3>{t("multiOwnership")}</h3>
+                        <button type="button" className="secondary compact" disabled={!canWriteWine} onClick={() => {
+                          setDraft({ ...draft, owners: [...draft.owners, { name: "", email: "", share_pct: "" }] });
+                          revealLatestWineEditorField();
+                        }}>+</button>
+                      </div>
+                      <label>
+                        <span>{t("ownerShare")}</span>
+                        <input type="number" min="0" max="100" step="0.01" value={draft.owner_share_pct} onChange={(event) => setDraft({ ...draft, owner_share_pct: event.target.value })} disabled={!canWriteWine} />
+                      </label>
+                      {draft.owners.map((owner, index) => (
+                        <div className="ownership-edit-row" key={index}>
+                          <input value={owner.name} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, name: event.target.value } : item) })} placeholder={t("name")} disabled={!canWriteWine} />
+                          <input type="email" value={owner.email} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, email: event.target.value } : item) })} placeholder={t("ownerEmail")} disabled={!canWriteWine} />
+                          <input type="number" min="0" max="100" step="0.01" value={owner.share_pct} onChange={(event) => setDraft({ ...draft, owners: draft.owners.map((item, itemIndex) => itemIndex === index ? { ...item, share_pct: event.target.value } : item) })} placeholder="%" disabled={!canWriteWine} />
+                          <button type="button" className="danger compact" disabled={!canWriteWine} onClick={() => setDraft({ ...draft, owners: draft.owners.filter((_, itemIndex) => itemIndex !== index) })}>{t("delete")}</button>
+                        </div>
+                      ))}
+                    </div>
+                  </div> : null}
+                </section>
+                <section className={`wine-editor-section wine-editor-section--audit wine-editor-disclosure ${openWineEditorSections.audit ? "is-open" : ""}`} data-wine-editor-section="audit">
+                  <button type="button" className="wine-editor-disclosure-toggle" aria-keyshortcuts="Alt+7" aria-expanded={Boolean(openWineEditorSections.audit)} onClick={() => setOpenWineEditorSections((current) => current.audit ? {} : { audit: true })}>
+                    <div><span>07</span><strong>{t("aiAudit")}</strong></div>
+                    <small>{selectedWine ? aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).length : 0}</small>
+                  </button>
+                  {openWineEditorSections.audit ? <div className="wine-editor-section-body is-visible">
+                    {selectedWine && aiAudit.some((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id) ? (
+                      <div className="audit-list">
+                        {aiAudit.filter((entry) => entry.entity_type === "wine" && entry.entity_id === selectedWine.id).map((entry) => (
+                          <div className="audit-row" key={entry.id}>
+                            <strong>{entry.feature.replace(/_/g, " ")}</strong>
+                            <span>{entry.model} · {formatDisplayDate(entry.created_at)}</span>
+                            <p>{entry.summary}</p>
+                          </div>
+                        ))}
+                      </div>
+                    ) : <p className="empty-state">{t("noAiAudit")}</p>}
                   </div> : null}
                 </section>
                 </div>

@@ -129,8 +129,8 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
   </details>;
 }
 
-export function WineStrategySection({ wine, locale, canWrite, onChanged }: {
-  wine: Wine; locale: Locale; canWrite: boolean; onChanged: () => Promise<void> | void;
+export function WineStrategySection({ wine, locale, canWrite, onChanged, embedded = false }: {
+  wine: Wine; locale: Locale; canWrite: boolean; onChanged: () => Promise<void> | void; embedded?: boolean;
 }) {
   const [allocations, setAllocations] = useState<WineStrategyAllocation[]>([]);
   const [editing, setEditing] = useState(false);
@@ -196,7 +196,7 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged }: {
       setSaving(false);
     }
   }
-  return <details className="detail-section wine-strategy-section" data-wine-detail-section="04" tabIndex={-1}>
+  return <details className={`detail-section wine-strategy-section${embedded ? " wine-strategy-section--embedded" : ""}`} data-wine-detail-section="04" tabIndex={-1} open={embedded || undefined}>
     <summary className="wine-detail-structured-summary">
       <div><span>04</span><strong>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</strong></div>
       <small>{allocated} / {wine.quantity}</small>
