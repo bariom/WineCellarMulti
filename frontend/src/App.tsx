@@ -6658,7 +6658,9 @@ export function App() {
       const historicalValues = wine.value_history
         .map((entry) => Number(entry.value || 0))
         .filter((value) => Number.isFinite(value) && value > 0);
-      const baseline = purchasePrice > 0 ? purchasePrice : historicalValues[0] || 0;
+      // A sub-unit purchase price is commonly used to record a gifted bottle.
+      // It is useful for the value timeline, but not as a meaningful ROI baseline.
+      const baseline = purchasePrice >= 1 ? purchasePrice : historicalValues[0] || 0;
       const current = Number(wine.current_value || historicalValues[historicalValues.length - 1] || 0);
       if (!baseline || !current) return null;
       return ((current - baseline) / baseline) * 100;
@@ -6721,6 +6723,7 @@ export function App() {
       const trendStart = trendPoints[0];
       const trendEnd = trendPoints[trendPoints.length - 1];
       const trendChangePct = increasePct;
+      const trendChangeValue = trendStart && trendEnd ? trendEnd.value - trendStart.value : null;
       const drinkStart = wine.drink_from || wine.drink_peak_from || null;
       const drinkEnd = wine.drink_to || wine.drink_peak_to || null;
       const maturityStart = Math.min(Number(wine.vintage) || drinkStart || currentYear, drinkStart || currentYear);
@@ -6750,6 +6753,7 @@ export function App() {
         maturityEnd: hasMaturityWindow ? maturityEnd : null,
         trendPoints,
         trendChangePct,
+        trendChangeValue,
         trendRange: trendPoints.length >= 2 && trendStart && trendEnd ? `${trendStart.label}–${trendEnd.label}` : null,
         hasMaturityWindow,
       };
@@ -10087,7 +10091,7 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, highlight, totalValue, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityStart, maturityEnd, trendPoints, trendChangePct, trendRange, hasMaturityWindow }) => (
+                        {keyPositionCandidates.map(({ wine, highlight, totalValue, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityStart, maturityEnd, trendPoints, trendChangePct, trendChangeValue, trendRange, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} />
@@ -10105,7 +10109,9 @@ export function App() {
                                 <KeyPositionTrendKpi
                                   label={t("valueEvolution")}
                                   points={trendPoints}
-                                  changeLabel={trendChangePct === null ? null : `${trendChangePct > 0 ? "+" : ""}${formatPercentage(trendChangePct, locale, 1)}`}
+                                  changeLabel={trendChangePct !== null
+                                    ? `${trendChangePct > 0 ? "+" : ""}${formatPercentage(trendChangePct, locale, 1)}`
+                                    : trendChangeValue === null ? null : `${trendChangeValue > 0 ? "+" : ""}${formatMoney(trendChangeValue, wine.currency, locale)}`}
                                   rangeLabel={trendRange}
                                   unavailableLabel={t("notSpecified")}
                                 />
@@ -11330,6 +11336,7 @@ export function App() {
                       <label>
                         <span>{t("purchasePrice")}</span>
                         <input type="number" min="0" step="0.01" value={draft.price} onChange={(event) => setDraft({ ...draft, price: event.target.value })} disabled={!canWriteWine} />
+                        <small className="form-hint">{locale === "it" ? "Se il vino è un regalo, inserisci 0.01: la variazione di valore sarà mostrata in CHF, non in percentuale." : "If the wine was a gift, enter 0.01: value change will be shown in currency, not as a percentage."}</small>
                       </label>
                       <label>
                         <span>{t("currentValue")}</span>
