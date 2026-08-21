@@ -307,7 +307,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
 
-    await expect(page.getByText("Il piano deve essere aggiornato", { exact: true })).toBeVisible();
+    await expect(page.getByText("Il piano riflette dati precedenti", { exact: true })).toBeVisible();
     await expect(page.getByText("Affidabilità 68%", { exact: true })).toBeVisible();
     await expect(page.getByText("DAL PIANO PRECEDENTE", { exact: true })).toBeVisible();
 
