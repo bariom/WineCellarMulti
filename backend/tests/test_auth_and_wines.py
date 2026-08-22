@@ -1864,24 +1864,27 @@ def test_email_verification_and_passkey_options_are_rate_limited(monkeypatch):
     )
 
 
-def test_register_starts_without_ai_credit():
+def test_register_receives_welcome_ai_credit():
     client = TestClient(app)
     registered = register(client)
     assert registered.status_code == 201
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "0.000000"
+    assert billing.json()["ai_credit_balance_usd"] == "0.500000"
 
     users = client.get("/api/v1/auth/users")
     assert users.status_code == 200
-    assert users.json()[0]["ai_credit_balance_usd"] == "0.000000"
+    assert users.json()[0]["ai_credit_balance_usd"] == "0.500000"
 
     with TestingSessionLocal() as db:
         credit_entries = db.query(UserAiCreditTransaction).all()
-        assert credit_entries == []
+        assert len(credit_entries) == 1
+        assert credit_entries[0].amount_usd == Decimal("0.500000")
+        assert credit_entries[0].source == "signup_bonus"
         notifications = db.query(UserNotification).all()
-        assert notifications == []
+        assert len(notifications) == 1
+        assert notifications[0].kind == "ai_credits"
 
 
 def test_app_admin_can_set_user_ai_credit_balance():

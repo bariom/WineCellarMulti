@@ -266,7 +266,7 @@ STRIPE_AI_CREDIT_AMOUNT_USD=5.00
 STRIPE_AI_CREDIT_LABEL=Vinaris AI Pack
 AI_PACK_MARKUP_PERCENT=15
 FREE_TIER_AI_PACK_MARKUP_PERCENT=100
-SIGNUP_AI_CREDIT_USD=0
+SIGNUP_AI_CREDIT_USD=0.50
 STRIPE_MONTHLY_ENTITLEMENT_DAYS=31
 STRIPE_ANNUAL_ENTITLEMENT_DAYS=365
 STRIPE_SUCCESS_URL=https://vinaris.app/?stripe_checkout=success
@@ -300,7 +300,7 @@ customer.subscription.deleted
 
 `checkout.session.completed` is also used for one-time AI Pack purchases. When the AI Pack product is bought, the user receives a balance in USD-equivalent AI budget, and future AI requests consume that balance until it reaches zero.
 
-`AI_PACK_MARKUP_PERCENT` adds the configurable spread used for subscribed users. `FREE_TIER_AI_PACK_MARKUP_PERCENT` is the separate, normally wider spread for free-tier AI Pack usage. Both can be changed immediately from **Settings → Operations → AI model price book**; persisted console values override the environment defaults. App admins continue to consume AI budget at the base estimated OpenAI cost. Free-tier accounts cannot use a personal OpenAI key and can use AI only from a positive AI Pack balance. `FREE_TIER_LABEL_LIMIT` controls the private-cellar cap of active distinct labels (15 by default), while `SIGNUP_AI_CREDIT_USD=0` ensures AI access starts after an AI Pack purchase.
+`AI_PACK_MARKUP_PERCENT` adds the configurable spread used for subscribed users. `FREE_TIER_AI_PACK_MARKUP_PERCENT` is the separate, normally wider spread for free-tier AI Pack usage. Both can be changed immediately from **Settings → Operations → AI model price book**; persisted console values override the environment defaults. App admins continue to consume AI budget at the base estimated OpenAI cost. Free-tier accounts cannot use a personal OpenAI key and can use AI from their welcome credit or a positive AI Pack balance. `FREE_TIER_LABEL_LIMIT` controls the private-cellar cap of active distinct labels (15 by default); `SIGNUP_AI_CREDIT_USD=0.50` grants each new account 50 cents of welcome AI credit.
 
 ### Updating AI model prices
 
