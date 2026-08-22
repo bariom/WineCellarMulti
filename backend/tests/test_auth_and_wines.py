@@ -1324,7 +1324,7 @@ def test_register_login_session_and_logout():
     )
     assert promoted.status_code == 200
     assert promoted.json()["is_app_admin"] is True
-    assert promoted.json()["ai_credit_balance_usd"] == "0.000000"
+    assert promoted.json()["ai_credit_balance_usd"] == "0.500000"
     blocked = client.patch(f"/api/v1/auth/users/{pending_record['id']}", json={"is_blocked": True})
     assert blocked.status_code == 200
     assert blocked.json()["is_blocked"] is True
@@ -1901,7 +1901,7 @@ def test_app_admin_can_set_user_ai_credit_balance():
         for user in admin_client.get("/api/v1/auth/users").json()
         if user["email"] == "gifted@example.com"
     )
-    assert app_user["ai_credit_balance_usd"] == "0.000000"
+    assert app_user["ai_credit_balance_usd"] == "0.500000"
     assert (
         admin_client.post(f"/api/v1/auth/pending-users/{app_user['id']}/approve").status_code == 200
     )
@@ -1944,13 +1944,15 @@ def test_app_admin_can_set_user_ai_credit_balance():
             .filter(UserAiCreditTransaction.user_id == user.id)
             .order_by(UserAiCreditTransaction.created_at.asc())
         )
-        assert len(credit_entries) == 2
-        assert credit_entries[0].source == "admin_adjustment"
-        assert credit_entries[0].amount_usd == Decimal("1.750000")
-        assert "Welcome gift" in credit_entries[0].note
+        assert len(credit_entries) == 3
+        assert credit_entries[0].source == "signup_bonus"
+        assert credit_entries[0].amount_usd == Decimal("0.500000")
         assert credit_entries[1].source == "admin_adjustment"
-        assert credit_entries[1].amount_usd == Decimal("0.250000")
-        assert "Second gift" in credit_entries[1].note
+        assert credit_entries[1].amount_usd == Decimal("1.250000")
+        assert "Welcome gift" in credit_entries[1].note
+        assert credit_entries[2].source == "admin_adjustment"
+        assert credit_entries[2].amount_usd == Decimal("0.250000")
+        assert "Second gift" in credit_entries[2].note
 
         notifications = list(
             db.query(UserNotification).filter(UserNotification.user_id == user.id).all()
@@ -2460,7 +2462,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
                 == db.query(User).filter(User.email == "owner@example.com").one().id
             )
             .count()
-                == 4
+                == 5
         )
 
     drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
@@ -2474,7 +2476,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert not any(item["kind"] == "smart_drink_now" for item in refreshed_payload)
 
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 3
+        assert db.query(UserNotification).count() == 4
 
     regenerated = client.get(
         "/api/v1/notifications/center?category=system&view=active&item_state=all"
@@ -2482,7 +2484,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
     assert regenerated.status_code == 200
     assert not any(item["kind"] == "smart_drink_now" for item in regenerated.json()["items"])
     with TestingSessionLocal() as db:
-        assert db.query(UserNotification).count() == 3
+        assert db.query(UserNotification).count() == 4
 
 
 def test_notification_center_history_filters_and_pagination():
@@ -3131,7 +3133,7 @@ def test_app_admin_can_create_and_user_can_redeem_code():
     )
 
 
-def test_free_tier_has_private_features_with_40_bottle_limit_and_ai_pack_only(monkeypatch):
+def test_free_tier_has_private_features_and_ai_pack_after_welcome_credit(monkeypatch):
     from app.api.routes import ai as ai_routes
 
     admin_client = TestClient(app)
@@ -3215,6 +3217,18 @@ def test_free_tier_has_private_features_with_40_bottle_limit_and_ai_pack_only(mo
     assert ai_settings.json()["provider_options"] == ["credits"]
     assert ai_settings.json()["can_use_personal_openai_key"] is False
 
+    # The free-tier welcome credit is intentionally one-off. Exhaust it here
+    # so this assertion covers the subsequent AI Pack requirement.
+    with TestingSessionLocal() as db:
+        db.add(
+            UserAiCreditTransaction(
+                user_id=uuid.UUID(pending_user["id"]),
+                amount_usd=Decimal("-0.500000"),
+                source="test_adjustment",
+                note="Consume welcome AI credit",
+            )
+        )
+        db.commit()
     monkeypatch.setattr(settings, "openai_api_key", "sk-app-test")
     without_pack = user_client.post(f"/api/v1/ai/wines/{first_wine.json()['id']}/notes")
     assert without_pack.status_code == 402
@@ -3417,9 +3431,13 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     )
     notifications = client.get("/api/v1/notifications")
     assert notifications.status_code == 200
-    assert notifications.json()[0]["kind"] == "redeem_code"
-    read_notification = client.post(f"/api/v1/notifications/{notifications.json()[0]['id']}/read")
-    assert read_notification.status_code == 204
+    notification_items = notifications.json()
+    assert len(notification_items) == 2
+    assert notification_items[0]["kind"] == "redeem_code"
+    assert notification_items[1]["kind"] == "ai_credits"
+    for notification in notification_items:
+        read_notification = client.post(f"/api/v1/notifications/{notification['id']}/read")
+        assert read_notification.status_code == 204
     assert client.get("/api/v1/notifications").json() == []
 
     redeemed = client.post("/api/v1/billing/redeem", json={"code": paid_code})
@@ -6574,7 +6592,7 @@ def test_ai_pack_usage_applies_markup_for_end_users(monkeypatch):
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "4.996400"
+    assert billing.json()["ai_credit_balance_usd"] == "5.496400"
     with TestingSessionLocal() as db:
         entries = list(
             db.scalars(
@@ -6613,6 +6631,14 @@ def test_ai_pack_rejects_request_before_provider_when_balance_cannot_cover_minim
                 amount_usd=Decimal("0.000500"),
                 source="test_adjustment",
                 note="Leave less than the minimum safe request budget",
+            )
+        )
+        db.add(
+            UserAiCreditTransaction(
+                user_id=current_user.id,
+                amount_usd=Decimal("-0.500000"),
+                source="test_adjustment",
+                note="Consume welcome AI credit",
             )
         )
         db.commit()
@@ -6715,7 +6741,7 @@ def test_ai_pack_usage_keeps_base_cost_for_app_admin(monkeypatch):
 
     billing = client.get("/api/v1/billing/status")
     assert billing.status_code == 200
-    assert billing.json()["ai_credit_balance_usd"] == "4.997000"
+    assert billing.json()["ai_credit_balance_usd"] == "5.497000"
 
 
 def test_wishlist_ai_features_are_separate(monkeypatch):
