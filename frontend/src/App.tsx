@@ -28,6 +28,7 @@ import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
 import CellarAssistantView from "./views/CellarAssistantView";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
+import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
 import "./styles.css";
 
 type BreakdownDrilldown = {
@@ -2718,6 +2719,7 @@ export function App() {
             ? nextAiBalance > previousAiBalance
             : (nextStatus.available_redeem_codes.length > 0 || nextStatus.has_active_entitlement);
         if (checkoutApplied) {
+          if (pendingPlan) reportGoogleAdsCheckoutConversion();
           await loadData();
           window.sessionStorage.removeItem(STRIPE_CHECKOUT_PLAN_KEY);
           window.sessionStorage.removeItem(STRIPE_CHECKOUT_BALANCE_KEY);

@@ -139,7 +139,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
         </section>
         <section id="cookies">
           <h2>6. Cookies and local storage</h2>
-          <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, and monitor-device tokens. No advertising or behavioural analytics cookies are included in the current application.</p>
+          <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, and monitor-device tokens. Google Ads conversion measurement may use the Google tag and related cookies when you complete a checkout.</p>
         </section>
         <section>
           <h2>7. Retention and backups</h2>
@@ -187,7 +187,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
       </section>
       <section id="cookies">
         <h2>6. Cookie e memoria locale</h2>
-        <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout e token dei dispositivi Monitor. L’applicazione attuale non include cookie pubblicitari o di analisi comportamentale.</p>
+        <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout e token dei dispositivi Monitor. La misurazione delle conversioni Google Ads può usare il tag Google e cookie correlati quando completi un checkout.</p>
       </section>
       <section>
         <h2>7. Conservazione e backup</h2>
