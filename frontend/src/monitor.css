@@ -316,9 +316,53 @@ body:has(.monitor-shell) {
 }
 
 .monitor-alerts,
+.monitor-priorities,
 .monitor-kpi-section,
 .monitor-activity {
   margin-top: 12px;
+}
+
+.monitor-priorities article {
+  display: grid;
+  gap: 4px;
+  padding: 11px 12px;
+  border: 1px solid #61583a;
+  border-radius: 11px;
+  background: #2a281f;
+}
+
+.monitor-priorities article.critical {
+  border-color: #72403d;
+  background: #2c211f;
+}
+
+.monitor-priorities article > span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.monitor-priorities article i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #dfba52;
+}
+
+.monitor-priorities article.critical i {
+  background: #df6d65;
+}
+
+.monitor-priorities article small,
+.monitor-priorities-clear {
+  margin: 0;
+  color: #afb4aa;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.monitor-priorities-clear {
+  padding: 4px 0;
 }
 
 .monitor-alerts article {

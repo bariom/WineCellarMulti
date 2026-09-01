@@ -62,6 +62,12 @@ function usd(amount: number | null | undefined) {
   return amount === null || amount === undefined ? "—" : `$${amount.toFixed(2)}`;
 }
 
+type MonitorPriority = {
+  title: string;
+  detail: string;
+  tone: "warning" | "critical";
+};
+
 function MonitorChart({
   title,
   subtitle,
@@ -363,6 +369,35 @@ export function MonitorApp() {
     ? Math.round(((business.ai_successes_30d || 0) / business.ai_requests_30d) * 100)
     : null;
   const visibleActivity = activityExpanded ? activity : activity.slice(0, 6);
+  const priorities: MonitorPriority[] = [
+    ...alerts.map((alert) => ({
+      title: `Verifica ${alert.label.toLowerCase()}`,
+      detail: `${alert.value.toFixed(0)}${alert.suffix} rilevato da ${dateTime(alert.opened_at)}.`,
+      tone: alert.severity,
+    })),
+    ...(sampleIsStale ? [{
+      title: "Raccogli una nuova lettura",
+      detail: `L'ultimo campione risale al ${dateTime(overview?.collected_at)}.`,
+      tone: "warning" as const,
+    }] : []),
+    ...(winePulseNeedsAttention ? [{
+      title: "Controlla Wine Pulse",
+      detail: winePulse?.last_error || (winePulseIsStale
+        ? "Nessuna raccolta completata nelle ultime dieci ore."
+        : "Una o più fonti richiedono attenzione."),
+      tone: winePulseFailed ? "critical" as const : "warning" as const,
+    }] : []),
+    ...(pendingUsers ? [{
+      title: `${pendingUsers} utenti da approvare`,
+      detail: "Apri Vinaris > Impostazioni > Utenti per completare l'approvazione.",
+      tone: "warning" as const,
+    }] : []),
+    ...(!alerts.length && app?.errors_total ? [{
+      title: "Esamina gli errori applicativi",
+      detail: `${app.errors_total} errori 5xx rilevati dall'avvio del servizio.`,
+      tone: "warning" as const,
+    }] : []),
+  ].slice(0, 3);
 
   return (
     <main className="monitor-shell">
@@ -403,6 +438,19 @@ export function MonitorApp() {
         <span>Uptime {uptime(app?.uptime_seconds)}</span>
         <span>{app?.slow_requests_recent ?? "—"} operazioni lente escluse</span>
       </div>
+
+      <section className="monitor-card monitor-priorities" aria-label="Priorità operative">
+        <div className="monitor-section-head">
+          <div><span>PROSSIME AZIONI</span><strong>{priorities.length ? "Cosa controllare ora" : "Tutto sotto controllo"}</strong></div>
+          <b>{priorities.length || "OK"}</b>
+        </div>
+        {priorities.length ? priorities.map((priority, index) => (
+          <article className={priority.tone} key={`${priority.title}-${index}`}>
+            <span><i aria-hidden="true" /><strong>{priority.title}</strong></span>
+            <small>{priority.detail}</small>
+          </article>
+        )) : <p className="monitor-priorities-clear">Nessuna anomalia attiva: le letture sono recenti e non richiedono interventi.</p>}
+      </section>
 
       {alerts.length ? (
         <section className="monitor-card monitor-alerts">
