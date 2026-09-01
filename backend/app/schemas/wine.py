@@ -229,6 +229,9 @@ class WineResponse(BaseModel):
     strategy_purposes: list[
         Literal["drink", "maturation", "investment", "special_occasion", "undecided"]
     ] = Field(default_factory=list)
+    strategy_purpose_quantities: dict[
+        Literal["drink", "maturation", "investment", "special_occasion", "undecided"], int
+    ] = Field(default_factory=dict)
     currency: str
     price: Decimal
     sale_price: Decimal | None = None

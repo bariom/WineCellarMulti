@@ -635,6 +635,20 @@ function strategyPurposeLabel(purpose: WineStrategyPurpose, locale: Locale) {
   return labels[purpose];
 }
 
+function strategyPurposeBottleCount(wine: Wine, purpose: WineStrategyPurpose) {
+  const quantities = wine.strategy_purpose_quantities || {};
+  if (Object.keys(quantities).length) return Math.max(0, Number(quantities[purpose] || 0));
+  return wine.strategy_purposes.includes(purpose) ? wine.quantity : 0;
+}
+
+function dailyEligibleBottleCount(wine: Wine, session: Session | null) {
+  const allocated = (Object.keys(wine.strategy_purpose_quantities || {}).length
+    ? Object.values(wine.strategy_purpose_quantities || {}).reduce((total, quantity) => total + Math.max(0, Number(quantity || 0)), 0)
+    : wine.strategy_purposes.length ? wine.quantity : 0);
+  const drinkOrUnallocated = strategyPurposeBottleCount(wine, "drink") + Math.max(wine.quantity - allocated, 0);
+  return Math.min(ownedBottleCount(wine, session), drinkOrUnallocated);
+}
+
 function appUserActivityStatus(user: AppUser, locale: Locale): { label: string; style: CSSProperties } {
   const days = user.last_activity_days_ago;
   if (days === null) {
@@ -6132,8 +6146,11 @@ export function App() {
       && isWinePhysicallyInCellar(wine)
       && isWineReadyToPrioritize(wine, currentYear),
   );
-  const readyInCellarBottleCount = readyInCellarWines.reduce(
-    (total, wine) => total + ownedBottleCount(wine, session),
+  const dailyReadyInCellarWines = readyInCellarWines.filter(
+    (wine) => dailyEligibleBottleCount(wine, session) > 0,
+  );
+  const readyInCellarBottleCount = dailyReadyInCellarWines.reduce(
+    (total, wine) => total + dailyEligibleBottleCount(wine, session),
     0,
   );
   const cellarStats = {
@@ -6286,8 +6303,12 @@ export function App() {
     daily: "regionalProfileDaily",
     balanced: "regionalProfileBalanced",
   };
-  const drinkNowCandidates = [...readyInCellarWines]
-    .sort((first, second) => (winePriorityDrinkEnd(first) || Number.MAX_SAFE_INTEGER) - (winePriorityDrinkEnd(second) || Number.MAX_SAFE_INTEGER) || (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER));
+  const drinkNowCandidates = [...dailyReadyInCellarWines]
+    .sort((first, second) => (
+      Number(strategyPurposeBottleCount(second, "drink") > 0) - Number(strategyPurposeBottleCount(first, "drink") > 0)
+      || (winePriorityDrinkEnd(first) || Number.MAX_SAFE_INTEGER) - (winePriorityDrinkEnd(second) || Number.MAX_SAFE_INTEGER)
+      || (wineIdealWindowStart(first) || Number.MAX_SAFE_INTEGER) - (wineIdealWindowStart(second) || Number.MAX_SAFE_INTEGER)
+    ));
   const drinkNowWines = drinkNowCandidates.slice(0, DRINK_NOW_SLIDESHOW_LIMIT);
   const recentCellarWines = [...cellarWines]
     .sort((first, second) => {
@@ -6299,7 +6320,7 @@ export function App() {
     })
     .slice(0, 5);
   const drinkNowTotalValue = drinkNowCandidates.reduce(
-    (total, wine) => total + wineUnitValue(wine) * ownedBottleCount(wine, session),
+    (total, wine) => total + wineUnitValue(wine) * dailyEligibleBottleCount(wine, session),
     0,
   );
   const nearestDrinkNowEnd = drinkNowCandidates.reduce<number | null>((nearest, wine) => {

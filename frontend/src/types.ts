@@ -40,6 +40,7 @@ export type Wine = {
   quantity: number;
   storage_allocations?: StorageAllocation[];
   strategy_purposes: WineStrategyPurpose[];
+  strategy_purpose_quantities?: Partial<Record<WineStrategyPurpose, number>>;
   currency: string;
   price: string;
   sale_price: string | null;

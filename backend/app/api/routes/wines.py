@@ -290,6 +290,7 @@ def wine_response(
     include_details: bool = True,
     storage_allocations=None,
     strategy_purposes: list[WineStrategyPurpose] | None = None,
+    strategy_purpose_quantities: dict[WineStrategyPurpose, int] | None = None,
 ) -> WineResponse:
     if include_details:
         response = WineResponse.model_validate(wine)
@@ -306,6 +307,8 @@ def wine_response(
             response = response.model_copy(update={"storage_allocations": storage_allocations})
         if strategy_purposes is not None:
             response = response.model_copy(update={"strategy_purposes": strategy_purposes})
+        if strategy_purpose_quantities is not None:
+            response = response.model_copy(update={"strategy_purpose_quantities": strategy_purpose_quantities})
         if value_history is not None:
             response = response.model_copy(update={"value_history": value_history})
         if tag_names is not None and tag_names:
@@ -326,6 +329,7 @@ def wine_response(
         quantity=wine.quantity,
         storage_allocations=storage_allocations or [],
         strategy_purposes=strategy_purposes or [],
+        strategy_purpose_quantities=strategy_purpose_quantities or {},
         currency=wine.currency,
         price=wine.price,
         sale_price=wine.sale_price,
@@ -386,23 +390,29 @@ def wine_response(
     )
 
 
-def strategy_purposes_by_wine(
+def strategy_allocation_data_by_wine(
     db: Session, household_id: UUID, wine_ids: list[UUID]
-) -> dict[UUID, list[WineStrategyPurpose]]:
-    result: dict[UUID, list[WineStrategyPurpose]] = {wine_id: [] for wine_id in wine_ids}
+) -> dict[UUID, tuple[list[WineStrategyPurpose], dict[WineStrategyPurpose, int]]]:
+    result: dict[UUID, tuple[list[WineStrategyPurpose], dict[WineStrategyPurpose, int]]] = {
+        wine_id: ([], {}) for wine_id in wine_ids
+    }
     if not wine_ids:
         return result
     rows = db.execute(
-        select(WineStrategyAllocation.wine_id, WineStrategyAllocation.purpose)
+        select(WineStrategyAllocation.wine_id, WineStrategyAllocation.purpose, WineStrategyAllocation.quantity)
         .where(
             WineStrategyAllocation.household_id == household_id,
             WineStrategyAllocation.wine_id.in_(wine_ids),
         )
         .order_by(WineStrategyAllocation.purpose.asc())
     ).all()
-    for wine_id, purpose in rows:
-        if purpose in WINE_STRATEGY_PURPOSES and purpose not in result[wine_id]:
-            result[wine_id].append(cast(WineStrategyPurpose, purpose))
+    for wine_id, purpose, quantity in rows:
+        if purpose in WINE_STRATEGY_PURPOSES:
+            purposes, quantities = result[wine_id]
+            typed_purpose = cast(WineStrategyPurpose, purpose)
+            if typed_purpose not in purposes:
+                purposes.append(typed_purpose)
+            quantities[typed_purpose] = quantities.get(typed_purpose, 0) + quantity
     return result
 
 
@@ -622,14 +632,15 @@ def list_wines(
     wine_ids = [wine.id for wine in wines]
     tags_by_wine = user_tag_names_by_wine(db, context, wine_ids)
     storage_by_wine = allocation_responses_by_wine(db, wine_ids)
-    strategy_by_wine = strategy_purposes_by_wine(db, context.household.id, wine_ids)
+    strategy_by_wine = strategy_allocation_data_by_wine(db, context.household.id, wine_ids)
     return [
         wine_response(
             wine,
             tags_by_wine.get(wine.id),
             include_details=False,
             storage_allocations=storage_by_wine.get(wine.id, []),
-            strategy_purposes=strategy_by_wine.get(wine.id, []),
+            strategy_purposes=strategy_by_wine.get(wine.id, ([], {}))[0],
+            strategy_purpose_quantities=strategy_by_wine.get(wine.id, ([], {}))[1],
         )
         for wine in wines
     ]
