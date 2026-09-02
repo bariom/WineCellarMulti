@@ -36,8 +36,33 @@ function pwaPrecachePlugin(): Plugin {
   };
 }
 
+function seoGuideDevRoutesPlugin(): Plugin {
+  return {
+    name: "vinaris-seo-guide-dev-routes",
+    apply: "serve",
+    configureServer(server) {
+      server.middlewares.use(async (request, response, next) => {
+        const pathname = new URL(request.url || "/", "http://localhost").pathname;
+        if (!/^\/(?:it\/guide|en\/guides)(?:\/[a-z-]+)?\/$/.test(pathname)) {
+          next();
+          return;
+        }
+        try {
+          const relativePath = pathname.slice(1);
+          const content = await readFile(new URL(`./public/${relativePath}index.html`, import.meta.url), "utf8");
+          response.statusCode = 200;
+          response.setHeader("Content-Type", "text/html; charset=utf-8");
+          response.end(content);
+        } catch {
+          next();
+        }
+      });
+    },
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), pwaPrecachePlugin()],
+  plugins: [react(), seoGuideDevRoutesPlugin(), pwaPrecachePlugin()],
   build: {
     rolldownOptions: {
       output: {

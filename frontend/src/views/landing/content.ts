@@ -90,7 +90,7 @@ export type LandingCopy = {
     tiers: Array<{ label: string; name: string; body: string; note: string }>;
     aiNote: string;
   };
-  footer: { statement: string; privacy: string; cookies: string; terms: string; login: string };
+  footer: { statement: string; guides: string; privacy: string; cookies: string; terms: string; login: string };
   meta: { title: string; description: string };
 };
 
@@ -204,7 +204,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ],
       aiNote: "AI Pack è disponibile quando vuoi, anche con Degustazione.",
     },
-    footer: { statement: "Private cellar intelligence per collezionisti di vino.", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
+    footer: { statement: "Private cellar intelligence per collezionisti di vino.", guides: "Guide", privacy: "Privacy", cookies: "Cookie", terms: "Condizioni d’uso", login: "Accesso" },
     meta: { title: "Vinaris | Cantina digitale e sommelier AI per collezionisti", description: "Gestisci bottiglie, finestre di beva, valore, consegne, wishlist e memoria degustativa in una cantina privata e intelligente." },
   },
   en: {
@@ -316,7 +316,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       ],
       aiNote: "An AI Pack is available whenever you need it, including with Tasting.",
     },
-    footer: { statement: "Private cellar intelligence for wine collectors.", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
+    footer: { statement: "Private cellar intelligence for wine collectors.", guides: "Guides", privacy: "Privacy", cookies: "Cookies", terms: "Terms", login: "Log in" },
     meta: { title: "Vinaris | Digital wine cellar management and AI sommelier", description: "Manage bottles, drinking windows, value, deliveries, wishlist, and tasting memory in one private intelligent cellar." },
   },
 };

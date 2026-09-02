@@ -1,6 +1,12 @@
 import React, { Suspense, lazy } from "react";
 import ReactDOM from "react-dom/client";
+import { CookieConsentBanner } from "./components/CookieConsentBanner";
+import { readCookieConsent } from "./services/cookieConsent";
+import { updateGoogleAdsConsent } from "./services/googleAds";
 import "./monitor.css";
+
+const storedCookieConsent = readCookieConsent();
+if (storedCookieConsent) updateGoogleAdsConsent(storedCookieConsent.marketing);
 
 const monitorOnly = import.meta.env.VITE_VINARIS_MONITOR === "true";
 const App = monitorOnly
@@ -27,6 +33,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
           ? <MonitorApp />
           : App ? <App /> : null}
     </Suspense>
+    <CookieConsentBanner />
   </React.StrictMode>,
 );
 

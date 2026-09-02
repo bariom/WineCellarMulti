@@ -114,7 +114,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
         <header>
           <p>Version {config.version || LEGAL_DOCUMENT_VERSION}</p>
           <h1>Privacy Policy</h1>
-          <p>Effective 30 July 2026</p>
+          <p>Effective 2 September 2026</p>
         </header>
         <section>
           <h2>1. Controller and contact</h2>
@@ -139,7 +139,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
         </section>
         <section id="cookies">
           <h2>6. Cookies and local storage</h2>
-          <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, and monitor-device tokens. Google Ads conversion measurement may use the Google tag and related cookies when you complete a checkout.</p>
+          <p>Vinaris uses an essential HTTP-only session cookie. Local or session storage is used for interface preferences, offline files selected by you, operational display state, checkout continuity, monitor-device tokens, and your cookie preference. Google Ads conversion measurement and related cookies are activated only if you give marketing consent; you can change that choice at any time using the Cookie button.</p>
         </section>
         <section>
           <h2>7. Retention and backups</h2>
@@ -162,7 +162,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
       <header>
         <p>Versione {config.version || LEGAL_DOCUMENT_VERSION}</p>
         <h1>Informativa sulla privacy</h1>
-        <p>In vigore dal 30 luglio 2026</p>
+        <p>In vigore dal 2 settembre 2026</p>
       </header>
       <section>
         <h2>1. Titolare e contatti</h2>
@@ -187,7 +187,7 @@ function PrivacyPolicy({ locale, config }: { locale: Locale; config: LegalConfig
       </section>
       <section id="cookies">
         <h2>6. Cookie e memoria locale</h2>
-        <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout e token dei dispositivi Monitor. La misurazione delle conversioni Google Ads può usare il tag Google e cookie correlati quando completi un checkout.</p>
+        <p>Vinaris utilizza un cookie di sessione essenziale, HTTP-only. La memoria locale o di sessione conserva preferenze dell’interfaccia, file offline scelti dall’utente, stato operativo della UI, continuità del checkout, token dei dispositivi Monitor e la preferenza cookie. La misurazione delle conversioni Google Ads e i cookie correlati vengono attivati solo con il consenso marketing; puoi modificare la scelta in ogni momento dal pulsante Cookie.</p>
       </section>
       <section>
         <h2>7. Conservazione e backup</h2>
@@ -212,7 +212,7 @@ function TermsOfService({ locale, config }: { locale: Locale; config: LegalConfi
         <header>
           <p>Version {config.version || LEGAL_DOCUMENT_VERSION}</p>
           <h1>Terms of Service</h1>
-          <p>Effective 30 July 2026</p>
+          <p>Effective 2 September 2026</p>
         </header>
         <section>
           <h2>1. Provider and acceptance</h2>
@@ -261,7 +261,7 @@ function TermsOfService({ locale, config }: { locale: Locale; config: LegalConfi
       <header>
         <p>Versione {config.version || LEGAL_DOCUMENT_VERSION}</p>
         <h1>Condizioni d’uso</h1>
-        <p>In vigore dal 30 luglio 2026</p>
+        <p>In vigore dal 2 settembre 2026</p>
       </header>
       <section>
         <h2>1. Fornitore e accettazione</h2>

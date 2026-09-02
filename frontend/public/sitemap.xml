@@ -6,6 +6,56 @@
     <priority>1.0</priority>
   </url>
   <url>
+    <loc>https://vinaris.app/it/guide/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/en/guides/</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/it/guide/quale-vino-bere-oggi/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/en/guides/which-wine-to-drink-today/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/it/guide/finestre-di-beva-vino/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/en/guides/wine-drinking-windows/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/it/guide/come-organizzare-cantina-vino/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/en/guides/how-to-organise-a-wine-cellar/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/it/guide/excel-o-app-per-cantina-vino/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>https://vinaris.app/en/guides/wine-cellar-spreadsheet-vs-app/</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
     <loc>https://vinaris.app/help</loc>
     <changefreq>monthly</changefreq>
     <priority>0.5</priority>

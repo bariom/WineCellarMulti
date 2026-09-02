@@ -1,4 +1,4 @@
-export const LEGAL_DOCUMENT_VERSION = "2026-07-30";
+export const LEGAL_DOCUMENT_VERSION = "2026-09-02";
 
 export type LegalDocumentKind = "privacy" | "terms";
 
