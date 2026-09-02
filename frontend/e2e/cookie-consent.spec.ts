@@ -28,6 +28,16 @@ test("blocks Google Ads until marketing consent is granted", async ({ page }) =>
 
   await expect(page.locator("#vinaris-google-ads-tag")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Cookie" })).toHaveCount(0);
+  await page.evaluate(async () => {
+    const { reportGoogleAdsCheckoutConversion } = await import("/src/services/googleAds.ts");
+    reportGoogleAdsCheckoutConversion("monthly");
+    reportGoogleAdsCheckoutConversion("annual");
+    reportGoogleAdsCheckoutConversion("ai_credits");
+  });
+  await expect.poll(() => page.evaluate(() => window.dataLayer
+    ?.map((item) => Array.from(item as ArrayLike<unknown>))
+    .filter((args) => args[0] === "event" && args[1] === "conversion")
+    .map((args) => (args[2] as { value?: number }).value))).toEqual([6, 60, 5]);
 
   await page.evaluate(() => window.dispatchEvent(new Event("vinaris:open-cookie-settings")));
   await expect(page.getByRole("dialog", { name: "Le tue preferenze cookie" })).toBeVisible();
