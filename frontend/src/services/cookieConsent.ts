@@ -4,6 +4,11 @@ export type CookieConsent = {
 };
 
 const COOKIE_CONSENT_STORAGE_KEY = "vinaris.cookie-consent";
+export const COOKIE_CONSENT_SETTINGS_EVENT = "vinaris:open-cookie-settings";
+
+export function openCookieConsentSettings() {
+  window.dispatchEvent(new Event(COOKIE_CONSENT_SETTINGS_EVENT));
+}
 
 export function readCookieConsent(): CookieConsent | null {
   try {

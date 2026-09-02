@@ -79,8 +79,7 @@
   gap: 8px;
 }
 
-.cookie-consent-actions button,
-.cookie-consent-manage {
+.cookie-consent-actions button {
   min-height: 42px;
   padding: 9px 13px;
   border: 1px solid var(--primary, #245142);
@@ -95,18 +94,6 @@
   color: var(--text, #17201c);
   border-color: var(--border-strong, #c9d2ca);
   background: var(--secondary, #e3e9e2);
-}
-
-.cookie-consent-manage {
-  position: fixed;
-  z-index: 9999;
-  right: 16px;
-  bottom: 16px;
-  min-height: 38px;
-  color: var(--text, #17201c);
-  border-color: var(--border-strong, #c9d2ca);
-  background: var(--surface-raised, #fbfcfb);
-  box-shadow: 0 8px 22px rgba(0, 0, 0, .16);
 }
 
 @media (max-width: 520px) {

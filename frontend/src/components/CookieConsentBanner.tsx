@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { readCookieConsent, saveCookieConsent } from "../services/cookieConsent";
+import { COOKIE_CONSENT_SETTINGS_EVENT, readCookieConsent, saveCookieConsent } from "../services/cookieConsent";
 import { updateGoogleAdsConsent } from "../services/googleAds";
 import "./CookieConsentBanner.css";
 
@@ -8,6 +8,19 @@ export function CookieConsentBanner() {
   const [consent, setConsent] = useState(() => readCookieConsent());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [marketing, setMarketing] = useState(consent?.marketing || false);
+
+  useEffect(() => {
+    const openSettings = () => {
+      const currentConsent = readCookieConsent();
+      if (currentConsent) {
+        setConsent(currentConsent);
+        setMarketing(currentConsent.marketing);
+      }
+      setSettingsOpen(true);
+    };
+    window.addEventListener(COOKIE_CONSENT_SETTINGS_EVENT, openSettings);
+    return () => window.removeEventListener(COOKIE_CONSENT_SETTINGS_EVENT, openSettings);
+  }, []);
 
   function save(marketingEnabled: boolean) {
     const nextConsent = saveCookieConsent(marketingEnabled);
@@ -17,9 +30,7 @@ export function CookieConsentBanner() {
     setSettingsOpen(false);
   }
 
-  if (consent && !settingsOpen) {
-    return <button className="cookie-consent-manage" type="button" onClick={() => setSettingsOpen(true)}>Cookie</button>;
-  }
+  if (consent && !settingsOpen) return null;
 
   return (
     <section className="cookie-consent-banner" role="dialog" aria-modal="true" aria-labelledby="cookie-consent-title">

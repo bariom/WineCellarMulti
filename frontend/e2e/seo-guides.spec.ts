@@ -31,3 +31,12 @@ test("English guide index links to distinct English article URLs", async ({ page
     "https://vinaris.app/it/guide/",
   );
 });
+
+test("Italian guide index uses Italian category labels", async ({ page }) => {
+  await page.goto("/it/guide/");
+
+  await expect(page.getByText("Bere bene oggi", { exact: true })).toBeVisible();
+  await expect(page.getByText("Gestione della cantina", { exact: true })).toBeVisible();
+  await expect(page.getByText("Scegli il tuo sistema", { exact: true })).toBeVisible();
+  await expect(page.getByText("Drink well today", { exact: true })).toHaveCount(0);
+});

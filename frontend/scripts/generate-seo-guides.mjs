@@ -64,6 +64,10 @@ function escapeHtml(value) {
   return value.replace(/[&<>"']/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" })[character]);
 }
 
+function withFinalNewline(value) {
+  return value.endsWith("\n") ? value : `${value}\n`;
+}
+
 function pathFor(locale, guide) {
   return locale === "it" ? `/it/guide/${guide.it.slug}/` : `/en/guides/${guide.en.slug}/`;
 }
@@ -97,7 +101,20 @@ function guideIndex(locale) {
   const copy = locale === "it"
     ? { title: "Guide per organizzare e vivere meglio la cantina", description: "Guide pratiche per scegliere cosa bere, usare le finestre di beva e gestire una cantina di vino privata.", eyebrow: "Guide Vinaris", lead: "Strumenti pratici per trasformare bottiglie, annate e memoria degustativa in decisioni più semplici.", read: "Leggi la guida", cta: "Crea la tua cantina" }
     : { title: "Guides for organising and enjoying your wine cellar", description: "Practical guides for choosing what to drink, using drinking windows, and managing a private wine cellar.", eyebrow: "Vinaris guides", lead: "Practical tools for turning bottles, vintages, and tasting memory into simpler decisions.", read: "Read the guide", cta: "Build your cellar" };
-  const cards = guides.map((guide) => `<article><p class="eyebrow">${guide.id === "drink-next" ? "Drink well today" : guide.id === "drinking-windows" ? "Drinking windows" : guide.id === "cellar-organisation" ? "Cellar management" : "Choose your system"}</p><h2>${escapeHtml(guide[locale].title)}</h2><p>${escapeHtml(guide[locale].description)}</p><a href="${pathFor(locale, guide)}">${copy.read} <span aria-hidden="true">→</span></a></article>`).join("");
+  const categories = locale === "it"
+    ? {
+        "drink-next": "Bere bene oggi",
+        "drinking-windows": "Finestre di beva",
+        "cellar-organisation": "Gestione della cantina",
+        "spreadsheet-vs-app": "Scegli il tuo sistema",
+      }
+    : {
+        "drink-next": "Drink well today",
+        "drinking-windows": "Drinking windows",
+        "cellar-organisation": "Cellar management",
+        "spreadsheet-vs-app": "Choose your system",
+      };
+  const cards = guides.map((guide) => `<article><p class="eyebrow">${categories[guide.id]}</p><h2>${escapeHtml(guide[locale].title)}</h2><p>${escapeHtml(guide[locale].description)}</p><a href="${pathFor(locale, guide)}">${copy.read} <span aria-hidden="true">→</span></a></article>`).join("");
   const otherLocale = locale === "it" ? "en" : "it";
   const currentPath = locale === "it" ? "/it/guide/" : "/en/guides/";
   const otherPath = otherLocale === "it" ? "/it/guide/" : "/en/guides/";
@@ -123,16 +140,16 @@ await rm(new URL("it/guide/", publicRoot), { recursive: true, force: true });
 await rm(new URL("en/guides/", publicRoot), { recursive: true, force: true });
 await mkdir(new URL("it/guide/", publicRoot), { recursive: true });
 await mkdir(new URL("en/guides/", publicRoot), { recursive: true });
-await writeFile(new URL("guides.css", publicRoot), css, "utf8");
+await writeFile(new URL("guides.css", publicRoot), withFinalNewline(css), "utf8");
 await writeFile(new URL("sitemap.xml", publicRoot), sitemap, "utf8");
-await writeFile(new URL("it/guide/index.html", publicRoot), guideIndex("it"), "utf8");
-await writeFile(new URL("en/guides/index.html", publicRoot), guideIndex("en"), "utf8");
+await writeFile(new URL("it/guide/index.html", publicRoot), withFinalNewline(guideIndex("it")), "utf8");
+await writeFile(new URL("en/guides/index.html", publicRoot), withFinalNewline(guideIndex("en")), "utf8");
 
 for (const guide of guides) {
   for (const locale of ["it", "en"]) {
     const directory = new URL(`${locale === "it" ? "it/guide" : "en/guides"}/${guide[locale].slug}/`, publicRoot);
     await mkdir(directory, { recursive: true });
-    await writeFile(new URL("index.html", directory), guidePage(locale, guide), "utf8");
+    await writeFile(new URL("index.html", directory), withFinalNewline(guidePage(locale, guide)), "utf8");
   }
 }
 

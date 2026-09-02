@@ -27,9 +27,10 @@ test("blocks Google Ads until marketing consent is granted", async ({ page }) =>
   await banner.getByRole("button", { name: "Salva preferenze" }).click();
 
   await expect(page.locator("#vinaris-google-ads-tag")).toHaveCount(1);
-  await expect(page.getByRole("button", { name: "Cookie" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Cookie" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Cookie" }).click();
+  await page.evaluate(() => window.dispatchEvent(new Event("vinaris:open-cookie-settings")));
+  await expect(page.getByRole("dialog", { name: "Le tue preferenze cookie" })).toBeVisible();
   await page.getByRole("checkbox", { name: "Marketing e misurazione" }).uncheck();
   await page.getByRole("button", { name: "Salva preferenze" }).click();
   await expect.poll(() => page.evaluate(() => window.dataLayer?.some((item) => {

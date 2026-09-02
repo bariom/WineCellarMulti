@@ -28,6 +28,7 @@ import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
 import CellarAssistantView from "./views/CellarAssistantView";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
+import { openCookieConsentSettings } from "./services/cookieConsent";
 import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
 import "./styles.css";
 
@@ -13086,6 +13087,27 @@ export function App() {
                       {saving ? t("working") : t("saveSettings")}
                     </button>
                   </div>
+                </div>
+              </section>
+              ) : null}
+
+              {settingsTab === "profile" ? (
+              <section className="settings-card settings-card-compact">
+                <div className="settings-card-heading">
+                  <div>
+                    <span>{locale === "it" ? "Privacy" : "Privacy"}</span>
+                    <h3>{locale === "it" ? "Preferenze cookie" : "Cookie preferences"}</h3>
+                  </div>
+                </div>
+                <p className="settings-card-intro">
+                  {locale === "it"
+                    ? "Modifica il consenso per Google Ads e la misurazione delle conversioni."
+                    : "Change your consent for Google Ads and conversion measurement."}
+                </p>
+                <div className="form-actions">
+                  <button type="button" className="secondary" onClick={openCookieConsentSettings}>
+                    {locale === "it" ? "Gestisci preferenze cookie" : "Manage cookie preferences"}
+                  </button>
                 </div>
               </section>
               ) : null}
