@@ -1500,6 +1500,17 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert admin_photo["name"] == "Photo Bottle"
         assert admin_photo["household_name"] in {"Main Cellar", "Second Cellar"}
         assert client.get(admin_photo["thumbnail_url"]).status_code == 200
+        assert admin_photo["created_at"]
+        assert admin_photo["is_new"] is True
+        assert client.get(
+            "/api/v1/admin/operations/photos", params={"q": "Photo Estate"}
+        ).json()["total"] == 1
+        assert client.get(
+            "/api/v1/admin/operations/photos", params={"q": "not a wine"}
+        ).json()["total"] == 0
+        assert client.get(
+            "/api/v1/admin/operations/photos", params={"new_only": "true"}
+        ).json()["total"] == 1
 
         with TestingSessionLocal() as db:
             user = db.scalar(select(User).where(User.email == "owner@example.com"))

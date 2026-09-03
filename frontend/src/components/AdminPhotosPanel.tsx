@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { api } from "../services/api";
 import type { Locale, OperationalWinePhotos } from "../types";
@@ -27,14 +27,20 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
   const [photoError, setPhotoError] = useState("");
   const [deletingPhotoId, setDeletingPhotoId] = useState("");
   const [syncingPhotoLibrary, setSyncingPhotoLibrary] = useState(false);
+  const [photoSearch, setPhotoSearch] = useState("");
+  const [photoSearchInput, setPhotoSearchInput] = useState("");
+  const [newPhotosOnly, setNewPhotosOnly] = useState(false);
   const [demoCellar, setDemoCellar] = useState<DemoCellarState | null>(null);
   const [demoSelection, setDemoSelection] = useState<string[]>([]);
   const [publishingDemo, setPublishingDemo] = useState(false);
 
-  async function loadWinePhotos() {
+  async function loadWinePhotos(search = photoSearch, onlyNew = newPhotosOnly) {
     try {
       setPhotoError("");
-      setWinePhotos(await api<OperationalWinePhotos>("/api/v1/admin/operations/photos?limit=200"));
+      const params = new URLSearchParams({ limit: "200" });
+      if (search.trim()) params.set("q", search.trim());
+      if (onlyNew) params.set("new_only", "true");
+      setWinePhotos(await api<OperationalWinePhotos>(`/api/v1/admin/operations/photos?${params.toString()}`));
     } catch (error) {
       setPhotoError(error instanceof Error ? error.message : "Unable to load bottle photos");
     }
@@ -118,6 +124,17 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
     }
   }
 
+  function applyPhotoSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPhotoSearch(photoSearchInput);
+    void loadWinePhotos(photoSearchInput, newPhotosOnly);
+  }
+
+  function toggleNewPhotos(onlyNew: boolean) {
+    setNewPhotosOnly(onlyNew);
+    void loadWinePhotos(photoSearch, onlyNew);
+  }
+
   return (
     <>
     <section className="settings-card settings-card-wide admin-demo-card">
@@ -190,7 +207,25 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
       {photoError ? <p className="admin-photos-error" role="alert">{photoError}</p> : null}
       {winePhotos ? (
         winePhotos.items.length ? (
-          <div className="admin-photos-grid">
+          <>
+            <div className="admin-photos-toolbar">
+              <form className="admin-photos-search" onSubmit={applyPhotoSearch}>
+                <label htmlFor="admin-photo-search">{isItalian ? "Cerca foto di vino" : "Search wine photos"}</label>
+                <input
+                  id="admin-photo-search"
+                  type="search"
+                  value={photoSearchInput}
+                  onChange={(event) => setPhotoSearchInput(event.target.value)}
+                  placeholder={isItalian ? "Nome vino o produttore" : "Wine name or producer"}
+                />
+                <button type="submit" className="secondary compact">{isItalian ? "Cerca" : "Search"}</button>
+              </form>
+              <label className="admin-photos-new-filter">
+                <input type="checkbox" checked={newPhotosOnly} onChange={(event) => toggleNewPhotos(event.target.checked)} />
+                <span>{isItalian ? "Solo foto nuove (7 giorni)" : "New photos only (7 days)"}</span>
+              </label>
+            </div>
+            <div className="admin-photos-grid">
             {winePhotos.items.map((photo) => {
               const label = [photo.name, photo.vintage].filter(Boolean).join(" ");
               return (
@@ -199,9 +234,9 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
                     <img src={photo.thumbnail_url} alt={label} loading="lazy" />
                   </a>
                   <div>
-                    <strong>{label}</strong>
+                    <strong>{label}{photo.is_new ? <em className="admin-photo-new-tag">NEW</em> : null}</strong>
                     <span>{photo.producer || (isItalian ? "Produttore non indicato" : "Producer not provided")}</span>
-                    <small>{isItalian ? "Archivio fotografico condiviso" : "Shared photo library"}</small>
+                    <small>{isItalian ? `Aggiunta il ${new Intl.DateTimeFormat("it-CH", { day: "2-digit", month: "short" }).format(new Date(photo.created_at))}` : `Added ${new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short" }).format(new Date(photo.created_at))}`}</small>
                   </div>
                   <button type="button" className="danger compact" disabled={deletingPhotoId === photo.wine_id} onClick={() => void deleteWinePhoto(photo.wine_id, label)}>
                     {deletingPhotoId === photo.wine_id
@@ -211,8 +246,19 @@ export function AdminPhotosPanel({ locale }: { locale: Locale }) {
                 </article>
               );
             })}
+            </div>
+          </>
+        ) : <>
+          <div className="admin-photos-toolbar">
+            <form className="admin-photos-search" onSubmit={applyPhotoSearch}>
+              <label htmlFor="admin-photo-search">{isItalian ? "Cerca foto di vino" : "Search wine photos"}</label>
+              <input id="admin-photo-search" type="search" value={photoSearchInput} onChange={(event) => setPhotoSearchInput(event.target.value)} placeholder={isItalian ? "Nome vino o produttore" : "Wine name or producer"} />
+              <button type="submit" className="secondary compact">{isItalian ? "Cerca" : "Search"}</button>
+            </form>
+            <label className="admin-photos-new-filter"><input type="checkbox" checked={newPhotosOnly} onChange={(event) => toggleNewPhotos(event.target.checked)} /><span>{isItalian ? "Solo foto nuove (7 giorni)" : "New photos only (7 days)"}</span></label>
           </div>
-        ) : <p className="admin-photos-empty">{isItalian ? "Nessuna fotografia archiviata." : "No photographs stored."}</p>
+          <p className="admin-photos-empty">{isItalian ? "Nessuna fotografia corrisponde ai filtri." : "No photographs match the filters."}</p>
+        </>
       ) : <LoadingState label={isItalian ? "Caricamento fotografie…" : "Loading photographs…"} compact />}
     </section>
     </>

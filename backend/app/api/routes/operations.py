@@ -69,6 +69,12 @@ from app.services.wine_photo_library import archive_wine_photo, library_photo_pa
 router = APIRouter(prefix="/admin/operations")
 
 SAMPLE_RETENTION = timedelta(days=14)
+NEW_PHOTO_WINDOW = timedelta(days=7)
+
+
+def is_recent_photo(created_at: datetime) -> bool:
+    timestamp = created_at if created_at.tzinfo is not None else created_at.replace(tzinfo=UTC)
+    return timestamp >= datetime.now(UTC) - NEW_PHOTO_WINDOW
 
 
 class ManualVineyardLocation(BaseModel):
@@ -946,14 +952,24 @@ def collect_operations_sample_now(
 def list_wine_photos(
     limit: int = Query(default=100, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
+    q: str | None = Query(default=None, max_length=200),
+    new_only: bool = Query(default=False),
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
+    filters = []
+    search = q.strip() if q else ""
+    if search:
+        pattern = f"%{search}%"
+        filters.append((WinePhotoLibraryEntry.name.ilike(pattern)) | (WinePhotoLibraryEntry.producer.ilike(pattern)))
+    if new_only:
+        filters.append(WinePhotoLibraryEntry.created_at >= datetime.now(UTC) - NEW_PHOTO_WINDOW)
     rows = db.execute(
         select(WinePhotoLibraryEntry, Household.name)
         .outerjoin(Wine, Wine.id == WinePhotoLibraryEntry.source_wine_id)
         .outerjoin(Household, Household.id == Wine.household_id)
-        .order_by(WinePhotoLibraryEntry.name, WinePhotoLibraryEntry.producer, WinePhotoLibraryEntry.created_at.desc())
+        .where(*filters)
+        .order_by(WinePhotoLibraryEntry.created_at.desc())
     ).all()
     unique_rows: list[tuple[WinePhotoLibraryEntry, str | None]] = []
     seen_identities: set[tuple[str, str]] = set()
@@ -974,6 +990,8 @@ def list_wine_photos(
                 "producer": photo.producer,
                 "vintage": "",
                 "household_name": household_name or "Shared photo library",
+                "created_at": photo.created_at.isoformat(),
+                "is_new": is_recent_photo(photo.created_at),
                 "thumbnail_url": f"/api/v1/admin/operations/photos/{photo.id}/thumbnail?v={photo.photo_version}",
                 "detail_url": f"/api/v1/admin/operations/photos/{photo.id}/detail?v={photo.photo_version}",
             }

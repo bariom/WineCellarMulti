@@ -1103,6 +1103,8 @@ export type OperationalWinePhoto = {
   producer: string;
   vintage: string;
   household_name: string;
+  created_at: string;
+  is_new: boolean;
   thumbnail_url: string;
   detail_url: string;
 };
