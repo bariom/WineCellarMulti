@@ -1682,6 +1682,18 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
         assert entered.json()["is_demo"] is True
         assert entered.json()["membership_role"] == "viewer"
         assert entered.json()["has_active_entitlement"] is True
+        if entered.json()["requires_legal_acceptance"]:
+            accepted = visitor.post(
+                "/api/v1/auth/legal-acceptance",
+                json={
+                    "locale": "en",
+                    "legal_document_version": LEGAL_DOCUMENT_VERSION,
+                    "privacy_policy_accepted": True,
+                    "terms_accepted": True,
+                },
+            )
+            assert accepted.status_code == 200
+            assert accepted.json()["requires_legal_acceptance"] is False
         demo_user = next(
             user for user in admin.get("/api/v1/auth/users").json()
             if user["id"] == entered.json()["user_id"]
