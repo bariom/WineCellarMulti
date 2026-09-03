@@ -129,6 +129,11 @@ function guideHalfWidth(width: number, height: number, y: number) {
 
 type Rgb = [number, number, number];
 type RowBounds = { left: number; right: number } | null;
+type PhotoSetupChecks = {
+  backgroundUniform: boolean;
+  bottleAligned: boolean;
+  lightingSuitable: boolean;
+};
 
 function medianColor(
   data: Uint8ClampedArray,
@@ -375,6 +380,72 @@ function detectedBottleMask(pixels: ImageData) {
   return alpha;
 }
 
+function assessPhotoSetup(pixels: ImageData): PhotoSetupChecks {
+  const { data, width, height } = pixels;
+  const leftBackgroundLuminance: number[] = [];
+  const rightBackgroundLuminance: number[] = [];
+  let totalLuminance = 0;
+  let highlightCount = 0;
+  let sampledPixels = 0;
+
+  for (let y = 0; y < height; y += 4) {
+    for (let x = 0; x < width; x += 4) {
+      const offset = (y * width + x) * 4;
+      const red = data[offset];
+      const green = data[offset + 1];
+      const blue = data[offset + 2];
+      const luminance = red * 0.3 + green * 0.59 + blue * 0.11;
+      totalLuminance += luminance;
+      sampledPixels += 1;
+      if (red > 245 && green > 245 && blue > 245) highlightCount += 1;
+      // Test each side independently: a plain wall may be brighter on one side
+      // while still being an excellent background for isolating the bottle.
+      if (y > height * 0.08 && y < height * 0.52 && x < width * 0.22) leftBackgroundLuminance.push(luminance);
+      if (y > height * 0.08 && y < height * 0.52 && x > width * 0.78) rightBackgroundLuminance.push(luminance);
+    }
+  }
+
+  const deviation = (values: number[]) => {
+    const mean = values.reduce((sum, value) => sum + value, 0) / Math.max(1, values.length);
+    return Math.sqrt(values.reduce((sum, value) => sum + (value - mean) ** 2, 0) / Math.max(1, values.length));
+  };
+  const backgroundDeviation = Math.max(deviation(leftBackgroundLuminance), deviation(rightBackgroundLuminance));
+  const lightingMean = totalLuminance / Math.max(1, sampledPixels);
+  let bottleAligned = false;
+  try {
+    const alpha = detectedBottleMask(pixels);
+    let minX = width;
+    let maxX = 0;
+    let minY = height;
+    let maxY = 0;
+    for (let index = 0; index < alpha.length; index += 1) {
+      if (alpha[index] < 128) continue;
+      const x = index % width;
+      const y = Math.floor(index / width);
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minY = Math.min(minY, y);
+      maxY = Math.max(maxY, y);
+    }
+    const subjectWidth = maxX - minX + 1;
+    const subjectHeight = maxY - minY + 1;
+    bottleAligned = minX < maxX
+      && minY < maxY
+      && Math.abs((minX + maxX) / 2 - width / 2) < width * 0.08
+      && subjectHeight / subjectWidth > 1.7
+      && minY > height * 0.02
+      && maxY < height * 0.98;
+  } catch {
+    bottleAligned = false;
+  }
+
+  return {
+    backgroundUniform: backgroundDeviation < 30,
+    bottleAligned,
+    lightingSuitable: lightingMean > 52 && lightingMean < 218 && highlightCount / Math.max(1, sampledPixels) < 0.08,
+  };
+}
+
 async function processBottlePhoto(source: Blob): Promise<ProcessedBottlePhoto> {
   const bitmap = await createImageBitmap(source, { imageOrientation: "from-image" });
   const working = document.createElement("canvas");
@@ -479,6 +550,7 @@ export function BottlePhotoCapture({
   const [processed, setProcessed] = useState<ProcessedBottlePhoto | null>(null);
   const [processingMode, setProcessingMode] = useState<"ai" | "local" | null>(null);
   const [fallbackMessage, setFallbackMessage] = useState("");
+  const [photoSetup, setPhotoSetup] = useState<PhotoSetupChecks | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const fileRef = useRef<HTMLInputElement | null>(null);
@@ -497,6 +569,7 @@ export function BottlePhotoCapture({
     setProcessed(null);
     setProcessingMode(null);
     setFallbackMessage("");
+    setPhotoSetup(null);
     setOpen(false);
   }
 
@@ -520,6 +593,27 @@ export function BottlePhotoCapture({
       ? "Il browser ha bloccato la riproduzione della fotocamera. Premi Riprova fotocamera."
       : "The browser blocked camera playback. Press Retry camera."));
   }, [cameraReady, isItalian, open, processed]);
+
+  useEffect(() => {
+    if (!open || processed || !cameraReady || cameraError) {
+      setPhotoSetup(null);
+      return;
+    }
+    const checkSetup = () => {
+      const video = videoRef.current;
+      if (!video?.videoWidth || !video.videoHeight) return;
+      const canvas = document.createElement("canvas");
+      canvas.width = 120;
+      canvas.height = 180;
+      const context = canvas.getContext("2d", { willReadFrequently: true });
+      if (!context) return;
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
+      setPhotoSetup(assessPhotoSetup(context.getImageData(0, 0, canvas.width, canvas.height)));
+    };
+    checkSetup();
+    const interval = window.setInterval(checkSetup, 800);
+    return () => window.clearInterval(interval);
+  }, [cameraError, cameraReady, open, processed]);
 
   function cameraFailureMessage(error?: unknown) {
     if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
@@ -553,6 +647,7 @@ export function BottlePhotoCapture({
     setProcessingMode(null);
     setFallbackMessage("");
     setCameraError("");
+    setPhotoSetup(null);
     stopCamera();
     if (!navigator.mediaDevices?.getUserMedia) {
       setCameraError(cameraFailureMessage());
@@ -700,11 +795,31 @@ export function BottlePhotoCapture({
               </div>
               <button type="button" className="secondary compact" onClick={close} aria-label={isItalian ? "Chiudi" : "Close"}>×</button>
             </header>
-            <p className="bottle-capture-help">
-              {isItalian
-                ? "Appoggia la bottiglia su un fondo uniforme e contrastante. Inquadra tutta la sagoma, con il collo al centro e l’etichetta frontale."
-                : "Place the bottle on a plain, contrasting background. Keep the full outline, centred neck and front-facing label inside the guide."}
-            </p>
+            <section className="bottle-capture-setup" aria-label={isItalian ? "Esempio di inquadratura ideale" : "Ideal framing example"}>
+              <svg viewBox="0 0 260 170" aria-hidden="true">
+                <defs>
+                  <linearGradient id="bottle-capture-background" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stopColor="#e9e5d7" />
+                    <stop offset="1" stopColor="#d9d2b9" />
+                  </linearGradient>
+                </defs>
+                <rect x="8" y="8" width="244" height="154" rx="14" fill="url(#bottle-capture-background)" />
+                <rect x="44" y="16" width="172" height="138" rx="10" fill="none" stroke="#a68037" strokeWidth="2" strokeDasharray="5 5" />
+                <path d="M118 30h24v24c0 8 3 14 9 20 6 6 9 13 9 23v34c0 12-8 20-20 20h-20c-12 0-20-8-20-20V97c0-10 3-17 9-23 6-6 9-12 9-20V30Z" fill="#542032" />
+                <path d="M105 93h50v35h-50Z" fill="#f8f3e8" stroke="#a68037" strokeWidth="2" />
+                <path d="M112 105h36M112 114h36" stroke="#b99555" strokeWidth="2" strokeLinecap="round" />
+                <circle cx="30" cy="30" r="8" fill="#fff9e9" stroke="#a68037" strokeWidth="2" />
+                <path d="M27 30l2 2 4-5" fill="none" stroke="#47664e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                <path d="M190 128c18-9 25-24 25-40" fill="none" stroke="#47664e" strokeWidth="2" strokeLinecap="round" />
+                <path d="m211 89 4-2 1 5" fill="none" stroke="#47664e" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              <div>
+                <strong>{isItalian ? "Così funziona meglio" : "This works best"}</strong>
+                <span className={photoSetup?.backgroundUniform ? "ready" : ""}>{isItalian ? "Sfondo senza oggetti o fantasie" : "Plain background, no objects or patterns"}</span>
+                <span className={photoSetup?.bottleAligned ? "ready" : ""}>{isItalian ? "Bottiglia intera, verticale e centrata" : "Full bottle, upright and centred"}</span>
+                <span className={photoSetup?.lightingSuitable ? "ready" : ""}>{isItalian ? "Luce diffusa davanti, senza riflessi forti" : "Soft front light, without strong reflections"}</span>
+              </div>
+            </section>
             <div className={`bottle-capture-stage${processed ? " preview" : ""}`}>
               {processed ? (
                 <>
@@ -731,11 +846,6 @@ export function BottlePhotoCapture({
             </div>
             {fallbackMessage ? <p className="bottle-fallback-message" role="status">{fallbackMessage}</p> : null}
             <input ref={fileRef} className="visually-hidden" type="file" accept="image/*" onChange={selectFile} />
-            <div className="bottle-capture-tips">
-              <span>{isItalian ? "✓ Luce morbida frontale" : "✓ Soft frontal light"}</span>
-              <span>{isItalian ? "✓ Nessun oggetto dietro" : "✓ No objects behind"}</span>
-              <span>{isItalian ? "✓ Bottiglia verticale" : "✓ Bottle upright"}</span>
-            </div>
             <footer>
               {processed ? (
                 <>
