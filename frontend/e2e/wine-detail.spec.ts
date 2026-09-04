@@ -164,6 +164,9 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
 }
 
 async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false) {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
+  });
   await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
@@ -301,6 +304,32 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(dialog).toBeHidden();
   });
 
+  test("makes the first AI plan value clear on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page);
+    await page.addInitScript(() => {
+      const currentFetch = window.fetch.bind(window);
+      window.fetch = async (input, init) => {
+        const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
+        const url = new URL(requestUrl, window.location.origin);
+        if (url.pathname === "/api/v1/ai/cellar-intelligence/latest") {
+          return new Response("null", { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        if (url.pathname === "/api/v1/ai/cellar-intelligence/history") {
+          return new Response("[]", { status: 200, headers: { "Content-Type": "application/json" } });
+        }
+        return currentFetch(input, init);
+      };
+    });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await page.setViewportSize({ width: 390, height: 844 });
+
+    await expect(page.getByRole("heading", { name: "Trasforma i segnali della cantina in un ordine d’azione" })).toBeVisible();
+    await expect(page.getByText("bottiglie ancora da decidere", { exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+
   test("shows Intelligence confidence, history, simulation, goals and group actions", async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page);
@@ -336,7 +365,7 @@ test.describe("Wine Detail compact/mobile", () => {
         const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
         const url = new URL(requestUrl, window.location.origin);
         if (url.pathname === "/api/v1/ai/cellar-intelligence" && init?.method === "POST") {
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 1500));
           return new Response(JSON.stringify(fixturePlan), { status: 200, headers: { "Content-Type": "application/json" } });
         }
         return currentFetch(input, init);
@@ -345,7 +374,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.goto("/");
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
 
-    await page.getByRole("button", { name: "Analizza la cantina con AI", exact: true }).click();
+    await page.getByRole("button", { name: "Crea piano AI", exact: true }).click();
     const overlay = page.locator(".ai-generation-overlay");
     await expect(overlay).toBeVisible();
     await expect(overlay.getByText("Piano della cantina", { exact: true })).toBeVisible();

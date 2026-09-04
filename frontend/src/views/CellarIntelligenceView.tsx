@@ -144,6 +144,18 @@ export default function CellarIntelligenceView({
       resolved: [...previous.keys()].filter((wineId) => !current.has(wineId)).length,
     };
   }, [plan, previousPlan]);
+  const focusDescription = {
+    balanced: it ? "Bilancia consumo, maturazione, capitale e occasioni." : "Balance drinking, maturation, capital and occasions.",
+    drink: it ? "Metti in evidenza cosa aprire e cosa rischia di superare il momento migliore." : "Prioritise what to open and what risks passing its best moment.",
+    maturation: it ? "Proteggi le bottiglie che meritano attesa e individua quelle da ricontrollare." : "Protect bottles worth holding and identify those to review.",
+    investment: it ? "Concentrati su valore, capitale esposto e dati di mercato da aggiornare." : "Focus on value, exposed capital and market data to refresh.",
+  }[focus];
+  const formatAiCost = (value: string) => new Intl.NumberFormat(it ? "it-CH" : "en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  }).format(Number(value));
 
   function beginEdit(
     wine: CellarIntelligenceWine,
@@ -436,8 +448,9 @@ export default function CellarIntelligenceView({
               <option value="investment">{it ? "Investimento" : "Investment"}</option>
             </select>
           </label>
+          <small className="intelligence-focus-description">{focusDescription}</small>
           <button type="button" disabled={disabled || generating || !snapshot?.bottle_count} onClick={() => void generatePlan()}>
-            {generating ? (it ? "Analisi in corso…" : "Analysing…") : (it ? "Analizza la cantina con AI" : "Analyse cellar with AI")}
+            {generating ? (it ? "Analisi in corso…" : "Analysing…") : (it ? "Crea piano AI" : "Create AI plan")}
           </button>
         </div>
       </header>
@@ -450,6 +463,19 @@ export default function CellarIntelligenceView({
         <article><small>{it ? "Investimento" : "Investment"}</small><strong>{snapshot?.investment_count || 0}</strong><span>{it ? "da monitorare" : "to monitor"}</span></article>
         <article className={snapshot?.undecided_count ? "attention" : ""}><small>{it ? "Senza decisione" : "Needs decision"}</small><strong>{snapshot?.undecided_count || 0}</strong><span>{it ? "bottiglie" : "bottles"}</span></article>
       </div>
+
+      {!plan ? <section className="intelligence-ai-opportunity" aria-labelledby="intelligence-ai-opportunity-title">
+        <div>
+          <span className="intelligence-kicker">VINARIS AI</span>
+          <h2 id="intelligence-ai-opportunity-title">{it ? "Trasforma i segnali della cantina in un ordine d’azione" : "Turn cellar signals into an order of action"}</h2>
+          <p>{it ? "Il piano AI incrocia maturità, valore, obiettivi e qualità dei dati. Propone azioni concrete, ma non modifica mai la cantina senza la tua conferma." : "The AI plan combines maturity, value, goals and data quality. It proposes concrete actions, but never changes your cellar without your confirmation."}</p>
+        </div>
+        <ul>
+          <li><strong>{snapshot?.drink_now_count || 0}</strong><span>{it ? "bottiglie nella finestra di beva" : "bottles in their drinking window"}</span></li>
+          <li><strong>{snapshot?.undecided_count || 0}</strong><span>{it ? "bottiglie ancora da decidere" : "bottles still needing a decision"}</span></li>
+          <li><strong>{snapshot?.wine_count || 0}</strong><span>{it ? "vini letti nel contesto" : "wines considered in context"}</span></li>
+        </ul>
+      </section> : null}
 
       <details className="intelligence-preferences">
         <summary><div><span className="intelligence-kicker">{it ? "OBIETTIVI PERSONALI" : "PERSONAL GOALS"}</span><h2>{it ? "Imposta la strategia della cantina" : "Set your cellar strategy"}</h2></div><span>{it ? "Consumo, capitale e orizzonte" : "Drinking, capital and horizon"}</span></summary>
@@ -526,7 +552,11 @@ export default function CellarIntelligenceView({
             </footer>
           </article>;
         })}</div>
-        <small>{plan.model} · ${Number(plan.estimated_cost_usd).toFixed(6)}</small>
+        <footer className="intelligence-plan-meta">
+          <span>{it ? `Generato il ${new Date(plan.generated_at).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" })}` : `Generated ${new Date(plan.generated_at).toLocaleDateString(locale, { day: "2-digit", month: "short", year: "numeric" })}`}</span>
+          <span>{plan.model}</span>
+          <span>{it ? `Costo AI stimato: ${formatAiCost(plan.estimated_cost_usd)}` : `Estimated AI cost: ${formatAiCost(plan.estimated_cost_usd)}`}</span>
+        </footer>
       </article> : null}
 
       <details className="intelligence-selection">
