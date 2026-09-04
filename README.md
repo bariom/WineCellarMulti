@@ -140,7 +140,7 @@ Update backend and frontend from the repository root:
 ./update.sh
 ```
 
-The update script pulls the latest code, installs backend dependencies, runs Alembic migrations, installs frontend dependencies, and runs the frontend build. PostgreSQL must already be running.
+The update script pulls the latest code, installs backend dependencies, runs Alembic migrations, and runs the frontend build. Frontend dependencies are reinstalled only when `package.json` or `package-lock.json` changes (or `node_modules` is missing). PostgreSQL must already be running.
 
 Start or recover the production stack after a reboot/outage:
 

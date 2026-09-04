@@ -7,6 +7,7 @@ FRONTEND_DIR="$ROOT_DIR/frontend"
 
 echo "Updating source code"
 cd "$ROOT_DIR"
+PREVIOUS_REVISION="$(git rev-parse HEAD)"
 git pull --ff-only
 
 if [[ ! -f "$ROOT_DIR/.env" || ! -f "$BACKEND_DIR/.env" ]]; then
@@ -28,7 +29,13 @@ echo "Checking bottle photo AI installation"
 
 echo "Updating frontend"
 cd "$FRONTEND_DIR"
-npm install
+if [[ ! -d "node_modules" || ! -f "node_modules/.package-lock.json" ]] \
+  || ! git diff --quiet "$PREVIOUS_REVISION" HEAD -- frontend/package.json frontend/package-lock.json; then
+  echo "Installing frontend dependencies"
+  npm ci --no-audit --no-fund --prefer-offline
+else
+  echo "Frontend dependencies unchanged; skipping npm install"
+fi
 npm run build
 
 restart_service_if_available() {
