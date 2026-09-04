@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
-import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
+import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel } from "./components/AppPanels";
 import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
 import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
@@ -80,6 +80,8 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 
 const PairingView = lazy(() => import("./views/PairingView"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
+const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
+const AI_PACK_ENHANCEMENT_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
 const PublicLanding = lazy(() => import("./views/PublicLanding"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
@@ -1428,6 +1430,7 @@ export function App() {
   const pendingKeyPositionIndexRef = useRef<number | null>(null);
   const regionalGapChartRef = useRef<HTMLDivElement | null>(null);
   const [aiAudit, setAiAudit] = useState<AiAuditLog[]>([]);
+  const [aiPackEnhancementDismissed, setAiPackEnhancementDismissed] = useState(() => Number(window.localStorage.getItem(AI_PACK_ENHANCEMENT_DISMISS_KEY) || 0) > Date.now());
   const [batchAiRunSummary, setBatchAiRunSummary] = useState<BatchAiRunSummary | null>(null);
   const [aiAuditLimit, setAiAuditLimit] = useState("10");
   const [aiAuditDateFrom, setAiAuditDateFrom] = useState("");
@@ -5180,6 +5183,10 @@ export function App() {
       ),
     );
   const canRecognizeBottlePhoto = canUseLabelRecognition && canGenerateAi;
+  const showAiPackUpgrade = Boolean(session?.is_free_tier && !canGenerateAi && billingStatus?.can_purchase_ai_credits);
+  const showAiPackEnhancement = showAiPackUpgrade && !aiPackEnhancementDismissed;
+  const aiPackUpgradeNotice = showAiPackUpgrade ? <AiPackUpgradeNotice locale={locale} onPurchase={() => void startCheckout("ai_credits")} /> : null;
+  const aiPackEnhancementHint = showAiPackEnhancement ? <AiPackUpgradeNotice locale={locale} compact onPurchase={() => void startCheckout("ai_credits")} onDismiss={() => { window.localStorage.setItem(AI_PACK_ENHANCEMENT_DISMISS_KEY, String(Date.now() + AI_PACK_ENHANCEMENT_REMINDER_MS)); setAiPackEnhancementDismissed(true); }} /> : null;
   const canUseIncludedWineSearch = canWriteWine && Boolean(aiSettings?.can_use_included_wine_search);
   const helpRole: HelpRole = session?.membership_role === "owner" || session?.membership_role === "admin" || session?.membership_role === "member" || session?.membership_role === "viewer"
     ? session.membership_role
@@ -9526,6 +9533,7 @@ export function App() {
           ) : null}
           {activeView === "home" && !isRestaurant ? (
             <section className="home-dashboard">
+              {aiPackEnhancementHint}
               <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
                 <div className="dashboard-focus-lead">
                   <AppIcon name="dashboard-cards" variant="feature" tone="accent" size="1.15rem" />
@@ -10821,8 +10829,7 @@ export function App() {
           {activeView === "pulse" ? <WinePulseView locale={locale} /> : null}
 
           {activeView === "intelligence" && !isRestaurant ? (
-            <Suspense fallback={<LoadingState label={t("loadingData")} />}>
-              <CellarIntelligenceView
+            <><>{aiPackUpgradeNotice}</><Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarIntelligenceView
                 locale={locale}
                 disabled={!canGenerateAi || !canWriteWine}
                 onOpenWine={(wineId) => {
@@ -10830,12 +10837,11 @@ export function App() {
                   if (wine) openWineFromDashboard(wine);
                 }}
                 onCellarChanged={loadWines}
-              />
-            </Suspense>
+              /></Suspense></>
           ) : null}
 
           {activeView === "assistant" && canAccessCellarAssistant ? (
-            <CellarAssistantView
+            <>{aiPackUpgradeNotice}<CellarAssistantView
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
               onPreparePurchase={prepareAssistantPurchaseDraft}
@@ -10844,11 +10850,12 @@ export function App() {
                 await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
               }}
-            />
+            /></>
           ) : null}
 
           {activeView === "pairing" ? (
             <section className="pairing-view">
+              {aiPackUpgradeNotice}
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <PairingView
                   activePairingBudget={activePairingBudget}
@@ -10897,6 +10904,7 @@ export function App() {
 
           {activeView === "buying" ? (
             <section className="pairing-view buying-view">
+              {aiPackUpgradeNotice}
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <BuyingAdviceView
                   canGenerateAi={canGenerateAi}
@@ -10940,6 +10948,7 @@ export function App() {
 
           {isCollectionView ? (
           <aside className="wine-side-panel">
+            {showAiPackEnhancement && (activeView === "cellar" || activeView === "wishlist") ? aiPackEnhancementHint : null}
             {false && isWineCollectionView && selectedVisibleWine && !wineFormOpen ? (
               <div className="wine-side-panel-topbar">
                 <button
