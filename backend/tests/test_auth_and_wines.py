@@ -324,11 +324,16 @@ def test_cellar_intelligence_preferences_and_bulk_assignment_are_household_scope
     assert snapshot["preferences"]["planning_horizon_years"] == 7
     assert len(snapshot["fingerprint"]) == 24
 
+    mixed_purposes = client.put(
+        f"/api/v1/intelligence/wines/{second.json()['id']}/allocations",
+        json={"allocations": [{"purpose": "investment", "quantity": 2}]},
+    )
+    assert mixed_purposes.status_code == 200, mixed_purposes.text
+
     reassigned = client.put(
         "/api/v1/intelligence/allocations/bulk/reassign",
         json={
             "wine_ids": [first.json()["id"], second.json()["id"]],
-            "from_purpose": "maturation",
             "purpose": "drink",
         },
     )
@@ -337,10 +342,10 @@ def test_cellar_intelligence_preferences_and_bulk_assignment_are_household_scope
         "changed_wines": 2,
         "assigned_bottles": 5,
         "purpose": "drink",
-        "from_purpose": "maturation",
     }
     moved_snapshot = client.get("/api/v1/intelligence/cellar").json()
     assert moved_snapshot["purpose_totals"]["maturation"] == 0
+    assert moved_snapshot["purpose_totals"]["investment"] == 0
     assert moved_snapshot["purpose_totals"]["drink"] == 5
 
     missing = client.put(

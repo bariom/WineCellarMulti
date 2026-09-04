@@ -40,7 +40,6 @@ export default function CellarIntelligenceView({
   const [selectionRegion, setSelectionRegion] = useState("all");
   const [selectionType, setSelectionType] = useState("all");
   const [groupPurpose, setGroupPurpose] = useState<WineStrategyPurpose>("maturation");
-  const [groupSourcePurpose, setGroupSourcePurpose] = useState<WineStrategyPurpose>("maturation");
   const [preferences, setPreferences] = useState<CellarIntelligencePreferences>(DEFAULT_PREFERENCES);
   const [savingPreferences, setSavingPreferences] = useState(false);
   const [applyingGroup, setApplyingGroup] = useState<"assign" | "move" | "">("");
@@ -291,19 +290,19 @@ export default function CellarIntelligenceView({
   }
 
   async function reassignSelectedGroup() {
-    if (!selectedWineIds.size || groupSourcePurpose === groupPurpose) return;
+    if (!selectedWineIds.size) return;
     setApplyingGroup("move");
     setError("");
     setActionNotice("");
     try {
       const result = await api<{ changed_wines: number; assigned_bottles: number }>("/api/v1/intelligence/allocations/bulk/reassign", {
         method: "PUT",
-        body: JSON.stringify({ wine_ids: [...selectedWineIds], from_purpose: groupSourcePurpose, purpose: groupPurpose }),
+        body: JSON.stringify({ wine_ids: [...selectedWineIds], purpose: groupPurpose }),
       });
       await Promise.all([loadSnapshot(false), onCellarChanged()]);
       setSelectedWineIds(new Set());
       if (plan) setPlan({ ...plan, stale: true, stale_reasons: [...new Set([...plan.stale_reasons, "cellar_data_changed"])] });
-      setActionNotice(it ? `${result.assigned_bottles} bottiglie di ${result.changed_wines} vini spostate da ${purposeLabel(groupSourcePurpose)} a ${purposeLabel(groupPurpose)}.` : `${result.assigned_bottles} bottles across ${result.changed_wines} wines moved from ${purposeLabel(groupSourcePurpose)} to ${purposeLabel(groupPurpose)}.`);
+      setActionNotice(it ? `${result.assigned_bottles} bottiglie di ${result.changed_wines} vini spostate a ${purposeLabel(groupPurpose)}.` : `${result.assigned_bottles} bottles across ${result.changed_wines} wines moved to ${purposeLabel(groupPurpose)}.`);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : String(requestError));
     } finally {
@@ -589,7 +588,7 @@ export default function CellarIntelligenceView({
         <div className="intelligence-selection-body">
           <div className="intelligence-selection-controls">
             <input type="search" value={selectionQuery} onChange={(event) => setSelectionQuery(event.target.value)} placeholder={it ? "Cerca vino, produttore o regione" : "Search wine, producer, or region"} />
-            <select value={selectionPurpose} onChange={(event) => { const purpose = event.target.value as WineStrategyPurpose | "all"; setSelectionPurpose(purpose); if (purpose !== "all") setGroupSourcePurpose(purpose); }} aria-label={it ? "Filtra per obiettivo" : "Filter by purpose"}>
+            <select value={selectionPurpose} onChange={(event) => setSelectionPurpose(event.target.value as WineStrategyPurpose | "all")} aria-label={it ? "Filtra per obiettivo" : "Filter by purpose"}>
               <option value="all">{it ? "Tutti gli obiettivi" : "All purposes"}</option>
               {PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}
             </select>
@@ -609,7 +608,7 @@ export default function CellarIntelligenceView({
             </label>)}
             {!visibleClassifiedWines.length ? <p className="intelligence-empty">{it ? "Nessun vino corrisponde ai filtri." : "No wines match these filters."}</p> : null}
           </div>
-          <footer><small>{it ? "Assegna libere aggiunge solo bottiglie senza obiettivo. Per spostare bottiglie già classificate scegli l’obiettivo di partenza e quello nuovo." : "Assign unallocated only adds bottles without a purpose. To move classified bottles, choose their current and new purpose."}</small><div className="intelligence-group-actions"><select value={groupPurpose} onChange={(event) => setGroupPurpose(event.target.value as WineStrategyPurpose)} aria-label={it ? "Nuovo obiettivo" : "New purpose"}>{PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}</select><button type="button" className="secondary" disabled={disabled || Boolean(applyingGroup) || !selectedWineIds.size} onClick={() => void assignSelectedGroup()}>{applyingGroup === "assign" ? (it ? "Assegnazione…" : "Assigning…") : (it ? "Assegna bottiglie libere" : "Assign unallocated")}</button><select value={groupSourcePurpose} onChange={(event) => setGroupSourcePurpose(event.target.value as WineStrategyPurpose)} aria-label={it ? "Obiettivo da spostare" : "Purpose to move"}>{PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}</select><button type="button" className="secondary" disabled={disabled || Boolean(applyingGroup) || !selectedWineIds.size || groupSourcePurpose === groupPurpose} onClick={() => void reassignSelectedGroup()}>{applyingGroup === "move" ? (it ? "Spostamento…" : "Moving…") : (it ? "Sposta bottiglie assegnate" : "Move assigned bottles")}</button><button type="button" disabled={disabled || generating || !selectedWineIds.size} onClick={() => void generatePlan([...selectedWineIds])}>{generating ? (it ? "Analisi in corso…" : "Analysing…") : `${it ? "Analizza selezione" : "Analyse selection"} (${selectedWineIds.size})`}</button></div></footer>
+          <footer className="intelligence-selection-actions"><small>{it ? "Assegna libere aggiunge solo bottiglie senza obiettivo. Sposta assegnate porta tutte le bottiglie già classificate selezionate al nuovo obiettivo." : "Assign unallocated only adds bottles without a purpose. Move assigned moves every selected classified bottle to the new purpose."}</small><div className="intelligence-group-actions"><section className="intelligence-group-action"><div><span className="intelligence-kicker">{it ? "ASSEGNA LIBERE" : "ASSIGN UNALLOCATED"}</span><label><span>{it ? "Nuovo obiettivo" : "New purpose"}</span><select value={groupPurpose} onChange={(event) => setGroupPurpose(event.target.value as WineStrategyPurpose)} aria-label={it ? "Nuovo obiettivo" : "New purpose"}>{PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}</select></label></div><button type="button" className="secondary" disabled={disabled || Boolean(applyingGroup) || !selectedWineIds.size} onClick={() => void assignSelectedGroup()}>{applyingGroup === "assign" ? (it ? "Assegnazione…" : "Assigning…") : (it ? "Assegna libere" : "Assign unallocated")}</button></section><section className="intelligence-group-action intelligence-group-action-move"><div><span className="intelligence-kicker">{it ? "SPOSTA ASSEGNATE" : "MOVE ASSIGNED"}</span><label><span>{it ? "Nuovo obiettivo" : "New purpose"}</span><select value={groupPurpose} onChange={(event) => setGroupPurpose(event.target.value as WineStrategyPurpose)} aria-label={it ? "Nuovo obiettivo per le assegnate" : "New purpose for assigned bottles"}>{PURPOSES.map((purpose) => <option key={purpose} value={purpose}>{purposeLabel(purpose)}</option>)}</select></label></div><button type="button" className="secondary" disabled={disabled || Boolean(applyingGroup) || !selectedWineIds.size} onClick={() => void reassignSelectedGroup()}>{applyingGroup === "move" ? (it ? "Spostamento…" : "Moving…") : (it ? "Sposta assegnate" : "Move assigned")}</button></section><button type="button" className="intelligence-group-analyse" disabled={disabled || generating || !selectedWineIds.size} onClick={() => void generatePlan([...selectedWineIds])}>{generating ? (it ? "Analisi in corso…" : "Analysing…") : `${it ? "Analizza selezione" : "Analyse selection"} (${selectedWineIds.size})`}</button></div></footer>
         </div>
       </details>
 

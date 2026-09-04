@@ -17,8 +17,6 @@ from app.models import Wine, WineStockLot, WineStrategyAllocation
 from app.schemas.intelligence import (
     BulkStrategyAssignment,
     BulkStrategyAssignmentResult,
-    BulkStrategyReassignment,
-    BulkStrategyReassignmentResult,
     CellarIntelligencePreferences,
     CellarIntelligenceSnapshot,
     CellarIntelligenceWine,
@@ -135,18 +133,13 @@ def assign_unallocated_bottles_in_bulk(
 
 
 @router.put(
-    "/allocations/bulk/reassign", response_model=BulkStrategyReassignmentResult
+    "/allocations/bulk/reassign", response_model=BulkStrategyAssignmentResult
 )
 def reassign_bottles_in_bulk(
-    payload: BulkStrategyReassignment,
+    payload: BulkStrategyAssignment,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> BulkStrategyReassignmentResult:
-    if payload.from_purpose == payload.purpose:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Source and target purposes must be different",
-        )
+) -> BulkStrategyAssignmentResult:
     wine_ids = set(payload.wine_ids)
     wines = list(
         db.scalars(
@@ -167,18 +160,16 @@ def reassign_bottles_in_bulk(
             select(WineStrategyAllocation).where(
                 WineStrategyAllocation.household_id == context.household.id,
                 WineStrategyAllocation.wine_id.in_(wine_ids),
-                WineStrategyAllocation.purpose == payload.from_purpose,
             )
         )
     )
     for allocation in allocations:
         allocation.purpose = payload.purpose
     db.commit()
-    return BulkStrategyReassignmentResult(
+    return BulkStrategyAssignmentResult(
         changed_wines=len({allocation.wine_id for allocation in allocations}),
         assigned_bottles=sum(allocation.quantity for allocation in allocations),
         purpose=payload.purpose,
-        from_purpose=payload.from_purpose,
     )
 
 
