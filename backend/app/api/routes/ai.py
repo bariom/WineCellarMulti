@@ -5909,6 +5909,8 @@ def generate_cellar_intelligence_plan(
             if early_peak_reclassification:
                 action = "reclassify"
                 recommended_purpose = "maturation"
+            if action == "hold" and wine.purposes.get("maturation", 0) >= wine.quantity:
+                continue
             maximum = (
                 wine.quantity
                 if action == "reclassify"
@@ -5932,6 +5934,11 @@ def generate_cellar_intelligence_plan(
                     else ""
                 )
             if action == "reclassify" and not recommended_purpose:
+                continue
+            if (
+                action == "reclassify"
+                and wine.purposes.get(recommended_purpose, 0) >= wine.quantity
+            ):
                 continue
             normalized_priority = str(raw.get("priority") or "medium")
             if normalized_priority not in {"high", "medium", "low"}:

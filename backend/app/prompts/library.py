@@ -110,7 +110,7 @@ def cellar_intelligence_plan_prompt(
 ) -> Prompt:
     return Prompt(
         id="cellar.intelligence_plan",
-        version="2",
+        version="3",
         system=(
             "You are Vinaris Private Cellar Intelligence. Return JSON only. Prioritize actions "
             "using only the supplied deterministic cellar data and owner preferences. Respect "
@@ -120,9 +120,9 @@ def cellar_intelligence_plan_prompt(
             "values, signals, and planning goals. For a too-young wine, normally recommend "
             "maturation. For every decide action, recommended_purpose must be non-empty and "
             "quantity must cover the bottles to classify. When a selected wine is already "
-            "classified, reassess its purpose from its maturity window, supplied values, and goals. "
-            "Use action reclassify and recommended_purpose only when a different purpose is "
-            "justified; otherwise use hold or monitor. Treat the first one or two years of a long "
+            "classified, treat purposes as current allocations; omit it when its existing allocation "
+            "suits maturity and goals. Reclassify only to a different purpose; hold or monitor only "
+            "for a concrete review now. Treat the first one or two years of a long "
             "peak window as an early peak, not as a reason to drink now: recommend maturation or "
             "holding until closer to the middle of the peak unless the wine is late. Do not claim "
             "guaranteed investment returns or invent market facts. Never put wine_id values in "

@@ -520,6 +520,62 @@ def test_cellar_intelligence_keeps_wine_at_start_of_long_peak(monkeypatch):
     assert "inizio di un picco lungo" in recommendation["reason"]
 
 
+def test_cellar_intelligence_omits_redundant_maturation_hold(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Chateau Cos d'Estournel",
+            "vintage": "2025",
+            "quantity": 6,
+            "status": "Delivered",
+            "drink_from": datetime.now(UTC).year + 8,
+            "drink_to": datetime.now(UTC).year + 20,
+        },
+    )
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    assert client.put(
+        f"/api/v1/intelligence/wines/{wine_id}/allocations",
+        json={"allocations": [{"purpose": "maturation", "quantity": 6}]},
+    ).status_code == 200
+
+    def fake_create_ai_response(*args, **kwargs):
+        return (
+            OpenAIResponse(
+                text=json.dumps(
+                    {
+                        "overview": "Piano equilibrato.",
+                        "immediate_action": "Mantieni Chateau Cos d'Estournel.",
+                        "risk_note": "Nota.",
+                        "recommendations": [
+                            {
+                                "wine_id": wine_id,
+                                "action": "hold",
+                                "priority": "low",
+                                "quantity": 6,
+                                "reason": "Troppo giovane, va lasciato maturare.",
+                                "recommended_purpose": "",
+                            }
+                        ],
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
+                usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            ),
+            "user_key",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_ai_response", fake_create_ai_response)
+    response = client.post("/api/v1/ai/cellar-intelligence", json={"locale": "it"})
+    assert response.status_code == 200, response.text
+    assert response.json()["recommendations"] == []
+
+
 def test_restaurant_sale_tracks_margin_and_can_be_voided():
     client = TestClient(app)
     assert register(client).status_code == 201

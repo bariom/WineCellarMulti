@@ -54,12 +54,13 @@ def test_cellar_intelligence_prompt_uses_goals_without_exposing_ids_in_prose():
         cellar_context='[{"wine_id":"test-id","name":"Sassicaia"}]',
     )
 
-    assert (prompt.id, prompt.version) == ("cellar.intelligence_plan", "2")
+    assert (prompt.id, prompt.version) == ("cellar.intelligence_plan", "3")
     assert "owner preferences" in prompt.system
     assert "Never put wine_id values" in prompt.system
     assert "annual_drink_target" in prompt.user
     assert "Sassicaia" in prompt.user
     assert "Do not create an action for every wine" in prompt.system
+    assert "treat purposes as current allocations" in prompt.system
 
 
 def test_grape_prompt_requires_exact_source_backed_composition():
