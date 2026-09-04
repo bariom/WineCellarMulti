@@ -140,7 +140,7 @@ Update backend and frontend from the repository root:
 ./update.sh
 ```
 
-The update script is diff-aware: it installs backend dependencies only when `backend/pyproject.toml` changes, applies Alembic only for migration changes, reinstalls frontend dependencies only when `package.json` or `package-lock.json` changes, and rebuilds the frontend only when frontend source/build inputs change (or the required local build directories are missing). It restarts the backend only when backend runtime code, dependencies, or migrations changed. PostgreSQL must already be running.
+The update script is diff-aware: it installs backend dependencies only when `backend/pyproject.toml` changes, applies Alembic only for migration changes, reinstalls frontend dependencies only when `package.json` or `package-lock.json` changes, and rebuilds the frontend only when frontend source/build inputs change (or the required local build directories are missing). It restarts the backend only when backend runtime code, dependencies, or migrations changed. Use `./update.sh --force` to rebuild the frontend and restart the backend regardless of detected changes. PostgreSQL must already be running.
 
 Start or recover the production stack after a reboot/outage:
 

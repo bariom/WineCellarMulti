@@ -4,14 +4,41 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
 FRONTEND_DIR="$ROOT_DIR/frontend"
+FORCE=false
+
+usage() {
+  echo "Usage: ./update.sh [--force]"
+  echo "  --force  Rebuild the frontend and restart the backend even when no matching source changes are detected."
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --force)
+      FORCE=true
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    *)
+      usage >&2
+      exit 2
+      ;;
+  esac
+  shift
+done
 
 echo "Updating source code"
 cd "$ROOT_DIR"
 PREVIOUS_REVISION="$(git rev-parse HEAD)"
 git pull --ff-only
 
+if [[ "$FORCE" == "true" ]]; then
+  echo "Force mode: frontend build and backend restart will run."
+fi
+
 changed_since_update() {
-  ! git diff --quiet "$PREVIOUS_REVISION" HEAD -- "$@"
+  ! git -C "$ROOT_DIR" diff --quiet "$PREVIOUS_REVISION" HEAD -- "$@"
 }
 
 if [[ ! -f "$ROOT_DIR/.env" || ! -f "$BACKEND_DIR/.env" ]]; then
@@ -52,7 +79,7 @@ fi
 cd "$FRONTEND_DIR"
 FRONTEND_DEPENDENCIES_NEEDED=false
 if [[ ! -d "node_modules" || ! -f "node_modules/.package-lock.json" ]] \
-  || ! git diff --quiet "$PREVIOUS_REVISION" HEAD -- frontend/package.json frontend/package-lock.json; then
+  || changed_since_update frontend/package.json frontend/package-lock.json; then
   FRONTEND_DEPENDENCIES_NEEDED=true
   echo "Installing frontend dependencies"
   npm ci --no-audit --no-fund --prefer-offline
@@ -61,7 +88,7 @@ else
 fi
 
 FRONTEND_BUILD_NEEDED=false
-if [[ ! -d "dist" || "$FRONTEND_DEPENDENCIES_NEEDED" == "true" ]] \
+if [[ "$FORCE" == "true" || ! -d "dist" || "$FRONTEND_DEPENDENCIES_NEEDED" == "true" ]] \
   || changed_since_update frontend/src frontend/public frontend/scripts frontend/index.html frontend/vite.config.ts frontend/tsconfig.json frontend/tsconfig.app.json frontend/tsconfig.node.json; then
   FRONTEND_BUILD_NEEDED=true
   echo "Building frontend"
@@ -88,7 +115,7 @@ restart_service_if_available() {
 }
 
 BACKEND_RESTART_NEEDED=false
-if [[ "$BACKEND_VENV_CREATED" == "true" || "$BACKEND_DEPENDENCIES_NEEDED" == "true" || "$MIGRATIONS_NEEDED" == "true" ]] \
+if [[ "$FORCE" == "true" || "$BACKEND_VENV_CREATED" == "true" || "$BACKEND_DEPENDENCIES_NEEDED" == "true" || "$MIGRATIONS_NEEDED" == "true" ]] \
   || changed_since_update backend/app; then
   BACKEND_RESTART_NEEDED=true
 fi
