@@ -179,6 +179,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.endsWith("/intelligence/cellar")) body = fixtureIntelligenceSnapshot;
       else if (path.endsWith("/ai/cellar-intelligence/latest")) body = fixtureIntelligencePlan;
       else if (path.endsWith("/ai/cellar-intelligence/history")) body = [fixtureIntelligencePlan, fixturePreviousIntelligencePlan];
+      else if (path.endsWith("/intelligence/allocations/bulk/reassign")) body = { changed_wines: 1, assigned_bottles: 4, purpose: "drink", from_purpose: "maturation" };
       else if (path.includes("/intelligence/wines/")) body = fixtureStrategyAllocations;
       else if (path.includes("/storage/allocations")) body = [];
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
@@ -205,6 +206,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.endsWith("/ai/cellar-intelligence/latest")) return fulfillJson(route, intelligencePlan);
     if (path.endsWith("/ai/cellar-intelligence/history")) return fulfillJson(route, [intelligencePlan, previousIntelligencePlan]);
     if (path.endsWith("/intelligence/preferences")) return fulfillJson(route, intelligenceSnapshot.preferences);
+    if (path.endsWith("/intelligence/allocations/bulk/reassign")) return fulfillJson(route, { changed_wines: 1, assigned_bottles: 4, purpose: "drink", from_purpose: "maturation" });
     if (path.endsWith("/intelligence/allocations/bulk")) return fulfillJson(route, { changed_wines: 1, assigned_bottles: 4, purpose: "maturation" });
     if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
@@ -354,6 +356,21 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.getByLabel("Filtra per produttore")).toBeVisible();
     await expect(page.getByLabel("Filtra per regione")).toBeVisible();
     await expect(page.getByLabel("Filtra per tipologia")).toBeVisible();
+  });
+
+  test("moves a selected group between cellar purposes", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page, [], true);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
+    await page.getByText("Seleziona e gestisci più vini", { exact: true }).click();
+    await page.getByRole("button", { name: "Seleziona visibili", exact: true }).click();
+    await page.getByLabel("Obiettivo da spostare").selectOption("maturation");
+    await page.getByLabel("Nuovo obiettivo").selectOption("drink");
+    await page.getByRole("button", { name: "Sposta bottiglie assegnate", exact: true }).click();
+    await expect(page.getByText("4 bottiglie di 1 vini spostate da Maturazione a Bere.", { exact: true })).toBeVisible();
+    await page.setViewportSize({ width: 390, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
   test("shows the AI animation while generating a cellar plan", async ({ page }) => {

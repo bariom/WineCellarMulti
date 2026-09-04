@@ -43,10 +43,18 @@ class BulkStrategyAssignment(BaseModel):
     purpose: WineStrategyPurpose
 
 
+class BulkStrategyReassignment(BulkStrategyAssignment):
+    from_purpose: WineStrategyPurpose
+
+
 class BulkStrategyAssignmentResult(BaseModel):
     changed_wines: int = 0
     assigned_bottles: int = 0
     purpose: WineStrategyPurpose
+
+
+class BulkStrategyReassignmentResult(BulkStrategyAssignmentResult):
+    from_purpose: WineStrategyPurpose
 
 
 class CellarIntelligenceWine(BaseModel):
