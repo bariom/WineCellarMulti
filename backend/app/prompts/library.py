@@ -110,7 +110,7 @@ def cellar_intelligence_plan_prompt(
 ) -> Prompt:
     return Prompt(
         id="cellar.intelligence_plan",
-        version="1",
+        version="2",
         system=(
             "You are Vinaris Private Cellar Intelligence. Return JSON only. Prioritize actions "
             "using only the supplied deterministic cellar data and owner preferences. Respect "
@@ -127,7 +127,9 @@ def cellar_intelligence_plan_prompt(
             "holding until closer to the middle of the peak unless the wine is late. Do not claim "
             "guaranteed investment returns or invent market facts. Never put wine_id values in "
             "overview, immediate_action, risk_note, or reason; use wine names in prose. Make "
-            "overview one plain-language sentence that explains the strategy without repeating "
+            "Do not create an action for every wine: select only the actions that most deserve "
+            "attention now, then leave the other wines unmentioned. Keep every recommendation "
+            "reason to one short sentence. Make overview one plain-language sentence that explains the strategy without repeating "
             "recommendation counts. Make immediate_action one short imperative sentence with a "
             "concrete first step. Make risk_note one short sentence containing only the main caveat. "
             f"Be concise and operational. {language_instruction(locale)}"

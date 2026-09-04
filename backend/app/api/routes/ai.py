@@ -139,7 +139,7 @@ router = APIRouter(prefix="/ai")
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
-CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS = 8192
+CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS = 4096
 CELLAR_INTELLIGENCE_TIMEOUT_SECONDS = 150
 MODEL_FIELDS = [
     "ai_notes_model",
@@ -5852,9 +5852,9 @@ def generate_cellar_intelligence_plan(
             "type": "object",
             "additionalProperties": False,
             "properties": {
-                "overview": {"type": "string"},
-                "immediate_action": {"type": "string"},
-                "risk_note": {"type": "string"},
+                "overview": {"type": "string", "maxLength": 350},
+                "immediate_action": {"type": "string", "maxLength": 220},
+                "risk_note": {"type": "string", "maxLength": 220},
                 "recommendations": {
                     "type": "array",
                     "maxItems": 12,
@@ -5866,7 +5866,7 @@ def generate_cellar_intelligence_plan(
                             "action": {"type": "string", "enum": ["drink", "hold", "monitor", "decide", "reclassify"]},
                             "priority": {"type": "string", "enum": ["high", "medium", "low"]},
                             "quantity": {"type": "integer", "minimum": 1},
-                            "reason": {"type": "string"},
+                            "reason": {"type": "string", "maxLength": 360},
                             "recommended_purpose": {
                                 "type": "string",
                                 "enum": ["", "drink", "maturation", "investment", "special_occasion", "undecided"],
@@ -5888,8 +5888,11 @@ def generate_cellar_intelligence_plan(
         system_prompt=prompt.system,
         user_prompt=prompt.user,
         json_schema=schema,
-        # High reasoning effort and up to 12 structured recommendations can
-        # exceed the former 2,200-token cap before the JSON object is closed.
+        # This is a concise, deterministic prioritisation over the whole
+        # snapshot, not a long-form portfolio essay. High reasoning can spend
+        # the entire response budget before closing the structured JSON on a
+        # large cellar, so keep the request deliberately bounded.
+        reasoning_effort="low",
         max_output_tokens=CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS,
         timeout_seconds=CELLAR_INTELLIGENCE_TIMEOUT_SECONDS,
     )
