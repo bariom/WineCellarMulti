@@ -4055,6 +4055,36 @@ summary:focus-visible {
   color: var(--text-muted);
 }
 
+.recognition-enrichment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+}
+
+.recognition-enrichment-help {
+  width: 100%;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.recognition-enrichment-help summary {
+  width: fit-content;
+  cursor: pointer;
+  color: var(--primary);
+  font-weight: 750;
+}
+
+.recognition-enrichment-help p {
+  margin: 7px 0 0;
+}
+
+.recognition-enrichment-help small {
+  display: block;
+  margin-top: 7px;
+}
+
 .recognition-vintage-field {
   width: min(100%, 240px);
 }

@@ -1379,6 +1379,7 @@ export function App() {
   const [wineRecognitionTarget, setWineRecognitionTarget] = useState<"wine" | "wishlist">("wine");
   const [wineRecognitionLoading, setWineRecognitionLoading] = useState(false);
   const [wineEnrichmentLoading, setWineEnrichmentLoading] = useState(false);
+  const wineCreationAiActionRef = useRef<{ kind: "full"; model: string } | null>(null);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
@@ -2005,6 +2006,7 @@ export function App() {
 
   async function confirmWineImageRecognition() {
     if (wineEnrichmentLoading || wineRecognitionLoading) return;
+    wineCreationAiActionRef.current = null;
     if (await enrichManualWineDraft("wine", "photo")) {
       const candidate = selectedWineImageCandidate;
       const normalize = (value: string) => value.trim().toLocaleLowerCase();
@@ -2030,6 +2032,16 @@ export function App() {
       setWineImageRecognitionResult(null);
       setSelectedWineImageCandidate(null);
     }
+  }
+
+  async function startFullEnrichmentFromRecognition(event: MouseEvent<HTMLButtonElement>) {
+    if (wineEnrichmentLoading || wineRecognitionLoading || saving) return;
+    const form = event.currentTarget.form;
+    if (!form?.reportValidity()) return;
+    const model = await requestAiModelAdvice(t("runAllWineAi"), "economy", aiSettings?.value_model || aiSettingsDraft.value_model);
+    if (!model) return;
+    wineCreationAiActionRef.current = { kind: "full", model };
+    form.requestSubmit();
   }
 
   function handleWineRecognitionInput(event: ChangeEvent<HTMLInputElement>, target: "wine" | "wishlist") {
@@ -4221,6 +4233,7 @@ export function App() {
     }
     setSaving(true);
     setError("");
+    let createdWineIdForFull: string | null = null;
     try {
       const payload = draftPayload(draft);
       if (editingId) {
@@ -4249,6 +4262,19 @@ export function App() {
               : "The wine was created, but the suggested photo is no longer available. You can add one from the detail view.");
           }
         }
+        const creationAiAction = wineCreationAiActionRef.current;
+        wineCreationAiActionRef.current = null;
+        if (creationAiAction?.kind === "full") {
+          try {
+            await api<Wine>(`/api/v1/ai/wines/${created.id}/all`, {
+              method: "POST",
+              body: JSON.stringify({ locale, model: creationAiAction.model, force_refresh: false }),
+            });
+            createdWineIdForFull = created.id;
+          } catch (nextError) {
+            setError(nextError instanceof Error ? nextError.message : "Unable to run full wine enrichment");
+          }
+        }
       }
       setDraft(emptyDraft);
       setPendingBottlePhoto(null);
@@ -4256,7 +4282,7 @@ export function App() {
       setWinePhotoSuggestionIndex(0);
       setSelectedSuggestedPhotoId(null);
       setEditingId(null);
-      setSelectedWineId(null);
+      setSelectedWineId(createdWineIdForFull);
       setWineFormOpen(false);
       await loadWines();
     } catch (nextError) {
@@ -11071,9 +11097,20 @@ export function App() {
                             <div className="vintage-quick-choices" role="group" aria-label={t("vintageHelp")}>
                               {(["NV", "MV"] as const).map((value) => <button key={value} type="button" className={`secondary compact vintage-choice${draft.vintage.trim().toUpperCase() === value ? " is-selected" : ""}`} aria-pressed={draft.vintage.trim().toUpperCase() === value} disabled={!canWriteWine || wineEnrichmentLoading} onClick={() => setDraft((current) => ({ ...current, vintage: value }))}>{value}</button>)}
                             </div>
-                            <button type="button" className="compact" disabled={wineEnrichmentLoading || wineRecognitionLoading} onClick={() => void confirmWineImageRecognition()}>
-                              <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("confirmRecognitionAndSearch")} busyLabel={t("generating")} />
-                            </button>
+                            <div className="recognition-enrichment-actions">
+                              <button type="button" className="compact" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={() => void confirmWineImageRecognition()}>
+                                <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("recognitionEnrich")} busyLabel={t("generating")} />
+                              </button>
+                              <button type="button" className="secondary compact" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={(event) => void startFullEnrichmentFromRecognition(event)}>
+                                {t("recognitionFullEnrichment")}
+                              </button>
+                            </div>
+                            <details className="recognition-enrichment-help">
+                              <summary>{t("recognitionEnrichmentHelpTitle")}</summary>
+                              <p><strong>{t("recognitionEnrich")}</strong> — {t("recognitionEnrichHelp")}</p>
+                              <p><strong>{t("recognitionFullEnrichment")}</strong> — {t("recognitionFullEnrichmentHelp")}</p>
+                              <small>{t("recognitionEnrichmentCostHelp")}</small>
+                            </details>
                           </>
                         ) : <span>{t("recognitionCouldNotIdentify")}</span>}
                       </div>
