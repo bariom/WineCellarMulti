@@ -24910,6 +24910,100 @@ body,
   }
 }
 
+/* Keep the mobile cellar list focused on browsing wines. */
+@media (max-width: 820px) {
+  .authenticated-app-shell .wine-list:has(> .cellar-list-header) {
+    gap: 8px;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) {
+    gap: 0;
+    padding: 7px 10px;
+    border-radius: 12px;
+  }
+
+  .authenticated-app-shell .wine-list > .stats-panel-wrapper:has(.cellar-stats-dashboard):not([open]) > .cellar-stats-summary {
+    min-height: 34px;
+    padding: 3px 2px;
+    font-size: 0.8rem;
+  }
+
+  .authenticated-app-shell .wine-category-rail {
+    padding-block: 5px;
+  }
+
+  .authenticated-app-shell .wine-category-rail > button {
+    min-height: 42px;
+    padding-block: 5px;
+  }
+
+  .operational-workspace .wine-category-results {
+    gap: 8px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) {
+    gap: 7px;
+    padding: 11px 12px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo {
+    min-height: 96px;
+  }
+
+  .operational-workspace .wine-row-bottle-photo {
+    top: 7px;
+    left: 10px;
+    width: 48px;
+    height: 82px;
+  }
+
+  .operational-workspace .wine-row.has-bottle-photo .wine-row-main {
+    min-height: 74px;
+    padding-left: 52px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-primary {
+    gap: 6px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-meta-stack {
+    gap: 3px;
+    margin-top: 3px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-meta-group {
+    gap: 4px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-chip {
+    min-height: 24px;
+    padding: 3px 7px;
+    font-size: 0.69rem;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .mini-drink-window {
+    gap: 4px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .mini-window-labels {
+    font-size: 0.62rem;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .mini-window-track {
+    height: 10px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .mini-window-current {
+    top: -4px;
+    bottom: -4px;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
+    gap: 16px;
+    padding-top: 7px;
+  }
+}
+
 /* Wine identity header: never auto-place media controls beside the name.
    The bottle, value and actions each receive a deliberate grid area. */
 .wine-detail .detail-hero .detail-title:has(.detail-bottle-photo) {

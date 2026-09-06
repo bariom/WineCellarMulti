@@ -12764,15 +12764,15 @@ export function App() {
                   <DrinkWindowMini wine={wine} />
                   <div className="row-price-block" aria-label={isRestaurant
                     ? `${locale === "it" ? "Prezzo di vendita" : "Sale price"}, ${locale === "it" ? "Valore a listino" : "List value"}`
-                    : `${t("currentPrice")}, ${t("positionTotal")}`}>
+                    : `${locale === "it" ? "Per bottiglia" : "Per bottle"}, ${locale === "it" ? "Totale" : "Total"}`}>
                     <div>
-                      <span>{isRestaurant ? (locale === "it" ? "Prezzo di vendita" : "Sale price") : t("currentPrice")}</span>
+                      <span>{isRestaurant ? (locale === "it" ? "Prezzo di vendita" : "Sale price") : (locale === "it" ? "Per bottiglia" : "Per bottle")}</span>
                       <strong>{isRestaurant
                         ? wine.sale_price ? formatMoney(wine.sale_price, wine.currency, locale) : t("notSpecified")
                         : formatMoney(wine.current_value || wine.price, wine.currency, locale)}</strong>
                     </div>
                     <div>
-                      <span>{isRestaurant ? (locale === "it" ? "Valore a listino" : "List value") : t("positionTotal")}</span>
+                      <span>{isRestaurant ? (locale === "it" ? "Valore a listino" : "List value") : (locale === "it" ? "Totale" : "Total")}</span>
                       <strong>{isRestaurant
                         ? wine.sale_price
                           ? formatMoney(Number(wine.sale_price) * Math.max(Number(wine.quantity || 0), 0), wine.currency, locale)
