@@ -25001,6 +25001,13 @@ body,
   .operational-workspace .wine-row:not(.wishlist-row) .row-price-block {
     gap: 16px;
     padding-top: 7px;
+    width: auto;
+    justify-self: end;
+  }
+
+  .operational-workspace .wine-row:not(.wishlist-row).wine-row--mobile .row-price-block {
+    width: auto;
+    justify-self: end;
   }
 }
 
