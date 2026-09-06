@@ -2041,6 +2041,8 @@ export function App() {
     const model = await requestAiModelAdvice(t("runAllWineAi"), "economy", aiSettings?.value_model || aiSettingsDraft.value_model);
     if (!model) return;
     wineCreationAiActionRef.current = { kind: "full", model };
+    setGeneratingAi("all");
+    setAiOverlayProgress({ itemName: [draft.name, draft.vintage].map((part) => part.trim()).filter(Boolean).join(" ") });
     form.requestSubmit();
   }
 
@@ -4289,6 +4291,8 @@ export function App() {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
     } finally {
       setSaving(false);
+      setGeneratingAi("");
+      setAiOverlayProgress(null);
     }
   }
 
