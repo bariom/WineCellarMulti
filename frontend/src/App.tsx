@@ -6555,7 +6555,7 @@ export function App() {
       automaticCellarSommelierPromptShownRef.current = true;
       markAutomaticCellarSommelierPromptShown();
       setCellarSommelierVisible(true);
-      setCellarSommelierOpen(true);
+      setCellarSommelierOpen(false);
     }, 18_000 + Math.round(Math.random() * 27_000));
     return () => window.clearTimeout(timer);
   }, [activeView, cellarSommelierWines.length, cellarSommelierWines[0]?.id, isRestaurant]);
@@ -6577,7 +6577,7 @@ export function App() {
         markAutomaticCellarSommelierPromptShown();
         setCellarSommelierHighlightedWineId(wineId);
         setCellarSommelierVisible(true);
-        setCellarSommelierOpen(true);
+        setCellarSommelierOpen(false);
       }, 18_000 + Math.round(Math.random() * 27_000));
     }, { threshold: 0.72 });
     rows.forEach((row) => observer.observe(row));
@@ -9630,9 +9630,9 @@ export function App() {
                   style={{
                     position: "fixed",
                     right: isMobileViewport ? 12 : 24,
-                    bottom: isMobileViewport ? 12 : 24,
+                    bottom: isMobileViewport ? "max(76px, calc(env(safe-area-inset-bottom, 0px) + 68px))" : 24,
                     zIndex: 75,
-                    width: "min(360px, calc(100vw - 24px))",
+                    width: isMobileViewport ? "min(320px, calc(100vw - 24px))" : "min(360px, calc(100vw - 24px))",
                     filter: "drop-shadow(0 0 20px color-mix(in srgb, var(--accent) 38%, transparent))",
                   }}
                 >

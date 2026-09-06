@@ -8083,7 +8083,7 @@ button.balance-indicator:focus-visible {
 
 .priority-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
   padding: 10px 0 2px;
   border-block: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
@@ -8119,6 +8119,14 @@ button.balance-indicator:focus-visible {
 }
 
 .priority-summary button { cursor: pointer; }
+.priority-summary button {
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+  border-left: 0;
+}
 .priority-summary button:hover strong,
 .priority-summary button:focus-visible strong { color: var(--primary); }
 
@@ -20546,9 +20554,9 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   align-self: center;
   max-width: 100%;
   min-width: 0;
-  min-height: 184px;
+  min-height: 172px;
   margin: 0;
-  padding-right: clamp(8px, 7vw, 88px);
+  padding-right: clamp(8px, 5vw, 64px);
 }
 
 .key-position-head span {
@@ -20617,8 +20625,8 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   top: clamp(26px, 4vw, 48px);
   right: clamp(24px, 4vw, 48px);
   z-index: 0;
-  color: color-mix(in srgb, var(--text) 8%, transparent);
-  font-size: clamp(4.4rem, 10vw, 8.2rem);
+  color: color-mix(in srgb, var(--text) 7%, transparent);
+  font-size: clamp(3.9rem, 8.5vw, 6.8rem);
   font-weight: 650;
 }
 
@@ -20645,11 +20653,11 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   grid-template-rows: auto auto;
   align-content: center;
   justify-items: start;
-  gap: 10px;
+  gap: 7px;
   width: 100%;
-  min-height: 118px;
+  min-height: 100px;
   aspect-ratio: auto;
-  padding: clamp(16px, 2vw, 21px);
+  padding: clamp(12px, 1.6vw, 16px);
   border: 1px solid color-mix(in srgb, var(--metric-tone) 46%, var(--key-card-border));
   border-top: 3px solid color-mix(in srgb, var(--metric-tone) 72%, var(--accent));
   border-radius: 20px;
@@ -20902,12 +20910,12 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
     padding: 8px 24px 12px;
   }
 
-  .key-position-head { min-height: 170px; }
+  .key-position-head { min-height: 158px; }
   .key-position-bottle-visual { width: min(100%, 120px); height: 180px; }
   .key-position-metrics { gap: 10px; }
   .key-position-metrics.has-value-trend { grid-template-columns: minmax(112px, 0.8fr) minmax(94px, 0.55fr) minmax(176px, 1.35fr); }
   .key-position-metric,
-  .key-position-trend { min-height: 72px; padding: 8px 12px; border-radius: 14px; }
+  .key-position-trend { min-height: 64px; padding: 7px 10px; border-radius: 14px; }
   .key-position-metric > span { font-size: 0.58rem; }
   .key-position-metrics strong { font-size: 1.05rem; }
   .key-position-trend svg { min-height: 42px; }
@@ -20930,10 +20938,10 @@ details[open] > .wine-detail-structured-summary::after { content: "−"; }
   .key-position-title--short { font-size: clamp(1.78rem, 6.5vw, 2.35rem) !important; }
   .key-position-title--medium { font-size: clamp(1.74rem, 7.6vw, 2.65rem) !important; }
   .key-position-title--long { font-size: clamp(1.56rem, 6.7vw, 2.3rem) !important; }
-  .key-position-yearmark { top: 34px; right: 20px; font-size: clamp(3.6rem, 16vw, 5.7rem); }
+  .key-position-yearmark { top: 34px; right: 20px; font-size: clamp(3.4rem, 14vw, 5rem); }
   .key-position-metrics { gap: 9px; }
   .key-position-metrics.has-value-trend { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .key-position-metric { grid-template-rows: auto auto; gap: 5px; width: 100%; min-height: 76px; padding: 11px 13px 10px; border-radius: 15px; }
+  .key-position-metric { grid-template-rows: auto auto; gap: 5px; width: 100%; min-height: 68px; padding: 9px 12px 8px; border-radius: 15px; }
   .key-position-bottle-visual { width: 96px; height: 142px; }
   .key-position-trend { grid-column: 1 / -1; width: min(100%, 320px); min-height: 82px; padding: 11px 16px; }
   .key-position-trend svg { min-height: 40px; }
@@ -23193,8 +23201,7 @@ body,
   }
 
   .home-mobile-experience .dashboard-focus-lead {
-    min-width: 0;
-    padding: 0;
+    display: none;
   }
 
   .home-mobile-experience .dashboard-focus-lead > .app-icon {
@@ -23224,7 +23231,7 @@ body,
     align-content: center;
     justify-items: center;
     gap: 5px;
-    min-height: 82px;
+    min-height: 64px;
     padding: 7px 4px;
     border: 1px solid color-mix(in srgb, var(--border) 80%, var(--accent));
     border-radius: 12px;
@@ -23399,7 +23406,7 @@ body,
   }
 
   .home-mobile-experience .key-position-head {
-    min-height: 112px;
+    min-height: 104px;
   }
 
   .home-mobile-experience .key-position-bottle-visual {
@@ -23412,8 +23419,8 @@ body,
   }
 
   .home-mobile-experience .key-position-metric {
-    min-height: 64px;
-    padding: 8px 10px;
+    min-height: 58px;
+    padding: 7px 10px;
     border-radius: 13px;
   }
 
