@@ -91,12 +91,39 @@ export default function CellarAssistantView({
   const orderExample = isItalian
     ? "Ho ordinato una cassa di Sassicaia 2022 da Arvi. Registrala come ordinata."
     : "I ordered a case of Sassicaia 2022 from Arvi. Register it as ordered.";
+  const shipmentExample = isItalian
+    ? "Segna l'ordine di Sassicaia 2022 come arrivato."
+    : "Mark my Sassicaia 2022 order as received.";
+  const restockExample = isItalian
+    ? "Reintegra 3 bottiglie di Sassicaia 2021 in cantina."
+    : "Restock 3 bottles of Sassicaia 2021 in my cellar.";
   const wishlistExample = isItalian
     ? "Aggiungi Barolo 2021 alla wishlist Rossi, prezzo massimo 100 franchi."
     : "Add Barolo 2021 to wishlist Rossi, maximum price CHF 100.";
+  const wishlistOfferExample = isItalian
+    ? "Aggiungi Barolo 2021 alla wishlist Rossi: l'ho trovato in offerta a 85 CHF."
+    : "Add Barolo 2021 to wishlist Rossi: I found an offer at CHF 85.";
   const strategyExample = isItalian
     ? "Considera Arcadia Brut da bere."
     : "Mark Arcadia Brut for drinking.";
+  const valueStrategyExample = isItalian
+    ? "Metti tutti i vini sotto 40 CHF da bere."
+    : "Mark all wines below CHF 40 for drinking.";
+  const producerStrategyExample = isItalian
+    ? "Metti i vini di Lantieri da maturare."
+    : "Mark Lantieri wines for maturation.";
+  const helpExamples = [
+    { label: isItalian ? "Bevuta" : "Drinking", description: isItalian ? "Nota, data e voto: scala 6, 10 o 100." : "Notes, date, and a score on a 6, 10, or 100 scale.", example: consumptionExample },
+    { label: isItalian ? "Acquisto" : "Purchase", description: isItalian ? "Nuove bottiglie con prezzo, valuta e rivenditore." : "New bottles with price, currency, and merchant.", example: purchaseExample },
+    { label: isItalian ? "Reintegro" : "Restock", description: isItalian ? "Aggiunge un nuovo lotto a un vino già presente." : "Adds a new lot to a wine already in the cellar.", example: restockExample },
+    { label: isItalian ? "Ordine" : "Order", description: isItalian ? "Registra una cassa o bottiglie come ordinate." : "Records a case or bottles as ordered.", example: orderExample },
+    { label: isItalian ? "Arrivo ordine" : "Order received", description: isItalian ? "Aggiorna un ordine esistente quando arriva." : "Updates an existing order when it arrives.", example: shipmentExample },
+    { label: "Wishlist", description: isItalian ? "Salva un prezzo massimo che sei disposto a pagare." : "Saves the maximum price you are willing to pay.", example: wishlistExample },
+    { label: isItalian ? "Offerta wishlist" : "Wishlist offer", description: isItalian ? "Distingue un prezzo trovato dal prezzo target." : "Separates a found offer from your target price.", example: wishlistOfferExample },
+    { label: isItalian ? "Obiettivo vino" : "Wine objective", description: isItalian ? "Da bere, maturare, investimento o occasione speciale." : "Drinking, maturation, investment, or special occasion.", example: strategyExample },
+    { label: isItalian ? "Strategia per valore" : "Value strategy", description: isItalian ? "Propone tutte le bottiglie sotto una soglia." : "Proposes every bottle below a value threshold.", example: valueStrategyExample },
+    { label: isItalian ? "Strategia produttore" : "Producer strategy", description: isItalian ? "Propone i vini di un produttore in una sola volta." : "Proposes a producer's wines in one action.", example: producerStrategyExample },
+  ];
   const strategyPurposeLabel = (purpose: string) => ({
     drink: isItalian ? "Da bere" : "For drinking",
     maturation: isItalian ? "Da maturare" : "For maturation",
@@ -444,8 +471,45 @@ export default function CellarAssistantView({
 
       {helpOpen ? <div className="cellar-assistant-help-overlay" role="presentation" onClick={() => setHelpOpen(false)}><section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-title" onClick={(event) => event.stopPropagation()}><header><div><p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p><h2 id="cellar-assistant-help-title">{isItalian ? "Cosa può fare l’assistente" : "What the assistant can do"}</h2></div><button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button></header><p className="cellar-assistant-help-intro">{isItalian ? "Scegli un esempio per inserirlo nel comando e personalizzarlo." : "Choose an example to place it in the command field and customize it."}</p><div className="cellar-assistant-help-examples"><button type="button" onClick={() => applyExample(consumptionExample)}><strong>{isItalian ? "Bevuta" : "Drinking"}</strong><span>{isItalian ? "Registra nota e voto su scala 6." : "Record notes and a six-point score."}</span></button><button type="button" onClick={() => applyExample(purchaseExample)}><strong>{isItalian ? "Acquisto" : "Purchase"}</strong><span>{isItalian ? "Aggiunge bottiglie o un nuovo lotto." : "Adds bottles or a new purchase lot."}</span></button><button type="button" onClick={() => applyExample(orderExample)}><strong>{isItalian ? "Ordine" : "Order"}</strong><span>{isItalian ? "Registra lo stato ordinato; spedizioni aggiornano ordini esistenti." : "Records an order; shipments update existing orders."}</span></button><button type="button" onClick={() => applyExample(wishlistExample)}><strong>Wishlist</strong><span>{isItalian ? "Salva un vino da valutare con prezzo target." : "Save a wine to evaluate with a target price."}</span></button><button type="button" onClick={() => applyExample(strategyExample)}><strong>Intelligence</strong><span>{isItalian ? "Assegna bottiglie a consumo, maturazione, investimento o occasioni speciali." : "Assign bottles to drinking, maturation, investment, or special occasions."}</span></button></div><ul>{isItalian ? <li>Controlla sempre la proposta prima della conferma: l’assistente non modifica nulla senza il tuo OK.</li> : <li>Always review the proposal: nothing changes without your confirmation.</li>}</ul></section></div> : null}
 
+      {helpOpen ? (
+        <div className="cellar-assistant-help-overlay cellar-assistant-help-overlay--extended" role="presentation" onClick={() => setHelpOpen(false)}>
+          <section className="cellar-assistant-help" role="dialog" aria-modal="true" aria-labelledby="cellar-assistant-help-extended-title" onClick={(event) => event.stopPropagation()}>
+            <header>
+              <div>
+                <p>{isItalian ? "GUIDA RAPIDA" : "QUICK GUIDE"}</p>
+                <h2 id="cellar-assistant-help-extended-title">{isItalian ? "Comandi dell’assistente" : "Assistant commands"}</h2>
+              </div>
+              <button type="button" className="secondary compact" onClick={() => setHelpOpen(false)} aria-label={isItalian ? "Chiudi" : "Close"}>×</button>
+            </header>
+            <p className="cellar-assistant-help-intro">{isItalian ? "Scegli un esempio, poi personalizzalo. Puoi anche parlare: Vinaris riceve soltanto la trascrizione." : "Choose an example, then personalize it. You can also speak: Vinaris receives only the transcript."}</p>
+            <div className="cellar-assistant-help-examples">
+              {helpExamples.map((item) => (
+                <button type="button" key={item.label} onClick={() => applyExample(item.example)}>
+                  <strong>{item.label}</strong>
+                  <span>{item.description}</span>
+                </button>
+              ))}
+            </div>
+            <ul>
+              <li>{isItalian ? "Indica vino, annata e quantità; aggiungi prezzo, valuta e rivenditore quando li conosci." : "Include wine, vintage, and quantity; add price, currency, and merchant when known."}</li>
+              <li>{isItalian ? "Bevute, reintegri e strategie sono verificabili prima dell’aggiornamento. Un arrivo modifica solo un ordine esistente trovato con sicurezza." : "Drinking, restocks, and strategies can be reviewed before an update. An arrival changes only an existing order found with confidence."}</li>
+            </ul>
+          </section>
+        </div>
+      ) : null}
+
       <form className="cellar-assistant-composer" onSubmit={submit}>
         <label htmlFor="cellar-assistant-command">{isItalian ? "Cosa è successo in cantina?" : "What happened in your cellar?"}</label>
+        <div className="cellar-assistant-command-examples" aria-label={isItalian ? "Esempi di comandi" : "Command examples"}>
+          <span>{isItalian ? "Prova un comando:" : "Try a command:"}</span>
+          <div>
+            {helpExamples.map((item) => (
+              <button type="button" key={item.label} className="secondary compact" onClick={() => applyExample(item.example)} disabled={disabled || busy} title={item.description}>
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className={`cellar-assistant-voice-input${listening ? " is-listening" : ""}`}>
           <textarea
             id="cellar-assistant-command"

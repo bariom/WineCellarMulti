@@ -11,6 +11,7 @@ from app.api.routes import (
     intelligence,
     inventory,
     map_places,
+    merchants,
     monitoring,
     notifications,
     operations,
@@ -33,6 +34,7 @@ api_router.include_router(households.router, tags=["household"])
 api_router.include_router(imports.router, tags=["imports"])
 api_router.include_router(intelligence.router, tags=["intelligence"])
 api_router.include_router(inventory.router, tags=["inventory"])
+api_router.include_router(merchants.router, tags=["merchants"])
 api_router.include_router(map_places.router, tags=["map"])
 api_router.include_router(monitoring.router, tags=["monitoring"])
 api_router.include_router(notifications.router, tags=["notifications"])

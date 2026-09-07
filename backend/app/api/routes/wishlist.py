@@ -24,6 +24,7 @@ from app.schemas.wishlist import (
     WishlistUpdate,
 )
 from app.services.free_tier import ensure_free_tier_label_capacity
+from app.services.merchants import get_or_create_merchant
 
 router = APIRouter(prefix="/wishlist")
 
@@ -367,6 +368,7 @@ def create_wishlist_item(
         wishlist_list_id = get_or_create_default_wishlist_list(db, context).id
     get_household_wishlist_list(db, context, wishlist_list_id)
     data = payload.model_dump()
+    data["merchant"] = get_or_create_merchant(db, context, str(data.get("merchant") or ""))
     data["wishlist_list_id"] = wishlist_list_id
     data["type"] = normalize_wine_type(data.get("type"))
     item = WishlistItem(
@@ -391,6 +393,8 @@ def update_wishlist_item(
     item = get_household_wishlist_item(db, context, item_id)
     previous_list_id = item.wishlist_list_id
     updates = payload.model_dump(exclude_unset=True)
+    if "merchant" in updates:
+        updates["merchant"] = get_or_create_merchant(db, context, str(updates["merchant"] or ""))
     if "wishlist_list_id" in updates:
         get_household_wishlist_list(db, context, updates["wishlist_list_id"])
     if "type" in updates:
@@ -444,7 +448,7 @@ def convert_wishlist_item(
         type=normalize_wine_type(item.type),
         region=item.region,
         appellation=item.appellation,
-        merchant=item.merchant,
+        merchant=get_or_create_merchant(db, context, item.merchant),
         notes=item.notes,
     )
     db.add(wine)

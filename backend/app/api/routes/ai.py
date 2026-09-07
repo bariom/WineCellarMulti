@@ -118,6 +118,7 @@ from app.services.ai_credits import (
 )
 from app.services.ai_models import parameters_for_model
 from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
+from app.services.merchants import get_or_create_merchant
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
 from app.services.shared_wine_data import (
     SHARED_FEATURES,
@@ -1405,13 +1406,15 @@ def cellar_command_intent_hint(raw_text: str) -> str | None:
         return "add_to_wishlist"
     if re.search(
         r"\b(?:mi\s+hanno\s+(?:spedito|inviato|consegnato)|(?:ordine|bottiglie?).{0,120}\b(?:spedito|inviato|"
-        r"consegnato|arrivato)|spedite|spediti|inviate|inviati|shipped|dispatched)\b",
+        r"consegnato|arrivato|ricevuto)|(?:segna|imposta|aggiorna).{0,80}\b(?:ordine|bottiglie?).{0,40}"
+        r"\b(?:arrivato|ricevuto|consegnato)|spedite|spediti|inviate|inviati|shipped|dispatched)\b",
         normalized,
     ):
         return "ship_wine"
     if re.search(
         r"\b(?:ho\s+(?:ordinato|prenotato|riservato|comprato|acquistato|preso)|(?:aggiungi|aggiungete|"
-        r"metti|mettete|inserisci|inserite|registra|registrate)\b.{0,120}\b(?:in\s+)?cantina|"
+        r"metti|mettete|inserisci|inserite|registra|registrate|reintegra|rifornisci|ricarica)\b.{0,120}"
+        r"\b(?:in\s+)?cantina|(?:reintegra|rifornisci|aggiungi\s+scorta|restock)\b|"
         r"i\s+(?:bought|purchased|ordered)|(?:add|put)\s+(?:it\s+)?(?:to\s+)?(?:my\s+)?cellar)\b",
         normalized,
     ):
@@ -1732,6 +1735,7 @@ def execute_cellar_ai_wishlist_command(
         target_price=wishlist_price if price_kind == "target" else Decimal("0"),
         offer_price=wishlist_price if price_kind == "offer" else None,
         currency=str(parsed.get("currency") or "CHF").strip().upper()[:8] or "CHF",
+        merchant=get_or_create_merchant(db, context, str(parsed.get("merchant") or "")),
         status="Evaluate",
         status_source="manual",
     )
@@ -2065,7 +2069,7 @@ def execute_cellar_ai_command(
             quantity=purchase.quantity,
             occurred_on=acquired_on,
             unit_cost=purchase.price,
-            supplier=purchase.merchant,
+            supplier=get_or_create_merchant(db, context, purchase.merchant),
             reference="ai_command",
             note=command.raw_text,
             user_id=context.user.id,

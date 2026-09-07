@@ -18,7 +18,7 @@ def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
         wishlist_names=["Rossi", "Wishlist"],
     )
 
-    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "9")
+    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "10")
     assert "never choose database IDs" in prompt.system
     assert "acquisition drafts" in prompt.system
     assert "intent ship_wine" in prompt.system
@@ -28,6 +28,8 @@ def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
     assert "never a completed database action" in prompt.system
     assert "Preserve tasting scores exactly" in prompt.system
     assert "case (cassa/case) means six bottles" in prompt.system
+    assert "reintegra 3 bottiglie" in prompt.system
+    assert "segna l ordine Sassicaia 2022 come arrivato" in prompt.system
     assert "2026-08-13" in prompt.user
     assert "Europe/Zurich" in prompt.user
     assert "Ornellaia 2015" in prompt.user

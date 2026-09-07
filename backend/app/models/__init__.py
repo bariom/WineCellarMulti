@@ -19,6 +19,7 @@ from app.models.household_preferences import (
 from app.models.invite import HouseholdInvite
 from app.models.map_places import MapPlaceCache
 from app.models.membership import Membership
+from app.models.merchant import Merchant
 from app.models.notification import UserNotification, UserNotificationDismissal
 from app.models.operational_metrics import OperationalAlertState, OperationalMetricSample
 from app.models.passkey import PasskeyChallenge, UserPasskey
@@ -63,6 +64,7 @@ __all__ = [
     "HouseholdInvite",
     "Membership",
     "MapPlaceCache",
+    "Merchant",
     "OperationalMetricSample",
     "OperationalAlertState",
     "PasskeyChallenge",

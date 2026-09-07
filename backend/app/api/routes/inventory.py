@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.models import Wine, WineStockLot, WineStockMovement
 from app.schemas.inventory import StockLotResponse, StockMovementCreate, StockMovementResponse
 from app.services.free_tier import ensure_free_tier_label_capacity
+from app.services.merchants import get_or_create_merchant
 from app.services.stock_ledger import add_inbound_stock, remove_fifo_stock
 
 router = APIRouter(prefix="/inventory")
@@ -116,7 +117,7 @@ def create_movement(
             quantity=payload.quantity,
             occurred_on=occurred_on,
             unit_cost=payload.unit_cost,
-            supplier=payload.supplier,
+            supplier=get_or_create_merchant(db, context, payload.supplier),
             reference=payload.reference,
             note=payload.note,
             user_id=context.user.id,

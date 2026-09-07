@@ -61,6 +61,7 @@ from app.services.bottle_photo_ai import (
     warm_bottle_photo_worker,
 )
 from app.services.free_tier import ensure_free_tier_label_capacity
+from app.services.merchants import get_or_create_merchant
 from app.services.notifications import create_user_notification
 from app.services.shared_wine_data import (
     SHARED_FEATURES,
@@ -1189,6 +1190,7 @@ def create_wine(
     context: CurrentContext = Depends(require_write_context),
 ) -> WineResponse:
     data = payload.model_dump()
+    data["merchant"] = get_or_create_merchant(db, context, str(data.get("merchant") or ""))
     ensure_free_tier_label_capacity(db, context, will_be_active=bool(data.get("quantity", 0)))
     data["drink_from"], data["drink_peak_from"], data["drink_peak_to"], data["drink_to"] = (
         normalized_drink_window(
@@ -1672,6 +1674,8 @@ def update_wine(
     wine = get_household_wine(db, context, wine_id)
     previous_quantity = wine.quantity
     data = payload.model_dump(exclude_unset=True)
+    if "merchant" in data:
+        data["merchant"] = get_or_create_merchant(db, context, str(data["merchant"] or ""))
     if "quantity" in data:
         ensure_free_tier_label_capacity(
             db, context, wine=wine, will_be_active=int(data["quantity"] or 0) > 0

@@ -4841,10 +4841,12 @@ def test_cellar_ai_falls_back_to_common_action_variants_when_ai_is_uncertain():
     commands = {
         "Metti Sassicaia 2022 in cantina.": "acquire_wine",
         "Ho preso una cassa di Sassicaia 2022.": "acquire_wine",
+        "Reintegra 3 bottiglie di Sassicaia 2022 in cantina.": "acquire_wine",
         "Ho stappato una bottiglia di Sassicaia 2022.": "consume_wine",
         "Abbiamo degustato Sassicaia 2022 ieri.": "consume_wine",
         "Mi hanno inviato le bottiglie di Sassicaia 2022.": "ship_wine",
         "Il mio ordine di Sassicaia 2022 Ã¨ arrivato.": "ship_wine",
+        "Segna l'ordine di Sassicaia 2022 come ricevuto.": "ship_wine",
         "Metti Sassicaia 2022 nella lista da valutare Rossi.": "add_to_wishlist",
         "Add Sassicaia 2022 to my buy list Rossi.": "add_to_wishlist",
         "Considera Sassicaia 2022 da bere.": "set_strategy",
@@ -7934,6 +7936,29 @@ def test_cellartracker_csv_import_maps_cellar_data():
     assert mondo["grapes"] == [{"name": "Red Bordeaux Blend"}]
     assert mondo["scores"] == [{"critic": "Wine Advocate", "score": "94", "note": "https://example.com/wa"}]
     assert next(wine for wine in wines if wine["producer"] == "Krug")["vintage"] == "NV"
+
+
+def test_merchant_directory_registers_and_reuses_wine_and_wishlist_merchants():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    wine = client.post(
+        "/api/v1/wines",
+        json={"name": "Merchant Test", "merchant": "  Enoteca   Rossi  "},
+    )
+    assert wine.status_code == 201, wine.text
+    assert wine.json()["merchant"] == "Enoteca Rossi"
+
+    wishlist = client.post(
+        "/api/v1/wishlist",
+        json={"name": "Wishlist merchant", "merchant": "enoteca rossi"},
+    )
+    assert wishlist.status_code == 201, wishlist.text
+    assert wishlist.json()["merchant"] == "Enoteca Rossi"
+
+    merchants = client.get("/api/v1/merchants")
+    assert merchants.status_code == 200, merchants.text
+    assert [merchant["name"] for merchant in merchants.json()] == ["Enoteca Rossi"]
 
 
 def test_cellartracker_csv_import_decodes_windows_1252_accents():
