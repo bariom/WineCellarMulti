@@ -194,7 +194,7 @@ function DashboardBottleSlideshow({
               style={{ transform: `translate3d(0, ${(index - activeIndex) * 106}%, 0)` }}
               onClick={() => onOpen(wine)}
             >
-              <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} />
+              <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
               {variant === "daily" ? (
                 <span className="daily-slide-copy">
                   <span className="daily-slide-topline">
@@ -254,7 +254,7 @@ function DashboardBottleList({
     <div className="dashboard-bottle-list" role="list" aria-label={label}>
       {wines.map((wine) => (
         <button type="button" className="dashboard-bottle-tile" role="listitem" key={wine.id} onClick={() => onOpen(wine)}>
-          <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} />
+          <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
           <span className="dashboard-bottle-copy">
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
@@ -6274,7 +6274,7 @@ export function App() {
       };
     })
     .filter((item) => item.value > 0);
-  const valueByRegion = topWineValueGroups(cellarWines, "region");
+  const valueByRegion = topWineValueGroups(cellarWines, "region", 8);
   const bottlesByType = topWineBottleGroups(cellarWines, "type");
   const winesByRegion = topWineCountGroups(cellarWines, "region");
   const cellarMissingDataCount = cellarStats.missingValue + cellarStats.missingDrinkWindow + cellarStats.missingGrapes + cellarStats.missingScores + cellarStats.missingCellarPurpose;
@@ -6299,7 +6299,7 @@ export function App() {
     .sort((first, second) => (wineUnitValue(second) * second.quantity) - (wineUnitValue(first) * first.quantity))
     .slice(0, 5);
   const breakdownTopProducers = topProducerGroups(breakdownWines).slice(0, 4);
-  const valueByProducer = topProducerGroups(cellarWines);
+  const valueByProducer = topProducerGroups(cellarWines, 8);
   const regionalGapTotalValue = Math.max(sumWineValue(cellarWines), 1);
   const regionalGapHasProfileTarget = Boolean(regionalGapProfileTargets[regionalGapProfile]?.length);
   const regionalGapSelectedTargets = regionalGapHasProfileTarget
@@ -6869,12 +6869,12 @@ export function App() {
   const allMissingGrapesWines = cellarWines.filter((wine) => wine.grapes.length === 0 && !wine.grapes_not_applicable);
   const allMissingScoresWines = cellarWines.filter((wine) => wine.scores.length === 0 && !wine.scores_not_applicable);
   const allMissingCellarPurposeWines = cellarWines.filter((wine) => !(wine.strategy_purposes || []).length);
-  const missingValueWines = allMissingValueWines.slice(0, 5);
-  const valueRefreshWines = allValueRefreshWines.slice(0, 5);
-  const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 5);
-  const missingGrapesWines = allMissingGrapesWines.slice(0, 5);
-  const missingScoresWines = allMissingScoresWines;
-  const missingCellarPurposeWines = allMissingCellarPurposeWines.slice(0, 5);
+  const missingValueWines = allMissingValueWines.slice(0, 8);
+  const valueRefreshWines = allValueRefreshWines.slice(0, 8);
+  const missingDrinkWindowWines = allMissingDrinkWindowWines.slice(0, 8);
+  const missingGrapesWines = allMissingGrapesWines.slice(0, 8);
+  const missingScoresWines = allMissingScoresWines.slice(0, 8);
+  const missingCellarPurposeWines = allMissingCellarPurposeWines.slice(0, 8);
   const dataQualityChartSegments = [
     { key: "complete", label: locale === "it" ? "Completi" : "Complete", icon: "status-delivered" as AppIconName, count: Math.max(cellarDataCheckCount - cellarMissingDataCount, 0), color: "#46745d" },
     { key: "window", label: t("missingDrinkWindow"), icon: "calendar" as AppIconName, count: allMissingDrinkWindowWines.length, color: "#a58a58" },
@@ -9993,7 +9993,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "balanced" ? (
-                <DashboardCarousel label={t("balancedFocus")}>
+                <DashboardCarousel label={t("balancedFocus")} className="balanced-dashboard-carousel">
                   <article className="dashboard-card wide-card balance-overview-card">
                     <div className="card-heading">
                       <div>
@@ -10094,7 +10094,7 @@ export function App() {
                   {renderRegionalGapCard(true)}
                   {renderMaturityHeatmapCard()}
 
-                  <article className="dashboard-card">
+                  <article className="dashboard-card balance-data-quality-card">
                     <div className="card-heading">
                       <div>
                         <span>{t("incompleteData")}</span>
@@ -10156,7 +10156,7 @@ export function App() {
                         {keyPositionCandidates.map(({ wine, highlight, totalValue, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityStart, maturityEnd, trendPoints, trendChangePct, trendChangeValue, trendRange, hasMaturityWindow }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
-                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} />
+                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} tone={wineTone(wine.type)} />
                             <div className="key-position-head">
                               <div>
                                 <span>{highlight}</span>
@@ -10398,7 +10398,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "value" ? (
-                <DashboardCarousel label={t("valueFocus")}>
+                <DashboardCarousel label={t("valueFocus")} className="value-dashboard-carousel">
                   <article className="dashboard-card wide-card portfolio-value-explorer">
                     <div className="card-heading">
                       <div>
@@ -10487,7 +10487,7 @@ export function App() {
                         <button type="button" className={`top-value-showcase-item tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span className="top-value-showcase-rank">{String(index + 1).padStart(2, "0")}</span>
                           <span className="top-value-showcase-photo" aria-hidden="true">
-                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url : ""} />
+                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
                           </span>
                           <span className="top-value-showcase-copy">
                             <strong>{wine.name}</strong>
@@ -10571,7 +10571,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "readiness" ? (
-                <DashboardCarousel label={t("drinkingWindow")}>
+                <DashboardCarousel label={t("drinkingWindow")} className="readiness-dashboard-carousel">
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -10628,7 +10628,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "timeline" ? (
-                <DashboardCarousel label={t("deliveryTimeline")}>
+                <DashboardCarousel label={t("deliveryTimeline")} className="timeline-dashboard-carousel">
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -10693,7 +10693,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "data" ? (
-                <DashboardCarousel label={t("dataFocus")}>
+                <DashboardCarousel label={t("dataFocus")} className="data-dashboard-carousel">
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -12684,8 +12684,14 @@ export function App() {
                 data-wine-row-id={wine.id}
                 data-sommelier-wine-id={activeView === "cellar" && isSommelierSpotlightWine(wine) ? wine.id : undefined}
               >
-                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${isMobileViewport ? " wine-row--mobile" : ""}${canAccessWinePhotos && wine.photo_thumbnail_url ? " has-bottle-photo" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
-                  {canAccessWinePhotos && wine.photo_thumbnail_url ? <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" /> : null}
+                <article className={`${selectedWineId === wine.id ? "wine-row selected" : "wine-row"}${isMobileViewport ? " wine-row--mobile" : ""}${activeView === "cellar" || (canAccessWinePhotos && wine.photo_thumbnail_url) ? " has-bottle-photo" : ""}${activeView === "cellar" && !(canAccessWinePhotos && wine.photo_thumbnail_url) ? " has-bottle-placeholder" : ""} tone-${wineTone(wine.type)}`} onClick={(event) => { if (!isInteractiveRowClick(event)) toggleSelectedWine(wine); }}>
+                  {canAccessWinePhotos && wine.photo_thumbnail_url ? (
+                    <img className="wine-row-bottle-photo" src={wine.photo_thumbnail_url} alt="" loading="lazy" />
+                  ) : activeView === "cellar" ? (
+                    <div className="wine-row-bottle-photo wine-row-bottle-placeholder">
+                      <KeyPositionBottleVisual photoUrl="" tone={wineTone(wine.type)} />
+                    </div>
+                  ) : null}
                   <div className="wine-row-main">
                     <h3>
                       <i className={`wine-dot tone-${wineTone(wine.type)}`} />

@@ -131,7 +131,7 @@ export function ownershipStats(items: Wine[], session: Session | null) {
   );
 }
 
-export function topWineValueGroups(items: Wine[], field: "type" | "region") {
+export function topWineValueGroups(items: Wine[], field: "type" | "region", limit = 5) {
   return uniqueSorted(items.map((wine) => wineGroupValue(wine, field)))
     .map((label) => ({
       label,
@@ -139,7 +139,7 @@ export function topWineValueGroups(items: Wine[], field: "type" | "region") {
     }))
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
-    .slice(0, 5);
+    .slice(0, limit);
 }
 
 export function topWineBottleGroups(items: Wine[], field: "type" | "region") {
@@ -166,7 +166,7 @@ export function topWineCountGroups(items: Wine[], field: "type" | "region") {
     .slice(0, 5);
 }
 
-export function topProducerGroups(items: Wine[]) {
+export function topProducerGroups(items: Wine[], limit = 5) {
   return uniqueSorted(items.map((wine) => wine.producer || "Unknown producer"))
     .map((label) => {
       const producerWines = items.filter((wine) => (wine.producer || "Unknown producer") === label);
@@ -178,7 +178,7 @@ export function topProducerGroups(items: Wine[]) {
     })
     .filter((item) => item.value > 0)
     .sort((first, second) => second.value - first.value)
-    .slice(0, 5);
+    .slice(0, limit);
 }
 
 export function formatBottleCount(value: number, locale: Locale) {

@@ -1,10 +1,13 @@
 import { useRef, useState } from "react";
 import { useChartReveal } from "./chartMotion";
 
+type IllustrationWineTone = "red" | "white" | "sparkling" | "rose" | "sweet" | "other";
+
 function KeyPositionWineIllustration() {
   return (
     <div className="key-position-wine-illustration" aria-hidden="true">
       <svg viewBox="0 0 120 190" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+        <path className="key-position-wine-fill" d="M31 77c11 1 18 10 28 10 13 0 18-13 28-19l5 12c3 20-11 37-33 37S22 100 25 80l1-4c2 0 3 1 5 1Z" />
         <path d="M35 30 25 80c-3 20 12 37 34 37s37-17 34-37L84 30" />
         <path d="M59 117v43M35 173h48M59 160l-24 13M59 160l24 13" />
         <path d="M31 77c11 1 18 10 28 10 13 0 18-13 28-19" />
@@ -15,12 +18,12 @@ function KeyPositionWineIllustration() {
   );
 }
 
-export function KeyPositionBottleVisual({ photoUrl }: { photoUrl: string }) {
+export function KeyPositionBottleVisual({ photoUrl, tone = "other" }: { photoUrl: string; tone?: IllustrationWineTone }) {
   const [imageFailed, setImageFailed] = useState(false);
   const hasPhoto = Boolean(photoUrl) && !imageFailed;
 
   return (
-    <div className={`key-position-bottle-visual${hasPhoto ? " has-photo" : ""}`} aria-hidden="true">
+    <div className={`key-position-bottle-visual tone-${tone}${hasPhoto ? " has-photo" : ""}`} aria-hidden="true">
       {hasPhoto ? <img src={photoUrl} alt="" loading="lazy" onError={() => setImageFailed(true)} /> : <KeyPositionWineIllustration />}
     </div>
   );
