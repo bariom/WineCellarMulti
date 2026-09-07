@@ -11737,7 +11737,7 @@ export function App() {
                   <span>{t("producer")}</span>
                   <input value={wishlistDraft.producer} onChange={(event) => setWishlistDraft({ ...wishlistDraft, producer: event.target.value })} disabled={!canWriteWine} />
                 </label>
-                <div className="form-row">
+                <div className="form-row wishlist-offer-row">
                   <div className="vintage-field">
                     <label>
                       <span>{t("vintage")}</span>
@@ -11748,10 +11748,19 @@ export function App() {
                     </div>
                     <small className="form-hint">{t("vintageHelp")}</small>
                   </div>
-                  <label>
-                    <span>{locale === "it" ? "Prezzo offerto" : "Offer price"}</span>
-                    <input type="number" min="0" step="0.01" value={wishlistDraft.offer_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, offer_price: event.target.value })} disabled={!canWriteWine} />
-                  </label>
+                  <div className="wishlist-offer-price-fields">
+                    <label>
+                      <span>{locale === "it" ? "Prezzo" : "Price"}</span>
+                      <input type="number" min="0" step="0.01" value={wishlistDraft.offer_price} onChange={(event) => setWishlistDraft({ ...wishlistDraft, offer_price: event.target.value })} disabled={!canWriteWine} />
+                    </label>
+                    <label>
+                      <span>{t("currency")}</span>
+                      <input list="wishlist-currency-options" value={wishlistDraft.currency} maxLength={3} onChange={(event) => setWishlistDraft({ ...wishlistDraft, currency: event.target.value.toUpperCase() })} disabled={!canWriteWine} autoComplete="off" />
+                      <datalist id="wishlist-currency-options">
+                        {["CHF", "EUR", "USD", "GBP"].map((currency) => <option key={currency} value={currency}>{currency}</option>)}
+                      </datalist>
+                    </label>
+                  </div>
                 </div>
                 <div className="form-row">
                   <label>
@@ -11791,11 +11800,7 @@ export function App() {
                     <input value={wishlistDraft.appellation} onChange={(event) => setWishlistDraft({ ...wishlistDraft, appellation: event.target.value })} disabled={!canWriteWine} />
                   </label>
                 </div>
-                <div className="form-row">
-                  <label>
-                    <span>{t("currency")}</span>
-                    <input value={wishlistDraft.currency} onChange={(event) => setWishlistDraft({ ...wishlistDraft, currency: event.target.value })} disabled={!canWriteWine} />
-                  </label>
+                <div className="form-row wishlist-merchant-row">
                   <label>
                     <span>{t("merchant")}</span>
                     <input value={wishlistDraft.merchant} onChange={(event) => setWishlistDraft({ ...wishlistDraft, merchant: event.target.value })} disabled={!canWriteWine} />
@@ -12199,6 +12204,51 @@ export function App() {
                   <span>{t("readyToBuy")}</span>
                   <strong>{formatBottleCount(wishlistStats.readyToBuy, locale)}</strong>
                 </div>
+              </section>
+              <section className="wishlist-flow-guide" aria-label={t("wishlistFlowsTitle")}>
+                <div className="wishlist-flow-guide-head">
+                  <span>{t("wishlistFlowsEyebrow")}</span>
+                  <h2>{t("wishlistFlowsTitle")}</h2>
+                  <p>{t("wishlistFlowsHelp")}</p>
+                </div>
+                <article className="wishlist-flow-card wishlist-flow-card--offer">
+                  <div className="wishlist-flow-card-heading">
+                    <i aria-hidden="true"><AppIcon name="wishlist" variant="feature" tone="accent" size="1.1rem" /></i>
+                    <span>01</span>
+                  </div>
+                  <h3>{t("wishlistOfferFlowTitle")}</h3>
+                  <p>{t("wishlistOfferFlowHelp")}</p>
+                  <small>{t("wishlistOfferFlowSteps")}</small>
+                  <button type="button" onClick={startAddWishlistItem} disabled={!canWriteWine}>
+                    {t("wishlistOfferFlowAction")}
+                  </button>
+                </article>
+                <article className="wishlist-flow-card wishlist-flow-card--strategy">
+                  <div className="wishlist-flow-card-heading">
+                    <i aria-hidden="true"><AppIcon name="chart" variant="feature" tone="accent" size="1.1rem" /></i>
+                    <span>02</span>
+                  </div>
+                  <h3>{t("wishlistStrategyFlowTitle")}</h3>
+                  <p>{t("wishlistStrategyFlowHelp")}</p>
+                  <small>{wishlist.length ? t("wishlistStrategyFlowSteps") : t("wishlistStrategyFlowNeedsWine")}</small>
+                  <button
+                    type="button"
+                    className="secondary"
+                    disabled={!canGenerateAi || wishlist.length === 0 || generatingAi === "wishlist-portfolio-strategy"}
+                    onClick={() => {
+                      setSelectedWishlistId(null);
+                      setWishlistFormOpen(false);
+                      setWishlistPortfolioStrategyOpen(true);
+                      void generateWishlistPortfolioStrategy();
+                    }}
+                  >
+                    <ButtonBusyContent
+                      busy={generatingAi === "wishlist-portfolio-strategy"}
+                      idleLabel={t(visibleWishlistPortfolioStrategy ? "refreshWishlistPortfolioStrategy" : "generateWishlistPortfolioStrategy")}
+                      busyLabel={t("generating")}
+                    />
+                  </button>
+                </article>
               </section>
               {isMobileViewport && !selectedWishlistItem ? (
                 <WishlistPortfolioStrategyPanel
