@@ -39,7 +39,7 @@ def cellar_command_prompt(
     )
     return Prompt(
         id="cellar.command_interpretation",
-        version="10",
+        version="11",
         system=(
             "You extract one safe cellar operation from the user's text and return only the "
             "required JSON schema. You never choose database IDs and never claim that an action "
@@ -76,7 +76,9 @@ def cellar_command_prompt(
             "A strategy may target a group selected by a unit-value rule such as 'vini sotto 40 CHF' or "
             "'bottiglie a meno di 40 franchi'. In that case use set_strategy, leave wine_name empty, preserve "
             "the requested strategy purpose, and do not invent a specific wine. Vinaris applies the numeric "
-            "filter to verified cellar values and prepares the matching list for confirmation. "
+            "filter to verified cellar values and prepares the matching list for confirmation. A purchase "
+            "price of exactly 0.01 is Vinaris' convention for a gifted bottle, not a market or budget price: "
+            "exclude it from grouped unit-value strategy filters only when there is no current value. "
             "A strategy may also target all wines from one producer, estate or winery. For Italian requests "
             "such as 'i vini di Lantieri da bere' or 'la cantina Lantieri da maturare', and English requests "
             "such as 'mark Lantieri wines for drinking', return set_strategy, leave wine_name empty, and put "

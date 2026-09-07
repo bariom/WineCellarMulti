@@ -4410,6 +4410,27 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
             "status": "Delivered",
         },
     ).json()
+    gifted_current_value_wine = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Omaggio Valutato",
+            "quantity": 1,
+            "price": "0.01",
+            "current_value": 18,
+            "currency": "CHF",
+            "status": "Delivered",
+        },
+    ).json()
+    gifted_without_value_wine = client.post(
+        "/api/v1/wines",
+        json={
+            "name": "Omaggio Senza Stima",
+            "quantity": 1,
+            "price": "0.01",
+            "currency": "CHF",
+            "status": "Delivered",
+        },
+    ).json()
     client.post(
         "/api/v1/wines",
         json={
@@ -4495,14 +4516,16 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
     result = prepared.json()
     assert result["status"] == "needs_confirmation"
     assert result["strategy_bulk"] is True
-    assert result["strategy_quantity"] == 3
+    assert result["strategy_quantity"] == 4
     assert {
         (item["name"], item["unit_value"], item["currency"], item["value_source"])
         for item in result["candidates"]
     } == {
         ("Bianco Quotidiano", "35.00", "CHF", "current"),
         ("Rosso Quotidiano", "30.00", "CHF", "purchase"),
+        ("Omaggio Valutato", "18.00", "CHF", "current"),
     }
+    assert gifted_without_value_wine["id"] not in {item["wine_id"] for item in result["candidates"]}
 
     confirmed = client.post(
         f"/api/v1/ai/cellar-commands/{request_id}/execute",
@@ -4524,6 +4547,12 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
     assert [(item["purpose"], item["quantity"]) for item in second_allocations] == [
         ("drink", 1)
     ]
+    assert [(item["purpose"], item["quantity"]) for item in client.get(
+        f"/api/v1/intelligence/wines/{gifted_current_value_wine['id']}/allocations"
+    ).json()] == [("drink", 1)]
+    assert client.get(
+        f"/api/v1/intelligence/wines/{gifted_without_value_wine['id']}/allocations"
+    ).json() == []
 
     undone = client.post(f"/api/v1/ai/cellar-commands/{request_id}/undo")
     assert undone.status_code == 200, undone.text
@@ -4536,6 +4565,9 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
     ]
     assert client.get(
         f"/api/v1/intelligence/wines/{purchase_value_wine['id']}/allocations"
+    ).json() == []
+    assert client.get(
+        f"/api/v1/intelligence/wines/{gifted_current_value_wine['id']}/allocations"
     ).json() == []
 
 

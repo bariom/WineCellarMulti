@@ -1209,6 +1209,25 @@ def cellar_command_candidate(wine: Wine) -> CellarCommandWineCandidate:
     )
 
 
+CELLAR_COMMAND_GIFT_PURCHASE_PRICE = Decimal("0.01")
+
+
+def cellar_command_strategy_unit_value(wine: Wine) -> Decimal | None:
+    """Return a comparable value for grouped strategy commands.
+
+    Vinaris stores 0.01 as the conventional purchase price for gifted bottles.
+    It is not a price signal when it is the only value, but an available current
+    value remains valid for strategy filters.
+    """
+    if wine.current_value is not None and wine.current_value > 0:
+        return wine.current_value
+    if wine.price == CELLAR_COMMAND_GIFT_PURCHASE_PRICE:
+        return None
+    if wine.price is not None and wine.price > 0:
+        return wine.price
+    return None
+
+
 def cellar_command_strategy_value_filter(raw_text: str) -> tuple[Decimal, str, str] | None:
     normalized = normalize_cellar_command_identity(raw_text)
     operator = ""
@@ -1819,13 +1838,7 @@ def execute_bulk_cellar_strategy_command(
         if isinstance(value_filter, dict):
             if wine.currency.upper() != currency:
                 continue
-            unit_value = (
-                wine.current_value
-                if wine.current_value is not None and wine.current_value > 0
-                else wine.price
-                if wine.price is not None and wine.price > 0
-                else None
-            )
+            unit_value = cellar_command_strategy_unit_value(wine)
             if unit_value is None:
                 continue
             matches = unit_value < threshold if operator == "lt" else unit_value <= threshold
@@ -2469,13 +2482,7 @@ def create_cellar_ai_command(
             for wine in wines:
                 if not user_can_see_wine(context, wine) or wine.currency.upper() != currency:
                     continue
-                unit_value = (
-                    wine.current_value
-                    if wine.current_value is not None and wine.current_value > 0
-                    else wine.price
-                    if wine.price is not None and wine.price > 0
-                    else None
-                )
+                unit_value = cellar_command_strategy_unit_value(wine)
                 if unit_value is None:
                     continue
                 matches = unit_value < threshold if operator == "lt" else unit_value <= threshold
