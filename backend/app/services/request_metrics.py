@@ -19,13 +19,28 @@ class RequestMetrics:
         self._recent_window_seconds = 15 * 60
         self._recent_interactive: deque[tuple[float, float]] = deque()
         self._recent_slow: deque[float] = deque()
+        self._recent_errors: deque[dict[str, object]] = deque(maxlen=40)
 
-    def record(self, status_code: int, duration_ms: float, *, interactive: bool) -> None:
+    def record(
+        self,
+        status_code: int,
+        duration_ms: float,
+        *,
+        interactive: bool,
+        method: str = "",
+        path: str = "",
+    ) -> None:
         with self._lock:
             self.requests_total += 1
             self.total_duration_ms += duration_ms
             if status_code >= 500:
                 self.errors_total += 1
+                self._recent_errors.append({
+                    "timestamp": datetime.now(UTC).isoformat(),
+                    "method": method,
+                    "path": path,
+                    "status_code": status_code,
+                })
             now = time.monotonic()
             if interactive:
                 self._recent_interactive.append((now, duration_ms))
@@ -69,6 +84,10 @@ class RequestMetrics:
                 "slow_requests_recent": len(self._recent_slow),
                 "uptime_seconds": round(time.time() - self.started_at.timestamp(), 2),
             }
+
+    def recent_errors(self) -> list[dict[str, object]]:
+        with self._lock:
+            return list(reversed(self._recent_errors))
 
 
 request_metrics = RequestMetrics()

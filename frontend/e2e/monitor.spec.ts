@@ -11,7 +11,7 @@ test("shows actionable monitoring priorities without horizontal overflow", async
     },
     application: {
       requests_total: 214,
-      errors_total: 0,
+      errors_total: 2,
       average_duration_ms: 89,
       interactive_window_seconds: 60,
       interactive_requests_recent: 19,
@@ -82,6 +82,14 @@ test("shows actionable monitoring priorities without horizontal overflow", async
     if (url.includes("demo-activity")) {
       return route.fulfill({ json: { total_visits: 12, visits_24h: 2, visits_7d: 8, last_visit_at: now } });
     }
+    if (url.includes("wine-pulse")) return route.fulfill({ json: {
+      latest_run: { started_at: now, completed_at: now, status: "completed_with_errors", error: "Una fonte non ha risposto." },
+      sources: [{ id: "source-1", name: "Fonte test", language: "it", enabled: true, last_attempt_at: now, last_success_at: null, last_error: "Timeout" }],
+    } });
+    if (url.includes("application-errors")) return route.fulfill({ json: {
+      errors_total: 2,
+      items: [{ timestamp: now, method: "GET", path: "/api/v1/test", status_code: 500 }],
+    } });
     return route.fulfill({ json: [] });
   });
 
@@ -91,6 +99,13 @@ test("shows actionable monitoring priorities without horizontal overflow", async
   const priorities = page.getByLabel("Priorità operative");
   await expect(priorities).toContainText("Cosa controllare ora");
   await expect(priorities).toContainText("Controlla Wine Pulse");
+  await expect(priorities.getByRole("button", { name: "Vedi fonti" })).toBeVisible();
+  await expect(priorities.getByRole("button", { name: "Vedi errori" })).toBeVisible();
+  await priorities.getByRole("button", { name: "Vedi fonti" }).click();
+  await expect(page.getByRole("region", { name: "Dettaglio fonti Wine Pulse" })).toContainText("Fonte test");
+  await page.getByRole("button", { name: "Chiudi" }).click();
+  await priorities.getByRole("button", { name: "Vedi errori" }).click();
+  await expect(page.getByRole("region", { name: "Dettaglio errori applicativi" })).toContainText("GET /api/v1/test");
   for (const viewport of [
     { width: 360, height: 800 },
     { width: 390, height: 844 },

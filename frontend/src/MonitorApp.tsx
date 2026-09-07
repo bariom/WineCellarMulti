@@ -66,6 +66,17 @@ type MonitorPriority = {
   title: string;
   detail: string;
   tone: "warning" | "critical";
+  action?: "wine-pulse" | "application-errors";
+};
+
+type WinePulseDetails = {
+  latest_run: { started_at: string; completed_at: string | null; status: string; error: string } | null;
+  sources: Array<{ id: string; name: string; language: string; enabled: boolean; last_attempt_at: string | null; last_success_at: string | null; last_error: string }>;
+};
+
+type ApplicationErrors = {
+  errors_total: number;
+  items: Array<{ timestamp: string; method: string; path: string; status_code: number }>;
 };
 
 function MonitorChart({
@@ -207,6 +218,9 @@ export function MonitorApp() {
   const [loading, setLoading] = useState(false);
   const [activityExpanded, setActivityExpanded] = useState(false);
   const [shareFeedback, setShareFeedback] = useState("");
+  const [winePulseDetails, setWinePulseDetails] = useState<WinePulseDetails | null>(null);
+  const [applicationErrors, setApplicationErrors] = useState<ApplicationErrors | null>(null);
+  const [detailsPanel, setDetailsPanel] = useState<"wine-pulse" | "application-errors" | null>(null);
 
   const samples = history?.samples || [];
   const latencyPoints = useMemo(
@@ -232,16 +246,20 @@ export function MonitorApp() {
       if (collect) {
         await monitorApi<void>("/api/v1/admin/operations/collect-now", activeToken, { method: "POST" });
       }
-      const [nextOverview, nextHistory, nextActivity, nextDemoActivity] = await Promise.all([
+      const [nextOverview, nextHistory, nextActivity, nextDemoActivity, nextWinePulseDetails, nextApplicationErrors] = await Promise.all([
         monitorApi<OperationalMetricsOverview>("/api/v1/admin/operations/overview", activeToken),
         monitorApi<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${activeHours}`, activeToken),
         monitorApi<UserActivityLogEntry[]>("/api/v1/admin/operations/activity?limit=16", activeToken),
         monitorApi<DemoActivitySummary>("/api/v1/admin/operations/demo-activity", activeToken),
+        monitorApi<WinePulseDetails>("/api/v1/admin/operations/wine-pulse", activeToken),
+        monitorApi<ApplicationErrors>("/api/v1/admin/operations/application-errors", activeToken),
       ]);
       setOverview(nextOverview);
       setHistory(nextHistory);
       setActivity(nextActivity);
       setDemoActivity(nextDemoActivity);
+      setWinePulseDetails(nextWinePulseDetails);
+      setApplicationErrors(nextApplicationErrors);
       setError("");
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Impossibile aggiornare il monitor.");
@@ -278,6 +296,8 @@ export function MonitorApp() {
     setOverview(null);
     setHistory(null);
     setActivity([]);
+    setWinePulseDetails(null);
+    setApplicationErrors(null);
   }
 
   async function shareStatus() {
@@ -386,6 +406,7 @@ export function MonitorApp() {
         ? "Nessuna raccolta completata nelle ultime dieci ore."
         : "Una o più fonti richiedono attenzione."),
       tone: winePulseFailed ? "critical" as const : "warning" as const,
+      action: "wine-pulse" as const,
     }] : []),
     ...(pendingUsers ? [{
       title: `${pendingUsers} utenti da approvare`,
@@ -396,6 +417,7 @@ export function MonitorApp() {
       title: "Esamina gli errori applicativi",
       detail: `${app.errors_total} errori 5xx rilevati dall'avvio del servizio.`,
       tone: "warning" as const,
+      action: "application-errors" as const,
     }] : []),
   ].slice(0, 3);
 
@@ -448,9 +470,27 @@ export function MonitorApp() {
           <article className={priority.tone} key={`${priority.title}-${index}`}>
             <span><i aria-hidden="true" /><strong>{priority.title}</strong></span>
             <small>{priority.detail}</small>
+            {priority.action ? <button type="button" className="monitor-inline-action" onClick={() => setDetailsPanel(priority.action || null)}>
+              {priority.action === "wine-pulse" ? "Vedi fonti" : "Vedi errori"}
+            </button> : null}
           </article>
         )) : <p className="monitor-priorities-clear">Nessuna anomalia attiva: le letture sono recenti e non richiedono interventi.</p>}
       </section>
+
+      {detailsPanel === "wine-pulse" && winePulseDetails ? <section className="monitor-card monitor-details" aria-label="Dettaglio fonti Wine Pulse">
+        <div className="monitor-section-head"><div><span>WINE PULSE</span><strong>Fonti da verificare</strong></div><button type="button" className="monitor-text-button" onClick={() => setDetailsPanel(null)}>Chiudi</button></div>
+        {winePulseDetails.sources.map((source) => <article key={source.id} className={source.last_error ? "attention" : "healthy"}>
+          <div><strong>{source.name}</strong><small>{source.enabled ? "Attiva" : "Disattivata"} · {source.language.toUpperCase()}</small></div>
+          <span>{source.last_error || `Ultimo successo ${dateTime(source.last_success_at)}`}</span>
+        </article>)}
+      </section> : null}
+
+      {detailsPanel === "application-errors" && applicationErrors ? <section className="monitor-card monitor-details" aria-label="Dettaglio errori applicativi">
+        <div className="monitor-section-head"><div><span>ERRORI APPLICATIVI</span><strong>Ultimi 5xx registrati</strong></div><button type="button" className="monitor-text-button" onClick={() => setDetailsPanel(null)}>Chiudi</button></div>
+        {applicationErrors.items.length ? applicationErrors.items.map((item, index) => <article key={`${item.timestamp}-${index}`} className="critical">
+          <div><strong>{item.method} {item.path}</strong><small>{dateTime(item.timestamp)}</small></div><span>{item.status_code}</span>
+        </article>) : <p className="monitor-empty">Non ci sono dettagli recenti disponibili; il contatore dall’avvio è {applicationErrors.errors_total}.</p>}
+      </section> : null}
 
       {alerts.length ? (
         <section className="monitor-card monitor-alerts">

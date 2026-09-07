@@ -361,6 +361,34 @@ body:has(.monitor-shell) {
   line-height: 1.4;
 }
 
+.monitor-inline-action {
+  justify-self: start;
+  min-height: 32px;
+  margin-top: 4px;
+  padding: 5px 10px;
+  border: 1px solid #8d7d43;
+  border-radius: 8px;
+  background: transparent;
+  color: #f0d47a;
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 800;
+}
+
+.monitor-details article {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid #3a403a;
+}
+
+.monitor-details article > div { display: grid; gap: 3px; min-width: 0; }
+.monitor-details article small { color: #aeb5aa; font-size: .74rem; }
+.monitor-details article > span { color: #e0c96b; font-size: .78rem; text-align: right; }
+.monitor-details article.critical > span { color: #ef8b84; font-weight: 800; }
+
 .monitor-priorities-clear {
   padding: 4px 0;
 }

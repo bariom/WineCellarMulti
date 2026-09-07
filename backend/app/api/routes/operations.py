@@ -574,6 +574,48 @@ def recent_user_activity(
     ]
 
 
+@router.get("/wine-pulse")
+def wine_pulse_operations_detail(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_operations_read_access),
+) -> dict[str, object]:
+    latest = db.scalar(
+        select(WineNewsCollectionRun).order_by(WineNewsCollectionRun.started_at.desc()).limit(1)
+    )
+    sources = db.scalars(select(WineNewsSource).order_by(WineNewsSource.name)).all()
+    return {
+        "latest_run": {
+            "started_at": latest.started_at.isoformat(),
+            "completed_at": latest.completed_at.isoformat() if latest.completed_at else None,
+            "status": latest.status,
+            "error": latest.error,
+        } if latest else None,
+        "sources": [
+            {
+                "id": source.id,
+                "name": source.name,
+                "language": source.language,
+                "enabled": source.enabled,
+                "last_attempt_at": source.last_attempt_at.isoformat() if source.last_attempt_at else None,
+                "last_success_at": source.last_success_at.isoformat() if source.last_success_at else None,
+                "last_error": source.last_error,
+            }
+            for source in sources
+        ],
+    }
+
+
+@router.get("/application-errors")
+def recent_application_errors(
+    _: User = Depends(require_operations_read_access),
+) -> dict[str, object]:
+    metrics = request_metrics.snapshot()
+    return {
+        "errors_total": metrics["errors_total"],
+        "items": request_metrics.recent_errors(),
+    }
+
+
 @router.get("/demo-activity")
 def demo_activity_summary(
     db: Session = Depends(get_db),

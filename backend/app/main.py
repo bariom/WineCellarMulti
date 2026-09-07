@@ -271,6 +271,8 @@ async def collect_request_metrics(request: Request, call_next):
         response.status_code,
         (time.perf_counter() - started_at) * 1000,
         interactive=is_interactive_application_request(request.url.path),
+        method=request.method,
+        path=request.url.path,
     )
     return response
 
