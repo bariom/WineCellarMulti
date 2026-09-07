@@ -278,6 +278,10 @@ test.describe("Wine Detail compact/mobile", () => {
     await openWineDetail(page);
     await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
     await expect(page.getByRole("heading", { name: "Nebbiolo di Test", exact: true }).first()).toBeVisible();
+    const expandDetail = page.getByRole("button", { name: "Espandi dettaglio vino", exact: true }).first();
+    await expect(expandDetail).toBeVisible();
+    await expandDetail.click();
+    await expect(page.locator(".wine-detail-modal")).toBeVisible();
   });
 
   test("includes cellar purpose in data quality", async ({ page }) => {
