@@ -22092,6 +22092,120 @@ body,
   }
 }
 
+/* Tablet keeps account controls compact so the cellar selector cannot force the
+   top bar outside the viewport. The selector remains fully usable: the cellar
+   icon is its visible trigger and the native select sits over it. */
+@media (min-width: 521px) and (max-width: 1099px) {
+  .authenticated-app-shell .topbar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 14px;
+    min-height: 82px;
+  }
+
+  .authenticated-app-shell .topbar-brand {
+    min-width: 0;
+  }
+
+  .authenticated-app-shell .topbar h1 {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .authenticated-app-shell .session-pill:not(.demo-session-pill):not(.public-session-pill) {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    width: auto;
+    max-width: none;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  .authenticated-app-shell .session-pill:not(.demo-session-pill):not(.public-session-pill) > strong,
+  .authenticated-app-shell .session-pill:not(.demo-session-pill):not(.public-session-pill) > span {
+    display: none;
+  }
+
+  .authenticated-app-shell .session-pill .household-switch {
+    position: relative;
+    display: grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+    place-items: center;
+    border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--surface-muted) 74%, var(--surface));
+    color: var(--text-muted);
+  }
+
+  .authenticated-app-shell .session-pill .household-switch .app-icon {
+    display: inline-grid;
+  }
+
+  .authenticated-app-shell .session-pill .household-switch select {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+
+  .authenticated-app-shell .session-pill .household-switch:focus-within {
+    border-color: color-mix(in srgb, var(--focus) 72%, var(--border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 18%, transparent);
+  }
+
+  .authenticated-app-shell .session-pill .notification-wrap,
+  .authenticated-app-shell .session-pill .mobile-account-menu-toggle {
+    display: grid;
+    flex: 0 0 38px;
+    width: 38px;
+    height: 38px;
+  }
+
+  .authenticated-app-shell .session-pill .notification-wrap .notification-button,
+  .authenticated-app-shell .session-pill .mobile-account-menu-toggle {
+    width: 38px;
+    height: 38px;
+    min-width: 38px;
+    padding: 0;
+    place-items: center;
+  }
+
+  .authenticated-app-shell .session-pill .topbar-settings-button,
+  .authenticated-app-shell .session-pill .topbar-logout-button {
+    display: none;
+  }
+
+  .authenticated-app-shell .session-pill .mobile-account-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 260;
+    display: grid;
+    width: min(252px, calc(100vw - 24px));
+    gap: 4px;
+    padding: 8px;
+    border: 1px solid var(--vinaris-hairline-strong);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--surface-raised) 96%, var(--surface));
+    box-shadow: var(--vinaris-shadow-float);
+  }
+}
+
 @media print {
   @page {
     margin: 14mm;
@@ -23123,8 +23237,9 @@ body,
   .mobile-navigation-sheet button { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 9px 10px; border-radius: 12px; color: var(--text); background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface)); box-shadow: none; font-size: 0.8rem; font-weight: 750; text-align: left; }
 }
 
-/* Mobile home: the dashboard becomes a deliberate, card-led starting point. */
-@media (max-width: 820px) {
+/* Touch dashboard: at tablet widths the desktop data grid becomes too dense,
+   so retain the card-led hierarchy through the iPad Pro 11 viewport. */
+@media (max-width: 1099px) {
   .home-mobile-experience {
     background:
       radial-gradient(circle at 82% 0%, color-mix(in srgb, var(--primary) 18%, transparent), transparent 26%),
@@ -25627,6 +25742,169 @@ body,
     height: 350px !important;
     min-height: 350px;
     transform: scale(1.15);
+  }
+}
+
+/* Tablet has room for the dashboard, not for the full desktop navigation.
+   Keep the touch navigation coherent through iPad Pro widths: search remains
+   a desktop tool, while adding a wine stays in the persistent lower bar. */
+@media (min-width: 821px) and (max-width: 1099px) {
+  .authenticated-app-shell {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+  }
+
+  .authenticated-app-shell .view-tabs {
+    display: none;
+  }
+
+  .home-mobile-experience .dashboard-analysis-switcher > .focus-switcher {
+    position: static;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    min-width: 0;
+    margin-top: 7px;
+    box-shadow: none;
+  }
+
+  .home-mobile-experience .dashboard-analysis-switcher > .focus-switcher button {
+    min-width: 0;
+    padding-inline: 10px;
+    white-space: normal;
+  }
+
+  /* At this width four desktop columns turn each action card into a narrow
+     label. Use the same touch carousel as the phone: one readable card at a
+     time, with a clear horizontal gesture instead of clipped content. */
+  .home-mobile-experience .dashboard-grid {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 0 2px 5px;
+    scrollbar-width: none;
+    scroll-snap-type: x proximity;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .home-mobile-experience .dashboard-grid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .home-mobile-experience .dashboard-grid > .dashboard-card,
+  .home-mobile-experience .dashboard-grid > :is(.wide-card, .timeline-card, .key-position-card) {
+    flex: 0 0 84%;
+    width: 84%;
+    min-width: 84%;
+    grid-column: auto;
+    scroll-snap-align: start;
+  }
+
+  .home-mobile-experience .dashboard-grid > :is(.wide-card, .timeline-card, .key-position-card) {
+    flex-basis: 92%;
+    width: 92%;
+    min-width: 92%;
+  }
+
+  .home-mobile-experience .dashboard-dots {
+    display: flex;
+  }
+
+  .quick-add-wine-mobile-fab {
+    display: none !important;
+  }
+
+  .mobile-bottom-navigation {
+    position: fixed;
+    z-index: 180;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    display: grid;
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: end;
+    min-height: calc(68px + env(safe-area-inset-bottom, 0px));
+    padding: 7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid color-mix(in srgb, var(--border) 78%, var(--accent));
+    background: color-mix(in srgb, var(--surface-raised) 94%, transparent);
+    box-shadow: 0 -12px 30px color-mix(in srgb, var(--collector-depth) 24%, transparent);
+    backdrop-filter: blur(18px) saturate(125%);
+  }
+
+  .mobile-bottom-navigation button {
+    display: grid;
+    min-width: 0;
+    min-height: 52px;
+    padding: 5px 3px;
+    place-items: center;
+    gap: 3px;
+    border: 0;
+    border-radius: 12px;
+    color: var(--text-muted);
+    background: transparent;
+    box-shadow: none;
+    font-size: 0.68rem;
+    font-weight: 750;
+    line-height: 1.1;
+  }
+
+  .mobile-bottom-navigation button .app-icon {
+    font-size: 1.25rem;
+  }
+
+  .mobile-bottom-navigation button.active {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 9%, transparent);
+  }
+
+  .mobile-bottom-navigation .mobile-bottom-navigation-add {
+    width: 56px;
+    height: 56px;
+    min-height: 56px;
+    margin: -22px auto 0;
+    padding: 0;
+    border: 3px solid var(--page);
+    border-radius: 50%;
+    color: #fff;
+    background: linear-gradient(145deg, color-mix(in srgb, var(--primary) 88%, var(--accent)), var(--primary));
+    box-shadow: 0 10px 20px color-mix(in srgb, var(--primary) 36%, transparent);
+    font-size: 2rem;
+    font-weight: 500;
+  }
+
+  .mobile-bottom-navigation .mobile-bottom-navigation-add span {
+    transform: translateY(-1px);
+  }
+
+  .mobile-navigation-sheet {
+    position: fixed;
+    z-index: 179;
+    right: 16px;
+    bottom: calc(78px + env(safe-area-inset-bottom, 0px));
+    left: 16px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    padding: 10px;
+    border: 1px solid color-mix(in srgb, var(--border) 76%, var(--accent));
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--surface-raised) 96%, transparent);
+    box-shadow: 0 18px 42px color-mix(in srgb, var(--collector-depth) 38%, transparent);
+    backdrop-filter: blur(18px) saturate(125%);
+  }
+
+  .mobile-navigation-sheet button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 9px 10px;
+    border-radius: 12px;
+    color: var(--text);
+    background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+    box-shadow: none;
+    font-size: 0.84rem;
+    font-weight: 750;
+    text-align: left;
   }
 }
  .ai-pack-upgrade-notice{display:flex;align-items:center;justify-content:space-between;gap:1rem;margin:0 0 1rem;padding:1rem 1.15rem;border:1px solid #c89c42;border-radius:1rem;background:#fff8e8}.ai-pack-upgrade-notice>div{display:grid;gap:.2rem}.ai-pack-upgrade-notice span{font-size:.7rem;font-weight:900;letter-spacing:.08em;color:#9a6c14}.ai-pack-upgrade-notice strong{font-size:1rem}.ai-pack-upgrade-notice p{margin:0;max-width:46rem;color:var(--muted);font-size:.86rem;line-height:1.4}.ai-pack-upgrade-notice>.ai-pack-upgrade-actions{display:flex;flex:0 0 auto;align-items:center;gap:.4rem}.ai-pack-upgrade-notice button{white-space:nowrap}.ai-pack-upgrade-dismiss{display:grid;place-items:center;width:2rem;min-width:2rem;height:2rem;padding:0;border:0;background:transparent;color:var(--muted);font-size:1.3rem}.ai-pack-upgrade-dismiss:hover{background:var(--surface);color:var(--text)}.ai-pack-upgrade-notice.compact{padding:.65rem .8rem;border-color:var(--border);border-radius:.75rem;background:var(--surface-soft)}.ai-pack-upgrade-notice.compact p{font-size:.76rem}.ai-pack-upgrade-notice.compact strong{font-size:.86rem}.ai-pack-upgrade-notice.compact span{font-size:.62rem}@media(max-width:600px){.ai-pack-upgrade-notice{align-items:stretch;flex-direction:column}.ai-pack-upgrade-notice>.ai-pack-upgrade-actions{width:100%}.ai-pack-upgrade-notice button{width:100%}.ai-pack-upgrade-dismiss{width:2.5rem!important}}

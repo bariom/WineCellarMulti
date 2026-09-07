@@ -1557,7 +1557,7 @@ export function App() {
     sweet: WINE_TONE_PAGE_SIZE,
     other: WINE_TONE_PAGE_SIZE,
   });
-  const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 820);
+  const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 1099);
   const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -2872,7 +2872,7 @@ export function App() {
   }, [themePreference]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 820px)");
+    const mediaQuery = window.matchMedia("(max-width: 1099px)");
     const syncViewport = () => {
       const mobile = mediaQuery.matches;
       setIsMobileViewport(mobile);

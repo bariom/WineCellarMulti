@@ -99,6 +99,13 @@ const session = {
   entitlement_days_remaining: null,
 };
 
+const memberships = [{ membership_id: "membership-e2e", household_id: "household-e2e", household_name: "Cantina E2E", role: "owner", operating_mode: "private" }];
+
+const multiCellarMemberships = [
+  ...memberships,
+  { membership_id: "membership-e2e-2", household_id: "household-e2e-2", household_name: "Riserva E2E", role: "owner", operating_mode: "private" },
+];
+
 const intelligenceSnapshot = {
   generated_at: "2026-08-21T12:00:00Z",
   fingerprint: "snapshot-current",
@@ -163,11 +170,11 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false) {
+async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false, cellarMemberships = memberships) {
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled }) => {
+  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -190,13 +197,13 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("regional-gap-settings")) body = { targets: [], last_ai_suggestion: null };
       else if (path.includes("notifications")) body = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false };
       else if (path.includes("billing")) body = { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" };
-      else if (path.includes("household/memberships")) body = [{ membership_id: "membership-e2e", household_id: "household-e2e", household_name: "Cantina E2E", role: "owner", operating_mode: "private" }];
+      else if (path.includes("household/memberships")) body = fixtureCellarMemberships;
       else if (path.includes("audit") || path.includes("tags") || path.includes("agreements") || path.includes("share-offers") || path.includes("share-offer") || path.includes("invites") || path.includes("recipients")) body = [];
       else if (path.includes("ai/settings")) body = { provider_mode: fixtureAiEnabled ? "auto" : "application", has_openai_api_key: false, can_use_app_credits: fixtureAiEnabled, ai_notes_model: "", drink_window_model: "", value_model: "", grape_model: "", score_model: "", wishlist_model: "", model_advisor_enabled: false, pairing_preferences: "", pairing_candidate_limit: 5 };
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled });
+  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -219,7 +226,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.includes("regional-gap-settings")) return fulfillJson(route, { targets: [], last_ai_suggestion: null });
     if (path.includes("operational-action-snoozes")) return fulfillJson(route, []);
     if (path.includes("billing")) return fulfillJson(route, { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" });
-    if (path.includes("household/memberships")) return fulfillJson(route, [{ membership_id: "membership-e2e", household_id: "household-e2e", household_name: "Cantina E2E", role: "owner", operating_mode: "private" }]);
+    if (path.includes("household/memberships")) return fulfillJson(route, cellarMemberships);
     if (path.includes("audit") || path.includes("tags") || path.includes("agreements") || path.includes("share-offers") || path.includes("share-offer") || path.includes("invites") || path.includes("recipients")) return fulfillJson(route, []);
     if (route.request().method() === "GET") return fulfillJson(route, []);
     return fulfillJson(route, route.request().method() === "PATCH" ? wine : {});
@@ -485,6 +492,57 @@ test.describe("Wine Detail compact/mobile", () => {
       await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     }
+  });
+
+  test("keeps iPad navigation coherent and within the viewport", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 834, height: 1210 });
+    await mockApi(page, [], false, multiCellarMemberships);
+    await page.goto("/");
+
+    const cellarSwitch = page.getByLabel("Cambia cantina");
+    const notifications = page.getByRole("button", { name: "Notifiche", exact: true });
+    const accountMenu = page.getByRole("button", { name: "Apri menu account", exact: true });
+    await expect(cellarSwitch).toBeVisible();
+    await expect(notifications).toBeVisible();
+    await expect(accountMenu).toBeVisible();
+    await expect(page.locator(".view-tabs")).toBeHidden();
+    await expect(page.locator(".desktop-topbar-search")).toBeHidden();
+    const bottomNavigation = page.getByRole("navigation", { name: "Navigazione principale" });
+    const addWine = bottomNavigation.getByRole("button", { name: "Aggiungi un vino", exact: true });
+    await expect(bottomNavigation).toBeVisible();
+    await expect(addWine).toBeVisible();
+    const insights = page.locator(".dashboard-analysis-switcher");
+    await insights.locator("summary").click();
+    await expect(insights).toHaveAttribute("open", "");
+    const insightOptions = insights.getByRole("tab");
+    await expect(insightOptions.first()).toBeVisible();
+    const [summaryBox, optionBox] = await Promise.all([
+      insights.locator("summary").boundingBox(),
+      insightOptions.first().boundingBox(),
+    ]);
+    expect(optionBox!.y).toBeGreaterThanOrEqual(summaryBox!.y + summaryBox!.height);
+    await insightOptions.last().click();
+    const dataGrid = page.locator(".data-dashboard-carousel .dashboard-grid");
+    const firstDataCard = dataGrid.locator("> .dashboard-card").first();
+    await expect(firstDataCard).toBeVisible();
+    const dataCardBox = (await firstDataCard.boundingBox())!;
+    expect(dataCardBox.width).toBeGreaterThan(620);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+
+    const [cellarBox, notificationsBox, accountBox] = await Promise.all([
+      cellarSwitch.boundingBox(),
+      notifications.boundingBox(),
+      accountMenu.boundingBox(),
+    ]);
+    expect(cellarBox).not.toBeNull();
+    expect(notificationsBox).not.toBeNull();
+    expect(accountBox).not.toBeNull();
+    expect(cellarBox!.width).toBeLessThanOrEqual(40);
+    expect(Math.abs(cellarBox!.y - notificationsBox!.y)).toBeLessThanOrEqual(2);
+    expect(Math.abs(notificationsBox!.y - accountBox!.y)).toBeLessThanOrEqual(2);
+    expect(accountBox!.x + accountBox!.width).toBeLessThanOrEqual(834);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("tablet-topbar.png") });
   });
 
   test("matches the compact visual baseline", async ({ page }) => {
