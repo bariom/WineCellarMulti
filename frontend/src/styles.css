@@ -24947,19 +24947,19 @@ body,
   }
 
   .operational-workspace .wine-row:not(.wishlist-row).has-bottle-photo {
-    min-height: 96px;
+    min-height: 108px;
   }
 
   .operational-workspace .wine-row-bottle-photo {
     top: 7px;
     left: 10px;
-    width: 48px;
-    height: 82px;
+    width: 60px;
+    height: 94px;
   }
 
   .operational-workspace .wine-row.has-bottle-photo .wine-row-main {
-    min-height: 74px;
-    padding-left: 52px;
+    min-height: 86px;
+    padding-left: 64px;
   }
 
   .operational-workspace .wine-row:not(.wishlist-row) .row-primary {
@@ -25047,24 +25047,24 @@ body,
 
 @container wine-detail-shell (max-width: 440px) {
   .wine-detail .detail-hero .detail-title:has(.detail-bottle-photo) {
-    grid-template-columns: 68px minmax(0, 1fr);
+    grid-template-columns: 92px minmax(0, 1fr);
   }
 }
 
 @container wine-detail-shell (max-width: 440px) {
   .wine-detail .detail-title,
   .wine-detail .detail-hero .detail-title:has(.detail-bottle-photo) {
-    grid-template-columns: 68px minmax(0, 1fr);
-    column-gap: 8px;
+    grid-template-columns: 92px minmax(0, 1fr);
+    column-gap: 10px;
   }
 
   .wine-detail .detail-bottle-photo {
-    width: 68px;
+    width: 92px;
   }
 
   .wine-detail .detail-bottle-photo img {
-    width: 62px;
-    height: 116px;
+    width: 86px;
+    height: 160px;
   }
 
   .wine-detail .wine-detail-quick-actions {
