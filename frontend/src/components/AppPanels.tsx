@@ -124,8 +124,27 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
         dateMs: purchaseDateMs,
       }
     : null;
-  const entries = [...(purchaseEntries.length ? purchaseEntries : fallbackPurchaseEntry ? [fallbackPurchaseEntry] : []), ...historyEntries]
-    .sort((first, second) => first.dateMs - second.dateMs || (first.source === "purchase" ? -1 : 1));
+  const rawEntries = [...(purchaseEntries.length ? purchaseEntries : fallbackPurchaseEntry ? [fallbackPurchaseEntry] : []), ...historyEntries]
+    .sort((first, second) => {
+      const firstDay = new Date(first.dateMs);
+      firstDay.setHours(0, 0, 0, 0);
+      const secondDay = new Date(second.dateMs);
+      secondDay.setHours(0, 0, 0, 0);
+      const firstSourceRank = first.source === "purchase" ? 0 : 1;
+      const secondSourceRank = second.source === "purchase" ? 0 : 1;
+      return firstDay.getTime() - secondDay.getTime()
+        || firstSourceRank - secondSourceRank
+        || first.dateMs - second.dateMs;
+    });
+  const sameDayOffsets = new Map<number, number>();
+  const entries = rawEntries.map((entry) => {
+    const dayStart = new Date(entry.dateMs);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayMs = dayStart.getTime();
+    const offset = sameDayOffsets.get(dayMs) || 0;
+    sameDayOffsets.set(dayMs, offset + 1);
+    return { ...entry, dateMs: dayMs + offset * 1000 };
+  });
 
   if (entries.length === 0) return null;
 
