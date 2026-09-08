@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import type { Locale, TasteProfile, TasteProfileCollection } from "../types";
 import { api } from "../services/api";
 
-export function TasteProfilePanel({ locale }: { locale: Locale }) {
+export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Locale; variant?: "settings" | "insight" }) {
   const italian = locale === "it";
+  const insight = variant === "insight";
   const [profiles, setProfiles] = useState<TasteProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [rebuilding, setRebuilding] = useState(false);
@@ -17,7 +18,22 @@ export function TasteProfilePanel({ locale }: { locale: Locale }) {
   const strongest = overall ? Object.entries(overall.dimensions)
     .sort(([, first], [, second]) => second.preference - first.preference)
     .slice(0, 4) : [];
-  const label = (key: string) => key.replace(/_/g, " ");
+  const labels: Record<string, string> = italian ? {
+    body: "Corpo", acidity: "Acidità", tannin: "Tannini", sweetness: "Dolcezza",
+    aromatic_intensity: "Intensità aromatica", fruit: "Frutto", wood: "Legno", spice: "Spezie", minerality: "Mineralità",
+    preferred_countries: "Paesi preferiti", preferred_regions: "Regioni preferite", preferred_appellations: "Denominazioni preferite",
+    preferred_producers: "Produttori preferiti", preferred_grapes: "Uve preferite", preferred_price_ranges: "Fasce di prezzo preferite",
+    global: "Generale", red: "Rossi", white: "Bianchi", sparkling: "Spumanti", sweet: "Dolci",
+    under_30: "Sotto 30", "30_60": "30–60", over_60: "Oltre 60",
+  } : {
+    body: "Body", acidity: "Acidity", tannin: "Tannin", sweetness: "Sweetness",
+    aromatic_intensity: "Aromatic intensity", fruit: "Fruit", wood: "Wood", spice: "Spice", minerality: "Minerality",
+    preferred_countries: "Preferred countries", preferred_regions: "Preferred regions", preferred_appellations: "Preferred appellations",
+    preferred_producers: "Preferred producers", preferred_grapes: "Preferred grapes", preferred_price_ranges: "Preferred price ranges",
+    global: "Global", red: "Red", white: "White", sparkling: "Sparkling", sweet: "Sweet",
+    under_30: "Under 30", "30_60": "30–60", over_60: "Over 60",
+  };
+  const label = (key: string) => labels[key] || key.replace(/_/g, " ");
 
   async function rebuild() {
     setRebuilding(true);
@@ -27,9 +43,9 @@ export function TasteProfilePanel({ locale }: { locale: Locale }) {
     } finally { setRebuilding(false); }
   }
 
-  return <section className="settings-card settings-card-wide">
-    <div className="settings-card-heading">
-      <div><span>{italian ? "Preferenze personali" : "Personal preferences"}</span><h3>{italian ? "Il mio gusto" : "My Taste"}</h3></div>
+  return <section className={insight ? "dashboard-card wide-card taste-profile-panel" : "settings-card settings-card-wide taste-profile-panel"}>
+    <div className={insight ? "card-heading" : "settings-card-heading"}>
+      <div><span>{italian ? "Approfondimento personale" : "Personal insight"}</span>{insight ? <h2>{italian ? "Il mio gusto" : "My Taste"}</h2> : <h3>{italian ? "Il mio gusto" : "My Taste"}</h3>}</div>
       <button type="button" className="secondary compact" disabled={rebuilding} onClick={() => void rebuild()}>{rebuilding ? (italian ? "Aggiornamento…" : "Updating…") : (italian ? "Aggiorna profilo" : "Refresh profile")}</button>
     </div>
     {loading ? <p className="empty-state">{italian ? "Caricamento profilo…" : "Loading taste profile…"}</p> : !overall ? <p className="empty-state">{italian ? "Valuta alcuni vini degustati per iniziare a costruire il tuo profilo." : "Rate a few wines you have tasted to start building your profile."}</p> : <>
@@ -37,9 +53,23 @@ export function TasteProfilePanel({ locale }: { locale: Locale }) {
       <div className="detail-grid">
         {strongest.map(([dimension, value]) => <div className="detail-field" key={dimension}><span>{label(dimension)}</span><strong>{Math.round(value.preference * 100)}%</strong><small>{value.samples} {italian ? "campioni" : "samples"}</small></div>)}
       </div>
-      {Object.entries(overall.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <p key={kind} className="empty-state"><strong>{label(kind.replace("preferred_", ""))}:</strong> {values.map(([name]) => name).join(", ")}</p>)}
-      {profiles.filter((profile) => profile.category !== "global").length ? <p className="empty-state">{italian ? "Profili per categoria: " : "Profiles by category: "}{profiles.filter((profile) => profile.category !== "global").map((profile) => profile.category).join(", ")}</p> : null}
+      <div className="detail-grid taste-profile-attribute-grid">
+        {Object.entries(overall.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <div key={kind} className="detail-field taste-profile-attribute"><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></div>)}
+      </div>
+      {profiles.filter((profile) => profile.category !== "global").length ? <p className="taste-profile-categories"><strong>{italian ? "Profili per categoria" : "Profiles by category"}</strong><span>{profiles.filter((profile) => profile.category !== "global").map((profile) => label(profile.category)).join(" · ")}</span></p> : null}
     </>}
+    {insight ? <details className="taste-profile-method">
+      <summary>{italian ? "Come viene costruito il profilo" : "How your profile is built"}</summary>
+      <div>
+        <p>{italian ? "Vinaris usa solo le degustazioni che hai registrato tu. Il voto resta il segnale principale: vicino al valore neutro pesa poco, mentre un voto alto o basso rafforza o riduce l’affinità per le caratteristiche del vino." : "Vinaris uses only the tastings you recorded. Your rating is the main signal: a neutral rating has little effect, while high or low ratings strengthen or reduce affinity for a wine’s characteristics."}</p>
+        <ul>
+          <li>{italian ? "Le caratteristiche sensoriali (corpo, acidità, tannini e altre) appartengono al vino e sono dati condivisi Vinaris; non vengono generate durante una degustazione o mentre visualizzi questa pagina." : "Sensory characteristics (body, acidity, tannin, and more) belong to the wine and are shared Vinaris data; they are not generated while you rate a wine or view this page."}</li>
+          <li>{italian ? "Le informazioni mancanti non valgono zero: vengono semplicemente escluse dal calcolo." : "Missing information is never treated as zero; it is simply excluded from the calculation."}</li>
+          <li>{italian ? "Il risultato combina un profilo generale con profili distinti per rossi, bianchi, spumanti e dolci quando ci sono dati sufficienti." : "The result combines an overall profile with separate red, white, sparkling, and sweet profiles when enough data is available."}</li>
+          <li>{italian ? "La confidenza cresce con numero, coerenza e qualità dei vini valutati. Il profilo è privato: le valutazioni di altri utenti non lo influenzano." : "Confidence grows with the number, consistency, and quality of rated wines. Your profile is private: other users’ ratings never influence it."}</li>
+        </ul>
+      </div>
+    </details> : null}
   </section>;
 }
 

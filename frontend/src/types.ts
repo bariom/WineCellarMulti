@@ -953,7 +953,8 @@ export type DashboardFocus =
   | "value"
   | "readiness"
   | "timeline"
-  | "data";
+  | "data"
+  | "taste";
 
 export type SettingsTab = "profile" | "ai" | "restaurant" | "storage" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
 
@@ -1410,6 +1411,13 @@ export type TasteProfile = {
 };
 
 export type TasteProfileCollection = { profiles: TasteProfile[] };
+
+export type TasteMatch = {
+  score: number | null;
+  confidence: number;
+  matching_traits: string[];
+  conflicting_traits: string[];
+};
 
 export type WineSensoryProfile = {
   identity_id: string;

@@ -195,6 +195,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("/storage/allocations")) body = [];
       else if (path.endsWith("/merchants")) body = fixtureMerchants;
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
+      else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.5, matching_traits: ["body", "tannin"], conflicting_traits: [] };
       else if (path.endsWith("/wines")) body = [fixtureWine];
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
@@ -224,6 +225,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
     if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
+    if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.5, matching_traits: ["body", "tannin"], conflicting_traits: [] });
     if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
     if (path.includes("/wine-pulse")) return fulfillJson(route, { items: [], total: 0, offset: 0, limit: 3, has_more: false });
@@ -259,6 +261,8 @@ test.describe("Wine Detail compact/mobile", () => {
     await openWineDetail(page);
     const detail = page.locator(".wine-detail:visible").first();
     await expect(detail.getByRole("heading", { name: "Nebbiolo di Test" })).toBeVisible();
+    await expect(detail.getByText("Nota di gusto", { exact: true })).toBeVisible();
+    await expect(detail.getByText("86% in sintonia con i tuoi gusti", { exact: true })).toBeVisible();
     await expect(detail.getByText("Stato", { exact: true }).first()).toBeVisible();
     await expect(detail.getByText("Quantità", { exact: true }).first()).toBeVisible();
     await expect(detail.getByRole("heading", { name: "Finestra degustazione" })).toBeVisible();
@@ -284,10 +288,13 @@ test.describe("Wine Detail compact/mobile", () => {
   test("renders My Taste without compact overflow", async ({ page }) => {
     await mockApi(page);
     await page.goto("/");
-    await page.getByRole("button", { name: "Apri menu account", exact: true }).click();
-    await page.getByRole("menuitem").first().click();
-    await expect(page.getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
-  await expect(page.getByText(/6 vini valutati/)).toBeVisible();
+    await page.locator(".dashboard-analysis-switcher > summary").click();
+    await page.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
+    await expect(page.locator(".taste-profile-panel").getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
+    await expect(page.getByText("Uve preferite", { exact: true })).toBeVisible();
+    await expect(page.getByText(/6 vini valutati/)).toBeVisible();
+    await page.getByText("Come viene costruito il profilo", { exact: true }).click();
+    await expect(page.getByText(/Vinaris usa solo le degustazioni che hai registrato tu/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 

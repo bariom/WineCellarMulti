@@ -26093,3 +26093,154 @@ body,
   border-radius: 14px;
   background: linear-gradient(180deg, color-mix(in srgb, var(--surface) 70%, transparent), transparent);
 }
+
+.taste-profile-attribute-grid {
+  margin-top: 12px;
+}
+
+.taste-profile-attribute {
+  min-height: 76px;
+}
+
+.taste-profile-attribute > strong {
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.taste-profile-categories {
+  display: grid;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.taste-profile-categories strong {
+  color: var(--text);
+}
+
+.taste-profile-panel .settings-card-intro {
+  margin-top: 14px;
+}
+
+.taste-profile-method {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.taste-profile-method summary {
+  cursor: pointer;
+  color: var(--text);
+  font-weight: 720;
+}
+
+.taste-profile-method > div {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.taste-profile-method p,
+.taste-profile-method ul {
+  margin: 0;
+}
+
+.taste-profile-method ul {
+  display: grid;
+  gap: 7px;
+  padding-left: 20px;
+}
+
+.taste-note {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 42%, var(--border));
+  border-radius: var(--vinaris-radius-md);
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 58%),
+    color-mix(in srgb, var(--surface-muted) 76%, var(--surface));
+}
+
+.taste-note-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.taste-note-heading > div {
+  display: grid;
+  gap: 3px;
+}
+
+.taste-note-heading span {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+}
+
+.taste-note-heading strong {
+  color: var(--text);
+}
+
+.taste-note-heading i {
+  display: grid;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface));
+  font-style: normal;
+}
+
+.taste-note p,
+.taste-note small {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.admin-sensory-filters,
+.admin-sensory-baseline-form {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  align-items: end;
+}
+
+.admin-sensory-filters > button,
+.admin-sensory-baseline-form > button {
+  min-height: 42px;
+}
+
+.admin-sensory-toggle {
+  display: flex !important;
+  align-items: center;
+  gap: 9px !important;
+  min-height: 42px;
+  padding: 0 2px;
+}
+
+.admin-sensory-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  flex: 0 0 auto;
+}
+
+.admin-sensory-toggle span {
+  color: var(--text) !important;
+  font-size: 0.86rem !important;
+}
+
+.admin-sensory-preview {
+  margin: 10px 0 0;
+  color: var(--text-muted);
+}

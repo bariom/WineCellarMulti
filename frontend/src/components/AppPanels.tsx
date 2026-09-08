@@ -5,7 +5,7 @@ import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, 
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
-import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WinePhotoSuggestion, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
+import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TasteMatch, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WinePhotoSuggestion, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
@@ -948,6 +948,40 @@ function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: 
   </details>;
 }
 
+function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
+  const italian = locale === "it";
+  const [match, setMatch] = useState<TasteMatch | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    setMatch(null);
+    api<TasteMatch>(`/api/v1/taste-profile/wines/${wineId}/match`)
+      .then((result) => { if (active) setMatch(result); })
+      .catch(() => { if (active) setMatch(null); });
+    return () => { active = false; };
+  }, [wineId]);
+
+  if (match?.score === null || !match) return null;
+  const traitLabels: Record<string, string> = italian ? {
+    body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
+    aromatic_intensity: "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
+  } : {
+    body: "body", acidity: "acidity", tannin: "tannin", sweetness: "sweetness",
+    aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "wood", spice: "spice", minerality: "minerality",
+  };
+  const label = (trait: string) => traitLabels[trait] || trait;
+  const score = Math.round(match.score * 100);
+
+  return <aside className="taste-note" aria-label={italian ? "Nota di gusto" : "Taste note"}>
+    <div className="taste-note-heading">
+      <div><span>{italian ? "Nota di gusto" : "Taste note"}</span><strong>{italian ? `${score}% in sintonia con i tuoi gusti` : `${score}% aligned with your taste`}</strong></div>
+      <i aria-hidden="true">✦</i>
+    </div>
+    {match.matching_traits.length ? <p>{italian ? "In sintonia: " : "Aligned traits: "}{match.matching_traits.map(label).join(", ")}.</p> : <p>{italian ? "Questo vino è compatibile con il tuo profilo personale." : "This wine is compatible with your personal profile."}</p>}
+    {match.conflicting_traits.length ? <small>{italian ? "Da esplorare: " : "To explore: "}{match.conflicting_traits.map(label).join(", ")}.</small> : null}
+  </aside>;
+}
+
 export function WineDetail({
   wine,
   session,
@@ -1429,6 +1463,8 @@ export function WineDetail({
           <DetailField label={t("delivery")} value={formatDisplayDate(wine.expected_delivery)} emptyLabel={t("notSpecified")} />
         </div>
       </details>
+
+      {!restaurantMode ? <TasteNote wineId={wine.id} locale={locale} /> : null}
 
       <details className="detail-market-block wine-detail-view-section" data-wine-detail-section="02" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">

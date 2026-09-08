@@ -6920,6 +6920,7 @@ export function App() {
     readiness: t("drinkingWindow"),
     timeline: t("timeline"),
     data: t("dataFocus"),
+    taste: locale === "it" ? "Il mio gusto" : "My Taste",
   };
   const dashboardFocusIcons: Record<DashboardFocus, AppIconName> = {
     collector: "cellar",
@@ -6929,8 +6930,9 @@ export function App() {
     readiness: "glass-sparkle",
     timeline: "calendar",
     data: "settings",
+    taste: "grapes",
   };
-  const dashboardInsightFocuses: DashboardFocus[] = ["value", "readiness", "timeline", "data"];
+  const dashboardInsightFocuses: DashboardFocus[] = ["value", "readiness", "timeline", "data", "taste"];
   const isDashboardInsightFocus = dashboardInsightFocuses.includes(dashboardFocus);
   const settingsTabLabels: Record<SettingsTab, string> = {
     profile: t("settingsProfile"),
@@ -10863,6 +10865,13 @@ export function App() {
                   </article>
                 </DashboardCarousel>
               ) : null}
+              {dashboardFocus === "taste" ? (
+                <DashboardCarousel label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
+                  <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
+                    <TasteProfilePanel locale={locale} variant="insight" />
+                  </Suspense>
+                </DashboardCarousel>
+              ) : null}
               <WinePulsePreview locale={locale} onOpen={() => setActiveView("pulse")} />
             </section>
           ) : null}
@@ -13151,12 +13160,6 @@ export function App() {
                   </form>
                   {!canAdmin ? <p className="empty-state">{t("viewerReadOnly")}</p> : null}
                 </section>
-              ) : null}
-
-              {settingsTab === "profile" ? (
-              <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
-                <TasteProfilePanel locale={locale} />
-              </Suspense>
               ) : null}
 
               {settingsTab === "profile" ? (
