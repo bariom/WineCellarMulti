@@ -27,7 +27,7 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   await page.route("**/api/v1/taste-profile/me**", route => route.fulfill({ json: { profiles: [profile("global", 16), profile("red", 8), profile("white", 5)] } }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/taste-profile-test");
-  await expect(page.locator(".taste-profile-scale-note")).toContainText("I valori non sono percentuali da sommare.");
+  await expect(page.locator(".taste-profile-portrait-copy small")).toContainText("I valori non sono percentuali da sommare.");
   await expect(page.getByText("70/100", { exact: true }).first()).toBeVisible();
   const red = page.locator(".taste-profile-category").filter({ hasText: "Rossi" });
   await expect(red).not.toHaveAttribute("open", "");

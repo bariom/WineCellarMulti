@@ -26143,6 +26143,209 @@ body,
   margin-top: 14px;
 }
 
+.taste-profile-panel--insight {
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 88% 4%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 31%),
+    radial-gradient(circle at 4% 96%, color-mix(in srgb, var(--primary) 11%, transparent), transparent 29%),
+    var(--surface);
+}
+
+.taste-profile-panel--insight::after {
+  opacity: 0.24;
+}
+
+.taste-profile-portrait {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 20px;
+  align-items: end;
+  margin: 20px 0 24px;
+  padding: 22px;
+  border: 1px solid color-mix(in srgb, var(--accent) 44%, var(--border));
+  border-radius: 20px;
+  background: linear-gradient(125deg, color-mix(in srgb, var(--accent) 14%, var(--surface)), color-mix(in srgb, var(--surface-raised) 88%, var(--surface)) 62%);
+}
+
+.taste-profile-portrait-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.taste-profile-portrait-copy > span,
+.taste-profile-section-heading > span,
+.taste-profile-landmarks article > span {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  font-size: 0.74rem;
+  font-weight: 780;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.taste-profile-portrait-copy p {
+  max-width: 600px;
+  margin: 0;
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.25rem, 2.3vw, 1.7rem);
+  font-weight: 600;
+  line-height: 1.18;
+}
+
+.taste-profile-portrait-copy small {
+  max-width: 580px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+  line-height: 1.4;
+}
+
+.taste-profile-sample-seal {
+  display: grid;
+  place-items: center;
+  justify-self: end;
+  width: 118px;
+  min-width: 118px;
+  min-height: 118px;
+  aspect-ratio: 1;
+  box-sizing: border-box;
+  padding: 15px;
+  border: 1px solid color-mix(in srgb, var(--accent) 66%, var(--border));
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--surface) 62%, var(--accent));
+  text-align: center;
+}
+
+.taste-profile-sample-seal strong {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2.2rem;
+  line-height: 0.85;
+}
+
+.taste-profile-sample-seal span {
+  margin-top: 5px;
+  color: var(--text);
+  font-size: 0.73rem;
+  font-weight: 720;
+}
+
+.taste-profile-sample-seal small {
+  margin-top: 4px;
+  color: var(--text-muted);
+  font-size: 0.68rem;
+}
+
+.taste-profile-sensory-signature,
+.taste-profile-landmarks {
+  margin-top: 22px;
+}
+
+.taste-profile-section-heading {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.taste-profile-section-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.28rem;
+}
+
+.taste-profile-meter-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.taste-profile-meter {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--border) 86%, var(--accent));
+  border-radius: var(--vinaris-radius-md);
+  background: color-mix(in srgb, var(--surface-muted) 66%, var(--surface));
+}
+
+.taste-profile-meter > div:first-child {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.taste-profile-meter > div:first-child > span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.taste-profile-meter strong {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.28rem;
+}
+
+.taste-profile-meter strong small {
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.62em;
+}
+
+.taste-profile-meter > small {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.taste-profile-meter-track {
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border) 82%, var(--surface));
+}
+
+.taste-profile-meter-track::after {
+  position: absolute;
+  inset: -2px auto -2px 50%;
+  width: 1px;
+  background: color-mix(in srgb, var(--text-muted) 50%, transparent);
+  content: "";
+}
+
+.taste-profile-meter-track i {
+  display: block;
+  width: var(--taste-score);
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--primary), var(--accent));
+}
+
+.taste-profile-landmark-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.taste-profile-landmarks article {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 105px;
+  padding: 15px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 64%, var(--border));
+  border-radius: 0 var(--vinaris-radius-md) var(--vinaris-radius-md) 0;
+  background: color-mix(in srgb, var(--surface-muted) 52%, var(--surface));
+}
+
+.taste-profile-landmarks article strong {
+  color: var(--text);
+  line-height: 1.35;
+}
+
 .taste-profile-scale-note {
   margin: 6px 0 14px;
   color: var(--text-muted);
@@ -26195,6 +26398,26 @@ body,
   margin: 0;
   color: var(--text-muted);
   font-size: 0.86rem;
+}
+
+@media (max-width: 620px) {
+  .taste-profile-portrait {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .taste-profile-sample-seal {
+    justify-self: start;
+    width: 104px;
+    min-width: 104px;
+    min-height: 104px;
+  }
+
+  .taste-profile-meter-list,
+  .taste-profile-landmark-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 .taste-profile-method {
