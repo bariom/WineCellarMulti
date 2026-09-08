@@ -300,6 +300,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(detail.getByRole("heading", { name: "Nebbiolo di Test" })).toBeVisible();
     await expect(detail.getByText("Nota di gusto", { exact: true })).toBeVisible();
     await expect(detail.getByText("86% in sintonia con i tuoi gusti", { exact: true })).toBeVisible();
+    await expect(detail.getByLabel("Affinità personale: 5 su 6")).toBeVisible();
     await expect(detail.getByText("Stato", { exact: true }).first()).toBeVisible();
     await expect(detail.getByText("Quantità", { exact: true }).first()).toBeVisible();
     await expect(detail.getByRole("heading", { name: "Finestra degustazione" })).toBeVisible();

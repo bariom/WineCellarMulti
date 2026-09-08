@@ -948,6 +948,29 @@ function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: 
   </details>;
 }
 
+const MIN_TASTE_MATCH_CONFIDENCE = 0.35;
+
+function TasteHeartScale({ score, locale, compact = false }: { score: number; locale: Locale; compact?: boolean }) {
+  const hearts = Math.min(6, Math.max(1, Math.round(score * 6)));
+  const label = locale === "it" ? `Affinità personale: ${hearts} su 6` : `Personal affinity: ${hearts} out of 6`;
+  return <span className={`taste-heart-rating${compact ? " compact" : ""}`} aria-label={label} title={label}>
+    {Array.from({ length: 6 }, (_, index) => <span key={index} className={index < hearts ? "filled" : ""} aria-hidden="true">♥</span>)}
+  </span>;
+}
+
+export function TasteHearts({ wineId, locale, compact = false }: { wineId: string; locale: Locale; compact?: boolean }) {
+  const [match, setMatch] = useState<TasteMatch | null>(null);
+  useEffect(() => {
+    let active = true;
+    api<TasteMatch>(`/api/v1/taste-profile/wines/${wineId}/match`)
+      .then((result) => { if (active) setMatch(result); })
+      .catch(() => { if (active) setMatch(null); });
+    return () => { active = false; };
+  }, [wineId]);
+  if (!match || match.score === null || match.confidence < MIN_TASTE_MATCH_CONFIDENCE) return null;
+  return <TasteHeartScale score={match.score} locale={locale} compact={compact} />;
+}
+
 function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
   const italian = locale === "it";
   const [match, setMatch] = useState<TasteMatch | null>(null);
@@ -961,7 +984,7 @@ function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
     return () => { active = false; };
   }, [wineId]);
 
-  if (match?.score === null || !match) return null;
+  if (!match || match.score === null || match.confidence < MIN_TASTE_MATCH_CONFIDENCE) return null;
   const traitLabels: Record<string, string> = italian ? {
     body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
     aromatic_intensity: "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
@@ -974,6 +997,7 @@ function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
 
   return <aside className="taste-note" aria-label={italian ? "Nota di gusto" : "Taste note"}>
     <div className="taste-note-heading">
+      <TasteHeartScale score={match.score} locale={locale} />
       <div><span>{italian ? "Nota di gusto" : "Taste note"}</span><strong>{italian ? `${score}% in sintonia con i tuoi gusti` : `${score}% aligned with your taste`}</strong></div>
       <i aria-hidden="true">✦</i>
     </div>

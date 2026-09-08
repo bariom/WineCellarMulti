@@ -12715,6 +12715,25 @@ button.stat-card:hover {
   gap: 12px;
 }
 
+.taste-heart-rating {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: color-mix(in srgb, var(--text-muted) 32%, transparent);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.taste-heart-rating.compact {
+  width: fit-content;
+  margin-top: 5px;
+  font-size: 0.78rem;
+}
+
+.taste-heart-rating .filled {
+  color: #b83f62;
+}
+
 .tasting-history-entry {
   display: grid;
   gap: 8px;

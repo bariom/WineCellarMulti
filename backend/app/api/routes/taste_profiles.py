@@ -293,6 +293,11 @@ def list_sensory_profiles(
                 "name": identity.name,
                 "producer": identity.producer,
                 "vintage": identity.vintage,
+                "dimensions": {},
+                "source": "missing",
+                "confidence": 0,
+                "validated": False,
+                "generation_status": "pending",
                 "missing": True,
             }
             for identity in db.scalars(query)
