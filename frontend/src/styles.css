@@ -26240,9 +26240,119 @@ body,
   font-size: 0.86rem !important;
 }
 
-.admin-sensory-preview {
-  margin: 10px 0 0;
+.admin-sensory-batch {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin-top: 18px;
+  padding: 16px 18px;
+  border: 1px solid color-mix(in srgb, var(--primary) 24%, var(--border));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, var(--primary) 12%);
+}
+
+.admin-sensory-batch > div,
+.admin-sensory-feedback {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-sensory-batch span {
+  color: var(--primary);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-sensory-batch h4,
+.admin-sensory-batch p,
+.admin-sensory-feedback p {
+  margin: 0;
+}
+
+.admin-sensory-batch p,
+.admin-sensory-feedback p {
+  max-width: 760px;
   color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.admin-sensory-feedback {
+  margin-top: 10px;
+  padding: 15px 18px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface-raised);
+}
+
+.admin-sensory-feedback-preview {
+  border-color: color-mix(in srgb, var(--primary) 36%, var(--border));
+}
+
+.admin-sensory-feedback-success {
+  border-color: color-mix(in srgb, #3f8059 44%, var(--border));
+  background: color-mix(in srgb, #3f8059 8%, var(--surface-raised));
+}
+
+.admin-sensory-feedback-error {
+  color: var(--danger, #a3273d);
+  border-color: color-mix(in srgb, #a3273d 42%, var(--border));
+  background: color-mix(in srgb, #a3273d 8%, var(--surface-raised));
+}
+
+.admin-sensory-feedback-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-sensory-feedback-values span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 70%, var(--primary) 10%);
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.admin-sensory-feedback-values b {
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.taste-profile-legacy {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 14px 0;
+  padding: 13px 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface-raised));
+}
+
+.taste-profile-legacy > div { display: grid; gap: 3px; }
+.taste-profile-legacy span, .taste-profile-claim-message { color: var(--text-muted); font-size: 0.88rem; }
+.taste-profile-claim-message { margin: 12px 0; }
+
+@media (max-width: 720px) {
+  .admin-sensory-batch {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .admin-sensory-batch > button {
+    width: 100%;
+  }
+
+  .taste-profile-legacy { align-items: stretch; flex-direction: column; }
+  .taste-profile-legacy > button { width: 100%; }
 }
 
 .taste-dashboard-carousel > .dashboard-grid {

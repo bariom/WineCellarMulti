@@ -28,6 +28,8 @@ from app.prompts.library import wine_sensory_profile_prompt
 from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
+    LegacyTastingClaimResponse,
+    LegacyTastingClaimStatus,
     SensoryBaselineInput,
     SensoryBaselineResponse,
     SensoryProfileResponse,
@@ -44,11 +46,13 @@ from app.services.shared_wine_data import (
 )
 from app.services.taste_profiles import (
     calculate_taste_match,
+    claim_unassigned_tastings,
     confidence_level,
     generate_wine_sensory_profile,
     infer_sensory_profile,
     rebuild_user_taste_profile,
     sensory_profile_for_wine,
+    unassigned_tasting_count,
     validated_dimensions,
 )
 
@@ -117,6 +121,29 @@ def rebuild_my_taste_profile(
     db.commit()
     return TasteProfileCollectionResponse(
         profiles=[profile_response(profile) for profile in profiles]
+    )
+
+
+@router.get("/me/legacy-tastings", response_model=LegacyTastingClaimStatus)
+def legacy_tasting_status(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)
+) -> LegacyTastingClaimStatus:
+    return LegacyTastingClaimStatus(
+        unassigned_count=unassigned_tasting_count(db, context.household.id)
+    )
+
+
+@router.post("/me/legacy-tastings/claim", response_model=LegacyTastingClaimResponse)
+def claim_legacy_tastings(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)
+) -> LegacyTastingClaimResponse:
+    claimed_count, profiles = claim_unassigned_tastings(
+        db, household_id=context.household.id, user_id=context.user.id
+    )
+    db.commit()
+    return LegacyTastingClaimResponse(
+        claimed_count=claimed_count,
+        profiles=[profile_response(profile) for profile in profiles],
     )
 
 

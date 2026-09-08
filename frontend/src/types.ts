@@ -1412,6 +1412,9 @@ export type TasteProfile = {
 
 export type TasteProfileCollection = { profiles: TasteProfile[] };
 
+export type LegacyTastingClaimStatus = { unassigned_count: number };
+export type LegacyTastingClaimResult = TasteProfileCollection & { claimed_count: number };
+
 export type TasteMatch = {
   score: number | null;
   confidence: number;

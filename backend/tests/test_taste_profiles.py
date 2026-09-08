@@ -23,9 +23,11 @@ from app.models import (
 from app.services.shared_wine_data import resolve_shared_identity
 from app.services.taste_profiles import (
     calculate_taste_match,
+    claim_unassigned_tastings,
     generate_wine_sensory_profile,
     rating_weight,
     rebuild_user_taste_profile,
+    unassigned_tasting_count,
 )
 
 engine = create_engine(
@@ -247,6 +249,42 @@ def test_rating_weight_is_negative_neutral_and_positive() -> None:
     assert rating_weight(4) == 0
     assert rating_weight(6) == 1
     assert rating_weight(0) == 0
+
+
+def test_claiming_unassigned_historical_tastings_is_household_scoped() -> None:
+    db = Session()
+    household = Household(name="Home")
+    other_household = Household(name="Other")
+    user = User(email="owner@example.test", display_name="Owner", password_hash="x")
+    db.add_all([household, other_household, user])
+    db.flush()
+    owned_wine = make_wine(db, household, name="Historical")
+    other_wine = make_wine(db, other_household, name="Elsewhere")
+    db.add_all(
+        [
+            WineTastingEntry(
+                wine_id=owned_wine.id,
+                household_id=household.id,
+                consumed_at=date(2026, 1, 1),
+                rating=5,
+            ),
+            WineTastingEntry(
+                wine_id=other_wine.id,
+                household_id=other_household.id,
+                consumed_at=date(2026, 1, 1),
+                rating=5,
+            ),
+        ]
+    )
+    db.flush()
+
+    assert unassigned_tasting_count(db, household.id) == 1
+    claimed, profiles = claim_unassigned_tastings(db, household_id=household.id, user_id=user.id)
+
+    assert claimed == 1
+    assert unassigned_tasting_count(db, household.id) == 0
+    assert unassigned_tasting_count(db, other_household.id) == 1
+    assert next(profile for profile in profiles if profile.category == "global").sample_count == 1
 
 
 def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:

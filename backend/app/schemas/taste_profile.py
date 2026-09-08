@@ -30,6 +30,14 @@ class TasteProfileCollectionResponse(BaseModel):
     profiles: list[TasteProfileResponse] = Field(default_factory=list)
 
 
+class LegacyTastingClaimStatus(BaseModel):
+    unassigned_count: int
+
+
+class LegacyTastingClaimResponse(TasteProfileCollectionResponse):
+    claimed_count: int
+
+
 class TasteMatchResponse(BaseModel):
     score: float | None = None
     confidence: float

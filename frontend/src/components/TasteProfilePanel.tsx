@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { Locale, TasteProfile, TasteProfileCollection } from "../types";
+import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteProfile, TasteProfileCollection } from "../types";
 import { api } from "../services/api";
 
 export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Locale; variant?: "settings" | "insight" }) {
@@ -8,10 +8,18 @@ export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Lo
   const [profiles, setProfiles] = useState<TasteProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [rebuilding, setRebuilding] = useState(false);
+  const [unassignedTastings, setUnassignedTastings] = useState(0);
+  const [claimingTastings, setClaimingTastings] = useState(false);
+  const [claimMessage, setClaimMessage] = useState("");
 
-  const load = () => api<TasteProfileCollection>("/api/v1/taste-profile/me")
-    .then((result) => setProfiles(result.profiles))
-    .finally(() => setLoading(false));
+  const load = () => {
+    api<TasteProfileCollection>("/api/v1/taste-profile/me")
+      .then((result) => setProfiles(result.profiles))
+      .finally(() => setLoading(false));
+    void api<LegacyTastingClaimStatus>("/api/v1/taste-profile/me/legacy-tastings")
+      .then((result) => setUnassignedTastings(result.unassigned_count))
+      .catch(() => setUnassignedTastings(0));
+  };
 
   useEffect(() => { void load(); }, []);
   const overall = profiles.find((profile) => profile.category === "global");
@@ -43,11 +51,30 @@ export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Lo
     } finally { setRebuilding(false); }
   }
 
+  async function claimLegacyTastings() {
+    const message = italian
+      ? `Attribuire a te ${unassignedTastings} degustazioni storiche senza autore? L'operazione non puo essere annullata automaticamente.`
+      : `Assign ${unassignedTastings} unowned historical tastings to you? This cannot be automatically undone.`;
+    if (!window.confirm(message)) return;
+    setClaimingTastings(true);
+    setClaimMessage("");
+    try {
+      const result = await api<LegacyTastingClaimResult>("/api/v1/taste-profile/me/legacy-tastings/claim", { method: "POST" });
+      setProfiles(result.profiles);
+      setUnassignedTastings(0);
+      setClaimMessage(italian ? `${result.claimed_count} degustazioni attribuite al tuo profilo.` : `${result.claimed_count} tastings assigned to your profile.`);
+    } catch (error) {
+      setClaimMessage(error instanceof Error ? error.message : (italian ? "Impossibile attribuire le degustazioni." : "Unable to assign tastings."));
+    } finally { setClaimingTastings(false); }
+  }
+
   return <section className={insight ? "dashboard-card taste-profile-panel" : "settings-card settings-card-wide taste-profile-panel"}>
     <div className={insight ? "card-heading" : "settings-card-heading"}>
       <div><span>{italian ? "Approfondimento personale" : "Personal insight"}</span>{insight ? <h2>{italian ? "Il mio gusto" : "My Taste"}</h2> : <h3>{italian ? "Il mio gusto" : "My Taste"}</h3>}</div>
       <button type="button" className="secondary compact" disabled={rebuilding} onClick={() => void rebuild()}>{rebuilding ? (italian ? "Aggiornamento…" : "Updating…") : (italian ? "Aggiorna profilo" : "Refresh profile")}</button>
     </div>
+    {unassignedTastings ? <div className="taste-profile-legacy"><div><strong>{italian ? "Degustazioni storiche da attribuire" : "Historical tastings to assign"}</strong><span>{italian ? `${unassignedTastings} degustazioni senza autore non entrano ancora nel tuo profilo.` : `${unassignedTastings} tastings without an author are not yet included in your profile.`}</span></div><button type="button" className="secondary compact" disabled={claimingTastings} onClick={() => void claimLegacyTastings()}>{claimingTastings ? (italian ? "Attribuzione…" : "Assigning…") : italian ? "Attribuisci a me" : "Assign to me"}</button></div> : null}
+    {claimMessage ? <p className="taste-profile-claim-message" role="status">{claimMessage}</p> : null}
     {loading ? <p className="empty-state">{italian ? "Caricamento profilo…" : "Loading taste profile…"}</p> : !overall ? <p className="empty-state">{italian ? "Valuta alcuni vini degustati per iniziare a costruire il tuo profilo." : "Rate a few wines you have tasted to start building your profile."}</p> : <>
       <p className="settings-card-intro">{italian ? `${overall.sample_count} vini valutati · preferenza ${overall.confidence_level === "established" ? "consolidata" : overall.confidence_level === "probable" ? "probabile" : "in evoluzione"}` : `${overall.sample_count} rated wines · ${overall.confidence_level} preference`}</p>
       <div className="detail-grid">

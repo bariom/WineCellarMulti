@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from math import exp
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.wine_types import normalize_wine_type
@@ -388,6 +388,39 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
         profiles.append(profile)
     db.flush()
     return profiles
+
+
+def unassigned_tasting_count(db: Session, household_id: UUID) -> int:
+    return int(
+        db.scalar(
+            select(func.count(WineTastingEntry.id))
+            .join(Wine, Wine.id == WineTastingEntry.wine_id)
+            .where(
+                Wine.household_id == household_id,
+                WineTastingEntry.created_by_user_id.is_(None),
+            )
+        )
+        or 0
+    )
+
+
+def claim_unassigned_tastings(
+    db: Session, *, household_id: UUID, user_id: UUID
+) -> tuple[int, list[UserTasteProfile]]:
+    """Explicitly assign only unowned tasting history from the active household."""
+    entries = list(
+        db.scalars(
+            select(WineTastingEntry)
+            .join(Wine, Wine.id == WineTastingEntry.wine_id)
+            .where(
+                Wine.household_id == household_id,
+                WineTastingEntry.created_by_user_id.is_(None),
+            )
+        )
+    )
+    for entry in entries:
+        entry.created_by_user_id = user_id
+    return len(entries), rebuild_user_taste_profile(db, user_id)
 
 
 def calculate_taste_match(
