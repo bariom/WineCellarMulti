@@ -78,6 +78,7 @@ from app.services.storage import (
     allocation_responses_by_wine,
     sync_storage_to_wine_quantity,
 )
+from app.services.taste_profiles import mark_wine_for_sensory_enrichment, rebuild_user_taste_profile
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -94,12 +95,10 @@ from app.services.wine_photo_library import (
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-WineStrategyPurpose = Literal[
-    "drink", "maturation", "investment", "special_occasion", "undecided"
-]
-WINE_STRATEGY_PURPOSES = frozenset({
-    "drink", "maturation", "investment", "special_occasion", "undecided"
-})
+WineStrategyPurpose = Literal["drink", "maturation", "investment", "special_occasion", "undecided"]
+WINE_STRATEGY_PURPOSES = frozenset(
+    {"drink", "maturation", "investment", "special_occasion", "undecided"}
+)
 
 PHOTO_SIZES = {"thumbnail": (160, 240, 512_000), "detail": (480, 720, 2_000_000)}
 
@@ -299,7 +298,9 @@ def wine_response(
             update={
                 "details_loaded": True,
                 "shared_data_features": [
-                    feature for feature in (wine.shared_data_features or []) if feature in SHARED_FEATURES
+                    feature
+                    for feature in (wine.shared_data_features or [])
+                    if feature in SHARED_FEATURES
                 ],
                 **photo_urls(wine),
             }
@@ -309,7 +310,9 @@ def wine_response(
         if strategy_purposes is not None:
             response = response.model_copy(update={"strategy_purposes": strategy_purposes})
         if strategy_purpose_quantities is not None:
-            response = response.model_copy(update={"strategy_purpose_quantities": strategy_purpose_quantities})
+            response = response.model_copy(
+                update={"strategy_purpose_quantities": strategy_purpose_quantities}
+            )
         if value_history is not None:
             response = response.model_copy(update={"value_history": value_history})
         if tag_names is not None and tag_names:
@@ -400,7 +403,11 @@ def strategy_allocation_data_by_wine(
     if not wine_ids:
         return result
     rows = db.execute(
-        select(WineStrategyAllocation.wine_id, WineStrategyAllocation.purpose, WineStrategyAllocation.quantity)
+        select(
+            WineStrategyAllocation.wine_id,
+            WineStrategyAllocation.purpose,
+            WineStrategyAllocation.quantity,
+        )
         .where(
             WineStrategyAllocation.household_id == household_id,
             WineStrategyAllocation.wine_id.in_(wine_ids),
@@ -1822,6 +1829,12 @@ def consume_wine_bottle(
     except NoBottlesAvailableError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
 
+    # Tasting remains synchronous and inexpensive: it only marks missing shared data and
+    # rebuilds this user's private cache. It never invokes AI.
+    if payload.tasting_rating > 0:
+        mark_wine_for_sensory_enrichment(db, wine)
+        rebuild_user_taste_profile(db, context.user.id)
+
     db.commit()
     db.refresh(wine)
     return wine_response(
@@ -1867,6 +1880,10 @@ def update_wine_tasting_entry(
         tasting.occasion = payload.tasting_occasion.strip()
         tasting.pairing = payload.tasting_pairing.strip()
         tasting.companions = payload.tasting_companions.strip()
+        if tasting.created_by_user_id:
+            if payload.tasting_rating > 0:
+                mark_wine_for_sensory_enrichment(db, wine)
+            rebuild_user_taste_profile(db, tasting.created_by_user_id)
 
     db.commit()
     db.refresh(wine)
@@ -1894,7 +1911,10 @@ def delete_wine_tasting_entry(
         )
     )
     if tasting is not None:
+        tasting_user_id = tasting.created_by_user_id
         db.delete(tasting)
+        if tasting_user_id:
+            rebuild_user_taste_profile(db, tasting_user_id)
 
     db.commit()
     db.refresh(wine)

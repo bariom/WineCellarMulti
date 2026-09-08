@@ -93,6 +93,8 @@ const TimeSeriesChart = lazy(() => import("./components/TimeSeriesChart"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
 const RestaurantDashboard = lazy(() => import("./views/RestaurantDashboard"));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
+const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
+const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
@@ -13152,6 +13154,12 @@ export function App() {
               ) : null}
 
               {settingsTab === "profile" ? (
+              <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
+                <TasteProfilePanel locale={locale} />
+              </Suspense>
+              ) : null}
+
+              {settingsTab === "profile" ? (
               <section className="settings-card settings-card-compact">
                 <div className="settings-card-heading">
                   <div>
@@ -14446,6 +14454,7 @@ export function App() {
               {settingsTab === "operations" && canAppAdmin ? (
                 <>
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento operatività…" : "Loading operations…"} />}>
+                    <AdminSensoryProfilesPanel locale={locale} />
                     <OperationsPanel locale={locale} overview={operationsOverview} activity={userActivity} onRefresh={loadOperationsMetrics} />
                   </Suspense>
                 </>

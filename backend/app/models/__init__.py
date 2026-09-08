@@ -27,6 +27,7 @@ from app.models.session import UserSession
 from app.models.shared_wine_data import SharedWineFact, SharedWineIdentity
 from app.models.storage import CellarBin, CellarLocation, WineStorageAllocation, WineStorageMovement
 from app.models.tags import UserTag, UserWineTag
+from app.models.taste_profile import SensoryProfileBaseline, UserTasteProfile, WineSensoryProfile
 from app.models.user import User, UserMonitorDeviceToken
 from app.models.user_activity import UserActivityLog
 from app.models.user_ai_settings import UserAiSettings
@@ -87,6 +88,9 @@ __all__ = [
     "UserSession",
     "UserTag",
     "UserWineTag",
+    "SensoryProfileBaseline",
+    "UserTasteProfile",
+    "WineSensoryProfile",
     "Wine",
     "WineSale",
     "WineStockLot",

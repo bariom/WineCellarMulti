@@ -129,6 +129,7 @@ from app.services.shared_wine_data import (
     publish_shared_fact,
 )
 from app.services.stock_ledger import add_inbound_stock
+from app.services.taste_profiles import compact_taste_context
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -1195,7 +1196,9 @@ def matching_cellar_command_producer_wines(
 def cellar_command_candidate(wine: Wine) -> CellarCommandWineCandidate:
     current_value = wine.current_value if wine.current_value is not None else Decimal("0")
     purchase_value = wine.price if wine.price is not None else Decimal("0")
-    unit_value = current_value if current_value > 0 else purchase_value if purchase_value > 0 else None
+    unit_value = (
+        current_value if current_value > 0 else purchase_value if purchase_value > 0 else None
+    )
     return CellarCommandWineCandidate(
         wine_id=wine.id,
         name=wine.name,
@@ -1231,7 +1234,9 @@ def cellar_command_strategy_unit_value(wine: Wine) -> Decimal | None:
 def cellar_command_strategy_value_filter(raw_text: str) -> tuple[Decimal, str, str] | None:
     normalized = normalize_cellar_command_identity(raw_text)
     operator = ""
-    if re.search(r"\b(?:(?:a\s+)?meno\s+di|sotto|inferior[ei]?\s+a|below|under|less\s+than)\b", normalized):
+    if re.search(
+        r"\b(?:(?:a\s+)?meno\s+di|sotto|inferior[ei]?\s+a|below|under|less\s+than)\b", normalized
+    ):
         operator = "lt"
     elif re.search(r"\b(?:fino\s+a|non\s+oltre|massimo|at\s+most|up\s+to)\b", normalized):
         operator = "lte"
@@ -1461,11 +1466,26 @@ STRATEGY_PURPOSES = {
 def cellar_command_strategy_purpose(raw_text: str) -> str | None:
     normalized = normalize_cellar_command_identity(raw_text)
     patterns = (
-        ("special_occasion", r"\b(?:per\s+(?:un[' ]?)?(?:anniversario|celebrazione)|occasione\s+speciale|for\s+(?:an?\s+)?special\s+occasion)\b"),
-        ("investment", r"\b(?:da|come|per)\s+(?:l[' ]?)?investimento\b|\binvestment\b|\bda\s+rivalutare\b"),
-        ("maturation", r"\b(?:da|in|per)\s+(?:maturare|maturazione|invecchiare|affinare)\b|\bda\s+tenere\b|\b(?:age|aging|mature)\b"),
-        ("drink", r"\b(?:da|per)\s+bere\b|\bda\s+consumare\b|\bconsumo\b|\b(?:to\s+drink|for\s+drinking)\b"),
-        ("undecided", r"\b(?:da\s+decidere|da\s+valutare|non\s+so\s+ancora|undecided|to\s+decide)\b"),
+        (
+            "special_occasion",
+            r"\b(?:per\s+(?:un[' ]?)?(?:anniversario|celebrazione)|occasione\s+speciale|for\s+(?:an?\s+)?special\s+occasion)\b",
+        ),
+        (
+            "investment",
+            r"\b(?:da|come|per)\s+(?:l[' ]?)?investimento\b|\binvestment\b|\bda\s+rivalutare\b",
+        ),
+        (
+            "maturation",
+            r"\b(?:da|in|per)\s+(?:maturare|maturazione|invecchiare|affinare)\b|\bda\s+tenere\b|\b(?:age|aging|mature)\b",
+        ),
+        (
+            "drink",
+            r"\b(?:da|per)\s+bere\b|\bda\s+consumare\b|\bconsumo\b|\b(?:to\s+drink|for\s+drinking)\b",
+        ),
+        (
+            "undecided",
+            r"\b(?:da\s+decidere|da\s+valutare|non\s+so\s+ancora|undecided|to\s+decide)\b",
+        ),
     )
     for purpose, pattern in patterns:
         if re.search(pattern, normalized):
@@ -1829,11 +1849,7 @@ def execute_bulk_cellar_strategy_command(
     applied_wines: list[Wine] = []
     total_quantity = 0
     for wine in wines:
-        if (
-            wine.quantity < 1
-            or wine.status != "Delivered"
-            or not user_can_see_wine(context, wine)
-        ):
+        if wine.quantity < 1 or wine.status != "Delivered" or not user_can_see_wine(context, wine):
             continue
         if isinstance(value_filter, dict):
             if wine.currency.upper() != currency:
@@ -1972,9 +1988,7 @@ def execute_cellar_ai_command(
         undecided = [item for item in allocations if item.purpose == "undecided"]
         available = unallocated + sum(item.quantity for item in undecided)
         requested = (
-            int(parsed.get("quantity") or 1)
-            if bool(parsed.get("quantity_present"))
-            else available
+            int(parsed.get("quantity") or 1) if bool(parsed.get("quantity_present")) else available
         )
         if requested < 1 or requested > available:
             raise HTTPException(
@@ -2616,9 +2630,7 @@ def create_cellar_ai_command(
                 )
             )
             available = max(candidate.quantity - sum(item.quantity for item in allocations), 0)
-            available += sum(
-                item.quantity for item in allocations if item.purpose == "undecided"
-            )
+            available += sum(item.quantity for item in allocations if item.purpose == "undecided")
             requested = (
                 int(parsed.get("quantity") or 1)
                 if bool(parsed.get("quantity_present"))
@@ -3664,6 +3676,13 @@ def suggest_pairing(
         if target_wine is not None
         else [pairing_wine_context(wine) for wine in cellar_wines]
     )
+    taste_context = (
+        {}
+        if payload.ignore_preferences
+        else compact_taste_context(
+            db, context.user.id, category=target_wine.type if target_wine is not None else None
+        )
+    )
     schema = {
         "name": "wine_pairing",
         "schema": {
@@ -3760,6 +3779,7 @@ def suggest_pairing(
         user_prompt=(
             f"Vino selezionato: {wine_context_payload[0]}\n"
             f"gusti_personali: {pairing_preferences or 'none'}\n"
+            f"profilo_gusto_strutturato: {taste_context or 'insufficient data'}\n"
             f"preferenze_alimentari: {payload.dietary_preferences.strip() or 'none'}\n"
             f"allergie_o_ingredienti_da_evitare: {payload.allergies.strip() or 'none'}\n"
             "Proponi piatti concreti, realizzabili e distinti; indica brevemente perche funzionano e una nota utile sulle preferenze o allergie."
@@ -3771,6 +3791,7 @@ def suggest_pairing(
             f"include_market: {str(payload.include_market).lower()}\n"
             f"market_only: {str(payload.market_only).lower()}\n\n"
             f"gusti_personali: {pairing_preferences or 'none'}\n"
+            f"profilo_gusto_strutturato: {taste_context or 'insufficient data'}\n"
             f"ignore_preferences: {str(payload.ignore_preferences).lower()}\n\n"
             f"preferire_vini_locali: {str(prefer_local_wines).lower()}\n"
             f"origine_locale: {local_origin or 'none'}\n\n"
@@ -5727,9 +5748,7 @@ def cellar_intelligence_plan_history(
     snapshot = build_cellar_intelligence_snapshot(db, context)
     return [
         cellar_intelligence_plan_freshness(plan, snapshot)
-        for plan in cellar_intelligence_saved_plans(
-            db, context, limit=max(1, min(limit, 10))
-        )
+        for plan in cellar_intelligence_saved_plans(db, context, limit=max(1, min(limit, 10)))
     ]
 
 
@@ -5772,7 +5791,9 @@ def update_latest_cellar_intelligence_plan(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="No saved cellar plan")
     sources = list(audit.sources or [])
     for index, source in enumerate(sources):
-        if source.get("kind") != "cellar_intelligence_plan" or not isinstance(source.get("plan"), dict):
+        if source.get("kind") != "cellar_intelligence_plan" or not isinstance(
+            source.get("plan"), dict
+        ):
             continue
         plan = dict(source["plan"])
         plan["applied_recommendation_keys"] = list(
@@ -5853,9 +5874,7 @@ def generate_cellar_intelligence_plan(
             ensure_ascii=False,
             separators=(",", ":"),
         ),
-        cellar_context=json.dumps(
-            compact_snapshot, ensure_ascii=False, separators=(",", ":")
-        ),
+        cellar_context=json.dumps(compact_snapshot, ensure_ascii=False, separators=(",", ":")),
     )
     schema = {
         "name": "cellar_intelligence_plan",
@@ -5874,16 +5893,33 @@ def generate_cellar_intelligence_plan(
                         "additionalProperties": False,
                         "properties": {
                             "wine_id": {"type": "string"},
-                            "action": {"type": "string", "enum": ["drink", "hold", "monitor", "decide", "reclassify"]},
+                            "action": {
+                                "type": "string",
+                                "enum": ["drink", "hold", "monitor", "decide", "reclassify"],
+                            },
                             "priority": {"type": "string", "enum": ["high", "medium", "low"]},
                             "quantity": {"type": "integer", "minimum": 1},
                             "reason": {"type": "string", "maxLength": 360},
                             "recommended_purpose": {
                                 "type": "string",
-                                "enum": ["", "drink", "maturation", "investment", "special_occasion", "undecided"],
+                                "enum": [
+                                    "",
+                                    "drink",
+                                    "maturation",
+                                    "investment",
+                                    "special_occasion",
+                                    "undecided",
+                                ],
                             },
                         },
-                        "required": ["wine_id", "action", "priority", "quantity", "reason", "recommended_purpose"],
+                        "required": [
+                            "wine_id",
+                            "action",
+                            "priority",
+                            "quantity",
+                            "reason",
+                            "recommended_purpose",
+                        ],
                     },
                 },
             },
@@ -5916,7 +5952,9 @@ def generate_cellar_intelligence_plan(
             wine = known[wine_id]
             action = str(raw.get("action") or "decide")
             recommended_purpose = str(raw.get("recommended_purpose") or "")
-            early_peak_reclassification = action == "drink" and cellar_intelligence_is_early_peak(wine)
+            early_peak_reclassification = action == "drink" and cellar_intelligence_is_early_peak(
+                wine
+            )
             if early_peak_reclassification:
                 action = "reclassify"
                 recommended_purpose = "maturation"
@@ -5929,7 +5967,9 @@ def generate_cellar_intelligence_plan(
                     wine.unallocated_quantity
                     if action == "decide"
                     else wine.purposes.get(
-                        {"drink": "drink", "hold": "maturation", "monitor": "investment"}.get(action, ""),
+                        {"drink": "drink", "hold": "maturation", "monitor": "investment"}.get(
+                            action, ""
+                        ),
                         0,
                     )
                 )
@@ -5960,7 +6000,9 @@ def generate_cellar_intelligence_plan(
             recommendations.append(
                 CellarIntelligenceRecommendation(
                     wine_id=wine_id,
-                    action=cast(Literal["drink", "hold", "monitor", "decide", "reclassify"], action),
+                    action=cast(
+                        Literal["drink", "hold", "monitor", "decide", "reclassify"], action
+                    ),
                     priority=cast(Literal["high", "medium", "low"], normalized_priority),
                     quantity=min(max(int(raw.get("quantity") or 1), 1), maximum),
                     reason=(
@@ -5992,11 +6034,15 @@ def generate_cellar_intelligence_plan(
     plan = CellarIntelligencePlanResponse(
         model=model,
         reasoning_effort=response.reasoning_effort or "",
-        overview=cellar_intelligence_display_text(result.get("overview"), known, locale=payload.locale),
+        overview=cellar_intelligence_display_text(
+            result.get("overview"), known, locale=payload.locale
+        ),
         immediate_action=cellar_intelligence_display_text(
             result.get("immediate_action"), known, locale=payload.locale
         ),
-        risk_note=cellar_intelligence_display_text(result.get("risk_note"), known, locale=payload.locale),
+        risk_note=cellar_intelligence_display_text(
+            result.get("risk_note"), known, locale=payload.locale
+        ),
         recommendations=recommendations,
         input_fingerprint=snapshot.fingerprint,
         stale=False,

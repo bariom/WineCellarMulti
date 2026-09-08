@@ -178,6 +178,20 @@ def wine_image_recognition_prompt(
     )
 
 
+def wine_sensory_profile_prompt(*, wine_context: dict) -> Prompt:
+    """Compact, versioned fallback prompt for one Vinaris-shared wine identity."""
+    return Prompt(
+        id="wine.sensory_profile",
+        version="1",
+        system=(
+            "Estimate only the requested sensory dimensions for a wine. Return null for unknown "
+            "dimensions; never invent provenance, awards, or tasting notes. Values are normalized "
+            "0 to 1. This is shared catalogue data, not a person's preference."
+        ),
+        user=f"Wine metadata: {wine_context}",
+    )
+
+
 def ai_notes_prompt(*, locale: str, wine_context: str) -> Prompt:
     return Prompt(
         id="wine.ai_notes",

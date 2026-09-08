@@ -74,6 +74,8 @@ class Settings(BaseSettings):
     openai_drink_window_model: str = "gpt-5.4"
     openai_value_model: str = "gpt-5.4-mini"
     openai_grape_model: str = "gpt-5.4-nano"
+    wine_sensory_ai_enabled: bool = False
+    wine_sensory_ai_batch_max: int = 50
     openai_score_model: str = "gpt-5.4-mini"
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"

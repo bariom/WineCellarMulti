@@ -1393,3 +1393,57 @@ export type WineCollectionFilters = {
   now: Date;
   session: Session | null;
 };
+
+export type TasteDimensionPreference = {
+  preference: number;
+  confidence: number;
+  samples: number;
+};
+
+export type TasteProfile = {
+  category: string;
+  dimensions: Record<string, TasteDimensionPreference>;
+  attributes: Record<string, Array<[string, number]>>;
+  confidence: number;
+  sample_count: number;
+  confidence_level: "emerging" | "probable" | "established";
+};
+
+export type TasteProfileCollection = { profiles: TasteProfile[] };
+
+export type WineSensoryProfile = {
+  identity_id: string;
+  name: string;
+  producer: string;
+  vintage: string;
+  dimensions: Record<string, number | null>;
+  source: string;
+  confidence: number;
+  validated: boolean;
+  generation_status: string;
+  generated_at: string;
+};
+
+export type WineSensoryProfileSummary = {
+  wines_with_profile: number;
+  wines_without_profile: number;
+  generated_by_ai: number;
+  inferred_from_metadata: number;
+  manually_validated: number;
+  low_confidence: number;
+};
+
+export type WineSensoryBatchPreview = {
+  missing: number;
+  deterministic: number;
+  requires_ai: number;
+};
+
+export type SensoryProfileBaseline = {
+  id: string;
+  entity_type: string;
+  entity_key: string;
+  dimensions: Record<string, number | null>;
+  confidence: number;
+  is_active: boolean;
+};

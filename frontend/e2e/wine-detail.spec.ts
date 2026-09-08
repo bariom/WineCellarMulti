@@ -200,6 +200,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
       else if (path.includes("value-history/portfolio") || path.includes("wishlist/lists") || path.includes("operational-action-snoozes")) body = [];
       else if (path.includes("regional-gap-settings")) body = { targets: [], last_ai_suggestion: null };
+      else if (path.includes("taste-profile/me")) body = { profiles: [{ category: "global", dimensions: { body: { preference: .8, confidence: .5, samples: 6 }, tannin: { preference: .7, confidence: .5, samples: 6 } }, attributes: { preferred_grapes: [["Nebbiolo", .8]] }, confidence: .5, sample_count: 6, confidence_level: "probable" }] };
       else if (path.includes("notifications")) body = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false };
       else if (path.includes("billing")) body = { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" };
       else if (path.includes("household/memberships")) body = fixtureCellarMemberships;
@@ -230,6 +231,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.includes("wishlist/lists")) return fulfillJson(route, []);
     if (path.includes("notifications")) return fulfillJson(route, { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
     if (path.includes("regional-gap-settings")) return fulfillJson(route, { targets: [], last_ai_suggestion: null });
+    if (path.includes("taste-profile/me")) return fulfillJson(route, { profiles: [{ category: "global", dimensions: { body: { preference: .8, confidence: .5, samples: 6 }, tannin: { preference: .7, confidence: .5, samples: 6 } }, attributes: { preferred_grapes: [["Nebbiolo", .8]] }, confidence: .5, sample_count: 6, confidence_level: "probable" }] });
     if (path.includes("operational-action-snoozes")) return fulfillJson(route, []);
     if (path.includes("billing")) return fulfillJson(route, { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" });
     if (path.includes("household/memberships")) return fulfillJson(route, cellarMemberships);
@@ -277,6 +279,16 @@ test.describe("Wine Detail compact/mobile", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await expect(detail.locator(".detail-market-block")).not.toHaveAttribute("open", "");
     await expect(detail.locator(".ai-audit-detail")).not.toHaveAttribute("open", "");
+  });
+
+  test("renders My Taste without compact overflow", async ({ page }) => {
+    await mockApi(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Apri menu account", exact: true }).click();
+    await page.getByRole("menuitem").first().click();
+    await expect(page.getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
+  await expect(page.getByText(/6 vini valutati/)).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
   test("keeps the desktop detail smoke path available", async ({ page }) => {
