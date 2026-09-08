@@ -123,6 +123,28 @@ def _grape_names(wine: Wine) -> list[str]:
     ]
 
 
+def _baseline_for_value(
+    db: Session, entity_type: str, entity_key: str
+) -> SensoryProfileBaseline | None:
+    """Find an exact baseline or the longest baseline contained in qualified metadata."""
+    tokens = entity_key.split()
+    candidate_keys = {
+        " ".join(tokens[start:end])
+        for start in range(len(tokens))
+        for end in range(start + 1, len(tokens) + 1)
+    }
+    if not candidate_keys:
+        return None
+    baselines = db.scalars(
+        select(SensoryProfileBaseline).where(
+            SensoryProfileBaseline.entity_type == entity_type,
+            SensoryProfileBaseline.entity_key.in_(candidate_keys),
+            SensoryProfileBaseline.is_active.is_(True),
+        )
+    ).all()
+    return max(baselines, key=lambda item: len(item.entity_key.split()), default=None)
+
+
 def sensory_profile_for_wine(
     db: Session, wine: Wine, *, create_identity: bool = False
 ) -> WineSensoryProfile | None:
@@ -145,13 +167,7 @@ def infer_sensory_profile(db: Session, wine: Wine) -> tuple[dict[str, float], st
     for entity_type, entity_key in lookups:
         if not entity_key:
             continue
-        baseline = db.scalar(
-            select(SensoryProfileBaseline).where(
-                SensoryProfileBaseline.entity_type == entity_type,
-                SensoryProfileBaseline.entity_key == entity_key,
-                SensoryProfileBaseline.is_active.is_(True),
-            )
-        )
+        baseline = _baseline_for_value(db, entity_type, entity_key)
         dimensions = validated_dimensions(baseline.dimensions) if baseline else {}
         if dimensions and baseline is not None:
             candidates.append(

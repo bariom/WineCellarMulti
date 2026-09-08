@@ -109,6 +109,37 @@ def test_baselines_are_blended_and_missing_dimensions_stay_missing() -> None:
     assert "sweetness" not in profile.dimensions
 
 
+def test_most_specific_baseline_matches_qualified_appellation() -> None:
+    db = Session()
+    household = Household(name="Home")
+    db.add(household)
+    db.flush()
+    wine = make_wine(db, household, name="Riserva", wine_type="")
+    wine.appellation = "Chianti Classico Riserva DOCG"
+    db.add_all(
+        [
+            SensoryProfileBaseline(
+                entity_type="appellation",
+                entity_key="chianti",
+                dimensions={"body": 0.55},
+                confidence=0.7,
+            ),
+            SensoryProfileBaseline(
+                entity_type="appellation",
+                entity_key="chianti classico",
+                dimensions={"body": 0.72},
+                confidence=0.8,
+            ),
+        ]
+    )
+
+    profile = generate_wine_sensory_profile(db, wine)
+
+    assert profile is not None
+    assert profile.source == "appellation"
+    assert profile.dimensions == {"body": 0.72}
+
+
 def test_rebuild_is_private_weighted_and_category_specific() -> None:
     db = Session()
     household = Household(name="Home")
