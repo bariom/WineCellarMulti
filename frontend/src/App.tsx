@@ -94,6 +94,7 @@ const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((
 const RestaurantDashboard = lazy(() => import("./views/RestaurantDashboard"));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
+const TasteProfileExplanation = lazy(() => import("./components/TasteProfilePanel").then((module) => ({ default: module.TasteProfileExplanation })));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
@@ -10869,6 +10870,7 @@ export function App() {
                 <DashboardCarousel label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
                     <TasteProfilePanel locale={locale} variant="insight" />
+                    <TasteProfileExplanation locale={locale} />
                   </Suspense>
                 </DashboardCarousel>
               ) : null}

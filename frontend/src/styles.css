@@ -26244,3 +26244,37 @@ body,
   margin: 10px 0 0;
   color: var(--text-muted);
 }
+
+.taste-dashboard-carousel > .dashboard-grid {
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, 0.95fr);
+}
+
+.taste-profile-explanation {
+  position: relative;
+  overflow: hidden;
+}
+
+.taste-profile-explanation::after {
+  content: "✦";
+  position: absolute;
+  top: 18px;
+  right: 20px;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+}
+
+.taste-profile-explanation .taste-profile-method li {
+  padding: 8px 10px;
+  border-left: 3px solid color-mix(in srgb, var(--accent) 58%, var(--border));
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface));
+}
+
+@media (max-width: 720px) {
+  .taste-dashboard-carousel > .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
+}
