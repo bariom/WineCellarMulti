@@ -2,12 +2,14 @@ from __future__ import annotations
 
 # ruff: noqa: E501
 from datetime import date
+from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import taste_profiles as taste_profile_routes
 from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
 from app.db.session import get_db
@@ -20,6 +22,7 @@ from app.models import (
     WineSensoryProfile,
     WineTastingEntry,
 )
+from app.schemas.taste_profile import BatchEnrichmentRequest
 from app.services.shared_wine_data import resolve_shared_identity
 from app.services.taste_profiles import (
     calculate_taste_match,
@@ -129,6 +132,48 @@ def test_ai_fallback_generates_a_profile_when_metadata_has_no_signal() -> None:
     assert profile.source == "ai"
     assert profile.dimensions == {"body": 0.7, "fruit": 0.6}
     assert profile.model == "test-model"
+
+
+def test_batch_skips_available_profiles_before_applying_ai_limit(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="admin@example.test", display_name="Admin", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    for name in ("Already Profiled 1", "Already Profiled 2"):
+        wine = make_wine(db, household, name=name)
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.5},
+                generation_status="available",
+            )
+        )
+    missing = make_wine(db, household, name="Needs AI", wine_type="")
+    db.flush()
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "_ai_sensory_profile",
+        lambda _wine: ({"body": 0.7}, "test-model"),
+    )
+    monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_enabled", True)
+    monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_batch_max", 1)
+
+    result = taste_profile_routes.enrich_missing_profiles(
+        BatchEnrichmentRequest(limit=1), db, SimpleNamespace(user=user)
+    )
+
+    assert result == {
+        "processed": 1,
+        "resolved": 1,
+        "ai_generated": 1,
+        "skipped": 2,
+        "ai_enabled": True,
+    }
+    profile = db.scalar(
+        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == missing.shared_identity_id)
+    )
+    assert profile is not None and profile.source == "ai"
 
 
 def test_most_specific_baseline_matches_qualified_appellation() -> None:

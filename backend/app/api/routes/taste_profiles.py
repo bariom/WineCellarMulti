@@ -498,19 +498,22 @@ def enrich_missing_profiles(
     limit = min(payload.limit, settings.wine_sensory_ai_batch_max)
     wines = _batch_candidates(db)
     seen: set[tuple[str, ...]] = set()
-    resolved = ai_generated = skipped = 0
+    processed = resolved = ai_generated = skipped = 0
     for wine in wines:
         identity = resolve_shared_identity(db, wine, create=True)
         if identity is None:
             continue
         identity_key = (str(identity.id),)
-        if len(seen) >= limit or identity_key in seen:
+        if identity_key in seen:
             continue
         seen.add(identity_key)
         existing = sensory_profile_for_wine(db, wine)
         if existing and (existing.validated or existing.generation_status == "available"):
             skipped += 1
             continue
+        if processed >= limit:
+            break
+        processed += 1
         generated = generate_wine_sensory_profile(
             db,
             wine,
@@ -523,7 +526,7 @@ def enrich_missing_profiles(
             ai_generated += generated.source == "ai"
     db.commit()
     return {
-        "processed": len(seen),
+        "processed": processed,
         "resolved": resolved,
         "ai_generated": ai_generated,
         "skipped": skipped,

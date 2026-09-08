@@ -105,6 +105,41 @@ const merchants = [
   { id: "merchant-e2e-2", name: "Vini della Riserva" },
 ];
 
+const tastingArchive = {
+  total: 1,
+  limit: 5,
+  offset: 0,
+  rated_count: 1,
+  notes_count: 1,
+  latest_consumed_at: "2026-08-20",
+  profile: [],
+  items: [{
+    tasting_id: "tasting-e2e-1",
+    wine_id: wine.id,
+    wine_name: wine.name,
+    wine_producer: wine.producer,
+    wine_vintage: wine.vintage,
+    wine_format: wine.format,
+    wine_type: wine.type,
+    wine_region: wine.region,
+    wine_appellation: wine.appellation,
+    wine_status: "consumed",
+    consumed_at: "2026-08-20",
+    note: "Degustazione di test.",
+    rating: 5,
+    enjoyment: "positive",
+    occasion: "Cena",
+    pairing: "Brasato",
+    companions: "Amici",
+    sommelier_feedback: "",
+    sommelier_pairing_score: null,
+    sommelier_pairing_advice: "",
+    sommelier_feedback_cost_usd: null,
+    sommelier_feedback_at: null,
+    created_at: "2026-08-20T20:00:00Z",
+  }],
+};
+
 const multiCellarMemberships = [
   ...memberships,
   { membership_id: "membership-e2e-2", household_id: "household-e2e-2", household_name: "Riserva E2E", role: "owner", operating_mode: "private" },
@@ -196,6 +231,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.endsWith("/merchants")) body = fixtureMerchants;
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
       else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.5, matching_traits: ["body", "tannin"], conflicting_traits: [] };
+      else if (path.includes("/wines/tasting-archive")) body = tastingArchive;
       else if (path.endsWith("/wines")) body = [fixtureWine];
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
@@ -226,6 +262,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
     if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
     if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.5, matching_traits: ["body", "tannin"], conflicting_traits: [] });
+    if (path.includes("/wines/tasting-archive")) return fulfillJson(route, tastingArchive);
     if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
     if (path.includes("/wine-pulse")) return fulfillJson(route, { items: [], total: 0, offset: 0, limit: 3, has_more: false });
@@ -283,6 +320,20 @@ test.describe("Wine Detail compact/mobile", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await expect(detail.locator(".detail-market-block")).not.toHaveAttribute("open", "");
     await expect(detail.locator(".ai-audit-detail")).not.toHaveAttribute("open", "");
+  });
+
+  test("opens a wine detail from tasting history on mobile", async ({ page }) => {
+    await mockApi(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    await page.getByText("Nebbiolo di Test", { exact: true }).first().click();
+    await page.getByRole("button", { name: "Apri vino", exact: true }).click();
+
+    const detailDialog = page.getByRole("dialog", { name: "Nebbiolo di Test" });
+    await expect(detailDialog).toBeVisible();
+    await expect(detailDialog.locator(".wine-detail").getByRole("heading", { name: "Nebbiolo di Test" })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });
 
   test("renders My Taste without compact overflow", async ({ page }) => {

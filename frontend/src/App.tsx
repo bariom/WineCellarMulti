@@ -12658,6 +12658,22 @@ export function App() {
                     wineTone={wineTone}
                   />
                 </Suspense>
+                {isMobileViewport && selectedVisibleWine && !wineFormOpen ? (
+                  <div className="mobile-inline-detail" role="dialog" aria-modal="true" aria-label={selectedVisibleWine.name} onClick={closeMobileWineDetail}>
+                    <div className="mobile-detail-sheet" onClick={(event) => event.stopPropagation()}>
+                      <div className="mobile-detail-sheet-head">
+                        <div>
+                          <strong>{selectedVisibleWine.name}</strong>
+                          <span>{[selectedVisibleWine.producer, selectedVisibleWine.vintage].filter(Boolean).join(" - ")}</span>
+                        </div>
+                        <button type="button" className="mobile-detail-close-button" aria-label={t("close")} title={t("close")} onClick={closeMobileWineDetail}>
+                          ×
+                        </button>
+                      </div>
+                      {renderWineDetail(selectedVisibleWine)}
+                    </div>
+                  </div>
+                ) : null}
               </>
             ) : null}
             {isWineCollectionView && !(activeView === "history" && historySection === "tastings") && groupedFilteredWines.length ? (
