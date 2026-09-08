@@ -64,7 +64,7 @@ class SensoryBaselineResponse(SensoryBaselineInput):
 
 class BatchEnrichmentRequest(BaseModel):
     limit: int = Field(default=100, ge=1, le=1000)
-    allow_ai: bool = False
+    allow_ai: bool = True
 
 
 class BatchEnrichmentPreview(BaseModel):

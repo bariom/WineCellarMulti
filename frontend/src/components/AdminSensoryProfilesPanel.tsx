@@ -41,12 +41,12 @@ export function AdminSensoryProfilesPanel({ locale }: { locale: Locale }) {
   }
   async function enrich() {
     setBusy(true); setBatchError(""); setPreview(null);
-    try { const result = await api<BatchResult>("/api/v1/taste-profile/admin/enrich-missing", { method: "POST", body: JSON.stringify({ limit: 50, allow_ai: false }) }); setBatchResult(result); await load(); }
+    try { const result = await api<BatchResult>("/api/v1/taste-profile/admin/enrich-missing", { method: "POST", body: JSON.stringify({ limit: 50, allow_ai: true }) }); setBatchResult(result); await load(); }
     catch (error) { setBatchResult(null); setBatchError(errorMessage(error, italian ? "Impossibile generare i profili." : "Unable to generate profiles.")); }
     finally { setBusy(false); }
   }
   async function saveProfile() { if (!editing) return; setBusy(true); try { await api(`/api/v1/taste-profile/admin/profiles/${editing.identity_id}`, { method: "PUT", body: JSON.stringify({ dimensions: editing.dimensions, validated: editing.validated }) }); setEditing(null); await load(); } finally { setBusy(false); } }
-  async function regenerate(profile: WineSensoryProfile) { setBusy(true); try { await api(`/api/v1/taste-profile/admin/profiles/${profile.identity_id}/regenerate`, { method: "POST" }); await load(); } finally { setBusy(false); } }
+  async function regenerate(profile: WineSensoryProfile) { setBusy(true); try { await api(`/api/v1/taste-profile/admin/profiles/${profile.identity_id}/regenerate?allow_ai=true`, { method: "POST" }); await load(); } finally { setBusy(false); } }
   async function saveBaseline() { const baseline = editingBaseline || baselineDraft; if (!baseline.entity_key.trim()) return; setBusy(true); try { await api(editingBaseline ? `/api/v1/taste-profile/admin/baselines/${editingBaseline.id}` : "/api/v1/taste-profile/admin/baselines", { method: editingBaseline ? "PUT" : "POST", body: JSON.stringify(baseline) }); setEditingBaseline(null); setBaselineDraft(emptyBaseline); await load(); } finally { setBusy(false); } }
   async function removeBaseline(baseline: SensoryProfileBaseline) { setBusy(true); try { await api(`/api/v1/taste-profile/admin/baselines/${baseline.id}`, { method: "DELETE" }); await load(); } finally { setBusy(false); } }
 

@@ -111,6 +111,26 @@ def test_baselines_are_blended_and_missing_dimensions_stay_missing() -> None:
     assert "sweetness" not in profile.dimensions
 
 
+def test_ai_fallback_generates_a_profile_when_metadata_has_no_signal() -> None:
+    db = Session()
+    household = Household(name="Home")
+    db.add(household)
+    db.flush()
+    wine = make_wine(db, household, name="Unknown", wine_type="")
+
+    profile = generate_wine_sensory_profile(
+        db,
+        wine,
+        allow_ai=True,
+        ai_generate=lambda _wine: ({"body": 0.7, "fruit": 0.6}, "test-model"),
+    )
+
+    assert profile is not None
+    assert profile.source == "ai"
+    assert profile.dimensions == {"body": 0.7, "fruit": 0.6}
+    assert profile.model == "test-model"
+
+
 def test_most_specific_baseline_matches_qualified_appellation() -> None:
     db = Session()
     household = Household(name="Home")

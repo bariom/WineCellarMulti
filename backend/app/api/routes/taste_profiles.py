@@ -437,7 +437,7 @@ def delete_sensory_baseline(
 @router.post("/admin/profiles/{identity_id}/regenerate", response_model=SensoryProfileResponse)
 def regenerate_sensory_profile(
     identity_id: UUID,
-    allow_ai: bool = False,
+    allow_ai: bool = True,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> SensoryProfileResponse:
