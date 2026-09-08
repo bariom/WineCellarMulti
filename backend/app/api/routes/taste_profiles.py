@@ -273,8 +273,11 @@ def _ai_sensory_metadata(wine: Wine) -> tuple[dict[str, object], str]:
         prompt.user,
         json_schema=schema,
         web_search=True,
+        web_search_use_default_location=False,
+        web_search_context_size="low",
         task_type="sensory_profile",
-        max_output_tokens=500,
+        max_output_tokens=250,
+        max_tool_calls=1,
         reasoning_effort="low",
     )
     try:

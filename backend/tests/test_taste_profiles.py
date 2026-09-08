@@ -278,6 +278,35 @@ def test_orphan_identity_is_previewed_and_generated_without_creating_a_wine(monk
     assert list(db.scalars(select(Wine))) == []
 
 
+def test_ai_metadata_search_uses_a_small_single_search_budget(monkeypatch) -> None:
+    request_options = {}
+
+    def response(*_args, **kwargs):
+        request_options.update(kwargs)
+        return SimpleNamespace(
+            text=(
+                '{"type":"Red","region":"Veneto","appellation":"","grapes":[],'
+                '"source_url":"https://example.test/wine","source_title":"Producer"}'
+            ),
+            model="test-model",
+            web_sources=({"url": "https://example.test/wine", "title": "Producer"},),
+        )
+
+    monkeypatch.setattr(taste_profile_routes, "create_response", response)
+    metadata, _model = taste_profile_routes._ai_sensory_metadata(
+        SimpleNamespace(
+            name="Rosso", producer="Producer", vintage="2022", type="", region="",
+            appellation="", grapes=[],
+        )
+    )
+
+    assert metadata["type"] == "Red"
+    assert request_options["web_search_context_size"] == "low"
+    assert request_options["max_tool_calls"] == 1
+    assert request_options["max_output_tokens"] == 250
+    assert request_options["web_search_use_default_location"] is False
+
+
 def test_most_specific_baseline_matches_qualified_appellation() -> None:
     db = Session()
     household = Household(name="Home")

@@ -291,7 +291,7 @@ def wine_full_enrichment_prompt(
 def wine_sensory_metadata_prompt(*, wine_context: dict) -> Prompt:
     return Prompt(
         id="wine.sensory_metadata",
-        version="1",
+        version="2",
         system=(
             "You verify only the metadata needed to derive a wine sensory profile. "
             "Use web search for the exact producer, wine name, and vintage. "

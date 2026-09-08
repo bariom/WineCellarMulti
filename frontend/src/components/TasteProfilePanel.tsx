@@ -11,6 +11,7 @@ export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Lo
   const [unassignedTastings, setUnassignedTastings] = useState(0);
   const [claimingTastings, setClaimingTastings] = useState(false);
   const [claimMessage, setClaimMessage] = useState("");
+  const [openCategory, setOpenCategory] = useState<string | null>(null);
 
   const load = () => {
     api<TasteProfileCollection>("/api/v1/taste-profile/me")
@@ -26,6 +27,7 @@ export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Lo
   const strongest = overall ? Object.entries(overall.dimensions)
     .sort(([, first], [, second]) => second.preference - first.preference)
     .slice(0, 4) : [];
+  const categoryProfiles = profiles.filter((profile) => profile.category !== "global");
   const labels: Record<string, string> = italian ? {
     body: "Corpo", acidity: "Acidità", tannin: "Tannini", sweetness: "Dolcezza",
     aromatic_intensity: "Intensità aromatica", fruit: "Frutto", wood: "Legno", spice: "Spezie", minerality: "Mineralità",
@@ -42,6 +44,9 @@ export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Lo
     under_30: "Under 30", "30_60": "30–60", over_60: "Over 60",
   };
   const label = (key: string) => labels[key.toLowerCase()] || key.replace(/_/g, " ");
+  const preferenceExplanation = italian
+    ? "Indice individuale su scala 0–100: 50 è il punto neutro. I valori non sono percentuali da sommare."
+    : "Individual index on a 0–100 scale: 50 is neutral. Values are not percentages to add together.";
 
   async function rebuild() {
     setRebuilding(true);
@@ -77,13 +82,14 @@ export function TasteProfilePanel({ locale, variant = "settings" }: { locale: Lo
     {claimMessage ? <p className="taste-profile-claim-message" role="status">{claimMessage}</p> : null}
     {loading ? <p className="empty-state">{italian ? "Caricamento profilo…" : "Loading taste profile…"}</p> : !overall ? <p className="empty-state">{italian ? "Valuta alcuni vini degustati per iniziare a costruire il tuo profilo." : "Rate a few wines you have tasted to start building your profile."}</p> : <>
       <p className="settings-card-intro">{italian ? `${overall.sample_count} vini valutati · preferenza ${overall.confidence_level === "established" ? "consolidata" : overall.confidence_level === "probable" ? "probabile" : "in evoluzione"}` : `${overall.sample_count} rated wines · ${overall.confidence_level} preference`}</p>
+      <p className="taste-profile-scale-note">{preferenceExplanation}</p>
       <div className="detail-grid">
-        {strongest.map(([dimension, value]) => <div className="detail-field" key={dimension}><span>{label(dimension)}</span><strong>{Math.round(value.preference * 100)}%</strong><small>{value.samples} {italian ? "campioni" : "samples"}</small></div>)}
+        {strongest.map(([dimension, value]) => <div className="detail-field" key={dimension}><span>{label(dimension)}</span><strong>{Math.round(value.preference * 100)}<small>/100</small></strong><small>{value.samples} {italian ? "campioni" : "samples"}</small></div>)}
       </div>
       <div className="detail-grid taste-profile-attribute-grid">
         {Object.entries(overall.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <div key={kind} className="detail-field taste-profile-attribute"><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></div>)}
       </div>
-      {profiles.filter((profile) => profile.category !== "global").length ? <p className="taste-profile-categories"><strong>{italian ? "Preferenze per tipologia" : "Preferences by wine style"}</strong><span>{profiles.filter((profile) => profile.category !== "global").map((profile) => label(profile.category)).join(" · ")}</span><small>{italian ? "Le degustazioni di ogni tipologia contribuiscono anche a un profilo separato." : "Each style's tastings also contribute to a separate profile."}</small></p> : null}
+      {categoryProfiles.length ? <section className="taste-profile-categories"><strong>{italian ? "Preferenze per tipologia" : "Preferences by wine style"}</strong><small>{italian ? "Apri una tipologia per vedere il suo profilo separato." : "Open a wine style to view its separate profile."}</small><div className="taste-profile-category-list">{categoryProfiles.map((profile) => <details className="taste-profile-category" key={profile.category} open={openCategory === profile.category} onToggle={(event) => setOpenCategory(event.currentTarget.open ? profile.category : null)}><summary><span>{label(profile.category)}</span><small>{profile.sample_count} {italian ? "vini valutati" : "rated wines"}</small></summary><div className="taste-profile-category-content"><p>{preferenceExplanation}</p><div className="detail-grid">{Object.entries(profile.dimensions).sort(([, first], [, second]) => second.preference - first.preference).map(([dimension, value]) => <div className="detail-field" key={dimension}><span>{label(dimension)}</span><strong>{Math.round(value.preference * 100)}<small>/100</small></strong><small>{value.samples} {italian ? "campioni" : "samples"}</small></div>)}</div>{Object.entries(profile.attributes).filter(([, values]) => values.length).length ? <div className="detail-grid taste-profile-attribute-grid">{Object.entries(profile.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <div key={kind} className="detail-field taste-profile-attribute"><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></div>)}</div> : null}</div></details>)}</div></section> : null}
     </>}
   </section>;
 }
