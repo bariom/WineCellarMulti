@@ -1372,6 +1372,8 @@ function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_a
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
+  const [merchants, setMerchants] = useState<Array<{ id: string; name: string }>>([]);
+  const wineMerchantOptionsId = useId();
   const [portfolioValueHistory, setPortfolioValueHistory] = useState<Array<{ recorded_at: string; value: string }>>([]);
   const [wineCatalog, setWineCatalog] = useState<CatalogWine[]>([]);
   const [wineImageRecognitionResult, setWineImageRecognitionResult] = useState<WineImageRecognitionResult | null>(null);
@@ -2187,6 +2189,10 @@ export function App() {
     setSelectedWineId((currentId) => (currentId && nextWines.some((wine) => wine.id === currentId) ? currentId : null));
   }
 
+  async function loadMerchants() {
+    setMerchants(await api<Array<{ id: string; name: string }>>("/api/v1/merchants"));
+  }
+
   async function loadPortfolioValueHistory() {
     setPortfolioValueHistory(await api<Array<{ recorded_at: string; value: string }>>("/api/v1/wines/value-history/portfolio"));
   }
@@ -2639,6 +2645,7 @@ export function App() {
     const [nextLists] = await Promise.all([
       loadWishlistLists(),
       loadWines(),
+      loadMerchants(),
       loadPortfolioValueHistory(),
       loadNotifications(nextSession.authenticated),
       loadBilling(nextSession.authenticated, nextSession.is_app_admin),
@@ -2692,6 +2699,7 @@ export function App() {
       if (nextSession.authenticated) {
         if (nextSession.requires_legal_acceptance) {
           setWines([]);
+          setMerchants([]);
           setWineCatalog([]);
           setWishlist([]);
           setWishlistLists([]);
@@ -2704,6 +2712,7 @@ export function App() {
         }
       } else {
         setWines([]);
+        setMerchants([]);
         setWineCatalog([]);
         setWishlist([]);
         setWishlistLists([]);
@@ -4286,7 +4295,7 @@ export function App() {
       setEditingId(null);
       setSelectedWineId(createdWineIdForFull);
       setWineFormOpen(false);
-      await loadWines();
+      await Promise.all([loadWines(), loadMerchants()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
     } finally {
@@ -4312,7 +4321,7 @@ export function App() {
       setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
       setEditingWishlistId(null);
       setWishlistFormOpen(false);
-      await Promise.all([loadWishlist(), loadWishlistLists()]);
+      await Promise.all([loadWishlist(), loadWishlistLists(), loadMerchants()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wishlist item");
     } finally {
@@ -11405,7 +11414,17 @@ export function App() {
                       </label>
                       <label>
                         <span>{t("merchant")}</span>
-                        <input value={draft.merchant} onChange={(event) => setDraft({ ...draft, merchant: event.target.value })} disabled={!canWriteWine} />
+                        <input
+                          value={draft.merchant}
+                          list={wineMerchantOptionsId}
+                          autoComplete="organization"
+                          onChange={(event) => setDraft({ ...draft, merchant: event.target.value })}
+                          disabled={!canWriteWine}
+                        />
+                        <datalist id={wineMerchantOptionsId}>
+                          {merchants.map((merchant) => <option key={merchant.id} value={merchant.name} />)}
+                        </datalist>
+                        <small className="form-hint">{locale === "it" ? "Inizia a scrivere per scegliere un commerciante già registrato." : "Start typing to select a registered merchant."}</small>
                       </label>
                       <label>
                         <span>{t("purchasePrice")}</span>

@@ -100,6 +100,10 @@ const session = {
 };
 
 const memberships = [{ membership_id: "membership-e2e", household_id: "household-e2e", household_name: "Cantina E2E", role: "owner", operating_mode: "private" }];
+const merchants = [
+  { id: "merchant-e2e-1", name: "Enoteca Test" },
+  { id: "merchant-e2e-2", name: "Vini della Riserva" },
+];
 
 const multiCellarMemberships = [
   ...memberships,
@@ -174,7 +178,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships }) => {
+  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -189,6 +193,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.endsWith("/intelligence/allocations/bulk/reassign")) body = { changed_wines: 1, assigned_bottles: 4, purpose: "drink" };
       else if (path.includes("/intelligence/wines/")) body = fixtureStrategyAllocations;
       else if (path.includes("/storage/allocations")) body = [];
+      else if (path.endsWith("/merchants")) body = fixtureMerchants;
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
       else if (path.endsWith("/wines")) body = [fixtureWine];
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
@@ -203,7 +208,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships });
+  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -217,6 +222,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.endsWith("/intelligence/allocations/bulk")) return fulfillJson(route, { changed_wines: 1, assigned_bottles: 4, purpose: "maturation" });
     if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
+    if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
     if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
     if (path.includes("/wine-pulse")) return fulfillJson(route, { items: [], total: 0, offset: 0, limit: 3, has_more: false });
@@ -428,6 +434,21 @@ test.describe("Wine Detail compact/mobile", () => {
       const box = expandedEditor.getBoundingClientRect();
       return document.elementFromPoint(box.left + 20, box.top + 20)?.closest(".wine-editor-form") === expandedEditor;
     })).toBe(true);
+  });
+
+  test("offers registered merchants in the wine editor", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await openWineDetail(page);
+    await page.getByRole("button", { name: "Modifica selezionato" }).click();
+
+    const editor = page.locator(".wine-editor-form");
+    await editor.getByRole("button", { name: /Prezzi e valore/ }).click();
+    const merchantInput = editor.getByLabel("Commerciante");
+    await expect(merchantInput).toHaveAttribute("list");
+    const options = editor.locator("datalist option");
+    await expect(options).toHaveCount(2);
+    await expect(options.nth(0)).toHaveAttribute("value", "Enoteca Test");
+    await expect(options.nth(1)).toHaveAttribute("value", "Vini della Riserva");
   });
 
   test("keeps wine editor sections aligned with the detail view", async ({ page }) => {

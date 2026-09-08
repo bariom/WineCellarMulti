@@ -1052,6 +1052,17 @@ export function WineDetail({
   const wineDetailRef = useRef<HTMLElement>(null);
   const hasMarketEvidence = marketAuditEntry ? auditMarketSources(marketAuditEntry).length > 0 || Boolean(auditMarketNote(marketAuditEntry)) : false;
   const detailValue = formatMoney(wine.current_value || wine.price, wine.currency, locale);
+  const collectorSignals = [
+    Number(wine.price || 0) === 0.01
+      ? { key: "gift", label: locale === "it" ? "Omaggio" : "Gift" }
+      : null,
+    wine.ai_value_estimated_at
+      ? { key: "value", label: locale === "it" ? "Valore aggiornato" : "Value updated" }
+      : null,
+    wine.vineyard_verified_at
+      ? { key: "origin", label: locale === "it" ? "Origine documentata" : "Origin documented" }
+      : null,
+  ].filter((signal): signal is { key: string; label: string } => signal !== null);
   const originPreview = (wine.vineyard_latitude !== null && wine.vineyard_longitude !== null) || wine.region || wine.appellation ? <button type="button" className="wine-origin-preview" onClick={() => setOriginMapOpenRequest((current) => current + 1)}>
     <span aria-hidden="true">⌖</span>
     <span>{locale === "it" ? "Origine" : "Origin"}</span>
@@ -1183,6 +1194,11 @@ export function WineDetail({
               />
             ) : wine.rating ? <StarRating value={wine.rating} label={t("rating")} /> : null : null}
             <span>{[wine.producer, wine.vintage, wine.region, wine.appellation].filter(Boolean).join(" - ")}</span>
+            {collectorSignals.length ? <div className="detail-collector-signals" aria-label={locale === "it" ? "Segnali della collezione" : "Collection signals"}>
+              {collectorSignals.map((signal) => <small key={signal.key} className={`detail-collector-signal is-${signal.key}`}>
+                <i aria-hidden="true" />{signal.label}
+              </small>)}
+            </div> : null}
             {restaurantMode ? <div className="restaurant-detail-quick-actions">
               {canWrite ? <details className={`wine-commercial-status is-${commercialStatus.value}`}>
                 <summary>{commercialStatus.label}</summary>
