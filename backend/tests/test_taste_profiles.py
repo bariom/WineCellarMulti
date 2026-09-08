@@ -245,6 +245,39 @@ def test_regeneration_completes_verified_metadata_before_profile(monkeypatch) ->
     assert profile is not None and profile.model == "metadata-model"
 
 
+def test_orphan_identity_is_previewed_and_generated_without_creating_a_wine(monkeypatch):
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="orphan@example.test", display_name="Admin", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, wine_type="")
+    identity_id = wine.shared_identity_id
+    db.delete(wine)
+    db.commit()
+    context = SimpleNamespace(user=user)
+    monkeypatch.setattr(taste_profile_routes, "_ai_sensory_metadata", lambda w: ({}, ""))
+    calls = []
+
+    def ai(w):
+        calls.append(w.name)
+        return {"body": 0.7}, "test-model"
+
+    monkeypatch.setattr(taste_profile_routes, "_ai_sensory_profile", ai)
+    preview = taste_profile_routes.batch_preview(db, context)
+    assert preview.missing == preview.requires_ai == 1
+    response = taste_profile_routes.regenerate_sensory_profile(identity_id, True, db, context)
+    assert response.source == "ai"
+    assert calls == ["Barolo"]
+    assert list(db.scalars(select(Wine))) == []
+    assert taste_profile_routes.batch_preview(db, context).missing == 0
+    db.delete(db.scalar(select(WineSensoryProfile)))
+    db.commit()
+    result = taste_profile_routes.enrich_missing_profiles(BatchEnrichmentRequest(), db, context)
+    assert result["resolved"] == result["ai_generated"] == 1
+    assert list(db.scalars(select(Wine))) == []
+
+
 def test_most_specific_baseline_matches_qualified_appellation() -> None:
     db = Session()
     household = Household(name="Home")

@@ -362,7 +362,20 @@ def _batch_candidates(db: Session) -> list[Wine]:
         key = (str(identity.id),) if identity is not None else parts
         if key is not None:
             candidates.setdefault(key, wine)
+    # Shared identities survive deletion or renaming of the original cellar wine.
+    # They are still shown in the missing list and must remain actionable.
+    for identity in db.scalars(select(SharedWineIdentity)):
+        candidates.setdefault((str(identity.id),), _identity_metadata(identity))
     return list(candidates.values())
+
+
+def _identity_metadata(identity: SharedWineIdentity) -> Wine:
+    """Transient metadata carrier; never insert a fictitious household wine."""
+    return Wine(
+        name=identity.name, producer=identity.producer, vintage=identity.vintage,
+        shared_identity_id=identity.id, type="", region="", appellation="",
+        grapes=[], ai_notes="",
+    )
 
 
 @router.get("/admin/summary")
@@ -581,11 +594,14 @@ def regenerate_sensory_profile(
         select(Wine).where(Wine.shared_identity_id == identity_id).order_by(Wine.created_at.desc())
     )
     if wine is None:
-        raise HTTPException(status_code=404, detail="No reusable wine metadata is available")
+        identity = db.scalar(select(SharedWineIdentity).where(SharedWineIdentity.id == identity_id))
+        if identity is None:
+            raise HTTPException(status_code=404, detail="Wine identity not found")
+        wine = _identity_metadata(identity)
     generated = _generate_with_sensory_metadata(
         db, wine, allow_ai=allow_ai, modified_by_user_id=context.user.id
     )
-    if generated is None:
+    if generated is None or generated.generation_status != "available":
         raise HTTPException(status_code=422, detail="No sensory profile can be inferred")
     db.commit()
     return sensory_response(generated)
