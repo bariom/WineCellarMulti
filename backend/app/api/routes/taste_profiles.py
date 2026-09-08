@@ -446,8 +446,10 @@ def regenerate_sensory_profile(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_app_admin_context),
 ) -> SensoryProfileResponse:
-    profile = _admin_profile(identity_id, db)
-    if profile.validated:
+    profile = db.scalar(
+        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity_id)
+    )
+    if profile is not None and profile.validated:
         raise HTTPException(
             status_code=409, detail="Validated profiles are never regenerated automatically"
         )

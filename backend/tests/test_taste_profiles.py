@@ -176,6 +176,32 @@ def test_batch_skips_available_profiles_before_applying_ai_limit(monkeypatch) ->
     assert profile is not None and profile.source == "ai"
 
 
+def test_single_regeneration_creates_a_missing_profile_with_ai(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="admin@example.test", display_name="Admin", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Needs Single AI", wine_type="")
+    db.flush()
+    assert db.scalar(
+        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == wine.shared_identity_id)
+    ) is None
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "_ai_sensory_profile",
+        lambda _wine: ({"body": 0.8, "acidity": 0.6}, "test-model"),
+    )
+
+    response = taste_profile_routes.regenerate_sensory_profile(
+        wine.shared_identity_id, True, db, SimpleNamespace(user=user)
+    )
+
+    assert response.source == "ai"
+    assert response.generation_status == "available"
+    assert response.dimensions == {"body": 0.8, "acidity": 0.6}
+
+
 def test_most_specific_baseline_matches_qualified_appellation() -> None:
     db = Session()
     household = Household(name="Home")
