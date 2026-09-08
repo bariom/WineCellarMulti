@@ -213,7 +213,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants }) => {
+  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -230,8 +230,8 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("/storage/allocations")) body = [];
       else if (path.endsWith("/merchants")) body = fixtureMerchants;
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
-      else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.5, matching_traits: ["body", "tannin"], conflicting_traits: [] };
-      else if (path.includes("/wines/tasting-archive")) body = tastingArchive;
+      else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] };
+      else if (path.includes("/wines/tasting-archive")) body = fixtureTastingArchive;
       else if (path.endsWith("/wines")) body = [fixtureWine];
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
@@ -246,7 +246,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants });
+  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -261,7 +261,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
     if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
-    if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.5, matching_traits: ["body", "tannin"], conflicting_traits: [] });
+    if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] });
     if (path.includes("/wines/tasting-archive")) return fulfillJson(route, tastingArchive);
     if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
@@ -287,6 +287,7 @@ async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
   await page.getByRole("button", { name: /^Cantina/ }).first().click();
   const wineRow = page.locator('[data-wine-row-id="wine-e2e-1"] article');
   await expect(wineRow).toBeVisible();
+  await expect(wineRow.getByLabel("Affinità personale: 5 su 6")).toBeVisible();
   await wineRow.click();
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
@@ -344,7 +345,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
     await expect(page.locator(".taste-profile-panel").getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
     await expect(page.getByText("Uve preferite", { exact: true })).toBeVisible();
-    await expect(page.getByText(/6 vini valutati/)).toBeVisible();
+    await expect(page.locator(".taste-profile-panel").getByText("vini ascoltati", { exact: false })).toBeVisible();
     await page.getByText("Come viene costruito il profilo", { exact: true }).click();
     await expect(page.getByText(/Vinaris usa solo le degustazioni che hai registrato tu/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

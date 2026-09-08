@@ -948,17 +948,17 @@ function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: 
   </details>;
 }
 
-const MIN_TASTE_MATCH_CONFIDENCE = 0.35;
+const MIN_TASTE_MATCH_CONFIDENCE = 0.3;
 
-function TasteHeartScale({ score, locale, compact = false }: { score: number; locale: Locale; compact?: boolean }) {
+function TasteHeartScale({ score, locale, compact = false, className = "" }: { score: number; locale: Locale; compact?: boolean; className?: string }) {
   const hearts = Math.min(6, Math.max(1, Math.round(score * 6)));
   const label = locale === "it" ? `Affinità personale: ${hearts} su 6` : `Personal affinity: ${hearts} out of 6`;
-  return <span className={`taste-heart-rating${compact ? " compact" : ""}`} aria-label={label} title={label}>
+  return <span className={`taste-heart-rating${compact ? " compact" : ""}${className ? ` ${className}` : ""}`} aria-label={label} title={label}>
     {Array.from({ length: 6 }, (_, index) => <span key={index} className={index < hearts ? "filled" : ""} aria-hidden="true">♥</span>)}
   </span>;
 }
 
-export function TasteHearts({ wineId, locale, compact = false }: { wineId: string; locale: Locale; compact?: boolean }) {
+export function TasteHearts({ wineId, locale, compact = false, className = "" }: { wineId: string; locale: Locale; compact?: boolean; className?: string }) {
   const [match, setMatch] = useState<TasteMatch | null>(null);
   useEffect(() => {
     let active = true;
@@ -968,7 +968,7 @@ export function TasteHearts({ wineId, locale, compact = false }: { wineId: strin
     return () => { active = false; };
   }, [wineId]);
   if (!match || match.score === null || match.confidence < MIN_TASTE_MATCH_CONFIDENCE) return null;
-  return <TasteHeartScale score={match.score} locale={locale} compact={compact} />;
+  return <TasteHeartScale score={match.score} locale={locale} compact={compact} className={className} />;
 }
 
 function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {

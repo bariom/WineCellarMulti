@@ -12715,6 +12715,17 @@ button.stat-card:hover {
   gap: 12px;
 }
 
+.row-taste-chip {
+  padding-inline: 9px;
+  border-color: color-mix(in srgb, #b83f62 36%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, #b83f62 9%, var(--surface)) 0%, color-mix(in srgb, var(--surface-muted) 88%, var(--surface)) 100%);
+}
+
+.taste-heart-rating.compact.row-taste-chip {
+  margin: 0;
+  font-size: 0.88rem;
+}
+
 .taste-heart-rating {
   display: inline-flex;
   align-items: center;

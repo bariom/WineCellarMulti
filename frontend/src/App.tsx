@@ -12847,6 +12847,7 @@ export function App() {
                         {wine.rating || wine.tags.length ? (
                           <div className="row-meta-group row-meta-group-primary">
                             {wine.rating ? <span className="row-chip row-rating-chip"><StarRating value={wine.rating} label={t("rating")} /></span> : null}
+                            <TasteHearts wineId={wine.id} locale={locale} compact className="row-chip row-taste-chip" />
                             {wine.tags.slice(0, 3).map((tag) => <span className="row-chip row-tag-chip" key={tag} style={tagColorStyle(tag, userTags)}>{tag}</span>)}
                           </div>
                         ) : null}
@@ -12857,7 +12858,7 @@ export function App() {
                         ) : null}
                       </div>
                     ) : null}
-                    <TasteHearts wineId={wine.id} locale={locale} compact />
+                    {!wine.rating && !wine.tags.length ? <TasteHearts wineId={wine.id} locale={locale} compact /> : null}
                     {maturityFilter && isWineInExplicitIdealWindow(wine, maturityFilter.year) ? (
                       <div className="row-meta-stack">
                         <div className="row-meta-group row-meta-group-secondary">
