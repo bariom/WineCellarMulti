@@ -4,7 +4,7 @@ import json
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import String, func, select
 from sqlalchemy.orm import Session
 
@@ -159,7 +159,10 @@ def wine_taste_match(
 
 def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:
     if not settings.wine_sensory_ai_enabled:
-        return {}, ""
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sensory profile AI generation is disabled",
+        )
     prompt = wine_sensory_profile_prompt(
         wine_context={
             "name": wine.name,
@@ -216,8 +219,17 @@ def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:
     try:
         result = json.loads(response.text)
     except json.JSONDecodeError:
-        return {}, response.model
-    return validated_dimensions(result), response.model
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="AI returned an invalid sensory profile",
+        )
+    dimensions = validated_dimensions(result)
+    if not dimensions:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="AI returned an empty sensory profile",
+        )
+    return dimensions, response.model
 
 
 def _admin_profile(identity_id: UUID, db: Session) -> WineSensoryProfile:
