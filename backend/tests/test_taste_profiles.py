@@ -156,6 +156,7 @@ def test_batch_skips_available_profiles_before_applying_ai_limit(monkeypatch) ->
         "_ai_sensory_profile",
         lambda _wine: ({"body": 0.7}, "test-model"),
     )
+    monkeypatch.setattr(taste_profile_routes, "_ai_sensory_metadata", lambda _wine: ({}, ""))
     monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_enabled", True)
     monkeypatch.setattr(taste_profile_routes.settings, "wine_sensory_ai_batch_max", 1)
 
@@ -192,6 +193,7 @@ def test_single_regeneration_creates_a_missing_profile_with_ai(monkeypatch) -> N
         "_ai_sensory_profile",
         lambda _wine: ({"body": 0.8, "acidity": 0.6}, "test-model"),
     )
+    monkeypatch.setattr(taste_profile_routes, "_ai_sensory_metadata", lambda _wine: ({}, ""))
 
     response = taste_profile_routes.regenerate_sensory_profile(
         wine.shared_identity_id, True, db, SimpleNamespace(user=user)
@@ -200,6 +202,47 @@ def test_single_regeneration_creates_a_missing_profile_with_ai(monkeypatch) -> N
     assert response.source == "ai"
     assert response.generation_status == "available"
     assert response.dimensions == {"body": 0.8, "acidity": 0.6}
+
+
+def test_regeneration_completes_verified_metadata_before_profile(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="admin@example.test", display_name="Admin", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Needs Metadata", wine_type="")
+    wine.region = ""
+    wine.appellation = ""
+    wine.grapes = []
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "_ai_sensory_metadata",
+        lambda _wine: (
+            {
+                "type": "Red",
+                "region": "Veneto",
+                "appellation": "Amarone della Valpolicella",
+                "grapes": [{"name": "Corvina"}],
+                "source_url": "https://example.test/wine",
+                "source_title": "Producer technical sheet",
+            },
+            "metadata-model",
+        ),
+    )
+
+    response = taste_profile_routes.regenerate_sensory_profile(
+        wine.shared_identity_id, True, db, SimpleNamespace(user=user)
+    )
+
+    assert wine.type == "Red"
+    assert wine.region == "Veneto"
+    assert wine.appellation == "Amarone della Valpolicella"
+    assert wine.grapes == [{"name": "Corvina"}]
+    assert response.source == "metadata"
+    profile = db.scalar(
+        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == wine.shared_identity_id)
+    )
+    assert profile is not None and profile.model == "metadata-model"
 
 
 def test_most_specific_baseline_matches_qualified_appellation() -> None:

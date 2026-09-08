@@ -16,6 +16,7 @@ from app.api.deps import (
 )
 from app.api.routes.wines import get_household_wine
 from app.core.config import settings
+from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 from app.db.session import get_db
 from app.models import (
     SensoryProfileBaseline,
@@ -24,7 +25,7 @@ from app.models import (
     Wine,
     WineSensoryProfile,
 )
-from app.prompts.library import wine_sensory_profile_prompt
+from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profile_prompt
 from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
@@ -218,11 +219,11 @@ def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:
     )
     try:
         result = json.loads(response.text)
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="AI returned an invalid sensory profile",
-        )
+        ) from exc
     dimensions = validated_dimensions(result)
     if not dimensions:
         raise HTTPException(
@@ -230,6 +231,117 @@ def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:
             detail="AI returned an empty sensory profile",
         )
     return dimensions, response.model
+
+
+def _ai_sensory_metadata(wine: Wine) -> tuple[dict[str, object], str]:
+    """Find source-backed identity metadata without overwriting cellar data."""
+    if not settings.wine_sensory_ai_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Sensory profile AI generation is disabled",
+        )
+    prompt = wine_sensory_metadata_prompt(
+        wine_context={
+            "name": wine.name,
+            "producer": wine.producer,
+            "vintage": wine.vintage,
+            "type": wine.type,
+            "region": wine.region,
+            "appellation": wine.appellation,
+            "grapes": [item.get("name") for item in (wine.grapes or []) if isinstance(item, dict)],
+        }
+    )
+    schema = {
+        "name": "wine_sensory_metadata",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "type": {"type": "string"},
+                "region": {"type": "string"},
+                "appellation": {"type": "string"},
+                "grapes": {"type": "array", "items": {"type": "string"}},
+                "source_url": {"type": "string"},
+                "source_title": {"type": "string"},
+            },
+            "required": ["type", "region", "appellation", "grapes", "source_url", "source_title"],
+        },
+    }
+    response = create_response(
+        settings.openai_economy_model,
+        prompt.system,
+        prompt.user,
+        json_schema=schema,
+        web_search=True,
+        task_type="sensory_profile",
+        max_output_tokens=500,
+        reasoning_effort="low",
+    )
+    try:
+        result = json.loads(response.text)
+    except json.JSONDecodeError:
+        return {}, response.model
+    source_url = str(result.get("source_url") or "").strip()
+    verified_source = next(
+        (
+            source
+            for source in response.web_sources
+            if str(source.get("url") or "").strip().rstrip("/") == source_url.rstrip("/")
+        ),
+        None,
+    )
+    if not verified_source:
+        return {}, response.model
+    grapes = [
+        {"name": name.strip()}
+        for item in result.get("grapes", [])
+        if isinstance(item, str) and (name := item.strip())
+    ]
+    return {
+        "type": str(result.get("type") or "").strip(),
+        "region": str(result.get("region") or "").strip(),
+        "appellation": str(result.get("appellation") or "").strip(),
+        "grapes": grapes,
+        "source_url": source_url,
+        "source_title": str(verified_source.get("title") or result.get("source_title") or "").strip(),
+    }, response.model
+
+
+def _complete_missing_sensory_metadata(wine: Wine) -> str:
+    metadata, model = _ai_sensory_metadata(wine)
+    if not metadata:
+        return ""
+    candidate_type = normalize_wine_type(str(metadata.get("type") or ""))
+    if not wine.type.strip() and candidate_type in CANONICAL_WINE_TYPES:
+        wine.type = candidate_type
+    if not wine.region.strip():
+        wine.region = str(metadata.get("region") or "").strip()[:120]
+    if not wine.appellation.strip():
+        wine.appellation = str(metadata.get("appellation") or "").strip()[:120]
+    if not wine.grapes and metadata.get("grapes"):
+        wine.grapes = metadata["grapes"]
+        wine.grapes_source_url = str(metadata.get("source_url") or "")[:500]
+        wine.grapes_source_title = str(metadata.get("source_title") or "")[:200]
+        wine.grapes_not_applicable = False
+    return model
+
+
+def _generate_with_sensory_metadata(
+    db: Session, wine: Wine, *, allow_ai: bool, modified_by_user_id: UUID
+) -> WineSensoryProfile | None:
+    metadata_model = ""
+    if allow_ai and not infer_sensory_profile(db, wine)[0]:
+        metadata_model = _complete_missing_sensory_metadata(wine)
+    generated = generate_wine_sensory_profile(
+        db,
+        wine,
+        allow_ai=allow_ai,
+        ai_generate=_ai_sensory_profile,
+        modified_by_user_id=modified_by_user_id,
+    )
+    if generated is not None and metadata_model and generated.source != "ai":
+        generated.model = metadata_model[:120]
+    return generated
 
 
 def _admin_profile(identity_id: UUID, db: Session) -> WineSensoryProfile:
@@ -470,12 +582,8 @@ def regenerate_sensory_profile(
     )
     if wine is None:
         raise HTTPException(status_code=404, detail="No reusable wine metadata is available")
-    generated = generate_wine_sensory_profile(
-        db,
-        wine,
-        allow_ai=allow_ai,
-        ai_generate=_ai_sensory_profile,
-        modified_by_user_id=context.user.id,
+    generated = _generate_with_sensory_metadata(
+        db, wine, allow_ai=allow_ai, modified_by_user_id=context.user.id
     )
     if generated is None:
         raise HTTPException(status_code=422, detail="No sensory profile can be inferred")
@@ -533,12 +641,8 @@ def enrich_missing_profiles(
         if processed >= limit:
             break
         processed += 1
-        generated = generate_wine_sensory_profile(
-            db,
-            wine,
-            allow_ai=payload.allow_ai,
-            ai_generate=_ai_sensory_profile,
-            modified_by_user_id=context.user.id,
+        generated = _generate_with_sensory_metadata(
+            db, wine, allow_ai=payload.allow_ai, modified_by_user_id=context.user.id
         )
         if generated and generated.generation_status == "available":
             resolved += 1
