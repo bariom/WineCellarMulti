@@ -479,7 +479,15 @@ def calculate_taste_match(
             UserTasteProfile.user_id == user_id, UserTasteProfile.category == target_category
         )
     )
-    if profile is None and target_category != "global":
+    profile_has_dimensions = bool(
+        profile
+        and isinstance(profile.dimensions, dict)
+        and any(
+            isinstance(value, dict) and value.get("confidence", 0) > 0
+            for value in profile.dimensions.values()
+        )
+    )
+    if not profile_has_dimensions and target_category != "global":
         profile = db.scalar(
             select(UserTasteProfile).where(
                 UserTasteProfile.user_id == user_id, UserTasteProfile.category == "global"

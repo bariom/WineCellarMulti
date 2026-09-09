@@ -986,7 +986,7 @@ function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
   if (!match || match.score === null) return null;
   const traitLabels: Record<string, string> = italian ? {
     body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
-    aromatic_intensity: "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
+    aromatic_intensity: "intensità aromatica", "aromatic intensity": "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
   } : {
     body: "body", acidity: "acidity", tannin: "tannin", sweetness: "sweetness",
     aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "wood", spice: "spice", minerality: "minerality",
