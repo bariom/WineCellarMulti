@@ -35,6 +35,7 @@ SENSORY_DIMENSIONS = (
 )
 TASTE_CATEGORIES = {"Red", "White", "Sparkling", "Sweet"}
 NEUTRAL_RATING = 3.0  # Vinaris tastings are 1..6 stars; zero means not rated.
+TASTE_PROFILE_CALCULATION_VERSION = 2
 
 # These are deliberately small, explainable zero-cost defaults. Appellation/grape baselines in the
 # database override/augment them and are maintained by app administrators.
@@ -338,6 +339,7 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
             attributes={},
             confidence=0.0,
             sample_count=0,
+            calculation_version=TASTE_PROFILE_CALCULATION_VERSION,
             rebuilt_at=datetime.now(UTC),
         )
         db.add(empty)
@@ -382,6 +384,7 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
             attributes=attributes,
             confidence=confidence,
             sample_count=samples[category],
+            calculation_version=TASTE_PROFILE_CALCULATION_VERSION,
             rebuilt_at=now,
         )
         db.add(profile)
@@ -456,7 +459,7 @@ def calculate_taste_match(
     confidence = min(float(sensory.confidence), float(profile.confidence)) * min(
         1.0, len(compared) / 4
     )
-    if len(compared) < 3 or confidence < 0.2:
+    if len(compared) < 3 or confidence <= 0:
         return {
             "score": None,
             "confidence": round(confidence, 4),

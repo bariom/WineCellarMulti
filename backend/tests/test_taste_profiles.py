@@ -448,6 +448,33 @@ def test_rating_weight_is_negative_neutral_and_positive() -> None:
     assert rating_weight(0) == 0
 
 
+def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="emerging@example.test", display_name="Emerging", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    tasted = make_wine(db, household, name="Tasted")
+    candidate = make_wine(db, household, name="Candidate")
+    for wine in (tasted, candidate):
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.7},
+                confidence=0.7,
+                generation_status="available",
+            )
+        )
+    add_tasting(db, user, household, tasted, 4)
+    db.commit()
+
+    rebuild_user_taste_profile(db, user.id)
+    match = calculate_taste_match(db, user.id, candidate)
+
+    assert match["score"] is not None
+    assert 0 < match["confidence"] < 0.3
+
+
 def test_claiming_unassigned_historical_tastings_is_household_scoped() -> None:
     db = Session()
     household = Household(name="Home")

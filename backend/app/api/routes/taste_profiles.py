@@ -156,6 +156,14 @@ def wine_taste_match(
     context: CurrentContext = Depends(get_current_context),
 ) -> TasteMatchResponse:
     wine = get_household_wine(db, context, wine_id)
+    has_profile = db.scalar(
+        select(UserTasteProfile.id)
+        .where(UserTasteProfile.user_id == context.user.id)
+        .limit(1)
+    )
+    if has_profile is None:
+        rebuild_user_taste_profile(db, context.user.id)
+        db.commit()
     return TasteMatchResponse(**calculate_taste_match(db, context.user.id, wine))
 
 

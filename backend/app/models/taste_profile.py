@@ -88,6 +88,7 @@ class UserTasteProfile(Base):
     attributes: Mapped[dict] = mapped_column(JSON, default=dict)
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     sample_count: Mapped[int] = mapped_column(default=0)
+    calculation_version: Mapped[int] = mapped_column(default=2)
     rebuilt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(

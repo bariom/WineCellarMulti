@@ -12735,6 +12735,10 @@ button.stat-card:hover {
   line-height: 1;
 }
 
+.taste-heart-rating.provisional {
+  opacity: 0.62;
+}
+
 .taste-heart-rating.compact {
   width: fit-content;
   margin-top: 5px;
