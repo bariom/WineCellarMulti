@@ -54,11 +54,13 @@ test("keeps location optional until immediate availability is requested", async 
   await page.goto("/buying-advice-test");
 
   await expect(page.getByText("La disponibilità non verrà considerata", { exact: false })).toBeVisible();
+  await expect(page.getByText("✓ Selezionato", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Dove vuoi acquistare o ricevere?")).toHaveCount(0);
   await page.getByRole("button", { name: "Ottieni i consigli", exact: true }).click();
   await expect(page.getByRole("status", { name: "" })).toContainText("Richiesta inviata");
 
   await page.getByRole("button", { name: /Trova dove acquistarlo ora/ }).click();
+  await expect(page.getByText("✓ Selezionato", { exact: true })).toBeVisible();
   const location = page.getByLabel("Dove vuoi acquistare o ricevere?");
   await expect(location).toBeVisible();
   await expect(location).toHaveAttribute("required", "");

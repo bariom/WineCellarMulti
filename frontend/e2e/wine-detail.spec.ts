@@ -209,11 +209,11 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false, cellarMemberships = memberships) {
+async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false, cellarMemberships = memberships, fixtureWines = [wine]) {
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive }) => {
+  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -232,7 +232,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
       else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] };
       else if (path.includes("/wines/tasting-archive")) body = fixtureTastingArchive;
-      else if (path.endsWith("/wines")) body = [fixtureWine];
+      else if (path.endsWith("/wines")) body = fixtureWines;
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
       else if (path.includes("value-history/portfolio") || path.includes("wishlist/lists") || path.includes("operational-action-snoozes")) body = [];
@@ -246,7 +246,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive });
+  }, { fixtureWine: wine, fixtureWines, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -263,7 +263,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
     if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] });
     if (path.includes("/wines/tasting-archive")) return fulfillJson(route, tastingArchive);
-    if (path.endsWith("/wines")) return fulfillJson(route, [wine]);
+    if (path.endsWith("/wines")) return fulfillJson(route, fixtureWines);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
     if (path.includes("/wine-pulse")) return fulfillJson(route, { items: [], total: 0, offset: 0, limit: 3, has_more: false });
     if (path.includes("value-history/portfolio")) return fulfillJson(route, []);
@@ -297,15 +297,52 @@ test("opens the buying sommelier from desktop and mobile navigation", async ({ p
   await mockApi(page);
   await page.goto("/");
 
+  const primaryNavigation = [
+    page.getByRole("button", { name: "Home", exact: true }),
+    page.getByRole("button", { name: /^Cantina/ }).first(),
+    page.getByRole("button", { name: /^Wishlist/ }).first(),
+    page.getByRole("button", { name: "Storico", exact: true }),
+    page.locator(".view-tabs-ai-group > summary"),
+  ];
+  const primaryNavigationBoxes = await Promise.all(primaryNavigation.map((item) => item.boundingBox()));
+  primaryNavigationBoxes.forEach((box, index) => {
+    expect(box).not.toBeNull();
+    if (index > 0) expect(box!.y).toBeGreaterThan(primaryNavigationBoxes[index - 1]!.y);
+  });
+
+  await page.locator(".view-tabs-ai-group > summary").click();
   await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
   await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.locator(".mobile-navigation-ai-group > summary").click();
   await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test("groups untracked wine regions under Other origins in the regional radar", async ({ page }) => {
+  const maipoWine = {
+    ...wine,
+    id: "wine-e2e-maipo",
+    name: "Mussonet Gran Reserva",
+    producer: "Haras de Pirque",
+    vintage: "2023",
+    region: "Maipo Valley",
+    appellation: "Valle del Maipo",
+    current_value: "22.00",
+    price: "22.00",
+    quantity: 2,
+  };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page, [], false, memberships, [wine, maipoWine]);
+  await page.goto("/");
+
+  const radar = page.locator(".regional-gap-card");
+  await expect(radar.getByText("Altre origini", { exact: true })).toBeVisible();
+  await expect(radar.getByText(/Le regioni fuori dagli assi tracciati/)).toBeVisible();
 });
 
 test.describe("Wine Detail compact/mobile", () => {
@@ -634,7 +671,7 @@ test.describe("Wine Detail compact/mobile", () => {
       insightOptions.first().boundingBox(),
     ]);
     expect(optionBox!.y).toBeGreaterThanOrEqual(summaryBox!.y + summaryBox!.height);
-    await insightOptions.last().click();
+    await insights.getByRole("tab", { name: "Qualità dati", exact: true }).click();
     const dataGrid = page.locator(".data-dashboard-carousel .dashboard-grid");
     const firstDataCard = dataGrid.locator("> .dashboard-card").first();
     await expect(firstDataCard).toBeVisible();
@@ -655,6 +692,20 @@ test.describe("Wine Detail compact/mobile", () => {
     expect(Math.abs(notificationsBox!.y - accountBox!.y)).toBeLessThanOrEqual(2);
     expect(accountBox!.x + accountBox!.width).toBeLessThanOrEqual(834);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await bottomNavigation.getByRole("button", { name: "Cantina", exact: true }).click();
+    const tabletWineRow = page.locator('[data-wine-row-id="wine-e2e-1"] article');
+    await expect(tabletWineRow).toBeVisible();
+    await tabletWineRow.click();
+    const tabletWineDetail = page.locator(".wine-side-panel .wine-detail:not(.empty-detail)");
+    await expect(tabletWineDetail).toBeVisible();
+    await page.waitForFunction(() => window.scrollY > 40);
+    expect((await tabletWineDetail.boundingBox())!.y).toBeLessThan(180);
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    const historyList = page.locator(".content-workspace .wine-list");
+    await expect(historyList).toBeVisible();
+    await expect(page.locator(".content-workspace .wine-side-panel")).toBeHidden();
+    expect((await historyList.boundingBox())!.width).toBeGreaterThan(700);
     await page.screenshot({ path: testInfo.outputPath("tablet-topbar.png") });
   });
 

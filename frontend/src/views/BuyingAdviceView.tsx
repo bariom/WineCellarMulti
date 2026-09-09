@@ -115,10 +115,12 @@ export default function BuyingAdviceView({
           <div className="buying-search-mode" role="group" aria-label={locale === "it" ? "Tipo di consiglio" : "Advice mode"}>
             <button type="button" className={!buyingCheckAvailability ? "active" : "secondary"} aria-pressed={!buyingCheckAvailability} onClick={() => setBuyingCheckAvailability(false)} disabled={!canGenerateAi || busy}>
               <strong>{locale === "it" ? "Consigliami cosa acquistare" : "Recommend what to buy"}</strong>
+              {!buyingCheckAvailability ? <b className="buying-search-mode-selected">✓ {locale === "it" ? "Selezionato" : "Selected"}</b> : null}
               <span>{locale === "it" ? "Scelta su misura per gusto, qualità e budget." : "A tailored choice based on taste, quality, and budget."}</span>
             </button>
             <button type="button" className={buyingCheckAvailability ? "active" : "secondary"} aria-pressed={buyingCheckAvailability} onClick={() => setBuyingCheckAvailability(true)} disabled={!canGenerateAi || busy}>
               <strong>{locale === "it" ? "Trova dove acquistarlo ora" : "Find where to buy it now"}</strong>
+              {buyingCheckAvailability ? <b className="buying-search-mode-selected">✓ {locale === "it" ? "Selezionato" : "Selected"}</b> : null}
               <span>{locale === "it" ? "Verifica offerte e disponibilità vicino a te." : "Check offers and availability near you."}</span>
             </button>
           </div>

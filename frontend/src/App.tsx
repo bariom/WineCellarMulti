@@ -724,6 +724,7 @@ const classicRegionalGapTargets: RegionalGapTarget[] = [
   { region: "Rhône", targetPct: 6 },
   { region: "Napa Valley", targetPct: 4 },
   { region: "Rioja", targetPct: 4 },
+  { region: "Other", targetPct: 0 },
 ];
 
 function normalizedRegionName(value: string) {
@@ -734,9 +735,11 @@ function normalizedRegionName(value: string) {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
-function regionalGapBucket(region: string) {
+function regionalGapBucket(region: string, trackedTargets: RegionalGapTarget[] = []) {
   const normalized = normalizedRegionName(region);
   if (!normalized) return "";
+  const explicitTarget = trackedTargets.find((target) => normalizedRegionName(target.region) === normalized);
+  if (explicitTarget) return explicitTarget.region;
   if (normalized.includes("bordeaux")) return "Bordeaux";
   if (normalized.includes("toscana") || normalized.includes("tuscany")) return "Toscana";
   if (normalized.includes("ticino")) return "Ticino";
@@ -746,7 +749,7 @@ function regionalGapBucket(region: string) {
   if (normalized.includes("rhone") || normalized.includes("rhône")) return "Rhône";
   if (normalized.includes("napa")) return "Napa Valley";
   if (normalized.includes("rioja")) return "Rioja";
-  return region.trim();
+  return "Other";
 }
 
 function radarPoint(index: number, total: number, value: number, radius = 42, center = 50) {
@@ -760,8 +763,14 @@ function radarScaledPoint(index: number, total: number, value: number, maxValue:
 }
 
 function regionalTargetLabel(region: string, locale: Locale) {
-  if (region === "Other") return displayValue("Other", locale, "type") || region;
+  if (region === "Other") return translate(locale, "regionalOtherOrigins");
   return region;
+}
+
+function withOtherRegionalTarget(targets: RegionalGapTarget[]) {
+  return targets.some((target) => target.region === "Other")
+    ? targets
+    : [...targets, { region: "Other", targetPct: 0 }];
 }
 
 function normalizeRegionalTargets(targets: RegionalGapTarget[], fallbackTargets: RegionalGapTarget[] = classicRegionalGapTargets) {
@@ -778,8 +787,9 @@ function normalizeRegionalTargets(targets: RegionalGapTarget[], fallbackTargets:
 
 function regionalTargetsForCellar(items: Wine[], storedTargets: RegionalGapTarget[] = []) {
   const byRegion = new Map<string, number>();
+  const trackedTargets = [...classicRegionalGapTargets, ...storedTargets];
   for (const wine of items) {
-    const region = regionalGapBucket(wine.region);
+    const region = regionalGapBucket(wine.region, trackedTargets);
     if (!region) continue;
     byRegion.set(region, (byRegion.get(region) || 0) + wineUnitValue(wine) * Math.max(Number(wine.quantity || 0), 0));
   }
@@ -5099,6 +5109,7 @@ export function App() {
   const canWriteWine = !offlineMode && (canAdmin || session?.membership_role === "member");
   const restaurantModeAvailable = Boolean(session?.restaurant_mode_available || session?.is_app_admin);
   const isRestaurant = restaurantModeAvailable && session?.active_household_mode === "restaurant";
+  const aiNavigationActive = ["intelligence", "assistant", "pairing", "buying"].includes(activeView);
   const activeTier = session?.is_demo
     ? {
         name: locale === "it" ? "Demo" : "Demo",
@@ -6326,9 +6337,10 @@ export function App() {
   const regionalGapSelectedTargets = regionalGapHasProfileTarget
     ? regionalGapProfileTargets[regionalGapProfile]!
     : regionalGapTargets;
+  const regionalGapCoverageTargets = withOtherRegionalTarget(regionalGapSelectedTargets);
   const regionalGapActiveSuggestion = regionalGapAiSuggestions.find((suggestion) => suggestion.profile === regionalGapProfile) || null;
-  const regionalGapRows = regionalGapSelectedTargets.map((target) => {
-    const value = sumWineValue(cellarWines.filter((wine) => regionalGapBucket(wine.region) === target.region));
+  const regionalGapRows = regionalGapCoverageTargets.map((target) => {
+    const value = sumWineValue(cellarWines.filter((wine) => regionalGapBucket(wine.region, regionalGapCoverageTargets) === target.region));
     const currentPct = (value / regionalGapTotalValue) * 100;
     const targetValue = (regionalGapTotalValue * target.targetPct) / 100;
     return {
@@ -7383,6 +7395,15 @@ export function App() {
     }
     setOpenWineToneGroups((groups) => ({ ...groups, [tone]: true }));
     setSelectedWineId(wine.id);
+    if (window.innerWidth >= 821 && window.innerWidth <= 1099) {
+      // Tablet collection views keep the detail beneath the list so the list
+      // itself stays readable. Bring that newly rendered detail into view.
+      window.requestAnimationFrame(() => {
+        window.setTimeout(() => {
+          document.querySelector<HTMLElement>(".wine-side-panel .wine-detail:not(.empty-detail)")?.scrollIntoView({ behavior: "smooth", block: "start" });
+        }, 0);
+      });
+    }
     if (isMobileViewport) {
       if (mobileWineDetailHistoryActiveRef.current) {
         window.history.replaceState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);
@@ -8259,17 +8280,17 @@ export function App() {
                   points={regionalGapRows.map((_, index) => radarScaledPoint(index, regionalGapRows.length, (regionalGapRadarScaleMax * level) / 100, regionalGapRadarScaleMax)).join(" ")}
                 />
               ))}
-              {[25, 50, 75, 100].map((level) => {
+              {regionalGapRows.length <= 8 ? [25, 50, 75, 100].map((level) => {
                 const value = (regionalGapRadarScaleMax * level) / 100;
                 const [x, y] = radarScaledPoint(1, regionalGapRows.length, value, regionalGapRadarScaleMax).split(",");
                 const labelX = Math.min(Number(x) + 5.5, 92);
                 return (
                   <g className="regional-radar-scale" key={`scale-${level}`}>
                     <line x1={x} y1={y} x2={labelX - 1.4} y2={y} />
-                    <text x={labelX} y={y}>{Math.round(value * 10) / 10}%</text>
-                  </g>
+                  <text x={labelX} y={y}>{Math.round(value * 10) / 10}%</text>
+                </g>
                 );
-              })}
+              }) : null}
               {regionalGapAxisPoints.map((axis) => (
                 <line className="regional-radar-axis" key={axis.region} x1="50" y1="50" x2={axis.linePoint.split(",")[0]} y2={axis.linePoint.split(",")[1]} />
               ))}
@@ -9472,30 +9493,33 @@ export function App() {
               <AppIcon name="cellar" variant="navigation" detailLevel="rich" />
               {t("cellar")} ({cellarWines.length})
             </button>
-            {!isRestaurant ? <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
-              <AppIcon name="calendar" variant="navigation" />
-              {t("history")}
-            </button> : null}
             <button type="button" className={activeView === "wishlist" ? "" : "secondary"} onClick={() => { leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}>
               <AppIcon name="wishlist" variant="navigation" detailLevel="rich" />
               {t("wishlist")} ({totalWishlistItemCount})
             </button>
-            {!isRestaurant ? <button type="button" className={activeView === "intelligence" ? "" : "secondary"} onClick={() => { leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}>
-              <AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />
-              {locale === "it" ? "Intelligence" : "Intelligence"}
+            {!isRestaurant ? <button type="button" className={activeView === "history" ? "" : "secondary"} onClick={() => { leaveHelpFor("history"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}>
+              <AppIcon name="calendar" variant="navigation" />
+              {t("history")}
             </button> : null}
-            {!isRestaurant && canAccessCellarAssistant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
-              <AppIcon name="assistant" variant="ai" detailLevel="rich" />
-              {locale === "it" ? "Assistente AI" : "AI Assistant"}
-            </button> : null}
-            <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
-              <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
-              {t("pairing")}
-            </button>
-            <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}>
-              <AppIcon name="buying" variant="ai" detailLevel="rich" />
-              {t("buyingSommelier")}
-            </button>
+            <details className={`view-tabs-ai-group${aiNavigationActive ? " is-active" : ""}`}>
+              <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
+              {!isRestaurant ? <button type="button" className={activeView === "intelligence" ? "" : "secondary"} onClick={() => { leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}>
+                <AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />
+                Intelligence
+              </button> : null}
+              {!isRestaurant && canAccessCellarAssistant ? <button type="button" className={activeView === "assistant" ? "" : "secondary"} onClick={() => { leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}>
+                <AppIcon name="assistant" variant="ai" detailLevel="rich" />
+                {locale === "it" ? "Assistente AI" : "AI Assistant"}
+              </button> : null}
+              <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
+                <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
+                {t("pairing")}
+              </button>
+              <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}>
+                <AppIcon name="buying" variant="ai" detailLevel="rich" />
+                {t("buyingSommelier")}
+              </button>
+            </details>
             <button type="button" className={activeView === "pulse" ? "" : "secondary"} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
               <AppIcon name="pulse" variant="premium" detailLevel="rich" />
               Wine Pulse
@@ -9554,11 +9578,17 @@ export function App() {
             <>
               {mobileNavigationOpen ? <div className="mobile-navigation-sheet" role="dialog" aria-label={locale === "it" ? "Menu di navigazione" : "Navigation menu"}>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
-                {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button> : null}
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
-                {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
-                {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
-                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}><AppIcon name="buying" variant="ai" detailLevel="rich" />{t("buyingSommelier")}</button>
+                {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button> : null}
+                <details className="mobile-navigation-ai-group">
+                  <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
+                  <div>
+                    {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
+                    {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
+                    <button type="button" onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />{t("pairing")}</button>
+                    <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}><AppIcon name="buying" variant="ai" detailLevel="rich" />{t("buyingSommelier")}</button>
+                  </div>
+                </details>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
