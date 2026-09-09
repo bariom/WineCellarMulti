@@ -27,6 +27,11 @@ test("keeps location optional until immediate availability is requested", async 
         const [minPrice, setMinPrice] = React.useState('20');
         const [maxPrice, setMaxPrice] = React.useState('50');
         const [submitted, setSubmitted] = React.useState(false);
+        const advice = {
+          summary: 'Proposta selezionata.', warning: '', profile_applied: true,
+          availability_checked: false, model: 'test', reasoning_effort: 'low', estimated_cost_usd: '0.01',
+          recommendations: [{ name: 'Barolo Test', producer: 'Produttore', vintage: '2020', merchant: '', merchant_type: 'online', price: '42.00', currency: 'CHF', availability: '', delivery_estimate: '', source_url: 'https://example.com/barolo', reason: 'In linea con il profilo.', local: false, confidence: 'high' }],
+        };
         return React.createElement(React.Fragment, null,
           React.createElement(BuyingAdviceView, {
             canGenerateAi: true, generatingAi: '', locale: 'it',
@@ -34,8 +39,9 @@ test("keeps location optional until immediate availability is requested", async 
             buyingWineType: wineType, buyingRegion: region, buyingUseTasteProfile: useProfile,
             buyingCheckAvailability: checkAvailability, buyingNeededBy: neededBy,
             buyingLocation: location, buyingMinPrice: minPrice, buyingMaxPrice: maxPrice,
-            buyingAdviceResult: null, formatAiBudget: String,
+            buyingAdviceResult: advice, formatAiBudget: String,
             onGenerateBuyingAdvice: event => { event.preventDefault(); setSubmitted(true); },
+            canWriteWishlist: true, onAddRecommendationToWishlist: async () => {},
             setBuyingPurpose: setPurpose, setBuyingPairingWith: setPairing,
             setBuyingPreferences: setPreferences, setBuyingWineType: setWineType,
             setBuyingRegion: setRegion, setBuyingUseTasteProfile: setUseProfile,
@@ -53,6 +59,10 @@ test("keeps location optional until immediate availability is requested", async 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/buying-advice-test");
 
+  const addToWishlist = page.getByRole("button", { name: "Aggiungi alla wishlist", exact: true });
+  await expect(addToWishlist).toBeVisible();
+  await addToWishlist.click();
+  await expect(page.getByRole("button", { name: "Aggiunto alla wishlist", exact: true })).toBeDisabled();
   await expect(page.getByText("La disponibilità non verrà considerata", { exact: false })).toBeVisible();
   await expect(page.getByText("✓ Selezionato", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Dove vuoi acquistare o ricevere?")).toHaveCount(0);

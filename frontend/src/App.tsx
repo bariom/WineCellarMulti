@@ -5100,6 +5100,45 @@ export function App() {
     }
   }
 
+  async function addBuyingAdviceRecommendationToWishlist(
+    recommendation: BuyingAdviceResult["recommendations"][number],
+  ) {
+    const parsedPrice = Number(recommendation.price.trim().replace(",", "."));
+    const price = Number.isFinite(parsedPrice) && parsedPrice >= 0 ? parsedPrice : 0;
+    const destinationListId = selectedWishlistListId || wishlistLists[0]?.id || "";
+    setSaving(true);
+    setError("");
+    try {
+      await api<WishlistItem>("/api/v1/wishlist", {
+        method: "POST",
+        body: JSON.stringify({
+          ...(destinationListId ? { wishlist_list_id: destinationListId } : {}),
+          name: recommendation.name.trim(),
+          producer: recommendation.producer.trim(),
+          vintage: recommendation.vintage.trim(),
+          type: buyingWineType.trim(),
+          region: buyingRegion.trim(),
+          target_price: price,
+          offer_price: price || null,
+          currency: recommendation.currency.trim().toUpperCase() || "CHF",
+          merchant: recommendation.merchant.trim(),
+          priority: recommendation.confidence === "high" ? "High" : recommendation.confidence === "low" ? "Low" : "Medium",
+          purpose: buyingPurpose === "cellar" ? "Cellar" : "Drink",
+          status: "Evaluate",
+          notes: recommendation.reason.trim(),
+          ai_context_note: `Sommelier acquisti. Fonte: ${recommendation.source_url}`,
+        }),
+      });
+      setWishlistPortfolioStrategy(null);
+      await Promise.all([loadWishlist(destinationListId), loadWishlistLists()]);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to save wishlist item");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   const authenticated = Boolean(session?.authenticated);
   const activeMembership =
     householdMemberships.find((membership) => membership.household_id === session?.active_household_id) ||
@@ -10995,6 +11034,7 @@ export function App() {
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <BuyingAdviceView
                   canGenerateAi={canGenerateAi}
+                  canWriteWishlist={canWriteWine}
                   generatingAi={generatingAi}
                   locale={locale}
                   buyingPurpose={buyingPurpose}
@@ -11011,6 +11051,7 @@ export function App() {
                   buyingAdviceResult={buyingAdviceResult}
                   formatAiBudget={formatAiBudget}
                   onGenerateBuyingAdvice={generateBuyingAdvice}
+                  onAddRecommendationToWishlist={addBuyingAdviceRecommendationToWishlist}
                   setBuyingPurpose={setBuyingPurpose}
                   setBuyingPairingWith={setBuyingPairingWith}
                   setBuyingPreferences={setBuyingPreferences}

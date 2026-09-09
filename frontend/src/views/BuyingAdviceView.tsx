@@ -1,4 +1,4 @@
-import { CSSProperties, FormEvent } from "react";
+import { CSSProperties, FormEvent, useEffect, useState } from "react";
 import { EmptyState } from "../components/AppUi";
 import { reasoningEffortTranslationKey } from "../i18n";
 
@@ -29,6 +29,7 @@ type BuyingAdviceResult = {
 
 type BuyingAdviceViewProps = {
   canGenerateAi: boolean;
+  canWriteWishlist: boolean;
   generatingAi: string;
   locale: "en" | "it";
   buyingPurpose: "drink_now" | "cellar" | "pairing";
@@ -45,6 +46,7 @@ type BuyingAdviceViewProps = {
   buyingAdviceResult: BuyingAdviceResult | null;
   formatAiBudget: (value: string | number) => string;
   onGenerateBuyingAdvice: (event: FormEvent<HTMLFormElement>) => void;
+  onAddRecommendationToWishlist: (recommendation: BuyingAdviceResult["recommendations"][number]) => Promise<void>;
   setBuyingPurpose: (value: "drink_now" | "cellar" | "pairing") => void;
   setBuyingPairingWith: (value: string) => void;
   setBuyingPreferences: (value: string) => void;
@@ -61,6 +63,7 @@ type BuyingAdviceViewProps = {
 
 export default function BuyingAdviceView({
   canGenerateAi,
+  canWriteWishlist,
   generatingAi,
   locale,
   buyingPurpose,
@@ -77,6 +80,7 @@ export default function BuyingAdviceView({
   buyingAdviceResult,
   formatAiBudget,
   onGenerateBuyingAdvice,
+  onAddRecommendationToWishlist,
   setBuyingPurpose,
   setBuyingPairingWith,
   setBuyingPreferences,
@@ -91,6 +95,9 @@ export default function BuyingAdviceView({
   t,
 }: BuyingAdviceViewProps) {
   const busy = generatingAi === "buying-advice";
+  const [savingRecommendationKey, setSavingRecommendationKey] = useState("");
+  const [savedRecommendationKeys, setSavedRecommendationKeys] = useState<Set<string>>(() => new Set());
+  const [wishlistError, setWishlistError] = useState("");
   // Keep the handles useful for the normal CHF 20–50 buying range. The
   // explicit "No limit" action still allows searches without a ceiling.
   const priceRangeMax = 200;
@@ -100,6 +107,28 @@ export default function BuyingAdviceView({
     if (locale === "it") return { high: "Attendibilità alta", medium: "Attendibilità media", low: "Attendibilità bassa" }[value];
     return { high: "High confidence", medium: "Medium confidence", low: "Low confidence" }[value];
   };
+  const recommendationKey = (item: BuyingAdviceResult["recommendations"][number], index: number) => (
+    item.source_url || `${item.name}-${item.producer}-${item.vintage}-${index}`
+  );
+
+  useEffect(() => {
+    setSavingRecommendationKey("");
+    setSavedRecommendationKeys(new Set());
+    setWishlistError("");
+  }, [buyingAdviceResult]);
+
+  async function addRecommendationToWishlist(item: BuyingAdviceResult["recommendations"][number], key: string) {
+    setSavingRecommendationKey(key);
+    setWishlistError("");
+    try {
+      await onAddRecommendationToWishlist(item);
+      setSavedRecommendationKeys((current) => new Set(current).add(key));
+    } catch {
+      setWishlistError(locale === "it" ? "Non è stato possibile aggiungere il vino alla wishlist." : "The wine could not be added to the wishlist.");
+    } finally {
+      setSavingRecommendationKey("");
+    }
+  }
 
   return (
     <section className="pairing-card buying-advice-view">
@@ -241,23 +270,43 @@ export default function BuyingAdviceView({
             </div>
             <p className="pairing-summary">{buyingAdviceResult.summary}</p>
             {buyingAdviceResult.warning ? <p className="buying-advice-warning">{buyingAdviceResult.warning}</p> : null}
+            {wishlistError ? <p className="buying-advice-warning" role="alert">{wishlistError}</p> : null}
             <div className="buying-recommendation-grid">
-              {buyingAdviceResult.recommendations.map((item) => (
-                <article key={item.source_url} className="buying-recommendation">
-                  <div className="buying-recommendation-badges">
-                    <span>{buyingAdviceResult.availability_checked ? (item.local ? (locale === "it" ? "Negozio locale" : "Local shop") : "Online") : (locale === "it" ? "Consigliato" : "Recommended")}</span>
-                    <span>{confidenceLabel(item.confidence)}</span>
-                  </div>
-                  <h3>{item.name}{item.vintage ? ` ${item.vintage}` : ""}</h3>
-                  {item.producer ? <p>{item.producer}</p> : null}
-                  {item.merchant ? <strong>{item.merchant}</strong> : null}
-                  {item.price ? <span>{item.currency} {item.price}</span> : null}
-                  {item.availability ? <span>{item.availability}</span> : null}
-                  {item.delivery_estimate ? <span>{item.delivery_estimate}</span> : null}
-                  <p>{item.reason}</p>
-                  <a href={item.source_url} target="_blank" rel="noreferrer">{buyingAdviceResult.availability_checked ? (locale === "it" ? "Apri l'offerta verificata" : "Open verified offer") : (locale === "it" ? "Consulta la fonte" : "View source")}</a>
-                </article>
-              ))}
+              {buyingAdviceResult.recommendations.map((item, index) => {
+                const key = recommendationKey(item, index);
+                const saved = savedRecommendationKeys.has(key);
+                const saving = savingRecommendationKey === key;
+                return (
+                  <article key={key} className="buying-recommendation">
+                    <div className="buying-recommendation-badges">
+                      <span>{buyingAdviceResult.availability_checked ? (item.local ? (locale === "it" ? "Negozio locale" : "Local shop") : "Online") : (locale === "it" ? "Consigliato" : "Recommended")}</span>
+                      <span>{confidenceLabel(item.confidence)}</span>
+                    </div>
+                    <h3>{item.name}{item.vintage ? ` ${item.vintage}` : ""}</h3>
+                    {item.producer ? <p>{item.producer}</p> : null}
+                    {item.merchant ? <strong>{item.merchant}</strong> : null}
+                    {item.price ? <span>{item.currency} {item.price}</span> : null}
+                    {item.availability ? <span>{item.availability}</span> : null}
+                    {item.delivery_estimate ? <span>{item.delivery_estimate}</span> : null}
+                    <p>{item.reason}</p>
+                    <div className="buying-recommendation-actions">
+                      {item.source_url ? <a href={item.source_url} target="_blank" rel="noreferrer">{buyingAdviceResult.availability_checked ? (locale === "it" ? "Apri l'offerta verificata" : "Open verified offer") : (locale === "it" ? "Consulta la fonte" : "View source")}</a> : null}
+                      <button
+                        type="button"
+                        className="secondary compact"
+                        disabled={!canWriteWishlist || saving || saved}
+                        onClick={() => addRecommendationToWishlist(item, key)}
+                      >
+                        {saved
+                          ? (locale === "it" ? "Aggiunto alla wishlist" : "Added to wishlist")
+                          : saving
+                            ? (locale === "it" ? "Aggiunta in corso…" : "Adding…")
+                            : (locale === "it" ? "Aggiungi alla wishlist" : "Add to wishlist")}
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
             </div>
             {!buyingAdviceResult.recommendations.length ? <EmptyState title={buyingAdviceResult.availability_checked ? (locale === "it" ? "Nessuna offerta verificabile trovata per questi criteri." : "No verifiable offer found for these criteria.") : (locale === "it" ? "Nessun consiglio sufficientemente supportato trovato per questi criteri." : "No sufficiently supported recommendation found for these criteria.")} icon="search" /> : null}
           </div>

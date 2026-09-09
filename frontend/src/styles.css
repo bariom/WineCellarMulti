@@ -8724,9 +8724,15 @@ button.balance-indicator:focus-visible {
   color: var(--text-muted);
 }
 
-.buying-recommendation a {
-  justify-self: start;
+.buying-recommendation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   margin-top: auto;
+}
+
+.buying-recommendation-actions a {
   font-weight: 750;
 }
 
