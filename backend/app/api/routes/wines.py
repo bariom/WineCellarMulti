@@ -78,7 +78,11 @@ from app.services.storage import (
     allocation_responses_by_wine,
     sync_storage_to_wine_quantity,
 )
-from app.services.taste_profiles import mark_wine_for_sensory_enrichment, rebuild_user_taste_profile
+from app.services.taste_profiles import (
+    mark_wine_for_sensory_enrichment,
+    rebuild_user_taste_profile,
+    record_user_wine_rating,
+)
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -1268,6 +1272,8 @@ def create_wine(
     shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
     set_user_wine_tags(db, context, wine, tag_names)
+    if wine.rating > 0:
+        record_user_wine_rating(db, user_id=context.user.id, wine=wine, rating=wine.rating)
     # Reuse a catalog/reference photo automatically when the user did not
     # upload a private bottle photo. The frontend can still replace it later.
     reuse_best_matching_photo(db, wine)
@@ -1745,6 +1751,10 @@ def update_wine(
         if field == "owners":
             value = normalize_owner_rows(value or [])
         setattr(wine, field, value)
+    if "rating" in data:
+        record_user_wine_rating(
+            db, user_id=context.user.id, wine=wine, rating=int(data["rating"] or 0)
+        )
     if context.household.operating_mode == "restaurant" and "quantity" in data:
         reconcile_direct_quantity_change(
             db,

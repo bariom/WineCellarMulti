@@ -18,6 +18,7 @@ from app.models import (
     Household,
     SensoryProfileBaseline,
     User,
+    UserWineRating,
     Wine,
     WineSensoryProfile,
     WineTastingEntry,
@@ -30,6 +31,7 @@ from app.services.taste_profiles import (
     generate_wine_sensory_profile,
     rating_weight,
     rebuild_user_taste_profile,
+    record_user_wine_rating,
     unassigned_tasting_count,
 )
 
@@ -473,6 +475,32 @@ def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
 
     assert match["score"] is not None
     assert 0 < match["confidence"] < 0.3
+
+
+def test_private_star_rating_contributes_without_becoming_another_users_signal() -> None:
+    db = Session()
+    household = Household(name="Home")
+    first = User(email="first-rating@example.test", display_name="First", password_hash="x")
+    second = User(email="second-rating@example.test", display_name="Second", password_hash="x")
+    db.add_all([household, first, second])
+    db.flush()
+    wine = make_wine(db, household, name="Rated")
+    candidate = make_wine(db, household, name="Candidate")
+    for item in (wine, candidate):
+        db.add(
+            WineSensoryProfile(
+                identity_id=item.shared_identity_id,
+                dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.7},
+                confidence=0.7,
+                generation_status="available",
+            )
+        )
+    record_user_wine_rating(db, user_id=first.id, wine=wine, rating=5)
+    db.commit()
+
+    assert db.scalar(select(UserWineRating).where(UserWineRating.user_id == first.id)) is not None
+    assert calculate_taste_match(db, first.id, candidate)["score"] is not None
+    assert calculate_taste_match(db, second.id, candidate)["score"] is None
 
 
 def test_claiming_unassigned_historical_tastings_is_household_scoped() -> None:

@@ -94,3 +94,29 @@ class UserTasteProfile(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
     )
+
+
+class UserWineRating(Base):
+    """A private star rating used as a lightweight taste-preference signal."""
+
+    __tablename__ = "user_wine_ratings"
+    __table_args__ = (
+        UniqueConstraint("user_id", "wine_id", name="uq_user_wine_rating_user_wine"),
+        Index("ix_user_wine_ratings_user_household", "user_id", "household_id"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    wine_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("wines.id", ondelete="CASCADE"), index=True
+    )
+    rating: Mapped[int] = mapped_column(default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )

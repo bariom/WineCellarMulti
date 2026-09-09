@@ -16,6 +16,7 @@ from app.core.wine_types import normalize_wine_type
 from app.models import (
     SensoryProfileBaseline,
     UserTasteProfile,
+    UserWineRating,
     Wine,
     WineSensoryProfile,
     WineTastingEntry,
@@ -328,6 +329,24 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
             profile_dimensions = validated_dimensions(profile.dimensions)
             for dimension, value in profile_dimensions.items():
                 accumulators[category][dimension].append((weight, value, profile.confidence))
+    rating_rows = db.execute(
+        select(UserWineRating, Wine, WineSensoryProfile)
+        .join(Wine, Wine.id == UserWineRating.wine_id)
+        .outerjoin(WineSensoryProfile, WineSensoryProfile.identity_id == Wine.shared_identity_id)
+        .where(UserWineRating.user_id == user_id, UserWineRating.rating > 0)
+    )
+    for star_rating, wine, profile in rating_rows:
+        weight = rating_weight(float(star_rating.rating)) * 0.5
+        categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
+        for category in categories:
+            samples[category] += 1
+            for key, label_values in _attribute_values(wine).items():
+                for value in label_values:
+                    attribute_scores[category][key][value] += weight
+            if not profile or profile.generation_status != "available":
+                continue
+            for dimension, value in validated_dimensions(profile.dimensions).items():
+                accumulators[category][dimension].append((weight, value, profile.confidence))
     db.query(UserTasteProfile).filter(UserTasteProfile.user_id == user_id).delete(
         synchronize_session=False
     )
@@ -391,6 +410,30 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
         profiles.append(profile)
     db.flush()
     return profiles
+
+
+def record_user_wine_rating(db: Session, *, user_id: UUID, wine: Wine, rating: int) -> None:
+    """Persist a user's private star signal and refresh only that user's derived profile."""
+    personal_rating = db.scalar(
+        select(UserWineRating).where(
+            UserWineRating.user_id == user_id,
+            UserWineRating.household_id == wine.household_id,
+            UserWineRating.wine_id == wine.id,
+        )
+    )
+    if rating <= 0:
+        if personal_rating is not None:
+            db.delete(personal_rating)
+    elif personal_rating is None:
+        db.add(
+            UserWineRating(
+                user_id=user_id, household_id=wine.household_id, wine_id=wine.id, rating=rating
+            )
+        )
+    else:
+        personal_rating.rating = rating
+    db.flush()
+    rebuild_user_taste_profile(db, user_id)
 
 
 def unassigned_tasting_count(db: Session, household_id: UUID) -> int:
