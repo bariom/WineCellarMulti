@@ -35,6 +35,7 @@ def buying_advice_prompt(
     preferences: str,
     needed_by: str,
     location: str,
+    check_availability: bool,
     min_price: str,
     max_price: str,
     wine_type: str,
@@ -46,20 +47,39 @@ def buying_advice_prompt(
         if taste_context
         else "not used"
     )
+    evidence_policy = (
+        "Every recommendation must correspond to a concrete retailer product page found during this search. "
+        "Never invent stock, pickup availability, delivery dates, prices, merchants, or URLs. "
+        "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
+        "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
+        "Diversify merchants. Do not return a list dominated by one retailer; Coop/Mondovino is a fallback only and at most one Coop recommendation is allowed. Prefer independent wine shops when their stock can be verified. "
+        if check_availability
+        else "Recommend exact wines supported by a credible source found during this search, such as the producer page, an official technical sheet, a reputable critic, or a specialist retailer. "
+        "Current retailer availability is not requested: do not require stock or a nearby shop, and do not imply that a wine is currently available. Merchant, price, availability, and delivery_estimate may be empty. "
+        "Never invent wine facts, ratings, prices, merchants, or URLs. Use source_url for the page supporting the recommendation. "
+    )
+    retail_scope = (
+        "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
+        "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
+        if check_availability
+        else ""
+    )
+    result_policy = (
+        "For today/tomorrow, set local=true only for a physical shop plausibly reachable from the stated location and use merchant_type=local_shop. "
+        "Use the exact product-page URL, not a search page or merchant homepage. Return the exact listed price when available, not a vague range. "
+        if check_availability
+        else "Set local=false. Leave retail-only fields empty unless the cited source clearly provides them. "
+    )
     return Prompt(
         id="sommelier.buying_advice",
-        version="1",
+        version="2",
         system=(
             "You are a pragmatic wine purchasing advisor with live web search. Return JSON only. "
-            "Every recommendation must correspond to a concrete retailer product page found during this search. "
-            "Never invent stock, pickup availability, delivery dates, prices, merchants, or URLs. "
-            "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
-            "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
+            f"{evidence_policy}"
             "Local refers to the retailer's location, not the wine's origin: offer stylistically relevant wines from varied regions unless the user asks for a specific origin. "
-            "Diversify merchants. Do not return a list dominated by one retailer; Coop/Mondovino is a fallback only and at most one Coop recommendation is allowed. Prefer independent wine shops when their stock can be verified. "
-            "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
+            f"{retail_scope}"
             "Do not use Smood: it is no longer an active retailer or delivery channel and must never be recommended, even when stale Smood pages appear in search results. "
-            "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
+            "Rank valid candidates by personal taste fit, documented wine quality, suitability for the purpose, and value within the stated budget. "
             "The personal taste profile is a ranking signal only: it must never override budget, wine type, origin, deadline, pairing, or other explicit user constraints. "
             f"{language_instruction(locale)}"
         ),
@@ -69,17 +89,17 @@ def buying_advice_prompt(
             f"Wine type: {wine_type or 'any'}\n"
             f"Requested region or appellation: {region or 'any'}\n"
             f"Additional preferences: {preferences or 'none'}\n"
-            f"Need: {needed_by}\n"
-            f"Buyer location: {location}\n"
+            f"Check current retail availability: {'yes' if check_availability else 'no'}\n"
+            f"Need: {needed_by if check_availability else 'not applicable'}\n"
+            f"Buyer location: {location if check_availability else 'not provided or needed'}\n"
             f"Minimum price per bottle: {min_price}\n"
             f"Maximum price per bottle: {max_price}\n"
             f"Personal taste profile: {profile_context}\n\n"
             "Return up to 6 ranked options. For drink_now, favor wines already in a suitable drinking window. "
             "For cellar, favor age-worthy wines and explain the expected holding rationale. For pairing, optimize for the named food. "
             "When a personal taste profile is supplied, use its sensory dimensions and confidence to rank otherwise valid options and explain the fit without presenting inferred preferences as facts. "
-            "For today/tomorrow, set local=true only for a physical shop plausibly reachable from the stated location and use merchant_type=local_shop. "
-            "Use the exact product-page URL, not a search page or merchant homepage. Return the exact listed price when available, not a vague range. "
-            "Set vintage to an empty string unless that exact vintage is clearly stated on the product page; never write a status such as 'not confirmed from page' in the vintage field. "
+            f"{result_policy}"
+            "Set vintage to an empty string unless that exact vintage is clearly stated by the cited source; never write a status such as 'not confirmed from page' in the vintage field. "
             "Put any uncertainty in availability and warning."
         ),
     )
@@ -281,10 +301,13 @@ def wine_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.market_value",
-        version="1",
+        version="2",
         system=(
             "You estimate wine value cautiously. Return JSON only. "
             "Use live web search for current market prices. "
+            "Use only retail prices for a full bottle offered to consumers by wine shops, retailers, distributors, or marketplaces. "
+            "Never use restaurant, hotel, bar, catering, room-service, wine-list, menu, pairing-menu, or by-the-glass prices; these include hospitality markups and are not market value. "
+            "Exclude tasting portions and case totals unless a clear per-bottle retail price for the requested format is stated. "
             "If verified market data is uncertain, keep close to the best verified sources and explain uncertainty. "
             "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
             "Keep market_note concise and useful. "
@@ -325,13 +348,14 @@ def wine_full_enrichment_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.full_enrichment",
-        version="1",
+        version="2",
         system=(
             "You enrich one cellar wine in a single pass and return JSON only. "
             "Complete practical cellar notes, a conservative drinking window, current market value, and exact grape composition. "
             "Use live web search for current market listings and grape composition. "
             "Never infer an exact blend from appellation rules or a typical regional blend: return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
-            "For value, use concrete listings for the exact wine and provide 3-8 verified market sources when possible. "
+            "For value, use concrete retail bottle listings for the exact wine and provide 3-8 verified market sources when possible. "
+            "Never use restaurant, hotel, bar, wine-list, menu, pairing-menu, room-service, or by-the-glass prices because hospitality markups are not market value. "
             "Keep the drinking window realistic and internally ordered. "
             "Write cellar notes in 3-5 practical sentences and do not invent exact facts. "
             f"{currency_instruction} {language_instruction(locale)}"
@@ -491,10 +515,13 @@ def wishlist_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wishlist.market_value",
-        version="1",
+        version="2",
         system=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
             "Use live web search for current market prices. "
+            "Use only retail prices for a full bottle offered to consumers by wine shops, retailers, distributors, or marketplaces. "
+            "Never use restaurant, hotel, bar, catering, room-service, wine-list, menu, pairing-menu, or by-the-glass prices; these include hospitality markups and are not market value. "
+            "Exclude tasting portions and case totals unless a clear per-bottle retail price for the requested format is stated. "
             "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
             "Keep market_note concise and useful. "
             f"{currency_instruction} {language_instruction(locale)}"

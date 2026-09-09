@@ -7712,6 +7712,7 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
         json={
             "purpose": "drink_now",
             "needed_by": "today",
+            "check_availability": True,
             "location": "Lugano, Svizzera",
             "max_price_chf": 75,
             "wine_type": "Red",
@@ -7733,6 +7734,80 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
     assert any(
         source.get("url") == "https://example.com/wine/merlot" for source in entry["sources"]
     )
+
+
+def test_buying_advice_can_recommend_by_taste_without_location_or_stock(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.5"}
+        ).status_code
+        == 200
+    )
+
+    def fake_create_response(*args, **kwargs):
+        assert kwargs["web_search"] is True
+        assert "Check current retail availability: no" in args[2]
+        assert "Buyer location: not provided or needed" in args[2]
+        return OpenAIResponse(
+            text=(
+                '{"summary":"Una selezione costruita sul profilo personale.","warning":"",'
+                '"recommendations":[{"name":"Barolo Test","producer":"Produttore",'
+                '"vintage":"2020","merchant":"","merchant_type":"online","price":"",'
+                '"currency":"CHF","availability":"","delivery_estimate":"",'
+                '"source_url":"https://example.com/producer/barolo",'
+                '"reason":"Struttura e acidita coerenti con il profilo.",'
+                '"local":false,"confidence":"high"}]}'
+            ),
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            web_sources=({"url": "https://example.com/producer/barolo", "title": "Barolo"},),
+            web_search_calls=1,
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    monkeypatch.setattr(
+        ai_routes,
+        "compact_taste_context",
+        lambda *args, **kwargs: {"confidence": 0.8, "dimensions": {"acidity": 76}},
+    )
+    response = client.post(
+        "/api/v1/ai/buying-advice",
+        json={
+            "purpose": "cellar",
+            "needed_by": "can_wait",
+            "location": "",
+            "wine_type": "Red",
+            "use_taste_profile": True,
+            "check_availability": False,
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["availability_checked"] is False
+    assert body["profile_applied"] is True
+    assert body["recommendations"][0]["name"] == "Barolo Test"
+    assert body["recommendations"][0]["merchant"] == ""
+
+
+def test_buying_advice_requires_location_only_for_availability_search():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    response = client.post(
+        "/api/v1/ai/buying-advice",
+        json={
+            "purpose": "drink_now",
+            "needed_by": "today",
+            "check_availability": True,
+            "location": "",
+        },
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Location is required when checking current availability"
 
 
 def test_ai_usage_summarizes_current_user_costs():

@@ -4,6 +4,7 @@ from app.prompts import (
     cellar_command_prompt,
     cellar_intelligence_plan_prompt,
     grape_composition_prompt,
+    wine_full_enrichment_prompt,
     wine_value_prompt,
     wine_vineyard_location_prompt,
     wishlist_portfolio_strategy_prompt,
@@ -19,6 +20,7 @@ def test_buying_advice_prompt_applies_profile_without_overriding_filters():
         preferences="poco legno",
         needed_by="delivery can take several days",
         location="Lugano",
+        check_availability=True,
         min_price="CHF 20",
         max_price="CHF 60",
         wine_type="White",
@@ -26,12 +28,15 @@ def test_buying_advice_prompt_applies_profile_without_overriding_filters():
         taste_context={"category": "White", "confidence": 0.8, "dimensions": {"acidity": 74}},
     )
 
-    assert (prompt.id, prompt.version) == ("sommelier.buying_advice", "1")
+    assert (prompt.id, prompt.version) == ("sommelier.buying_advice", "2")
     assert "Italian" in prompt.system
     assert "must never override budget" in prompt.system
+    assert "documented wine quality" in prompt.system
     assert "Wine type: White" in prompt.user
     assert "Requested region or appellation: Ticino" in prompt.user
     assert '"acidity":74' in prompt.user
+    assert "Check current retail availability: yes" in prompt.user
+    assert "concrete retailer product page" in prompt.system
 
 
 def test_buying_advice_prompt_can_exclude_personal_profile():
@@ -42,6 +47,7 @@ def test_buying_advice_prompt_can_exclude_personal_profile():
         preferences="",
         needed_by="delivery can take several days",
         location="Zurich",
+        check_availability=False,
         min_price="none",
         max_price="none",
         wine_type="",
@@ -50,6 +56,9 @@ def test_buying_advice_prompt_can_exclude_personal_profile():
     )
 
     assert "Personal taste profile: not used" in prompt.user
+    assert "Check current retail availability: no" in prompt.user
+    assert "not provided or needed" in prompt.user
+    assert "do not require stock or a nearby shop" in prompt.system
 
 
 def test_wishlist_portfolio_prompt_balances_taste_quality_and_value():
@@ -158,11 +167,24 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
     )
 
     assert wine_prompt.id == "wine.market_value"
+    assert wine_prompt.version == "2"
     assert "3-8 verified market sources" in wine_prompt.system
+    assert "Never use restaurant, hotel, bar" in wine_prompt.system
     assert "must be CHF" in wine_prompt.user
     assert wishlist_prompt.id == "wishlist.market_value"
+    assert wishlist_prompt.version == "2"
     assert "Italian" in wishlist_prompt.system
+    assert "hospitality markups" in wishlist_prompt.system
     assert "target price is CHF 75.00" in wishlist_prompt.user
+
+    full_prompt = wine_full_enrichment_prompt(
+        locale="it",
+        currency_instruction="Restituisci i valori in CHF.",
+        currency="CHF",
+        wine_context="Wine: Example 2020",
+    )
+    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "2")
+    assert "Never use restaurant, hotel, bar" in full_prompt.system
 
 
 def test_vineyard_prompt_prefers_the_physical_producer_before_a_locality():

@@ -947,10 +947,12 @@ def reuse_shared_wine_feature(
 ) -> bool:
     if force_refresh or feature not in SHARED_FEATURES:
         return False
-    hydrated = hydrate_wine_from_shared(db, wine, locale=locale)
     fact = get_shared_fact(db, wine, feature, locale=locale)
     if fact is None:
         return False
+    if feature == "value" and contains_hospitality_market_sources(fact.sources):
+        return False
+    hydrated = hydrate_wine_from_shared(db, wine, locale=locale)
     changed = apply_shared_fact(wine, fact, only_missing=False)
     if feature == "scores" and not changed and feature not in hydrated:
         return False
@@ -3211,6 +3213,8 @@ def normalize_market_sources(
     for raw_source in raw_sources[:12]:
         if not isinstance(raw_source, dict):
             continue
+        if is_hospitality_market_source(raw_source):
+            continue
         merchant = str(
             raw_source.get("merchant") or raw_source.get("source") or raw_source.get("name") or ""
         ).strip()[:160]
@@ -3239,6 +3243,62 @@ def normalize_market_sources(
             },
         )
     return normalized
+
+
+def is_hospitality_market_source(raw_source: dict[str, Any]) -> bool:
+    searchable = " ".join(
+        str(raw_source.get(key) or "")
+        for key in ("merchant", "source", "name", "title", "url", "link", "note")
+    ).casefold()
+    hospitality_markers = (
+        "restaurant",
+        "ristorante",
+        "trattoria",
+        "osteria",
+        "brasserie",
+        "room service",
+        "room-service",
+        "catering",
+        "wine list",
+        "wine-list",
+        "carta dei vini",
+        "carte des vins",
+        "weinkarte",
+        "drink menu",
+        "beverage menu",
+        "pairing menu",
+        "menu degustazione",
+        "by the glass",
+        "by-the-glass",
+        "al calice",
+        "prix restaurant",
+    )
+    if any(marker in searchable for marker in hospitality_markers):
+        return True
+    return any(marker in searchable for marker in ("hotel", "resort")) and any(
+        marker in searchable for marker in ("menu", "wine", "restaurant", "bar")
+    )
+
+
+def contains_hospitality_market_sources(raw_sources: Any) -> bool:
+    return isinstance(raw_sources, list) and any(
+        isinstance(source, dict) and is_hospitality_market_source(source) for source in raw_sources
+    )
+
+
+def median_retail_source_price(market_sources: list[dict], *, currency: str) -> Decimal | None:
+    target_currency = str(currency or "").strip().upper()
+    prices = sorted(
+        Decimal(str(source["price"]))
+        for source in market_sources
+        if str(source.get("currency") or "").strip().upper() == target_currency
+    )
+    if not prices:
+        return None
+    middle = len(prices) // 2
+    if len(prices) % 2:
+        return prices[middle].quantize(Decimal("0.01"))
+    return ((prices[middle - 1] + prices[middle]) / Decimal("2")).quantize(Decimal("0.01"))
 
 
 def web_search_source_entries(web_sources: tuple[dict[str, str], ...]) -> list[dict]:
@@ -3460,6 +3520,8 @@ def clean_buying_recommendations(
     verified_urls: set[str],
     min_price_chf: Decimal | None = None,
     max_price_chf: Decimal | None = None,
+    *,
+    require_availability: bool = True,
 ) -> list[BuyingRecommendation]:
     raw_items = payload.get("recommendations", [])
     if not isinstance(raw_items, list):
@@ -3476,11 +3538,11 @@ def clean_buying_recommendations(
         source_url = str(item.get("source_url") or "").strip()
         if (
             not name
-            or not merchant
             or not source_url.startswith(("https://", "http://"))
             or source_url not in verified_urls
             or is_disallowed_buying_source(merchant, source_url)
             or source_url in seen_urls
+            or (require_availability and not merchant)
         ):
             continue
         seen_urls.add(source_url)
@@ -3496,7 +3558,9 @@ def clean_buying_recommendations(
             continue
         merchant_key = merchant.lower()
         is_coop = "coop" in merchant_key or "mondovino" in merchant_key
-        if merchant_counts.get(merchant_key, 0) >= 2 or (is_coop and coop_count >= 1):
+        if merchant and (
+            merchant_counts.get(merchant_key, 0) >= 2 or (is_coop and coop_count >= 1)
+        ):
             continue
         recommendations.append(
             BuyingRecommendation(
@@ -3517,7 +3581,8 @@ def clean_buying_recommendations(
                 confidence=confidence if confidence in {"high", "medium", "low"} else "medium",
             ),
         )
-        merchant_counts[merchant_key] = merchant_counts.get(merchant_key, 0) + 1
+        if merchant:
+            merchant_counts[merchant_key] = merchant_counts.get(merchant_key, 0) + 1
         if is_coop:
             coop_count += 1
     return recommendations
@@ -3976,6 +4041,11 @@ def suggest_buying_advice(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Pairing food is required"
         )
+    if payload.check_availability and len(payload.location.strip()) < 2:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Location is required when checking current availability",
+        )
     if (
         payload.min_price_chf is not None
         and payload.max_price_chf is not None
@@ -4008,6 +4078,7 @@ def suggest_buying_advice(
         preferences=payload.preferences.strip(),
         needed_by=deadline_labels[payload.needed_by],
         location=payload.location.strip(),
+        check_availability=payload.check_availability,
         min_price=(f"CHF {payload.min_price_chf}" if payload.min_price_chf is not None else "none"),
         max_price=(f"CHF {payload.max_price_chf}" if payload.max_price_chf is not None else "none"),
         wine_type=payload.wine_type.strip(),
@@ -4084,14 +4155,18 @@ def suggest_buying_advice(
     parsed = parse_json_response(response.text)
     verified_urls = {str(source.get("url") or "").strip() for source in response.web_sources}
     recommendations = clean_buying_recommendations(
-        parsed, verified_urls, payload.min_price_chf, payload.max_price_chf
+        parsed,
+        verified_urls,
+        payload.min_price_chf,
+        payload.max_price_chf,
+        require_availability=payload.check_availability,
     )
     extra_cost = web_search_tool_cost_usd(response.web_search_calls)
     effective_model = effective_response_model(response, user_settings.pairing_model)
     charged_cost = response.charged_cost_usd
     sources = [
         {
-            "kind": "market_source",
+            "kind": "market_source" if payload.check_availability else "reference_source",
             "merchant": item.merchant,
             "url": item.source_url,
             "price": item.price,
@@ -4109,6 +4184,7 @@ def suggest_buying_advice(
         recommendations=recommendations,
         estimated_cost_usd=charged_cost,
         profile_applied=bool(taste_context),
+        availability_checked=payload.check_availability,
     )
     record_ai_audit(
         db,
@@ -4118,7 +4194,11 @@ def suggest_buying_advice(
         feature="buying_advice",
         model=effective_model,
         reasoning_effort=response.reasoning_effort or "",
-        summary=f"{payload.purpose} / {payload.needed_by} / {payload.location}: {result.summary}",
+        summary=(
+            f"{payload.purpose} / {payload.needed_by} / {payload.location}: {result.summary}"
+            if payload.check_availability
+            else f"{payload.purpose} / taste recommendation: {result.summary}"
+        ),
         sources=sources,
         usage=response.usage,
         provider_source=provider_source,
@@ -4365,8 +4445,9 @@ def generate_all_wine_ai(
         )
 
     result_currency = str(value_result.get("currency") or wine.currency)[:8]
+    raw_market_sources = value_result.get("market_sources")
     market_sources = normalize_market_sources(
-        value_result.get("market_sources"),
+        raw_market_sources,
         default_currency=result_currency,
         require_url=True,
     )
@@ -4377,6 +4458,17 @@ def generate_all_wine_ai(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No verified live market price sources found",
         )
+
+    if contains_hospitality_market_sources(raw_market_sources):
+        retail_value = median_retail_source_price(market_sources, currency=result_currency)
+        if retail_value is None:
+            wine.value_not_found = True
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="No uncontaminated retail price estimate could be calculated",
+            )
+        current_value = retail_value
 
     grapes = grape_result.get("grapes", [])
     if not isinstance(grapes, list):
@@ -4826,8 +4918,9 @@ def generate_wine_value(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid value"
         ) from exc
     result_currency = str(result.get("currency") or wine.currency)[:8]
+    raw_market_sources = result.get("market_sources")
     market_sources = normalize_market_sources(
-        result.get("market_sources"), default_currency=result_currency, require_url=True
+        raw_market_sources, default_currency=result_currency, require_url=True
     )
     if not market_sources:
         wine.value_not_found = True
@@ -4836,6 +4929,16 @@ def generate_wine_value(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No verified live market price sources found",
         )
+    if contains_hospitality_market_sources(raw_market_sources):
+        retail_value = median_retail_source_price(market_sources, currency=result_currency)
+        if retail_value is None:
+            wine.value_not_found = True
+            db.commit()
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="No uncontaminated retail price estimate could be calculated",
+            )
+        value = retail_value
     wine.current_value = max(value, Decimal("0"))
     wine.value_not_found = False
     wine.currency = result_currency
@@ -5322,14 +5425,23 @@ def generate_wishlist_target_price(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid market price"
         ) from exc
     result_currency = str(result.get("market_price_currency") or item.currency)[:8]
+    raw_market_sources = result.get("market_sources")
     market_sources = normalize_market_sources(
-        result.get("market_sources"), default_currency=result_currency, require_url=True
+        raw_market_sources, default_currency=result_currency, require_url=True
     )
     if not market_sources:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No verified live market price sources found",
         )
+    if contains_hospitality_market_sources(raw_market_sources):
+        retail_value = median_retail_source_price(market_sources, currency=result_currency)
+        if retail_value is None:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="No uncontaminated retail price estimate could be calculated",
+            )
+        market_price = retail_value
     item.ai_market_price = max(market_price, Decimal("0"))
     item.ai_market_price_currency = result_currency
     item.status = str(result["recommended_status"] or item.status)[:32]

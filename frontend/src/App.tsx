@@ -1475,6 +1475,7 @@ export function App() {
   const [buyingWineType, setBuyingWineType] = useState("");
   const [buyingRegion, setBuyingRegion] = useState("");
   const [buyingUseTasteProfile, setBuyingUseTasteProfile] = useState(true);
+  const [buyingCheckAvailability, setBuyingCheckAvailability] = useState(false);
   const [buyingNeededBy, setBuyingNeededBy] = useState<"today" | "tomorrow" | "can_wait">("today");
   const [buyingLocation, setBuyingLocation] = useState("");
   const [buyingMinPrice, setBuyingMinPrice] = useState("20");
@@ -5049,7 +5050,7 @@ export function App() {
 
   async function generateBuyingAdvice(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!buyingLocation.trim()) {
+    if (buyingCheckAvailability && !buyingLocation.trim()) {
       setError(locale === "it" ? "Inserisci la località in cui vuoi ricevere o ritirare il vino." : "Enter the location where you want to receive or collect the wine.");
       return;
     }
@@ -5071,8 +5072,9 @@ export function App() {
           wine_type: buyingWineType.trim(),
           region: buyingRegion.trim(),
           use_taste_profile: buyingUseTasteProfile,
+          check_availability: buyingCheckAvailability,
           needed_by: buyingNeededBy,
-          location: buyingLocation.trim(),
+          location: buyingCheckAvailability ? buyingLocation.trim() : "",
           min_price_chf: buyingMinPrice.trim() ? Number(buyingMinPrice.trim()) : null,
           max_price_chf: buyingMaxPrice.trim() ? Number(buyingMaxPrice.trim()) : null,
           locale,
@@ -9490,6 +9492,10 @@ export function App() {
               <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
               {t("pairing")}
             </button>
+            <button type="button" className={activeView === "buying" ? "" : "secondary"} onClick={() => { leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}>
+              <AppIcon name="buying" variant="ai" detailLevel="rich" />
+              {t("buyingSommelier")}
+            </button>
             <button type="button" className={activeView === "pulse" ? "" : "secondary"} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
               <AppIcon name="pulse" variant="premium" detailLevel="rich" />
               Wine Pulse
@@ -9552,6 +9558,7 @@ export function App() {
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
                 {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("intelligence"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("intelligence"); }}><AppIcon name="dashboard-cards" variant="premium" detailLevel="rich" />Intelligence</button> : null}
                 {!isRestaurant && canAccessCellarAssistant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("assistant"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("assistant"); }}><AppIcon name="assistant" variant="ai" detailLevel="rich" />{locale === "it" ? "Assistente AI" : "AI Assistant"}</button> : null}
+                <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("buying"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("buying"); }}><AppIcon name="buying" variant="ai" detailLevel="rich" />{t("buyingSommelier")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}><AppIcon name="pulse" variant="premium" detailLevel="rich" />Wine Pulse</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); openHelp(); }}><AppIcon name="grapes" variant="premium" detailLevel="rich" />{t("help")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); toggleSettingsView(); }}><AppIcon name="settings" variant="action" detailLevel="rich" />{t("settings")}</button>
@@ -10975,6 +10982,7 @@ export function App() {
                   buyingWineType={buyingWineType}
                   buyingRegion={buyingRegion}
                   buyingUseTasteProfile={buyingUseTasteProfile}
+                  buyingCheckAvailability={buyingCheckAvailability}
                   buyingNeededBy={buyingNeededBy}
                   buyingLocation={buyingLocation}
                   buyingMinPrice={buyingMinPrice}
@@ -10988,6 +10996,7 @@ export function App() {
                   setBuyingWineType={setBuyingWineType}
                   setBuyingRegion={setBuyingRegion}
                   setBuyingUseTasteProfile={setBuyingUseTasteProfile}
+                  setBuyingCheckAvailability={setBuyingCheckAvailability}
                   setBuyingNeededBy={setBuyingNeededBy}
                   setBuyingLocation={setBuyingLocation}
                   setBuyingMinPrice={setBuyingMinPrice}

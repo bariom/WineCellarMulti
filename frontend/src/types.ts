@@ -838,6 +838,7 @@ export type BuyingAdviceResult = {
   summary: string;
   warning: string;
   profile_applied: boolean;
+  availability_checked: boolean;
   model: string;
   reasoning_effort: string;
   recommendations: Array<{

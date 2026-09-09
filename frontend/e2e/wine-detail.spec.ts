@@ -292,6 +292,22 @@ async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
 
+test("opens the buying sommelier from desktop and mobile navigation", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.reload();
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.getByRole("button", { name: "Sommelier acquisti", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Sommelier acquisti", exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
 test.describe("Wine Detail compact/mobile", () => {
   test.use({ viewport: { width: 390, height: 844 } });
 

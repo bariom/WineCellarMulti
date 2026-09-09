@@ -321,8 +321,9 @@ class BuyingAdviceRequest(AiGenerationRequest):
     wine_type: Literal["", "Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"] = ""
     region: str = Field(default="", max_length=160)
     use_taste_profile: bool = True
+    check_availability: bool = False
     needed_by: str = Field(pattern="^(today|tomorrow|can_wait)$")
-    location: str = Field(min_length=2, max_length=160)
+    location: str = Field(default="", max_length=160)
     min_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     max_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
 
@@ -331,7 +332,7 @@ class BuyingRecommendation(BaseModel):
     name: str
     producer: str = ""
     vintage: str = ""
-    merchant: str
+    merchant: str = ""
     merchant_type: str = "online"
     price: str = ""
     currency: str = "CHF"
@@ -350,6 +351,7 @@ class BuyingAdviceResponse(BaseModel):
     recommendations: list[BuyingRecommendation] = Field(default_factory=list)
     warning: str = ""
     profile_applied: bool = False
+    availability_checked: bool = False
     estimated_cost_usd: Decimal = Decimal("0")
 
 
