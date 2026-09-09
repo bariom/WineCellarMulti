@@ -1472,6 +1472,9 @@ export function App() {
   const [buyingPurpose, setBuyingPurpose] = useState<"drink_now" | "cellar" | "pairing">("drink_now");
   const [buyingPairingWith, setBuyingPairingWith] = useState("");
   const [buyingPreferences, setBuyingPreferences] = useState("");
+  const [buyingWineType, setBuyingWineType] = useState("");
+  const [buyingRegion, setBuyingRegion] = useState("");
+  const [buyingUseTasteProfile, setBuyingUseTasteProfile] = useState(true);
   const [buyingNeededBy, setBuyingNeededBy] = useState<"today" | "tomorrow" | "can_wait">("today");
   const [buyingLocation, setBuyingLocation] = useState("");
   const [buyingMinPrice, setBuyingMinPrice] = useState("20");
@@ -1537,6 +1540,7 @@ export function App() {
   const [compareAiResult, setCompareAiResult] = useState<WineCompareAiResult | null>(null);
   const [wishlistPortfolioStrategy, setWishlistPortfolioStrategy] = useState<WishlistPortfolioStrategy | null>(null);
   const [wishlistPortfolioStrategyOpen, setWishlistPortfolioStrategyOpen] = useState(false);
+  const [wishlistUseTasteProfile, setWishlistUseTasteProfile] = useState(true);
   const [compareAiLoading, setCompareAiLoading] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
   const backToTopVisibleRef = useRef(false);
@@ -4939,7 +4943,7 @@ export function App() {
     try {
       const result = await api<WishlistPortfolioStrategy>("/api/v1/ai/wishlist/portfolio-strategy", {
         method: "POST",
-        body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId, model }),
+        body: JSON.stringify({ locale, wishlist_list_id: selectedWishlistListId, model, use_taste_profile: wishlistUseTasteProfile }),
       });
       setWishlistPortfolioStrategy(result);
       setWishlistLists((current) => current.map((item) => item.id === selectedWishlistListId ? { ...item, portfolio_strategy: result } : item));
@@ -5064,6 +5068,9 @@ export function App() {
           purpose: buyingPurpose,
           pairing_with: buyingPairingWith.trim(),
           preferences: buyingPreferences.trim(),
+          wine_type: buyingWineType.trim(),
+          region: buyingRegion.trim(),
+          use_taste_profile: buyingUseTasteProfile,
           needed_by: buyingNeededBy,
           location: buyingLocation.trim(),
           min_price_chf: buyingMinPrice.trim() ? Number(buyingMinPrice.trim()) : null,
@@ -10965,6 +10972,9 @@ export function App() {
                   buyingPurpose={buyingPurpose}
                   buyingPairingWith={buyingPairingWith}
                   buyingPreferences={buyingPreferences}
+                  buyingWineType={buyingWineType}
+                  buyingRegion={buyingRegion}
+                  buyingUseTasteProfile={buyingUseTasteProfile}
                   buyingNeededBy={buyingNeededBy}
                   buyingLocation={buyingLocation}
                   buyingMinPrice={buyingMinPrice}
@@ -10975,6 +10985,9 @@ export function App() {
                   setBuyingPurpose={setBuyingPurpose}
                   setBuyingPairingWith={setBuyingPairingWith}
                   setBuyingPreferences={setBuyingPreferences}
+                  setBuyingWineType={setBuyingWineType}
+                  setBuyingRegion={setBuyingRegion}
+                  setBuyingUseTasteProfile={setBuyingUseTasteProfile}
                   setBuyingNeededBy={setBuyingNeededBy}
                   setBuyingLocation={setBuyingLocation}
                   setBuyingMinPrice={setBuyingMinPrice}
@@ -11902,6 +11915,8 @@ export function App() {
                   onGenerate={generateWishlistPortfolioStrategy}
                   open={wishlistPortfolioStrategyOpen}
                   onToggle={setWishlistPortfolioStrategyOpen}
+                  useTasteProfile={wishlistUseTasteProfile}
+                  onUseTasteProfileChange={setWishlistUseTasteProfile}
                   t={t}
                 />
             ) : (
@@ -12290,6 +12305,8 @@ export function App() {
                   onGenerate={generateWishlistPortfolioStrategy}
                   open={wishlistPortfolioStrategyOpen}
                   onToggle={setWishlistPortfolioStrategyOpen}
+                  useTasteProfile={wishlistUseTasteProfile}
+                  onUseTasteProfileChange={setWishlistUseTasteProfile}
                   t={t}
                 />
               ) : null}

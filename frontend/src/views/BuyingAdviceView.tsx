@@ -5,6 +5,7 @@ import { reasoningEffortTranslationKey } from "../i18n";
 type BuyingAdviceResult = {
   summary: string;
   warning: string;
+  profile_applied: boolean;
   model: string;
   reasoning_effort: string;
   recommendations: Array<{
@@ -32,6 +33,9 @@ type BuyingAdviceViewProps = {
   buyingPurpose: "drink_now" | "cellar" | "pairing";
   buyingPairingWith: string;
   buyingPreferences: string;
+  buyingWineType: string;
+  buyingRegion: string;
+  buyingUseTasteProfile: boolean;
   buyingNeededBy: "today" | "tomorrow" | "can_wait";
   buyingLocation: string;
   buyingMinPrice: string;
@@ -42,6 +46,9 @@ type BuyingAdviceViewProps = {
   setBuyingPurpose: (value: "drink_now" | "cellar" | "pairing") => void;
   setBuyingPairingWith: (value: string) => void;
   setBuyingPreferences: (value: string) => void;
+  setBuyingWineType: (value: string) => void;
+  setBuyingRegion: (value: string) => void;
+  setBuyingUseTasteProfile: (value: boolean) => void;
   setBuyingNeededBy: (value: "today" | "tomorrow" | "can_wait") => void;
   setBuyingLocation: (value: string) => void;
   setBuyingMinPrice: (value: string) => void;
@@ -56,6 +63,9 @@ export default function BuyingAdviceView({
   buyingPurpose,
   buyingPairingWith,
   buyingPreferences,
+  buyingWineType,
+  buyingRegion,
+  buyingUseTasteProfile,
   buyingNeededBy,
   buyingLocation,
   buyingMinPrice,
@@ -66,6 +76,9 @@ export default function BuyingAdviceView({
   setBuyingPurpose,
   setBuyingPairingWith,
   setBuyingPreferences,
+  setBuyingWineType,
+  setBuyingRegion,
+  setBuyingUseTasteProfile,
   setBuyingNeededBy,
   setBuyingLocation,
   setBuyingMinPrice,
@@ -89,7 +102,7 @@ export default function BuyingAdviceView({
         <div className="buying-advice-heading">
           <div>
             <span>{locale === "it" ? "Ricerca live" : "Live search"}</span>
-            <h2>{locale === "it" ? "Cosa dovrei acquistare?" : "What should I buy?"}</h2>
+            <h2>{locale === "it" ? "Sommelier acquisti" : "AI buying sommelier"}</h2>
           </div>
           {buyingAdviceResult?.estimated_cost_usd ? <small>{t("aiRequestCost")}: {formatAiBudget(buyingAdviceResult.estimated_cost_usd)}<br />{buyingAdviceResult.model} · {t("reasoningEffort")}: {t(reasoningEffortTranslationKey(buyingAdviceResult.reasoning_effort))}</small> : null}
         </div>
@@ -114,6 +127,23 @@ export default function BuyingAdviceView({
             <label>
               <span>{locale === "it" ? "Località" : "Location"}</span>
               <input value={buyingLocation} onChange={(event) => setBuyingLocation(event.target.value)} placeholder={locale === "it" ? "Es. Lugano, Svizzera" : "E.g. Lugano, Switzerland"} disabled={!canGenerateAi || busy} />
+            </label>
+            <label>
+              <span>{locale === "it" ? "Tipologia" : "Wine type"}</span>
+              <select value={buyingWineType} onChange={(event) => setBuyingWineType(event.target.value)} disabled={!canGenerateAi || busy}>
+                <option value="">{locale === "it" ? "Qualsiasi tipologia" : "Any type"}</option>
+                <option value="Red">{locale === "it" ? "Rosso" : "Red"}</option>
+                <option value="White">{locale === "it" ? "Bianco" : "White"}</option>
+                <option value="Rose">Rosé</option>
+                <option value="Sparkling">{locale === "it" ? "Spumante" : "Sparkling"}</option>
+                <option value="Sweet">{locale === "it" ? "Dolce" : "Sweet"}</option>
+                <option value="Fortified">{locale === "it" ? "Fortificato" : "Fortified"}</option>
+                <option value="Other">{locale === "it" ? "Altro" : "Other"}</option>
+              </select>
+            </label>
+            <label>
+              <span>{locale === "it" ? "Regione o denominazione" : "Region or appellation"}</span>
+              <input value={buyingRegion} onChange={(event) => setBuyingRegion(event.target.value)} placeholder={locale === "it" ? "Es. Ticino, Piemonte, Champagne" : "E.g. Ticino, Piedmont, Champagne"} disabled={!canGenerateAi || busy} />
             </label>
             <div className="buying-price-range">
               <div className="buying-price-range-heading">
@@ -164,6 +194,10 @@ export default function BuyingAdviceView({
             <span>{locale === "it" ? "Altri criteri" : "Other criteria"}</span>
             <textarea rows={2} value={buyingPreferences} onChange={(event) => setBuyingPreferences(event.target.value)} placeholder={locale === "it" ? "Es. rosso, Piemonte, poco legno, regalo..." : "E.g. red, Piedmont, low oak, gift..."} disabled={!canGenerateAi || busy} />
           </label>
+          <label className="pairing-option">
+            <input type="checkbox" checked={buyingUseTasteProfile} onChange={(event) => setBuyingUseTasteProfile(event.target.checked)} disabled={!canGenerateAi || busy} />
+            <span>{locale === "it" ? "Considera il mio profilo di gusto" : "Consider my taste profile"}</span>
+          </label>
           <small>{buyingNeededBy === "can_wait"
             ? (locale === "it" ? "La ricerca considera anche rivenditori online che consegnano nella tua zona." : "The search also considers online retailers delivering to your area.")
             : (locale === "it" ? "La ricerca privilegia negozi locali e ritiro, verificando la disponibilità pubblicata." : "The search prioritizes local shops and pickup, checking published availability.")}</small>
@@ -173,6 +207,13 @@ export default function BuyingAdviceView({
         </form>
         {buyingAdviceResult ? (
           <div className="buying-advice-result">
+            <div className="buying-recommendation-badges">
+              <span>
+                {buyingAdviceResult.profile_applied
+                  ? (locale === "it" ? "Profilo personale considerato" : "Personal taste profile applied")
+                  : (locale === "it" ? "Consiglio indipendente dal profilo personale" : "Advice independent of your personal profile")}
+              </span>
+            </div>
             <p className="pairing-summary">{buyingAdviceResult.summary}</p>
             {buyingAdviceResult.warning ? <p className="buying-advice-warning">{buyingAdviceResult.warning}</p> : null}
             <div className="buying-recommendation-grid">

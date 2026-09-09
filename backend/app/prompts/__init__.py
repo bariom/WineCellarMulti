@@ -3,6 +3,7 @@
 from app.prompts.library import (
     Prompt,
     ai_notes_prompt,
+    buying_advice_prompt,
     cellar_command_prompt,
     cellar_intelligence_plan_prompt,
     drink_window_prompt,
@@ -14,6 +15,7 @@ from app.prompts.library import (
     wine_value_prompt,
     wine_vineyard_location_prompt,
     wishlist_advice_prompt,
+    wishlist_portfolio_strategy_prompt,
     wishlist_purpose_prompt,
     wishlist_value_prompt,
 )
@@ -21,6 +23,7 @@ from app.prompts.library import (
 __all__ = [
     "Prompt",
     "ai_notes_prompt",
+    "buying_advice_prompt",
     "cellar_command_prompt",
     "cellar_intelligence_plan_prompt",
     "drink_window_prompt",
@@ -32,6 +35,7 @@ __all__ = [
     "wine_sensory_metadata_prompt",
     "wine_vineyard_location_prompt",
     "wishlist_advice_prompt",
+    "wishlist_portfolio_strategy_prompt",
     "wishlist_purpose_prompt",
     "wishlist_value_prompt",
 ]

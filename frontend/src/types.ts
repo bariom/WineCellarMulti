@@ -837,6 +837,7 @@ export type PairingResult = {
 export type BuyingAdviceResult = {
   summary: string;
   warning: string;
+  profile_applied: boolean;
   model: string;
   reasoning_effort: string;
   recommendations: Array<{
@@ -881,6 +882,7 @@ export type WishlistPortfolioStrategy = {
   item_count: number;
   generated_at: string | null;
   estimated_cost_usd: string;
+  profile_applied: boolean;
   stale?: boolean;
 };
 

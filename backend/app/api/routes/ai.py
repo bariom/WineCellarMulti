@@ -55,6 +55,7 @@ from app.models import (
 )
 from app.prompts import (
     ai_notes_prompt,
+    buying_advice_prompt,
     cellar_command_prompt,
     cellar_intelligence_plan_prompt,
     drink_window_prompt,
@@ -63,6 +64,7 @@ from app.prompts import (
     wine_scores_prompt,
     wine_value_prompt,
     wishlist_advice_prompt,
+    wishlist_portfolio_strategy_prompt,
     wishlist_purpose_prompt,
     wishlist_value_prompt,
 )
@@ -3994,6 +3996,24 @@ def suggest_buying_advice(
         "tomorrow": "available for pickup or delivery no later than tomorrow",
         "can_wait": "delivery can take several days",
     }
+    taste_context = (
+        compact_taste_context(db, context.user.id, category=payload.wine_type or None)
+        if payload.use_taste_profile
+        else {}
+    )
+    prompt = buying_advice_prompt(
+        locale=payload.locale,
+        purpose=purpose_labels[payload.purpose],
+        pairing_with=payload.pairing_with.strip(),
+        preferences=payload.preferences.strip(),
+        needed_by=deadline_labels[payload.needed_by],
+        location=payload.location.strip(),
+        min_price=(f"CHF {payload.min_price_chf}" if payload.min_price_chf is not None else "none"),
+        max_price=(f"CHF {payload.max_price_chf}" if payload.max_price_chf is not None else "none"),
+        wine_type=payload.wine_type.strip(),
+        region=payload.region.strip(),
+        taste_context=taste_context,
+    )
     schema = {
         "name": "wine_buying_advice",
         "schema": {
@@ -4049,34 +4069,8 @@ def suggest_buying_advice(
         user_settings,
         model=request_model(payload, user_settings.pairing_model),
         task_type="buying_advice",
-        system_prompt=(
-            "You are a pragmatic wine purchasing advisor with live web search. Return JSON only. "
-            "Every recommendation must correspond to a concrete retailer product page found during this search. "
-            "Never invent stock, pickup availability, delivery dates, prices, merchants, or URLs. "
-            "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
-            "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
-            "Local refers to the retailer's location, not the wine's origin: offer stylistically relevant wines from varied regions unless the user asks for a specific origin. "
-            "Diversify merchants. Do not return a list dominated by one retailer; Coop/Mondovino is a fallback only and at most one Coop recommendation is allowed. Prefer independent wine shops when their stock can be verified. "
-            "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
-            "Do not use Smood: it is no longer an active retailer or delivery channel and must never be recommended, even when stale Smood pages appear in search results. "
-            "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            f"Purchase purpose: {purpose_labels[payload.purpose]}\n"
-            f"Pairing food: {payload.pairing_with.strip() or 'none'}\n"
-            f"Additional preferences: {payload.preferences.strip() or 'none'}\n"
-            f"Need: {deadline_labels[payload.needed_by]}\n"
-            f"Buyer location: {payload.location.strip()}\n"
-            f"Minimum price per bottle: {f'CHF {payload.min_price_chf}' if payload.min_price_chf is not None else 'none'}\n"
-            f"Maximum price per bottle: {f'CHF {payload.max_price_chf}' if payload.max_price_chf is not None else 'none'}\n\n"
-            "Return up to 6 ranked options. For drink_now, favor wines already in a suitable drinking window. "
-            "For cellar, favor age-worthy wines and explain the expected holding rationale. For pairing, optimize for the named food. "
-            "For today/tomorrow, set local=true only for a physical shop plausibly reachable from the stated location and use merchant_type=local_shop. "
-            "Use the exact product-page URL, not a search page or merchant homepage. Return the exact listed price when available, not a vague range. "
-            "Set vintage to an empty string unless that exact vintage is clearly stated on the product page; never write a status such as 'not confirmed from page' in the vintage field. "
-            "Put any uncertainty in availability and warning."
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
         web_search=True,
         web_search_use_default_location=False,
@@ -4114,6 +4108,7 @@ def suggest_buying_advice(
         reasoning_effort=response.reasoning_effort or "",
         recommendations=recommendations,
         estimated_cost_usd=charged_cost,
+        profile_applied=bool(taste_context),
     )
     record_ai_audit(
         db,
@@ -5541,6 +5536,13 @@ def generate_wishlist_portfolio_strategy(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wishlist is empty"
         )
+    taste_context = compact_taste_context(db, context.user.id) if payload.use_taste_profile else {}
+    prompt = wishlist_portfolio_strategy_prompt(
+        locale=payload.locale,
+        wishlist_name=wishlist_list.name,
+        wishlist_context=wishlist_portfolio_context(items, context.household.name),
+        taste_context=taste_context,
+    )
     schema = {
         "name": "wishlist_portfolio_strategy",
         "schema": {
@@ -5562,35 +5564,18 @@ def generate_wishlist_portfolio_strategy(
         user_settings,
         model=request_model(payload, user_settings.wishlist_model),
         task_type="portfolio_strategy",
-        system_prompt=(
-            "You are a disciplined private wine buying advisor working at the portfolio level. Return JSON only. "
-            "You are advising a serious collector, not a casual shopper. "
-            "Be concrete, concise, and decision-oriented. "
-            "Assume capital is finite and the collector wants to prioritize well. "
-            "Use the actual wine names when useful. Do not invent missing facts; acknowledge uncertainty briefly when necessary. "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            f"Build a practical buying strategy for this wishlist portfolio named '{wishlist_list.name}'.\n\n"
-            "Return:\n"
-            "- overview: short summary of the current wishlist posture and what stands out\n"
-            "- buy_now: which items deserve priority now and why\n"
-            "- wait_watch: which items should be monitored, repriced, or deferred\n"
-            "- allocation: how the collector should think about capital allocation across the wishlist\n"
-            "- next_step: one concise operational next step\n\n"
-            f"{wishlist_portfolio_context(items, context.household.name)}"
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
+        web_search=True,
+        web_search_use_default_location=False,
+        web_search_context_size="low",
+        reasoning_effort="low",
+        max_output_tokens=4000,
+        max_tool_calls=6,
     )
     result = parse_json_response(response.text)
-    charged_cost = billable_cost_usd(
-        user_is_app_admin=context.user.is_app_admin,
-        user_has_active_entitlement=context.has_active_entitlement,
-        provider_source=provider_source,
-        model=effective_response_model(response, user_settings.wishlist_model),
-        usage=response.usage,
-        db=db,
-    )
+    charged_cost = response.charged_cost_usd
     strategy_response = WishlistPortfolioStrategyResponse(
         model=effective_response_model(response, user_settings.wishlist_model),
         reasoning_effort=response.reasoning_effort or "",
@@ -5604,6 +5589,7 @@ def generate_wishlist_portfolio_strategy(
         item_count=len(items),
         generated_at=datetime.now(UTC),
         estimated_cost_usd=charged_cost,
+        profile_applied=bool(taste_context),
     )
     wishlist_list.portfolio_strategy = strategy_response.model_dump(mode="json")
     record_ai_audit(
@@ -5626,10 +5612,13 @@ def generate_wishlist_portfolio_strategy(
                 "wishlist_list_id": str(wishlist_list.id),
                 "wishlist_list_name": wishlist_list.name,
                 "item_count": len(items),
+                "profile_applied": strategy_response.profile_applied,
             },
-        ],
+        ]
+        + web_search_source_entries(response.web_sources),
         usage=response.usage,
         provider_source=provider_source,
+        extra_cost_usd=web_search_tool_cost_usd(response.web_search_calls),
     )
     db.commit()
     return strategy_response

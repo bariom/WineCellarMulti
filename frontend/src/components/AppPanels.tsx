@@ -258,6 +258,7 @@ export function auditWishlistPortfolioStrategy(entry: AiAuditLog): WishlistPortf
     item_count: rawNumber(strategyEntry.item_count),
     generated_at: rawNullableString(entry.created_at),
     estimated_cost_usd: rawString(entry.estimated_cost_usd),
+    profile_applied: strategyEntry.profile_applied === true,
   };
 }
 
@@ -1868,6 +1869,8 @@ export function WishlistPortfolioStrategyPanel({
   onGenerate,
   open,
   onToggle,
+  useTasteProfile,
+  onUseTasteProfileChange,
   t,
 }: {
   strategy: WishlistPortfolioStrategy | null;
@@ -1876,6 +1879,8 @@ export function WishlistPortfolioStrategyPanel({
   onGenerate: () => void;
   open: boolean;
   onToggle: (open: boolean) => void;
+  useTasteProfile: boolean;
+  onUseTasteProfileChange: (value: boolean) => void;
   t: (key: TranslationKey) => string;
 }) {
   const generatedAtLabel = strategy?.generated_at ? `${t("generatedAt")} ${formatDisplayDate(strategy.generated_at)}` : "";
@@ -1912,6 +1917,20 @@ export function WishlistPortfolioStrategyPanel({
           </button>
         </div>
       </summary>
+      <label className="pairing-option">
+        <input
+          type="checkbox"
+          checked={useTasteProfile}
+          onChange={(event) => onUseTasteProfileChange(event.target.checked)}
+          disabled={!canGenerate || generating}
+        />
+        <span>{t("wishlistUseTasteProfile")}</span>
+      </label>
+      {strategy ? (
+        <small className="wishlist-strategy-profile-status">
+          {t(strategy.profile_applied ? "wishlistTasteProfileApplied" : "wishlistTasteProfileNotApplied")}
+        </small>
+      ) : null}
       {generating ? <LoadingState label={t("generating")} compact /> : null}
       {strategy ? (
         <>

@@ -378,7 +378,7 @@ export default function PairingView({
               </button>
             </div> : null}
             {!isWineFirstPairing ? <label className="pairing-option">
-              <input type="checkbox" checked={pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
+              <input type="checkbox" checked={!pairingIgnorePreferences} onChange={(event) => setPairingIgnorePreferences(!event.target.checked)} disabled={!canGenerateAi || generatingAi === "pairing"} />
               <span>{t("pairingIgnorePreferences")}</span>
             </label> : null}
             {!isWineFirstPairing ? <label className="pairing-option">

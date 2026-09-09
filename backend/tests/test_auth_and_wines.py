@@ -7011,6 +7011,16 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
     assert second.status_code == 201
     assert first.json()["investment_amount"] == "500.00"
 
+    monkeypatch.setattr(
+        ai_routes,
+        "compact_taste_context",
+        lambda *args, **kwargs: {
+            "category": "global",
+            "confidence": 0.8,
+            "dimensions": {"body": 74},
+        },
+    )
+
     def fake_create_response(*args, **kwargs):
         prompt = args[2]
         assert "Wishlist portfolio" in prompt
@@ -7019,6 +7029,10 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
         assert "Declared investment capital: CHF 500.00" in prompt
         assert "Investment budget: CHF 500.00" in prompt
         assert kwargs["json_schema"]["name"] == "wishlist_portfolio_strategy"
+        assert kwargs["web_search"] is True
+        assert kwargs["web_search_context_size"] == "low"
+        assert kwargs["max_tool_calls"] == 6
+        assert '"body":74' in prompt
         return OpenAIResponse(
             text=(
                 '{"overview":"La wishlist è concentrata su pochi acquisti forti e leggibili.",'
@@ -7035,6 +7049,7 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
     strategy = client.post("/api/v1/ai/wishlist/portfolio-strategy")
     assert strategy.status_code == 200
     assert strategy.json()["model"] == "gpt-5.5"
+    assert strategy.json()["profile_applied"] is True
     assert "Tignanello" in strategy.json()["buy_now"]
 
     audit = client.get("/api/v1/ai/audit")
@@ -7661,6 +7676,9 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
         assert "available for pickup or delivery today" in args[2]
         assert "Buyer location: Lugano, Svizzera" in args[2]
         assert "CHF 75" in args[2]
+        assert "Wine type: Red" in args[2]
+        assert "Requested region or appellation: Ticino" in args[2]
+        assert '"body":72' in args[2]
         return OpenAIResponse(
             text=(
                 '{"summary":"Una proposta locale pronta da bere.","warning":"Confermare il ritiro.",'
@@ -7680,6 +7698,15 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    monkeypatch.setattr(
+        ai_routes,
+        "compact_taste_context",
+        lambda *args, **kwargs: {
+            "category": "Red",
+            "confidence": 0.75,
+            "dimensions": {"body": 72},
+        },
+    )
     response = client.post(
         "/api/v1/ai/buying-advice",
         json={
@@ -7687,11 +7714,15 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
             "needed_by": "today",
             "location": "Lugano, Svizzera",
             "max_price_chf": 75,
+            "wine_type": "Red",
+            "region": "Ticino",
+            "use_taste_profile": True,
         },
     )
     assert response.status_code == 200
     body = response.json()
     assert body["model"] == "gpt-5.5"
+    assert body["profile_applied"] is True
     assert len(body["recommendations"]) == 1
     assert body["recommendations"][0]["merchant"] == "Enoteca Lugano"
     assert body["recommendations"][0]["local"] is True

@@ -225,6 +225,7 @@ class WineLabelEnrichmentResponse(BaseModel):
 
 class WishlistPortfolioStrategyRequest(AiGenerationRequest):
     wishlist_list_id: UUID | None = None
+    use_taste_profile: bool = True
 
 
 class RegionalGapCurrentAllocation(BaseModel):
@@ -317,6 +318,9 @@ class BuyingAdviceRequest(AiGenerationRequest):
     purpose: str = Field(pattern="^(drink_now|cellar|pairing)$")
     pairing_with: str = Field(default="", max_length=240)
     preferences: str = Field(default="", max_length=600)
+    wine_type: Literal["", "Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other"] = ""
+    region: str = Field(default="", max_length=160)
+    use_taste_profile: bool = True
     needed_by: str = Field(pattern="^(today|tomorrow|can_wait)$")
     location: str = Field(min_length=2, max_length=160)
     min_price_chf: Decimal | None = Field(default=None, gt=0, le=100000)
@@ -345,6 +349,7 @@ class BuyingAdviceResponse(BaseModel):
     reasoning_effort: str = ""
     recommendations: list[BuyingRecommendation] = Field(default_factory=list)
     warning: str = ""
+    profile_applied: bool = False
     estimated_cost_usd: Decimal = Decimal("0")
 
 
@@ -376,6 +381,7 @@ class WishlistPortfolioStrategyResponse(BaseModel):
     item_count: int = 0
     generated_at: datetime | None = None
     estimated_cost_usd: Decimal
+    profile_applied: bool = False
     stale: bool = False
 
 

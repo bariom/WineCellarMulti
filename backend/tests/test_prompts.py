@@ -1,12 +1,79 @@
 from app.prompts import (
     ai_notes_prompt,
+    buying_advice_prompt,
     cellar_command_prompt,
     cellar_intelligence_plan_prompt,
     grape_composition_prompt,
     wine_value_prompt,
     wine_vineyard_location_prompt,
+    wishlist_portfolio_strategy_prompt,
     wishlist_value_prompt,
 )
+
+
+def test_buying_advice_prompt_applies_profile_without_overriding_filters():
+    prompt = buying_advice_prompt(
+        locale="it",
+        purpose="drink immediately",
+        pairing_with="risotto",
+        preferences="poco legno",
+        needed_by="delivery can take several days",
+        location="Lugano",
+        min_price="CHF 20",
+        max_price="CHF 60",
+        wine_type="White",
+        region="Ticino",
+        taste_context={"category": "White", "confidence": 0.8, "dimensions": {"acidity": 74}},
+    )
+
+    assert (prompt.id, prompt.version) == ("sommelier.buying_advice", "1")
+    assert "Italian" in prompt.system
+    assert "must never override budget" in prompt.system
+    assert "Wine type: White" in prompt.user
+    assert "Requested region or appellation: Ticino" in prompt.user
+    assert '"acidity":74' in prompt.user
+
+
+def test_buying_advice_prompt_can_exclude_personal_profile():
+    prompt = buying_advice_prompt(
+        locale="en",
+        purpose="hold in the cellar",
+        pairing_with="",
+        preferences="",
+        needed_by="delivery can take several days",
+        location="Zurich",
+        min_price="none",
+        max_price="none",
+        wine_type="",
+        region="",
+        taste_context={},
+    )
+
+    assert "Personal taste profile: not used" in prompt.user
+
+
+def test_wishlist_portfolio_prompt_balances_taste_quality_and_value():
+    prompt = wishlist_portfolio_strategy_prompt(
+        locale="it",
+        wishlist_name="Da acquistare",
+        wishlist_context="Wishlist portfolio:\n1. Sassicaia 2021",
+        taste_context={"category": "global", "confidence": 0.7, "dimensions": {"body": 76}},
+    )
+
+    assert (prompt.id, prompt.version) == ("wishlist.portfolio_buying_strategy", "1")
+    assert "Italian" in prompt.system
+    assert "personal taste fit, wine quality, price/value" in prompt.system
+    assert "Never invent ratings" in prompt.system
+    assert '"body":76' in prompt.user
+    assert "Sassicaia 2021" in prompt.user
+
+    without_profile = wishlist_portfolio_strategy_prompt(
+        locale="en",
+        wishlist_name="Candidates",
+        wishlist_context="Wishlist portfolio:\n1. Example wine",
+        taste_context={},
+    )
+    assert "Personal taste profile: not used" in without_profile.user
 
 
 def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():

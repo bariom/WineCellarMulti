@@ -5,6 +5,7 @@ deterministic, reviewed, and versioned so audit logs and test cases can be
 related to the behavior that produced them.
 """
 
+import json
 from dataclasses import dataclass
 
 
@@ -23,6 +24,64 @@ def language_instruction(locale: str) -> str:
     return (
         f"Write all user-facing prose in {language}. "
         "Keep structured status/priority labels concise and localized when natural."
+    )
+
+
+def buying_advice_prompt(
+    *,
+    locale: str,
+    purpose: str,
+    pairing_with: str,
+    preferences: str,
+    needed_by: str,
+    location: str,
+    min_price: str,
+    max_price: str,
+    wine_type: str,
+    region: str,
+    taste_context: dict,
+) -> Prompt:
+    profile_context = (
+        json.dumps(taste_context, ensure_ascii=False, separators=(",", ":"))
+        if taste_context
+        else "not used"
+    )
+    return Prompt(
+        id="sommelier.buying_advice",
+        version="1",
+        system=(
+            "You are a pragmatic wine purchasing advisor with live web search. Return JSON only. "
+            "Every recommendation must correspond to a concrete retailer product page found during this search. "
+            "Never invent stock, pickup availability, delivery dates, prices, merchants, or URLs. "
+            "Treat stock and delivery claims as verified only when the retailer page explicitly supports them; otherwise say that confirmation with the shop is required. "
+            "For today or tomorrow, strongly prioritize nearby physical retailers and pickup over online shipping. "
+            "Local refers to the retailer's location, not the wine's origin: offer stylistically relevant wines from varied regions unless the user asks for a specific origin. "
+            "Diversify merchants. Do not return a list dominated by one retailer; Coop/Mondovino is a fallback only and at most one Coop recommendation is allowed. Prefer independent wine shops when their stock can be verified. "
+            "For a flexible deadline, consider reputable online retailers serving the user's location, including ARVI, Bindella, or better alternatives when actually relevant. "
+            "Do not use Smood: it is no longer an active retailer or delivery channel and must never be recommended, even when stale Smood pages appear in search results. "
+            "If the deadline cannot be supported by verified evidence, return fewer recommendations and explain the limitation in warning. "
+            "The personal taste profile is a ranking signal only: it must never override budget, wine type, origin, deadline, pairing, or other explicit user constraints. "
+            f"{language_instruction(locale)}"
+        ),
+        user=(
+            f"Purchase purpose: {purpose}\n"
+            f"Pairing food: {pairing_with or 'none'}\n"
+            f"Wine type: {wine_type or 'any'}\n"
+            f"Requested region or appellation: {region or 'any'}\n"
+            f"Additional preferences: {preferences or 'none'}\n"
+            f"Need: {needed_by}\n"
+            f"Buyer location: {location}\n"
+            f"Minimum price per bottle: {min_price}\n"
+            f"Maximum price per bottle: {max_price}\n"
+            f"Personal taste profile: {profile_context}\n\n"
+            "Return up to 6 ranked options. For drink_now, favor wines already in a suitable drinking window. "
+            "For cellar, favor age-worthy wines and explain the expected holding rationale. For pairing, optimize for the named food. "
+            "When a personal taste profile is supplied, use its sensory dimensions and confidence to rank otherwise valid options and explain the fit without presenting inferred preferences as facts. "
+            "For today/tomorrow, set local=true only for a physical shop plausibly reachable from the stated location and use merchant_type=local_shop. "
+            "Use the exact product-page URL, not a search page or merchant homepage. Return the exact listed price when available, not a vague range. "
+            "Set vintage to an empty string unless that exact vintage is clearly stated on the product page; never write a status such as 'not confirmed from page' in the vintage field. "
+            "Put any uncertainty in availability and warning."
+        ),
     )
 
 
@@ -365,6 +424,45 @@ def wishlist_advice_prompt(*, locale: str, wishlist_context: str) -> Prompt:
             f"{language_instruction(locale)}"
         ),
         user=f"Advise whether and how to buy this wishlist wine.\n\n{wishlist_context}",
+    )
+
+
+def wishlist_portfolio_strategy_prompt(
+    *,
+    locale: str,
+    wishlist_name: str,
+    wishlist_context: str,
+    taste_context: dict,
+) -> Prompt:
+    profile_context = (
+        json.dumps(taste_context, ensure_ascii=False, separators=(",", ":"))
+        if taste_context
+        else "not used"
+    )
+    return Prompt(
+        id="wishlist.portfolio_buying_strategy",
+        version="1",
+        system=(
+            "You are a disciplined private wine buying advisor working at the portfolio level. Return JSON only. "
+            "You are advising a serious collector, not a casual shopper. Be concrete, concise, and decision-oriented. "
+            "Rank only wines present in the supplied wishlist. Balance personal taste fit, wine quality, price/value, intended purpose, and purchase urgency. "
+            "Use live web search to verify quality signals for the strongest candidates, preferring producer technical sheets and established professional critics. "
+            "Never invent ratings, awards, vintages, prices, or sources. Missing quality evidence means unknown quality, not poor quality. "
+            "The personal taste profile is a ranking signal, not an objective quality score, and must not override explicit price, purpose, or status constraints. "
+            f"{language_instruction(locale)}"
+        ),
+        user=(
+            f"Build a practical buying strategy for this wishlist portfolio named '{wishlist_name}'.\n"
+            f"Personal taste profile: {profile_context}\n\n"
+            "Return:\n"
+            "- overview: short summary of the current wishlist posture and what stands out\n"
+            "- buy_now: a ranked shortlist naming which items deserve priority now; explain taste fit, verified quality evidence, and value separately\n"
+            "- wait_watch: which items should be monitored, repriced, or deferred\n"
+            "- allocation: how the collector should think about capital allocation across the wishlist\n"
+            "- next_step: one concise operational next step\n\n"
+            "When the profile is not used, rank independently of personal taste. If credible quality evidence cannot be verified, state that limitation instead of guessing.\n\n"
+            f"{wishlist_context}"
+        ),
     )
 
 
