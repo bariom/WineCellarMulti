@@ -303,7 +303,7 @@ def test_ai_metadata_search_uses_a_small_single_search_budget(monkeypatch) -> No
     assert metadata["type"] == "Red"
     assert request_options["web_search_context_size"] == "low"
     assert request_options["max_tool_calls"] == 1
-    assert request_options["max_output_tokens"] == 250
+    assert request_options["max_output_tokens"] == 800
     assert request_options["web_search_use_default_location"] is False
 
 
