@@ -26238,16 +26238,74 @@ body,
 }
 
 .taste-profile-sample-seal span {
-  margin-top: 5px;
+  margin-top: 4px;
   color: var(--text);
   font-size: 0.73rem;
   font-weight: 720;
 }
 
 .taste-profile-sample-seal small {
-  margin-top: 4px;
+  margin-top: 3px;
   color: var(--text-muted);
-  font-size: 0.68rem;
+  font-size: 0.62rem;
+  line-height: 1.15;
+}
+
+.taste-profile-sample-seal em {
+  margin-top: 3px;
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-style: normal;
+  line-height: 1.1;
+}
+
+.taste-profile-evidence-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(82px, 1fr));
+  align-self: stretch;
+  min-width: 210px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--accent) 54%, var(--border));
+  border-radius: 15px;
+  background: color-mix(in srgb, var(--surface) 72%, var(--accent));
+}
+
+.taste-profile-evidence-summary > div {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 13px 12px;
+}
+
+.taste-profile-evidence-summary > div + div {
+  border-left: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
+.taste-profile-evidence-summary strong {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.65rem;
+  line-height: 1;
+}
+
+.taste-profile-evidence-summary span {
+  color: var(--text-muted);
+  font-size: 0.67rem;
+  font-weight: 720;
+  line-height: 1.25;
+}
+
+.taste-profile-evidence-summary > small {
+  grid-column: 1 / -1;
+  padding: 7px 12px;
+  border-top: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+  color: color-mix(in srgb, var(--primary) 78%, var(--text));
+  font-size: 0.64rem;
+  font-weight: 760;
+  letter-spacing: 0.035em;
+  text-align: center;
+  text-transform: uppercase;
 }
 
 .taste-profile-sensory-signature,
@@ -26424,9 +26482,20 @@ body,
 
   .taste-profile-sample-seal {
     justify-self: start;
-    width: 104px;
-    min-width: 104px;
-    min-height: 104px;
+    width: 98px;
+    min-width: 98px;
+    min-height: 98px;
+    padding: 12px;
+  }
+
+  .taste-profile-sample-seal strong { font-size: 1.85rem; }
+  .taste-profile-sample-seal span { font-size: 0.66rem; }
+  .taste-profile-sample-seal small { font-size: 0.56rem; }
+  .taste-profile-sample-seal em { font-size: 0.52rem; }
+
+  .taste-profile-evidence-summary {
+    justify-self: stretch;
+    min-width: 0;
   }
 
   .taste-profile-meter-list,
@@ -26694,6 +26763,125 @@ body,
   border-left: 3px solid color-mix(in srgb, var(--accent) 58%, var(--border));
   border-radius: 0 10px 10px 0;
   background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface));
+}
+
+.taste-profile-existing-visuals {
+  display: grid;
+  gap: 16px;
+}
+
+.taste-profile-radar-wrap,
+.taste-profile-world-map {
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--border) 74%, var(--accent));
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 86% 12%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 31%),
+    color-mix(in srgb, var(--surface-muted) 54%, var(--surface));
+}
+
+.taste-profile-radar-wrap {
+  grid-template-columns: minmax(190px, 0.82fr) minmax(250px, 1.18fr);
+  align-items: center;
+  gap: 18px;
+  min-height: 290px;
+  padding: 22px 24px;
+  background:
+    linear-gradient(115deg, color-mix(in srgb, var(--surface-muted) 72%, var(--surface)) 0 42%, transparent 42%),
+    radial-gradient(circle at 84% 22%, color-mix(in srgb, var(--accent) 16%, transparent), transparent 38%),
+    var(--surface);
+}
+
+.taste-profile-existing-visuals header {
+  display: grid;
+  gap: 3px;
+  margin-bottom: 10px;
+}
+
+.taste-profile-radar-wrap > header {
+  align-self: stretch;
+  align-content: center;
+  margin: 0;
+  padding-right: 4px;
+}
+
+.taste-profile-existing-visuals header > span {
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  font-size: 0.66rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.taste-profile-existing-visuals header > strong {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+}
+
+.taste-profile-existing-visuals header > small {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.taste-profile-radar-wrap .regional-radar {
+  display: block;
+  width: min(100%, 300px);
+  margin: 0 auto;
+}
+
+.taste-profile-signature-values {
+  display: grid;
+  gap: 7px;
+  margin-top: 14px;
+}
+
+.taste-profile-signature-values > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 64%, transparent);
+}
+
+.taste-profile-signature-values > div > span {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 760;
+  letter-spacing: 0.045em;
+  text-transform: uppercase;
+}
+
+.taste-profile-signature-values > div > strong {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+}
+
+.taste-profile-signature-values > div > strong small {
+  margin-left: 1px;
+  color: var(--text-muted);
+  font-size: 0.6em;
+}
+
+.taste-profile-world-map .wine-geography-leaflet {
+  height: 250px;
+  border-radius: 13px;
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--collector-depth) 17%, transparent);
+}
+
+.taste-profile-world-map .wine-geography-map { gap: 7px; }
+.taste-profile-world-map .wine-geography-map > p { font-size: 0.7rem; }
+
+@media (max-width: 620px) {
+  .taste-profile-radar-wrap,
+  .taste-profile-world-map { padding: 13px; border-radius: 15px; }
+  .taste-profile-radar-wrap { grid-template-columns: 1fr; gap: 8px; min-height: 0; background: color-mix(in srgb, var(--surface-muted) 54%, var(--surface)); }
+  .taste-profile-radar-wrap > header { padding: 4px 4px 0; }
+  .taste-profile-signature-values { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+  .taste-profile-radar-wrap .regional-radar { width: min(100%, 270px); }
+  .taste-profile-world-map .wine-geography-leaflet { height: 225px; }
 }
 
 @media (max-width: 720px) {

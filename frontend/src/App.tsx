@@ -10869,7 +10869,7 @@ export function App() {
               {dashboardFocus === "taste" ? (
                 <DashboardCarousel label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
-                    <TasteProfilePanel locale={locale} variant="insight" />
+                    <TasteProfilePanel locale={locale} variant="insight" wines={wines} />
                     <TasteProfileExplanation locale={locale} />
                   </Suspense>
                 </DashboardCarousel>

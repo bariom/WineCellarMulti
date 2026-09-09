@@ -1407,6 +1407,8 @@ export type TasteProfile = {
   attributes: Record<string, Array<[string, number]>>;
   confidence: number;
   sample_count: number;
+  tasting_count?: number;
+  star_rating_count?: number;
   confidence_level: "emerging" | "probable" | "established";
 };
 

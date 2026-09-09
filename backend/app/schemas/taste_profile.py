@@ -22,6 +22,8 @@ class TasteProfileResponse(BaseModel):
     attributes: dict[str, list[list[object]]] = Field(default_factory=dict)
     confidence: float
     sample_count: int
+    tasting_count: int
+    star_rating_count: int
     confidence_level: str
     rebuilt_at: datetime
 

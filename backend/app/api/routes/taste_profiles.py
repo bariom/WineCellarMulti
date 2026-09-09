@@ -61,13 +61,29 @@ from app.services.taste_profiles import (
 router = APIRouter(prefix="/taste-profile")
 
 
-def profile_response(profile: UserTasteProfile) -> TasteProfileResponse:
+def household_star_rating_count(db: Session, context: CurrentContext) -> int:
+    return int(
+        db.scalar(
+            select(func.count(Wine.id)).where(
+                Wine.household_id == context.household.id,
+                Wine.rating > 0,
+            )
+        )
+        or 0
+    )
+
+
+def profile_response(
+    profile: UserTasteProfile, *, star_rating_count: int = 0
+) -> TasteProfileResponse:
     return TasteProfileResponse(
         category=profile.category,
         dimensions=profile.dimensions or {},
         attributes=profile.attributes or {},
         confidence=profile.confidence,
         sample_count=profile.sample_count,
+        tasting_count=profile.sample_count,
+        star_rating_count=star_rating_count,
         confidence_level=confidence_level(profile.confidence),
         rebuilt_at=profile.rebuilt_at,
     )
@@ -110,8 +126,11 @@ def get_my_taste_profile(
     if not profiles:
         profiles = rebuild_user_taste_profile(db, context.user.id)
         db.commit()
+    star_rating_count = household_star_rating_count(db, context)
     return TasteProfileCollectionResponse(
-        profiles=[profile_response(profile) for profile in profiles]
+        profiles=[
+            profile_response(profile, star_rating_count=star_rating_count) for profile in profiles
+        ]
     )
 
 
@@ -121,8 +140,11 @@ def rebuild_my_taste_profile(
 ) -> TasteProfileCollectionResponse:
     profiles = rebuild_user_taste_profile(db, context.user.id)
     db.commit()
+    star_rating_count = household_star_rating_count(db, context)
     return TasteProfileCollectionResponse(
-        profiles=[profile_response(profile) for profile in profiles]
+        profiles=[
+            profile_response(profile, star_rating_count=star_rating_count) for profile in profiles
+        ]
     )
 
 
@@ -143,9 +165,12 @@ def claim_legacy_tastings(
         db, household_id=context.household.id, user_id=context.user.id
     )
     db.commit()
+    star_rating_count = household_star_rating_count(db, context)
     return LegacyTastingClaimResponse(
         claimed_count=claimed_count,
-        profiles=[profile_response(profile) for profile in profiles],
+        profiles=[
+            profile_response(profile, star_rating_count=star_rating_count) for profile in profiles
+        ],
     )
 
 
@@ -157,9 +182,7 @@ def wine_taste_match(
 ) -> TasteMatchResponse:
     wine = get_household_wine(db, context, wine_id)
     has_profile = db.scalar(
-        select(UserTasteProfile.id)
-        .where(UserTasteProfile.user_id == context.user.id)
-        .limit(1)
+        select(UserTasteProfile.id).where(UserTasteProfile.user_id == context.user.id).limit(1)
     )
     if has_profile is None:
         rebuild_user_taste_profile(db, context.user.id)
@@ -315,7 +338,9 @@ def _ai_sensory_metadata(wine: Wine) -> tuple[dict[str, object], str]:
         "appellation": str(result.get("appellation") or "").strip(),
         "grapes": grapes,
         "source_url": source_url,
-        "source_title": str(verified_source.get("title") or result.get("source_title") or "").strip(),
+        "source_title": str(
+            verified_source.get("title") or result.get("source_title") or ""
+        ).strip(),
     }, response.model
 
 
@@ -384,9 +409,15 @@ def _batch_candidates(db: Session) -> list[Wine]:
 def _identity_metadata(identity: SharedWineIdentity) -> Wine:
     """Transient metadata carrier; never insert a fictitious household wine."""
     return Wine(
-        name=identity.name, producer=identity.producer, vintage=identity.vintage,
-        shared_identity_id=identity.id, type="", region="", appellation="",
-        grapes=[], ai_notes="",
+        name=identity.name,
+        producer=identity.producer,
+        vintage=identity.vintage,
+        shared_identity_id=identity.id,
+        type="",
+        region="",
+        appellation="",
+        grapes=[],
+        ai_notes="",
     )
 
 

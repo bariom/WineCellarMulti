@@ -115,6 +115,12 @@
 .vineyard-fullscreen-card > div strong { font-family: var(--font-display); font-size: 1.05rem; }
 .vineyard-fullscreen-card p { margin: 0; color: var(--text-muted); font-size: .78rem; line-height: 1.42; }
 .vineyard-fullscreen-map .leaflet-bottom { bottom: 140px; }
+
+.wine-geography-map-origin-legend { display: flex; align-items: center; gap: 6px; }
+.wine-geography-map-origin-legend i { display: inline-block; width: 10px; height: 10px; margin-left: 6px; border-radius: 50%; }
+.wine-geography-map-origin-legend i.country { border: 2px solid #b58a3a; background: transparent; }
+.wine-geography-map-origin-legend i.region { background: #9b3123; }
+
 @media (max-width: 620px) {
   .vineyard-fullscreen-header { align-items: stretch; }
   .vineyard-fullscreen-header > div { align-self: center; }

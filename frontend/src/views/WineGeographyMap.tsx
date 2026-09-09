@@ -9,7 +9,7 @@ import type { Locale, Wine } from "../types";
 import MapBaseLayers from "../components/MapBaseLayers";
 
 type WineRegionLocation = { latitude: number; longitude: number };
-type WineMapPoint = { label: string; region: string; location: WineRegionLocation; wines: number; bottles: number };
+type WineMapPoint = { label: string; region: string; location: WineRegionLocation; wines: number; bottles: number; originKind?: "country" | "region" };
 
 const DENSITY_RADIUS_KM = 1800;
 
@@ -88,6 +88,15 @@ function wineRegionLocation(wine: Wine) {
       .find((key) => candidate.includes(key));
     return matchingKey ? wineRegionLocations[matchingKey] : null;
   }).find(Boolean) || null;
+}
+
+function originLocation(origin: string) {
+  const candidate = origin.trim().toLocaleLowerCase().replace(/\s+/g, " ");
+  if (wineRegionLocations[candidate]) return wineRegionLocations[candidate];
+  const matchingKey = Object.keys(wineRegionLocations)
+    .sort((first, second) => second.length - first.length)
+    .find((key) => candidate.includes(key));
+  return matchingKey ? wineRegionLocations[matchingKey] : null;
 }
 
 function vineyardMapZoom(wine: Wine) {
@@ -229,9 +238,15 @@ export function VineyardMap({ wine, locale, openRequestId = 0 }: { wine: Wine; l
   );
 }
 
-export default function WineGeographyMap({ wines, t, onSelectRegion, locale }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void; locale: Locale }) {
+export default function WineGeographyMap({ wines, t, onSelectRegion, locale, preferredOrigins = [], preferredOriginKinds = {} }: { wines: Wine[]; t: (key: TranslationKey) => string; onSelectRegion: (region: string) => void; locale: Locale; preferredOrigins?: string[]; preferredOriginKinds?: Record<string, "country" | "region"> }) {
   const markers = new Map<string, WineMapPoint>();
-  wines.forEach((wine) => {
+  if (preferredOrigins.length) preferredOrigins.forEach((origin) => {
+    const location = originLocation(origin);
+    if (!location) return;
+    const key = `${origin}:${location.latitude}:${location.longitude}`;
+    markers.set(key, { label: origin, region: origin, location, wines: 1, bottles: 1, originKind: preferredOriginKinds[origin] });
+  });
+  else wines.forEach((wine) => {
     const location = wineRegionLocation(wine);
     const region = wine.region.trim();
     const label = region || wine.appellation.trim();
@@ -251,15 +266,20 @@ export default function WineGeographyMap({ wines, t, onSelectRegion, locale }: {
         <DensityViewport points={points} />
         <MapBaseLayers locale={locale} />
         {points.map((point) => (
-          <CircleMarker key={`${point.label}:${point.location.latitude}:${point.location.longitude}`} center={[point.location.latitude, point.location.longitude]} radius={Math.min(22, 7 + Math.sqrt(Math.max(point.bottles, 1)) * 2.25)} pathOptions={{ color: "#fff7ef", weight: 2, fillColor: "#9b3123", fillOpacity: 0.84 }} eventHandlers={point.region ? { click: () => onSelectRegion(point.region) } : undefined}>
+          <CircleMarker key={`${point.label}:${point.location.latitude}:${point.location.longitude}`} center={[point.location.latitude, point.location.longitude]} radius={point.originKind === "country" ? 12 : point.originKind === "region" ? 7 : Math.min(22, 7 + Math.sqrt(Math.max(point.bottles, 1)) * 2.25)} pathOptions={point.originKind === "country" ? { color: "#b58a3a", weight: 3, fillColor: "#fff7ef", fillOpacity: 0.25 } : { color: "#fff7ef", weight: 2, fillColor: "#9b3123", fillOpacity: 0.84 }} eventHandlers={point.region ? { click: () => onSelectRegion(point.region) } : undefined}>
             <Tooltip direction="top" offset={[0, -8]} opacity={0.96}>
               <strong>{point.label}</strong><br />
-              {point.wines} {t("wines").toLowerCase()} · {point.bottles} {t("bottles").toLowerCase()}
+              {preferredOrigins.length
+                ? (point.originKind === "country" ? (locale === "it" ? "Paese preferito" : "Preferred country") : (locale === "it" ? "Regione preferita" : "Preferred region"))
+                : <>{point.wines} {t("wines").toLowerCase()} · {point.bottles} {t("bottles").toLowerCase()}</>}
             </Tooltip>
           </CircleMarker>
         ))}
       </MapContainer>
-      <p>{t("geographicMapHelp")}</p>
+      {preferredOrigins.length ? <p className="wine-geography-map-origin-legend"><i className="country" />{locale === "it" ? "Paese" : "Country"}<i className="region" />{locale === "it" ? "Regione" : "Region"}</p> : null}
+      <p>{preferredOrigins.length
+        ? (locale === "it" ? "Esplora i Paesi e le regioni che ricorrono nelle tue preferenze." : "Explore the countries and regions recurring in your preferences.")
+        : t("geographicMapHelp")}</p>
     </div>
   );
 }
