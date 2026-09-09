@@ -649,6 +649,35 @@ export function OperationsPanel({ locale, overview, activity, onRefresh }: Opera
       </section>
       {overview ? (
         <>
+          <section className="operations-section operations-api-section" aria-labelledby="operations-api-heading">
+            <div className="operations-api-heading">
+              <div>
+                <h4 id="operations-api-heading">{isItalian ? "Prestazioni API" : "API performance"}</h4>
+                <p>{isItalian ? "Solo richieste a /api/v1/. Finestra mobile di 15 minuti." : "Only /api/v1/ requests. Rolling 15-minute window."}</p>
+              </div>
+              <time dateTime={overview.collected_at}>{new Date(overview.collected_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</time>
+            </div>
+            <div className="operations-api-metrics">
+              <div><span>P50</span><strong>{overview.application.interactive_p50_duration_ms ?? "—"}{overview.application.interactive_p50_duration_ms !== null && overview.application.interactive_p50_duration_ms !== undefined ? " ms" : ""}</strong></div>
+              <div><span>P95</span><strong>{overview.application.interactive_p95_duration_ms ?? "—"}{overview.application.interactive_p95_duration_ms !== null && overview.application.interactive_p95_duration_ms !== undefined ? " ms" : ""}</strong></div>
+              <div><span>{isItalian ? "Campioni" : "Samples"}</span><strong>{overview.application.interactive_requests_recent ?? "—"}</strong></div>
+              <div><span>{isItalian ? "Lente" : "Slow"}</span><strong>{overview.application.slow_requests_recent ?? "—"}</strong></div>
+            </div>
+            {(overview.application.interactive_slowest_recent || []).length ? (
+              <details className="operations-api-slow-requests">
+                <summary>{isItalian ? "Campioni interattivi più lenti" : "Slowest interactive samples"}</summary>
+                <div>
+                  {(overview.application.interactive_slowest_recent || []).map((sample, index) => (
+                    <article key={`${sample.recorded_at}-${sample.path}-${index}`}>
+                      <code>{sample.method} {sample.path}</code>
+                      <span>{Math.round(sample.duration_ms)} ms · {sample.status_code}</span>
+                      <time dateTime={sample.recorded_at}>{new Date(sample.recorded_at).toLocaleString(isItalian ? "it-CH" : "en-GB")}</time>
+                    </article>
+                  ))}
+                </div>
+              </details>
+            ) : <p className="operations-api-empty">{isItalian ? "Nessun campione lento nella finestra attuale." : "No slow samples in the current window."}</p>}
+          </section>
           <section className="operations-section operations-business-section" aria-labelledby="operations-business-heading">
             <h4 id="operations-business-heading">{isItalian ? "Dati Vinaris" : "Vinaris data"}</h4>
             <div className="operations-business-grid">

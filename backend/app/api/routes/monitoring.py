@@ -53,7 +53,7 @@ def system_metrics() -> dict[str, object]:
 
 
 @router.get("/application", dependencies=[Depends(require_monitoring_token)])
-def application_metrics() -> dict[str, int | float | str | None]:
+def application_metrics() -> dict[str, object]:
     return request_metrics.snapshot()
 
 

@@ -47,14 +47,14 @@ SLOW_APPLICATION_PATH_PREFIXES = (
 
 
 def is_application_request(path: str) -> bool:
-    """Return whether a request represents normal Vinaris application traffic.
+    """Return whether a request belongs to the Vinaris API.
 
+    Static assets, landing pages and probe traffic must not affect API latency.
     Operations collection can wait for external services such as the OpenAI
-    costs API.  Including it in this average would turn an infrastructure
-    collection delay into an apparent user-facing application slowdown.
+    costs API, so it is excluded as well.
     """
 
-    return not path.startswith(TECHNICAL_METRICS_PATH_PREFIXES)
+    return path.startswith("/api/v1/") and not path.startswith(TECHNICAL_METRICS_PATH_PREFIXES)
 
 
 def is_interactive_application_request(path: str) -> bool:

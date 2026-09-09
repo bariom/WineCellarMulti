@@ -17,8 +17,9 @@ class RequestMetrics:
         self.errors_total = 0
         self.total_duration_ms = 0.0
         self._recent_window_seconds = 15 * 60
-        self._recent_interactive: deque[tuple[float, float]] = deque()
-        self._recent_slow: deque[float] = deque()
+        self._slow_request_threshold_ms = 1_000
+        self._recent_interactive: deque[tuple[float, dict[str, object]]] = deque()
+        self._recent_slow: deque[tuple[float, dict[str, object]]] = deque()
         self._recent_errors: deque[dict[str, object]] = deque(maxlen=40)
 
     def record(
@@ -43,16 +44,32 @@ class RequestMetrics:
                 })
             now = time.monotonic()
             if interactive:
-                self._recent_interactive.append((now, duration_ms))
-            else:
-                self._recent_slow.append(now)
+                self._recent_interactive.append(
+                    (now, self._request_sample(status_code, duration_ms, method, path))
+                )
+            if duration_ms >= self._slow_request_threshold_ms:
+                self._recent_slow.append(
+                    (now, self._request_sample(status_code, duration_ms, method, path))
+                )
             self._discard_expired(now)
+
+    @staticmethod
+    def _request_sample(
+        status_code: int, duration_ms: float, method: str, path: str
+    ) -> dict[str, object]:
+        return {
+            "recorded_at": datetime.now(UTC).isoformat(),
+            "method": method,
+            "path": path,
+            "status_code": status_code,
+            "duration_ms": round(duration_ms, 2),
+        }
 
     def _discard_expired(self, now: float) -> None:
         cutoff = now - self._recent_window_seconds
         while self._recent_interactive and self._recent_interactive[0][0] < cutoff:
             self._recent_interactive.popleft()
-        while self._recent_slow and self._recent_slow[0] < cutoff:
+        while self._recent_slow and self._recent_slow[0][0] < cutoff:
             self._recent_slow.popleft()
 
     @staticmethod
@@ -66,7 +83,18 @@ class RequestMetrics:
     def snapshot(self) -> dict[str, int | float | str | None]:
         with self._lock:
             self._discard_expired(time.monotonic())
-            interactive_durations = [duration for _, duration in self._recent_interactive]
+            interactive_samples = [sample for _, sample in self._recent_interactive]
+            interactive_durations = [float(sample["duration_ms"]) for sample in interactive_samples]
+            slowest_interactive = sorted(
+                interactive_samples,
+                key=lambda sample: float(sample["duration_ms"]),
+                reverse=True,
+            )[:5]
+            recent_slow = sorted(
+                (sample for _, sample in self._recent_slow),
+                key=lambda sample: float(sample["duration_ms"]),
+                reverse=True,
+            )[:10]
             average_duration_ms = (
                 round(self.total_duration_ms / self.requests_total, 2)
                 if self.requests_total
@@ -82,6 +110,8 @@ class RequestMetrics:
                 "interactive_p50_duration_ms": self._percentile(interactive_durations, 50),
                 "interactive_p95_duration_ms": self._percentile(interactive_durations, 95),
                 "slow_requests_recent": len(self._recent_slow),
+                "interactive_slowest_recent": slowest_interactive,
+                "recent_slow_requests": recent_slow,
                 "uptime_seconds": round(time.time() - self.started_at.timestamp(), 2),
             }
 

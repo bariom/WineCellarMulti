@@ -992,6 +992,20 @@ export type OperationalMetricsOverview = {
     interactive_p50_duration_ms?: number | null;
     interactive_p95_duration_ms?: number | null;
     slow_requests_recent?: number;
+    interactive_slowest_recent?: Array<{
+      recorded_at: string;
+      method: string;
+      path: string;
+      status_code: number;
+      duration_ms: number;
+    }>;
+    recent_slow_requests?: Array<{
+      recorded_at: string;
+      method: string;
+      path: string;
+      status_code: number;
+      duration_ms: number;
+    }>;
     uptime_seconds: number;
   };
   business: {

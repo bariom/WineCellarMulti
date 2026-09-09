@@ -46,6 +46,8 @@ def teardown_function():
 
 
 def test_technical_operations_requests_are_excluded_from_application_latency():
+    assert is_application_request("/") is False
+    assert is_application_request("/assets/app.js") is False
     assert is_application_request("/api/v1/wines") is True
     assert is_application_request("/api/v1/admin/operations/collect") is False
     assert is_application_request("/api/v1/admin/operations/overview") is False
@@ -55,6 +57,23 @@ def test_technical_operations_requests_are_excluded_from_application_latency():
     assert is_interactive_application_request("/api/v1/imports/json") is False
     assert is_interactive_application_request("/api/v1/wines/photo/process") is False
     assert is_interactive_application_request("/api/v1/map/places") is False
+
+
+def test_request_metrics_include_slowest_interactive_request_metadata():
+    request_metrics.record(200, 87_654, interactive=True, method="GET", path="/api/v1/wines")
+    request_metrics.record(200, 2_500, interactive=False, method="POST", path="/api/v1/ai/wines/test/value")
+
+    snapshot = request_metrics.snapshot()
+
+    assert snapshot["interactive_slowest_recent"]
+    assert any(
+        sample["method"] == "GET"
+        and sample["path"] == "/api/v1/wines"
+        and sample["status_code"] == 200
+        and sample["duration_ms"] == 87_654
+        for sample in snapshot["interactive_slowest_recent"]
+    )
+    assert any(sample["path"] == "/api/v1/wines" for sample in snapshot["recent_slow_requests"])
 
 
 def test_latency_alert_requires_a_representative_interactive_sample():

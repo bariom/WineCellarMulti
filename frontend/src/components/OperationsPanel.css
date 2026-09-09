@@ -1,6 +1,11 @@
 .operations-card { grid-column: 1 / -1; }
 .operations-section { display: grid; gap: 10px; min-width: 0; }
 .operations-section h4 { margin: 2px 0 0; color: var(--text); font-size: 0.86rem; letter-spacing: 0.04em; }
+.operations-api-section { margin-top: 4px; padding: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
+.operations-api-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.operations-api-heading > div { display: grid; gap: 3px; }.operations-api-heading p, .operations-api-heading time, .operations-api-empty { margin: 0; color: var(--text-muted); font-size: .76rem; }.operations-api-heading time { flex: 0 0 auto; text-align: right; }
+.operations-api-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px; overflow: hidden; border: 1px solid var(--border); border-radius: 10px; background: var(--border); }.operations-api-metrics > div { display: grid; gap: 4px; padding: 10px; background: var(--surface); }.operations-api-metrics span { color: var(--text-muted); font-size: .7rem; font-weight: 750; letter-spacing: .05em; text-transform: uppercase; }.operations-api-metrics strong { overflow: hidden; font-size: .98rem; font-variant-numeric: tabular-nums; text-overflow: ellipsis; white-space: nowrap; }
+.operations-api-slow-requests { display: grid; gap: 8px; }.operations-api-slow-requests summary { cursor: pointer; font-size: .8rem; font-weight: 800; }.operations-api-slow-requests > div { display: grid; gap: 1px; overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: var(--border); }.operations-api-slow-requests article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 12px; padding: 9px 10px; background: var(--surface); }.operations-api-slow-requests code { overflow: hidden; color: var(--text); font: .75rem/1.35 ui-monospace, SFMono-Regular, Consolas, monospace; text-overflow: ellipsis; white-space: nowrap; }.operations-api-slow-requests span, .operations-api-slow-requests time { color: var(--text-muted); font-size: .72rem; font-variant-numeric: tabular-nums; }.operations-api-slow-requests time { grid-column: 1 / -1; }
 .operations-business-section { margin-top: 4px; padding-top: 14px; border-top: 1px solid var(--border); }
 .operations-business-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .operations-business-grid > div { min-width: 0; min-height: 78px; padding: 11px; display: grid; align-content: center; gap: 3px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
@@ -71,6 +76,8 @@
 .operations-activity-list time { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 @media (max-width: 620px) {
   .operations-business-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operations-api-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .operations-api-heading { align-items: stretch; flex-direction: column; }.operations-api-heading time { text-align: left; }
   .operations-household-inventory article { grid-template-columns:minmax(0, 1fr) auto; }.operations-household-inventory article > span { grid-column:1 / -1; }
   .operations-openai-cost { align-items: start; flex-direction: column; }
   .operations-openai-cost p { text-align: start; }
