@@ -1,14 +1,14 @@
 """version taste-profile calculations
 
-Revision ID: 0104_taste_profile_calculation_version
+Revision ID: 0104_taste_profile_calc_version
 Revises: 0103_expand_sensory_baselines
 """
 
-from alembic import op
 import sqlalchemy as sa
 
+from alembic import op
 
-revision = "0104_taste_profile_calculation_version"
+revision = "0104_taste_profile_calc_version"
 down_revision = "0103_expand_sensory_baselines"
 branch_labels = None
 depends_on = None
