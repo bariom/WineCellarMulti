@@ -7395,15 +7395,6 @@ export function App() {
     }
     setOpenWineToneGroups((groups) => ({ ...groups, [tone]: true }));
     setSelectedWineId(wine.id);
-    if (window.innerWidth >= 821 && window.innerWidth <= 1099) {
-      // Tablet collection views keep the detail beneath the list so the list
-      // itself stays readable. Bring that newly rendered detail into view.
-      window.requestAnimationFrame(() => {
-        window.setTimeout(() => {
-          document.querySelector<HTMLElement>(".wine-side-panel .wine-detail:not(.empty-detail)")?.scrollIntoView({ behavior: "smooth", block: "start" });
-        }, 0);
-      });
-    }
     if (isMobileViewport) {
       if (mobileWineDetailHistoryActiveRef.current) {
         window.history.replaceState({ ...window.history.state, vinarisMobileWineDetail: wine.id }, "", window.location.href);

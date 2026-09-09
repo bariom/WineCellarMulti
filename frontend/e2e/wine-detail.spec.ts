@@ -696,10 +696,11 @@ test.describe("Wine Detail compact/mobile", () => {
     const tabletWineRow = page.locator('[data-wine-row-id="wine-e2e-1"] article');
     await expect(tabletWineRow).toBeVisible();
     await tabletWineRow.click();
-    const tabletWineDetail = page.locator(".wine-side-panel .wine-detail:not(.empty-detail)");
+    const tabletWineDetail = page.getByRole("dialog", { name: "Nebbiolo di Test" });
     await expect(tabletWineDetail).toBeVisible();
-    await page.waitForFunction(() => window.scrollY > 40);
-    expect((await tabletWineDetail.boundingBox())!.y).toBeLessThan(180);
+    await expect(tabletWineDetail.getByRole("button", { name: "Chiudi", exact: true })).toBeVisible();
+    await tabletWineDetail.getByRole("button", { name: "Chiudi", exact: true }).click();
+    await expect(tabletWineDetail).toBeHidden();
     await page.getByRole("button", { name: "Menu", exact: true }).click();
     await page.getByRole("button", { name: "Storico", exact: true }).click();
     const historyList = page.locator(".content-workspace .wine-list");
