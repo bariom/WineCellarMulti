@@ -7671,7 +7671,7 @@ def test_buying_advice_uses_deadline_location_and_verified_product_pages(monkeyp
         assert kwargs["web_search_use_default_location"] is False
         assert kwargs["web_search_context_size"] == "low"
         assert kwargs["reasoning_effort"] == "low"
-        assert kwargs["max_output_tokens"] == 6000
+        assert kwargs["max_output_tokens"] == 3600
         assert kwargs["max_tool_calls"] == 4
         assert "available for pickup or delivery today" in args[2]
         assert "Buyer location: Lugano, Svizzera" in args[2]
@@ -7750,6 +7750,10 @@ def test_buying_advice_can_recommend_by_taste_without_location_or_stock(monkeypa
 
     def fake_create_response(*args, **kwargs):
         assert kwargs["web_search"] is True
+        assert kwargs["web_search_context_size"] == "low"
+        assert kwargs["reasoning_effort"] == "low"
+        assert kwargs["max_output_tokens"] == 2800
+        assert kwargs["max_tool_calls"] == 2
         assert "Check current retail availability: no" in args[2]
         assert "Buyer location: not provided or needed" in args[2]
         return OpenAIResponse(

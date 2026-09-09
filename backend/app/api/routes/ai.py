@@ -4149,8 +4149,12 @@ def suggest_buying_advice(
         # stock and delivery. Avoid passing whole retailer pages to the model.
         web_search_context_size="low",
         reasoning_effort="low",
-        max_output_tokens=6000,
-        max_tool_calls=4,
+        # Recommendations without a stock check need only a small, evidence-led
+        # research pass. Availability searches retain the broader allowance.
+        # Keep enough room for the structured answer and low-effort reasoning;
+        # the saving comes primarily from the smaller search plan.
+        max_output_tokens=3600 if payload.check_availability else 2800,
+        max_tool_calls=4 if payload.check_availability else 2,
     )
     parsed = parse_json_response(response.text)
     verified_urls = {str(source.get("url") or "").strip() for source in response.web_sources}

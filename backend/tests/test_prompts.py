@@ -28,7 +28,9 @@ def test_buying_advice_prompt_applies_profile_without_overriding_filters():
         taste_context={"category": "White", "confidence": 0.8, "dimensions": {"acidity": 74}},
     )
 
-    assert (prompt.id, prompt.version) == ("sommelier.buying_advice", "2")
+    assert (prompt.id, prompt.version) == ("sommelier.buying_advice", "3")
+    assert "Use only the focused searches needed" in prompt.user
+    assert "Return up to six ranked options" in prompt.user
     assert "Italian" in prompt.system
     assert "must never override budget" in prompt.system
     assert "documented wine quality" in prompt.system
@@ -59,6 +61,8 @@ def test_buying_advice_prompt_can_exclude_personal_profile():
     assert "Check current retail availability: no" in prompt.user
     assert "not provided or needed" in prompt.user
     assert "do not require stock or a nearby shop" in prompt.system
+    assert "no more than two focused web searches" in prompt.user
+    assert "Return three ranked options" in prompt.user
 
 
 def test_wishlist_portfolio_prompt_balances_taste_quality_and_value():

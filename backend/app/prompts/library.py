@@ -70,9 +70,16 @@ def buying_advice_prompt(
         if check_availability
         else "Set local=false. Leave retail-only fields empty unless the cited source clearly provides them. "
     )
+    research_budget = (
+        "Use no more than two focused web searches. The first should seek several credible exact-wine sources; use the second only to fill a material evidence gap. "
+        "Prefer three well-supported recommendations to a longer list with weak evidence. "
+        if not check_availability
+        else "Use only the focused searches needed to verify availability, price, and pickup or delivery evidence. "
+    )
+    recommendation_limit = "Return three ranked options, or fewer when evidence is weak." if not check_availability else "Return up to six ranked options."
     return Prompt(
         id="sommelier.buying_advice",
-        version="2",
+        version="3",
         system=(
             "You are a pragmatic wine purchasing advisor with live web search. Return JSON only. "
             f"{evidence_policy}"
@@ -95,7 +102,8 @@ def buying_advice_prompt(
             f"Minimum price per bottle: {min_price}\n"
             f"Maximum price per bottle: {max_price}\n"
             f"Personal taste profile: {profile_context}\n\n"
-            "Return up to 6 ranked options. For drink_now, favor wines already in a suitable drinking window. "
+            f"{recommendation_limit} {research_budget}"
+            "For drink_now, favor wines already in a suitable drinking window. "
             "For cellar, favor age-worthy wines and explain the expected holding rationale. For pairing, optimize for the named food. "
             "When a personal taste profile is supplied, use its sensory dimensions and confidence to rank otherwise valid options and explain the fit without presenting inferred preferences as facts. "
             f"{result_policy}"
