@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from math import exp
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.wine_types import normalize_wine_type
@@ -270,6 +270,12 @@ def rating_weight(
     return max(-1.0, min(1.0, (rating - neutral_rating) / denominator))
 
 
+def tasting_preference_weight(rating: float, enjoyment: str = "") -> float:
+    """Combine the explicit score with the optional positive/negative tasting signal."""
+    enjoyment_weight = {"positive": 0.35, "negative": -0.35}.get(enjoyment, 0.0)
+    return max(-1.0, min(1.0, rating_weight(rating) + enjoyment_weight))
+
+
 def _category(wine: Wine) -> str:
     wine_type = normalize_wine_type(wine.type)
     return wine_type if wine_type in TASTE_CATEGORIES else "global"
@@ -305,7 +311,13 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
             .outerjoin(
                 WineSensoryProfile, WineSensoryProfile.identity_id == Wine.shared_identity_id
             )
-            .where(WineTastingEntry.created_by_user_id == user_id, WineTastingEntry.rating > 0)
+            .where(
+                WineTastingEntry.created_by_user_id == user_id,
+                or_(
+                    WineTastingEntry.rating > 0,
+                    WineTastingEntry.enjoyment.in_(("positive", "negative")),
+                ),
+            )
             .order_by(WineTastingEntry.consumed_at, WineTastingEntry.id)
         )
     )
@@ -318,7 +330,7 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
     samples: dict[str, int] = defaultdict(int)
     for tasting, wine, profile in rows:
         categories = ["global"] + ([] if _category(wine) == "global" else [_category(wine)])
-        weight = rating_weight(float(tasting.rating))
+        weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
         for category in categories:
             samples[category] += 1
             for key, label_values in _attribute_values(wine).items():
@@ -530,8 +542,34 @@ def calculate_taste_match(
         for key, value in sorted(closeness, key=lambda item: item[1])[:2]
         if value < 0.45
     ]
+    profile_score = sum(value for _, value in closeness) / len(closeness)
+    direct_weights = [
+        tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
+        for tasting in db.scalars(
+            select(WineTastingEntry).where(
+                WineTastingEntry.created_by_user_id == user_id,
+                WineTastingEntry.household_id == wine.household_id,
+                WineTastingEntry.wine_id == wine.id,
+                or_(
+                    WineTastingEntry.rating > 0,
+                    WineTastingEntry.enjoyment.in_(("positive", "negative")),
+                ),
+            )
+        )
+    ]
+    personal_rating = db.scalar(
+        select(UserWineRating).where(
+            UserWineRating.user_id == user_id,
+            UserWineRating.household_id == wine.household_id,
+            UserWineRating.wine_id == wine.id,
+        )
+    )
+    if personal_rating is not None:
+        direct_weights.append(rating_weight(float(personal_rating.rating)))
+    direct_score = 0.5 + (sum(direct_weights) / len(direct_weights)) / 2 if direct_weights else None
+    score = profile_score if direct_score is None else (profile_score * 0.25 + direct_score * 0.75)
     return {
-        "score": round(sum(value for _, value in closeness) / len(closeness), 4),
+        "score": round(score, 4),
         "confidence": round(confidence, 4),
         "matching_traits": matching,
         "conflicting_traits": conflicting,

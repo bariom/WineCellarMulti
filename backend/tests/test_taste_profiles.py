@@ -33,6 +33,7 @@ from app.services.taste_profiles import (
     rating_weight,
     rebuild_user_taste_profile,
     record_user_wine_rating,
+    tasting_preference_weight,
     unassigned_tasting_count,
 )
 
@@ -175,7 +176,9 @@ def test_batch_skips_available_profiles_before_applying_ai_limit(monkeypatch) ->
         "ai_enabled": True,
     }
     profile = db.scalar(
-        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == missing.shared_identity_id)
+        select(WineSensoryProfile).where(
+            WineSensoryProfile.identity_id == missing.shared_identity_id
+        )
     )
     assert profile is not None and profile.source == "ai"
 
@@ -188,9 +191,14 @@ def test_single_regeneration_creates_a_missing_profile_with_ai(monkeypatch) -> N
     db.flush()
     wine = make_wine(db, household, name="Needs Single AI", wine_type="")
     db.flush()
-    assert db.scalar(
-        select(WineSensoryProfile).where(WineSensoryProfile.identity_id == wine.shared_identity_id)
-    ) is None
+    assert (
+        db.scalar(
+            select(WineSensoryProfile).where(
+                WineSensoryProfile.identity_id == wine.shared_identity_id
+            )
+        )
+        is None
+    )
     monkeypatch.setattr(
         taste_profile_routes,
         "_ai_sensory_profile",
@@ -298,8 +306,13 @@ def test_ai_metadata_search_uses_a_small_single_search_budget(monkeypatch) -> No
     monkeypatch.setattr(taste_profile_routes, "create_response", response)
     metadata, _model = taste_profile_routes._ai_sensory_metadata(
         SimpleNamespace(
-            name="Rosso", producer="Producer", vintage="2022", type="", region="",
-            appellation="", grapes=[],
+            name="Rosso",
+            producer="Producer",
+            vintage="2022",
+            type="",
+            region="",
+            appellation="",
+            grapes=[],
         )
     )
 
@@ -451,6 +464,11 @@ def test_rating_weight_is_negative_neutral_and_positive() -> None:
     assert rating_weight(0) == 0
 
 
+def test_negative_enjoyment_strengthens_a_negative_tasting_signal() -> None:
+    assert tasting_preference_weight(2, "negative") < rating_weight(2)
+    assert tasting_preference_weight(5, "positive") > rating_weight(5)
+
+
 def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
     db = Session()
     household = Household(name="Home")
@@ -513,14 +531,68 @@ def test_match_falls_back_to_global_when_the_wine_category_profile_has_no_dimens
     rated = make_wine(db, household, name="Rated", wine_type="White")
     candidate = make_wine(db, household, name="Candidate", wine_type="Red")
     for wine in (rated, candidate):
-        db.add(WineSensoryProfile(identity_id=wine.shared_identity_id, dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.7}, confidence=0.7, generation_status="available"))
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.7},
+                confidence=0.7,
+                generation_status="available",
+            )
+        )
     add_tasting(db, user, household, rated, 5)
     db.commit()
     rebuild_user_taste_profile(db, user.id)
-    db.add(UserTasteProfile(user_id=user.id, category="Red", dimensions={}, attributes={}, confidence=0, sample_count=1, calculation_version=2))
+    db.add(
+        UserTasteProfile(
+            user_id=user.id,
+            category="Red",
+            dimensions={},
+            attributes={},
+            confidence=0,
+            sample_count=1,
+            calculation_version=2,
+        )
+    )
     db.commit()
 
     assert calculate_taste_match(db, user.id, candidate)["score"] is not None
+
+
+def test_direct_negative_tasting_overrides_a_high_aggregate_affinity() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="direct-negative@example.test", display_name="Direct", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Disliked")
+    dimensions = {"body": 0.7, "acidity": 0.6, "fruit": 0.7}
+    db.add(
+        WineSensoryProfile(
+            identity_id=wine.shared_identity_id,
+            dimensions=dimensions,
+            confidence=0.8,
+            generation_status="available",
+        )
+    )
+    db.add(
+        UserTasteProfile(
+            user_id=user.id,
+            category="Red",
+            dimensions={
+                key: {"preference": value, "confidence": 0.8} for key, value in dimensions.items()
+            },
+            attributes={},
+            confidence=0.8,
+            sample_count=20,
+            calculation_version=2,
+        )
+    )
+    add_tasting(db, user, household, wine, 2)
+    db.flush()
+    db.query(WineTastingEntry).one().enjoyment = "negative"
+    db.commit()
+
+    assert calculate_taste_match(db, user.id, wine)["score"] < 0.4
 
 
 def test_claiming_unassigned_historical_tastings_is_household_scoped() -> None:
@@ -612,7 +684,12 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
         approved = client.post("/api/v1/taste-profile/admin/profiles/approve-pending")
         assert approved.status_code == 200, approved.text
         assert approved.json() == {"approved": 1}
-        assert client.get("/api/v1/taste-profile/admin/profiles?region=piemonte").json()[0]["validated"] is True
+        assert (
+            client.get("/api/v1/taste-profile/admin/profiles?region=piemonte").json()[0][
+                "validated"
+            ]
+            is True
+        )
         baseline = client.post(
             "/api/v1/taste-profile/admin/baselines",
             json={

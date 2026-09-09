@@ -12858,7 +12858,7 @@ export function App() {
                         ) : null}
                       </div>
                     ) : null}
-                    {!wine.rating && !wine.tags.length ? <TasteHearts wineId={wine.id} locale={locale} compact /> : null}
+                    {!wine.rating && !wine.tags.length ? <TasteHearts wineId={wine.id} locale={locale} compact className="row-chip row-taste-chip" /> : null}
                     {maturityFilter && isWineInExplicitIdealWindow(wine, maturityFilter.year) ? (
                       <div className="row-meta-stack">
                         <div className="row-meta-group row-meta-group-secondary">
