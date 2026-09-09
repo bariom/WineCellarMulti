@@ -24,6 +24,7 @@ from app.models import (
     UserTasteProfile,
     Wine,
     WineSensoryProfile,
+    WineTastingEntry,
 )
 from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profile_prompt
 from app.schemas.taste_profile import (
@@ -73,8 +74,21 @@ def household_star_rating_count(db: Session, context: CurrentContext) -> int:
     )
 
 
+def household_rated_tasting_count(db: Session, context: CurrentContext) -> int:
+    return int(
+        db.scalar(
+            select(func.count(WineTastingEntry.id)).where(
+                WineTastingEntry.household_id == context.household.id,
+                WineTastingEntry.created_by_user_id == context.user.id,
+                WineTastingEntry.rating > 0,
+            )
+        )
+        or 0
+    )
+
+
 def profile_response(
-    profile: UserTasteProfile, *, star_rating_count: int = 0
+    profile: UserTasteProfile, *, tasting_count: int = 0, star_rating_count: int = 0
 ) -> TasteProfileResponse:
     return TasteProfileResponse(
         category=profile.category,
@@ -82,7 +96,7 @@ def profile_response(
         attributes=profile.attributes or {},
         confidence=profile.confidence,
         sample_count=profile.sample_count,
-        tasting_count=profile.sample_count,
+        tasting_count=tasting_count,
         star_rating_count=star_rating_count,
         confidence_level=confidence_level(profile.confidence),
         rebuilt_at=profile.rebuilt_at,
@@ -127,9 +141,13 @@ def get_my_taste_profile(
         profiles = rebuild_user_taste_profile(db, context.user.id)
         db.commit()
     star_rating_count = household_star_rating_count(db, context)
+    tasting_count = household_rated_tasting_count(db, context)
     return TasteProfileCollectionResponse(
         profiles=[
-            profile_response(profile, star_rating_count=star_rating_count) for profile in profiles
+            profile_response(
+                profile, tasting_count=tasting_count, star_rating_count=star_rating_count
+            )
+            for profile in profiles
         ]
     )
 
@@ -141,9 +159,13 @@ def rebuild_my_taste_profile(
     profiles = rebuild_user_taste_profile(db, context.user.id)
     db.commit()
     star_rating_count = household_star_rating_count(db, context)
+    tasting_count = household_rated_tasting_count(db, context)
     return TasteProfileCollectionResponse(
         profiles=[
-            profile_response(profile, star_rating_count=star_rating_count) for profile in profiles
+            profile_response(
+                profile, tasting_count=tasting_count, star_rating_count=star_rating_count
+            )
+            for profile in profiles
         ]
     )
 
@@ -166,10 +188,14 @@ def claim_legacy_tastings(
     )
     db.commit()
     star_rating_count = household_star_rating_count(db, context)
+    tasting_count = household_rated_tasting_count(db, context)
     return LegacyTastingClaimResponse(
         claimed_count=claimed_count,
         profiles=[
-            profile_response(profile, star_rating_count=star_rating_count) for profile in profiles
+            profile_response(
+                profile, tasting_count=tasting_count, star_rating_count=star_rating_count
+            )
+            for profile in profiles
         ],
     )
 

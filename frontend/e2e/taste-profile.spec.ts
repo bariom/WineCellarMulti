@@ -14,7 +14,7 @@ test("taste preferences use an individual scale and expandable wine styles", asy
       const {default: Panel, TasteProfileExplanation} = await import('/src/components/TasteProfilePanel.tsx');
       await import('/src/styles.css');
       ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(React.Fragment, null,
-        React.createElement(Panel, {locale:'it', variant:'insight', wines:[{rating:4}, {rating:0}]}),
+        React.createElement(Panel, {locale:'it', variant:'insight', wines:[{rating:4}, {rating:0}], ratedTastingCount:16}),
         React.createElement(TasteProfileExplanation, {locale:'it'})
       ));
     </script></body></html>`,
@@ -34,6 +34,7 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   await page.goto("/taste-profile-test");
   await expect(page.locator(".taste-profile-portrait-copy small")).toContainText("I valori non sono percentuali da sommare.");
   await expect(page.locator(".taste-profile-evidence-summary > div").nth(1).locator("strong")).toHaveText("1");
+  await expect(page.locator(".taste-profile-evidence-summary > div").first().locator("strong")).toHaveText("16");
   await expect(page.locator(".taste-profile-signature-values")).toContainText("70/100");
   await expect(page.locator(".taste-profile-radar-wrap .regional-radar")).toBeAttached();
   const red = page.locator(".taste-profile-category").filter({ hasText: "Rossi" });
