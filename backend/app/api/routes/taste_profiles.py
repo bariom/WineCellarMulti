@@ -29,6 +29,7 @@ from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profi
 from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
+    BatchProfileApprovalResponse,
     LegacyTastingClaimResponse,
     LegacyTastingClaimStatus,
     SensoryBaselineInput,
@@ -499,6 +500,27 @@ def update_sensory_profile(
     db.commit()
     db.refresh(profile)
     return sensory_response(profile)
+
+
+@router.post("/admin/profiles/approve-pending", response_model=BatchProfileApprovalResponse)
+def approve_pending_sensory_profiles(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> BatchProfileApprovalResponse:
+    """Approve every available profile that is still awaiting validation."""
+    profiles = list(
+        db.scalars(
+            select(WineSensoryProfile).where(
+                WineSensoryProfile.generation_status == "available",
+                WineSensoryProfile.validated.is_(False),
+            )
+        )
+    )
+    for profile in profiles:
+        profile.validated = True
+        profile.last_modified_by_user_id = context.user.id
+    db.commit()
+    return BatchProfileApprovalResponse(approved=len(profiles))
 
 
 @router.get("/admin/baselines", response_model=list[SensoryBaselineResponse])

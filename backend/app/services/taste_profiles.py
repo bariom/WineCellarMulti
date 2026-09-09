@@ -34,7 +34,7 @@ SENSORY_DIMENSIONS = (
     "minerality",
 )
 TASTE_CATEGORIES = {"Red", "White", "Sparkling", "Sweet"}
-NEUTRAL_RATING = 4.0  # Vinaris tastings are 1..6 stars; zero means not rated.
+NEUTRAL_RATING = 3.0  # Vinaris tastings are 1..6 stars; zero means not rated.
 
 # These are deliberately small, explainable zero-cost defaults. Appellation/grape baselines in the
 # database override/augment them and are maintained by app administrators.

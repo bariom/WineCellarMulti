@@ -71,3 +71,7 @@ class BatchEnrichmentPreview(BaseModel):
     missing: int
     deterministic: int
     requires_ai: int
+
+
+class BatchProfileApprovalResponse(BaseModel):
+    approved: int

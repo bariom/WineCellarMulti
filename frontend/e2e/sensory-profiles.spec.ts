@@ -18,6 +18,7 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
   }));
   let single = false;
   let batch = false;
+  let approved = false;
   await page.route("**/api/v1/taste-profile/admin/**", async route => {
     const url = new URL(route.request().url());
     let body: unknown = [];
@@ -26,6 +27,9 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
       single = url.searchParams.get("allow_ai") === "true";
       await route.fulfill({ status: 503, json: { detail: "AI temporaneamente non disponibile" } });
       return;
+    } else if (url.pathname.endsWith("/approve-pending")) {
+      approved = true;
+      body = { approved: 1 };
     } else if (url.pathname.endsWith("/enrich-missing")) {
       batch = route.request().postDataJSON().allow_ai === true;
       body = { processed: 1, resolved: 1, ai_generated: 1, skipped: 0 };
@@ -34,6 +38,10 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/sensory-test");
+  page.on("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Approva tutti da validare" }).click();
+  await expect(page.getByText("Approvazione completata", { exact: true })).toBeVisible();
+  expect(approved).toBe(true);
   await page.getByRole("button", { name: "Genera profilo con AI", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("AI temporaneamente non disponibile");
   expect(single).toBe(true);

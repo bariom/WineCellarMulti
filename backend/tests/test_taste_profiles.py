@@ -360,7 +360,7 @@ def test_rebuild_is_private_weighted_and_category_specific() -> None:
             )
         )
     add_tasting(db, first_user, household, red, 6)
-    add_tasting(db, first_user, household, white, 4)  # neutral should have no directional effect
+    add_tasting(db, first_user, household, white, 4)  # positive: a 4/6 is a satisfactory tasting
     add_tasting(db, second_user, household, red, 1)
     db.commit()
     profiles = {
@@ -368,7 +368,7 @@ def test_rebuild_is_private_weighted_and_category_specific() -> None:
     }
     assert profiles["Red"].dimensions["body"]["preference"] > 0.8
     assert profiles["global"].dimensions["body"]["preference"] > 0.8
-    assert "body" not in profiles["White"].dimensions  # neutral ratings are ignored directionally
+    assert profiles["White"].dimensions["body"]["preference"] > 0.5
     assert profiles["global"].sample_count == 2
 
 
@@ -442,7 +442,8 @@ def test_validated_profile_is_never_overwritten_and_invalid_ai_is_rejected() -> 
 
 def test_rating_weight_is_negative_neutral_and_positive() -> None:
     assert rating_weight(1) == -1
-    assert rating_weight(4) == 0
+    assert rating_weight(3) == 0
+    assert rating_weight(4) > 0
     assert rating_weight(6) == 1
     assert rating_weight(0) == 0
 
@@ -532,6 +533,11 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
         assert enriched.status_code == 200 and enriched.json()["resolved"] == 1
         profile = client.get("/api/v1/taste-profile/admin/profiles?region=piemonte").json()[0]
         assert profile["name"] == "API Barolo"
+        assert profile["validated"] is False
+        approved = client.post("/api/v1/taste-profile/admin/profiles/approve-pending")
+        assert approved.status_code == 200, approved.text
+        assert approved.json() == {"approved": 1}
+        assert client.get("/api/v1/taste-profile/admin/profiles?region=piemonte").json()[0]["validated"] is True
         baseline = client.post(
             "/api/v1/taste-profile/admin/baselines",
             json={
