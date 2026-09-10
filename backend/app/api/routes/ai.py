@@ -3915,8 +3915,6 @@ async def scan_restaurant_wine_list(
     image: UploadFile = File(...),
     dish: str = Form(default="", max_length=240),
     max_price_chf: str = Form(default="", max_length=24),
-    dietary_preferences: str = Form(default="", max_length=600),
-    allergies: str = Form(default="", max_length=600),
     ignore_preferences: bool = Form(default=False),
     locale: str = Form(default="it", pattern="^(it|en)$"),
     db: Session = Depends(get_db),
@@ -3955,8 +3953,6 @@ async def scan_restaurant_wine_list(
         locale=locale,
         dish=dish.strip(),
         budget_chf=str(budget) if budget is not None else "",
-        dietary_preferences=dietary_preferences.strip(),
-        allergies=allergies.strip(),
         taste_context=taste_context,
         pairing_preferences=""
         if ignore_preferences

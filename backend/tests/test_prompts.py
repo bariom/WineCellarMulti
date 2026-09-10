@@ -18,18 +18,14 @@ def test_restaurant_wine_list_scan_prompt_is_bounded_and_preserves_constraints()
         locale="it",
         dish="Risotto ai funghi",
         budget_chf="60",
-        dietary_preferences="vegetariano",
-        allergies="frutta a guscio",
         taste_context={"category": "global", "dimensions": {"acidity": 72}},
         pairing_preferences="poco legno",
     )
 
     assert (prompt.id, prompt.version) == ("restaurant.wine_list_scan", "1")
     assert "Read only text visibly present" in prompt.system
-    assert "hard constraints" in prompt.system
     assert "zero-based extracted-list index" in prompt.system
     assert "Risotto ai funghi" in prompt.user
-    assert "frutta a guscio" in prompt.user
     assert '"acidity": 72' in prompt.user
 
 
