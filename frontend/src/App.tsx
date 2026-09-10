@@ -5445,6 +5445,8 @@ export function App() {
     wishlistFormOpen &&
     canUseIncludedWineSearch &&
     wishlistDraft.name.trim().length >= 2;
+  const wishlistPhotoRecognitionConfirmed =
+    wineRecognitionTarget === "wishlist" && wineImageRecognitionResult?.status === "recognized";
   const hasAiDraftChanges = Boolean(
     aiSettings &&
     (
@@ -11902,10 +11904,13 @@ export function App() {
                 {showManualWishlistAiSearch ? (
                   <div className="manual-ai-search">
                     <button type="button" className="secondary compact" disabled={wineEnrichmentLoading} onClick={() => void enrichManualWineDraft("wishlist")}>
-                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("searchWineDataWithAi")} busyLabel={t("generating")} />
+                      <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t(wishlistPhotoRecognitionConfirmed ? "completeWineDetailsWithAi" : "searchWineDataWithAi")} busyLabel={t("generating")} />
                     </button>
                     {wineEnrichmentLoading ? <LoadingState label={t("aiWineSearchWaiting")} compact /> : null}
-                    <small className="form-hint">{t("searchWineDataWithAiHelp")}</small>
+                    <small className="form-hint">
+                      {t(wishlistPhotoRecognitionConfirmed ? "completeWineDetailsWithAiHelp" : "searchWineDataWithAiHelp")}
+                      {wishlistPhotoRecognitionConfirmed ? ` ${t("completeWineDetailsWithAiCost")}` : ""}
+                    </small>
                   </div>
                 ) : null}
                 <label>
