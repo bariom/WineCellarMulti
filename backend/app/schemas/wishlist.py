@@ -83,8 +83,12 @@ class ExternalWineTastingResponse(BaseModel):
     id: UUID
     wishlist_item_id: UUID | None = None
     consumed_at: date
+    note: str = ""
     rating: int
     enjoyment: str
+    occasion: str = ""
+    pairing: str = ""
+    companions: str = ""
 
 
 class WishlistResponse(WishlistBase):

@@ -1,4 +1,6 @@
+import json
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -11,9 +13,11 @@ from app.api.deps import (
     require_admin_context,
     require_write_context,
 )
+from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, ExternalWineTasting, Wine, WishlistItem, WishlistList
+from app.prompts.library import wine_sensory_profile_prompt
 from app.schemas.wishlist import (
     ExternalWineTastingCreate,
     ExternalWineTastingResponse,
@@ -27,13 +31,128 @@ from app.schemas.wishlist import (
 )
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
+from app.services.openai_client import TokenUsage
 from app.services.shared_wine_data import resolve_shared_identity
-from app.services.taste_profiles import mark_wine_for_sensory_enrichment, rebuild_user_taste_profile
+from app.services.taste_profiles import (
+    generate_wine_sensory_profile,
+    mark_wine_for_sensory_enrichment,
+    rebuild_user_taste_profile,
+    validated_dimensions,
+)
 
 router = APIRouter(prefix="/wishlist")
 
 DEFAULT_WISHLIST_LIST_NAME = "Wishlist"
 WISHLIST_AI_DATE_FEATURES = {"wishlist_strategy", "wishlist_target_price", "wishlist_purpose"}
+
+
+def enrich_external_tasting_sensory_profile(
+    db: Session, context: CurrentContext, tasting: ExternalWineTasting
+) -> None:
+    """Best-effort, billable sensory enrichment for a personally recorded outside tasting."""
+    if not settings.wine_sensory_ai_enabled:
+        return
+    # Imported lazily: the AI route also uses wishlist helpers during application startup.
+    from app.api.routes.ai import (
+        create_ai_response,
+        get_or_create_user_ai_settings,
+        record_ai_audit,
+    )
+
+    response_details: dict[str, object] = {}
+
+    def ai_generate(item: Wine | ExternalWineTasting) -> tuple[dict[str, float], str]:
+        prompt = wine_sensory_profile_prompt(
+            wine_context={
+                "name": item.name,
+                "producer": item.producer,
+                "vintage": item.vintage,
+                "type": item.type,
+                "region": item.region,
+                "appellation": item.appellation,
+                "grapes": [],
+                "description": "",
+            }
+        )
+        schema = {
+            "name": "wine_sensory_profile",
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    key: {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+                    for key in (
+                        "body",
+                        "acidity",
+                        "tannin",
+                        "sweetness",
+                        "aromatic_intensity",
+                        "fruit",
+                        "wood",
+                        "spice",
+                        "minerality",
+                    )
+                },
+                "required": [
+                    "body",
+                    "acidity",
+                    "tannin",
+                    "sweetness",
+                    "aromatic_intensity",
+                    "fruit",
+                    "wood",
+                    "spice",
+                    "minerality",
+                ],
+            },
+        }
+        response, provider_source = create_ai_response(
+            db,
+            context,
+            get_or_create_user_ai_settings(db, context),
+            model=settings.openai_economy_model,
+            system_prompt=prompt.system,
+            user_prompt=prompt.user,
+            json_schema=schema,
+            task_type="sensory_profile",
+            max_output_tokens=350,
+            reasoning_effort="low",
+        )
+        try:
+            dimensions = validated_dimensions(json.loads(response.text))
+        except (TypeError, json.JSONDecodeError):
+            dimensions = {}
+        response_details.update(
+            model=response.model or settings.openai_economy_model,
+            provider_source=provider_source,
+            usage=response.usage,
+        )
+        return dimensions, str(response_details["model"])
+
+    try:
+        profile = generate_wine_sensory_profile(
+            db,
+            tasting,
+            allow_ai=True,
+            ai_generate=ai_generate,
+            modified_by_user_id=context.user.id,
+        )
+    except Exception:
+        # Recording a real tasting must never fail because credits, a provider, or AI are unavailable.
+        return
+    if profile is not None and profile.source == "ai" and response_details:
+        record_ai_audit(
+            db,
+            context,
+            entity_type="external_tasting",
+            entity_id=tasting.id,
+            feature="sensory_profile",
+            model=str(response_details["model"]),
+            summary="Generated a shared sensory profile from an outside tasting",
+            reasoning_effort="low",
+            usage=cast(TokenUsage, response_details["usage"]),
+            provider_source=str(response_details["provider_source"]),
+        )
 
 
 def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) -> WishlistList:
@@ -480,10 +599,71 @@ def record_wishlist_tasting(
     resolve_shared_identity(db, tasting, create=True)
     if payload.tasting_rating > 0 or payload.tasting_enjoyment:
         mark_wine_for_sensory_enrichment(db, tasting)
+        db.flush()
+        enrich_external_tasting_sensory_profile(db, context, tasting)
         rebuild_user_taste_profile(db, context.user.id)
     db.commit()
     db.refresh(tasting)
     return ExternalWineTastingResponse.model_validate(tasting)
+
+
+@router.patch("/tastings/{tasting_id}", response_model=ExternalWineTastingResponse)
+def update_wishlist_tasting(
+    tasting_id: UUID,
+    payload: ExternalWineTastingCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> ExternalWineTastingResponse:
+    """Update the current user's personal external tasting."""
+    tasting = db.scalar(
+        select(ExternalWineTasting).where(
+            ExternalWineTasting.id == tasting_id,
+            ExternalWineTasting.household_id == context.household.id,
+            ExternalWineTasting.created_by_user_id == context.user.id,
+        )
+    )
+    if tasting is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="External tasting not found"
+        )
+    tasting.consumed_at = payload.consumed_at or tasting.consumed_at
+    tasting.note = payload.note.strip()
+    tasting.rating = payload.tasting_rating
+    tasting.enjoyment = payload.tasting_enjoyment
+    tasting.occasion = payload.tasting_occasion.strip()
+    tasting.pairing = payload.tasting_pairing.strip()
+    tasting.companions = payload.tasting_companions.strip()
+    if payload.tasting_rating > 0 or payload.tasting_enjoyment:
+        mark_wine_for_sensory_enrichment(db, tasting)
+        db.flush()
+        enrich_external_tasting_sensory_profile(db, context, tasting)
+    rebuild_user_taste_profile(db, context.user.id)
+    db.commit()
+    db.refresh(tasting)
+    return ExternalWineTastingResponse.model_validate(tasting)
+
+
+@router.delete("/tastings/{tasting_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_wishlist_tasting(
+    tasting_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> Response:
+    tasting = db.scalar(
+        select(ExternalWineTasting).where(
+            ExternalWineTasting.id == tasting_id,
+            ExternalWineTasting.household_id == context.household.id,
+            ExternalWineTasting.created_by_user_id == context.user.id,
+        )
+    )
+    if tasting is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="External tasting not found"
+        )
+    db.delete(tasting)
+    rebuild_user_taste_profile(db, context.user.id)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

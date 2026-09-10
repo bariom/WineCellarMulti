@@ -118,10 +118,10 @@ def validated_dimensions(raw: object) -> dict[str, float]:
     return result
 
 
-def _grape_names(wine: Wine) -> list[str]:
+def _grape_names(wine: Wine | ExternalWineTasting) -> list[str]:
     return [
         normalize_identity_part(item.get("name"))
-        for item in (wine.grapes or [])
+        for item in (getattr(wine, "grapes", []) or [])
         if isinstance(item, dict) and normalize_identity_part(item.get("name"))
     ]
 
@@ -159,7 +159,9 @@ def sensory_profile_for_wine(
     )
 
 
-def infer_sensory_profile(db: Session, wine: Wine) -> tuple[dict[str, float], str, float]:
+def infer_sensory_profile(
+    db: Session, wine: Wine | ExternalWineTasting
+) -> tuple[dict[str, float], str, float]:
     """Blend explicit reusable baselines; use type defaults only as a last free signal."""
     candidates: list[tuple[float, dict[str, float], float, str]] = []
     lookups = [
@@ -209,10 +211,10 @@ def infer_sensory_profile(db: Session, wine: Wine) -> tuple[dict[str, float], st
 
 def generate_wine_sensory_profile(
     db: Session,
-    wine: Wine,
+    wine: Wine | ExternalWineTasting,
     *,
     allow_ai: bool = False,
-    ai_generate: Callable[[Wine], tuple[dict[str, float], str]] | None = None,
+    ai_generate: Callable[[Wine | ExternalWineTasting], tuple[dict[str, float], str]] | None = None,
     modified_by_user_id: UUID | None = None,
 ) -> WineSensoryProfile | None:
     """Resolve once. AI is opt-in and only reached after every free source failed."""

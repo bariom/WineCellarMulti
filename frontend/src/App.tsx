@@ -5108,6 +5108,62 @@ export function App() {
     }
   }
 
+  async function updateTastingArchiveEntry(
+    entry: Pick<TastingArchiveEntry, "id" | "source"> & { wine: Pick<Wine, "id"> },
+    payload: ConsumeWineDraft,
+  ) {
+    if (entry.source !== "external_tasting") {
+      return updateWineTastingEntry(entry.wine as Wine, entry.id, payload);
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/wishlist/tastings/${entry.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          consumed_at: payload.consumed_at,
+          note: payload.note.trim(),
+          tasting_rating: Number(payload.tasting_rating || 0),
+          tasting_enjoyment: payload.tasting_enjoyment,
+          tasting_occasion: payload.tasting_occasion.trim(),
+          tasting_pairing: payload.tasting_pairing.trim(),
+          tasting_companions: payload.tasting_companions.trim(),
+        }),
+      });
+      await loadTastingArchiveOverview();
+      if (!offlineMode && activeView === "history" && historySection === "tastings") {
+        await loadTastingArchive(tastingArchiveOffset);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to update tasting");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function deleteTastingArchiveEntry(
+    entry: Pick<TastingArchiveEntry, "id" | "source"> & { wine: Pick<Wine, "id"> },
+  ) {
+    if (entry.source !== "external_tasting") {
+      return deleteWineTastingEntry(entry.wine as Wine, entry.id);
+    }
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/wishlist/tastings/${entry.id}`, { method: "DELETE" });
+      await loadTastingArchiveOverview();
+      if (!offlineMode && activeView === "history" && historySection === "tastings") {
+        await loadTastingArchive(tastingArchiveOffset);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to delete tasting");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function recordWishlistTasting(item: WishlistItem, payload: ConsumeWineDraft) {
     setSaving(true);
     setError("");
@@ -12804,8 +12860,8 @@ export function App() {
                     locale={locale}
                     onOpenWine={openWineFromTastingArchive}
                     onGenerateReflection={generateTastingReflection}
-                    onUpdateEntry={updateWineTastingEntry}
-                    onDeleteEntry={deleteWineTastingEntry}
+                    onUpdateEntry={updateTastingArchiveEntry}
+                    onDeleteEntry={deleteTastingArchiveEntry}
                     wineTone={wineTone}
                   />
                 </Suspense>

@@ -4092,6 +4092,19 @@ summary:focus-visible {
   filter: brightness(1.03);
 }
 
+:root[data-theme="atelier"] .recognition-camera-button {
+  border-color: #c79543;
+  background: linear-gradient(145deg, #641b33 0%, #3b0c1b 100%);
+  box-shadow: 0 8px 18px rgba(75, 19, 36, 0.28);
+}
+
+:root[data-theme="atelier"] .recognition-camera-button .app-icon,
+:root[data-theme="atelier"] .recognition-camera-button .app-icon > svg,
+:root[data-theme="atelier"] .recognition-camera-button .app-icon > svg * {
+  color: #fffefa !important;
+  stroke: #fffefa !important;
+}
+
 .recognition-ai-loading {
   position: relative;
   display: flex;
@@ -4146,8 +4159,8 @@ summary:focus-visible {
   .recognition-actions .recognition-camera-button .app-icon,
   .recognition-actions .recognition-camera-button .app-icon > svg {
     display: block;
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     line-height: 1;
   }
 }

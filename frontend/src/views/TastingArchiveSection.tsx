@@ -55,10 +55,10 @@ type TastingArchiveSectionProps = {
   locale: "en" | "it";
   saving: boolean;
   displayValue: (value: string | null | undefined, locale: "en" | "it", group: string) => string;
-  onDeleteEntry: (wine: any, entryId: string) => Promise<void>;
+  onDeleteEntry: (entry: Pick<TastingArchiveEntry, "id" | "source" | "wine">) => Promise<void>;
   onOpenWine: (wine: any) => void;
   onGenerateReflection: (entry: { id: string; wine: { id: string } }, personalFeedback: string) => Promise<void>;
-  onUpdateEntry: (wine: any, entryId: string, payload: ConsumeWineDraft) => Promise<void>;
+  onUpdateEntry: (entry: Pick<TastingArchiveEntry, "id" | "source" | "wine">, payload: ConsumeWineDraft) => Promise<void>;
   t: (key: any) => string;
   wineTone: (type: string) => string;
 };
@@ -331,7 +331,7 @@ export default function TastingArchiveSection({
               t={t}
               locale={locale}
               onSave={async () => {
-                await onUpdateEntry(entry.wine, entry.id, editDraft);
+                await onUpdateEntry(entry, editDraft);
                 setEditingId(null);
                 setEditDraft(emptyConsumeWineDraft());
               }}
@@ -341,7 +341,7 @@ export default function TastingArchiveSection({
               }}
               onDelete={async () => {
                 if (!window.confirm(t("delete"))) return;
-                await onDeleteEntry(entry.wine, entry.id);
+                await onDeleteEntry(entry);
                 setEditingId(null);
                 setEditDraft(emptyConsumeWineDraft());
               }}
@@ -424,10 +424,10 @@ export default function TastingArchiveSection({
                   )}
                 </aside>
               ) : null}
-              {entry.source !== "external_tasting" ? <div className="tasting-archive-actions">
-                <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
+              <div className="tasting-archive-actions">
+                {entry.source !== "external_tasting" ? <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
                   {t("openWine")}
-                </button>
+                </button> : null}
                 {canWrite ? (
                   <button
                     type="button"
@@ -441,7 +441,7 @@ export default function TastingArchiveSection({
                     {t("edit")}
                   </button>
                 ) : null}
-              </div> : null}
+              </div>
             </>
             )}
           </div>

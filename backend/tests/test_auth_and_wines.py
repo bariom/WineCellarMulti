@@ -1225,6 +1225,20 @@ def test_wishlist_tasting_updates_profile_without_creating_cellar_stock():
     assert profile.json()["profiles"][0]["sample_count"] == 1
     assert profile.json()["profiles"][0]["tasting_count"] == 1
 
+    updated = client.patch(
+        f"/api/v1/wishlist/tastings/{tasting.json()['id']}",
+        json={
+            "consumed_at": "2026-09-11",
+            "tasting_rating": 5,
+            "tasting_enjoyment": "positive",
+            "tasting_pairing": "Agnolotti",
+            "note": "Più elegante del previsto",
+        },
+    )
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["rating"] == 5
+    assert updated.json()["pairing"] == "Agnolotti"
+
 
 def register(
     client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
