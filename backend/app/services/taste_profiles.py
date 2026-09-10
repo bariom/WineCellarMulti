@@ -36,7 +36,7 @@ SENSORY_DIMENSIONS = (
     "spice",
     "minerality",
 )
-TASTE_CATEGORIES = {"Red", "White", "Sparkling", "Sweet"}
+TASTE_CATEGORIES = {"Red", "White", "Rose", "Sparkling", "Sweet", "Fortified"}
 NEUTRAL_RATING = 3.0  # Vinaris tastings are 1..6 stars; zero means not rated.
 TASTE_PROFILE_CALCULATION_VERSION = 2
 

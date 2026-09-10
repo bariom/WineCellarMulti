@@ -12,9 +12,35 @@ type ExternalTastingEnrichmentResult = TasteProfileCollection & {
   unresolved_count: number;
 };
 
-function radarPoint(index: number, total: number, value: number) {
-  const angle = (Math.PI * 2 * index) / total - Math.PI / 2;
-  return `${50 + Math.cos(angle) * value},${50 + Math.sin(angle) * value}`;
+const sensoryDimensionOrder = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+
+function SensorySignatureBars({
+  dimensions,
+  labels,
+  reference,
+  compact = false,
+}: {
+  dimensions: TasteProfile["dimensions"];
+  labels: Record<string, string>;
+  reference?: TasteProfile["dimensions"];
+  compact?: boolean;
+}) {
+  const entries = sensoryDimensionOrder
+    .map((dimension) => [dimension, dimensions[dimension]] as const)
+    .filter(([, value]) => Boolean(value));
+  return <div className={`sensory-signature-bars${compact ? " is-compact" : ""}`}>
+    {entries.map(([dimension, value]) => {
+      const referenceValue = reference?.[dimension];
+      return <div className="sensory-signature-row" key={dimension}>
+        <span>{labels[dimension] || dimension.replace(/_/g, " ")}</span>
+        <div className="sensory-signature-track" aria-label={`${labels[dimension] || dimension}: ${Math.round(value.preference * 100)} su 100`}>
+          {referenceValue ? <i className="sensory-signature-reference" style={{ left: `${Math.round(referenceValue.preference * 100)}%` }} /> : null}
+          <b style={{ width: `${Math.round(value.preference * 100)}%` }} />
+        </div>
+        <strong>{Math.round(value.preference * 100)}<small>/100</small></strong>
+      </div>;
+    })}
+  </div>;
 }
 
 export function TasteProfilePanel({ locale, variant = "settings", wines, ratedTastingCount }: { locale: Locale; variant?: "settings" | "insight"; wines?: Wine[]; ratedTastingCount?: number }) {
@@ -54,14 +80,14 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, ratedTa
     aromatic_intensity: "Intensità aromatica", fruit: "Frutto", wood: "Legno", spice: "Spezie", minerality: "Mineralità",
     preferred_countries: "Paesi preferiti", preferred_regions: "Regioni preferite", preferred_appellations: "Denominazioni preferite",
     preferred_producers: "Produttori preferiti", preferred_grapes: "Uve preferite", preferred_price_ranges: "Fasce di prezzo preferite",
-    global: "Generale", red: "Rossi", white: "Bianchi", sparkling: "Spumanti", sweet: "Dolci",
+    global: "Generale", red: "Rossi", white: "Bianchi", rose: "Rosé", sparkling: "Spumanti", sweet: "Dolci", fortified: "Fortificati",
     under_30: "Sotto 30", "30_60": "30–60", over_60: "Oltre 60",
   } : {
     body: "Body", acidity: "Acidity", tannin: "Tannin", sweetness: "Sweetness",
     aromatic_intensity: "Aromatic intensity", fruit: "Fruit", wood: "Wood", spice: "Spice", minerality: "Minerality",
     preferred_countries: "Preferred countries", preferred_regions: "Preferred regions", preferred_appellations: "Preferred appellations",
     preferred_producers: "Preferred producers", preferred_grapes: "Preferred grapes", preferred_price_ranges: "Preferred price ranges",
-    global: "Global", red: "Red", white: "White", sparkling: "Sparkling", sweet: "Sweet",
+    global: "Global", red: "Red", white: "White", rose: "Rosé", sparkling: "Sparkling", sweet: "Sweet", fortified: "Fortified",
     under_30: "Under 30", "30_60": "30–60", over_60: "Over 60",
   };
   const label = (key: string) => labels[key.toLowerCase()] || key.replace(/_/g, " ");
@@ -140,7 +166,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, ratedTa
         <div className="taste-profile-evidence-summary"><div><strong>{ratedTastingCount ?? overall.tasting_count ?? overall.sample_count}</strong><span>{italian ? "degustazioni valutate" : "rated tastings"}</span></div><div><strong>{visibleStarRatingCount}</strong><span>{italian ? "vini con stelline" : "star-rated wines"}</span></div><small>{confidenceLabel}</small></div>
       </section>
       {Object.entries(overall.attributes).filter(([, values]) => values.length).length ? <section className="taste-profile-landmarks"><div className="taste-profile-section-heading"><span>{italian ? "Riferimenti che ritornano" : "Recurring landmarks"}</span><h3>{italian ? "I luoghi della tua curiosità" : "Places your curiosity returns to"}</h3></div><div className="taste-profile-landmark-grid">{Object.entries(overall.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <article key={kind}><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></article>)}</div></section> : null}
-      {categoryProfiles.length ? <section className="taste-profile-categories"><strong>{italian ? "Preferenze per tipologia" : "Preferences by wine style"}</strong><small>{italian ? "Apri una tipologia per vedere il suo profilo separato." : "Open a wine style to view its separate profile."}</small><div className="taste-profile-category-list">{categoryProfiles.map((profile) => <details className="taste-profile-category" key={profile.category} open={openCategory === profile.category} onToggle={(event) => setOpenCategory(event.currentTarget.open ? profile.category : null)}><summary><span>{label(profile.category)}</span><small>{profile.sample_count} {italian ? "vini valutati" : "rated wines"}</small></summary><div className="taste-profile-category-content"><p>{preferenceExplanation}</p><div className="detail-grid">{Object.entries(profile.dimensions).sort(([, first], [, second]) => second.preference - first.preference).map(([dimension, value]) => <div className="detail-field" key={dimension}><span>{label(dimension)}</span><strong>{Math.round(value.preference * 100)}<small>/100</small></strong><small>{value.samples} {italian ? "campioni" : "samples"}</small></div>)}</div>{Object.entries(profile.attributes).filter(([, values]) => values.length).length ? <div className="detail-grid taste-profile-attribute-grid">{Object.entries(profile.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <div key={kind} className="detail-field taste-profile-attribute"><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></div>)}</div> : null}</div></details>)}</div></section> : null}
+      {categoryProfiles.length ? <section className="taste-profile-categories"><strong>{italian ? "Firme per tipologia" : "Signatures by wine style"}</strong><small>{italian ? "Ogni firma confronta una tipologia con il tuo profilo generale." : "Each signature compares a wine style with your overall profile."}</small><div className="taste-profile-category-list">{categoryProfiles.map((profile) => <details className="taste-profile-category" key={profile.category} open={openCategory === profile.category} onToggle={(event) => setOpenCategory(event.currentTarget.open ? profile.category : null)}><summary><span>{label(profile.category)}</span><small>{profile.sample_count} {italian ? "vini valutati" : "rated wines"}</small></summary><div className="taste-profile-category-content"><p>{italian ? "La linea sottile indica il tuo profilo generale; la barra mostra cosa emerge in questa tipologia." : "The fine line marks your overall profile; the bar shows what emerges for this wine style."}</p><SensorySignatureBars dimensions={profile.dimensions} labels={labels} reference={overall?.dimensions} compact />{Object.entries(profile.attributes).filter(([, values]) => values.length).length ? <div className="detail-grid taste-profile-attribute-grid">{Object.entries(profile.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <div key={kind} className="detail-field taste-profile-attribute"><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></div>)}</div> : null}</div></details>)}</div></section> : null}
     </>}
   </section>;
 }
@@ -157,8 +183,6 @@ export function TasteProfileExplanation({ locale }: { locale: Locale }) {
     return () => { active = false; };
   }, []);
 
-  const dimensions = profile ? Object.entries(profile.dimensions).slice(0, 4) : [];
-  const radarPoints = dimensions.map(([, value], index) => radarPoint(index, dimensions.length, value.preference * 38)).join(" ");
   const preferredOrigins = [
     ...(profile?.attributes.preferred_countries || []).map(([value]) => value),
     ...(profile?.attributes.preferred_regions || []).map(([value]) => value),
@@ -173,14 +197,9 @@ export function TasteProfileExplanation({ locale }: { locale: Locale }) {
   return <article className="dashboard-card taste-profile-explanation">
     <div className="card-heading"><div><span>{italian ? "Visuale personale" : "Personal view"}</span><h2>{italian ? "Il gusto sulla mappa" : "Taste on the map"}</h2></div></div>
     {profile ? <div className="taste-profile-existing-visuals">
-      <section className="regional-radar-wrap taste-profile-radar-wrap" aria-label={italian ? "Firma sensoriale" : "Sensory signature"}>
-        <header><span>{italian ? "Firma sensoriale" : "Sensory signature"}</span><strong>{italian ? "Il carattere del tuo gusto" : "The character of your taste"}</strong><small>{italian ? "Una lettura sintetica dei tratti che orientano le tue scelte." : "A concise reading of the traits guiding your choices."}</small><div className="taste-profile-signature-values">{dimensions.map(([dimension, value]) => <div key={dimension}><span>{dimensionLabels[dimension] || dimension.replace(/_/g, " ")}</span><strong>{Math.round(value.preference * 100)}<small>/100</small></strong></div>)}</div></header>
-        <svg className="regional-radar" viewBox="0 0 100 100" role="img" aria-label={italian ? "Indicatori sensoriali emersi" : "Emerging sensory indicators"}>
-          {[10, 20, 30, 40].map((level) => <polygon className="regional-radar-ring" key={level} points={dimensions.map((_, index) => radarPoint(index, dimensions.length, level)).join(" ")} />)}
-          {dimensions.map(([dimension], index) => <line className="regional-radar-axis" key={dimension} x1="50" y1="50" x2={radarPoint(index, dimensions.length, 42).split(",")[0]} y2={radarPoint(index, dimensions.length, 42).split(",")[1]} />)}
-          <polygon className="regional-radar-current" points={radarPoints} />
-          {dimensions.map(([dimension, value], index) => <g key={dimension}><circle className="regional-radar-node" cx={radarPoint(index, dimensions.length, value.preference * 38).split(",")[0]} cy={radarPoint(index, dimensions.length, value.preference * 38).split(",")[1]} r="1.45" /><text className="regional-radar-label" x={radarPoint(index, dimensions.length, 47).split(",")[0]} y={radarPoint(index, dimensions.length, 47).split(",")[1]}>{dimensionLabels[dimension] || dimension.replace(/_/g, " ")}</text></g>)}
-        </svg>
+      <section className="taste-profile-radar-wrap taste-profile-signature-chart" aria-label={italian ? "Firma sensoriale" : "Sensory signature"}>
+        <header><span>{italian ? "Firma sensoriale" : "Sensory signature"}</span><strong>{italian ? "Il carattere del tuo gusto" : "The character of your taste"}</strong><small>{italian ? "Nove indicatori, letti insieme per mostrare i tratti che orientano le tue scelte." : "Nine indicators read together to show the traits that guide your choices."}</small></header>
+        <SensorySignatureBars dimensions={profile.dimensions} labels={dimensionLabels} />
       </section>
       <section className="taste-profile-world-map" aria-label={italian ? "Mappa delle origini preferite" : "Map of preferred origins"}>
         <header><span>{italian ? "Geografia personale" : "Personal geography"}</span><strong>{italian ? "Le origini che cerchi" : "Origins you seek"}</strong><small>{italian ? "Paesi e regioni emersi dalle tue preferenze." : "Countries and regions emerging from your preferences."}</small></header>

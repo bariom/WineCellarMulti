@@ -389,6 +389,36 @@ def test_rebuild_is_private_weighted_and_category_specific() -> None:
     assert profiles["global"].sample_count == 2
 
 
+def test_rebuild_creates_dedicated_profiles_for_rose_and_fortified_wines() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="categories@example.test", display_name="Categories", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    for wine_type, dimensions in (
+        ("Rose", {"fruit": 0.8, "acidity": 0.7}),
+        ("Fortified", {"body": 0.8, "sweetness": 0.7}),
+    ):
+        wine = make_wine(db, household, name=wine_type, wine_type=wine_type)
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions=dimensions,
+                confidence=0.9,
+                generation_status="available",
+            )
+        )
+        add_tasting(db, user, household, wine, 6)
+    db.commit()
+
+    profiles = {
+        profile.category: profile for profile in rebuild_user_taste_profile(db, user.id)
+    }
+
+    assert profiles["Rose"].sample_count == 1
+    assert profiles["Fortified"].sample_count == 1
+
+
 def test_taste_match_prefers_closer_wine_and_suppresses_thin_data() -> None:
     db = Session()
     household = Household(name="Home")
