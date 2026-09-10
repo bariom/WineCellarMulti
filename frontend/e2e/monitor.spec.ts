@@ -79,6 +79,9 @@ test("shows actionable monitoring priorities without horizontal overflow", async
         })),
       },
     });
+    if (url.includes("active-users")) {
+      return route.fulfill({ json: { count: 2, window_minutes: 15, observed_since: now, last_activity_at: now } });
+    }
     if (url.includes("demo-activity")) {
       return route.fulfill({ json: { total_visits: 12, visits_24h: 2, visits_7d: 8, last_visit_at: now } });
     }
@@ -95,6 +98,7 @@ test("shows actionable monitoring priorities without horizontal overflow", async
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/monitor");
+  await expect(page.getByLabel("Impatto riavvio")).toContainText("2 utenti in attività recente");
 
   const priorities = page.getByLabel("Priorità operative");
   await expect(priorities).toContainText("Cosa controllare ora");

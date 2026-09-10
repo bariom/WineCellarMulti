@@ -70,6 +70,7 @@ router = APIRouter(prefix="/admin/operations")
 
 SAMPLE_RETENTION = timedelta(days=14)
 NEW_PHOTO_WINDOW = timedelta(days=7)
+ACTIVE_USER_WINDOW_MINUTES = 15
 
 
 def is_recent_photo(created_at: datetime) -> bool:
@@ -572,6 +573,36 @@ def recent_user_activity(
         }
         for entry, user in entries
     ]
+
+
+@router.get("/active-users")
+def active_users_estimate(
+    db: Session = Depends(get_db),
+    _: User = Depends(require_operations_read_access),
+) -> dict[str, object]:
+    """Return a fresh, conservative restart-impact estimate from recorded user actions."""
+    now = datetime.now(UTC)
+    cutoff = now - timedelta(minutes=ACTIVE_USER_WINDOW_MINUTES)
+    active_user_filter = (
+        UserActivityLog.created_at >= cutoff,
+        User.is_approved.is_(True),
+        User.is_blocked.is_(False),
+    )
+    count, last_activity_at = db.execute(
+        select(
+            func.count(func.distinct(UserActivityLog.user_id)),
+            func.max(UserActivityLog.created_at),
+        )
+        .select_from(UserActivityLog)
+        .join(User, User.id == UserActivityLog.user_id)
+        .where(*active_user_filter)
+    ).one()
+    return {
+        "count": count or 0,
+        "window_minutes": ACTIVE_USER_WINDOW_MINUTES,
+        "observed_since": cutoff.isoformat(),
+        "last_activity_at": last_activity_at.isoformat() if last_activity_at else None,
+    }
 
 
 @router.get("/wine-pulse")

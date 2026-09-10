@@ -201,6 +201,19 @@ body:has(.monitor-shell) {
   font-variant-numeric: tabular-nums;
 }
 
+.monitor-restart-impact {
+  margin-top: 12px;
+}
+
+.monitor-restart-impact.occupied {
+  border-color: #806e3e;
+  background: linear-gradient(145deg, #2b2920, #191a17);
+}
+
+.monitor-restart-impact.clear {
+  border-color: #416545;
+}
+
 .monitor-section-head strong {
   display: block;
   margin-top: 4px;

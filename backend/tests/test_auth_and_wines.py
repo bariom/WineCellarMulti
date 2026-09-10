@@ -34,6 +34,7 @@ from app.models import (
     OperationalAlertState,
     RedeemCode,
     User,
+    UserActivityLog,
     UserAiCreditTransaction,
     UserAiSettings,
     UserEntitlement,
@@ -5658,6 +5659,22 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
                 estimated_cost_usd=Decimal("0.012345"),
             )
         )
+        db.add_all(
+            [
+                UserActivityLog(
+                    user_id=user.id,
+                    household_id=household.id,
+                    action="wine_updated",
+                    created_at=datetime.now(UTC),
+                ),
+                UserActivityLog(
+                    user_id=user.id,
+                    household_id=household.id,
+                    action="wine_updated",
+                    created_at=datetime.now(UTC) - timedelta(minutes=16),
+                ),
+            ]
+        )
         db.commit()
 
     overview = client.get("/api/v1/admin/operations/overview")
@@ -5684,6 +5701,12 @@ def test_operational_metrics_are_restricted_to_the_app_admin_and_sampled(monkeyp
     assert payload["openai"]["available"] is False
     assert isinstance(payload["active_alerts"], list)
     assert payload["history_retention_days"] == 14
+
+    active_users = client.get("/api/v1/admin/operations/active-users")
+    assert active_users.status_code == 200
+    assert active_users.json()["count"] == 1
+    assert active_users.json()["window_minutes"] == 15
+    assert active_users.json()["last_activity_at"] is not None
 
     with TestingSessionLocal() as db:
         db.add(

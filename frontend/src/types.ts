@@ -982,6 +982,13 @@ export type UserActivityLogEntry = {
   user_email: string;
 };
 
+export type ActiveUsersEstimate = {
+  count: number;
+  window_minutes: number;
+  observed_since: string;
+  last_activity_at: string | null;
+};
+
 export type DemoActivitySummary = {
   total_visits: number;
   visits_24h: number;

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "uplot/dist/uPlot.min.css";
 import { activityLabel } from "./domain/activity";
 import type {
+  ActiveUsersEstimate,
   DemoActivitySummary,
   OperationalMetricsHistory,
   OperationalMetricsOverview,
@@ -212,6 +213,7 @@ export function MonitorApp() {
   const [overview, setOverview] = useState<OperationalMetricsOverview | null>(null);
   const [history, setHistory] = useState<OperationalMetricsHistory | null>(null);
   const [activity, setActivity] = useState<UserActivityLogEntry[]>([]);
+  const [activeUsers, setActiveUsers] = useState<ActiveUsersEstimate | null>(null);
   const [demoActivity, setDemoActivity] = useState<DemoActivitySummary | null>(null);
   const [hours, setHours] = useState(6);
   const [error, setError] = useState("");
@@ -246,10 +248,11 @@ export function MonitorApp() {
       if (collect) {
         await monitorApi<void>("/api/v1/admin/operations/collect-now", activeToken, { method: "POST" });
       }
-      const [nextOverview, nextHistory, nextActivity, nextDemoActivity, nextWinePulseDetails, nextApplicationErrors] = await Promise.all([
+      const [nextOverview, nextHistory, nextActivity, nextActiveUsers, nextDemoActivity, nextWinePulseDetails, nextApplicationErrors] = await Promise.all([
         monitorApi<OperationalMetricsOverview>("/api/v1/admin/operations/overview", activeToken),
         monitorApi<OperationalMetricsHistory>(`/api/v1/admin/operations/history?hours=${activeHours}`, activeToken),
         monitorApi<UserActivityLogEntry[]>("/api/v1/admin/operations/activity?limit=16", activeToken),
+        monitorApi<ActiveUsersEstimate>("/api/v1/admin/operations/active-users", activeToken),
         monitorApi<DemoActivitySummary>("/api/v1/admin/operations/demo-activity", activeToken),
         monitorApi<WinePulseDetails>("/api/v1/admin/operations/wine-pulse", activeToken),
         monitorApi<ApplicationErrors>("/api/v1/admin/operations/application-errors", activeToken),
@@ -257,6 +260,7 @@ export function MonitorApp() {
       setOverview(nextOverview);
       setHistory(nextHistory);
       setActivity(nextActivity);
+      setActiveUsers(nextActiveUsers);
       setDemoActivity(nextDemoActivity);
       setWinePulseDetails(nextWinePulseDetails);
       setApplicationErrors(nextApplicationErrors);
@@ -296,6 +300,7 @@ export function MonitorApp() {
     setOverview(null);
     setHistory(null);
     setActivity([]);
+    setActiveUsers(null);
     setWinePulseDetails(null);
     setApplicationErrors(null);
   }
@@ -389,6 +394,7 @@ export function MonitorApp() {
     ? Math.round(((business.ai_successes_30d || 0) / business.ai_requests_30d) * 100)
     : null;
   const visibleActivity = activityExpanded ? activity : activity.slice(0, 6);
+  const recentUsersCount = activeUsers?.count ?? null;
   const priorities: MonitorPriority[] = [
     ...alerts.map((alert) => ({
       title: `Verifica ${alert.label.toLowerCase()}`,
@@ -507,6 +513,27 @@ export function MonitorApp() {
         </section>
       ) : null}
 
+      <section className={`monitor-card monitor-restart-impact${recentUsersCount ? " occupied" : " clear"}`} aria-label="Impatto riavvio">
+        <div className="monitor-section-head">
+          <div>
+            <span>IMPATTO RIAVVIO</span>
+            <strong>
+              {recentUsersCount === null
+                ? "Verifica attività in corso"
+                : recentUsersCount
+                  ? `${recentUsersCount} ${recentUsersCount === 1 ? "utente" : "utenti"} in attività recente`
+                  : "Nessuna attività recente rilevata"}
+            </strong>
+          </div>
+          <b>{recentUsersCount ?? "—"}</b>
+        </div>
+        <small>
+          {activeUsers
+            ? `Stima dai log degli ultimi ${activeUsers.window_minutes} minuti${activeUsers.last_activity_at ? ` · ultima azione ${dateTime(activeUsers.last_activity_at)}` : ""}. Una sessione solo in lettura può non comparire.`
+            : "Caricamento della stima dai log attività."}
+        </small>
+      </section>
+
       <div className="monitor-action-row">
         <button type="button" onClick={() => void shareStatus()} disabled={!overview}>Condividi stato</button>
         {shareFeedback ? <span role="status">{shareFeedback}</span> : null}
@@ -541,7 +568,7 @@ export function MonitorApp() {
       <section className="monitor-card monitor-kpi-section">
         <div className="monitor-section-head"><div><span>ACCESSI</span><strong>Utenti e cantine</strong></div><b>{business?.users_enabled ?? "—"}</b></div>
         <div className="monitor-kpi-grid">
-          <div><span>Utenti attivi</span><strong>{business?.users_enabled ?? "—"}</strong></div>
+          <div><span>Operativi ora (stima)</span><strong>{recentUsersCount ?? "—"}</strong><small>{activeUsers ? `${activeUsers.window_minutes} min` : "—"}</small></div>
           <div className={pendingUsers ? "attention" : ""}><span>Da approvare</span><strong>{pendingUsers ?? "—"}</strong></div>
           <div className={business?.users_blocked ? "attention" : ""}><span>Bloccati</span><strong>{business?.users_blocked ?? "—"}</strong></div>
           <div><span>Cantine</span><strong>{business?.households_total ?? "—"}</strong></div>
