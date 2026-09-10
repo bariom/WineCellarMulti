@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import uuid
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, ForeignKey, Index, Numeric, String, Text, Uuid
+from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -70,3 +71,55 @@ class WishlistItem(Base):
     ai_context_note: Mapped[str] = mapped_column(Text, default="")
     ai_strategy: Mapped[str] = mapped_column(Text, default="")
     ai_purpose_advice: Mapped[str] = mapped_column(Text, default="")
+
+
+class ExternalWineTasting(Base):
+    """A personal tasting of a wine that is not part of the cellar inventory."""
+
+    __tablename__ = "external_wine_tastings"
+    __table_args__ = (
+        Index(
+            "ix_external_wine_tastings_household_consumed_created",
+            "household_id",
+            "consumed_at",
+            "created_at",
+        ),
+        Index("ix_external_wine_tastings_user_consumed", "created_by_user_id", "consumed_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    household_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("households.id", ondelete="CASCADE"), index=True
+    )
+    created_by_user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    wishlist_item_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("wishlist_items.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    shared_identity_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("shared_wine_identities.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    name: Mapped[str] = mapped_column(String(200), index=True)
+    producer: Mapped[str] = mapped_column(String(200), default="")
+    vintage: Mapped[str] = mapped_column(String(16), default="")
+    format: Mapped[str] = mapped_column(String(80), default="")
+    type: Mapped[str] = mapped_column(String(80), default="")
+    region: Mapped[str] = mapped_column(String(120), default="")
+    appellation: Mapped[str] = mapped_column(String(120), default="")
+    consumed_at: Mapped[date] = mapped_column(Date, index=True)
+    note: Mapped[str] = mapped_column(Text, default="")
+    rating: Mapped[int] = mapped_column(Integer, default=0)
+    enjoyment: Mapped[str] = mapped_column(String(16), default="")
+    occasion: Mapped[str] = mapped_column(String(200), default="")
+    pairing: Mapped[str] = mapped_column(String(300), default="")
+    companions: Mapped[str] = mapped_column(String(300), default="")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, index=True
+    )

@@ -1752,6 +1752,9 @@ export function WishlistDetail({
   canGenerate,
   generating,
   onGenerate,
+  canWrite,
+  saving,
+  onRecordTasting,
   marketAuditEntry,
   onOpenMarketView,
   t,
@@ -1762,11 +1765,16 @@ export function WishlistDetail({
   canGenerate: boolean;
   generating: string;
   onGenerate: (feature: "strategy" | "purpose" | "target-price") => void;
+  canWrite: boolean;
+  saving: boolean;
+  onRecordTasting: (payload: ConsumeWineDraft) => Promise<void>;
   marketAuditEntry: AiAuditLog | null;
   onOpenMarketView: (entry: AiAuditLog) => void;
   t: (key: TranslationKey) => string;
   locale: Locale;
 }) {
+  const [externalTastingOpen, setExternalTastingOpen] = useState(false);
+  const [externalTastingDraft, setExternalTastingDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
   const aiMarketPrice = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
   const offerPrice = item.offer_price ? formatMoney(item.offer_price, item.currency, locale) : "";
   const investmentAmount = item.investment_amount ? formatMoney(item.investment_amount, item.currency, locale) : "";
@@ -1806,6 +1814,37 @@ export function WishlistDetail({
           <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} />
         </button>
       </div>
+      <section className="external-tasting-card">
+        <div>
+          <span>{locale === "it" ? "ESPERIENZA PERSONALE" : "PERSONAL EXPERIENCE"}</span>
+          <h3>{locale === "it" ? "L'hai assaggiato?" : "Have you tasted it?"}</h3>
+          <p>{locale === "it" ? "Registra il tuo giudizio: aggiorna il profilo gusto, senza creare una bottiglia in cantina." : "Save your verdict to update your taste profile, without adding stock to the cellar."}</p>
+          {item.tasting_count ? <small>{locale === "it" ? `Già assaggiato ${item.tasting_count} ${item.tasting_count === 1 ? "volta" : "volte"}` : `Tasted ${item.tasting_count} ${item.tasting_count === 1 ? "time" : "times"}`}</small> : null}
+        </div>
+        <button type="button" className="secondary compact" disabled={!canWrite || saving} onClick={() => setExternalTastingOpen((current) => !current)}>
+          {externalTastingOpen ? (locale === "it" ? "Chiudi" : "Close") : (locale === "it" ? "Ho assaggiato" : "I tasted it")}
+        </button>
+      </section>
+      {externalTastingOpen ? (
+        <form className="consume-form external-tasting-form" onSubmit={(event) => {
+          event.preventDefault();
+          void onRecordTasting(externalTastingDraft).then(() => {
+            setExternalTastingDraft(emptyConsumeWineDraft());
+            setExternalTastingOpen(false);
+          });
+        }}>
+          <div className="detail-grid consume-grid">
+            <label><span>{t("tastingDate")}</span><LocalizedDateInput value={externalTastingDraft.consumed_at} onChange={(consumed_at) => setExternalTastingDraft((current) => ({ ...current, consumed_at }))} locale={locale} disabled={saving} /></label>
+            <label><span>{t("tastingRating")}</span><select value={externalTastingDraft.tasting_rating} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_rating: event.target.value }))} disabled={saving}>{Array.from({ length: 7 }).map((_, index) => <option key={index} value={String(index)}>{index === 0 ? t("notSpecified") : `${index}/6`}</option>)}</select></label>
+            <label className="tasting-enjoyment-field"><span>{t("tastingEnjoyment")}</span><TastingEnjoymentInput value={externalTastingDraft.tasting_enjoyment} disabled={saving} t={t} onChange={(tasting_enjoyment) => setExternalTastingDraft((current) => ({ ...current, tasting_enjoyment }))} /></label>
+            <label><span>{t("tastingOccasion")}</span><input value={externalTastingDraft.tasting_occasion} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_occasion: event.target.value }))} disabled={saving} /></label>
+            <label><span>{t("tastingPairing")}</span><input value={externalTastingDraft.tasting_pairing} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_pairing: event.target.value }))} disabled={saving} /></label>
+          </div>
+          <label><span>{t("tastingCompanions")}</span><input value={externalTastingDraft.tasting_companions} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_companions: event.target.value }))} disabled={saving} /></label>
+          <label><span>{t("tastingNote")}</span><textarea rows={3} value={externalTastingDraft.note} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, note: event.target.value }))} disabled={saving} /></label>
+          <div className="form-actions"><button type="submit" disabled={saving}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Salva degustazione" : "Save tasting"} busyLabel={t("saving")} /></button></div>
+        </form>
+      ) : null}
       {generating ? <LoadingState label={t("generating")} compact /> : null}
       {item.ai_strategy || item.ai_purpose_advice ? (
         <div className="notes-grid wishlist-ai-summary">

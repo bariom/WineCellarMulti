@@ -5100,6 +5100,35 @@ export function App() {
     }
   }
 
+  async function recordWishlistTasting(item: WishlistItem, payload: ConsumeWineDraft) {
+    setSaving(true);
+    setError("");
+    try {
+      await api(`/api/v1/wishlist/${item.id}/tastings`, {
+        method: "POST",
+        body: JSON.stringify({
+          consumed_at: payload.consumed_at || undefined,
+          note: payload.note.trim(),
+          tasting_rating: Number(payload.tasting_rating || 0),
+          tasting_enjoyment: payload.tasting_enjoyment,
+          tasting_occasion: payload.tasting_occasion.trim(),
+          tasting_pairing: payload.tasting_pairing.trim(),
+          tasting_companions: payload.tasting_companions.trim(),
+        }),
+      });
+      await loadTastingArchiveOverview();
+      await loadWishlist(selectedWishlistListId);
+      if (!offlineMode && activeView === "history" && historySection === "tastings") {
+        await loadTastingArchive(tastingArchiveOffset);
+      }
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Unable to register tasting");
+      throw nextError;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function scanRestaurantWineList(formData: FormData): Promise<RestaurantWineListScanResult> {
     setGeneratingAi("restaurant-wine-list");
     setError("");
@@ -11994,6 +12023,9 @@ export function App() {
                   canGenerate={canGenerateAi}
                   generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                   onGenerate={(feature) => generateWishlistAi(selectedWishlistItem, feature)}
+                  canWrite={canWriteWine}
+                  saving={saving}
+                  onRecordTasting={(payload) => recordWishlistTasting(selectedWishlistItem, payload)}
                   marketAuditEntry={selectedWishlistMarketAudit}
                   onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item: selectedWishlistItem, entry })}
                   t={t}

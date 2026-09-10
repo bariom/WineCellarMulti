@@ -44,7 +44,7 @@ def normalize_format(value: object) -> str:
     return normalized[:80]
 
 
-def identity_parts(wine: Wine) -> tuple[str, str, str] | None:
+def identity_parts(wine: Any) -> tuple[str, str, str] | None:
     name = normalize_identity_part(wine.name)
     producer = normalize_identity_part(wine.producer)
     vintage = normalize_identity_part(wine.vintage)
@@ -57,9 +57,7 @@ def identity_key(parts: tuple[str, str, str]) -> str:
     return hashlib.sha256("\x1f".join(parts).encode("utf-8")).hexdigest()
 
 
-def resolve_shared_identity(
-    db: Session, wine: Wine, *, create: bool
-) -> SharedWineIdentity | None:
+def resolve_shared_identity(db: Session, wine: Any, *, create: bool) -> SharedWineIdentity | None:
     parts = identity_parts(wine)
     if parts is None:
         wine.shared_identity_id = None

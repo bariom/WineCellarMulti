@@ -423,6 +423,7 @@ export type WishlistItem = {
   id: string;
   household_id: string;
   wishlist_list_id: string;
+  tasting_count?: number;
   name: string;
   producer: string;
   vintage: string;

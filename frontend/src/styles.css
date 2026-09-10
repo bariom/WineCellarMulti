@@ -12616,6 +12616,84 @@ button.stat-card:hover {
   margin-top: 4px;
 }
 
+.external-tasting-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin: 18px 0 12px;
+  padding: 17px 18px;
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at right top, color-mix(in srgb, var(--accent) 12%, transparent), transparent 45%),
+    color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.external-tasting-card > div {
+  display: grid;
+  gap: 4px;
+}
+
+.external-tasting-card span,
+.external-tasting-badge {
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.external-tasting-card h3,
+.external-tasting-card p {
+  margin: 0;
+}
+
+.external-tasting-card h3 {
+  font-size: 1rem;
+}
+
+.external-tasting-card p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.external-tasting-card small {
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.external-tasting-form {
+  margin: 0 0 14px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface-raised);
+}
+
+.external-tasting-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .external-tasting-card {
+    align-items: start;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .external-tasting-card > button {
+    width: 100%;
+  }
+}
+
 .wishlist-portfolio-panel .detail-note,
 .wishlist-mobile-ai-preview-note {
   border-color: var(--ai-panel-border);

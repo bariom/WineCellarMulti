@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.wine_types import normalize_wine_type
 from app.models import (
+    ExternalWineTasting,
     SensoryProfileBaseline,
     UserTasteProfile,
     UserWineRating,
@@ -148,7 +149,7 @@ def _baseline_for_value(
 
 
 def sensory_profile_for_wine(
-    db: Session, wine: Wine, *, create_identity: bool = False
+    db: Session, wine: Wine | ExternalWineTasting, *, create_identity: bool = False
 ) -> WineSensoryProfile | None:
     identity = resolve_shared_identity(db, wine, create=create_identity)
     if identity is None:
@@ -244,7 +245,7 @@ def generate_wine_sensory_profile(
     return profile
 
 
-def mark_wine_for_sensory_enrichment(db: Session, wine: Wine) -> None:
+def mark_wine_for_sensory_enrichment(db: Session, wine: Wine | ExternalWineTasting) -> None:
     profile = sensory_profile_for_wine(db, wine, create_identity=True)
     if profile is None:
         identity = resolve_shared_identity(db, wine, create=True)
@@ -276,23 +277,26 @@ def tasting_preference_weight(rating: float, enjoyment: str = "") -> float:
     return max(-1.0, min(1.0, rating_weight(rating) + enjoyment_weight))
 
 
-def _category(wine: Wine) -> str:
+def _category(wine: Wine | ExternalWineTasting) -> str:
     wine_type = normalize_wine_type(wine.type)
     return wine_type if wine_type in TASTE_CATEGORIES else "global"
 
 
-def _attribute_values(wine: Wine) -> dict[str, list[str]]:
+def _attribute_values(wine: Wine | ExternalWineTasting) -> dict[str, list[str]]:
     result = {
-        "preferred_countries": [wine.vineyard_country],
+        "preferred_countries": [getattr(wine, "vineyard_country", "")],
         "preferred_regions": [wine.region],
         "preferred_appellations": [wine.appellation],
         "preferred_producers": [wine.producer],
         "preferred_grapes": [
-            item.get("name", "") for item in (wine.grapes or []) if isinstance(item, dict)
+            item.get("name", "")
+            for item in (getattr(wine, "grapes", []) or [])
+            if isinstance(item, dict)
         ],
     }
-    if wine.price is not None:
-        amount = float(wine.price)
+    price = getattr(wine, "price", None)
+    if price is not None:
+        amount = float(price)
         result["preferred_price_ranges"] = [
             "under_30" if amount < 30 else "30_60" if amount <= 60 else "over_60"
         ]
@@ -353,6 +357,32 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
         for category in categories:
             samples[category] += 1
             for key, label_values in _attribute_values(wine).items():
+                for value in label_values:
+                    attribute_scores[category][key][value] += weight
+            if not profile or profile.generation_status != "available":
+                continue
+            for dimension, value in validated_dimensions(profile.dimensions).items():
+                accumulators[category][dimension].append((weight, value, profile.confidence))
+    external_rows = db.execute(
+        select(ExternalWineTasting, WineSensoryProfile)
+        .outerjoin(
+            WineSensoryProfile,
+            WineSensoryProfile.identity_id == ExternalWineTasting.shared_identity_id,
+        )
+        .where(
+            ExternalWineTasting.created_by_user_id == user_id,
+            or_(
+                ExternalWineTasting.rating > 0,
+                ExternalWineTasting.enjoyment.in_(("positive", "negative")),
+            ),
+        )
+    )
+    for tasting, profile in external_rows:
+        categories = ["global"] + ([] if _category(tasting) == "global" else [_category(tasting)])
+        weight = tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
+        for category in categories:
+            samples[category] += 1
+            for key, label_values in _attribute_values(tasting).items():
                 for value in label_values:
                     attribute_scores[category][key][value] += weight
             if not profile or profile.generation_status != "available":

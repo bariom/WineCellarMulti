@@ -28,6 +28,7 @@ type TastingArchiveEntry = {
   occasion: string;
   pairing: string;
   companions: string;
+  source?: string;
   sommelier_feedback: string;
   sommelier_pairing_score: number | null;
   sommelier_pairing_advice: string;
@@ -292,8 +293,9 @@ export default function TastingArchiveSection({
               </div>
               <div className="tasting-archive-summary">
                 <span>{formatDisplayDate(entry.consumed_at)}</span>
+                {entry.source === "external_tasting" ? <small className="external-tasting-badge">{locale === "it" ? "Assaggiato fuori cantina" : "Tasted outside cellar"}</small> : null}
                 {entry.sommelier_pairing_score !== null ? <strong className="tasting-archive-ai-score"><small>AI</small>{entry.sommelier_pairing_score}/10</strong> : null}
-                {canGenerateAi && entry.pairing && !entry.sommelier_feedback ? (
+                {entry.source !== "external_tasting" && canGenerateAi && entry.pairing && !entry.sommelier_feedback ? (
                   <button
                     type="button"
                     className="secondary compact tasting-archive-ai-trigger"
@@ -371,7 +373,7 @@ export default function TastingArchiveSection({
                   </div>
                 </details>
               ) : null}
-              {canGenerateAi && entry.pairing ? (
+              {entry.source !== "external_tasting" && canGenerateAi && entry.pairing ? (
                 <aside className="tasting-sommelier-invite">
                   {reflectionEntryId === entry.id ? (
                     <>
@@ -422,7 +424,7 @@ export default function TastingArchiveSection({
                   )}
                 </aside>
               ) : null}
-              <div className="tasting-archive-actions">
+              {entry.source !== "external_tasting" ? <div className="tasting-archive-actions">
                 <button type="button" className="secondary compact" onClick={() => onOpenWine(entry.wine)}>
                   {t("openWine")}
                 </button>
@@ -439,7 +441,7 @@ export default function TastingArchiveSection({
                     {t("edit")}
                   </button>
                 ) : null}
-              </div>
+              </div> : null}
             </>
             )}
           </div>

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -13,8 +13,10 @@ from app.api.deps import (
 )
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import AiAuditLog, Wine, WishlistItem, WishlistList
+from app.models import AiAuditLog, ExternalWineTasting, Wine, WishlistItem, WishlistList
 from app.schemas.wishlist import (
+    ExternalWineTastingCreate,
+    ExternalWineTastingResponse,
     WishlistConvert,
     WishlistCreate,
     WishlistListCreate,
@@ -25,6 +27,8 @@ from app.schemas.wishlist import (
 )
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
+from app.services.shared_wine_data import resolve_shared_identity
+from app.services.taste_profiles import mark_wine_for_sensory_enrichment, rebuild_user_taste_profile
 
 router = APIRouter(prefix="/wishlist")
 
@@ -80,11 +84,17 @@ def wishlist_ai_generated_dates(
     return dates
 
 
-def wishlist_response(item: WishlistItem, ai_dates: dict[str, datetime] | None = None) -> dict:
+def wishlist_response(
+    item: WishlistItem,
+    ai_dates: dict[str, datetime] | None = None,
+    *,
+    tasting_count: int = 0,
+) -> dict:
     return {
         "id": item.id,
         "household_id": item.household_id,
         "wishlist_list_id": item.wishlist_list_id,
+        "tasting_count": tasting_count,
         "name": item.name,
         "producer": item.producer,
         "vintage": item.vintage,
@@ -167,6 +177,23 @@ def wishlist_list_counts(db: Session, household_id: UUID) -> dict[UUID, int]:
         .group_by(WishlistItem.wishlist_list_id),
     ).all()
     return {list_id: count for list_id, count in rows}
+
+
+def wishlist_tasting_counts(
+    db: Session, context: CurrentContext, item_ids: list[UUID]
+) -> dict[UUID, int]:
+    if not item_ids:
+        return {}
+    rows = db.execute(
+        select(ExternalWineTasting.wishlist_item_id, func.count(ExternalWineTasting.id))
+        .where(
+            ExternalWineTasting.household_id == context.household.id,
+            ExternalWineTasting.created_by_user_id == context.user.id,
+            ExternalWineTasting.wishlist_item_id.in_(item_ids),
+        )
+        .group_by(ExternalWineTasting.wishlist_item_id)
+    )
+    return {item_id: int(count) for item_id, count in rows if item_id is not None}
 
 
 @router.get("/lists", response_model=list[WishlistListResponse])
@@ -354,7 +381,11 @@ def list_wishlist(
         ),
     )
     ai_dates = wishlist_ai_generated_dates(db, context, items)
-    return [wishlist_response(item, ai_dates.get(item.id)) for item in items]
+    tasting_counts = wishlist_tasting_counts(db, context, [item.id for item in items])
+    return [
+        wishlist_response(item, ai_dates.get(item.id), tasting_count=tasting_counts.get(item.id, 0))
+        for item in items
+    ]
 
 
 @router.post("", response_model=WishlistResponse, status_code=status.HTTP_201_CREATED)
@@ -408,6 +439,51 @@ def update_wishlist_item(
     db.refresh(item)
     ai_dates = wishlist_ai_generated_dates(db, context, [item])
     return wishlist_response(item, ai_dates.get(item.id))
+
+
+@router.post(
+    "/{item_id}/tastings",
+    response_model=ExternalWineTastingResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_wishlist_tasting(
+    item_id: UUID,
+    payload: ExternalWineTastingCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> ExternalWineTastingResponse:
+    """Record a personal tasting without turning a wishlist wine into inventory."""
+    item = get_household_wishlist_item(db, context, item_id)
+    tasting = ExternalWineTasting(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        wishlist_item_id=item.id,
+        name=item.name,
+        producer=item.producer,
+        vintage=item.vintage,
+        format=item.format,
+        type=normalize_wine_type(item.type),
+        region=item.region,
+        appellation=item.appellation,
+        consumed_at=payload.consumed_at or datetime.now(UTC).date(),
+        note=payload.note.strip(),
+        rating=payload.tasting_rating,
+        enjoyment=payload.tasting_enjoyment,
+        occasion=payload.tasting_occasion.strip(),
+        pairing=payload.tasting_pairing.strip(),
+        companions=payload.tasting_companions.strip(),
+    )
+    db.add(tasting)
+    db.flush()
+    # Shared sensory data is optional. Its absence never prevents the explicit
+    # rating from contributing to the user's private taste profile.
+    resolve_shared_identity(db, tasting, create=True)
+    if payload.tasting_rating > 0 or payload.tasting_enjoyment:
+        mark_wine_for_sensory_enrichment(db, tasting)
+        rebuild_user_taste_profile(db, context.user.id)
+    db.commit()
+    db.refresh(tasting)
+    return ExternalWineTastingResponse.model_validate(tasting)
 
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)

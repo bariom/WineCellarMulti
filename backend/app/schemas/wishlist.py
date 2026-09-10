@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
@@ -67,12 +67,33 @@ class WishlistConvert(BaseModel):
     quantity: int = Field(default=1, ge=1)
 
 
+class ExternalWineTastingCreate(BaseModel):
+    consumed_at: date | None = None
+    note: str = Field(default="", max_length=5000)
+    tasting_rating: int = Field(default=0, ge=0, le=6)
+    tasting_enjoyment: str = Field(default="", pattern="^(|positive|negative)$")
+    tasting_occasion: str = Field(default="", max_length=200)
+    tasting_pairing: str = Field(default="", max_length=300)
+    tasting_companions: str = Field(default="", max_length=300)
+
+
+class ExternalWineTastingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    wishlist_item_id: UUID | None = None
+    consumed_at: date
+    rating: int
+    enjoyment: str
+
+
 class WishlistResponse(WishlistBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID
     household_id: UUID
     wishlist_list_id: UUID
+    tasting_count: int = 0
     ai_strategy_generated_at: datetime | None = None
     ai_purpose_generated_at: datetime | None = None
 

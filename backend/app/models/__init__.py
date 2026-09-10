@@ -53,7 +53,7 @@ from app.models.wine_catalog import (
 )
 from app.models.wine_news import WineNewsArticle, WineNewsCollectionRun, WineNewsSource
 from app.models.wine_share import WineShareOffer
-from app.models.wishlist import WishlistItem, WishlistList
+from app.models.wishlist import ExternalWineTasting, WishlistItem, WishlistList
 
 __all__ = [
     "AiAuditLog",
@@ -114,6 +114,7 @@ __all__ = [
     "WineNewsArticle",
     "WineNewsCollectionRun",
     "WineNewsSource",
+    "ExternalWineTasting",
     "WishlistItem",
     "WishlistList",
 ]

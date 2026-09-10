@@ -10,7 +10,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session, defer
 from starlette.concurrency import run_in_threadpool
 
@@ -27,6 +27,7 @@ from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import (
+    ExternalWineTasting,
     Household,
     Membership,
     User,
@@ -523,6 +524,32 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
     )
 
 
+def external_tasting_archive_entry(entry: ExternalWineTasting) -> TastingArchiveItemResponse:
+    return TastingArchiveItemResponse(
+        # The archive needs a stable wine reference for rendering; this UUID is
+        # the tasting itself and deliberately does not refer to cellar stock.
+        wine_id=entry.id,
+        wine_name=entry.name,
+        wine_producer=entry.producer,
+        wine_vintage=entry.vintage,
+        wine_format=entry.format,
+        wine_type=entry.type,
+        wine_region=entry.region,
+        wine_appellation=entry.appellation,
+        wine_status="Tasted outside cellar",
+        consumed_at=entry.consumed_at,
+        note=entry.note,
+        rating=entry.rating,
+        enjoyment=cast(Literal["", "positive", "negative"], entry.enjoyment),
+        occasion=entry.occasion,
+        pairing=entry.pairing,
+        companions=entry.companions,
+        source="external_tasting",
+        created_at=entry.created_at,
+        tasting_id=entry.id,
+    )
+
+
 def tasting_entry_index(wine: Wine, tasting_id: UUID) -> tuple[list[dict], int]:
     entries = normalize_tasting_history([dict(entry) for entry in (wine.tasting_history or [])])
     tasting_id_str = str(tasting_id)
@@ -743,42 +770,64 @@ def list_tasting_archive(
         .join(Wine, Wine.id == WineTastingEntry.wine_id)
         .where(*filters)
     )
-    stats = db.execute(
-        select(
-            func.count(WineTastingEntry.id),
-            func.coalesce(func.sum(case((WineTastingEntry.rating > 0, 1), else_=0)), 0),
-            func.coalesce(func.sum(case((WineTastingEntry.note != "", 1), else_=0)), 0),
-            func.max(WineTastingEntry.consumed_at),
-        )
-        .join(Wine, Wine.id == WineTastingEntry.wine_id)
-        .where(*filters)
-    ).one()
     archive_rows = db.execute(base).all()
     visible_archive_rows = [
         (entry, wine) for entry, wine in archive_rows if user_can_see_wine(context, wine)
     ]
-    rows = db.execute(
-        base.order_by(
-            WineTastingEntry.consumed_at.desc(),
-            WineTastingEntry.created_at.desc(),
-            WineTastingEntry.id.desc(),
+    external_entries = list(
+        db.scalars(
+            select(ExternalWineTasting).where(
+                ExternalWineTasting.household_id == context.household.id,
+                ExternalWineTasting.created_by_user_id == context.user.id,
+            )
         )
-        .offset(offset)
-        .limit(limit)
-    ).all()
-    visible_items = [
-        tasting_archive_entry(entry, wine)
-        for entry, wine in rows
-        if user_can_see_wine(context, wine)
+    )
+
+    def external_matches(entry: ExternalWineTasting) -> bool:
+        if from_date is not None and entry.consumed_at < from_date:
+            return False
+        if normalized_type and normalize_wine_type(entry.type).lower() != normalized_type:
+            return False
+        # External tastings have no cellar status. They are intentionally
+        # excluded when a cellar-status filter is active.
+        if normalized_status:
+            return False
+        if not query:
+            return True
+        return (
+            query
+            in " ".join(
+                [
+                    entry.name,
+                    entry.producer,
+                    entry.vintage,
+                    entry.region,
+                    entry.appellation,
+                    entry.note,
+                    entry.occasion,
+                    entry.pairing,
+                    entry.companions,
+                ]
+            ).lower()
+        )
+
+    visible_external_entries = [entry for entry in external_entries if external_matches(entry)]
+    archive_items = [tasting_archive_entry(entry, wine) for entry, wine in visible_archive_rows] + [
+        external_tasting_archive_entry(entry) for entry in visible_external_entries
     ]
+    archive_items.sort(
+        key=lambda entry: (entry.consumed_at, entry.created_at, entry.tasting_id),
+        reverse=True,
+    )
+    visible_items = archive_items[offset : offset + limit]
 
     return TastingArchivePageResponse(
-        total=int(stats[0] or 0),
+        total=len(archive_items),
         limit=limit,
         offset=offset,
-        rated_count=int(stats[1] or 0),
-        notes_count=int(stats[2] or 0),
-        latest_consumed_at=stats[3],
+        rated_count=sum(1 for entry in archive_items if entry.rating > 0),
+        notes_count=sum(1 for entry in archive_items if entry.note),
+        latest_consumed_at=archive_items[0].consumed_at if archive_items else None,
         profile=tasting_archive_profile(db, visible_archive_rows),
         items=visible_items,
     )

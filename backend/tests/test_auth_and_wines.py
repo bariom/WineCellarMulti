@@ -1184,6 +1184,47 @@ def test_restaurant_cellar_cannot_be_changed_back_to_private():
     assert reverted.json()["detail"] == "A restaurant cellar cannot be changed back to private"
 
 
+def test_wishlist_tasting_updates_profile_without_creating_cellar_stock():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post(
+        "/api/v1/wishlist",
+        json={
+            "name": "Barolo fuori cantina",
+            "producer": "Produttore",
+            "vintage": "2020",
+            "type": "Red",
+            "region": "Piemonte",
+        },
+    )
+    assert created.status_code == 201
+
+    tasting = client.post(
+        f"/api/v1/wishlist/{created.json()['id']}/tastings",
+        json={
+            "consumed_at": "2026-09-10",
+            "tasting_rating": 6,
+            "tasting_enjoyment": "positive",
+            "tasting_pairing": "Brasato",
+        },
+    )
+    assert tasting.status_code == 201, tasting.text
+    assert tasting.json()["rating"] == 6
+    assert client.get("/api/v1/wines").json() == []
+
+    archive = client.get("/api/v1/wines/tasting-archive")
+    assert archive.status_code == 200
+    assert archive.json()["total"] == 1
+    assert archive.json()["items"][0]["wine_name"] == "Barolo fuori cantina"
+    assert archive.json()["items"][0]["source"] == "external_tasting"
+    assert client.get("/api/v1/wishlist").json()[0]["tasting_count"] == 1
+
+    profile = client.get("/api/v1/taste-profile/me")
+    assert profile.status_code == 200
+    assert profile.json()["profiles"][0]["sample_count"] == 1
+    assert profile.json()["profiles"][0]["tasting_count"] == 1
+
+
 def register(
     client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
 ):

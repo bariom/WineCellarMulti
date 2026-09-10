@@ -15,6 +15,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models import (
+    ExternalWineTasting,
     Household,
     SensoryProfileBaseline,
     User,
@@ -494,6 +495,46 @@ def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
 
     assert match["score"] is not None
     assert 0 < match["confidence"] < 0.3
+
+
+def test_external_tasting_contributes_to_the_private_taste_match() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="outside@example.test", display_name="Outside", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    tasted = make_wine(db, household, name="Tasted outside")
+    candidate = make_wine(db, household, name="Candidate")
+    for wine in (tasted, candidate):
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.7},
+                confidence=0.7,
+                generation_status="available",
+            )
+        )
+    db.add(
+        ExternalWineTasting(
+            household_id=household.id,
+            created_by_user_id=user.id,
+            shared_identity_id=tasted.shared_identity_id,
+            name=tasted.name,
+            producer=tasted.producer,
+            vintage=tasted.vintage,
+            type=tasted.type,
+            region=tasted.region,
+            appellation=tasted.appellation,
+            consumed_at=date(2026, 1, 1),
+            rating=5,
+            enjoyment="positive",
+        )
+    )
+    db.commit()
+
+    rebuild_user_taste_profile(db, user.id)
+
+    assert calculate_taste_match(db, user.id, candidate)["score"] is not None
 
 
 def test_private_star_rating_contributes_without_becoming_another_users_signal() -> None:

@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 from app.db.session import get_db
 from app.models import (
+    ExternalWineTasting,
     SensoryProfileBaseline,
     SharedWineIdentity,
     UserTasteProfile,
@@ -75,7 +76,7 @@ def household_star_rating_count(db: Session, context: CurrentContext) -> int:
 
 
 def household_rated_tasting_count(db: Session, context: CurrentContext) -> int:
-    return int(
+    cellar_tastings = int(
         db.scalar(
             select(func.count(WineTastingEntry.id)).where(
                 WineTastingEntry.household_id == context.household.id,
@@ -85,6 +86,17 @@ def household_rated_tasting_count(db: Session, context: CurrentContext) -> int:
         )
         or 0
     )
+    external_tastings = int(
+        db.scalar(
+            select(func.count(ExternalWineTasting.id)).where(
+                ExternalWineTasting.household_id == context.household.id,
+                ExternalWineTasting.created_by_user_id == context.user.id,
+                ExternalWineTasting.rating > 0,
+            )
+        )
+        or 0
+    )
+    return cellar_tastings + external_tastings
 
 
 def profile_response(
