@@ -4070,8 +4070,11 @@ summary:focus-visible {
   box-shadow: var(--shadow-soft);
 }
 
-.recognition-camera-button .app-icon {
-  color: #fff;
+.recognition-camera-button .app-icon,
+.recognition-camera-button .app-icon > svg,
+.recognition-camera-button .app-icon > svg * {
+  color: #fff !important;
+  stroke: #fff !important;
 }
 
 .recognition-camera-button svg {
