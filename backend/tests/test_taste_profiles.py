@@ -30,6 +30,7 @@ from app.services.shared_wine_data import resolve_shared_identity
 from app.services.taste_profiles import (
     calculate_taste_match,
     claim_unassigned_tastings,
+    confidence_level,
     generate_wine_sensory_profile,
     rating_weight,
     rebuild_user_taste_profile,
@@ -498,6 +499,12 @@ def test_rating_weight_is_negative_neutral_and_positive() -> None:
 def test_negative_enjoyment_strengthens_a_negative_tasting_signal() -> None:
     assert tasting_preference_weight(2, "negative") < rating_weight(2)
     assert tasting_preference_weight(5, "positive") > rating_weight(5)
+
+
+def test_confidence_level_requires_both_quality_and_enough_tastings() -> None:
+    assert confidence_level(0.8, tasting_count=9) == "emerging"
+    assert confidence_level(0.8, tasting_count=19) == "probable"
+    assert confidence_level(0.8, tasting_count=30) == "established"
 
 
 def test_a_single_positive_tasting_produces_an_emerging_match() -> None:

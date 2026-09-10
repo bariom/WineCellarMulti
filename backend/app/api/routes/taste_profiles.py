@@ -138,7 +138,7 @@ def profile_response(
         sample_count=profile.sample_count,
         tasting_count=tasting_count,
         star_rating_count=star_rating_count,
-        confidence_level=confidence_level(profile.confidence),
+        confidence_level=confidence_level(profile.confidence, tasting_count=tasting_count),
         rebuilt_at=profile.rebuilt_at,
     )
 

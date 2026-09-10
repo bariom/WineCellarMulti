@@ -609,8 +609,13 @@ def calculate_taste_match(
     }
 
 
-def confidence_level(confidence: float) -> str:
-    return "established" if confidence >= 0.6 else "probable" if confidence >= 0.3 else "emerging"
+def confidence_level(confidence: float, *, tasting_count: int) -> str:
+    """Describe evidence conservatively: a stable profile needs both quality and volume."""
+    if confidence >= 0.6 and tasting_count >= 30:
+        return "established"
+    if confidence >= 0.3 and tasting_count >= 10:
+        return "probable"
+    return "emerging"
 
 
 def compact_taste_context(db: Session, user_id: UUID, *, category: str | None = None) -> dict:

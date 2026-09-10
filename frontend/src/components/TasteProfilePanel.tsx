@@ -95,10 +95,10 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
     ? "Indice individuale su scala 0–100: 50 è il punto neutro. I valori non sono percentuali da sommare."
     : "Individual index on a 0–100 scale: 50 is neutral. Values are not percentages to add together.";
   const confidenceLabel = overall?.confidence_level === "established"
-    ? (italian ? "profilo consolidato" : "established profile")
+    ? (italian ? "firma consolidata" : "established signature")
     : overall?.confidence_level === "probable"
-      ? (italian ? "profilo probabile" : "probable profile")
-      : (italian ? "profilo in evoluzione" : "evolving profile");
+      ? (italian ? "profilo delineato" : "defined profile")
+      : (italian ? "profilo in scoperta" : "profile in discovery");
   const signature = strongest.map(([dimension]) => label(dimension));
   const portrait = signature.length
     ? (italian ? `Vinaris riconosce una firma che mette in primo piano ${signature.join(", ")}.` : `Vinaris sees a signature led by ${signature.join(", ")}.`)
