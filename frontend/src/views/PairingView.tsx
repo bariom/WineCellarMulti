@@ -34,7 +34,6 @@ type PairingViewProps = {
   canWriteWine: boolean;
   generatingAi: string;
   hasPairingBudget: boolean;
-  showRestaurantWineList: boolean;
   isMobileViewport: boolean;
   locale: "en" | "it";
   pairingBudgetPresets: number[];
@@ -114,7 +113,6 @@ export default function PairingView({
   formatAiBudget,
   generatingAi,
   hasPairingBudget,
-  showRestaurantWineList,
   isMobileViewport,
   locale,
   onGeneratePairing,
@@ -159,6 +157,8 @@ export default function PairingView({
   const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
   const [restaurantScanError, setRestaurantScanError] = useState("");
   const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list">("choose");
+  const [pairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
+  const restaurantContext = pairingLocation === "restaurant";
   const isWineFirstPairing = Boolean(pairingTargetWine);
   const pairingCopy = locale === "it"
     ? {
@@ -172,9 +172,6 @@ export default function PairingView({
   useEffect(() => {
     if (isWineFirstPairing && pairingResult?.dish_recommendations.length) setPairingSetupOpen(false);
   }, [isWineFirstPairing, pairingResult?.dish_recommendations.length]);
-  useEffect(() => {
-    setRestaurantFlow(showRestaurantWineList ? "choose" : "without-list");
-  }, [showRestaurantWineList]);
   const pairingPreviewLimit = 3;
   const cellarMatchBudgetValues = pairingResult?.cellar_matches
     .map((match) => {
@@ -222,6 +219,8 @@ export default function PairingView({
   const pairingResultCount = isWineFirstPairing ? (pairingResult?.dish_recommendations.length || 0) : pairingPreviewItems.length;
   function selectPairingContext(marketOnly: boolean) {
     setPairingMarketOnly(marketOnly);
+    setPairingLocation(marketOnly ? "restaurant" : "home");
+    setRestaurantFlow(marketOnly ? "choose" : "without-list");
     if (!marketOnly) {
       setPairingPreferLocal(false);
       setPairingLocalOrigin("");
@@ -267,7 +266,11 @@ export default function PairingView({
           </small>
         ) : null}
       </div>
-      {showRestaurantWineList ? <section className="restaurant-wine-list-card" aria-labelledby="restaurant-wine-list-title">
+      {pairingLocation === "choose" ? <section className="pairing-location-choice" aria-labelledby="pairing-location-title">
+        <div><span>{locale === "it" ? "Prima di iniziare" : "Before you begin"}</span><h3 id="pairing-location-title">{locale === "it" ? "Dove sei?" : "Where are you?"}</h3><p>{locale === "it" ? "Il contesto definisce il percorso di abbinamento." : "Your context determines the pairing flow."}</p></div>
+        <div><button type="button" onClick={() => selectPairingContext(false)}><strong>{locale === "it" ? "A casa" : "At home"}</strong><span>{locale === "it" ? "Scegli tra i vini della tua cantina." : "Choose from wines in your cellar."}</span></button><button type="button" onClick={() => selectPairingContext(true)}><strong>{locale === "it" ? "Al ristorante" : "At a restaurant"}</strong><span>{locale === "it" ? "Analizza una carta o chiedi una proposta da ordinare." : "Analyse a list or ask for a wine to order."}</span></button></div>
+      </section> : null}
+      {restaurantContext ? <section className="restaurant-wine-list-card" aria-labelledby="restaurant-wine-list-title">
         <div>
           <span className="restaurant-wine-list-eyebrow">{locale === "it" ? "Strumento ristorante" : "Restaurant tool"}</span>
           <h3 id="restaurant-wine-list-title">{locale === "it" ? "Come vuoi scegliere il vino?" : "How would you like to choose a wine?"}</h3>
@@ -290,12 +293,19 @@ export default function PairingView({
           {restaurantScanError ? <p className="restaurant-wine-list-error" role="alert">{restaurantScanError}</p> : null}
         </form> : <div className="restaurant-wine-list-continue"><strong>{locale === "it" ? "Proposta senza carta" : "Recommendation without a list"}</strong><span>{locale === "it" ? "Inserisci il piatto qui sotto: proporremo vini da ordinare in linea con il tuo gusto e budget." : "Enter the dish below: we will suggest wines to order for your taste and budget."}</span><button type="button" className="secondary compact" onClick={() => setRestaurantFlow("choose")}>{locale === "it" ? "Cambia percorso" : "Change path"}</button></div>}
         {restaurantFlow === "scan" && restaurantScan ? <div className="restaurant-wine-list-result">
-          <p>{restaurantScan.summary}</p>
-          {restaurantScan.recommendations.length ? <section><h4>{locale === "it" ? "Le scelte più affini" : "Best-fitting choices"}</h4>{restaurantScan.recommendations.map((wine, index) => <article key={`${wine.name}-${index}`}><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style, wine.price_text].filter(Boolean).join(" · ")}</span><p>{wine.reason}</p>{wine.serving_note ? <small>{wine.serving_note}</small> : null}</article>)}</section> : null}
+          <header className="restaurant-wine-list-result-heading">
+            <div><span>{locale === "it" ? "Analisi della carta" : "Wine-list analysis"}</span><h4>{restaurantScan.recommendations.length ? (locale === "it" ? `${restaurantScan.recommendations.length} scelte per il tuo tavolo` : `${restaurantScan.recommendations.length} choices for your table`) : (locale === "it" ? "Carta analizzata" : "Wine list analysed")}</h4></div>
+            <div className="restaurant-wine-list-ai-meta"><span>{locale === "it" ? "Costo AI" : "AI cost"} {formatAiBudget(restaurantScan.estimated_cost_usd)}</span>{restaurantScan.taste_profile_applied ? <span className="restaurant-wine-list-profile-applied">{locale === "it" ? "Profilo gusto applicato" : "Taste profile applied"}</span> : null}<small>{restaurantScan.model} · {t(reasoningEffortTranslationKey(restaurantScan.reasoning_effort))}</small></div>
+          </header>
+          {restaurantScan.summary ? <p className="restaurant-wine-list-summary">{restaurantScan.summary}</p> : null}
+          {restaurantScan.recommendations.length ? <section className="restaurant-wine-list-recommendations"><h4>{locale === "it" ? "Le scelte più affini" : "Best-fitting choices"}</h4>{restaurantScan.recommendations.map((wine, index) => <article key={`${wine.name}-${index}`}>
+            <div className="restaurant-wine-list-recommendation-head"><span className="restaurant-wine-list-rank">{String(index + 1).padStart(2, "0")}</span><div><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style].filter(Boolean).join(" · ")}</span>{wine.taste_affinity > 0 ? <span className="restaurant-taste-affinity" aria-label={locale === "it" ? `Affinità AI con il tuo gusto: ${wine.taste_affinity} su 6` : `AI taste affinity: ${wine.taste_affinity} out of 6`}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < wine.taste_affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span> : null}</div>{wine.price_text ? <b>{wine.price_text}</b> : null}</div>
+            <p>{wine.reason}</p>{wine.serving_note ? <small><span>{locale === "it" ? "Servizio" : "Service"}</span>{wine.serving_note}</small> : null}
+          </article>)}</section> : null}
           {restaurantScan.wines.length ? <details><summary>{locale === "it" ? `Testo estratto e ${restaurantScan.wines.length} vini rilevati` : `Extracted text and ${restaurantScan.wines.length} detected wines`}</summary><p>{restaurantScan.extracted_text}</p><ul>{restaurantScan.wines.map((wine, index) => <li key={`${wine.name}-${index}`}>{[wine.name, wine.producer, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li>)}</ul></details> : null}
         </div> : null}
       </section> : null}
-      {(!showRestaurantWineList || restaurantFlow === "without-list") ? <div className="pairing-layout">
+      {pairingLocation !== "choose" && (!restaurantContext || restaurantFlow === "without-list") ? <div className="pairing-layout">
         <div className="pairing-main">
           <form className="pairing-form" onSubmit={(event) => onGeneratePairing(event, [pairingTargetWine?.id || null, pairingDietaryPreferences, pairingAllergies])}>
             {isWineFirstPairing ? (
@@ -399,18 +409,6 @@ export default function PairingView({
                 </div>
               </div>
               <small>{t("pairingMaxPriceHelp")}</small>
-            </div>
-            <div className="pairing-context-control">
-              <span>{locale === "it" ? "Contesto" : "Context"}</span>
-              <small>{locale === "it" ? "Dove vuoi bere o scegliere il vino?" : "Where will you drink or choose the wine?"}</small>
-              <div className="pairing-context-options">
-                <button type="button" className={!pairingMarketOnly ? "selected" : ""} aria-pressed={!pairingMarketOnly} onClick={() => selectPairingContext(false)} disabled={!canGenerateAi || generatingAi === "pairing"}>
-                  <span aria-hidden="true">⌂</span>{locale === "it" ? "A casa" : "At home"}
-                </button>
-                <button type="button" className={pairingMarketOnly ? "selected" : ""} aria-pressed={pairingMarketOnly} onClick={() => selectPairingContext(true)} disabled={!canGenerateAi || generatingAi === "pairing"}>
-                  <span aria-hidden="true">♨</span>{locale === "it" ? "Ristorante" : "Restaurant"}
-                </button>
-              </div>
             </div>
             </div> : null}
             {!isWineFirstPairing ? <label className="pairing-preferences-field pairing-preferences-panel">

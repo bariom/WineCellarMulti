@@ -891,7 +891,8 @@ export type RestaurantWineListScanResult = {
   summary: string;
   extracted_text: string;
   wines: Array<{ name: string; producer: string; vintage: string; price_text: string; style: string }>;
-  recommendations: Array<{ name: string; producer: string; vintage: string; price_text: string; style: string; reason: string; serving_note: string }>;
+  recommendations: Array<{ name: string; producer: string; vintage: string; price_text: string; style: string; reason: string; serving_note: string; taste_affinity: number }>;
+  taste_profile_applied: boolean;
   model: string;
   reasoning_effort: string;
   estimated_cost_usd: string;

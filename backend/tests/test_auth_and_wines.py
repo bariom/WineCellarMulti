@@ -67,6 +67,7 @@ def recognized_bottle_payload(**updates):
     payload.update(updates)
     return payload
 
+
 engine = create_engine(
     "sqlite+pysqlite:///:memory:",
     connect_args={"check_same_thread": False},
@@ -126,9 +127,7 @@ def test_cellar_locations_bins_and_relocations_follow_stock():
             "vintage": "2021",
             "quantity": 6,
             "status": "Delivered",
-            "storage_allocations": [
-                {"location_id": fridge_id, "bin_id": shelf_id, "quantity": 6}
-            ],
+            "storage_allocations": [{"location_id": fridge_id, "bin_id": shelf_id, "quantity": 6}],
         },
     )
     assert created.status_code == 201, created.text
@@ -158,7 +157,9 @@ def test_cellar_locations_bins_and_relocations_follow_stock():
     )
     assert consumed.status_code == 200, consumed.text
     assert consumed.json()["quantity"] == 5
-    remaining = {item["location_name"]: item["quantity"] for item in consumed.json()["storage_allocations"]}
+    remaining = {
+        item["location_name"]: item["quantity"] for item in consumed.json()["storage_allocations"]
+    }
     assert remaining == {"Cantina": 1, "Frigo vini": 4}
 
     assert client.delete(f"/api/v1/storage/locations/{fridge_id}").status_code == 409
@@ -221,9 +222,7 @@ def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
 
     consumed = client.post(f"/api/v1/wines/{wine_id}/consume", json={})
     assert consumed.status_code == 200, consumed.text
-    remaining_allocations = client.get(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations"
-    ).json()
+    remaining_allocations = client.get(f"/api/v1/intelligence/wines/{wine_id}/allocations").json()
     assert sorted((item["purpose"], item["quantity"]) for item in remaining_allocations) == [
         ("drink", 1),
         ("investment", 4),
@@ -239,10 +238,13 @@ def test_consume_multiple_bottles_from_intelligence_action():
     )
     assert created.status_code == 201
     wine_id = created.json()["id"]
-    assert client.put(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations",
-        json={"allocations": [{"purpose": "drink", "quantity": 3}]},
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/intelligence/wines/{wine_id}/allocations",
+            json={"allocations": [{"purpose": "drink", "quantity": 3}]},
+        ).status_code
+        == 200
+    )
 
     consumed = client.post(
         f"/api/v1/wines/{wine_id}/consume",
@@ -251,12 +253,8 @@ def test_consume_multiple_bottles_from_intelligence_action():
     assert consumed.status_code == 200, consumed.text
     assert consumed.json()["quantity"] == 2
     assert len(consumed.json()["tasting_history"]) == 2
-    remaining_allocations = client.get(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations"
-    ).json()
-    assert [(item["purpose"], item["quantity"]) for item in remaining_allocations] == [
-        ("drink", 1)
-    ]
+    remaining_allocations = client.get(f"/api/v1/intelligence/wines/{wine_id}/allocations").json()
+    assert [(item["purpose"], item["quantity"]) for item in remaining_allocations] == [("drink", 1)]
 
     rejected = client.post(f"/api/v1/wines/{wine_id}/consume", json={"quantity": 3})
     assert rejected.status_code == 400
@@ -273,7 +271,12 @@ def test_cellar_intelligence_rejects_overallocation():
     assert created.status_code == 201
     response = client.put(
         f"/api/v1/intelligence/wines/{created.json()['id']}/allocations",
-        json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 2}]},
+        json={
+            "allocations": [
+                {"purpose": "drink", "quantity": 2},
+                {"purpose": "investment", "quantity": 2},
+            ]
+        },
     )
     assert response.status_code == 422
     assert "exceed available bottles" in response.text
@@ -380,10 +383,18 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
         json={"name": "Wine outside selection", "quantity": 1, "status": "Delivered"},
     )
     assert other.status_code == 201
-    assert client.put(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations",
-        json={"allocations": [{"purpose": "drink", "quantity": 2}, {"purpose": "investment", "quantity": 3}]},
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/intelligence/wines/{wine_id}/allocations",
+            json={
+                "allocations": [
+                    {"purpose": "drink", "quantity": 2},
+                    {"purpose": "investment", "quantity": 3},
+                ]
+            },
+        ).status_code
+        == 200
+    )
 
     captured_request: dict = {}
 
@@ -399,11 +410,43 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
                         ),
                         "risk_note": "Nessun rendimento è garantito.",
                         "recommendations": [
-                            {"wine_id": wine_id, "action": "drink", "priority": "high", "quantity": 5, "reason": "Finestra aperta."},
-                            {"wine_id": wine_id, "action": "monitor", "priority": "medium", "quantity": 4, "reason": "Controlla il valore."},
-                            {"wine_id": wine_id, "action": "reclassify", "priority": "medium", "quantity": 3, "reason": "La finestra e il valore suggeriscono di rivalutare l'obiettivo.", "recommended_purpose": "maturation"},
-                            {"wine_id": other.json()["id"], "action": "reclassify", "priority": "high", "quantity": 1, "reason": "Fuori selezione.", "recommended_purpose": "drink"},
-                            {"wine_id": wine_id, "action": "decide", "priority": "low", "quantity": 1, "reason": "Da destinare alla maturazione."},
+                            {
+                                "wine_id": wine_id,
+                                "action": "drink",
+                                "priority": "high",
+                                "quantity": 5,
+                                "reason": "Finestra aperta.",
+                            },
+                            {
+                                "wine_id": wine_id,
+                                "action": "monitor",
+                                "priority": "medium",
+                                "quantity": 4,
+                                "reason": "Controlla il valore.",
+                            },
+                            {
+                                "wine_id": wine_id,
+                                "action": "reclassify",
+                                "priority": "medium",
+                                "quantity": 3,
+                                "reason": "La finestra e il valore suggeriscono di rivalutare l'obiettivo.",
+                                "recommended_purpose": "maturation",
+                            },
+                            {
+                                "wine_id": other.json()["id"],
+                                "action": "reclassify",
+                                "priority": "high",
+                                "quantity": 1,
+                                "reason": "Fuori selezione.",
+                                "recommended_purpose": "drink",
+                            },
+                            {
+                                "wine_id": wine_id,
+                                "action": "decide",
+                                "priority": "low",
+                                "quantity": 1,
+                                "reason": "Da destinare alla maturazione.",
+                            },
                         ],
                     }
                 ),
@@ -427,7 +470,9 @@ def test_cellar_intelligence_ai_respects_quantitative_purposes(monkeypatch):
     assert "Sassicaia" in captured_request["user_prompt"]
     assert "Wine outside selection" not in captured_request["user_prompt"]
     recommendations = response.json()["recommendations"]
-    assert [(item["action"], item["quantity"], item["recommended_purpose"]) for item in recommendations] == [
+    assert [
+        (item["action"], item["quantity"], item["recommended_purpose"]) for item in recommendations
+    ] == [
         ("drink", 2, None),
         ("monitor", 3, None),
         ("reclassify", 3, "maturation"),
@@ -486,10 +531,13 @@ def test_cellar_intelligence_keeps_wine_at_start_of_long_peak(monkeypatch):
         },
     )
     wine_id = created.json()["id"]
-    assert client.put(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations",
-        json={"allocations": [{"purpose": "drink", "quantity": 2}]},
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/intelligence/wines/{wine_id}/allocations",
+            json={"allocations": [{"purpose": "drink", "quantity": 2}]},
+        ).status_code
+        == 200
+    )
 
     def fake_create_ai_response(*args, **kwargs):
         return (
@@ -500,7 +548,14 @@ def test_cellar_intelligence_keeps_wine_at_start_of_long_peak(monkeypatch):
                         "immediate_action": "Bevi Testamatta.",
                         "risk_note": "Nota.",
                         "recommendations": [
-                            {"wine_id": wine_id, "action": "drink", "priority": "medium", "quantity": 2, "reason": "Al picco.", "recommended_purpose": ""},
+                            {
+                                "wine_id": wine_id,
+                                "action": "drink",
+                                "priority": "medium",
+                                "quantity": 2,
+                                "reason": "Al picco.",
+                                "recommended_purpose": "",
+                            },
                         ],
                     }
                 ),
@@ -538,10 +593,13 @@ def test_cellar_intelligence_omits_redundant_maturation_hold(monkeypatch):
     )
     assert created.status_code == 201
     wine_id = created.json()["id"]
-    assert client.put(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations",
-        json={"allocations": [{"purpose": "maturation", "quantity": 6}]},
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/intelligence/wines/{wine_id}/allocations",
+            json={"allocations": [{"purpose": "maturation", "quantity": 6}]},
+        ).status_code
+        == 200
+    )
 
     def fake_create_ai_response(*args, **kwargs):
         return (
@@ -594,9 +652,12 @@ def test_restaurant_sale_tracks_margin_and_can_be_voided():
     private_summary = client.get("/api/v1/sales/summary")
     assert private_summary.status_code == 200
     assert private_summary.json()["currencies"][0]["bottles"] == 1
-    assert client.post(
-        f"/api/v1/sales/{private_sale.json()['id']}/void", json={"reason": "Verifica privata"}
-    ).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/sales/{private_sale.json()['id']}/void", json={"reason": "Verifica privata"}
+        ).status_code
+        == 200
+    )
 
     changed = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
     assert changed.status_code == 200
@@ -643,8 +704,7 @@ def test_restaurant_sale_can_be_edited_without_losing_stock_integrity():
     client = TestClient(app)
     assert register(client).status_code == 201
     assert (
-        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code
-        == 200
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
     )
     restaurant_settings = client.patch(
         "/api/v1/household",
@@ -695,15 +755,23 @@ def test_restaurant_sale_can_be_edited_without_losing_stock_integrity():
 
     reduced = client.put(
         f"/api/v1/sales/{sold.json()['id']}",
-        json={"quantity": 1, "unit_sale_price": 60, "sold_at": "2026-08-07", "note": "Una bottiglia"},
+        json={
+            "quantity": 1,
+            "unit_sale_price": 60,
+            "sold_at": "2026-08-07",
+            "note": "Una bottiglia",
+        },
     )
     assert reduced.status_code == 200
     assert reduced.json()["quantity"] == 1
     assert reduced.json()["revenue"] == "60.00"
     assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 4
-    assert client.post(
-        f"/api/v1/sales/{sold.json()['id']}/void", json={"reason": "Vendita annullata"}
-    ).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/sales/{sold.json()['id']}/void", json={"reason": "Vendita annullata"}
+        ).status_code
+        == 200
+    )
     assert client.get(f"/api/v1/wines/{wine_id}").json()["quantity"] == 5
 
 
@@ -711,8 +779,7 @@ def test_restaurant_glass_sales_track_pours_open_bottle_and_margin():
     client = TestClient(app)
     assert register(client).status_code == 201
     assert (
-        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code
-        == 200
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
     )
     created = client.post(
         "/api/v1/wines",
@@ -765,10 +832,13 @@ def test_restaurant_glass_sales_track_pours_open_bottle_and_margin():
     )
     assert out_of_order_void.status_code == 409
 
-    assert client.post(
-        f"/api/v1/sales/{second_sale.json()['id']}/void",
-        json={"reason": "Calice registrato per errore"},
-    ).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/sales/{second_sale.json()['id']}/void",
+            json={"reason": "Calice registrato per errore"},
+        ).status_code
+        == 200
+    )
     after_void = client.get(f"/api/v1/wines/{wine_id}").json()
     assert after_void["quantity"] == 1
     assert after_void["open_bottle_ml"] == 0
@@ -783,14 +853,20 @@ def test_restaurant_glass_sales_track_pours_open_bottle_and_margin():
 def test_restaurant_yield_settings_define_new_wine_pour_and_saleable_volume():
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch(
-        "/api/v1/household",
-        json={"restaurant_service_loss_ml": 50},
-    ).status_code == 409
-    assert client.patch(
-        "/api/v1/household",
-        json={"operating_mode": "restaurant"},
-    ).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/household",
+            json={"restaurant_service_loss_ml": 50},
+        ).status_code
+        == 409
+    )
+    assert (
+        client.patch(
+            "/api/v1/household",
+            json={"operating_mode": "restaurant"},
+        ).status_code
+        == 200
+    )
     settings_response = client.patch(
         "/api/v1/household",
         json={
@@ -826,10 +902,13 @@ def test_restaurant_yield_settings_define_new_wine_pour_and_saleable_volume():
     wine = client.get(f"/api/v1/wines/{created.json()['id']}").json()
     assert wine["quantity"] == 0
     assert wine["open_bottle_ml"] == 0
-    assert client.post(
-        f"/api/v1/sales/{sold.json()['id']}/void",
-        json={"reason": "Verifica resa commerciale"},
-    ).status_code == 200
+    assert (
+        client.post(
+            f"/api/v1/sales/{sold.json()['id']}/void",
+            json={"reason": "Verifica resa commerciale"},
+        ).status_code
+        == 200
+    )
     restored = client.get(f"/api/v1/wines/{created.json()['id']}").json()
     assert restored["quantity"] == 1
     assert restored["open_bottle_ml"] == 0
@@ -838,7 +917,9 @@ def test_restaurant_yield_settings_define_new_wine_pour_and_saleable_volume():
 def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    assert (
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    )
     created = client.post(
         "/api/v1/wines",
         json={
@@ -922,7 +1003,9 @@ def test_restaurant_stock_ledger_tracks_lots_fifo_and_manual_losses():
 def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    assert (
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    )
     low_stock = client.post(
         "/api/v1/wines",
         json={
@@ -962,14 +1045,20 @@ def test_restaurant_excel_export_contains_sales_inventory_and_reorder_sheets():
     assert clearing_out.status_code == 201
     assert clearing_out.json()["commercial_status"] == "clearing_out"
     assert clearing_out.json()["reorder_enabled"] is False
-    assert client.post(
-        "/api/v1/wines",
-        json={"name": "Missing Price", "quantity": 4, "price": 12, "currency": "CHF"},
-    ).status_code == 201
-    assert client.post(
-        "/api/v1/sales",
-        json={"wine_id": low_stock.json()["id"], "quantity": 1, "sold_at": "2026-08-10"},
-    ).status_code == 201
+    assert (
+        client.post(
+            "/api/v1/wines",
+            json={"name": "Missing Price", "quantity": 4, "price": 12, "currency": "CHF"},
+        ).status_code
+        == 201
+    )
+    assert (
+        client.post(
+            "/api/v1/sales",
+            json={"wine_id": low_stock.json()["id"], "quantity": 1, "sold_at": "2026-08-10"},
+        ).status_code
+        == 201
+    )
 
     exported = client.get(
         "/api/v1/sales/export.xlsx",
@@ -1032,9 +1121,7 @@ def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():
     assert registered.json()["is_app_admin"] is True
     assert registered.json()["restaurant_mode_available"] is True
 
-    admin_change = client.patch(
-        "/api/v1/household", json={"operating_mode": "restaurant"}
-    )
+    admin_change = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
     assert admin_change.status_code == 200
 
     with TestingSessionLocal() as db:
@@ -1048,9 +1135,7 @@ def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():
         db.commit()
 
     assert client.get("/api/v1/session").json()["restaurant_mode_available"] is False
-    unavailable = client.patch(
-        "/api/v1/household", json={"operating_mode": "restaurant"}
-    )
+    unavailable = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
     assert unavailable.status_code == 403
 
     with TestingSessionLocal() as db:
@@ -1060,9 +1145,7 @@ def test_restaurant_mode_requires_per_user_access_and_keeps_app_admin_access():
         db.commit()
 
     assert client.get("/api/v1/session").json()["restaurant_mode_available"] is True
-    enabled_change = client.patch(
-        "/api/v1/household", json={"operating_mode": "restaurant"}
-    )
+    enabled_change = client.patch("/api/v1/household", json={"operating_mode": "restaurant"})
     assert enabled_change.status_code == 200
 
 
@@ -1072,7 +1155,9 @@ def test_user_can_have_only_one_restaurant_cellar():
 
     restaurant_cellar = client.post("/api/v1/household", json={"name": "Restaurant cellar"})
     assert restaurant_cellar.status_code == 201
-    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    assert (
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    )
 
     private_cellar = client.post("/api/v1/household", json={"name": "Second private cellar"})
     assert private_cellar.status_code == 201
@@ -1090,7 +1175,9 @@ def test_user_can_have_only_one_restaurant_cellar():
 def test_restaurant_cellar_cannot_be_changed_back_to_private():
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    assert (
+        client.patch("/api/v1/household", json={"operating_mode": "restaurant"}).status_code == 200
+    )
 
     reverted = client.patch("/api/v1/household", json={"operating_mode": "private"})
     assert reverted.status_code == 409
@@ -1166,14 +1253,20 @@ def test_registration_requires_current_privacy_and_terms_acceptance():
         "photo_usage_disclaimer_accepted": True,
     }
 
-    assert client.post(
-        "/api/v1/auth/register",
-        json={**registration, "privacy_policy_accepted": False},
-    ).status_code == 422
-    assert client.post(
-        "/api/v1/auth/register",
-        json={**registration, "terms_accepted": False},
-    ).status_code == 422
+    assert (
+        client.post(
+            "/api/v1/auth/register",
+            json={**registration, "privacy_policy_accepted": False},
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/v1/auth/register",
+            json={**registration, "terms_accepted": False},
+        ).status_code
+        == 422
+    )
     outdated = client.post(
         "/api/v1/auth/register",
         json={**registration, "legal_document_version": "2025-01-01"},
@@ -1305,18 +1398,19 @@ def test_user_can_delete_account_while_catalog_and_reference_photo_are_preserved
 
         with TestingSessionLocal() as db:
             assert db.scalar(select(User).where(User.email == "owner@example.com")) is None
-            assert db.scalar(
-                select(WineCatalogEntry).where(
-                    WineCatalogEntry.name == "Archived Contribution",
-                    WineCatalogEntry.producer == "Community Estate",
+            assert (
+                db.scalar(
+                    select(WineCatalogEntry).where(
+                        WineCatalogEntry.name == "Archived Contribution",
+                        WineCatalogEntry.producer == "Community Estate",
+                    )
                 )
-            ) is not None
+                is not None
+            )
             photo = db.scalar(
                 select(WinePhotoLibraryEntry).where(
-                    WinePhotoLibraryEntry.normalized_name
-                    == "archived contribution",
-                    WinePhotoLibraryEntry.normalized_producer
-                    == "community estate",
+                    WinePhotoLibraryEntry.normalized_name == "archived contribution",
+                    WinePhotoLibraryEntry.normalized_producer == "community estate",
                 )
             )
             assert photo is not None
@@ -1554,8 +1648,16 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         alternate = client.put(
             f"/api/v1/wines/{target_id}/photo",
             files={
-                "thumbnail_image": ("thumbnail.png", transparent_png_header(160, 240) + b"alternate", "image/png"),
-                "detail_image": ("detail.png", transparent_png_header(480, 720) + b"alternate", "image/png"),
+                "thumbnail_image": (
+                    "thumbnail.png",
+                    transparent_png_header(160, 240) + b"alternate",
+                    "image/png",
+                ),
+                "detail_image": (
+                    "detail.png",
+                    transparent_png_header(480, 720) + b"alternate",
+                    "image/png",
+                ),
             },
         )
         assert alternate.status_code == 200
@@ -1565,7 +1667,9 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         )
         assert suggestions.status_code == 200
         assert len(suggestions.json()) == 2
-        assert all(client.get(item["thumbnail_url"]).status_code == 200 for item in suggestions.json())
+        assert all(
+            client.get(item["thumbnail_url"]).status_code == 200 for item in suggestions.json()
+        )
         assert client.delete(f"/api/v1/wines/{target_id}/photo").status_code == 200
         assert (
             client.post(
@@ -1583,15 +1687,24 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
         assert client.get(admin_photo["thumbnail_url"]).status_code == 200
         assert admin_photo["created_at"]
         assert admin_photo["is_new"] is True
-        assert client.get(
-            "/api/v1/admin/operations/photos", params={"q": "Photo Estate"}
-        ).json()["total"] == 1
-        assert client.get(
-            "/api/v1/admin/operations/photos", params={"q": "not a wine"}
-        ).json()["total"] == 0
-        assert client.get(
-            "/api/v1/admin/operations/photos", params={"new_only": "true"}
-        ).json()["total"] == 1
+        assert (
+            client.get("/api/v1/admin/operations/photos", params={"q": "Photo Estate"}).json()[
+                "total"
+            ]
+            == 1
+        )
+        assert (
+            client.get("/api/v1/admin/operations/photos", params={"q": "not a wine"}).json()[
+                "total"
+            ]
+            == 0
+        )
+        assert (
+            client.get("/api/v1/admin/operations/photos", params={"new_only": "true"}).json()[
+                "total"
+            ]
+            == 1
+        )
 
         with TestingSessionLocal() as db:
             user = db.scalar(select(User).where(User.email == "owner@example.com"))
@@ -1681,7 +1794,9 @@ def test_wine_product_photo_upload_serves_two_private_sizes_and_deletes(tmp_path
             },
         )
         assert invalid.status_code == 400
-        assert client.delete(f"/api/v1/wines/{reusable_target.json()['id']}/photo").status_code == 200
+        assert (
+            client.delete(f"/api/v1/wines/{reusable_target.json()['id']}/photo").status_code == 200
+        )
 
         removed = client.delete(f"/api/v1/wines/{wine_id}/photo")
         assert removed.status_code == 200
@@ -1776,7 +1891,8 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
             assert accepted.status_code == 200
             assert accepted.json()["requires_legal_acceptance"] is False
         demo_user = next(
-            user for user in admin.get("/api/v1/auth/users").json()
+            user
+            for user in admin.get("/api/v1/auth/users").json()
             if user["id"] == entered.json()["user_id"]
         )
         assert demo_user["has_demo_access"] is True
@@ -2567,7 +2683,7 @@ def test_notifications_generate_smart_reminders_without_duplicates():
                 == db.query(User).filter(User.email == "owner@example.com").one().id
             )
             .count()
-                == 5
+            == 5
         )
 
     drink_now_notification = next(item for item in payload if item["kind"] == "smart_drink_now")
@@ -3013,9 +3129,7 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
-    starting_balance = Decimal(
-        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
-    )
+    starting_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
     response = client.post(
         "/api/v1/ai/wine-label/enrich",
         json={
@@ -3037,23 +3151,17 @@ def test_photo_wine_data_enrichment_debits_ai_credits(monkeypatch):
     assert response.json()["country"] == ""
     assert response.json()["grapes_text"] == ""
     assert response.json()["confidence"] == "low"
-    ending_balance = Decimal(
-        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
-    )
+    ending_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
     assert ending_balance < starting_balance
     audit_payload = client.get("/api/v1/ai/audit")
     assert audit_payload.status_code == 200
     photo_audit = next(
-        entry
-        for entry in audit_payload.json()
-        if entry["feature"] == "wine_photo_enrichment"
+        entry for entry in audit_payload.json() if entry["feature"] == "wine_photo_enrichment"
     )
     assert Decimal(photo_audit["estimated_cost_usd"]) == starting_balance - ending_balance
 
     with TestingSessionLocal() as db:
-        audit = db.scalar(
-            select(AiAuditLog).where(AiAuditLog.feature == "wine_photo_enrichment")
-        )
+        audit = db.scalar(select(AiAuditLog).where(AiAuditLog.feature == "wine_photo_enrichment"))
         assert audit is not None
         assert audit.estimated_cost_usd == starting_balance - ending_balance
         assert audit.sources[-1]["provider_source"] == "credits"
@@ -3095,12 +3203,14 @@ def test_nominatim_complement_preserves_wineries_and_wine_shops(monkeypatch):
 
     def fake_search(_south: float, _west: float, _north: float, _east: float, search_term: str):
         search_terms.append(search_term)
-        return [{
-            "name": "Ornellaia" if search_term == "winery" else "Enoteca di prova",
-            "latitude": 43.21,
-            "longitude": 10.62,
-            "kind": "winery" if search_term == "winery" else "wine_shop",
-        }]
+        return [
+            {
+                "name": "Ornellaia" if search_term == "winery" else "Enoteca di prova",
+                "latitude": 43.21,
+                "longitude": 10.62,
+                "kind": "winery" if search_term == "winery" else "wine_shop",
+            }
+        ]
 
     monkeypatch.setattr(map_places_route, "fetch_nominatim_search", fake_search)
     monkeypatch.setattr(map_places_route, "sleep", lambda _seconds: None)
@@ -3118,7 +3228,9 @@ def test_map_places_complement_sparse_overpass_results_with_nominatim(monkeypatc
     monkeypatch.setattr(
         map_places_route,
         "fetch_places",
-        lambda *_args: [{"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"}],
+        lambda *_args: [
+            {"name": "Cantina di prova", "latitude": 45.1, "longitude": 8.1, "kind": "winery"}
+        ],
     )
     monkeypatch.setattr(
         map_places_route,
@@ -3281,24 +3393,28 @@ def test_free_tier_has_private_features_and_ai_pack_after_welcome_credit(monkeyp
     assert second_cellar.status_code == 409
     assert "one cellar only" in second_cellar.json()["detail"]
 
-    first_wine = user_client.post("/api/v1/wines", json={"name": "Free cellar wine", "quantity": 40})
+    first_wine = user_client.post(
+        "/api/v1/wines", json={"name": "Free cellar wine", "quantity": 40}
+    )
     assert first_wine.status_code == 201
     for index in range(2, 16):
-        assert user_client.post(
-            "/api/v1/wines", json={"name": f"Free cellar wine {index}", "quantity": 1}
-        ).status_code == 201
-    over_limit = user_client.post(
-        "/api/v1/wines", json={"name": "Label 16", "quantity": 1}
-    )
+        assert (
+            user_client.post(
+                "/api/v1/wines", json={"name": f"Free cellar wine {index}", "quantity": 1}
+            ).status_code
+            == 201
+        )
+    over_limit = user_client.post("/api/v1/wines", json={"name": "Label 16", "quantity": 1})
     assert over_limit.status_code == 409
     assert "15 of 15" in over_limit.json()["detail"]
-    reduced = user_client.patch(
-        f"/api/v1/wines/{first_wine.json()['id']}", json={"quantity": 0}
-    )
+    reduced = user_client.patch(f"/api/v1/wines/{first_wine.json()['id']}", json={"quantity": 0})
     assert reduced.status_code == 200
-    assert user_client.post(
-        "/api/v1/wines", json={"name": "Replacement label", "quantity": 1}
-    ).status_code == 201
+    assert (
+        user_client.post(
+            "/api/v1/wines", json={"name": "Replacement label", "quantity": 1}
+        ).status_code
+        == 201
+    )
     stock_increase = user_client.post(
         "/api/v1/inventory/movements",
         json={
@@ -3314,9 +3430,7 @@ def test_free_tier_has_private_features_and_ai_pack_after_welcome_credit(monkeyp
         "/api/v1/ai/settings", json={"openai_api_key": "sk-free-not-allowed"}
     )
     assert personal_key.status_code == 403
-    ai_settings = user_client.patch(
-        "/api/v1/ai/settings", json={"provider_mode": "credits"}
-    )
+    ai_settings = user_client.patch("/api/v1/ai/settings", json={"provider_mode": "credits"})
     assert ai_settings.status_code == 200
     assert ai_settings.json()["provider_mode"] == "credits"
     assert ai_settings.json()["provider_options"] == ["credits"]
@@ -3356,6 +3470,7 @@ def test_free_tier_has_private_features_and_ai_pack_after_welcome_credit(monkeyp
         "/api/v1/household", json={"operating_mode": "restaurant"}
     )
     assert restaurant_attempt.status_code == 403
+
     def fake_create_response(*_args, **_kwargs):
         return OpenAIResponse(
             text="Structured cellar note.",
@@ -3523,7 +3638,8 @@ def test_stripe_checkout_webhook_creates_redeem_code_once(monkeypatch):
     assert len(status_payload["entitlements"]) == 0
     assert len(status_payload["available_redeem_codes"]) == 1
     stripe_user = next(
-        user for user in client.get("/api/v1/auth/users").json()
+        user
+        for user in client.get("/api/v1/auth/users").json()
         if user["email"] == "stripe@example.com"
     )
     assert stripe_user["has_active_subscription"] is True
@@ -4063,7 +4179,10 @@ def test_private_cellar_tracks_purchase_lots_and_consumes_fifo():
     assert consumed.status_code == 200
     assert consumed.json()["quantity"] == 11
     lots = client.get(f"/api/v1/inventory/lots?wine_id={wine_id}").json()
-    assert [(item["quantity_remaining"], item["unit_cost"]) for item in lots] == [(5, "50.00"), (6, "40.00")]
+    assert [(item["quantity_remaining"], item["unit_cost"]) for item in lots] == [
+        (5, "50.00"),
+        (6, "40.00"),
+    ]
 
 
 def test_tasting_history_normalization_tolerates_legacy_empty_scores():
@@ -4362,9 +4481,7 @@ def test_cellar_ai_command_assigns_intelligence_objective_without_overwriting_an
     )
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["status"] == "executed"
-    allocations = client.get(
-        f"/api/v1/intelligence/wines/{wine_id}/allocations"
-    ).json()
+    allocations = client.get(f"/api/v1/intelligence/wines/{wine_id}/allocations").json()
     assert sorted((item["purpose"], item["quantity"]) for item in allocations) == [
         ("drink", 1),
         ("drink", 3),
@@ -4452,15 +4569,18 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
             "status": "Delivered",
         },
     )
-    assert client.put(
-        f"/api/v1/intelligence/wines/{current_value_wine['id']}/allocations",
-        json={
-            "allocations": [
-                {"purpose": "investment", "quantity": 1},
-                {"purpose": "undecided", "quantity": 1},
-            ]
-        },
-    ).status_code == 200
+    assert (
+        client.put(
+            f"/api/v1/intelligence/wines/{current_value_wine['id']}/allocations",
+            json={
+                "allocations": [
+                    {"purpose": "investment", "quantity": 1},
+                    {"purpose": "undecided", "quantity": 1},
+                ]
+            },
+        ).status_code
+        == 200
+    )
 
     monkeypatch.setattr(
         ai_routes,
@@ -4544,15 +4664,19 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
     second_allocations = client.get(
         f"/api/v1/intelligence/wines/{purchase_value_wine['id']}/allocations"
     ).json()
-    assert [(item["purpose"], item["quantity"]) for item in second_allocations] == [
-        ("drink", 1)
-    ]
-    assert [(item["purpose"], item["quantity"]) for item in client.get(
-        f"/api/v1/intelligence/wines/{gifted_current_value_wine['id']}/allocations"
-    ).json()] == [("drink", 1)]
-    assert client.get(
-        f"/api/v1/intelligence/wines/{gifted_without_value_wine['id']}/allocations"
-    ).json() == []
+    assert [(item["purpose"], item["quantity"]) for item in second_allocations] == [("drink", 1)]
+    assert [
+        (item["purpose"], item["quantity"])
+        for item in client.get(
+            f"/api/v1/intelligence/wines/{gifted_current_value_wine['id']}/allocations"
+        ).json()
+    ] == [("drink", 1)]
+    assert (
+        client.get(
+            f"/api/v1/intelligence/wines/{gifted_without_value_wine['id']}/allocations"
+        ).json()
+        == []
+    )
 
     undone = client.post(f"/api/v1/ai/cellar-commands/{request_id}/undo")
     assert undone.status_code == 200, undone.text
@@ -4563,12 +4687,16 @@ def test_cellar_ai_command_proposes_and_confirms_wines_below_value_threshold(mon
         ("investment", 1),
         ("undecided", 1),
     ]
-    assert client.get(
-        f"/api/v1/intelligence/wines/{purchase_value_wine['id']}/allocations"
-    ).json() == []
-    assert client.get(
-        f"/api/v1/intelligence/wines/{gifted_current_value_wine['id']}/allocations"
-    ).json() == []
+    assert (
+        client.get(f"/api/v1/intelligence/wines/{purchase_value_wine['id']}/allocations").json()
+        == []
+    )
+    assert (
+        client.get(
+            f"/api/v1/intelligence/wines/{gifted_current_value_wine['id']}/allocations"
+        ).json()
+        == []
+    )
 
 
 def test_cellar_ai_command_proposes_all_available_wines_from_a_producer(monkeypatch):
@@ -4684,12 +4812,14 @@ def test_cellar_ai_command_proposes_all_available_wines_from_a_producer(monkeypa
     )
     assert confirmed.status_code == 200, confirmed.text
     assert confirmed.json()["status"] == "executed"
-    assert [(item["purpose"], item["quantity"]) for item in client.get(
-        f"/api/v1/intelligence/wines/{first['id']}/allocations"
-    ).json()] == [("drink", 2)]
-    assert [(item["purpose"], item["quantity"]) for item in client.get(
-        f"/api/v1/intelligence/wines/{second['id']}/allocations"
-    ).json()] == [("drink", 1)]
+    assert [
+        (item["purpose"], item["quantity"])
+        for item in client.get(f"/api/v1/intelligence/wines/{first['id']}/allocations").json()
+    ] == [("drink", 2)]
+    assert [
+        (item["purpose"], item["quantity"])
+        for item in client.get(f"/api/v1/intelligence/wines/{second['id']}/allocations").json()
+    ] == [("drink", 1)]
 
 
 def test_cellar_ai_command_requires_selection_for_ambiguous_wines(monkeypatch):
@@ -4850,7 +4980,10 @@ def test_cellar_ai_purchase_uses_catalog_and_only_returns_a_review_draft(monkeyp
 def test_cellar_ai_purchase_status_distinguishes_ordered_and_bought_wine():
     from app.api.routes.ai import cellar_command_acquisition_status
 
-    assert cellar_command_acquisition_status("Ho ordinato una cassa di Sassicaia 2022 da Arvi.") == "Ordered"
+    assert (
+        cellar_command_acquisition_status("Ho ordinato una cassa di Sassicaia 2022 da Arvi.")
+        == "Ordered"
+    )
     assert cellar_command_acquisition_status("Ho acquistato Sassicaia 2022 da Arvi.") == "Delivered"
     assert cellar_command_acquisition_status("Ho prenotato Sassicaia 2022.") == "Ordered"
     assert cellar_command_acquisition_status("Ho riservato Sassicaia 2022.") == "Ordered"
@@ -4864,7 +4997,10 @@ def test_cellar_ai_normalizes_arvi_merchant_dictation_variants():
     assert canonical_cellar_command_merchant("Ho ordinato da Arvi.", "Harvey") == "Arvi"
     assert canonical_cellar_command_merchant("Ho ordinato da Harvey.", "Harvey") == "Arvi"
     assert canonical_cellar_command_merchant("Ho ordinato da Arvy.", "Arvy") == "Arvi"
-    assert canonical_cellar_command_merchant("Ho ordinato da Enoteca Rossi.", "Enoteca Rossi") == "Enoteca Rossi"
+    assert (
+        canonical_cellar_command_merchant("Ho ordinato da Enoteca Rossi.", "Enoteca Rossi")
+        == "Enoteca Rossi"
+    )
 
 
 def test_cellar_ai_falls_back_to_common_action_variants_when_ai_is_uncertain():
@@ -4985,16 +5121,34 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
         "create_ai_response",
         lambda *args, **kwargs: (
             OpenAIResponse(
-                text=json.dumps({
-                    "intent": "add_to_wishlist", "explicit_action": True,
-                    "wine_name": "Castello di Morcote", "producer": "Rossi", "vintage": "2021",
-                    "format": "", "quantity": 1, "consumed_at": "", "purchase_date": "",
-                    "purchase_price_present": True, "purchase_price": 100, "currency": "CHF", "merchant": "",
-                    "wishlist_list_name": "Wishlist", "note": "", "score_present": False,
-                    "score_value": 0, "score_scale": 0, "enjoyment": "", "occasion": "",
-                    "pairing": "", "companions": "",
-                }),
-                model="gpt-5.6-luna", reasoning_effort="none",
+                text=json.dumps(
+                    {
+                        "intent": "add_to_wishlist",
+                        "explicit_action": True,
+                        "wine_name": "Castello di Morcote",
+                        "producer": "Rossi",
+                        "vintage": "2021",
+                        "format": "",
+                        "quantity": 1,
+                        "consumed_at": "",
+                        "purchase_date": "",
+                        "purchase_price_present": True,
+                        "purchase_price": 100,
+                        "currency": "CHF",
+                        "merchant": "",
+                        "wishlist_list_name": "Wishlist",
+                        "note": "",
+                        "score_present": False,
+                        "score_value": 0,
+                        "score_scale": 0,
+                        "enjoyment": "",
+                        "occasion": "",
+                        "pairing": "",
+                        "companions": "",
+                    }
+                ),
+                model="gpt-5.6-luna",
+                reasoning_effort="none",
                 usage=TokenUsage(input_tokens=220, output_tokens=60, total_tokens=280),
             ),
             "credits",
@@ -5006,16 +5160,26 @@ def test_cellar_ai_adds_unknown_wine_to_named_wishlist(monkeypatch):
         json={
             "request_id": str(uuid.uuid4()),
             "text": "Aggiungi alla wishlist Rossi il vino Castello di Morcote 2021 al prezzo di 100 franchi.",
-            "locale": "it", "timezone": "Europe/Zurich",
+            "locale": "it",
+            "timezone": "Europe/Zurich",
         },
     )
 
     assert response.status_code == 200
     assert response.json()["status"] == "executed"
     items = client.get(f"/api/v1/wishlist?wishlist_list_id={wishlist_list.json()['id']}").json()
-    assert [(item["name"], item["producer"], item["vintage"], item["target_price"], item["offer_price"], item["currency"], item["status"]) for item in items] == [
-        ("Castello di Morcote", "", "2021", "100.00", None, "CHF", "Evaluate")
-    ]
+    assert [
+        (
+            item["name"],
+            item["producer"],
+            item["vintage"],
+            item["target_price"],
+            item["offer_price"],
+            item["currency"],
+            item["status"],
+        )
+        for item in items
+    ] == [("Castello di Morcote", "", "2021", "100.00", None, "CHF", "Evaluate")]
 
 
 def test_cellar_ai_extracts_wishlist_name_from_common_command_variants():
@@ -5063,8 +5227,12 @@ def test_cellar_ai_classifies_wishlist_price_variants():
         "Available at 250 CHF.",
     ]
 
-    assert [cellar_command_wishlist_price_kind(command) for command in target_commands] == ["target"] * len(target_commands)
-    assert [cellar_command_wishlist_price_kind(command) for command in offer_commands] == ["offer"] * len(offer_commands)
+    assert [cellar_command_wishlist_price_kind(command) for command in target_commands] == [
+        "target"
+    ] * len(target_commands)
+    assert [cellar_command_wishlist_price_kind(command) for command in offer_commands] == [
+        "offer"
+    ] * len(offer_commands)
 
 
 def test_cellar_ai_global_flag_keeps_admin_access_and_blocks_regular_users(monkeypatch):
@@ -5272,9 +5440,7 @@ def test_tasting_archive_reads_paginated_normalized_entries():
         }
     ]
 
-    period_page = client.get(
-        "/api/v1/wines/tasting-archive?from_date=2026-02-01&limit=50&offset=0"
-    )
+    period_page = client.get("/api/v1/wines/tasting-archive?from_date=2026-02-01&limit=50&offset=0")
     assert period_page.status_code == 200
     assert period_page.json()["total"] == 1
     assert period_page.json()["items"][0]["note"] == "Second archive note"
@@ -5381,7 +5547,9 @@ def test_household_preferences_persist_regional_gap_and_operational_snoozes():
         {"region": "Burgundy", "targetPct": 25},
     ]
     assert saved_settings.json()["last_ai_suggestion"] == suggestion
-    assert saved_settings.json()["profile_targets"] == {"balanced": [{"region": "Bordeaux", "targetPct": 40}]}
+    assert saved_settings.json()["profile_targets"] == {
+        "balanced": [{"region": "Bordeaux", "targetPct": 40}]
+    }
     assert saved_settings.json()["ai_suggestions"] == [suggestion]
     assert saved_settings.json()["updated_at"] is not None
 
@@ -5661,7 +5829,9 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
         db.commit()
         wine_id = wine.id
 
-    source_url = "https://www.bibigraetz.com/allegati_prod_dw/Soffocone%202022%20Tech%20Sheet%20-%20ENG.pdf"
+    source_url = (
+        "https://www.bibigraetz.com/allegati_prod_dw/Soffocone%202022%20Tech%20Sheet%20-%20ENG.pdf"
+    )
 
     def fake_create_ai_response(*args, **kwargs):
         return (
@@ -6474,9 +6644,10 @@ def test_verified_ai_notes_are_reused_across_independent_cellars_without_provide
 
     first_client = TestClient(app)
     assert register(first_client, email="first@example.com").status_code == 201
-    assert first_client.patch(
-        "/api/v1/ai/settings", json={"openai_api_key": "sk-test"}
-    ).status_code == 200
+    assert (
+        first_client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code
+        == 200
+    )
     first_wine = first_client.post(
         "/api/v1/wines",
         json={
@@ -6521,16 +6692,23 @@ def test_verified_ai_notes_are_reused_across_independent_cellars_without_provide
     second_user = next(
         user for user in pending_users.json() if user["email"] == "second@example.com"
     )
-    assert first_client.post(
-        f"/api/v1/auth/pending-users/{second_user['id']}/approve"
-    ).status_code == 200
-    assert first_client.patch(
-        f"/api/v1/auth/users/{second_user['id']}", json={"is_app_admin": True}
-    ).status_code == 200
-    assert second_client.post(
-        "/api/v1/auth/login",
-        json={"email": "second@example.com", "password": "strong-password-1"},
-    ).status_code == 200
+    assert (
+        first_client.post(f"/api/v1/auth/pending-users/{second_user['id']}/approve").status_code
+        == 200
+    )
+    assert (
+        first_client.patch(
+            f"/api/v1/auth/users/{second_user['id']}", json={"is_app_admin": True}
+        ).status_code
+        == 200
+    )
+    assert (
+        second_client.post(
+            "/api/v1/auth/login",
+            json={"email": "second@example.com", "password": "strong-password-1"},
+        ).status_code
+        == 200
+    )
     second_wine = second_client.post(
         "/api/v1/wines",
         json={
@@ -7630,10 +7808,23 @@ def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
-    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"}).status_code == 200
+    assert (
+        client.patch(
+            "/api/v1/ai/settings", json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"}
+        ).status_code
+        == 200
+    )
     wine = client.post(
         "/api/v1/wines",
-        json={"name": "Etna Rosso", "producer": "Produttore", "vintage": "2020", "quantity": 1, "price": 32, "status": "Delivered", "type": "Red"},
+        json={
+            "name": "Etna Rosso",
+            "producer": "Produttore",
+            "vintage": "2020",
+            "quantity": 1,
+            "price": 32,
+            "status": "Delivered",
+            "type": "Red",
+        },
     )
     assert wine.status_code == 201
 
@@ -7649,7 +7840,11 @@ def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
     pairing = client.post(
         "/api/v1/ai/pairing",
-        json={"target_wine_id": wine.json()["id"], "dietary_preferences": "vegetariano", "allergies": "crostacei"},
+        json={
+            "target_wine_id": wine.json()["id"],
+            "dietary_preferences": "vegetariano",
+            "allergies": "crostacei",
+        },
     )
     assert pairing.status_code == 200
     assert pairing.json()["dish_recommendations"][0]["name"] == "Melanzane alla parmigiana"
@@ -8011,31 +8206,23 @@ def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
     monkeypatch.setattr(catalog_route, "recognize_wine_from_image", fake_recognize)
-    starting_balance = Decimal(
-        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
-    )
+    starting_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
     response = client.post(
         "/api/v1/wines/catalog/recognize-bottle",
         files={"image": ("bottle.jpg", b"image bytes", "image/jpeg")},
     )
     assert response.status_code == 200
-    ending_balance = Decimal(
-        client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"]
-    )
+    ending_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
     assert ending_balance < starting_balance
     audit_payload = client.get("/api/v1/ai/audit")
     assert audit_payload.status_code == 200
     recognition_audit = next(
-        entry
-        for entry in audit_payload.json()
-        if entry["feature"] == "wine_image_recognition"
+        entry for entry in audit_payload.json() if entry["feature"] == "wine_image_recognition"
     )
     assert Decimal(recognition_audit["estimated_cost_usd"]) == starting_balance - ending_balance
 
     with TestingSessionLocal() as db:
-        audit = db.scalar(
-            select(AiAuditLog).where(AiAuditLog.feature == "wine_image_recognition")
-        )
+        audit = db.scalar(select(AiAuditLog).where(AiAuditLog.feature == "wine_image_recognition"))
         assert audit is not None
         assert audit.estimated_cost_usd == starting_balance - ending_balance
         assert audit.sources[-1]["provider_source"] == "credits"
@@ -8054,9 +8241,7 @@ def test_luna_bottle_recognition_returns_ambiguous_candidates(monkeypatch):
         db.commit()
     ambiguous = recognized_bottle_payload(
         status="ambiguous",
-        alternative_candidates=[
-            recognized_bottle_payload(producer="Other Estate", vintage="2020")
-        ],
+        alternative_candidates=[recognized_bottle_payload(producer="Other Estate", vintage="2020")],
     )
     monkeypatch.setattr(
         catalog_route,
@@ -8080,6 +8265,7 @@ def test_luna_provider_error_is_non_blocking(monkeypatch):
         assert user is not None
         user.can_use_label_recognition = True
         db.commit()
+
     def timeout_luna(*_args, **_kwargs):
         raise HTTPException(status_code=502, detail="OpenAI request failed")
 
@@ -8106,7 +8292,9 @@ def test_cellartracker_csv_import_maps_cellar_data():
     assert preview.json()["wine_new"] == 2
     assert preview.json()["free_tier_label_limit"] is None
 
-    response = client.post("/api/v1/imports/cellartracker?mode=skip_duplicates", json={"csv_text": csv_text})
+    response = client.post(
+        "/api/v1/imports/cellartracker?mode=skip_duplicates", json={"csv_text": csv_text}
+    )
     assert response.status_code == 200, response.text
     assert response.json()["wines_imported"] == 2
     wines = client.get("/api/v1/wines").json()
@@ -8122,7 +8310,9 @@ def test_cellartracker_csv_import_maps_cellar_data():
     assert mondo["drink_from"] == 2025
     assert mondo["drink_to"] == 2032
     assert mondo["grapes"] == [{"name": "Red Bordeaux Blend"}]
-    assert mondo["scores"] == [{"critic": "Wine Advocate", "score": "94", "note": "https://example.com/wa"}]
+    assert mondo["scores"] == [
+        {"critic": "Wine Advocate", "score": "94", "note": "https://example.com/wa"}
+    ]
     assert next(wine for wine in wines if wine["producer"] == "Krug")["vintage"] == "NV"
 
 

@@ -312,6 +312,7 @@ class RestaurantWineListEntry(BaseModel):
 class RestaurantWineListRecommendation(RestaurantWineListEntry):
     reason: str = ""
     serving_note: str = ""
+    taste_affinity: int = Field(default=0, ge=0, le=6)
 
 
 class RestaurantWineListScanResponse(BaseModel):
@@ -319,6 +320,7 @@ class RestaurantWineListScanResponse(BaseModel):
     extracted_text: str = ""
     wines: list[RestaurantWineListEntry] = Field(default_factory=list)
     recommendations: list[RestaurantWineListRecommendation] = Field(default_factory=list)
+    taste_profile_applied: bool = False
     model: str
     reasoning_effort: str = ""
     estimated_cost_usd: Decimal = Decimal("0")

@@ -3982,6 +3982,10 @@ async def scan_restaurant_wine_list(
                 "recommendation_indexes": {"type": "array", "items": {"type": "integer"}},
                 "recommendation_reasons": {"type": "array", "items": {"type": "string"}},
                 "serving_notes": {"type": "array", "items": {"type": "string"}},
+                "recommendation_affinities": {
+                    "type": "array",
+                    "items": {"type": "integer", "minimum": 0, "maximum": 6},
+                },
             },
             "required": [
                 "summary",
@@ -3990,6 +3994,7 @@ async def scan_restaurant_wine_list(
                 "recommendation_indexes",
                 "recommendation_reasons",
                 "serving_notes",
+                "recommendation_affinities",
             ],
         },
     }
@@ -4021,6 +4026,7 @@ async def scan_restaurant_wine_list(
     raw_indexes = parsed.get("recommendation_indexes", [])
     raw_reasons = parsed.get("recommendation_reasons", [])
     raw_notes = parsed.get("serving_notes", [])
+    raw_affinities = parsed.get("recommendation_affinities", [])
     recommendations: list[RestaurantWineListRecommendation] = []
     seen_indexes: set[int] = set()
     for position, index in enumerate(raw_indexes if isinstance(raw_indexes, list) else []):
@@ -4041,6 +4047,14 @@ async def scan_restaurant_wine_list(
                     if isinstance(raw_notes, list) and position < len(raw_notes)
                     else ""
                 ).strip()[:300],
+                taste_affinity=(
+                    int(raw_affinities[position])
+                    if isinstance(raw_affinities, list)
+                    and position < len(raw_affinities)
+                    and isinstance(raw_affinities[position], int)
+                    and 0 <= raw_affinities[position] <= 6
+                    else 0
+                ),
             )
         )
         if len(recommendations) == 3:
@@ -4050,6 +4064,7 @@ async def scan_restaurant_wine_list(
         extracted_text=str(parsed.get("extracted_text") or "").strip()[:6000],
         wines=wines,
         recommendations=recommendations,
+        taste_profile_applied=bool(taste_context),
         model=effective_response_model(response, selected_model),
         reasoning_effort=response.reasoning_effort or "",
         estimated_cost_usd=response.charged_cost_usd,

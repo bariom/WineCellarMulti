@@ -290,6 +290,9 @@ def restaurant_wine_list_scan_prompt(
             "Recommend at most three entries from the extracted wines, and identify them by their "
             "zero-based extracted-list index. If the image is unreadable or no suitable wine is shown, "
             "return empty wines and recommendations and explain this briefly in summary. "
+            "For every recommended wine, assign a taste affinity from 1 to 6 only when a structured "
+            "personal taste profile is supplied; otherwise use 0. This is a recommendation signal, "
+            "not a claimed tasting fact. "
             f"{language_instruction(locale)}"
         ),
         user=(

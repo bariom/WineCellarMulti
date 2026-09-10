@@ -8532,6 +8532,13 @@ button.balance-indicator:focus-visible {
   background: color-mix(in srgb, var(--accent-soft) 28%, var(--surface));
 }
 
+.pairing-location-choice { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 18px; padding: 18px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface-muted); }
+.pairing-location-choice h3 { margin: 4px 0 8px; }
+.pairing-location-choice p, .pairing-location-choice > div:first-child > span { color: var(--text-muted); }
+.pairing-location-choice > div:last-child { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.pairing-location-choice button { display: grid; gap: 7px; min-height: 116px; text-align: left; align-content: center; }
+.pairing-location-choice button span { color: color-mix(in srgb, currentColor 76%, transparent); font-size: .88rem; }
+
 .restaurant-wine-list-card h3 { margin: 4px 0 8px; }
 .restaurant-wine-list-card p { margin: 0; color: var(--text-muted); }
 .restaurant-wine-list-eyebrow { color: var(--accent); font-size: .74rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
@@ -8548,19 +8555,42 @@ button.balance-indicator:focus-visible {
 .restaurant-wine-list-upload { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .restaurant-wine-list-upload small { grid-column: 1 / -1; color: var(--text-muted); font-size: .76rem; }
 .restaurant-wine-list-result { grid-column: 1 / -1; display: grid; gap: 10px; }
-.restaurant-wine-list-result section { display: grid; gap: 8px; }
-.restaurant-wine-list-result h4 { margin: 0; }
-.restaurant-wine-list-result article { display: grid; gap: 3px; padding: 10px; border-radius: 10px; background: var(--surface); border: 1px solid var(--line); }
-.restaurant-wine-list-result article span, .restaurant-wine-list-result article small, .restaurant-wine-list-result details { color: var(--text-muted); font-size: .84rem; }
-.restaurant-wine-list-result article p { color: var(--text); }
+.restaurant-wine-list-result { margin-top: 4px; padding: 18px; border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line)); border-radius: 16px; background: linear-gradient(135deg, color-mix(in srgb, var(--accent-soft) 38%, var(--surface)), var(--surface)); }
+.restaurant-wine-list-result-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.restaurant-wine-list-result-heading > div:first-child > span { color: var(--accent); font-size: .72rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+.restaurant-wine-list-result-heading h4 { margin: 4px 0 0; font-size: 1.18rem; }
+.restaurant-wine-list-ai-meta { display: grid; justify-items: end; gap: 4px; }
+.restaurant-wine-list-ai-meta > span { padding: 5px 9px; border-radius: 999px; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); color: var(--accent); font-size: .76rem; font-weight: 750; white-space: nowrap; }
+.restaurant-wine-list-ai-meta > .restaurant-wine-list-profile-applied { background: color-mix(in srgb, var(--success) 14%, var(--surface)); color: var(--success); }
+.restaurant-wine-list-ai-meta small { color: var(--text-muted); font-size: .72rem; }
+.restaurant-wine-list-summary { max-width: 920px; margin: 0; font-size: .96rem; line-height: 1.55; color: var(--text-muted); }
+.restaurant-wine-list-recommendations { display: grid; gap: 9px; }
+.restaurant-wine-list-recommendations > h4 { margin: 4px 0 1px; font-size: .88rem; letter-spacing: .03em; }
+.restaurant-wine-list-result article { display: grid; gap: 10px; padding: 14px 15px; border-radius: 13px; background: color-mix(in srgb, var(--surface) 94%, white); border: 1px solid color-mix(in srgb, var(--accent) 16%, var(--line)); box-shadow: 0 8px 20px color-mix(in srgb, var(--text) 5%, transparent); }
+.restaurant-wine-list-recommendation-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.restaurant-wine-list-rank { display: grid; place-items: center; width: 31px; height: 31px; border-radius: 50%; background: var(--accent); color: var(--surface); font-size: .72rem; font-weight: 800; letter-spacing: .05em; }
+.restaurant-wine-list-recommendation-head > div { display: grid; gap: 3px; min-width: 0; }
+.restaurant-wine-list-recommendation-head strong { font-size: 1.02rem; }
+.restaurant-wine-list-recommendation-head > div > span { color: var(--text-muted); font-size: .8rem; }
+.restaurant-wine-list-recommendation-head .restaurant-taste-affinity { display: flex; gap: 2px; margin-top: 2px; color: color-mix(in srgb, var(--accent) 26%, var(--line)); font-size: .76rem; line-height: 1; }
+.restaurant-wine-list-recommendation-head .restaurant-taste-affinity i { font-style: normal; }
+.restaurant-wine-list-recommendation-head .restaurant-taste-affinity i.filled { color: var(--accent); }
+.restaurant-wine-list-recommendation-head > b { padding: 6px 9px; border: 1px solid color-mix(in srgb, var(--accent) 26%, var(--line)); border-radius: 8px; color: var(--accent); font-size: .82rem; white-space: nowrap; }
+.restaurant-wine-list-result article p { margin: 0; color: var(--text); line-height: 1.48; }
+.restaurant-wine-list-result article small { display: flex; gap: 7px; align-items: baseline; color: var(--text-muted); font-size: .82rem; }
+.restaurant-wine-list-result article small span { color: var(--accent); font-size: .7rem; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; }
+.restaurant-wine-list-result details { color: var(--text-muted); font-size: .84rem; }
 .restaurant-wine-list-result details p { white-space: pre-wrap; }
 .restaurant-wine-list-result ul { margin: 7px 0 0; padding-left: 18px; }
 .restaurant-wine-list-error { margin: 0; color: var(--danger); }
 
 @media (max-width: 700px) {
   .restaurant-wine-list-card, .restaurant-wine-list-form { grid-template-columns: 1fr; }
+  .pairing-location-choice, .pairing-location-choice > div:last-child { grid-template-columns: 1fr; }
   .restaurant-wine-list-upload { grid-template-columns: 1fr; }
   .restaurant-wine-list-choices { grid-template-columns: 1fr; }
+  .restaurant-wine-list-result-heading { display: grid; }
+  .restaurant-wine-list-ai-meta { justify-items: start; }
 }
 
 .buying-search-mode {
