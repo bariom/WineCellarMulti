@@ -7,6 +7,7 @@ from collections import defaultdict
 from collections.abc import Callable
 from datetime import UTC, datetime
 from math import exp
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, or_, select
@@ -214,7 +215,7 @@ def generate_wine_sensory_profile(
     wine: Wine | ExternalWineTasting,
     *,
     allow_ai: bool = False,
-    ai_generate: Callable[[Wine | ExternalWineTasting], tuple[dict[str, float], str]] | None = None,
+    ai_generate: Callable[[Any], tuple[dict[str, float], str]] | None = None,
     modified_by_user_id: UUID | None = None,
 ) -> WineSensoryProfile | None:
     """Resolve once. AI is opt-in and only reached after every free source failed."""

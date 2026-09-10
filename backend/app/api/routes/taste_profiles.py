@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime
+from typing import cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -15,6 +16,7 @@ from app.api.deps import (
     require_write_context,
 )
 from app.api.routes.wines import get_household_wine
+from app.api.routes.wishlist import enrich_external_tasting_sensory_profile
 from app.core.config import settings
 from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 from app.db.session import get_db
@@ -32,6 +34,8 @@ from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
     BatchProfileApprovalResponse,
+    ExternalTastingEnrichmentPreview,
+    ExternalTastingEnrichmentResponse,
     LegacyTastingClaimResponse,
     LegacyTastingClaimStatus,
     SensoryBaselineInput,
@@ -54,6 +58,7 @@ from app.services.taste_profiles import (
     confidence_level,
     generate_wine_sensory_profile,
     infer_sensory_profile,
+    mark_wine_for_sensory_enrichment,
     rebuild_user_taste_profile,
     sensory_profile_for_wine,
     unassigned_tasting_count,
@@ -97,6 +102,29 @@ def household_rated_tasting_count(db: Session, context: CurrentContext) -> int:
         or 0
     )
     return cellar_tastings + external_tastings
+
+
+def external_tastings_missing_sensory_profiles(
+    db: Session, context: CurrentContext
+) -> list[ExternalWineTasting]:
+    rows = db.execute(
+        select(ExternalWineTasting, WineSensoryProfile)
+        .outerjoin(
+            WineSensoryProfile,
+            WineSensoryProfile.identity_id == ExternalWineTasting.shared_identity_id,
+        )
+        .where(
+            ExternalWineTasting.household_id == context.household.id,
+            ExternalWineTasting.created_by_user_id == context.user.id,
+            (ExternalWineTasting.rating > 0)
+            | (ExternalWineTasting.enjoyment.in_(("positive", "negative"))),
+        )
+    )
+    return [
+        tasting
+        for tasting, profile in rows
+        if profile is None or profile.generation_status != "available"
+    ]
 
 
 def profile_response(
@@ -188,6 +216,51 @@ def legacy_tasting_status(
 ) -> LegacyTastingClaimStatus:
     return LegacyTastingClaimStatus(
         unassigned_count=unassigned_tasting_count(db, context.household.id)
+    )
+
+
+@router.get(
+    "/me/external-tastings/enrichment-preview",
+    response_model=ExternalTastingEnrichmentPreview,
+)
+def external_tasting_enrichment_preview(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)
+) -> ExternalTastingEnrichmentPreview:
+    return ExternalTastingEnrichmentPreview(
+        missing_count=len(external_tastings_missing_sensory_profiles(db, context))
+    )
+
+
+@router.post(
+    "/me/external-tastings/enrich",
+    response_model=ExternalTastingEnrichmentResponse,
+)
+def enrich_external_tastings(
+    db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)
+) -> ExternalTastingEnrichmentResponse:
+    tastings = external_tastings_missing_sensory_profiles(db, context)
+    enriched = 0
+    for tasting in tastings:
+        mark_wine_for_sensory_enrichment(db, tasting)
+        db.flush()
+        enrich_external_tasting_sensory_profile(db, context, tasting)
+        profile = sensory_profile_for_wine(db, tasting)
+        if profile is not None and profile.generation_status == "available":
+            enriched += 1
+    profiles = rebuild_user_taste_profile(db, context.user.id)
+    db.commit()
+    star_rating_count = household_star_rating_count(db, context)
+    tasting_count = household_rated_tasting_count(db, context)
+    return ExternalTastingEnrichmentResponse(
+        processed_count=len(tastings),
+        enriched_count=enriched,
+        unresolved_count=len(tastings) - enriched,
+        profiles=[
+            profile_response(
+                profile, tasting_count=tasting_count, star_rating_count=star_rating_count
+            )
+            for profile in profiles
+        ],
     )
 
 
@@ -394,7 +467,7 @@ def _complete_missing_sensory_metadata(wine: Wine) -> str:
     if not wine.appellation.strip():
         wine.appellation = str(metadata.get("appellation") or "").strip()[:120]
     if not wine.grapes and metadata.get("grapes"):
-        wine.grapes = metadata["grapes"]
+        wine.grapes = cast(list[dict], metadata["grapes"])
         wine.grapes_source_url = str(metadata.get("source_url") or "")[:500]
         wine.grapes_source_title = str(metadata.get("source_title") or "")[:200]
         wine.grapes_not_applicable = False

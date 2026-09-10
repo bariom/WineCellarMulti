@@ -40,6 +40,16 @@ class LegacyTastingClaimResponse(TasteProfileCollectionResponse):
     claimed_count: int
 
 
+class ExternalTastingEnrichmentPreview(BaseModel):
+    missing_count: int = 0
+
+
+class ExternalTastingEnrichmentResponse(TasteProfileCollectionResponse):
+    processed_count: int = 0
+    enriched_count: int = 0
+    unresolved_count: int = 0
+
+
 class TasteMatchResponse(BaseModel):
     score: float | None = None
     confidence: float
