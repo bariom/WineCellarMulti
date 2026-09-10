@@ -4085,6 +4085,66 @@ summary:focus-visible {
   filter: brightness(1.03);
 }
 
+.recognition-ai-loading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 48px;
+  overflow: hidden;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 46%, var(--border));
+  border-radius: 12px;
+  background: linear-gradient(105deg, color-mix(in srgb, var(--accent) 13%, var(--surface)), var(--surface-raised));
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 750;
+}
+
+.recognition-ai-orbit {
+  display: grid;
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--accent) 54%, transparent);
+  border-radius: 50%;
+  color: var(--accent);
+  animation: recognition-ai-orbit 1.6s linear infinite;
+}
+
+.recognition-ai-orbit .app-icon { display: inline-flex; animation: recognition-ai-counter-orbit 1.6s linear infinite; }
+.recognition-ai-loading > i { position: absolute; inset: 0 auto 0 -35%; width: 28%; background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 18%, transparent), transparent); animation: recognition-ai-scan 1.8s ease-in-out infinite; }
+
+@keyframes recognition-ai-orbit { to { transform: rotate(360deg); } }
+@keyframes recognition-ai-counter-orbit { to { transform: rotate(-360deg); } }
+@keyframes recognition-ai-scan { to { transform: translateX(500%); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .recognition-ai-orbit,
+  .recognition-ai-orbit .app-icon,
+  .recognition-ai-loading > i { animation: none; }
+}
+
+@media (max-width: 640px) {
+  .recognition-actions .recognition-upload-button {
+    display: none;
+  }
+
+  .recognition-actions .recognition-camera-button {
+    width: 48px;
+    min-height: 48px;
+  }
+
+  .recognition-actions .recognition-camera-button .app-icon,
+  .recognition-actions .recognition-camera-button .app-icon > svg {
+    display: block;
+    width: 22px;
+    height: 22px;
+    line-height: 1;
+  }
+}
+
 .recognition-results {
   display: flex;
   flex-wrap: wrap;

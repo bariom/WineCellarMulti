@@ -55,9 +55,27 @@ def test_normalize_ambiguous_luna_recognition_with_candidates():
 
 
 def test_incomplete_luna_result_is_not_recognized():
-    result = normalize_luna_result(luna_result(producer="", vintage="lot 2024"))
+    result = normalize_luna_result(
+        luna_result(producer="", wine_name="", appellation="", vintage="lot 2024")
+    )
     assert result["status"] == "not_recognized"
     assert result["vintage"] == ""
+
+
+def test_partial_label_identity_is_proposed_without_a_visible_producer():
+    result = normalize_luna_result(
+        luna_result(
+            producer="",
+            wine_name="Passio",
+            cuvee="Grillo",
+            vintage="2023",
+            appellation="Sicilia DOC",
+            region="Sicilia",
+        )
+    )
+    assert result["status"] == "recognized"
+    assert result["producer"] == ""
+    assert result["needs_user_confirmation"] is True
 
 
 @pytest.mark.parametrize(
@@ -104,7 +122,8 @@ def test_wine_image_prompt_is_versioned_localized_and_conservative():
         known_context="producer unknown",
     )
     assert prompt.id == "wine.image_recognition"
-    assert prompt.version == "1"
+    assert prompt.version == "2"
     assert "Italian" in prompt.system
     assert "Do not invent" in prompt.system
     assert "Testamatta" in prompt.user
+    assert "wine name plus appellation" in prompt.user

@@ -1382,6 +1382,14 @@ function PortfolioValueSparkline({ points, label }: { points: Array<{ recorded_a
   );
 }
 
+function RecognitionAiLoading({ label }: { label: string }) {
+  return <div className="recognition-ai-loading" role="status" aria-live="polite">
+    <span className="recognition-ai-orbit" aria-hidden="true"><AppIcon name="assistant" variant="ai" tone="ai" /></span>
+    <span>{label}</span>
+    <i aria-hidden="true" />
+  </div>;
+}
+
 export function App() {
   const [session, setSession] = useState<Session | null>(null);
   const [wines, setWines] = useState<Wine[]>([]);
@@ -11231,7 +11239,7 @@ export function App() {
                 {!editingId && canUseLabelRecognition && wineRecognitionTarget === "wine" && (wineRecognitionLoading || wineImageRecognitionResult) ? (
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading ? t("recognitionInProgress") : t("recognizedWineProposal")}</span>
-                    {wineRecognitionLoading ? <LoadingState label={t("recognitionInProgress")} compact /> : null}
+                    {wineRecognitionLoading ? <RecognitionAiLoading label={t("recognitionInProgress")} /> : null}
                     {wineImageRecognitionResult ? (
                       <div className="recognition-results">
                         {wineImageRecognitionResult.status === "recognized" || wineImageRecognitionResult.status === "ambiguous" ? (
@@ -11831,6 +11839,7 @@ export function App() {
                   <div className="recognition-box">
                     <span className="recognition-box-title">{wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? t("recognizingWine") : t("recognizeWine")}</span>
                     <span className="recognition-beta-note">{t("recognitionBetaNotice")}</span>
+                    {wineRecognitionLoading && wineRecognitionTarget === "wishlist" ? <RecognitionAiLoading label={t("recognizingWine")} /> : null}
                     <div className="recognition-actions">
                       <label className="recognition-upload-button secondary compact">
                         <span>{t("choosePhotoFile")}</span>

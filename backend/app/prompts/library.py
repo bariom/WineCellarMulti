@@ -249,7 +249,7 @@ def wine_image_recognition_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.image_recognition",
-        version="1",
+        version="2",
         system=(
             "You identify a wine only from visible bottle-label evidence and return the required "
             "JSON schema. Do not invent missing facts. Distinguish producer or estate, wine/cuvee "
@@ -264,7 +264,8 @@ def wine_image_recognition_prompt(
             "plus appellation. Use not_recognized for insufficient evidence and invalid_image only when "
             "the image itself cannot be inspected. Always require user confirmation.\n\n"
             f"Optional user text: {known_text.strip() or '(none)'}\n"
-            f"Already known context: {known_context.strip() or '(none)'}"
+            f"Already known context: {known_context.strip() or '(none)'}\n"
+            "A visible wine name plus appellation is also sufficient when the producer is absent: keep the producer empty and return recognized for user confirmation."
         ),
     )
 

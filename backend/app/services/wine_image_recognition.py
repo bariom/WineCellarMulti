@@ -166,7 +166,10 @@ def normalize_luna_result(result: dict[str, Any]) -> dict[str, Any]:
         if candidate["wine_name"] or candidate["appellation"]
     ]
     requested_status = clean_text(result.get("status"), 32)
-    usable = bool(main["producer"] and (main["wine_name"] or main["appellation"]))
+    usable = bool(
+        (main["producer"] and (main["wine_name"] or main["appellation"]))
+        or (main["wine_name"] and main["appellation"])
+    )
     recognition_status = (
         requested_status if requested_status in ALLOWED_RECOGNITION_STATUSES else "not_recognized"
     )
