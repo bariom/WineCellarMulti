@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { FeatureIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
 import { reasoningEffortTranslationKey } from "../i18n";
+import type { RestaurantWineListScanResult } from "../types";
 
 type WineLike = {
   id: string;
@@ -33,6 +34,7 @@ type PairingViewProps = {
   canWriteWine: boolean;
   generatingAi: string;
   hasPairingBudget: boolean;
+  showRestaurantWineList: boolean;
   isMobileViewport: boolean;
   locale: "en" | "it";
   pairingBudgetPresets: number[];
@@ -54,6 +56,7 @@ type PairingViewProps = {
   formatAiBudget: (value: string | number) => string;
   onGeneratePairing: (event: FormEvent<HTMLFormElement>, context?: [string | null, string, string]) => void;
   onOpenWine: (wine: any) => void;
+  onScanRestaurantWineList: (formData: FormData) => Promise<RestaurantWineListScanResult>;
   onSavePairingPreferences: () => void;
   setAiSettingsDraft: (value: any) => void;
   setPairingDish: (value: string) => void;
@@ -111,10 +114,12 @@ export default function PairingView({
   formatAiBudget,
   generatingAi,
   hasPairingBudget,
+  showRestaurantWineList,
   isMobileViewport,
   locale,
   onGeneratePairing,
   onOpenWine,
+  onScanRestaurantWineList,
   onSavePairingPreferences,
   pairingBudgetPresets,
   pairingBudgetSliderMax,
@@ -147,6 +152,14 @@ export default function PairingView({
   const [pairingDietaryPreferences, setPairingDietaryPreferences] = useState("");
   const [pairingAllergies, setPairingAllergies] = useState("");
   const [pairingSetupOpen, setPairingSetupOpen] = useState(true);
+  const [restaurantListImage, setRestaurantListImage] = useState<File | null>(null);
+  const [restaurantDish, setRestaurantDish] = useState("");
+  const [restaurantBudget, setRestaurantBudget] = useState("");
+  const [restaurantDietaryPreferences, setRestaurantDietaryPreferences] = useState("");
+  const [restaurantAllergies, setRestaurantAllergies] = useState("");
+  const [restaurantIgnoreTaste, setRestaurantIgnoreTaste] = useState(false);
+  const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
+  const [restaurantScanError, setRestaurantScanError] = useState("");
   const isWineFirstPairing = Boolean(pairingTargetWine);
   const pairingCopy = locale === "it"
     ? {
@@ -212,6 +225,27 @@ export default function PairingView({
       setPairingLocalOrigin("");
     }
   }
+
+  async function scanRestaurantList(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!restaurantListImage) {
+      setRestaurantScanError(locale === "it" ? "Scegli una foto della carta vini." : "Choose a wine-list photo.");
+      return;
+    }
+    setRestaurantScanError("");
+    const formData = new FormData();
+    formData.set("image", restaurantListImage);
+    formData.set("dish", restaurantDish.trim());
+    formData.set("max_price_chf", restaurantBudget.trim());
+    formData.set("dietary_preferences", restaurantDietaryPreferences.trim());
+    formData.set("allergies", restaurantAllergies.trim());
+    formData.set("ignore_preferences", String(restaurantIgnoreTaste));
+    try {
+      setRestaurantScan(await onScanRestaurantWineList(formData));
+    } catch (error) {
+      setRestaurantScanError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile analizzare la carta vini." : "The wine list could not be analysed."));
+    }
+  }
   const pairingDishSummary = pairingResult?.dish_recommendations.length
     ? pairingResult.dish_recommendations.map((dish) => dish.name).join(" · ")
     : "";
@@ -233,6 +267,32 @@ export default function PairingView({
           </small>
         ) : null}
       </div>
+      {showRestaurantWineList ? <section className="restaurant-wine-list-card" aria-labelledby="restaurant-wine-list-title">
+        <div>
+          <span className="restaurant-wine-list-eyebrow">{locale === "it" ? "Strumento ristorante" : "Restaurant tool"}</span>
+          <h3 id="restaurant-wine-list-title">{locale === "it" ? "Scansiona una carta vini" : "Scan a wine list"}</h3>
+          <p>{locale === "it" ? "Scatta o carica una foto: l'AI trascrive le voci visibili e seleziona le più adatte al tuo gusto, budget e vincoli." : "Take or upload a photo: AI transcribes visible wines and ranks them for your taste, budget, and constraints."}</p>
+        </div>
+        <form className="restaurant-wine-list-form" onSubmit={(event) => void scanRestaurantList(event)}>
+          <div className="restaurant-wine-list-upload">
+            <label><span>{locale === "it" ? "Scatta una foto" : "Take a photo"}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
+            <label><span>{locale === "it" ? "Oppure carica" : "Or upload"}</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
+            <small>{restaurantListImage ? restaurantListImage.name : (locale === "it" ? "JPG, PNG o WebP; la foto viene elaborata senza essere archiviata." : "JPG, PNG, or WebP; the photo is processed without being stored.")}</small>
+          </div>
+          <label><span>{locale === "it" ? "Piatto (facoltativo)" : "Dish (optional)"}</span><input value={restaurantDish} maxLength={240} onChange={(event) => setRestaurantDish(event.target.value)} placeholder={locale === "it" ? "Es. risotto ai funghi" : "E.g. mushroom risotto"} /></label>
+          <label><span>{locale === "it" ? "Budget massimo (CHF)" : "Maximum budget (CHF)"}</span><input type="number" min="1" inputMode="decimal" value={restaurantBudget} onChange={(event) => setRestaurantBudget(event.target.value)} placeholder="60" /></label>
+          <label><span>{locale === "it" ? "Preferenze alimentari" : "Dietary preferences"}</span><input value={restaurantDietaryPreferences} maxLength={600} onChange={(event) => setRestaurantDietaryPreferences(event.target.value)} placeholder={locale === "it" ? "Es. vegetariano" : "E.g. vegetarian"} /></label>
+          <label><span>{locale === "it" ? "Allergie o ingredienti da evitare" : "Allergies or ingredients to avoid"}</span><input value={restaurantAllergies} maxLength={600} onChange={(event) => setRestaurantAllergies(event.target.value)} placeholder={locale === "it" ? "Es. frutta a guscio" : "E.g. nuts"} /></label>
+          <label className="pairing-option"><input type="checkbox" checked={restaurantIgnoreTaste} onChange={(event) => setRestaurantIgnoreTaste(event.target.checked)} /><span>{locale === "it" ? "Non usare il mio profilo gusto" : "Do not use my taste profile"}</span></label>
+          <button type="submit" disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"}>{generatingAi === "restaurant-wine-list" ? (locale === "it" ? "Analisi in corso…" : "Analysing…") : (locale === "it" ? "Analizza carta vini" : "Analyse wine list")}</button>
+          {restaurantScanError ? <p className="restaurant-wine-list-error" role="alert">{restaurantScanError}</p> : null}
+        </form>
+        {restaurantScan ? <div className="restaurant-wine-list-result">
+          <p>{restaurantScan.summary}</p>
+          {restaurantScan.recommendations.length ? <section><h4>{locale === "it" ? "Le scelte più affini" : "Best-fitting choices"}</h4>{restaurantScan.recommendations.map((wine, index) => <article key={`${wine.name}-${index}`}><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage, wine.style, wine.price_text].filter(Boolean).join(" · ")}</span><p>{wine.reason}</p>{wine.serving_note ? <small>{wine.serving_note}</small> : null}</article>)}</section> : null}
+          {restaurantScan.wines.length ? <details><summary>{locale === "it" ? `Testo estratto e ${restaurantScan.wines.length} vini rilevati` : `Extracted text and ${restaurantScan.wines.length} detected wines`}</summary><p>{restaurantScan.extracted_text}</p><ul>{restaurantScan.wines.map((wine, index) => <li key={`${wine.name}-${index}`}>{[wine.name, wine.producer, wine.vintage, wine.price_text].filter(Boolean).join(" · ")}</li>)}</ul></details> : null}
+        </div> : null}
+      </section> : null}
       <div className="pairing-layout">
         <div className="pairing-main">
           <form className="pairing-form" onSubmit={(event) => onGeneratePairing(event, [pairingTargetWine?.id || null, pairingDietaryPreferences, pairingAllergies])}>

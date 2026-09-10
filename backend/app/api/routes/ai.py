@@ -12,7 +12,7 @@ from typing import Any, Literal, cast
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -60,6 +60,7 @@ from app.prompts import (
     cellar_intelligence_plan_prompt,
     drink_window_prompt,
     grape_composition_prompt,
+    restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
     wine_scores_prompt,
     wine_value_prompt,
@@ -101,6 +102,9 @@ from app.schemas.ai import (
     RegionalGapTarget,
     RegionalGapTargetSuggestionRequest,
     RegionalGapTargetSuggestionResponse,
+    RestaurantWineListEntry,
+    RestaurantWineListRecommendation,
+    RestaurantWineListScanResponse,
     TastingReflectionRequest,
     TastingReflectionResponse,
     WineCompareRequest,
@@ -137,6 +141,7 @@ from app.services.wine_consumption import (
     normalize_tasting_history,
     record_wine_consumption,
 )
+from app.services.wine_image_recognition import optimized_wine_images
 
 router = APIRouter(prefix="/ai")
 
@@ -3903,6 +3908,170 @@ def suggest_pairing(
     )
     db.commit()
     return cleaned
+
+
+@router.post("/restaurant-wine-list/scan", response_model=RestaurantWineListScanResponse)
+async def scan_restaurant_wine_list(
+    image: UploadFile = File(...),
+    dish: str = Form(default="", max_length=240),
+    max_price_chf: str = Form(default="", max_length=24),
+    dietary_preferences: str = Form(default="", max_length=600),
+    allergies: str = Form(default="", max_length=600),
+    ignore_preferences: bool = Form(default=False),
+    locale: str = Form(default="it", pattern="^(it|en)$"),
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> RestaurantWineListScanResponse:
+    """Read one restaurant wine-list photo in memory and rank its visible wines."""
+    if not (image.content_type or "").lower().startswith("image/"):
+        raise HTTPException(
+            status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail="Unsupported image format"
+        )
+    content = await image.read(settings.wine_recognition_max_input_bytes + 1)
+    if not content:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is empty")
+    if len(content) > settings.wine_recognition_max_input_bytes:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail="Image is too large"
+        )
+    normalized_image, _ = optimized_wine_images(content)
+    try:
+        budget = Decimal(max_price_chf.strip()) if max_price_chf.strip() else None
+    except InvalidOperation as exc:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid maximum budget"
+        ) from exc
+    if budget is not None and (budget <= 0 or budget > Decimal("100000")):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Invalid maximum budget"
+        )
+
+    user_settings = get_or_create_user_ai_settings(db, context)
+    # List transcription is intentionally separate from the conversational pairing model.
+    # The configured economy model is sufficient for one-photo OCR plus structured ranking.
+    selected_model = settings.openai_economy_model
+    taste_context = {} if ignore_preferences else compact_taste_context(db, context.user.id)
+    prompt = restaurant_wine_list_scan_prompt(
+        locale=locale,
+        dish=dish.strip(),
+        budget_chf=str(budget) if budget is not None else "",
+        dietary_preferences=dietary_preferences.strip(),
+        allergies=allergies.strip(),
+        taste_context=taste_context,
+        pairing_preferences=""
+        if ignore_preferences
+        else (user_settings.pairing_preferences or "").strip(),
+    )
+    wine_entry_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "name": {"type": "string"},
+            "producer": {"type": "string"},
+            "vintage": {"type": "string"},
+            "price_text": {"type": "string"},
+            "style": {"type": "string"},
+        },
+        "required": ["name", "producer", "vintage", "price_text", "style"],
+    }
+    schema = {
+        "name": "restaurant_wine_list_scan",
+        "schema": {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {
+                "summary": {"type": "string"},
+                "extracted_text": {"type": "string"},
+                "wines": {"type": "array", "items": wine_entry_schema},
+                "recommendation_indexes": {"type": "array", "items": {"type": "integer"}},
+                "recommendation_reasons": {"type": "array", "items": {"type": "string"}},
+                "serving_notes": {"type": "array", "items": {"type": "string"}},
+            },
+            "required": [
+                "summary",
+                "extracted_text",
+                "wines",
+                "recommendation_indexes",
+                "recommendation_reasons",
+                "serving_notes",
+            ],
+        },
+    }
+    response, provider_source = create_ai_response(
+        db,
+        context,
+        user_settings,
+        model=selected_model,
+        task_type="structured_extraction",
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
+        json_schema=schema,
+        input_images=[("image/jpeg", normalized_image)],
+        max_output_tokens=6000,
+        timeout_seconds=settings.wine_recognition_timeout_seconds,
+    )
+    parsed = parse_json_response(response.text)
+    wines = [
+        RestaurantWineListEntry(
+            name=str(item.get("name") or "").strip()[:180],
+            producer=str(item.get("producer") or "").strip()[:180],
+            vintage=str(item.get("vintage") or "").strip()[:12],
+            price_text=str(item.get("price_text") or "").strip()[:80],
+            style=str(item.get("style") or "").strip()[:100],
+        )
+        for item in parsed.get("wines", [])[:60]
+        if isinstance(item, dict) and str(item.get("name") or "").strip()
+    ]
+    raw_indexes = parsed.get("recommendation_indexes", [])
+    raw_reasons = parsed.get("recommendation_reasons", [])
+    raw_notes = parsed.get("serving_notes", [])
+    recommendations: list[RestaurantWineListRecommendation] = []
+    seen_indexes: set[int] = set()
+    for position, index in enumerate(raw_indexes if isinstance(raw_indexes, list) else []):
+        if not isinstance(index, int) or index in seen_indexes or not 0 <= index < len(wines):
+            continue
+        seen_indexes.add(index)
+        wine = wines[index]
+        recommendations.append(
+            RestaurantWineListRecommendation(
+                **wine.model_dump(),
+                reason=str(
+                    raw_reasons[position]
+                    if isinstance(raw_reasons, list) and position < len(raw_reasons)
+                    else ""
+                ).strip()[:500],
+                serving_note=str(
+                    raw_notes[position]
+                    if isinstance(raw_notes, list) and position < len(raw_notes)
+                    else ""
+                ).strip()[:300],
+            )
+        )
+        if len(recommendations) == 3:
+            break
+    result = RestaurantWineListScanResponse(
+        summary=str(parsed.get("summary") or "").strip()[:800],
+        extracted_text=str(parsed.get("extracted_text") or "").strip()[:6000],
+        wines=wines,
+        recommendations=recommendations,
+        model=effective_response_model(response, selected_model),
+        reasoning_effort=response.reasoning_effort or "",
+        estimated_cost_usd=response.charged_cost_usd,
+    )
+    record_ai_audit(
+        db,
+        context,
+        entity_type="pairing",
+        entity_id=context.household.id,
+        feature="restaurant_wine_list_scan",
+        model=result.model,
+        reasoning_effort=result.reasoning_effort,
+        summary=f"Restaurant wine list scanned: {len(wines)} visible wines, {len(recommendations)} recommendations.",
+        usage=response.usage,
+        provider_source=provider_source,
+    )
+    db.commit()
+    return result
 
 
 @router.post("/tasting-reflection", response_model=TastingReflectionResponse)

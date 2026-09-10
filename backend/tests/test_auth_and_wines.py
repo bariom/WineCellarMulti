@@ -7579,6 +7579,52 @@ def test_pairing_ai_uses_delivered_cellar_wines_and_market(monkeypatch):
     assert audit.json()[0]["model"] == "gpt-5.5"
 
 
+def test_restaurant_wine_list_scan_extracts_and_ranks_only_visible_entries(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    monkeypatch.setattr(settings, "openai_enable_gpt56", True)
+    settings_response = client.patch(
+        "/api/v1/ai/settings",
+        json={"openai_api_key": "sk-test", "pairing_model": "gpt-5.4"},
+    )
+    assert settings_response.status_code == 200
+    monkeypatch.setattr(ai_routes, "optimized_wine_images", lambda _content: (b"jpeg", None))
+
+    def fake_create_response(*args, **kwargs):
+        assert args[0] == settings.openai_economy_model
+        assert kwargs["input_images"] == [("image/jpeg", b"jpeg")]
+        assert "Risotto" in args[2]
+        return OpenAIResponse(
+            text=(
+                '{"summary":"Due opzioni adatte.","extracted_text":"Barolo 2019 CHF 58",'
+                '"wines":[{"name":"Barolo","producer":"Produttore","vintage":"2019",'
+                '"price_text":"CHF 58","style":"Red"}],'
+                '"recommendation_indexes":[0,9],'
+                '"recommendation_reasons":["Struttura e acidita.","Da ignorare."],'
+                '"serving_notes":["Servire a 18 C.",""]}'
+            ),
+            usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            model="gpt-5.5",
+        )
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    response = client.post(
+        "/api/v1/ai/restaurant-wine-list/scan",
+        data={"dish": "Risotto", "max_price_chf": "60", "locale": "it"},
+        files={"image": ("list.jpg", b"image", "image/jpeg")},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json()["wines"][0]["name"] == "Barolo"
+    assert len(response.json()["recommendations"]) == 1
+    assert response.json()["recommendations"][0]["reason"] == "Struttura e acidita."
+    audit = client.get("/api/v1/ai/audit")
+    assert audit.status_code == 200
+    assert audit.json()[0]["feature"] == "restaurant_wine_list_scan"
+
+
 def test_pairing_ai_suggests_dishes_for_a_selected_wine(monkeypatch):
     from app.api.routes import ai as ai_routes
 

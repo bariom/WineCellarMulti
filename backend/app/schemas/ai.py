@@ -190,9 +190,9 @@ class CellarCommandResponse(BaseModel):
     matched_wine: CellarCommandWineCandidate | None = None
     tasting: CellarCommandTasting | None = None
     purchase_draft: CellarCommandPurchaseDraft | None = None
-    strategy_purpose: Literal[
-        "drink", "maturation", "investment", "special_occasion", "undecided"
-    ] | None = None
+    strategy_purpose: (
+        Literal["drink", "maturation", "investment", "special_occasion", "undecided"] | None
+    ) = None
     strategy_quantity: int | None = None
     strategy_bulk: bool = False
     previous_quantity: int | None = None
@@ -299,6 +299,31 @@ class PairingResponse(BaseModel):
     estimated_cost_usd: Decimal = Decimal("0")
 
 
+class RestaurantWineListEntry(BaseModel):
+    """A transcribed item from a photographed restaurant wine list."""
+
+    name: str = ""
+    producer: str = ""
+    vintage: str = ""
+    price_text: str = ""
+    style: str = ""
+
+
+class RestaurantWineListRecommendation(RestaurantWineListEntry):
+    reason: str = ""
+    serving_note: str = ""
+
+
+class RestaurantWineListScanResponse(BaseModel):
+    summary: str = ""
+    extracted_text: str = ""
+    wines: list[RestaurantWineListEntry] = Field(default_factory=list)
+    recommendations: list[RestaurantWineListRecommendation] = Field(default_factory=list)
+    model: str
+    reasoning_effort: str = ""
+    estimated_cost_usd: Decimal = Decimal("0")
+
+
 class TastingReflectionRequest(AiGenerationRequest):
     wine_id: UUID
     tasting_id: UUID
@@ -401,9 +426,9 @@ class CellarIntelligenceRecommendation(BaseModel):
     confidence: Literal["high", "medium", "low"] = "medium"
     data_quality_score: int = Field(default=0, ge=0, le=100)
     missing_inputs: list[str] = Field(default_factory=list)
-    recommended_purpose: Literal[
-        "drink", "maturation", "investment", "special_occasion", "undecided"
-    ] | None = None
+    recommended_purpose: (
+        Literal["drink", "maturation", "investment", "special_occasion", "undecided"] | None
+    ) = None
 
 
 class CellarIntelligencePlanResponse(BaseModel):
