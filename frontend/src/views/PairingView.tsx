@@ -1,5 +1,5 @@
-import { FormEvent, useEffect, useState } from "react";
-import { FeatureIcon } from "../components/AppIcon";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { AppIcon, FeatureIcon } from "../components/AppIcon";
 import { EmptyState } from "../components/AppUi";
 import { reasoningEffortTranslationKey } from "../i18n";
 import type { RestaurantWineListScanResult } from "../types";
@@ -156,8 +156,9 @@ export default function PairingView({
   const [restaurantIgnoreTaste, setRestaurantIgnoreTaste] = useState(false);
   const [restaurantScan, setRestaurantScan] = useState<RestaurantWineListScanResult | null>(null);
   const [restaurantScanError, setRestaurantScanError] = useState("");
-  const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list">("choose");
+  const [restaurantFlow, setRestaurantFlow] = useState<"choose" | "scan" | "without-list" | "result">("choose");
   const [pairingLocation, setPairingLocation] = useState<"choose" | "home" | "restaurant">("choose");
+  const restaurantResultRef = useRef<HTMLDivElement>(null);
   const restaurantContext = pairingLocation === "restaurant";
   const isWineFirstPairing = Boolean(pairingTargetWine);
   const pairingCopy = locale === "it"
@@ -172,6 +173,13 @@ export default function PairingView({
   useEffect(() => {
     if (isWineFirstPairing && pairingResult?.dish_recommendations.length) setPairingSetupOpen(false);
   }, [isWineFirstPairing, pairingResult?.dish_recommendations.length]);
+  useEffect(() => {
+    if (restaurantFlow !== "result" || !restaurantScan) return;
+    const frame = window.requestAnimationFrame(() => {
+      restaurantResultRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [restaurantFlow, restaurantScan]);
   const pairingPreviewLimit = 3;
   const cellarMatchBudgetValues = pairingResult?.cellar_matches
     .map((match) => {
@@ -240,7 +248,9 @@ export default function PairingView({
     formData.set("max_price_chf", restaurantBudget.trim());
     formData.set("ignore_preferences", String(restaurantIgnoreTaste));
     try {
-      setRestaurantScan(await onScanRestaurantWineList(formData));
+      const result = await onScanRestaurantWineList(formData);
+      setRestaurantScan(result);
+      setRestaurantFlow("result");
     } catch (error) {
       setRestaurantScanError(error instanceof Error ? error.message : (locale === "it" ? "Non è stato possibile analizzare la carta vini." : "The wine list could not be analysed."));
     }
@@ -270,20 +280,20 @@ export default function PairingView({
         <div><span>{locale === "it" ? "Prima di iniziare" : "Before you begin"}</span><h3 id="pairing-location-title">{locale === "it" ? "Dove sei?" : "Where are you?"}</h3><p>{locale === "it" ? "Il contesto definisce il percorso di abbinamento." : "Your context determines the pairing flow."}</p></div>
         <div><button type="button" onClick={() => selectPairingContext(false)}><strong>{locale === "it" ? "A casa" : "At home"}</strong><span>{locale === "it" ? "Scegli tra i vini della tua cantina." : "Choose from wines in your cellar."}</span></button><button type="button" onClick={() => selectPairingContext(true)}><strong>{locale === "it" ? "Al ristorante" : "At a restaurant"}</strong><span>{locale === "it" ? "Analizza una carta o chiedi una proposta da ordinare." : "Analyse a list or ask for a wine to order."}</span></button></div>
       </section> : null}
-      {restaurantContext ? <section className="restaurant-wine-list-card" aria-labelledby="restaurant-wine-list-title">
-        <div>
+      {restaurantContext ? <section className={`restaurant-wine-list-card${restaurantFlow === "result" ? " is-result" : ""}`} aria-labelledby="restaurant-wine-list-title">
+        {restaurantFlow !== "result" ? <div>
           <span className="restaurant-wine-list-eyebrow">{locale === "it" ? "Strumento ristorante" : "Restaurant tool"}</span>
           <h3 id="restaurant-wine-list-title">{locale === "it" ? "Come vuoi scegliere il vino?" : "How would you like to choose a wine?"}</h3>
           <p>{locale === "it" ? "Scatta o carica una foto: l'AI trascrive le voci visibili e seleziona le più adatte al tuo gusto, budget e vincoli." : "Take or upload a photo: AI transcribes visible wines and ranks them for your taste, budget, and constraints."}</p>
-        </div>
+        </div> : null}
         {restaurantFlow === "choose" ? <div className="restaurant-wine-list-choices">
           <button type="button" onClick={() => setRestaurantFlow("scan")}><strong>{locale === "it" ? "Analizza una carta vini" : "Analyse a wine list"}</strong><span>{locale === "it" ? "Scatta o carica una foto della carta." : "Take or upload a photo of the list."}</span></button>
           <button type="button" className="secondary" onClick={() => setRestaurantFlow("without-list")}><strong>{locale === "it" ? "Proposta senza carta" : "Recommendation without a list"}</strong><span>{locale === "it" ? "Indica il piatto e ricevi una proposta da ordinare." : "Tell us the dish and get an option to order."}</span></button>
         </div> : restaurantFlow === "scan" ? <form className="restaurant-wine-list-form" onSubmit={(event) => void scanRestaurantList(event)}>
           <div className="restaurant-wine-list-form-heading"><strong>{locale === "it" ? "Analizza carta vini" : "Analyse wine list"}</strong><button type="button" className="secondary compact" onClick={() => setRestaurantFlow("choose")}>{locale === "it" ? "Cambia percorso" : "Change path"}</button></div>
           <div className="restaurant-wine-list-upload">
-            <label><span>{locale === "it" ? "Scatta una foto" : "Take a photo"}</span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
-            <label><span>{locale === "it" ? "Oppure carica" : "Or upload"}</span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
+            <label className="restaurant-wine-list-camera" title={locale === "it" ? "Scatta una foto della carta vini" : "Take a wine-list photo"}><span><AppIcon name="camera" size="1.2rem" /><b>{locale === "it" ? "Scatta una foto" : "Take a photo"}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
+            <label className="restaurant-wine-list-upload-button"><span><AppIcon name="import" size="1.05rem" /><b>{locale === "it" ? "Carica una foto" : "Upload a photo"}</b></span><input type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setRestaurantListImage(event.target.files?.[0] || null)} disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"} /></label>
             <small>{restaurantListImage ? restaurantListImage.name : (locale === "it" ? "JPG, PNG o WebP; la foto viene elaborata senza essere archiviata." : "JPG, PNG, or WebP; the photo is processed without being stored.")}</small>
           </div>
           <label><span>{locale === "it" ? "Piatto (facoltativo)" : "Dish (optional)"}</span><input value={restaurantDish} maxLength={240} onChange={(event) => setRestaurantDish(event.target.value)} placeholder={locale === "it" ? "Es. risotto ai funghi" : "E.g. mushroom risotto"} /></label>
@@ -291,11 +301,11 @@ export default function PairingView({
           <label className="pairing-option"><input type="checkbox" checked={restaurantIgnoreTaste} onChange={(event) => setRestaurantIgnoreTaste(event.target.checked)} /><span>{locale === "it" ? "Non usare il mio profilo gusto" : "Do not use my taste profile"}</span></label>
           <button type="submit" disabled={!canGenerateAi || generatingAi === "restaurant-wine-list"}>{generatingAi === "restaurant-wine-list" ? (locale === "it" ? "Analisi in corso…" : "Analysing…") : (locale === "it" ? "Analizza carta vini" : "Analyse wine list")}</button>
           {restaurantScanError ? <p className="restaurant-wine-list-error" role="alert">{restaurantScanError}</p> : null}
-        </form> : <div className="restaurant-wine-list-continue"><strong>{locale === "it" ? "Proposta senza carta" : "Recommendation without a list"}</strong><span>{locale === "it" ? "Inserisci il piatto qui sotto: proporremo vini da ordinare in linea con il tuo gusto e budget." : "Enter the dish below: we will suggest wines to order for your taste and budget."}</span><button type="button" className="secondary compact" onClick={() => setRestaurantFlow("choose")}>{locale === "it" ? "Cambia percorso" : "Change path"}</button></div>}
-        {restaurantFlow === "scan" && restaurantScan ? <div className="restaurant-wine-list-result">
+        </form> : restaurantFlow === "without-list" ? <div className="restaurant-wine-list-continue"><strong>{locale === "it" ? "Proposta senza carta" : "Recommendation without a list"}</strong><span>{locale === "it" ? "Inserisci il piatto qui sotto: proporremo vini da ordinare in linea con il tuo gusto e budget." : "Enter the dish below: we will suggest wines to order for your taste and budget."}</span><button type="button" className="secondary compact" onClick={() => setRestaurantFlow("choose")}>{locale === "it" ? "Cambia percorso" : "Change path"}</button></div> : null}
+        {restaurantFlow === "result" && restaurantScan ? <div ref={restaurantResultRef} className="restaurant-wine-list-result" tabIndex={-1}>
           <header className="restaurant-wine-list-result-heading">
             <div><span>{locale === "it" ? "Analisi della carta" : "Wine-list analysis"}</span><h4>{restaurantScan.recommendations.length ? (locale === "it" ? `${restaurantScan.recommendations.length} scelte per il tuo tavolo` : `${restaurantScan.recommendations.length} choices for your table`) : (locale === "it" ? "Carta analizzata" : "Wine list analysed")}</h4></div>
-            <div className="restaurant-wine-list-ai-meta"><span>{locale === "it" ? "Costo AI" : "AI cost"} {formatAiBudget(restaurantScan.estimated_cost_usd)}</span>{restaurantScan.taste_profile_applied ? <span className="restaurant-wine-list-profile-applied">{locale === "it" ? "Profilo gusto applicato" : "Taste profile applied"}</span> : null}<small>{restaurantScan.model} · {t(reasoningEffortTranslationKey(restaurantScan.reasoning_effort))}</small></div>
+            <div className="restaurant-wine-list-ai-meta"><span>{locale === "it" ? "Costo AI" : "AI cost"} {formatAiBudget(restaurantScan.estimated_cost_usd)}</span>{restaurantScan.taste_profile_applied ? <span className="restaurant-wine-list-profile-applied">{locale === "it" ? "Profilo gusto applicato" : "Taste profile applied"}</span> : null}<small>{restaurantScan.model} · {t(reasoningEffortTranslationKey(restaurantScan.reasoning_effort))}</small><button type="button" className="secondary compact" onClick={() => setRestaurantFlow("scan")}>{locale === "it" ? "Nuova analisi" : "New analysis"}</button></div>
           </header>
           {restaurantScan.summary ? <p className="restaurant-wine-list-summary">{restaurantScan.summary}</p> : null}
           {restaurantScan.recommendations.length ? <section className="restaurant-wine-list-recommendations"><h4>{locale === "it" ? "Le scelte più affini" : "Best-fitting choices"}</h4>{restaurantScan.recommendations.map((wine, index) => <article key={`${wine.name}-${index}`}>
