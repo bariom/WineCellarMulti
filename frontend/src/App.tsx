@@ -13199,6 +13199,9 @@ export function App() {
                         canGenerate={canGenerateAi}
                         generating={generatingAi.startsWith("wishlist-") ? generatingAi.replace("wishlist-", "") : ""}
                         onGenerate={(feature) => generateWishlistAi(item, feature)}
+                        canWrite={canWriteWine}
+                        saving={saving}
+                        onRecordTasting={(payload) => recordWishlistTasting(item, payload)}
                         marketAuditEntry={aiAudit.find((entry) => entry.entity_type === "wishlist" && entry.entity_id === item.id && entry.feature === "wishlist_target_price") || null}
                         onOpenMarketView={(entry) => setMarketViewContext({ kind: "wishlist", item, entry })}
                         t={t}
