@@ -60,6 +60,7 @@ from app.prompts import (
     cellar_intelligence_plan_prompt,
     drink_window_prompt,
     grape_composition_prompt,
+    pairing_prompt,
     restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
     wine_scores_prompt,
@@ -135,7 +136,7 @@ from app.services.shared_wine_data import (
     publish_shared_fact,
 )
 from app.services.stock_ledger import add_inbound_stock
-from app.services.taste_profiles import compact_taste_context
+from app.services.taste_profiles import calculate_taste_match, compact_taste_context
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -3417,12 +3418,20 @@ def pairing_budget_value_chf(wine: Wine) -> Decimal:
     return Decimal(str(reference_value))
 
 
+def taste_affinity_from_score(score: float | None) -> int:
+    """Convert a verified 0..1 personal taste score to Vinaris' six-heart scale."""
+    if score is None:
+        return 0
+    return max(1, min(6, int(float(score) * 6 + 0.5)))
+
+
 def clean_pairing_response(
     payload: dict,
     available_wine_ids: set[str],
     include_market: bool,
     *,
     target_wine: Wine | None = None,
+    taste_profile_applied: bool = False,
 ) -> PairingResponse:
     matches = payload.get("cellar_matches", [])
     if not isinstance(matches, list):
@@ -3460,6 +3469,13 @@ def clean_pairing_response(
                         producer=str(item.get("producer") or "").strip(),
                         price_hint=str(item.get("price_hint") or "").strip(),
                         reason=str(item.get("reason") or "").strip(),
+                        taste_affinity=(
+                            int(item.get("taste_affinity"))
+                            if taste_profile_applied
+                            and isinstance(item.get("taste_affinity"), int)
+                            and 0 <= item["taste_affinity"] <= 6
+                            else 0
+                        ),
                     )
                     for item in items[:2]
                     if isinstance(item, dict) and str(item.get("name") or "").strip()
@@ -3484,6 +3500,7 @@ def clean_pairing_response(
     return PairingResponse(
         summary=str(payload.get("summary") or "").strip(),
         model="",
+        taste_profile_applied=taste_profile_applied,
         cellar_matches=cleaned_matches,
         market_recommendations=market,
         dish_recommendations=dishes,
@@ -3791,8 +3808,9 @@ def suggest_pairing(
                                     "producer": {"type": "string"},
                                     "price_hint": {"type": "string"},
                                     "reason": {"type": "string"},
+                                    "taste_affinity": {"type": "integer", "minimum": 0, "maximum": 6},
                                 },
-                                "required": ["name", "producer", "price_hint", "reason"],
+                                "required": ["name", "producer", "price_hint", "reason", "taste_affinity"],
                             },
                         }
                         for tier in ["low", "medium", "high"]
@@ -3824,12 +3842,21 @@ def suggest_pairing(
     }
     target_mode = target_wine is not None
     selected_pairing_model = request_model(payload, user_settings.pairing_model)
-    target_system_prompt = (
-        "Sei un sommelier privato. Dato un vino gia selezionato, proponi da uno a tre piatti che lo valorizzino. "
-        "Le allergie e gli ingredienti da evitare sono vincoli assoluti: non suggerire piatti che li contengano, neppure come variante. "
-        "Le preferenze alimentari sono preferenze forti. Non proporre vini alternativi, mercato o cellar_matches. "
-        "Compila dish_recommendations e lascia cellar_matches e market_recommendations vuoti. Rispondi solo con JSON valido. "
-        f"{response_language_instruction(payload.locale)}"
+    prompt = pairing_prompt(
+        locale=payload.locale,
+        target_mode=target_mode,
+        wine_context=wine_context_payload if not target_mode else wine_context_payload[0],
+        dish=payload.dish,
+        max_price_chf=str(max_price_chf) if max_price_chf is not None else "",
+        include_market=payload.include_market,
+        market_only=payload.market_only,
+        pairing_preferences=pairing_preferences,
+        taste_context=taste_context,
+        ignore_preferences=payload.ignore_preferences,
+        prefer_local_wines=prefer_local_wines,
+        local_origin=local_origin,
+        dietary_preferences=payload.dietary_preferences.strip(),
+        allergies=payload.allergies.strip(),
     )
     response, provider_source = create_ai_response(
         db,
@@ -3837,44 +3864,8 @@ def suggest_pairing(
         user_settings,
         model=selected_pairing_model,
         task_type="pairing",
-        system_prompt=target_system_prompt
-        if target_mode
-        else (
-            "Sei un sommelier privato. Consiglia vini per un piatto usando prima le bottiglie disponibili in cantina. "
-            "Rispondi solo con JSON valido. Se market_only e true, ignora la cantina e proponi solo mercato. "
-            "Se include_market e false e trovi vini adeguati in cantina, lascia market_recommendations vuoto. "
-            "Non inventare che un vino e in cantina se non e nel contesto. "
-            "Se ricevi gusti personali dell'utente, trattali come preferenze morbide e non come vincoli assoluti. "
-            "Se l'utente chiede di privilegiare vini locali mentre e al ristorante, usa quel contesto come preferenza forte per le proposte di mercato, senza forzare abbinamenti palesemente sbagliati. "
-            f"{response_language_instruction(payload.locale)}"
-        ),
-        user_prompt=(
-            f"Vino selezionato: {wine_context_payload[0]}\n"
-            f"gusti_personali: {pairing_preferences or 'none'}\n"
-            f"profilo_gusto_strutturato: {taste_context or 'insufficient data'}\n"
-            f"preferenze_alimentari: {payload.dietary_preferences.strip() or 'none'}\n"
-            f"allergie_o_ingredienti_da_evitare: {payload.allergies.strip() or 'none'}\n"
-            "Proponi piatti concreti, realizzabili e distinti; indica brevemente perche funzionano e una nota utile sulle preferenze o allergie."
-        )
-        if target_mode
-        else (
-            f"Piatto o pietanza: {payload.dish}\n"
-            f"budget_massimo_chf: {str(max_price_chf) if max_price_chf is not None else 'none'}\n"
-            f"include_market: {str(payload.include_market).lower()}\n"
-            f"market_only: {str(payload.market_only).lower()}\n\n"
-            f"gusti_personali: {pairing_preferences or 'none'}\n"
-            f"profilo_gusto_strutturato: {taste_context or 'insufficient data'}\n"
-            f"ignore_preferences: {str(payload.ignore_preferences).lower()}\n\n"
-            f"preferire_vini_locali: {str(prefer_local_wines).lower()}\n"
-            f"origine_locale: {local_origin or 'none'}\n\n"
-            "Vini disponibili in cantina, solo questi possono essere scelti come cellar_matches:\n"
-            f"{wine_context_payload}\n\n"
-            "Se e presente un budget massimo in CHF, privilegia chiaramente bottiglie entro quel tetto e non proporre cellar_matches sopra budget. "
-            "Se preferire_vini_locali e true, privilegia per il mercato bottiglie coerenti con origine_locale, restando sensato rispetto al piatto. "
-            "Se include_market e true, le proposte di mercato devono stare entro il budget quando possibile. "
-            "Per il mercato proponi due bottiglie reali per fascia prezzo in CHF: low entro 30, medium entro 60, high oltre 60. "
-            "Lascia dish_recommendations vuoto."
-        ),
+        system_prompt=prompt.system,
+        user_prompt=prompt.user,
         json_schema=schema,
     )
     cleaned = clean_pairing_response(
@@ -3882,7 +3873,16 @@ def suggest_pairing(
         {str(wine.id) for wine in cellar_wines},
         payload.include_market,
         target_wine=target_wine,
+        taste_profile_applied=bool(taste_context),
     )
+    wines_by_id = {str(wine.id): wine for wine in cellar_wines}
+    if taste_context:
+        for match in cleaned.cellar_matches:
+            wine = wines_by_id.get(str(match.wine_id))
+            if wine is not None:
+                match.taste_affinity = taste_affinity_from_score(
+                    calculate_taste_match(db, context.user.id, wine).get("score")
+                )
     cleaned.model = effective_response_model(response, selected_pairing_model)
     cleaned.reasoning_effort = response.reasoning_effort or ""
     charged_cost = billable_cost_usd(

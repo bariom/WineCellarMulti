@@ -8522,6 +8522,23 @@ button.balance-indicator:focus-visible {
   gap: 12px;
 }
 
+.pairing-taste-affinity {
+  display: inline-flex;
+  gap: 2px;
+  width: fit-content;
+  color: color-mix(in srgb, var(--accent) 26%, var(--line));
+  font-size: 0.82rem;
+  line-height: 1;
+}
+
+.pairing-taste-affinity i {
+  font-style: normal;
+}
+
+.pairing-taste-affinity i.filled {
+  color: var(--accent);
+}
+
 .restaurant-wine-list-card {
   display: grid;
   grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr);

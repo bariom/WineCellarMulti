@@ -306,6 +306,79 @@ def restaurant_wine_list_scan_prompt(
     )
 
 
+def pairing_prompt(
+    *,
+    locale: str,
+    target_mode: bool,
+    wine_context: object,
+    dish: str,
+    max_price_chf: str,
+    include_market: bool,
+    market_only: bool,
+    pairing_preferences: str,
+    taste_context: dict,
+    ignore_preferences: bool,
+    prefer_local_wines: bool,
+    local_origin: str,
+    dietary_preferences: str,
+    allergies: str,
+) -> Prompt:
+    """Build the private-sommelier pairing prompt with bounded taste-affinity output."""
+    if target_mode:
+        return Prompt(
+            id="sommelier.pairing",
+            version="1",
+            system=(
+                "You are a private sommelier. Given a selected wine, suggest one to three dishes that showcase it. "
+                "Allergies and ingredients to avoid are absolute constraints: never suggest dishes containing them, even as variants. "
+                "Dietary preferences are strong preferences. Do not suggest alternative wines, market wines, or cellar_matches. "
+                "Fill dish_recommendations and leave cellar_matches and market_recommendations empty. Return JSON only. "
+                f"{language_instruction(locale)}"
+            ),
+            user=(
+                f"Selected wine: {wine_context}\n"
+                f"Personal taste preferences: {pairing_preferences or 'none'}\n"
+                f"Structured personal taste profile: {json.dumps(taste_context, ensure_ascii=False) if taste_context else 'insufficient data'}\n"
+                f"Dietary preferences: {dietary_preferences or 'none'}\n"
+                f"Allergies or ingredients to avoid: {allergies or 'none'}\n"
+                "Suggest concrete, feasible and distinct dishes; briefly explain why they work and include a useful dietary or allergy note."
+            ),
+        )
+    return Prompt(
+        id="sommelier.pairing",
+        version="1",
+        system=(
+            "You are a private sommelier. Recommend wines for a dish, using bottles available in the cellar first. "
+            "Return JSON only. If market_only is true, ignore the cellar and recommend market wines only. "
+            "If include_market is false and suitable cellar wines exist, leave market_recommendations empty. "
+            "Never claim a wine is in the cellar unless it appears in the provided context. "
+            "Treat supplied personal taste preferences as soft ranking signals, never as absolute constraints. "
+            "If asked to favor local wines at a restaurant, use that as a strong preference for market suggestions without forcing clearly poor pairings. "
+            "For every market recommendation, set taste_affinity from 1 to 6 only when a structured personal taste profile is supplied; otherwise use 0. "
+            "This is a recommendation signal, not a claimed tasting fact. "
+            f"{language_instruction(locale)}"
+        ),
+        user=(
+            f"Dish: {dish}\n"
+            f"Maximum budget CHF: {max_price_chf or 'none'}\n"
+            f"include_market: {str(include_market).lower()}\n"
+            f"market_only: {str(market_only).lower()}\n\n"
+            f"Personal taste preferences: {pairing_preferences or 'none'}\n"
+            f"Structured personal taste profile: {json.dumps(taste_context, ensure_ascii=False) if taste_context else 'insufficient data'}\n"
+            f"ignore_preferences: {str(ignore_preferences).lower()}\n\n"
+            f"preferire_vini_locali: {str(prefer_local_wines).lower()}\n"
+            f"origine_locale: {local_origin or 'none'}\n\n"
+            "Available cellar wines; only these may be selected as cellar_matches:\n"
+            f"{wine_context}\n\n"
+            "When a maximum CHF budget is present, clearly prefer bottles within it and do not propose cellar_matches above it. "
+            "When prefer_local_wines is true, favor market bottles coherent with local_origin while remaining sensible for the dish. "
+            "When include_market is true, keep market proposals within the budget where possible. "
+            "For market suggestions, propose two real bottles per price tier in CHF: low up to 30, medium up to 60, high above 60. "
+            "Leave dish_recommendations empty."
+        ),
+    )
+
+
 def wine_sensory_profile_prompt(*, wine_context: dict) -> Prompt:
     """Compact, versioned fallback prompt for one Vinaris-shared wine identity."""
     return Prompt(

@@ -4,6 +4,7 @@ from app.prompts import (
     cellar_command_prompt,
     cellar_intelligence_plan_prompt,
     grape_composition_prompt,
+    pairing_prompt,
     restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
     wine_value_prompt,
@@ -27,6 +28,33 @@ def test_restaurant_wine_list_scan_prompt_is_bounded_and_preserves_constraints()
     assert "zero-based extracted-list index" in prompt.system
     assert "Risotto ai funghi" in prompt.user
     assert '"acidity": 72' in prompt.user
+
+
+def test_pairing_prompt_requests_affinity_only_for_a_structured_taste_profile():
+    prompt = pairing_prompt(
+        locale="it",
+        target_mode=False,
+        wine_context=[{"name": "Barolo"}],
+        dish="Brasato",
+        max_price_chf="60",
+        include_market=True,
+        market_only=False,
+        pairing_preferences="poco legno",
+        taste_context={"category": "Red", "confidence": 0.7, "dimensions": {"tannin": 0.4}},
+        ignore_preferences=False,
+        prefer_local_wines=False,
+        local_origin="",
+        dietary_preferences="",
+        allergies="",
+    )
+
+    assert (prompt.id, prompt.version) == ("sommelier.pairing", "1")
+    assert (
+        "taste_affinity from 1 to 6 only when a structured personal taste profile is supplied"
+        in prompt.system
+    )
+    assert "Brasato" in prompt.user
+    assert '"tannin": 0.4' in prompt.user
 
 
 def test_buying_advice_prompt_applies_profile_without_overriding_filters():

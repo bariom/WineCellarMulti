@@ -17,11 +17,19 @@ type PairingResult = {
   summary: string;
   model: string;
   reasoning_effort: string;
-  cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string }>;
-  market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string }>>;
+  cellar_matches: Array<{ wine_id: string; wine_name: string; producer: string; reason: string; serving_note: string; taste_affinity: number }>;
+  market_recommendations: Record<string, Array<{ name: string; producer: string; price_hint: string; reason: string; taste_affinity: number }>>;
   dish_recommendations: Array<{ name: string; description: string; why_it_works: string; dietary_note: string }>;
   estimated_cost_usd: string;
 };
+
+function TasteAffinityHearts({ affinity, locale }: { affinity: number; locale: "en" | "it" }) {
+  if (affinity <= 0) return null;
+  const label = locale === "it"
+    ? `Affinità con i tuoi gusti: ${affinity} su 6`
+    : `Taste affinity: ${affinity} out of 6`;
+  return <span className="pairing-taste-affinity" aria-label={label}>{Array.from({ length: 6 }, (_, heart) => <i key={heart} className={heart < affinity ? "filled" : ""} aria-hidden="true">♥</i>)}</span>;
+}
 
 type AiSettingsDraft = {
   pairing_preferences: string;
@@ -526,6 +534,7 @@ export default function PairingView({
                         <div style={{ display: "grid", gap: "5px", minWidth: 0 }}>
                           <strong>{match.wine_name}</strong>
                           <span>{match.producer}</span>
+                          <TasteAffinityHearts affinity={match.taste_affinity} locale={locale} />
                           {(() => {
                           const referenceValue = Number(wine?.current_value || wine?.price || 0);
                           const withinBudget = hasPairingBudget && Number.isFinite(referenceValue) && referenceValue > 0 && referenceValue <= activePairingBudget;
@@ -558,6 +567,7 @@ export default function PairingView({
                           <article key={`${tier}-${item.name}-${item.producer}`}>
                             <strong>{item.name}</strong>
                             {item.producer ? <span>{item.producer}</span> : null}
+                            <TasteAffinityHearts affinity={item.taste_affinity} locale={locale} />
                             {(() => {
                               if (!hasPairingBudget) return null;
                               const hintAmount = parsePriceHintAmount(item.price_hint);

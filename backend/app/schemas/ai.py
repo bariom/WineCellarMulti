@@ -273,6 +273,7 @@ class PairingCellarMatch(BaseModel):
     producer: str = ""
     reason: str = ""
     serving_note: str = ""
+    taste_affinity: int = Field(default=0, ge=0, le=6)
 
 
 class PairingMarketWine(BaseModel):
@@ -280,6 +281,7 @@ class PairingMarketWine(BaseModel):
     producer: str = ""
     price_hint: str = ""
     reason: str = ""
+    taste_affinity: int = Field(default=0, ge=0, le=6)
 
 
 class PairingDishRecommendation(BaseModel):
@@ -293,6 +295,7 @@ class PairingResponse(BaseModel):
     summary: str = ""
     model: str
     reasoning_effort: str = ""
+    taste_profile_applied: bool = False
     cellar_matches: list[PairingCellarMatch] = Field(default_factory=list)
     market_recommendations: dict[str, list[PairingMarketWine]] = Field(default_factory=dict)
     dish_recommendations: list[PairingDishRecommendation] = Field(default_factory=list)

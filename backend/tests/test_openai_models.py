@@ -11,8 +11,25 @@ from uuid import uuid4
 from fastapi import HTTPException
 import pytest
 
+from app.api.routes.ai import (
+    available_model_options,
+    clean_buying_recommendations,
+    clean_pairing_response,
+    clean_recommendation_vintage,
+    compare_wine_context,
+    estimate_cost_usd,
+    is_disallowed_buying_source,
+    normalize_user_ai_models,
+    pairing_wine_context,
+    pairing_wine_is_in_ideal_window,
+    select_pairing_candidates,
+    taste_affinity_from_score,
+    web_search_tool_cost_usd,
+    wine_market_context,
+    wishlist_advice_context,
+    wishlist_market_context,
+)
 from app.core.config import settings
-from app.api.routes.ai import available_model_options, clean_buying_recommendations, clean_recommendation_vintage, compare_wine_context, estimate_cost_usd, is_disallowed_buying_source, normalize_user_ai_models, pairing_wine_context, pairing_wine_is_in_ideal_window, select_pairing_candidates, web_search_tool_cost_usd, wine_market_context, wishlist_advice_context, wishlist_market_context
 from app.services.ai_models import parameters_for_model, reasoning_effort_for_request, select_ai_model
 from app.services.openai_client import TokenUsage, create_response, response_body
 
@@ -291,6 +308,37 @@ def test_pairing_ideal_window_requires_the_current_year_to_be_in_the_peak_window
     assert pairing_wine_is_in_ideal_window(SimpleNamespace(drink_peak_from=2024, drink_peak_to=2028), current_year)
     assert not pairing_wine_is_in_ideal_window(SimpleNamespace(drink_peak_from=2027, drink_peak_to=2030), current_year)
     assert not pairing_wine_is_in_ideal_window(SimpleNamespace(drink_peak_from=None, drink_peak_to=None), current_year)
+
+
+def test_pairing_taste_affinity_uses_a_bounded_six_heart_scale():
+    assert taste_affinity_from_score(None) == 0
+    assert taste_affinity_from_score(0.01) == 1
+    assert taste_affinity_from_score(0.5) == 3
+    assert taste_affinity_from_score(1.0) == 6
+
+
+def test_pairing_market_affinity_is_exposed_only_with_a_taste_profile():
+    payload = {
+        "market_recommendations": {
+            "low": [
+                {
+                    "name": "Chianti",
+                    "producer": "",
+                    "price_hint": "CHF 25",
+                    "reason": "Fresh",
+                    "taste_affinity": 5,
+                }
+            ],
+            "medium": [],
+            "high": [],
+        }
+    }
+
+    with_profile = clean_pairing_response(payload, set(), True, taste_profile_applied=True)
+    without_profile = clean_pairing_response(payload, set(), True, taste_profile_applied=False)
+
+    assert with_profile.market_recommendations["low"][0].taste_affinity == 5
+    assert without_profile.market_recommendations["low"][0].taste_affinity == 0
 
 
 def test_task_contexts_exclude_unrelated_cellar_and_generated_data():
