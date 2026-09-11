@@ -6019,10 +6019,12 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
     assert saved.vineyard_name == "Tenuta di Vincigliata"
     assert saved.vineyard_notes == "Punto verificato e impostato manualmente dall'amministratore."
     with TestingSessionLocal() as db:
+        stored_wine = db.get(Wine, wine_id)
+        assert stored_wine is not None
         catalog_entry = db.scalar(
             select(WineCatalogEntry).where(
-                WineCatalogEntry.name == "Château Citran",
-                WineCatalogEntry.producer == "Château Citran",
+                WineCatalogEntry.name == stored_wine.name,
+                WineCatalogEntry.producer == stored_wine.producer,
             )
         )
         assert catalog_entry is not None
