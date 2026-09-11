@@ -5917,6 +5917,13 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
             vineyard_not_found=True,
         )
         db.add(wine)
+        db.add(
+            WineCatalogEntry(
+                name=wine.name,
+                producer=wine.producer,
+                search_text=f"{wine.producer} {wine.name}".lower(),
+            )
+        )
         db.commit()
         wine_id = wine.id
 
