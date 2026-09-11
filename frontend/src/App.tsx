@@ -8939,9 +8939,9 @@ export function App() {
                   if (!notificationsOpen) {
                     setNotificationTab("all");
                     setNotificationView("active");
-                    setNotificationStateFilter("unread");
+                    setNotificationStateFilter("all");
                     void Promise.allSettled([
-                      loadNotifications(true, { category: "all", view: "active", itemState: "unread", offset: 0 }),
+                      loadNotifications(true, { category: "all", view: "active", itemState: "all", offset: 0 }),
                       loadReceivedInvites(true),
                       loadShareOffers(true),
                       loadMyCoOwnershipAgreements(true),
