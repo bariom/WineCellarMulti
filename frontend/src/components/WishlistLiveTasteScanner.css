@@ -104,6 +104,7 @@
   bottom: 14px;
   left: 14px;
   display: grid;
+  max-height: calc(100% - 28px);
   gap: 7px;
   padding: 17px;
   border: 1px solid rgba(255, 222, 145, .5);
@@ -112,12 +113,16 @@
   background: linear-gradient(135deg, rgba(50,16,29,.95), rgba(12,18,14,.94));
   box-shadow: 0 18px 45px rgba(0,0,0,.42);
   backdrop-filter: blur(14px);
+  overflow: auto;
 }
 
 .wishlist-live-result > span { color: #e8c56d; font-size: .65rem; font-weight: 900; letter-spacing: .12em; }
 .wishlist-live-result h2 { margin: 0; color: white; font: 1.55rem Georgia, serif; }
 .wishlist-live-result p, .wishlist-live-result small { margin: 0; color: #ddd9ce; line-height: 1.4; }
 .wishlist-live-result .wishlist-live-ai-cost { padding-top: 7px; border-top: 1px solid rgba(255,255,255,.14); color: #ffe09a; font-weight: 800; }
+.wishlist-live-affinity-unavailable { display: grid; gap: 3px; padding: 9px 0; }
+.wishlist-live-affinity-unavailable strong { color: #fff4d5; font-size: .86rem; }
+.wishlist-live-affinity-unavailable small { color: #ddd9ce; }
 .wishlist-live-affinity { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .wishlist-live-affinity div { display: flex; gap: 3px; }
 .wishlist-live-affinity i { color: rgba(255,255,255,.22); font-style: normal; font-size: 1.3rem; }
@@ -129,13 +134,19 @@
 .wishlist-live-scan-modal footer { flex-wrap: wrap; }
 .wishlist-live-scan-modal footer input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
 .wishlist-live-scan-modal footer button { min-height: 44px; }
+.wishlist-live-scan-modal footer.result {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(110px, .75fr);
+}
+.wishlist-live-scan-modal footer.result button { width: 100%; }
+.wishlist-live-continue { box-shadow: 0 10px 26px rgba(104, 23, 52, .35); }
 
 @keyframes wishlist-live-pulse { 50% { opacity: .35; transform: scale(.72); } }
 @keyframes wishlist-reticle-pulse { 50% { transform: scale(.985); opacity: .62; } }
 
 @media (max-width: 540px) {
   .wishlist-live-scan-layer { padding: 0; }
-  .wishlist-live-scan-modal { width: 100%; min-height: 100dvh; max-height: 100dvh; padding: 12px; border: 0; border-radius: 0; }
-  .wishlist-live-scan-stage { min-height: 0; height: calc(100dvh - 142px); }
+  .wishlist-live-scan-modal { width: 100%; min-height: 100dvh; max-height: 100dvh; grid-template-rows: auto minmax(0, 1fr) auto; padding: 12px; overflow: hidden; border: 0; border-radius: 0; }
+  .wishlist-live-scan-stage { min-height: 0; height: auto; }
   .wishlist-live-scan-modal footer button { flex: 1 1 42%; }
 }

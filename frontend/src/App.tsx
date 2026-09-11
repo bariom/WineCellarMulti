@@ -1405,6 +1405,7 @@ export function App() {
   const [wineRecognitionLoading, setWineRecognitionLoading] = useState(false);
   const [wineEnrichmentLoading, setWineEnrichmentLoading] = useState(false);
   const wineCreationAiActionRef = useRef<{ kind: "full"; model: string } | null>(null);
+  const wishlistNameInputRef = useRef<HTMLInputElement | null>(null);
   const [wishlist, setWishlist] = useState<WishlistItem[]>([]);
   const [wishlistLists, setWishlistLists] = useState<WishlistList[]>([]);
   const [userTags, setUserTags] = useState<UserTag[]>([]);
@@ -2110,8 +2111,11 @@ export function App() {
     return { recognition, match };
   }
 
-  function confirmWishlistLiveTaste(candidate: WineImageRecognitionCandidate, _recognitionId: string) {
+  function confirmWishlistLiveTaste(candidate: WineImageRecognitionCandidate) {
     applyWineImageCandidate(candidate, "wishlist");
+    window.requestAnimationFrame(() => {
+      wishlistNameInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   }
 
   async function confirmWineImageRecognition() {
@@ -12059,7 +12063,7 @@ export function App() {
                 </label>
                 <label>
                   <span>{t("name")}</span>
-                  <input value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} autoComplete="off" />
+                  <input ref={wishlistNameInputRef} value={wishlistDraft.name} onChange={(event) => updateWishlistDraftName(event.target.value)} required disabled={!canWriteWine} autoComplete="off" />
                 </label>
                 {wishlistDraftTemplateSuggestions.length ? (
                   <div className="catalog-template-choices" aria-label={locale === "it" ? "Vini trovati nel catalogo" : "Wines found in the catalog"}>

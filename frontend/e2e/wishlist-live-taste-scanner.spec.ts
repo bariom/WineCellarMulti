@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("live wishlist scanner shows the recognised wine and personal affinity on mobile", async ({ page }) => {
+test("live wishlist scanner can continue without a taste profile on mobile", async ({ page }) => {
   await page.route("**/wishlist-live-scanner-test", route => route.fulfill({
     contentType: "text/html",
     body: `<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
@@ -25,7 +25,7 @@ test("live wishlist scanner shows the recognised wine and personal affinity on m
               region: 'Piemonte', country: 'Italia', label_text: ['BAROLO RISERVA', '2020'],
               alternative_candidates: [], needs_user_confirmation: true, recognition_notes: [], provider: 'luna', matches: [], estimated_cost_usd: '0.0018',
             },
-            match: { score: .84, confidence: .62, matching_traits: ['corpo', 'tannini', 'frutto'], conflicting_traits: [] },
+            match: { score: null, confidence: 0, matching_traits: [], conflicting_traits: [] },
           }),
         });
       }
@@ -43,12 +43,24 @@ test("live wishlist scanner shows the recognised wine and personal affinity on m
   });
 
   await expect(page.getByText("Barolo Riserva")).toBeVisible();
-  await expect(page.getByText("5/6")).toBeVisible();
-  await expect(page.getByText(/In sintonia: corpo, tannini, frutto/)).toBeVisible();
+  await expect(page.getByText("Affinità non ancora disponibile")).toBeVisible();
+  await expect(page.getByText("Puoi comunque continuare e aggiungere questo vino alla wishlist.")).toBeVisible();
   await expect(page.getByText("Costo AI: $0.0018")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Conferma e usa" })).toBeVisible();
+  await expect(page.locator(".wishlist-live-scan-status")).toHaveCount(0);
+  const continueButton = page.getByRole("button", { name: "Continua con questo vino" });
+  const retryButton = page.getByRole("button", { name: "Riprova" });
+  await expect(continueButton).toBeVisible();
+  await expect(retryButton).toBeVisible();
   for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const [continueBox, retryBox] = await Promise.all([continueButton.boundingBox(), retryButton.boundingBox()]);
+    expect(continueBox).not.toBeNull();
+    expect(retryBox).not.toBeNull();
+    expect(continueBox!.y + continueBox!.height).toBeLessThanOrEqual(844);
+    expect(retryBox!.y + retryBox!.height).toBeLessThanOrEqual(844);
+    expect(continueBox!.x + continueBox!.width <= retryBox!.x || retryBox!.x + retryBox!.width <= continueBox!.x).toBe(true);
   }
+  await continueButton.click();
+  await expect(page.getByRole("dialog", { name: "Scansione gusto live" })).toBeHidden();
 });

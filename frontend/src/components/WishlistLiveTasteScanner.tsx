@@ -209,7 +209,7 @@ export function WishlistLiveTasteScanner({
   }, [cameraReady, italian, open, phase]);
 
   const recognized = scan?.recognition;
-  const canConfirm = recognized && (recognized.status === "recognized" || recognized.status === "ambiguous") && candidateName(recognized);
+  const canConfirm = Boolean(recognized && (recognized.status === "recognized" || recognized.status === "ambiguous") && candidateName(recognized));
   const hearts = scan?.match?.score === null || scan?.match?.score === undefined
     ? 0
     : Math.min(6, Math.max(1, Math.round(scan.match.score * 6)));
@@ -225,21 +225,21 @@ export function WishlistLiveTasteScanner({
         <div className="wishlist-live-scan-stage">
           {previewUrl ? <img src={previewUrl} alt="" /> : <video ref={videoRef} autoPlay muted playsInline />}
           <div className={`wishlist-live-scan-reticle ${phase}`} aria-hidden="true"><i /><i /><i /><i /></div>
-          <div className={`wishlist-live-scan-status ${phase}`} role="status"><span className="wishlist-live-scan-pulse" />{phase === "analysing" ? (italian ? "Sommelier AI al lavoro" : "AI sommelier working") : guide}</div>
+          {phase !== "result" ? <div className={`wishlist-live-scan-status ${phase}`} role="status"><span className="wishlist-live-scan-pulse" />{phase === "analysing" ? (italian ? "Sommelier AI al lavoro" : "AI sommelier working") : guide}</div> : null}
           {phase === "result" && recognized ? <article className="wishlist-live-result">
             <span>{recognized.status === "ambiguous" ? (italian ? "CONFERMA NECESSARIA" : "CONFIRMATION NEEDED") : (italian ? "VINO RICONOSCIUTO" : "WINE IDENTIFIED")}</span>
             <h2>{candidateName(recognized) || (italian ? "Etichetta non identificata" : "Label not identified")}</h2>
             <p>{[recognized.producer || recognized.estate, recognized.vintage, recognized.appellation].filter(Boolean).join(" · ")}</p>
-            {hearts ? <div className="wishlist-live-affinity" aria-label={`${hearts}/6`}><div>{Array.from({ length: 6 }, (_, index) => <i key={index} className={index < hearts ? "filled" : ""}>♥</i>)}</div><span><small>{scan.match && scan.match.confidence < .3 ? (italian ? "Affinità iniziale" : "Early affinity") : (italian ? "Affinità personale" : "Personal affinity")}</small><strong>{hearts}/6</strong></span></div> : <small>{italian ? "Affinità non ancora stimabile con i dati disponibili" : "Affinity cannot yet be estimated from available data"}</small>}
+            {hearts ? <div className="wishlist-live-affinity" aria-label={`${hearts}/6`}><div>{Array.from({ length: 6 }, (_, index) => <i key={index} className={index < hearts ? "filled" : ""}>♥</i>)}</div><span><small>{scan.match && scan.match.confidence < .3 ? (italian ? "Affinità iniziale" : "Early affinity") : (italian ? "Affinità personale" : "Personal affinity")}</small><strong>{hearts}/6</strong></span></div> : <div className="wishlist-live-affinity-unavailable"><strong>{italian ? "Affinità non ancora disponibile" : "Affinity not available yet"}</strong><small>{italian ? "Puoi comunque continuare e aggiungere questo vino alla wishlist." : "You can still continue and add this wine to your wishlist."}</small></div>}
             {scan.match?.matching_traits.length ? <small>{italian ? "In sintonia" : "In tune"}: {scan.match.matching_traits.map((trait) => traitLabel(trait, locale)).join(", ")}</small> : null}
             <small className="wishlist-live-ai-cost">{italian ? "Costo AI" : "AI cost"}: ${Number(recognized.estimated_cost_usd || 0).toFixed(4)}</small>
           </article> : null}
         </div>
-        <footer>
+        <footer className={phase}>
           <input ref={fileRef} type="file" accept="image/*" onChange={(event) => void selectFile(event)} />
           {phase === "framing" ? <><button type="button" className="secondary" onClick={() => fileRef.current?.click()}>{italian ? "Scegli foto" : "Choose photo"}</button><button type="button" disabled={!cameraReady} onClick={() => void capture()}><AppIcon name="camera" />{italian ? "Scatta ora" : "Capture now"}</button></> : null}
+          {canConfirm && recognized ? <button type="button" className="wishlist-live-continue" onClick={() => { onConfirm(recognized, recognized.recognition_id); close(); }}>{italian ? "Continua con questo vino" : "Continue with this wine"}</button> : null}
           {phase === "result" || phase === "error" ? <button type="button" className="secondary" onClick={() => void startCamera()}>{italian ? "Riprova" : "Try again"}</button> : null}
-          {canConfirm && recognized ? <button type="button" onClick={() => { onConfirm(recognized, recognized.recognition_id); close(); }}>{italian ? "Conferma e usa" : "Confirm and use"}</button> : null}
         </footer>
       </section>
     </div>, document.body) : null}
