@@ -28,7 +28,7 @@ function selectDimensions(dimensions: TasteProfile["dimensions"], keys: readonly
 function naturalList(values: string[], italian: boolean) {
   if (values.length < 2) return values[0] || "";
   const conjunction = italian ? " e " : " and ";
-  return `${values.slice(0, -1).join(", ")}${conjunction}${values.at(-1)}`;
+  return `${values.slice(0, -1).join(", ")}${conjunction}${values[values.length - 1]}`;
 }
 
 function categoryNarrative(
