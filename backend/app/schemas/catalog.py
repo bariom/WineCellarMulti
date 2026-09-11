@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Literal
 from uuid import UUID
 
@@ -50,8 +51,17 @@ class WineImageRecognitionResponse(WineImageRecognitionCandidate):
     recognition_notes: list[str] = Field(default_factory=list)
     provider: Literal["luna"]
     matches: list[CatalogWineResponse] = Field(default_factory=list)
+    estimated_cost_usd: Decimal = Decimal("0")
 
 
 class WineImageRecognitionConfirmation(BaseModel):
     recognition_id: UUID
     corrected: bool = False
+    candidate: WineImageRecognitionCandidate | None = None
+
+
+class WineImageRecognitionConfirmationResponse(BaseModel):
+    catalog_entry_id: UUID | None = None
+    catalog_status: Literal["existing", "pending", "skipped"] = "skipped"
+    sensory_profile_status: Literal["available", "pending", "skipped"] = "skipped"
+    sensory_profile_source: str = ""

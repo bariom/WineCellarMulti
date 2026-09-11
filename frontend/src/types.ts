@@ -1131,6 +1131,14 @@ export type WineImageRecognitionResult = WineImageRecognitionCandidate & {
   recognition_notes: string[];
   provider: "luna";
   matches: CatalogWine[];
+  estimated_cost_usd: string;
+};
+
+export type WineImageRecognitionConfirmationResult = {
+  catalog_entry_id: string | null;
+  catalog_status: "existing" | "pending" | "skipped";
+  sensory_profile_status: "available" | "pending" | "skipped";
+  sensory_profile_source: string;
 };
 
 export type WinePhotoSuggestions = WinePhotoSuggestion[];

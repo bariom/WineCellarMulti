@@ -23,7 +23,7 @@ test("live wishlist scanner shows the recognised wine and personal affinity on m
               recognition_id: 'scan-1', status: 'recognized', producer: 'Produttore Test', estate: '',
               wine_name: 'Barolo Riserva', cuvee: '', vintage: '2020', appellation: 'Barolo DOCG',
               region: 'Piemonte', country: 'Italia', label_text: ['BAROLO RISERVA', '2020'],
-              alternative_candidates: [], needs_user_confirmation: true, recognition_notes: [], provider: 'luna', matches: [],
+              alternative_candidates: [], needs_user_confirmation: true, recognition_notes: [], provider: 'luna', matches: [], estimated_cost_usd: '0.0018',
             },
             match: { score: .84, confidence: .62, matching_traits: ['corpo', 'tannini', 'frutto'], conflicting_traits: [] },
           }),
@@ -45,6 +45,7 @@ test("live wishlist scanner shows the recognised wine and personal affinity on m
   await expect(page.getByText("Barolo Riserva")).toBeVisible();
   await expect(page.getByText("5/6")).toBeVisible();
   await expect(page.getByText(/In sintonia: corpo, tannini, frutto/)).toBeVisible();
+  await expect(page.getByText("Costo AI: $0.0018")).toBeVisible();
   await expect(page.getByRole("button", { name: "Conferma e usa" })).toBeVisible();
   for (const width of [360, 390, 430]) {
     await page.setViewportSize({ width, height: 844 });

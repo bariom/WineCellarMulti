@@ -4177,6 +4177,12 @@ summary:focus-visible {
   color: var(--text);
 }
 
+.recognition-results > .recognition-ai-cost {
+  width: 100%;
+  color: var(--accent-strong);
+  font-weight: 800;
+}
+
 .recognition-results > span {
   width: 100%;
   color: var(--text-muted);

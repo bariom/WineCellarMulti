@@ -232,6 +232,7 @@ export function WishlistLiveTasteScanner({
             <p>{[recognized.producer || recognized.estate, recognized.vintage, recognized.appellation].filter(Boolean).join(" · ")}</p>
             {hearts ? <div className="wishlist-live-affinity" aria-label={`${hearts}/6`}><div>{Array.from({ length: 6 }, (_, index) => <i key={index} className={index < hearts ? "filled" : ""}>♥</i>)}</div><span><small>{scan.match && scan.match.confidence < .3 ? (italian ? "Affinità iniziale" : "Early affinity") : (italian ? "Affinità personale" : "Personal affinity")}</small><strong>{hearts}/6</strong></span></div> : <small>{italian ? "Affinità non ancora stimabile con i dati disponibili" : "Affinity cannot yet be estimated from available data"}</small>}
             {scan.match?.matching_traits.length ? <small>{italian ? "In sintonia" : "In tune"}: {scan.match.matching_traits.map((trait) => traitLabel(trait, locale)).join(", ")}</small> : null}
+            <small className="wishlist-live-ai-cost">{italian ? "Costo AI" : "AI cost"}: ${Number(recognized.estimated_cost_usd || 0).toFixed(4)}</small>
           </article> : null}
         </div>
         <footer>

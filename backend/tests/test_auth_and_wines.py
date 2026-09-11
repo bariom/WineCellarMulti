@@ -33,6 +33,7 @@ from app.models import (
     Membership,
     OperationalAlertState,
     RedeemCode,
+    SharedWineIdentity,
     User,
     UserActivityLog,
     UserAiCreditTransaction,
@@ -43,6 +44,7 @@ from app.models import (
     WineCatalogEntry,
     WinePhotoLibraryEntry,
     WineRecognitionLog,
+    WineSensoryProfile,
 )
 from app.services.openai_client import OpenAIResponse, TokenUsage
 from app.services.wine_photo_library import library_photo_path
@@ -8254,7 +8256,15 @@ def test_luna_bottle_recognition_requires_confirmation(monkeypatch):
     monkeypatch.setattr(
         catalog_route,
         "recognize_wine_from_image",
-        lambda *_args, **_kwargs: (recognized_bottle_payload(), "req_luna_test"),
+        lambda *_args, **_kwargs: (
+            recognized_bottle_payload(
+                producer="Tenuta Conferma",
+                wine_name="Cuvée Catalogo",
+                appellation="Conferma DOC",
+                region="Regione Test",
+            ),
+            "req_luna_test",
+        ),
     )
     response = client.post(
         "/api/v1/wines/catalog/recognize-bottle",
@@ -8264,19 +8274,111 @@ def test_luna_bottle_recognition_requires_confirmation(monkeypatch):
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "recognized"
-    assert payload["producer"] == "Fontanafredda"
+    assert payload["producer"] == "Tenuta Conferma"
     assert payload["needs_user_confirmation"] is True
     confirmed = client.post(
         "/api/v1/wines/catalog/recognition/confirm",
         json={"recognition_id": payload["recognition_id"], "corrected": False},
     )
-    assert confirmed.status_code == 204
+    assert confirmed.status_code == 200
+    assert confirmed.json()["catalog_status"] == "pending"
+    assert confirmed.json()["sensory_profile_status"] == "pending"
     with TestingSessionLocal() as db:
         assert db.scalar(select(Wine)) is None
         log = db.get(WineRecognitionLog, uuid.UUID(payload["recognition_id"]))
         assert log is not None
         assert log.response_payload["confirmed"] is True
         assert log.response_payload["corrected"] is False
+        catalog_entry = db.scalar(
+            select(WineCatalogEntry).where(
+                WineCatalogEntry.name == "Cuvée Catalogo",
+                WineCatalogEntry.producer == "Tenuta Conferma",
+            )
+        )
+        assert catalog_entry is not None
+        assert catalog_entry.is_active is False
+        assert catalog_entry.source == "confirmed_recognition"
+        assert catalog_entry.country == "Italia"
+        identity = db.scalar(
+            select(SharedWineIdentity).where(
+                SharedWineIdentity.name == "Cuvée Catalogo",
+                SharedWineIdentity.producer == "Tenuta Conferma",
+                SharedWineIdentity.vintage == "2019",
+            )
+        )
+        assert identity is not None
+        sensory_profile = db.scalar(
+            select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity.id)
+        )
+        assert sensory_profile is not None
+        assert sensory_profile.generation_status == "pending"
+
+    repeated = client.post(
+        "/api/v1/wines/catalog/recognition/confirm",
+        json={
+            "recognition_id": payload["recognition_id"],
+            "corrected": True,
+            "candidate": {
+                "producer": "Tentativo Duplicato",
+                "wine_name": "Altro Vino",
+                "vintage": "2020",
+            },
+        },
+    )
+    assert repeated.status_code == 200
+    with TestingSessionLocal() as db:
+        duplicates = list(
+            db.scalars(
+                select(WineCatalogEntry).where(
+                    WineCatalogEntry.name == "Cuvée Catalogo",
+                    WineCatalogEntry.producer == "Tenuta Conferma",
+                )
+            )
+        )
+        assert len(duplicates) == 1
+        assert (
+            db.scalar(
+                select(WineCatalogEntry).where(
+                    WineCatalogEntry.producer == "Tentativo Duplicato"
+                )
+            )
+            is None
+        )
+
+    monkeypatch.setattr(
+        catalog_route,
+        "recognize_wine_from_image",
+        lambda *_args, **_kwargs: (
+            recognized_bottle_payload(
+                producer="",
+                wine_name="Solo Nome Etichetta",
+                appellation="",
+                region="",
+                country="",
+            ),
+            "req_luna_weak",
+        ),
+    )
+    weak = client.post(
+        "/api/v1/wines/catalog/recognize-bottle",
+        data={"locale": "it"},
+        files={"image": ("weak.jpg", b"image bytes", "image/jpeg")},
+    )
+    weak_confirmation = client.post(
+        "/api/v1/wines/catalog/recognition/confirm",
+        json={"recognition_id": weak.json()["recognition_id"], "corrected": False},
+    )
+    assert weak_confirmation.status_code == 200
+    assert weak_confirmation.json()["catalog_status"] == "skipped"
+    with TestingSessionLocal() as db:
+        assert (
+            db.scalar(
+                select(WineCatalogEntry).where(
+                    WineCatalogEntry.name == "Solo Nome Etichetta"
+                )
+            )
+            is None
+        )
 
 
 def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
@@ -8329,6 +8431,7 @@ def test_luna_bottle_recognition_debits_ai_credits(monkeypatch):
     assert response.status_code == 200
     ending_balance = Decimal(client.get("/api/v1/billing/status").json()["ai_credit_balance_usd"])
     assert ending_balance < starting_balance
+    assert Decimal(response.json()["estimated_cost_usd"]) == starting_balance - ending_balance
     audit_payload = client.get("/api/v1/ai/audit")
     assert audit_payload.status_code == 200
     recognition_audit = next(

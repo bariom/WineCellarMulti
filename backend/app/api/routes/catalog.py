@@ -7,6 +7,7 @@ import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy import delete, func, or_, select
@@ -16,15 +17,21 @@ from app.api.deps import CurrentContext, get_current_context, require_write_cont
 from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
-from app.models import WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
+from app.models import Wine, WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
 from app.schemas.catalog import (
     CatalogWineCreate,
     CatalogWineResponse,
     WineImageRecognitionCandidate,
     WineImageRecognitionConfirmation,
+    WineImageRecognitionConfirmationResponse,
     WineImageRecognitionResponse,
 )
 from app.services.openai_client import OpenAIResponse
+from app.services.taste_profiles import (
+    generate_wine_sensory_profile,
+    mark_wine_for_sensory_enrichment,
+    sensory_profile_for_wine,
+)
 from app.services.wine_image_recognition import recognize_wine_from_image
 
 router = APIRouter()
@@ -187,8 +194,10 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
             .where(WineCatalogAlias.normalized_alias == normalized),
         )
         if existing is not None:
+            if existing.is_active and source == "confirmed_recognition":
+                return existing
             changed = False
-            for field in ("producer", "region", "appellation", "type", "format"):
+            for field in ("producer", "region", "appellation", "type", "format", "country", "grapes_text"):
                 next_value = str(data.get(field) or "").strip()
                 if field == "type":
                     next_value = normalize_wine_type(next_value)
@@ -207,9 +216,11 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
         appellation=str(data.get("appellation") or "").strip(),
         type=normalize_wine_type(str(data.get("type") or "").strip()),
         format=str(data.get("format") or "").strip(),
+        country=str(data.get("country") or "").strip(),
+        grapes_text=str(data.get("grapes_text") or "").strip(),
         source=source,
         is_active=False,
-        search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), normalize_wine_type(str(data.get("type") or ""))),
+        search_text=build_search_text(name, producer, str(data.get("region") or ""), str(data.get("appellation") or ""), normalize_wine_type(str(data.get("type") or "")), str(data.get("country") or ""), str(data.get("grapes_text") or "")),
         created_at=datetime.now(UTC),
         updated_at=datetime.now(UTC),
     )
@@ -218,6 +229,66 @@ def ensure_catalog_entry_for_wine_data(db: Session, data: dict, *, source: str =
     for alias in aliases:
         add_catalog_alias_if_missing(db, entry, alias, source=source)
     return entry
+
+
+def confirmed_candidate_catalog_data(
+    candidate: WineImageRecognitionCandidate,
+) -> dict[str, str] | None:
+    producer = (candidate.producer or candidate.estate).strip()
+    cuvee = candidate.cuvee.strip()
+    wine_name = candidate.wine_name.strip()
+    if cuvee and cuvee.casefold() not in wine_name.casefold():
+        wine_name = " ".join(part for part in (wine_name, cuvee) if part)
+    name = wine_name or candidate.appellation.strip()
+    if not producer or not name:
+        return None
+    return {
+        "name": name[:200],
+        "producer": producer[:200],
+        "vintage": candidate.vintage.strip()[:16],
+        "region": candidate.region.strip()[:120],
+        "appellation": candidate.appellation.strip()[:120],
+        "country": candidate.country.strip()[:120],
+        "type": "",
+        "format": "",
+        "grapes_text": "",
+    }
+
+
+def create_confirmed_recognition_sensory_profile(
+    db: Session,
+    data: dict[str, str],
+    catalog_entry: WineCatalogEntry,
+    *,
+    user_id: uuid.UUID,
+) -> tuple[Literal["available", "pending", "skipped"], str]:
+    if not data["vintage"]:
+        return "skipped", ""
+    wine = Wine(
+        name=data["name"],
+        producer=data["producer"],
+        vintage=data["vintage"],
+        type=catalog_entry.type,
+        region=data["region"] or catalog_entry.region,
+        appellation=data["appellation"] or catalog_entry.appellation,
+        grapes=[
+            {"name": grape.strip()}
+            for grape in re.split(r"[,;/]+", catalog_entry.grapes_text)
+            if grape.strip()
+        ],
+        shared_identity_id=None,
+    )
+    profile = generate_wine_sensory_profile(db, wine, modified_by_user_id=user_id)
+    if profile is None:
+        mark_wine_for_sensory_enrichment(db, wine)
+        db.flush()
+        profile = sensory_profile_for_wine(db, wine)
+    if profile is None:
+        return "skipped", ""
+    profile_status: Literal["available", "pending"] = (
+        "available" if profile.generation_status == "available" else "pending"
+    )
+    return profile_status, profile.source
 
 
 @router.get("/catalog", response_model=list[CatalogWineResponse])
@@ -482,6 +553,7 @@ async def recognize_wine_bottle(
             "request_id": request_id,
             "provider": "luna",
             "status": result["status"],
+            "candidate": candidate.model_dump(mode="json"),
             "ai_provider_source": ai_provider_source,
             "charged_cost_usd": (
                 str(luna_response.charged_cost_usd) if luna_response else "0.000000"
@@ -519,16 +591,20 @@ async def recognize_wine_bottle(
             "recognition_id": recognition_log.id,
             "provider": "luna",
             "matches": [catalog_response(entry) for entry in matches],
+            "estimated_cost_usd": luna_response.charged_cost_usd if luna_response else "0",
         }
     )
 
 
-@router.post("/catalog/recognition/confirm", status_code=status.HTTP_204_NO_CONTENT)
+@router.post(
+    "/catalog/recognition/confirm",
+    response_model=WineImageRecognitionConfirmationResponse,
+)
 def confirm_wine_image_recognition(
     payload: WineImageRecognitionConfirmation,
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(require_write_context),
-) -> None:
+) -> WineImageRecognitionConfirmationResponse:
     recognition = db.scalar(
         select(WineRecognitionLog).where(
             WineRecognitionLog.id == payload.recognition_id,
@@ -541,10 +617,60 @@ def confirm_wine_image_recognition(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Wine recognition not found",
         )
+    stored_payload = recognition.response_payload or {}
+    if stored_payload.get("confirmed") is True:
+        return WineImageRecognitionConfirmationResponse.model_validate(
+            {
+                "catalog_entry_id": stored_payload.get("catalog_entry_id"),
+                "catalog_status": stored_payload.get("catalog_status", "skipped"),
+                "sensory_profile_status": stored_payload.get(
+                    "sensory_profile_status", "skipped"
+                ),
+                "sensory_profile_source": stored_payload.get(
+                    "sensory_profile_source", ""
+                ),
+            }
+        )
+    stored_candidate = stored_payload.get("candidate")
+    candidate = payload.candidate
+    if candidate is None and isinstance(stored_candidate, dict):
+        candidate = WineImageRecognitionCandidate.model_validate(stored_candidate)
+
+    catalog_entry: WineCatalogEntry | None = None
+    catalog_status = "skipped"
+    sensory_status = "skipped"
+    sensory_source = ""
+    candidate_data = confirmed_candidate_catalog_data(candidate) if candidate else None
+    if candidate_data is not None:
+        catalog_entry = ensure_catalog_entry_for_wine_data(
+            db,
+            candidate_data,
+            source="confirmed_recognition",
+        )
+        if catalog_entry is not None:
+            catalog_status = "existing" if catalog_entry.is_active else "pending"
+            sensory_status, sensory_source = create_confirmed_recognition_sensory_profile(
+                db,
+                candidate_data,
+                catalog_entry,
+                user_id=context.user.id,
+            )
+            recognition.matched_catalog_entry_id = catalog_entry.id
     recognition.response_payload = {
-        **(recognition.response_payload or {}),
+        **stored_payload,
         "confirmed": True,
         "corrected": payload.corrected,
+        "confirmed_candidate": candidate.model_dump(mode="json") if candidate else None,
+        "catalog_entry_id": str(catalog_entry.id) if catalog_entry else None,
+        "catalog_status": catalog_status,
+        "sensory_profile_status": sensory_status,
+        "sensory_profile_source": sensory_source,
         "confirmed_at": datetime.now(UTC).isoformat(),
     }
     db.commit()
+    return WineImageRecognitionConfirmationResponse(
+        catalog_entry_id=catalog_entry.id if catalog_entry else None,
+        catalog_status=catalog_status,
+        sensory_profile_status=sensory_status,
+        sensory_profile_source=sensory_source,
+    )

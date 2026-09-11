@@ -9,7 +9,7 @@ import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate,
 import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, RestaurantWineListScanResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
-import type { WineImageRecognitionCandidate, WineImageRecognitionResult } from "./types";
+import type { WineImageRecognitionCandidate, WineImageRecognitionConfirmationResult, WineImageRecognitionResult } from "./types";
 import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
@@ -1983,8 +1983,8 @@ export function App() {
 
   function applyWineImageCandidate(candidate: WineImageRecognitionCandidate, target: "wine" | "wishlist" = "wine") {
     const name = wineImageCandidateName(candidate);
+    setSelectedWineImageCandidate(candidate);
     if (target === "wine") {
-      setSelectedWineImageCandidate(candidate);
       setDraft((current) => ({
         ...current,
         name: name || current.name,
@@ -2036,6 +2036,58 @@ export function App() {
     }
   }
 
+  function wineRecognitionCandidateFromDraft(target: "wine" | "wishlist"): WineImageRecognitionCandidate {
+    const targetDraft = target === "wine" ? draft : wishlistDraft;
+    return {
+      producer: targetDraft.producer.trim(),
+      estate: "",
+      wine_name: targetDraft.name.trim(),
+      cuvee: "",
+      vintage: targetDraft.vintage.trim(),
+      appellation: targetDraft.appellation.trim(),
+      region: targetDraft.region.trim(),
+      country: selectedWineImageCandidate?.country || wineImageRecognitionResult?.country || "",
+    };
+  }
+
+  function wineRecognitionCandidateWasCorrected(
+    original: WineImageRecognitionCandidate | null,
+    confirmed: WineImageRecognitionCandidate,
+  ) {
+    if (!original) return false;
+    const normalize = (value: string) => value.trim().toLocaleLowerCase();
+    return normalize(confirmed.wine_name) !== normalize(wineImageCandidateName(original))
+      || normalize(confirmed.producer) !== normalize(original.producer || original.estate)
+      || normalize(confirmed.vintage) !== normalize(original.vintage)
+      || normalize(confirmed.appellation) !== normalize(original.appellation);
+  }
+
+  async function registerConfirmedWineRecognition(
+    recognitionId: string,
+    candidate: WineImageRecognitionCandidate,
+    corrected: boolean,
+  ) {
+    const result = await api<WineImageRecognitionConfirmationResult>("/api/v1/wines/catalog/recognition/confirm", {
+      method: "POST",
+      body: JSON.stringify({ recognition_id: recognitionId, corrected, candidate }),
+    });
+    const catalogMessage = result.catalog_status === "pending"
+      ? (locale === "it" ? "Vino inviato al catalogo centrale per la validazione." : "Wine submitted to the central catalog for validation.")
+      : result.catalog_status === "existing"
+        ? (locale === "it" ? "Vino collegato al catalogo centrale." : "Wine linked to the central catalog.")
+        : (locale === "it" ? "Riconoscimento confermato." : "Recognition confirmed.");
+    const sensoryMessage = result.sensory_profile_status === "available"
+      ? (locale === "it" ? "Firma sensoriale ricavata dai dati disponibili, senza un’ulteriore chiamata AI." : "Sensory signature derived from available data, without an additional AI request.")
+      : result.sensory_profile_status === "pending"
+        ? (locale === "it" ? "Profilo sensoriale inserito nella coda di completamento." : "Sensory profile added to the completion queue.")
+        : "";
+    setNotice([catalogMessage, sensoryMessage].filter(Boolean).join(" "));
+    if (session?.is_app_admin && result.catalog_status === "pending") {
+      await loadPendingCatalogEntries(true);
+    }
+    return result;
+  }
+
   async function analyseWishlistLiveTaste(source: Blob): Promise<WishlistLiveTasteScan> {
     const recognition = await recognizeBottleImage(source, "wishlist", false);
     if (!recognition) throw new Error(t("recognitionCouldNotIdentify"));
@@ -2058,35 +2110,24 @@ export function App() {
     return { recognition, match };
   }
 
-  function confirmWishlistLiveTaste(candidate: WineImageRecognitionCandidate, recognitionId: string) {
+  function confirmWishlistLiveTaste(candidate: WineImageRecognitionCandidate, _recognitionId: string) {
     applyWineImageCandidate(candidate, "wishlist");
-    void api<void>("/api/v1/wines/catalog/recognition/confirm", {
-      method: "POST",
-      body: JSON.stringify({ recognition_id: recognitionId, corrected: false }),
-    }).catch(() => undefined);
   }
 
   async function confirmWineImageRecognition() {
     if (wineEnrichmentLoading || wineRecognitionLoading) return;
     wineCreationAiActionRef.current = null;
+    const confirmedCandidate = wineRecognitionCandidateFromDraft("wine");
     if (await enrichManualWineDraft("wine", "photo")) {
       const candidate = selectedWineImageCandidate;
-      const normalize = (value: string) => value.trim().toLocaleLowerCase();
-      const corrected = Boolean(candidate && (
-        normalize(draft.name) !== normalize(wineImageCandidateName(candidate))
-        || normalize(draft.producer) !== normalize(candidate.producer || candidate.estate)
-        || normalize(draft.vintage) !== normalize(candidate.vintage)
-        || normalize(draft.appellation) !== normalize(candidate.appellation)
-      ));
+      const corrected = wineRecognitionCandidateWasCorrected(candidate, confirmedCandidate);
       if (wineImageRecognitionResult) {
         try {
-          await api<void>("/api/v1/wines/catalog/recognition/confirm", {
-            method: "POST",
-            body: JSON.stringify({
-              recognition_id: wineImageRecognitionResult.recognition_id,
-              corrected,
-            }),
-          });
+          await registerConfirmedWineRecognition(
+            wineImageRecognitionResult.recognition_id,
+            confirmedCandidate,
+            corrected,
+          );
         } catch {
           // Confirmation telemetry must never block wine creation.
         }
@@ -4305,6 +4346,13 @@ export function App() {
     setSaving(true);
     setError("");
     let createdWineIdForFull: string | null = null;
+    const recognitionContribution = !editingId && wineRecognitionTarget === "wine" && wineImageRecognitionResult
+      ? {
+          recognitionId: wineImageRecognitionResult.recognition_id,
+          candidate: wineRecognitionCandidateFromDraft("wine"),
+          original: selectedWineImageCandidate || wineImageRecognitionResult,
+        }
+      : null;
     try {
       const payload = draftPayload(draft);
       if (editingId) {
@@ -4313,6 +4361,20 @@ export function App() {
         await api<Wine>(`/api/v1/wines/${editingId}`, { method: "PATCH", body: JSON.stringify(updatePayload) });
       } else {
         const created = await api<Wine>("/api/v1/wines", { method: "POST", body: JSON.stringify(payload) });
+        if (recognitionContribution) {
+          try {
+            await registerConfirmedWineRecognition(
+              recognitionContribution.recognitionId,
+              recognitionContribution.candidate,
+              wineRecognitionCandidateWasCorrected(
+                recognitionContribution.original,
+                recognitionContribution.candidate,
+              ),
+            );
+          } catch {
+            // Catalog contribution must never block creation of the private cellar record.
+          }
+        }
         if (pendingBottlePhoto) {
           const formData = new FormData();
           formData.append("thumbnail_image", pendingBottlePhoto.thumbnail, "bottle-thumbnail.png");
@@ -4355,6 +4417,7 @@ export function App() {
       setEditingId(null);
       setSelectedWineId(createdWineIdForFull);
       setWineFormOpen(false);
+      if (recognitionContribution) clearWineRecognitionState();
       await Promise.all([loadWines(), loadMerchants()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wine");
@@ -4370,6 +4433,13 @@ export function App() {
     if (!wishlistDraft.name.trim()) return;
     setSaving(true);
     setError("");
+    const recognitionContribution = !editingWishlistId && wineRecognitionTarget === "wishlist" && wineImageRecognitionResult
+      ? {
+          recognitionId: wineImageRecognitionResult.recognition_id,
+          candidate: wineRecognitionCandidateFromDraft("wishlist"),
+          original: selectedWineImageCandidate || wineImageRecognitionResult,
+        }
+      : null;
     try {
       const payload = wishlistPayload(wishlistDraft);
       if (editingWishlistId) {
@@ -4377,10 +4447,25 @@ export function App() {
       } else {
         await api<WishlistItem>("/api/v1/wishlist", { method: "POST", body: JSON.stringify(payload) });
       }
+      if (recognitionContribution) {
+        try {
+          await registerConfirmedWineRecognition(
+            recognitionContribution.recognitionId,
+            recognitionContribution.candidate,
+            wineRecognitionCandidateWasCorrected(
+              recognitionContribution.original,
+              recognitionContribution.candidate,
+            ),
+          );
+        } catch {
+          // Catalog contribution must never block creation of the private wishlist item.
+        }
+      }
       setWishlistPortfolioStrategy(null);
       setWishlistDraft({ ...emptyWishlistDraft, wishlist_list_id: selectedWishlistListId });
       setEditingWishlistId(null);
       setWishlistFormOpen(false);
+      if (recognitionContribution) clearWineRecognitionState();
       await Promise.all([loadWishlist(), loadWishlistLists(), loadMerchants()]);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Unable to save wishlist item");
@@ -11333,6 +11418,7 @@ export function App() {
                     {wineRecognitionLoading ? <RecognitionAiLoading label={t("recognitionInProgress")} /> : null}
                     {wineImageRecognitionResult ? (
                       <div className="recognition-results">
+                        <small className="recognition-ai-cost">{t("aiRequestCost")}: {formatAiBudget(wineImageRecognitionResult.estimated_cost_usd)}</small>
                         {wineImageRecognitionResult.status === "recognized" || wineImageRecognitionResult.status === "ambiguous" ? (
                           <>
                             <strong>{[wineImageRecognitionResult.producer || wineImageRecognitionResult.estate, wineImageRecognitionResult.wine_name, wineImageRecognitionResult.cuvee].filter(Boolean).join(" · ")}</strong>
@@ -11946,6 +12032,7 @@ export function App() {
                     {wineImageRecognitionResult && wineRecognitionTarget === "wishlist" ? (
                       <div className="recognition-results">
                         <strong>{t("recognitionSuggestions")}</strong>
+                        <small className="recognition-ai-cost">{t("aiRequestCost")}: {formatAiBudget(wineImageRecognitionResult.estimated_cost_usd)}</small>
                         {wineImageRecognitionResult.status === "recognized" || wineImageRecognitionResult.status === "ambiguous" ? (
                           <>
                             <button type="button" className="secondary compact" onClick={() => applyWineImageCandidate(wineImageRecognitionResult, "wishlist")}>

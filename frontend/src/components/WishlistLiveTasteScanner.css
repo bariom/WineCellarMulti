@@ -117,6 +117,7 @@
 .wishlist-live-result > span { color: #e8c56d; font-size: .65rem; font-weight: 900; letter-spacing: .12em; }
 .wishlist-live-result h2 { margin: 0; color: white; font: 1.55rem Georgia, serif; }
 .wishlist-live-result p, .wishlist-live-result small { margin: 0; color: #ddd9ce; line-height: 1.4; }
+.wishlist-live-result .wishlist-live-ai-cost { padding-top: 7px; border-top: 1px solid rgba(255,255,255,.14); color: #ffe09a; font-weight: 800; }
 .wishlist-live-affinity { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .wishlist-live-affinity div { display: flex; gap: 3px; }
 .wishlist-live-affinity i { color: rgba(255,255,255,.22); font-style: normal; font-size: 1.3rem; }
