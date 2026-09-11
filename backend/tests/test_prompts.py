@@ -143,7 +143,7 @@ def test_cellar_command_prompt_is_bounded_and_preserves_user_facts():
         wishlist_names=["Rossi", "Wishlist"],
     )
 
-    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "11")
+    assert (prompt.id, prompt.version) == ("cellar.command_interpretation", "12")
     assert "never choose database IDs" in prompt.system
     assert "acquisition drafts" in prompt.system
     assert "intent ship_wine" in prompt.system

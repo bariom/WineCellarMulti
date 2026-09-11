@@ -94,6 +94,9 @@ export default function CellarAssistantView({
   const shipmentExample = isItalian
     ? "Segna l'ordine di Sassicaia 2022 come arrivato."
     : "Mark my Sassicaia 2022 order as received.";
+  const collectionExample = isItalian
+    ? "Ho ritirato i vini da Enoteca Pinchiorri."
+    : "I collected the wines from Enoteca Pinchiorri.";
   const restockExample = isItalian
     ? "Reintegra 3 bottiglie di Sassicaia 2021 in cantina."
     : "Restock 3 bottles of Sassicaia 2021 in my cellar.";
@@ -118,6 +121,7 @@ export default function CellarAssistantView({
     { label: isItalian ? "Reintegro" : "Restock", description: isItalian ? "Aggiunge un nuovo lotto a un vino già presente." : "Adds a new lot to a wine already in the cellar.", example: restockExample },
     { label: isItalian ? "Ordine" : "Order", description: isItalian ? "Registra una cassa o bottiglie come ordinate." : "Records a case or bottles as ordered.", example: orderExample },
     { label: isItalian ? "Arrivo ordine" : "Order received", description: isItalian ? "Aggiorna un ordine esistente quando arriva." : "Updates an existing order when it arrives.", example: shipmentExample },
+    { label: isItalian ? "Ritiro" : "Collection", description: isItalian ? "Sposta i vini da ritirare nella cantina dopo il ritiro." : "Moves collected wines into the cellar.", example: collectionExample },
     { label: "Wishlist", description: isItalian ? "Salva un prezzo massimo che sei disposto a pagare." : "Saves the maximum price you are willing to pay.", example: wishlistExample },
     { label: isItalian ? "Offerta wishlist" : "Wishlist offer", description: isItalian ? "Distingue un prezzo trovato dal prezzo target." : "Separates a found offer from your target price.", example: wishlistOfferExample },
     { label: isItalian ? "Obiettivo vino" : "Wine objective", description: isItalian ? "Da bere, maturare, investimento o occasione speciale." : "Drinking, maturation, investment, or special occasion.", example: strategyExample },
@@ -592,7 +596,7 @@ export default function CellarAssistantView({
           {result.candidates.length ? (
             <div className="cellar-assistant-candidates">
               {result.candidates.map((candidate) => (
-                result.strategy_bulk ? <div className="cellar-assistant-candidate-preview" key={candidate.wine_id}>
+                (result.strategy_bulk || result.collection_bulk) ? <div className="cellar-assistant-candidate-preview" key={candidate.wine_id}>
                   <span><strong>{candidate.name} {candidate.vintage}</strong><small>{[candidate.producer, candidate.format].filter(Boolean).join(" · ")}</small></span>
                   <b>{candidate.unit_value} {candidate.currency}<small>{candidate.value_source === "purchase" ? (isItalian ? "Prezzo d’acquisto" : "Purchase price") : (isItalian ? "Valore attuale" : "Current value")}</small></b>
                 </div> : <button type="button" className="secondary" key={candidate.wine_id} onClick={() => void execute(candidate.wine_id)} disabled={busy}>
@@ -601,6 +605,7 @@ export default function CellarAssistantView({
                 </button>
               ))}
               {result.strategy_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? `Conferma tutti come ${strategyPurposeLabel(result.strategy_purpose || "")}` : `Confirm all ${strategyPurposeLabel(result.strategy_purpose || "")}`}</button> : null}
+              {result.collection_bulk ? <button type="button" onClick={() => void executeBulkStrategy()} disabled={busy}>{isItalian ? "Conferma ritiro e sposta in cantina" : "Confirm collection and move to cellar"}</button> : null}
             </div>
           ) : null}
           {result.catalog_candidates.length ? (

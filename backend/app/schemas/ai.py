@@ -195,6 +195,7 @@ class CellarCommandResponse(BaseModel):
     ) = None
     strategy_quantity: int | None = None
     strategy_bulk: bool = False
+    collection_bulk: bool = False
     previous_quantity: int | None = None
     new_quantity: int | None = None
     model: str = ""

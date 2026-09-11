@@ -1224,6 +1224,7 @@ export type CellarCommandResult = {
   strategy_purpose: WineStrategyPurpose | null;
   strategy_quantity: number | null;
   strategy_bulk: boolean;
+  collection_bulk: boolean;
   previous_quantity: number | null;
   new_quantity: number | null;
   model: string;
