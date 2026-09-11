@@ -67,6 +67,15 @@ class WishlistConvert(BaseModel):
     quantity: int = Field(default=1, ge=1)
 
 
+class WishlistTasteMatchPreview(BaseModel):
+    name: str = Field(min_length=1, max_length=200)
+    producer: str = Field(default="", max_length=200)
+    vintage: str = Field(default="", max_length=16)
+    type: str = Field(default="", max_length=80)
+    region: str = Field(default="", max_length=120)
+    appellation: str = Field(default="", max_length=120)
+
+
 class ExternalWineTastingCreate(BaseModel):
     consumed_at: date | None = None
     note: str = Field(default="", max_length=5000)
@@ -96,7 +105,7 @@ class WishlistResponse(WishlistBase):
 
     id: UUID
     household_id: UUID
-    wishlist_list_id: UUID
+    wishlist_list_id: UUID = Field(...)  # pyright: ignore[reportGeneralTypeIssues]
     tasting_count: int = 0
     ai_strategy_generated_at: datetime | None = None
     ai_purpose_generated_at: datetime | None = None

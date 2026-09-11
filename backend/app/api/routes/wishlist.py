@@ -18,6 +18,7 @@ from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, ExternalWineTasting, Wine, WishlistItem, WishlistList
 from app.prompts.library import wine_sensory_profile_prompt
+from app.schemas.taste_profile import TasteMatchResponse
 from app.schemas.wishlist import (
     ExternalWineTastingCreate,
     ExternalWineTastingResponse,
@@ -27,6 +28,7 @@ from app.schemas.wishlist import (
     WishlistListResponse,
     WishlistListUpdate,
     WishlistResponse,
+    WishlistTasteMatchPreview,
     WishlistUpdate,
 )
 from app.services.free_tier import ensure_free_tier_label_capacity
@@ -34,6 +36,7 @@ from app.services.merchants import get_or_create_merchant
 from app.services.openai_client import TokenUsage
 from app.services.shared_wine_data import resolve_shared_identity
 from app.services.taste_profiles import (
+    calculate_wishlist_taste_match,
     generate_wine_sensory_profile,
     mark_wine_for_sensory_enrichment,
     rebuild_user_taste_profile,
@@ -505,6 +508,35 @@ def list_wishlist(
         wishlist_response(item, ai_dates.get(item.id), tasting_count=tasting_counts.get(item.id, 0))
         for item in items
     ]
+
+
+@router.get("/{item_id}/taste-match", response_model=TasteMatchResponse)
+def wishlist_taste_match(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> TasteMatchResponse:
+    item = get_household_wishlist_item(db, context, item_id)
+    return TasteMatchResponse(**calculate_wishlist_taste_match(db, context.user.id, item))
+
+
+@router.post("/taste-match-preview", response_model=TasteMatchResponse)
+def wishlist_taste_match_preview(
+    payload: WishlistTasteMatchPreview,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> TasteMatchResponse:
+    candidate = WishlistItem(
+        household_id=context.household.id,
+        wishlist_list_id=UUID(int=0),
+        name=payload.name.strip(),
+        producer=payload.producer.strip(),
+        vintage=payload.vintage.strip(),
+        type=normalize_wine_type(payload.type),
+        region=payload.region.strip(),
+        appellation=payload.appellation.strip(),
+    )
+    return TasteMatchResponse(**calculate_wishlist_taste_match(db, context.user.id, candidate))
 
 
 @router.post("", response_model=WishlistResponse, status_code=status.HTTP_201_CREATED)

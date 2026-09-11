@@ -1775,6 +1775,9 @@ export function WishlistDetail({
 }) {
   const [externalTastingOpen, setExternalTastingOpen] = useState(false);
   const [externalTastingDraft, setExternalTastingDraft] = useState<ConsumeWineDraft>(emptyConsumeWineDraft);
+  const [tasteMatch, setTasteMatch] = useState<TasteMatch | null>(null);
+  const [tasteMatchLoading, setTasteMatchLoading] = useState(false);
+  useEffect(() => setTasteMatch(null), [item.id]);
   const aiMarketPrice = item.ai_market_price ? formatMoney(item.ai_market_price, item.ai_market_price_currency || item.currency, locale) : "";
   const offerPrice = item.offer_price ? formatMoney(item.offer_price, item.currency, locale) : "";
   const investmentAmount = item.investment_amount ? formatMoney(item.investment_amount, item.currency, locale) : "";
@@ -1790,6 +1793,16 @@ export function WishlistDetail({
   const strategyLabel = marketAuditEntry ? (locale === "it" ? "Valutazione offerta AI" : "AI offer evaluation") : t("aiStrategy");
   const strategyTitle = strategyGeneratedAt ? `${strategyLabel} - ${t("generatedAt")} ${formatDisplayDate(strategyGeneratedAt)}` : strategyLabel;
   const purposeTitle = purposeGeneratedAt ? `${t("aiPurpose")} - ${t("generatedAt")} ${formatDisplayDate(purposeGeneratedAt)}` : t("aiPurpose");
+  async function checkTasteCompatibility() {
+    setTasteMatchLoading(true);
+    try {
+      setTasteMatch(await api<TasteMatch>(`/api/v1/wishlist/${item.id}/taste-match`));
+    } catch {
+      setTasteMatch(null);
+    } finally {
+      setTasteMatchLoading(false);
+    }
+  }
   return (
     <section className={`wine-detail tone-${wineTone(item.type)}`}>
       <div className="detail-title">
@@ -1804,6 +1817,9 @@ export function WishlistDetail({
         </div>
       </div>
       <div className="ai-actions">
+        <button type="button" className="secondary compact" disabled={tasteMatchLoading} onClick={() => void checkTasteCompatibility()}>
+          {tasteMatchLoading ? (locale === "it" ? "Verifica in corso…" : "Checking…") : (locale === "it" ? "Verifica compatibilità" : "Check compatibility")}
+        </button>
         <button type="button" className="secondary compact" disabled={!canGenerate || Boolean(generating)} onClick={() => onGenerate("strategy")}>
           <ButtonBusyContent busy={generating === "strategy"} idleLabel={t("aiStrategy")} busyLabel={t("generating")} />
         </button>
@@ -1814,6 +1830,14 @@ export function WishlistDetail({
           <ButtonBusyContent busy={generating === "target-price"} idleLabel={locale === "it" ? "Analizza offerta" : "Analyse offer"} busyLabel={t("generating")} />
         </button>
       </div>
+      {tasteMatch ? <section className="external-tasting-card wishlist-taste-match-card">
+        <div>
+          <span>{locale === "it" ? "IL TUO GUSTO" : "YOUR TASTE"}</span>
+          <h3>{tasteMatch.score === null ? (locale === "it" ? "Affinità non ancora stimabile" : "Affinity cannot be estimated yet") : (locale === "it" ? "Compatibilità personale" : "Personal compatibility")}</h3>
+          {tasteMatch.score === null ? <p>{locale === "it" ? "Servono più dati sul tuo profilo o sul carattere di questo vino. Puoi comunque tenerlo in wishlist e tornare qui dopo nuove degustazioni." : "More information is needed about your profile or this wine. You can keep it in your wishlist and check again after new tastings."}</p> : <><TasteHeartScale score={tasteMatch.score} confidence={tasteMatch.confidence} locale={locale} /><p>{locale === "it" ? "Stima basata sul tuo profilo gusto e sui dati sensoriali disponibili per questo vino." : "Estimate based on your taste profile and the sensory information available for this wine."}</p>{tasteMatch.matching_traits.length ? <small>{locale === "it" ? `In sintonia: ${tasteMatch.matching_traits.join(", ")}.` : `In tune: ${tasteMatch.matching_traits.join(", ")}.`}</small> : null}{tasteMatch.conflicting_traits.length ? <small>{locale === "it" ? `Da valutare: ${tasteMatch.conflicting_traits.join(", ")}.` : `Worth considering: ${tasteMatch.conflicting_traits.join(", ")}.`}</small> : null}</>}
+        </div>
+        <button type="button" className="secondary compact" disabled={tasteMatchLoading} onClick={() => void checkTasteCompatibility()}>{locale === "it" ? "Aggiorna" : "Refresh"}</button>
+      </section> : null}
       <section className="external-tasting-card">
         <div>
           <span>{locale === "it" ? "ESPERIENZA PERSONALE" : "PERSONAL EXPERIENCE"}</span>

@@ -17,13 +17,20 @@ from app.core.wine_types import normalize_wine_type
 from app.models import (
     ExternalWineTasting,
     SensoryProfileBaseline,
+    SharedWineIdentity,
     UserTasteProfile,
     UserWineRating,
     Wine,
     WineSensoryProfile,
     WineTastingEntry,
+    WishlistItem,
 )
-from app.services.shared_wine_data import normalize_identity_part, resolve_shared_identity
+from app.services.shared_wine_data import (
+    identity_key,
+    identity_parts,
+    normalize_identity_part,
+    resolve_shared_identity,
+)
 
 SENSORY_DIMENSIONS = (
     "body",
@@ -119,7 +126,7 @@ def validated_dimensions(raw: object) -> dict[str, float]:
     return result
 
 
-def _grape_names(wine: Wine | ExternalWineTasting) -> list[str]:
+def _grape_names(wine: Wine | ExternalWineTasting | WishlistItem) -> list[str]:
     return [
         normalize_identity_part(item.get("name"))
         for item in (getattr(wine, "grapes", []) or [])
@@ -161,7 +168,7 @@ def sensory_profile_for_wine(
 
 
 def infer_sensory_profile(
-    db: Session, wine: Wine | ExternalWineTasting
+    db: Session, wine: Wine | ExternalWineTasting | WishlistItem
 ) -> tuple[dict[str, float], str, float]:
     """Blend explicit reusable baselines; use type defaults only as a last free signal."""
     candidates: list[tuple[float, dict[str, float], float, str]] = []
@@ -280,7 +287,7 @@ def tasting_preference_weight(rating: float, enjoyment: str = "") -> float:
     return max(-1.0, min(1.0, rating_weight(rating) + enjoyment_weight))
 
 
-def _category(wine: Wine | ExternalWineTasting) -> str:
+def _category(wine: Wine | ExternalWineTasting | WishlistItem) -> str:
     wine_type = normalize_wine_type(wine.type)
     return wine_type if wine_type in TASTE_CATEGORIES else "global"
 
@@ -606,6 +613,82 @@ def calculate_taste_match(
         "confidence": round(confidence, 4),
         "matching_traits": matching,
         "conflicting_traits": conflicting,
+    }
+
+
+def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistItem) -> dict:
+    """Estimate fit for a saved wine without adding it to the user's cellar or history."""
+    parts = identity_parts(item)
+    identity = (
+        db.scalar(
+            select(SharedWineIdentity).where(SharedWineIdentity.identity_key == identity_key(parts))
+        )
+        if parts
+        else None
+    )
+    sensory = (
+        db.scalar(select(WineSensoryProfile).where(WineSensoryProfile.identity_id == identity.id))
+        if identity is not None
+        else None
+    )
+    if sensory is not None and sensory.generation_status == "available":
+        dimensions = validated_dimensions(sensory.dimensions)
+        sensory_confidence = float(sensory.confidence)
+    else:
+        dimensions, _source, sensory_confidence = infer_sensory_profile(db, item)
+
+    target_category = _category(item)
+    profile = db.scalar(
+        select(UserTasteProfile).where(
+            UserTasteProfile.user_id == user_id, UserTasteProfile.category == target_category
+        )
+    )
+    profile_has_dimensions = bool(
+        profile
+        and isinstance(profile.dimensions, dict)
+        and any(
+            isinstance(value, dict) and value.get("confidence", 0) > 0
+            for value in profile.dimensions.values()
+        )
+    )
+    if not profile_has_dimensions and target_category != "global":
+        profile = db.scalar(
+            select(UserTasteProfile).where(
+                UserTasteProfile.user_id == user_id, UserTasteProfile.category == "global"
+            )
+        )
+    if not profile or not dimensions:
+        return {"score": None, "confidence": 0.0, "matching_traits": [], "conflicting_traits": []}
+
+    compared: list[tuple[str, float, float]] = []
+    for key, wine_value in dimensions.items():
+        preference = profile.dimensions.get(key, {}) if isinstance(profile.dimensions, dict) else {}
+        if isinstance(preference, dict) and preference.get("confidence", 0) > 0:
+            compared.append((key, wine_value, float(preference["preference"])))
+    confidence = min(sensory_confidence, float(profile.confidence)) * min(1.0, len(compared) / 4)
+    if len(compared) < 3 or confidence <= 0:
+        return {
+            "score": None,
+            "confidence": round(confidence, 4),
+            "matching_traits": [],
+            "conflicting_traits": [],
+        }
+    closeness = [
+        (key, 1 - abs(wine_value - preference)) for key, wine_value, preference in compared
+    ]
+    return {
+        "score": round(sum(value for _, value in closeness) / len(closeness), 4),
+        "confidence": round(confidence, 4),
+        "matching_traits": [
+            key.replace("_", " ")
+            for key, value in sorted(closeness, key=lambda item: item[1], reverse=True)[:3]
+            if value >= 0.65
+        ],
+        "conflicting_traits": [
+            key.replace("_", " ")
+            for key, value in sorted(closeness, key=lambda item: item[1])[:2]
+            if value < 0.45
+        ],
     }
 
 

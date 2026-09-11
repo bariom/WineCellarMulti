@@ -24,11 +24,14 @@ from app.models import (
     Wine,
     WineSensoryProfile,
     WineTastingEntry,
+    WishlistItem,
+    WishlistList,
 )
 from app.schemas.taste_profile import BatchEnrichmentRequest
 from app.services.shared_wine_data import resolve_shared_identity
 from app.services.taste_profiles import (
     calculate_taste_match,
+    calculate_wishlist_taste_match,
     claim_unassigned_tastings,
     confidence_level,
     generate_wine_sensory_profile,
@@ -412,9 +415,7 @@ def test_rebuild_creates_dedicated_profiles_for_rose_and_fortified_wines() -> No
         add_tasting(db, user, household, wine, 6)
     db.commit()
 
-    profiles = {
-        profile.category: profile for profile in rebuild_user_taste_profile(db, user.id)
-    }
+    profiles = {profile.category: profile for profile in rebuild_user_taste_profile(db, user.id)}
 
     assert profiles["Rose"].sample_count == 1
     assert profiles["Fortified"].sample_count == 1
@@ -454,6 +455,55 @@ def test_taste_match_prefers_closer_wine_and_suppresses_thin_data() -> None:
         calculate_taste_match(db, user.id, close)["score"]
         > calculate_taste_match(db, user.id, distant)["score"]
     )
+
+
+def test_wishlist_taste_match_uses_shared_sensory_profile_without_creating_stock() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="wishlist-taste@example.test", display_name="Taste", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    liked = make_wine(db, household, name="Liked")
+    candidate = make_wine(db, household, name="Wishlist candidate")
+    for wine, dimensions in (
+        (liked, {"body": 0.9, "tannin": 0.8, "fruit": 0.7, "spice": 0.7}),
+        (candidate, {"body": 0.85, "tannin": 0.75, "fruit": 0.7, "spice": 0.65}),
+    ):
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions=dimensions,
+                confidence=0.9,
+                generation_status="available",
+            )
+        )
+    for index in range(5):
+        add_tasting(db, user, household, liked, 6)
+        db.flush()
+        db.query(WineTastingEntry).order_by(WineTastingEntry.id.desc()).first().consumed_at = date(
+            2026, 1, index + 1
+        )
+    wishlist_list = WishlistList(
+        household_id=household.id, created_by_user_id=user.id, name="Wishlist"
+    )
+    db.add(wishlist_list)
+    db.flush()
+    wishlist_item = WishlistItem(
+        household_id=household.id,
+        wishlist_list_id=wishlist_list.id,
+        name=candidate.name,
+        producer=candidate.producer,
+        vintage=candidate.vintage,
+        type="Red",
+    )
+    db.add(wishlist_item)
+    db.commit()
+    rebuild_user_taste_profile(db, user.id)
+
+    match = calculate_wishlist_taste_match(db, user.id, wishlist_item)
+
+    assert match["score"] is not None
+    assert match["score"] > 0.7
 
 
 def test_validated_profile_is_never_overwritten_and_invalid_ai_is_rejected() -> None:

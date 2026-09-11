@@ -23,6 +23,8 @@ import { CellarStorageManager, WineLocationPicker, WineStrategySection } from ".
 import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
+import WishlistLiveTasteScanner from "./components/WishlistLiveTasteScanner";
+import type { WishlistLiveTasteScan } from "./components/WishlistLiveTasteScanner";
 import { useChartReveal } from "./components/chartMotion";
 import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
@@ -2005,8 +2007,8 @@ export function App() {
     }
   }
 
-  async function recognizeBottleImage(source: Blob, target: "wine" | "wishlist" = "wine") {
-    if (wineRecognitionLoading) return;
+  async function recognizeBottleImage(source: Blob, target: "wine" | "wishlist" = "wine", applyRecognizedCandidate = true): Promise<WineImageRecognitionResult | null> {
+    if (wineRecognitionLoading) return null;
     const formData = new FormData();
     const extension = source.type === "image/png" ? "png" : source.type === "image/webp" ? "webp" : "jpg";
     formData.append("image", source, `wine-bottle.${extension}`);
@@ -2021,15 +2023,47 @@ export function App() {
         body: formData,
       });
       setWineImageRecognitionResult(result);
-      if (result.status === "recognized" || result.status === "ambiguous") {
+      if (applyRecognizedCandidate && (result.status === "recognized" || result.status === "ambiguous")) {
         applyWineImageCandidate(result, target);
       }
       await Promise.all([loadAiAudit(), loadAiSettings(), loadAiUsage(), loadBilling()]).catch(() => undefined);
+      return result;
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : t("recognitionCouldNotIdentify"));
+      return null;
     } finally {
       setWineRecognitionLoading(false);
     }
+  }
+
+  async function analyseWishlistLiveTaste(source: Blob): Promise<WishlistLiveTasteScan> {
+    const recognition = await recognizeBottleImage(source, "wishlist", false);
+    if (!recognition) throw new Error(t("recognitionCouldNotIdentify"));
+    const name = wineImageCandidateName(recognition);
+    let match = null;
+    if ((recognition.status === "recognized" || recognition.status === "ambiguous") && name) {
+      const catalogMatch = recognition.matches[0];
+      match = await api<import("./types").TasteMatch>("/api/v1/wishlist/taste-match-preview", {
+        method: "POST",
+        body: JSON.stringify({
+          name,
+          producer: recognition.producer || recognition.estate || catalogMatch?.producer || "",
+          vintage: recognition.vintage || "",
+          type: catalogMatch?.type || "",
+          region: recognition.region || catalogMatch?.region || "",
+          appellation: recognition.appellation || catalogMatch?.appellation || "",
+        }),
+      }).catch(() => null);
+    }
+    return { recognition, match };
+  }
+
+  function confirmWishlistLiveTaste(candidate: WineImageRecognitionCandidate, recognitionId: string) {
+    applyWineImageCandidate(candidate, "wishlist");
+    void api<void>("/api/v1/wines/catalog/recognition/confirm", {
+      method: "POST",
+      body: JSON.stringify({ recognition_id: recognitionId, corrected: false }),
+    }).catch(() => undefined);
   }
 
   async function confirmWineImageRecognition() {
@@ -11902,10 +11936,12 @@ export function App() {
                         <span>{t("choosePhotoFile")}</span>
                         <input type="file" accept="image/*" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
-                      <label className="recognition-camera-button compact" title={t("takeLabelPhoto")} aria-label={t("takeLabelPhoto")}>
-                        <AppIcon name="camera" />
-                        <input type="file" accept="image/*" capture="environment" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
-                      </label>
+                      <WishlistLiveTasteScanner
+                        disabled={!canUseLabelRecognition || wineRecognitionLoading}
+                        locale={locale}
+                        onAnalyse={analyseWishlistLiveTaste}
+                        onConfirm={confirmWishlistLiveTaste}
+                      />
                     </div>
                     {wineImageRecognitionResult && wineRecognitionTarget === "wishlist" ? (
                       <div className="recognition-results">
