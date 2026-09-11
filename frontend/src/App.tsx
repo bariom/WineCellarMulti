@@ -8888,7 +8888,7 @@ export function App() {
                 aria-label={t("clearFilters")}
                 title={t("clearFilters")}
               >
-                Ã—
+                ×
               </button>
             ) : null}
           </form>
