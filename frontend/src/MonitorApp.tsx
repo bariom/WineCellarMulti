@@ -67,7 +67,7 @@ type MonitorPriority = {
   title: string;
   detail: string;
   tone: "warning" | "critical";
-  action?: "wine-pulse" | "application-errors";
+  action?: "wine-pulse" | "application-errors" | "interactive-latency";
 };
 
 type WinePulseDetails = {
@@ -79,6 +79,24 @@ type ApplicationErrors = {
   errors_total: number;
   items: Array<{ timestamp: string; method: string; path: string; status_code: number }>;
 };
+
+function latencyDiagnostic(application: OperationalMetricsOverview["application"], collectedAt: string) {
+  const windowMinutes = Math.round((application.interactive_window_seconds || 0) / 60);
+  const samples = application.interactive_slowest_recent || [];
+  return [
+    "Vinaris Monitor - diagnosi API interattive",
+    `Campione raccolto: ${new Date(collectedAt).toISOString()}`,
+    `Finestra osservata: ${windowMinutes || "n/d"} minuti`,
+    `Richieste interattive: ${application.interactive_requests_recent ?? "n/d"}`,
+    `P50: ${application.interactive_p50_duration_ms ?? "n/d"} ms`,
+    `P95: ${application.interactive_p95_duration_ms ?? "n/d"} ms`,
+    "",
+    "Richieste interattive più lente:",
+    ...(samples.length
+      ? samples.map((sample) => `${sample.recorded_at} | ${sample.method} ${sample.path} | ${sample.status_code} | ${sample.duration_ms} ms`)
+      : ["Nessun campione dettagliato disponibile nella finestra corrente."]),
+  ].join("\n");
+}
 
 function MonitorChart({
   title,
@@ -222,7 +240,8 @@ export function MonitorApp() {
   const [shareFeedback, setShareFeedback] = useState("");
   const [winePulseDetails, setWinePulseDetails] = useState<WinePulseDetails | null>(null);
   const [applicationErrors, setApplicationErrors] = useState<ApplicationErrors | null>(null);
-  const [detailsPanel, setDetailsPanel] = useState<"wine-pulse" | "application-errors" | null>(null);
+  const [detailsPanel, setDetailsPanel] = useState<"wine-pulse" | "application-errors" | "interactive-latency" | null>(null);
+  const [latencyCopyFeedback, setLatencyCopyFeedback] = useState("");
 
   const samples = history?.samples || [];
   const latencyPoints = useMemo(
@@ -395,11 +414,22 @@ export function MonitorApp() {
     : null;
   const visibleActivity = activityExpanded ? activity : activity.slice(0, 6);
   const recentUsersCount = activeUsers?.count ?? null;
+  const interactiveLatencyDiagnostic = overview && app ? latencyDiagnostic(app, overview.collected_at) : "";
+  async function copyLatencyDiagnostic() {
+    if (!interactiveLatencyDiagnostic) return;
+    try {
+      await navigator.clipboard.writeText(interactiveLatencyDiagnostic);
+      setLatencyCopyFeedback("Campione copiato: puoi incollarlo in Codex.");
+    } catch {
+      setLatencyCopyFeedback("Copia non disponibile: seleziona il testo del campione qui sotto.");
+    }
+  }
   const priorities: MonitorPriority[] = [
     ...alerts.map((alert) => ({
       title: `Verifica ${alert.label.toLowerCase()}`,
       detail: `${alert.value.toFixed(0)}${alert.suffix} rilevato da ${dateTime(alert.opened_at)}.`,
       tone: alert.severity,
+      action: alert.metric === "latency" ? "interactive-latency" as const : undefined,
     })),
     ...(sampleIsStale ? [{
       title: "Raccogli una nuova lettura",
@@ -477,7 +507,7 @@ export function MonitorApp() {
             <span><i aria-hidden="true" /><strong>{priority.title}</strong></span>
             <small>{priority.detail}</small>
             {priority.action ? <button type="button" className="monitor-inline-action" onClick={() => setDetailsPanel(priority.action || null)}>
-              {priority.action === "wine-pulse" ? "Vedi fonti" : "Vedi errori"}
+              {priority.action === "wine-pulse" ? "Vedi fonti" : priority.action === "interactive-latency" ? "Vedi dettaglio" : "Vedi errori"}
             </button> : null}
           </article>
         )) : <p className="monitor-priorities-clear">Nessuna anomalia attiva: le letture sono recenti e non richiedono interventi.</p>}
@@ -498,6 +528,18 @@ export function MonitorApp() {
         </article>) : <p className="monitor-empty">Non ci sono dettagli recenti disponibili; il contatore dall’avvio è {applicationErrors.errors_total}.</p>}
       </section> : null}
 
+      {detailsPanel === "interactive-latency" && app && overview ? <section className="monitor-card monitor-details monitor-latency-details" aria-label="Dettaglio P95 API interattive">
+        <div className="monitor-section-head"><div><span>PRESTAZIONI API</span><strong>Campione P95 interattivo</strong></div><button type="button" className="monitor-text-button" onClick={() => setDetailsPanel(null)}>Chiudi</button></div>
+        <p className="monitor-details-intro">Finestra degli ultimi {Math.round((app.interactive_window_seconds || 0) / 60) || "—"} minuti, raccolta {dateTime(overview.collected_at)}. I percorsi sono endpoint tecnici e non contengono dati utente.</p>
+        <div className="monitor-latency-summary">
+          <span><small>P50</small><b>{value(app.interactive_p50_duration_ms, " ms")}</b></span>
+          <span><small>P95</small><b>{value(app.interactive_p95_duration_ms, " ms")}</b></span>
+          <span><small>RICHIESTE</small><b>{app.interactive_requests_recent ?? "—"}</b></span>
+        </div>
+        <div className="monitor-diagnostic-actions"><button type="button" className="monitor-inline-action" onClick={() => void copyLatencyDiagnostic()}>Copia per Codex</button>{latencyCopyFeedback ? <small role="status">{latencyCopyFeedback}</small> : null}</div>
+        <pre className="monitor-diagnostic-sample">{interactiveLatencyDiagnostic}</pre>
+      </section> : null}
+
       {alerts.length ? (
         <section className="monitor-card monitor-alerts">
           <div className="monitor-section-head">
@@ -507,7 +549,7 @@ export function MonitorApp() {
           {alerts.map((alert) => (
             <article className={alert.severity} key={alert.metric}>
               <span><i aria-hidden="true" /><strong>{alert.label}</strong><small>Da {dateTime(alert.opened_at)}</small></span>
-              <b>{alert.value.toFixed(0)}{alert.suffix}</b>
+              <div className="monitor-alert-value"><b>{alert.value.toFixed(0)}{alert.suffix}</b>{alert.metric === "latency" ? <button type="button" className="monitor-text-button" onClick={() => setDetailsPanel("interactive-latency")}>Dettaglio</button> : null}</div>
             </article>
           ))}
         </section>

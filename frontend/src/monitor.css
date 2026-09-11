@@ -402,6 +402,58 @@ body:has(.monitor-shell) {
 .monitor-details article > span { color: #e0c96b; font-size: .78rem; text-align: right; }
 .monitor-details article.critical > span { color: #ef8b84; font-weight: 800; }
 
+.monitor-details-intro {
+  margin: 12px 0;
+  color: #afb4aa;
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+.monitor-latency-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border: 1px solid #3b423b;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.monitor-latency-summary span {
+  display: grid;
+  gap: 4px;
+  padding: 10px;
+  border-right: 1px solid #3b423b;
+  background: #20251f;
+}
+
+.monitor-latency-summary span:last-child { border-right: 0; }
+.monitor-latency-summary small { color: #aeb5aa; font-size: .67rem; font-weight: 800; }
+.monitor-latency-summary b { color: #f0d47a; font-size: .95rem; font-variant-numeric: tabular-nums; }
+
+.monitor-diagnostic-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.monitor-diagnostic-actions .monitor-inline-action { margin-top: 0; }
+.monitor-diagnostic-actions small { color: #aeb5aa; font-size: .74rem; }
+
+.monitor-diagnostic-sample {
+  max-height: 260px;
+  margin: 12px 0 0;
+  padding: 11px;
+  overflow: auto;
+  border: 1px solid #3b423b;
+  border-radius: 9px;
+  background: #181c17;
+  color: #d6dbd2;
+  font: .72rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 .monitor-priorities-clear {
   padding: 4px 0;
 }
@@ -451,6 +503,15 @@ body:has(.monitor-shell) {
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
+
+.monitor-alert-value {
+  display: grid;
+  justify-items: end;
+  gap: 3px;
+  white-space: nowrap;
+}
+
+.monitor-alert-value .monitor-text-button { font-size: .7rem; }
 
 .monitor-kpi-grid {
   display: grid;
