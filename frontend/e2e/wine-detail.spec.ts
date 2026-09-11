@@ -140,6 +140,68 @@ const tastingArchive = {
   }],
 };
 
+const tasteProfileCollection = {
+  profiles: [
+    {
+      category: "global",
+      dimensions: {
+        body: { preference: .70, confidence: .72, samples: 21 },
+        acidity: { preference: .75, confidence: .74, samples: 21 },
+        tannin: { preference: .63, confidence: .66, samples: 16 },
+        sweetness: { preference: .54, confidence: .61, samples: 21 },
+        aromatic_intensity: { preference: .74, confidence: .73, samples: 21 },
+        fruit: { preference: .72, confidence: .71, samples: 21 },
+        wood: { preference: .61, confidence: .64, samples: 18 },
+        spice: { preference: .65, confidence: .67, samples: 18 },
+        minerality: { preference: .68, confidence: .69, samples: 15 },
+      },
+      attributes: {
+        preferred_countries: [["Italia", .88], ["Francia", .76], ["Svizzera", .61]],
+        preferred_regions: [["Toscana", .82], ["Champagne", .78], ["Piemonte", .72], ["Ticino", .62]],
+        preferred_appellations: [["Brunello di Montalcino DOCG", .74], ["Champagne Grand Cru", .70], ["Ticino DOC", .62]],
+      },
+      confidence: .72,
+      sample_count: 21,
+      tasting_count: 21,
+      star_rating_count: 35,
+      confidence_level: "probable",
+    },
+    {
+      category: "red",
+      dimensions: {
+        body: { preference: .77, confidence: .70, samples: 15 },
+        acidity: { preference: .71, confidence: .68, samples: 15 },
+        tannin: { preference: .73, confidence: .69, samples: 15 },
+        aromatic_intensity: { preference: .75, confidence: .70, samples: 15 },
+        fruit: { preference: .76, confidence: .69, samples: 15 },
+      },
+      attributes: {}, confidence: .70, sample_count: 15, confidence_level: "probable",
+    },
+    {
+      category: "white",
+      dimensions: {
+        body: { preference: .60, confidence: .55, samples: 5 },
+        acidity: { preference: .82, confidence: .58, samples: 5 },
+        sweetness: { preference: .48, confidence: .51, samples: 5 },
+        aromatic_intensity: { preference: .70, confidence: .57, samples: 5 },
+        minerality: { preference: .76, confidence: .56, samples: 5 },
+      },
+      attributes: {}, confidence: .56, sample_count: 5, confidence_level: "emerging",
+    },
+    {
+      category: "rose",
+      dimensions: {
+        body: { preference: .52, confidence: .38, samples: 3 },
+        acidity: { preference: .78, confidence: .40, samples: 3 },
+        sweetness: { preference: .50, confidence: .35, samples: 3 },
+        aromatic_intensity: { preference: .69, confidence: .39, samples: 3 },
+        fruit: { preference: .74, confidence: .40, samples: 3 },
+      },
+      attributes: {}, confidence: .39, sample_count: 3, confidence_level: "emerging",
+    },
+  ],
+};
+
 const multiCellarMemberships = [
   ...memberships,
   { membership_id: "membership-e2e-2", household_id: "household-e2e-2", household_name: "Riserva E2E", role: "owner", operating_mode: "private" },
@@ -221,7 +283,7 @@ async function mockApi(
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive }) => {
+  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive, tasteProfileCollection }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -246,7 +308,7 @@ async function mockApi(
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
       else if (path.includes("value-history/portfolio") || path.includes("wishlist/lists") || path.includes("operational-action-snoozes")) body = [];
       else if (path.includes("regional-gap-settings")) body = { targets: [], last_ai_suggestion: null };
-      else if (path.includes("taste-profile/me")) body = { profiles: [{ category: "global", dimensions: { body: { preference: .8, confidence: .5, samples: 6 }, tannin: { preference: .7, confidence: .5, samples: 6 } }, attributes: { preferred_grapes: [["Nebbiolo", .8]] }, confidence: .5, sample_count: 6, confidence_level: "probable" }] };
+      else if (path.includes("taste-profile/me")) body = tasteProfileCollection;
       else if (path.includes("notifications")) body = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false };
       else if (path.endsWith("/billing/redeem-codes")) body = [];
       else if (path.includes("billing")) body = { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" };
@@ -256,7 +318,7 @@ async function mockApi(
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive });
+  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive, tasteProfileCollection });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -281,7 +343,7 @@ async function mockApi(
     if (path.includes("wishlist/lists")) return fulfillJson(route, []);
     if (path.includes("notifications")) return fulfillJson(route, { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
     if (path.includes("regional-gap-settings")) return fulfillJson(route, { targets: [], last_ai_suggestion: null });
-    if (path.includes("taste-profile/me")) return fulfillJson(route, { profiles: [{ category: "global", dimensions: { body: { preference: .8, confidence: .5, samples: 6 }, tannin: { preference: .7, confidence: .5, samples: 6 } }, attributes: { preferred_grapes: [["Nebbiolo", .8]] }, confidence: .5, sample_count: 6, confidence_level: "probable" }] });
+    if (path.includes("taste-profile/me")) return fulfillJson(route, tasteProfileCollection);
     if (path.includes("operational-action-snoozes")) return fulfillJson(route, []);
     if (path.endsWith("/billing/redeem-codes")) return fulfillJson(route, []);
     if (path.includes("billing")) return fulfillJson(route, { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" });
@@ -760,6 +822,39 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page.locator(".content-workspace .wine-side-panel")).toBeHidden();
     expect((await historyList.boundingBox())!.width).toBeGreaterThan(700);
     await page.screenshot({ path: testInfo.outputPath("tablet-topbar.png") });
+  });
+
+  test("presents the personal taste profile as a responsive editorial portrait", async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await mockApi(page);
+    await page.goto("/");
+    const insights = page.locator(".dashboard-analysis-switcher");
+    await insights.locator("summary").click();
+    await insights.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
+
+    const profile = page.locator(".taste-profile-panel--insight");
+    await expect(page.locator(".home-dashboard > .hero-panel")).toHaveCount(0);
+    await expect(profile.getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
+    await expect(profile.getByText("Il tuo gusto cerca freschezza, intensità aromatica e frutto.", { exact: true })).toBeVisible();
+    await expect(profile.getByRole("heading", { name: "Il carattere del tuo gusto" })).toBeVisible();
+    await expect(profile.getByRole("heading", { name: "Le origini che cerchi" })).toBeVisible();
+    await expect(profile.getByRole("heading", { name: "Come cambia il tuo gusto" })).toBeVisible();
+    const redSignature = profile.locator(".taste-profile-category").filter({ hasText: /^Rossi/ });
+    const whiteSignature = profile.locator(".taste-profile-category").filter({ hasText: /^Bianchi/ });
+    await expect(redSignature).toHaveAttribute("open", "");
+    await whiteSignature.locator("summary").click();
+    await expect(whiteSignature).toHaveAttribute("open", "");
+    await expect(redSignature).not.toHaveAttribute("open", "");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
+      await page.setViewportSize(viewport);
+      await expect(profile).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const heroBox = await profile.locator(".taste-profile-premium-hero").boundingBox();
+      expect(heroBox).not.toBeNull();
+      expect(heroBox!.x).toBeGreaterThanOrEqual(0);
+      expect(heroBox!.x + heroBox!.width).toBeLessThanOrEqual(viewport.width);
+    }
   });
 
   test("matches the compact visual baseline", async ({ page }) => {

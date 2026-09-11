@@ -1,4 +1,5 @@
 import { lazy, Suspense, useEffect, useState } from "react";
+import type { CSSProperties } from "react";
 import { translate } from "../i18n";
 import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteProfile, TasteProfileCollection, Wine } from "../types";
 import { api } from "../services/api";
@@ -13,6 +14,52 @@ type ExternalTastingEnrichmentResult = TasteProfileCollection & {
 };
 
 const sensoryDimensionOrder = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
+
+const sensoryGroups = [
+  { key: "structure", dimensions: ["body", "tannin", "sweetness"] },
+  { key: "freshness", dimensions: ["acidity", "minerality"] },
+  { key: "aromas", dimensions: ["aromatic_intensity", "fruit", "spice", "wood"] },
+] as const;
+
+function selectDimensions(dimensions: TasteProfile["dimensions"], keys: readonly string[]) {
+  return Object.fromEntries(keys.flatMap((key) => dimensions[key] ? [[key, dimensions[key]]] : [])) as TasteProfile["dimensions"];
+}
+
+function naturalList(values: string[], italian: boolean) {
+  if (values.length < 2) return values[0] || "";
+  const conjunction = italian ? " e " : " and ";
+  return `${values.slice(0, -1).join(", ")}${conjunction}${values.at(-1)}`;
+}
+
+function categoryNarrative(
+  profile: TasteProfile,
+  overall: TasteProfile,
+  label: (key: string) => string,
+  italian: boolean,
+) {
+  const differences = Object.entries(profile.dimensions)
+    .flatMap(([dimension, value]) => overall.dimensions[dimension]
+      ? [{ dimension, delta: value.preference - overall.dimensions[dimension].preference }]
+      : [])
+    .filter(({ delta }) => Math.abs(delta) >= 0.04)
+    .sort((first, second) => Math.abs(second.delta) - Math.abs(first.delta))
+    .slice(0, 4);
+  const higher = differences.filter(({ delta }) => delta > 0).map(({ dimension }) => label(dimension).toLocaleLowerCase());
+  const lower = differences.filter(({ delta }) => delta < 0).map(({ dimension }) => label(dimension).toLocaleLowerCase());
+  if (!differences.length) {
+    return italian
+      ? "Questa tipologia segue da vicino l’equilibrio del tuo profilo generale."
+      : "This style closely follows the balance of your overall profile.";
+  }
+  if (italian) {
+    if (higher.length && lower.length) return `Emergono ${naturalList(higher, true)}, con ${naturalList(lower, true)} più misurati rispetto al tuo profilo medio.`;
+    if (higher.length) return `Qui cerchi soprattutto ${naturalList(higher, true)}, più presenti rispetto al tuo profilo medio.`;
+    return `${naturalList(lower, true)} risultano più misurati rispetto al tuo profilo medio.`;
+  }
+  if (higher.length && lower.length) return `${naturalList(higher, false)} stand out, while ${naturalList(lower, false)} are more restrained than in your average profile.`;
+  if (higher.length) return `You seek ${naturalList(higher, false)} most clearly here, above your average profile.`;
+  return `${naturalList(lower, false)} are more restrained than in your average profile.`;
+}
 
 function SensorySignatureBars({
   dimensions,
@@ -59,7 +106,10 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
 
   const load = () => {
     api<TasteProfileCollection>("/api/v1/taste-profile/me")
-      .then((result) => setProfiles(result.profiles))
+      .then((result) => {
+        setProfiles(result.profiles);
+        setOpenCategory((current) => current ?? result.profiles.find((profile) => profile.category !== "global")?.category ?? null);
+      })
       .finally(() => setLoading(false));
     void api<LegacyTastingClaimStatus>("/api/v1/taste-profile/me/legacy-tastings")
       .then((result) => setUnassignedTastings(result.unassigned_count))
@@ -99,13 +149,36 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
     : overall?.confidence_level === "probable"
       ? (italian ? "profilo delineato" : "defined profile")
       : (italian ? "profilo in scoperta" : "profile in discovery");
-  const signature = strongest.map(([dimension]) => label(dimension));
-  const portrait = signature.length
-    ? (italian ? `Vinaris riconosce una firma che mette in primo piano ${signature.join(", ")}.` : `Vinaris sees a signature led by ${signature.join(", ")}.`)
+  const signatureConceptLabels: Record<string, string> = italian ? {
+    body: "struttura", acidity: "freschezza", tannin: "trama tannica", sweetness: "morbidezza",
+    aromatic_intensity: "intensità aromatica", fruit: "frutto", wood: "impronta del legno", spice: "spezie", minerality: "mineralità",
+  } : {
+    body: "structure", acidity: "freshness", tannin: "tannic texture", sweetness: "softness",
+    aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "oak influence", spice: "spice", minerality: "minerality",
+  };
+  const signatureConcepts = [...new Set(strongest.map(([dimension]) => signatureConceptLabels[dimension] || label(dimension).toLocaleLowerCase()))].slice(0, 3);
+  const portrait = signatureConcepts.length
+    ? (italian ? `Il tuo gusto cerca ${naturalList(signatureConcepts, true)}.` : `Your taste seeks ${naturalList(signatureConcepts, false)}.`)
+    : "";
+  const profileVoice = signatureConcepts.length
+    ? (italian
+      ? `Ti attirano vini in cui ${naturalList(signatureConcepts, true)} trovano equilibrio, senza che un solo tratto domini il calice.`
+      : `You are drawn to wines where ${naturalList(signatureConcepts, false)} find balance, without any single trait dominating the glass.`)
     : "";
   const visibleStarRatingCount = wines
     ? wines.filter((wine) => Number(wine.rating) > 0).length
     : overall?.star_rating_count ?? 0;
+  const attributeEntries = overall
+    ? Object.entries(overall.attributes).filter(([, values]) => values.length).slice(0, 3)
+    : [];
+  const preferredOrigins = overall ? [
+    ...(overall.attributes.preferred_countries || []).map(([value]) => value),
+    ...(overall.attributes.preferred_regions || []).map(([value]) => value),
+  ] : [];
+  const preferredOriginKinds = overall ? Object.fromEntries([
+    ...(overall.attributes.preferred_countries || []).map(([value]) => [value, "country"] as const),
+    ...(overall.attributes.preferred_regions || []).map(([value]) => [value, "region"] as const),
+  ]) : {};
 
   async function rebuild() {
     setRebuilding(true);
@@ -152,7 +225,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
   }
 
   return <section className={insight ? "dashboard-card taste-profile-panel taste-profile-panel--insight" : "settings-card settings-card-wide taste-profile-panel"}>
-    <div className={insight ? "card-heading" : "settings-card-heading"}>
+    <div className={`${insight ? "card-heading" : "settings-card-heading"} taste-profile-page-heading`}>
       <div><span>{italian ? "Approfondimento personale" : "Personal insight"}</span>{insight ? <h2>{italian ? "Il mio gusto" : "My Taste"}</h2> : <h3>{italian ? "Il mio gusto" : "My Taste"}</h3>}</div>
       <button type="button" className="secondary compact" disabled={rebuilding} onClick={() => void rebuild()}>{rebuilding ? (italian ? "Aggiornamento…" : "Updating…") : (italian ? "Aggiorna profilo" : "Refresh profile")}</button>
     </div>
@@ -161,61 +234,108 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
     {claimMessage ? <p className="taste-profile-claim-message" role="status">{claimMessage}</p> : null}
     {externalEnrichmentMessage ? <p className="taste-profile-claim-message" role="status">{externalEnrichmentMessage}</p> : null}
     {loading ? <p className="empty-state">{italian ? "Caricamento profilo…" : "Loading taste profile…"}</p> : !overall ? <p className="empty-state">{italian ? "Valuta alcuni vini degustati per iniziare a costruire il tuo profilo." : "Rate a few wines you have tasted to start building your profile."}</p> : <>
-      <section className="taste-profile-portrait" aria-label={italian ? "Ritratto del gusto" : "Taste portrait"}>
-        <div className="taste-profile-portrait-copy"><span>{italian ? "La firma che emerge" : "The signature emerging"}</span><p>{portrait}</p><small>{preferenceExplanation}</small></div>
-        <div className="taste-profile-evidence-summary"><div><strong>{overall.tasting_count ?? overall.sample_count}</strong><span>{italian ? "degustazioni valutate" : "rated tastings"}</span></div><div><strong>{visibleStarRatingCount}</strong><span>{italian ? "vini con stelline" : "star-rated wines"}</span></div><small>{confidenceLabel}</small></div>
+      <section className="taste-profile-premium-hero" aria-label={italian ? "Ritratto del gusto" : "Taste portrait"}>
+        <div className="taste-profile-hero-copy">
+          <span>{italian ? "La firma che emerge" : "The signature emerging"}</span>
+          <h3>{portrait}</h3>
+          <p>{profileVoice}</p>
+          <small>{preferenceExplanation}</small>
+        </div>
+        <div className="taste-profile-hero-data">
+          <div className="taste-profile-hero-metrics">
+            {strongest.map(([dimension, value]) => <article key={dimension}>
+              <span>{label(dimension)}</span>
+              <strong>{Math.round(value.preference * 100)}<small>/100</small></strong>
+              <i style={{ "--taste-score": `${Math.round(value.preference * 100)}%` } as CSSProperties} />
+            </article>)}
+          </div>
+          <div className="taste-profile-evidence-summary">
+            <div><strong>{overall.tasting_count ?? overall.sample_count}</strong><span>{italian ? "degustazioni valutate" : "rated tastings"}</span></div>
+            <div><strong>{visibleStarRatingCount}</strong><span>{italian ? "vini con stelline" : "star-rated wines"}</span></div>
+            <small>{confidenceLabel}</small>
+          </div>
+        </div>
       </section>
-      {Object.entries(overall.attributes).filter(([, values]) => values.length).length ? <section className="taste-profile-landmarks"><div className="taste-profile-section-heading"><span>{italian ? "Riferimenti che ritornano" : "Recurring landmarks"}</span><h3>{italian ? "I luoghi della tua curiosità" : "Places your curiosity returns to"}</h3></div><div className="taste-profile-landmark-grid">{Object.entries(overall.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <article key={kind}><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></article>)}</div></section> : null}
-      {categoryProfiles.length ? <section className="taste-profile-categories"><strong>{italian ? "Firme per tipologia" : "Signatures by wine style"}</strong><small>{italian ? "Ogni firma confronta una tipologia con il tuo profilo generale." : "Each signature compares a wine style with your overall profile."}</small><div className="taste-profile-category-list">{categoryProfiles.map((profile) => <details className="taste-profile-category" key={profile.category} open={openCategory === profile.category} onToggle={(event) => setOpenCategory(event.currentTarget.open ? profile.category : null)}><summary><span>{label(profile.category)}</span><small>{profile.sample_count} {italian ? "vini valutati" : "rated wines"}</small></summary><div className="taste-profile-category-content"><p>{italian ? "La linea sottile indica il tuo profilo generale; la barra mostra cosa emerge in questa tipologia." : "The fine line marks your overall profile; the bar shows what emerges for this wine style."}</p><SensorySignatureBars dimensions={profile.dimensions} labels={labels} reference={overall?.dimensions} compact />{Object.entries(profile.attributes).filter(([, values]) => values.length).length ? <div className="detail-grid taste-profile-attribute-grid">{Object.entries(profile.attributes).filter(([, values]) => values.length).slice(0, 3).map(([kind, values]) => <div key={kind} className="detail-field taste-profile-attribute"><span>{label(kind)}</span><strong>{values.map(([name]) => label(name)).join(", ")}</strong></div>)}</div> : null}</div></details>)}</div></section> : null}
+
+      <section className="taste-profile-sensory-story" aria-labelledby="taste-character-heading">
+        <div className="taste-profile-section-heading">
+          <span>{italian ? "La tua firma sensoriale" : "Your sensory signature"}</span>
+          <h3 id="taste-character-heading">{italian ? "Il carattere del tuo gusto" : "The character of your taste"}</h3>
+          <p>{signatureConcepts.map((concept) => concept.charAt(0).toLocaleUpperCase() + concept.slice(1)).join(" · ")}</p>
+        </div>
+        <div className="taste-profile-sensory-groups">
+          {sensoryGroups.map((group) => {
+            const groupDimensions = selectDimensions(overall.dimensions, group.dimensions);
+            if (!Object.keys(groupDimensions).length) return null;
+            const groupLabel = group.key === "structure"
+              ? (italian ? "Struttura" : "Structure")
+              : group.key === "freshness"
+                ? (italian ? "Freschezza" : "Freshness")
+                : (italian ? "Profilo aromatico" : "Aromatic profile");
+            return <article className={`taste-profile-sensory-group is-${group.key}`} key={group.key}>
+              <header><i aria-hidden="true" /><strong>{groupLabel}</strong></header>
+              <SensorySignatureBars dimensions={groupDimensions} labels={labels} compact />
+            </article>;
+          })}
+        </div>
+      </section>
+
+      {(attributeEntries.length || preferredOrigins.length) ? <section className="taste-profile-geography" aria-labelledby="taste-geography-heading">
+        <div className="taste-profile-section-heading">
+          <span>{italian ? "Geografia personale" : "Personal geography"}</span>
+          <h3 id="taste-geography-heading">{italian ? "Le origini che cerchi" : "Origins you seek"}</h3>
+          <p>{italian ? "I luoghi che ritornano più spesso nelle tue scelte." : "The places that return most often in your choices."}</p>
+        </div>
+        <div className="taste-profile-geography-layout">
+          <div className="taste-profile-landmark-grid">
+            {attributeEntries.map(([kind, values]) => <article key={kind}>
+              <span>{label(kind)}</span>
+              <div>{values.map(([name]) => <b key={name}>{label(name)}</b>)}</div>
+            </article>)}
+          </div>
+          <div className="taste-profile-world-map">
+            {preferredOrigins.length ? <Suspense fallback={<p className="empty-state">{italian ? "Caricamento mappa…" : "Loading map…"}</p>}><WineGeographyMap wines={[]} preferredOrigins={preferredOrigins} preferredOriginKinds={preferredOriginKinds} t={(key) => translate(locale, key)} onSelectRegion={() => undefined} locale={locale} /></Suspense> : <p className="empty-state">{italian ? "Le origini preferite appariranno qui con dati sufficienti." : "Preferred origins will appear here with enough data."}</p>}
+          </div>
+        </div>
+      </section> : null}
+
+      {categoryProfiles.length ? <section className="taste-profile-categories" aria-labelledby="taste-category-heading">
+        <div className="taste-profile-section-heading">
+          <span>{italian ? "Firme per tipologia" : "Signatures by wine style"}</span>
+          <h3 id="taste-category-heading">{italian ? "Come cambia il tuo gusto" : "How your taste changes"}</h3>
+          <p>{italian ? "Apri una tipologia per vedere solo ciò che la distingue davvero dal tuo profilo medio." : "Open a style to see only what truly distinguishes it from your average profile."}</p>
+        </div>
+        <div className="taste-profile-category-list">{categoryProfiles.map((profile) => {
+          const significantDimensions = Object.fromEntries(Object.entries(profile.dimensions)
+            .filter(([dimension, value]) => overall.dimensions[dimension] && Math.abs(value.preference - overall.dimensions[dimension].preference) >= 0.04)
+            .sort(([firstKey, first], [secondKey, second]) => Math.abs(second.preference - overall.dimensions[secondKey].preference) - Math.abs(first.preference - overall.dimensions[firstKey].preference))
+            .slice(0, 4)) as TasteProfile["dimensions"];
+          return <details className="taste-profile-category" key={profile.category} open={openCategory === profile.category}>
+            <summary onClick={(event) => {
+              event.preventDefault();
+              setOpenCategory((current) => current === profile.category ? null : profile.category);
+            }}><span>{label(profile.category)}</span><small>{profile.sample_count} {italian ? "vini valutati" : "rated wines"}</small></summary>
+            <div className="taste-profile-category-content">
+              <p>{categoryNarrative(profile, overall, label, italian)}</p>
+              <SensorySignatureBars dimensions={Object.keys(significantDimensions).length ? significantDimensions : profile.dimensions} labels={labels} reference={overall.dimensions} compact />
+            </div>
+          </details>;
+        })}</div>
+      </section> : null}
+
+      <details className="taste-profile-method">
+        <summary>{italian ? "Come Vinaris ha costruito questo profilo" : "How Vinaris built this profile"}</summary>
+        <div>
+          <p>{italian ? "Vinaris usa solo le degustazioni che hai registrato tu. Il voto resta il segnale principale: vicino al valore neutro pesa poco, mentre un voto alto o basso rafforza o riduce l’affinità per le caratteristiche del vino." : "Vinaris uses only the tastings you recorded. Your rating is the main signal: a neutral rating has little effect, while high or low ratings strengthen or reduce affinity for a wine’s characteristics."}</p>
+          <ul>
+            <li>{italian ? "Le caratteristiche sensoriali appartengono al vino e sono dati condivisi Vinaris." : "Sensory characteristics belong to the wine and are shared Vinaris data."}</li>
+            <li>{italian ? "Le informazioni mancanti vengono escluse dal calcolo, non considerate pari a zero." : "Missing information is excluded from the calculation, never treated as zero."}</li>
+            <li>{italian ? "Il profilo è privato: le valutazioni di altri utenti non lo influenzano." : "Your profile is private: other users’ ratings never influence it."}</li>
+          </ul>
+        </div>
+      </details>
     </>}
   </section>;
-}
-
-export function TasteProfileExplanation({ locale }: { locale: Locale }) {
-  const italian = locale === "it";
-  const [profile, setProfile] = useState<TasteProfile | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    api<TasteProfileCollection>("/api/v1/taste-profile/me")
-      .then((result) => { if (active) setProfile(result.profiles.find((item) => item.category === "global") || null); })
-      .catch(() => { if (active) setProfile(null); });
-    return () => { active = false; };
-  }, []);
-
-  const preferredOrigins = [
-    ...(profile?.attributes.preferred_countries || []).map(([value]) => value),
-    ...(profile?.attributes.preferred_regions || []).map(([value]) => value),
-  ];
-  const preferredOriginKinds = Object.fromEntries([
-    ...(profile?.attributes.preferred_countries || []).map(([value]) => [value, "country"] as const),
-    ...(profile?.attributes.preferred_regions || []).map(([value]) => [value, "region"] as const),
-  ]);
-  const dimensionLabels: Record<string, string> = italian
-    ? { body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza", aromatic_intensity: "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità" }
-    : { body: "body", acidity: "acidity", tannin: "tannin", sweetness: "sweetness", aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "wood", spice: "spice", minerality: "minerality" };
-  return <article className="dashboard-card taste-profile-explanation">
-    <div className="card-heading"><div><span>{italian ? "Visuale personale" : "Personal view"}</span><h2>{italian ? "Il gusto sulla mappa" : "Taste on the map"}</h2></div></div>
-    {profile ? <div className="taste-profile-existing-visuals">
-      <section className="taste-profile-radar-wrap taste-profile-signature-chart" aria-label={italian ? "Firma sensoriale" : "Sensory signature"}>
-        <header><span>{italian ? "Firma sensoriale" : "Sensory signature"}</span><strong>{italian ? "Il carattere del tuo gusto" : "The character of your taste"}</strong><small>{italian ? "Nove indicatori, letti insieme per mostrare i tratti che orientano le tue scelte." : "Nine indicators read together to show the traits that guide your choices."}</small></header>
-        <SensorySignatureBars dimensions={profile.dimensions} labels={dimensionLabels} />
-      </section>
-      <section className="taste-profile-world-map" aria-label={italian ? "Mappa delle origini preferite" : "Map of preferred origins"}>
-        <header><span>{italian ? "Geografia personale" : "Personal geography"}</span><strong>{italian ? "Le origini che cerchi" : "Origins you seek"}</strong><small>{italian ? "Paesi e regioni emersi dalle tue preferenze." : "Countries and regions emerging from your preferences."}</small></header>
-        {preferredOrigins.length ? <Suspense fallback={null}><WineGeographyMap wines={[]} preferredOrigins={preferredOrigins} preferredOriginKinds={preferredOriginKinds} t={(key) => translate(locale, key)} onSelectRegion={() => undefined} locale={locale} /></Suspense> : <p className="empty-state">{italian ? "Le origini preferite appariranno qui con dati sufficienti." : "Preferred origins will appear here with enough data."}</p>}
-      </section>
-    </div> : null}
-    <div className="taste-profile-method">
-        <p>{italian ? "Vinaris usa solo le degustazioni che hai registrato tu. Il voto resta il segnale principale: vicino al valore neutro pesa poco, mentre un voto alto o basso rafforza o riduce l’affinità per le caratteristiche del vino." : "Vinaris uses only the tastings you recorded. Your rating is the main signal: a neutral rating has little effect, while high or low ratings strengthen or reduce affinity for a wine’s characteristics."}</p>
-        <ul>
-          <li>{italian ? "Le caratteristiche sensoriali (corpo, acidità, tannini e altre) appartengono al vino e sono dati condivisi Vinaris; non vengono generate durante una degustazione o mentre visualizzi questa pagina." : "Sensory characteristics (body, acidity, tannin, and more) belong to the wine and are shared Vinaris data; they are not generated while you rate a wine or view this page."}</li>
-          <li>{italian ? "Le informazioni mancanti non valgono zero: vengono semplicemente escluse dal calcolo." : "Missing information is never treated as zero; it is simply excluded from the calculation."}</li>
-          <li>{italian ? "Il risultato combina un profilo generale con profili distinti per rossi, bianchi, spumanti e dolci quando ci sono dati sufficienti." : "The result combines an overall profile with separate red, white, sparkling, and sweet profiles when enough data is available."}</li>
-          <li>{italian ? "La confidenza cresce con numero, coerenza e qualità dei vini valutati. Il profilo è privato: le valutazioni di altri utenti non lo influenzano." : "Confidence grows with the number, consistency, and quality of rated wines. Your profile is private: other users’ ratings never influence it."}</li>
-        </ul>
-    </div>
-  </article>;
 }
 
 export default TasteProfilePanel;

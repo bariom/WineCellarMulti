@@ -27441,6 +27441,480 @@ body,
   .taste-dashboard-carousel > .dashboard-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
+/* Personal taste portrait: editorial hierarchy over dashboard chrome. */
+.taste-dashboard-carousel > .dashboard-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.taste-profile-panel--insight {
+  padding: clamp(16px, 2.5vw, 30px);
+  overflow: visible;
+  border: 0;
+  background: color-mix(in srgb, var(--page) 70%, var(--surface));
+  box-shadow: none;
+}
+
+.taste-profile-panel--insight::after {
+  display: none;
+}
+
+.taste-profile-panel--insight .taste-profile-page-heading {
+  align-items: end;
+  margin-bottom: 18px;
+  padding-inline: 2px;
+}
+
+.taste-profile-panel--insight .taste-profile-page-heading h2 {
+  margin-top: 3px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4vw, 3.25rem);
+  font-weight: 600;
+  line-height: 1;
+}
+
+.taste-profile-panel--insight .taste-profile-page-heading > button {
+  border-color: color-mix(in srgb, var(--primary) 24%, transparent);
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+}
+
+.taste-profile-premium-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(300px, 0.8fr) minmax(480px, 1.2fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  min-height: 320px;
+  padding: clamp(24px, 4vw, 52px);
+  overflow: hidden;
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 92% 18%, color-mix(in srgb, var(--primary) 26%, transparent), transparent 24%),
+    radial-gradient(circle at 76% 92%, color-mix(in srgb, var(--accent) 18%, transparent), transparent 34%),
+    linear-gradient(115deg, color-mix(in srgb, var(--surface) 96%, var(--accent) 4%), color-mix(in srgb, var(--surface-muted) 70%, var(--surface)));
+  box-shadow: 0 20px 50px color-mix(in srgb, var(--collector-depth) 18%, transparent);
+}
+
+.taste-profile-premium-hero::after {
+  position: absolute;
+  right: -86px;
+  bottom: -170px;
+  width: 360px;
+  height: 360px;
+  border: 38px solid color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.taste-profile-hero-copy,
+.taste-profile-hero-data {
+  position: relative;
+  z-index: 1;
+}
+
+.taste-profile-hero-copy {
+  display: grid;
+  gap: 12px;
+}
+
+.taste-profile-hero-copy > span,
+.taste-profile-panel--insight .taste-profile-section-heading > span {
+  color: color-mix(in srgb, var(--accent) 80%, var(--text));
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.taste-profile-hero-copy h3 {
+  max-width: 620px;
+  margin: 0;
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.8rem, 3.25vw, 3rem);
+  font-weight: 500;
+  line-height: 1.05;
+}
+
+.taste-profile-hero-copy p {
+  max-width: 610px;
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.taste-profile-hero-copy small {
+  max-width: 580px;
+  color: color-mix(in srgb, var(--text-muted) 86%, transparent);
+  font-size: 0.72rem;
+}
+
+.taste-profile-hero-data {
+  display: grid;
+  gap: 16px;
+}
+
+.taste-profile-hero-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.taste-profile-hero-metrics article {
+  display: grid;
+  align-content: center;
+  min-width: 0;
+  min-height: 142px;
+  padding: 16px 14px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface) 83%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, white 68%, transparent), 0 9px 24px color-mix(in srgb, var(--collector-depth) 10%, transparent);
+  backdrop-filter: blur(12px);
+}
+
+.taste-profile-hero-metrics article > span {
+  min-height: 32px;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 760;
+  line-height: 1.15;
+}
+
+.taste-profile-hero-metrics article > strong {
+  margin-top: 8px;
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.taste-profile-hero-metrics article > strong small {
+  margin-left: 2px;
+  color: var(--text-muted);
+  font-size: 0.42em;
+  font-weight: 500;
+}
+
+.taste-profile-hero-metrics article > i {
+  position: relative;
+  height: 5px;
+  margin-top: 16px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--border) 64%, transparent);
+}
+
+.taste-profile-hero-metrics article > i::after {
+  display: block;
+  width: var(--taste-score);
+  height: 100%;
+  border-radius: inherit;
+  background: var(--primary);
+  content: "";
+}
+
+.taste-profile-premium-hero .taste-profile-evidence-summary {
+  display: flex;
+  min-width: 0;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.taste-profile-premium-hero .taste-profile-evidence-summary > div {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  padding: 8px 18px 8px 4px;
+}
+
+.taste-profile-premium-hero .taste-profile-evidence-summary > div + div {
+  padding-left: 18px;
+  border-left: 1px solid color-mix(in srgb, var(--border) 74%, transparent);
+}
+
+.taste-profile-premium-hero .taste-profile-evidence-summary strong {
+  font-size: 1.5rem;
+}
+
+.taste-profile-premium-hero .taste-profile-evidence-summary > small {
+  align-self: center;
+  margin-left: auto;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 13%, var(--surface));
+}
+
+.taste-profile-sensory-story,
+.taste-profile-geography,
+.taste-profile-panel--insight .taste-profile-categories {
+  margin-top: clamp(34px, 5vw, 64px);
+}
+
+.taste-profile-panel--insight .taste-profile-section-heading {
+  gap: 3px;
+  margin-bottom: 20px;
+}
+
+.taste-profile-panel--insight .taste-profile-section-heading h3 {
+  font-size: clamp(1.55rem, 2.6vw, 2.2rem);
+  font-weight: 500;
+}
+
+.taste-profile-panel--insight .taste-profile-section-heading p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+}
+
+.taste-profile-sensory-groups {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.taste-profile-sensory-group {
+  min-width: 0;
+  padding: 20px;
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--surface-muted) 62%, var(--surface));
+}
+
+.taste-profile-sensory-group header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.taste-profile-sensory-group header i {
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--accent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
+.taste-profile-sensory-group header strong {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+.taste-profile-sensory-group .sensory-signature-row {
+  grid-template-columns: minmax(82px, 0.9fr) minmax(68px, 1.35fr) auto;
+}
+
+.taste-profile-geography {
+  padding-top: clamp(28px, 4vw, 48px);
+  border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+.taste-profile-geography-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(440px, 1.28fr);
+  gap: clamp(20px, 3vw, 40px);
+  align-items: stretch;
+}
+
+.taste-profile-panel--insight .taste-profile-landmark-grid {
+  grid-template-columns: minmax(0, 1fr);
+  align-content: start;
+  gap: 20px;
+  padding: 8px 0;
+}
+
+.taste-profile-panel--insight .taste-profile-landmark-grid article {
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+
+.taste-profile-panel--insight .taste-profile-landmark-grid article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.taste-profile-panel--insight .taste-profile-landmark-grid article b {
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+  font-size: 0.82rem;
+  font-weight: 620;
+}
+
+.taste-profile-panel--insight .taste-profile-world-map {
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  border-radius: 20px;
+  background: transparent;
+}
+
+.taste-profile-panel--insight .taste-profile-world-map .wine-geography-leaflet {
+  height: 360px;
+  border-radius: 20px;
+  box-shadow: 0 16px 38px color-mix(in srgb, var(--collector-depth) 20%, transparent);
+}
+
+.taste-profile-panel--insight .taste-profile-categories {
+  gap: 0;
+  padding-top: clamp(28px, 4vw, 48px);
+  border-top: 1px solid color-mix(in srgb, var(--border) 58%, transparent);
+}
+
+.taste-profile-panel--insight .taste-profile-category-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.taste-profile-panel--insight .taste-profile-category {
+  border: 0;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--surface-muted) 56%, var(--surface));
+}
+
+.taste-profile-panel--insight .taste-profile-category[open] {
+  grid-column: 1 / -1;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.taste-profile-panel--insight .taste-profile-category summary {
+  min-height: 54px;
+  padding: 14px 17px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.15rem;
+}
+
+.taste-profile-panel--insight .taste-profile-category-content {
+  grid-template-columns: minmax(220px, 0.65fr) minmax(340px, 1.35fr);
+  align-items: start;
+  gap: 28px;
+  padding: 2px 18px 20px;
+}
+
+.taste-profile-panel--insight .taste-profile-category-content > p {
+  color: var(--text);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.05rem;
+  line-height: 1.45;
+}
+
+.taste-profile-panel--insight .taste-profile-method {
+  margin-top: clamp(34px, 5vw, 58px);
+  padding: 18px 4px 2px;
+  border-top-color: color-mix(in srgb, var(--border) 52%, transparent);
+}
+
+.taste-profile-panel--insight .taste-profile-method summary {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1rem;
+}
+
+.taste-profile-panel--insight .taste-profile-method > div {
+  max-width: 900px;
+  font-size: 0.86rem;
+}
+
+@media (max-width: 980px) {
+  .taste-profile-premium-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .taste-profile-sensory-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .taste-profile-sensory-group.is-aromas {
+    grid-column: 1 / -1;
+  }
+
+  .taste-profile-geography-layout {
+    grid-template-columns: minmax(210px, 0.65fr) minmax(360px, 1.35fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .taste-profile-panel--insight {
+    padding: 14px 10px 20px;
+  }
+
+  .taste-profile-panel--insight .taste-profile-page-heading {
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .taste-profile-panel--insight .taste-profile-page-heading > button {
+    align-self: start;
+  }
+
+  .taste-profile-premium-hero {
+    gap: 24px;
+    min-height: 0;
+    padding: 22px 18px;
+    border-radius: 20px;
+  }
+
+  .taste-profile-hero-copy h3 {
+    font-size: clamp(1.7rem, 8vw, 2.35rem);
+  }
+
+  .taste-profile-hero-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .taste-profile-hero-metrics article {
+    min-height: 122px;
+  }
+
+  .taste-profile-premium-hero .taste-profile-evidence-summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .taste-profile-premium-hero .taste-profile-evidence-summary > div {
+    grid-template-columns: 1fr;
+    padding: 8px 10px 8px 0;
+  }
+
+  .taste-profile-premium-hero .taste-profile-evidence-summary > div + div {
+    padding-left: 12px;
+  }
+
+  .taste-profile-premium-hero .taste-profile-evidence-summary > small {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin: 4px 0 0;
+  }
+
+  .taste-profile-sensory-groups,
+  .taste-profile-geography-layout,
+  .taste-profile-panel--insight .taste-profile-category-list,
+  .taste-profile-panel--insight .taste-profile-category-content {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .taste-profile-sensory-group.is-aromas,
+  .taste-profile-panel--insight .taste-profile-category[open] {
+    grid-column: auto;
+  }
+
+  .taste-profile-panel--insight .taste-profile-world-map .wine-geography-leaflet {
+    height: 260px;
+  }
+
+  .taste-profile-panel--insight .taste-profile-category-content {
+    gap: 18px;
+  }
+}
+
 /* A tablet has the space for the list, but not for two competing collection
    columns. Keep the wine visual below the operational content instead of
    squeezing the history and hiding its KPIs beside an image. */
