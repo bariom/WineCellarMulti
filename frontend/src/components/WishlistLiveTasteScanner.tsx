@@ -31,6 +31,11 @@ function candidateName(candidate: WineImageRecognitionCandidate) {
   return candidate.wine_name || candidate.cuvee || candidate.appellation;
 }
 
+function wineTypeLabel(wineType: string, locale: Locale) {
+  if (locale !== "it") return wineType;
+  return ({ Red: "Rosso", White: "Bianco", Rose: "Rosé", Sparkling: "Spumante", Sweet: "Dolce", Fortified: "Fortificato", Other: "Altro" } as Record<string, string>)[wineType] || wineType;
+}
+
 function traitLabel(trait: string, locale: Locale) {
   if (locale !== "it") return trait;
   return ({
@@ -229,7 +234,7 @@ export function WishlistLiveTasteScanner({
           {phase === "result" && recognized ? <article className="wishlist-live-result">
             <span>{recognized.status === "ambiguous" ? (italian ? "CONFERMA NECESSARIA" : "CONFIRMATION NEEDED") : (italian ? "VINO RICONOSCIUTO" : "WINE IDENTIFIED")}</span>
             <h2>{candidateName(recognized) || (italian ? "Etichetta non identificata" : "Label not identified")}</h2>
-            <p>{[recognized.producer || recognized.estate, recognized.vintage, recognized.appellation].filter(Boolean).join(" · ")}</p>
+            <p>{[recognized.producer || recognized.estate, recognized.vintage, recognized.appellation, wineTypeLabel(recognized.wine_type, locale)].filter(Boolean).join(" · ")}</p>
             {hearts ? <div className="wishlist-live-affinity" aria-label={`${hearts}/6`}><div>{Array.from({ length: 6 }, (_, index) => <i key={index} className={index < hearts ? "filled" : ""}>♥</i>)}</div><span><small>{scan.match && scan.match.confidence < .3 ? (italian ? "Affinità iniziale" : "Early affinity") : (italian ? "Affinità personale" : "Personal affinity")}</small><strong>{hearts}/6</strong></span></div> : <div className="wishlist-live-affinity-unavailable"><strong>{italian ? "Affinità non ancora disponibile" : "Affinity not available yet"}</strong><small>{italian ? "Puoi comunque continuare e aggiungere questo vino alla wishlist." : "You can still continue and add this wine to your wishlist."}</small></div>}
             {scan.match?.matching_traits.length ? <small>{italian ? "In sintonia" : "In tune"}: {scan.match.matching_traits.map((trait) => traitLabel(trait, locale)).join(", ")}</small> : null}
             <small className="wishlist-live-ai-cost">{italian ? "Costo AI" : "AI cost"}: ${Number(recognized.estimated_cost_usd || 0).toFixed(4)}</small>

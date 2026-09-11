@@ -22,7 +22,7 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
             recognition: {
               recognition_id: 'scan-1', status: 'recognized', producer: 'Produttore Test', estate: '',
               wine_name: 'Barolo Riserva', cuvee: '', vintage: '2020', appellation: 'Barolo DOCG',
-              region: 'Piemonte', country: 'Italia', label_text: ['BAROLO RISERVA', '2020'],
+              region: 'Piemonte', country: 'Italia', wine_type: 'Red', label_text: ['BAROLO RISERVA', '2020'],
               alternative_candidates: [], needs_user_confirmation: true, recognition_notes: [], provider: 'luna', matches: [], estimated_cost_usd: '0.0018',
             },
             match: { score: null, confidence: 0, matching_traits: [], conflicting_traits: [] },
@@ -43,6 +43,7 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
   });
 
   await expect(page.getByText("Barolo Riserva")).toBeVisible();
+  await expect(page.getByText(/Barolo DOCG · Rosso/)).toBeVisible();
   await expect(page.getByText("Affinità non ancora disponibile")).toBeVisible();
   await expect(page.getByText("Puoi comunque continuare e aggiungere questo vino alla wishlist.")).toBeVisible();
   await expect(page.getByText("Costo AI: $0.0018")).toBeVisible();

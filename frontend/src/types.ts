@@ -1120,6 +1120,7 @@ export type WineImageRecognitionCandidate = {
   appellation: string;
   region: string;
   country: string;
+  wine_type: string;
 };
 
 export type WineImageRecognitionResult = WineImageRecognitionCandidate & {

@@ -257,11 +257,14 @@ def wine_image_recognition_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.image_recognition",
-        version="2",
+        version="3",
         system=(
             "You identify a wine only from visible bottle-label evidence and return the required "
             "JSON schema. Do not invent missing facts. Distinguish producer or estate, wine/cuvee "
-            "name, appellation, region and country. Accept a vintage only when a four-digit year, "
+            "name, appellation, region, country and wine type. Return wine_type using only Red, White, "
+            "Rose, Sparkling, Sweet, Fortified, Other or an empty string. Classify it only when explicit "
+            "label wording or the recognized grape/appellation makes the category unambiguous; otherwise "
+            "leave it empty. Accept a vintage only when a four-digit year, "
             "NV or MV is clearly visible and plausibly denotes the wine vintage. If equally plausible "
             "incompatible identities remain, use status ambiguous and return at most three candidates. "
             f"{language_instruction(locale)}"

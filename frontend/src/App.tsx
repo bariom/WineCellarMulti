@@ -1993,6 +1993,7 @@ export function App() {
         vintage: candidate.vintage || current.vintage,
         appellation: candidate.appellation || current.appellation,
         region: candidate.region || current.region,
+        type: normalizeWineType(candidate.wine_type || current.type),
         format: current.format || "Bottle (750ml)",
       }));
     } else {
@@ -2003,6 +2004,7 @@ export function App() {
         vintage: candidate.vintage || current.vintage,
         appellation: candidate.appellation || current.appellation,
         region: candidate.region || current.region,
+        type: normalizeWineType(candidate.wine_type || current.type),
         format: current.format || "Bottle (750ml)",
       }));
     }
@@ -2048,6 +2050,7 @@ export function App() {
       appellation: targetDraft.appellation.trim(),
       region: targetDraft.region.trim(),
       country: selectedWineImageCandidate?.country || wineImageRecognitionResult?.country || "",
+      wine_type: normalizeWineType(targetDraft.type),
     };
   }
 
@@ -2102,7 +2105,7 @@ export function App() {
           name,
           producer: recognition.producer || recognition.estate || catalogMatch?.producer || "",
           vintage: recognition.vintage || "",
-          type: catalogMatch?.type || "",
+          type: recognition.wine_type || catalogMatch?.type || "",
           region: recognition.region || catalogMatch?.region || "",
           appellation: recognition.appellation || catalogMatch?.appellation || "",
         }),
@@ -2753,6 +2756,9 @@ export function App() {
       loadMerchants(),
       loadPortfolioValueHistory(),
       loadNotifications(nextSession.authenticated),
+      nextSession.is_app_admin
+        ? loadPendingCatalogEntries(true)
+        : Promise.resolve(),
       loadBilling(nextSession.authenticated, nextSession.is_app_admin),
       loadHouseholdMemberships(),
       loadMyCoOwnershipAgreements(nextSession.authenticated),
@@ -2948,6 +2954,9 @@ export function App() {
         notificationsOpen && notificationCenter.items.length > 20
           ? Promise.resolve()
           : loadNotifications(true),
+        session.is_app_admin
+          ? loadPendingCatalogEntries(true)
+          : Promise.resolve(),
       ]).catch(() => undefined).finally(() => {
         notificationRefreshInFlight = false;
       });
@@ -7449,7 +7458,8 @@ export function App() {
     system: displayedCenterCounts.system + operationalActionItemsByCategory.system.length,
   };
   const allNotificationTabCount = notificationCategoryCounts.action + notificationCategoryCounts.update + notificationCategoryCounts.system;
-  const notificationCount = notificationActiveCounts.unread;
+  const notificationCount = notificationActiveCounts.unread
+    + (canAppAdmin ? pendingCatalogEntries.length : 0);
   const activeNotificationItems = notificationTab === "all"
     ? visibleCenterItems
     : visibleCenterItems.filter((item) => item.category === notificationTab);
@@ -9112,7 +9122,7 @@ export function App() {
                       </button>
                     ) : null}
                     {showAdminActionItems && showLiveAdminItems && canAppAdmin && pendingCatalogEntries.length ? (
-                      <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("users"); setNotificationsOpen(false); }}>
+                      <button type="button" className="notification-item" onClick={() => { setActiveView("settings"); setSettingsTab("operations"); loadSettingsTabData("operations"); setNotificationsOpen(false); }}>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon("ai_audit")}</i>{pendingCatalogEntries.length} {t("pendingCatalogEntries")}</strong>
                         <span>{t("approveCatalogEntry")}</span>
                       </button>

@@ -40,6 +40,7 @@ class WineImageRecognitionCandidate(BaseModel):
     appellation: str = ""
     region: str = ""
     country: str = ""
+    wine_type: str = ""
 
 
 class WineImageRecognitionResponse(WineImageRecognitionCandidate):

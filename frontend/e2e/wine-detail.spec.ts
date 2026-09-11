@@ -209,11 +209,19 @@ async function fulfillJson(route: Route, body: unknown, status = 200) {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnabled = false, cellarMemberships = memberships, fixtureWines = [wine]) {
+async function mockApi(
+  page: Page,
+  strategyAllocations: unknown[] = [],
+  aiEnabled = false,
+  cellarMemberships = memberships,
+  fixtureWines = [wine],
+  fixtureSession = session,
+  fixturePendingCatalog: unknown[] = [],
+) {
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive }) => {
+  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -232,6 +240,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
       else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] };
       else if (path.includes("/wines/tasting-archive")) body = fixtureTastingArchive;
+      else if (path.endsWith("/wines/catalog/pending")) body = fixturePendingCatalog;
       else if (path.endsWith("/wines")) body = fixtureWines;
       else if (path.includes("/wines/wine-e2e-1")) body = fixtureWine;
       else if (path.includes("/wine-pulse")) body = { items: [], total: 0, offset: 0, limit: 3, has_more: false };
@@ -239,6 +248,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("regional-gap-settings")) body = { targets: [], last_ai_suggestion: null };
       else if (path.includes("taste-profile/me")) body = { profiles: [{ category: "global", dimensions: { body: { preference: .8, confidence: .5, samples: 6 }, tannin: { preference: .7, confidence: .5, samples: 6 } }, attributes: { preferred_grapes: [["Nebbiolo", .8]] }, confidence: .5, sample_count: 6, confidence_level: "probable" }] };
       else if (path.includes("notifications")) body = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false };
+      else if (path.endsWith("/billing/redeem-codes")) body = [];
       else if (path.includes("billing")) body = { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" };
       else if (path.includes("household/memberships")) body = fixtureCellarMemberships;
       else if (path.includes("audit") || path.includes("tags") || path.includes("agreements") || path.includes("share-offers") || path.includes("share-offer") || path.includes("invites") || path.includes("recipients")) body = [];
@@ -246,12 +256,12 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureWines, fixtureSession: session, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive });
+  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
     const path = url.pathname;
-    if (path.endsWith("/session")) return fulfillJson(route, session);
+    if (path.endsWith("/session")) return fulfillJson(route, fixtureSession);
     if (path.endsWith("/intelligence/cellar")) return fulfillJson(route, intelligenceSnapshot);
     if (path.endsWith("/ai/cellar-intelligence/latest")) return fulfillJson(route, intelligencePlan);
     if (path.endsWith("/ai/cellar-intelligence/history")) return fulfillJson(route, [intelligencePlan, previousIntelligencePlan]);
@@ -263,6 +273,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
     if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] });
     if (path.includes("/wines/tasting-archive")) return fulfillJson(route, tastingArchive);
+    if (path.endsWith("/wines/catalog/pending")) return fulfillJson(route, fixturePendingCatalog);
     if (path.endsWith("/wines")) return fulfillJson(route, fixtureWines);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
     if (path.includes("/wine-pulse")) return fulfillJson(route, { items: [], total: 0, offset: 0, limit: 3, has_more: false });
@@ -272,6 +283,7 @@ async function mockApi(page: Page, strategyAllocations: unknown[] = [], aiEnable
     if (path.includes("regional-gap-settings")) return fulfillJson(route, { targets: [], last_ai_suggestion: null });
     if (path.includes("taste-profile/me")) return fulfillJson(route, { profiles: [{ category: "global", dimensions: { body: { preference: .8, confidence: .5, samples: 6 }, tannin: { preference: .7, confidence: .5, samples: 6 } }, attributes: { preferred_grapes: [["Nebbiolo", .8]] }, confidence: .5, sample_count: 6, confidence_level: "probable" }] });
     if (path.includes("operational-action-snoozes")) return fulfillJson(route, []);
+    if (path.endsWith("/billing/redeem-codes")) return fulfillJson(route, []);
     if (path.includes("billing")) return fulfillJson(route, { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" });
     if (path.includes("household/memberships")) return fulfillJson(route, cellarMemberships);
     if (path.includes("audit") || path.includes("tags") || path.includes("agreements") || path.includes("share-offers") || path.includes("share-offer") || path.includes("invites") || path.includes("recipients")) return fulfillJson(route, []);
@@ -291,6 +303,38 @@ async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
   await wineRow.click();
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
+
+test("app admin sees pending catalog wines from the normal interface", async ({ page }) => {
+  const pendingCatalogEntry = {
+    id: "catalog-pending-e2e",
+    name: "Nuovo Vino Test",
+    producer: "Tenuta E2E",
+    region: "Ticino",
+    appellation: "Ticino DOC",
+    type: "Red",
+    format: "Bottle (750ml)",
+    country: "Svizzera",
+    grapes_text: "Merlot",
+    source: "confirmed_recognition",
+    is_active: false,
+  };
+  await mockApi(
+    page,
+    [],
+    false,
+    memberships,
+    [wine],
+    { ...session, is_app_admin: true },
+    [pendingCatalogEntry],
+  );
+
+  await page.goto("/");
+
+  const notifications = page.getByRole("button", { name: "Notifiche", exact: true });
+  await expect(notifications.locator("strong")).toHaveText("1");
+  await notifications.click();
+  await expect(page.getByRole("button", { name: /1 Vini in catalogo da approvare/ })).toBeVisible();
+});
 
 test("opens the buying sommelier from desktop and mobile navigation", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

@@ -8,6 +8,7 @@ from fastapi import HTTPException, status
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.core.config import settings
+from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 from app.prompts import wine_image_recognition_prompt
 from app.services.openai_client import OpenAIResponse, create_response, parse_json_response
 
@@ -90,6 +91,10 @@ def recognition_json_schema() -> dict[str, Any]:
             "appellation": {"type": "string"},
             "region": {"type": "string"},
             "country": {"type": "string"},
+            "wine_type": {
+                "type": "string",
+                "enum": ["Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other", ""],
+            },
         },
         "required": [
             "producer",
@@ -100,6 +105,7 @@ def recognition_json_schema() -> dict[str, Any]:
             "appellation",
             "region",
             "country",
+            "wine_type",
         ],
     }
     return {
@@ -132,6 +138,7 @@ def recognition_json_schema() -> dict[str, Any]:
                 "appellation",
                 "region",
                 "country",
+                "wine_type",
                 "label_text",
                 "alternative_candidates",
                 "needs_user_confirmation",
@@ -143,6 +150,7 @@ def recognition_json_schema() -> dict[str, Any]:
 
 def normalize_candidate(value: object) -> dict[str, str]:
     item = value if isinstance(value, dict) else {}
+    wine_type = normalize_wine_type(clean_text(item.get("wine_type"), 80))
     return {
         "producer": clean_text(item.get("producer")),
         "estate": clean_text(item.get("estate")),
@@ -152,6 +160,7 @@ def normalize_candidate(value: object) -> dict[str, str]:
         "appellation": clean_text(item.get("appellation")),
         "region": clean_text(item.get("region")),
         "country": clean_text(item.get("country")),
+        "wine_type": wine_type if wine_type in CANONICAL_WINE_TYPES else "",
     }
 
 

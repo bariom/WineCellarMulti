@@ -2895,6 +2895,100 @@ def test_create_wine_adds_pending_entry_to_catalog_for_admin_approval():
     assert catalog.json()[0]["producer"] == "Producer Test"
 
 
+def test_catalog_approval_validates_existing_available_sensory_profiles():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+
+    created = client.post(
+        "/api/v1/wines/catalog",
+        json={
+            "name": "Vino Profilato Test",
+            "producer": "Tenuta Profilo",
+            "region": "Ticino",
+            "type": "Red",
+        },
+    )
+    assert created.status_code == 201
+
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user is not None
+        available_identity = SharedWineIdentity(
+            identity_key="catalog-profile-available",
+            normalized_name="vino profilato test",
+            normalized_producer="tenuta profilo",
+            normalized_vintage="2022",
+            name="Vino Profilato Test",
+            producer="Tenuta Profilo",
+            vintage="2022",
+        )
+        pending_identity = SharedWineIdentity(
+            identity_key="catalog-profile-pending",
+            normalized_name="vino profilato test",
+            normalized_producer="tenuta profilo",
+            normalized_vintage="2023",
+            name="Vino Profilato Test",
+            producer="Tenuta Profilo",
+            vintage="2023",
+        )
+        other_producer_identity = SharedWineIdentity(
+            identity_key="catalog-profile-other-producer",
+            normalized_name="vino profilato test",
+            normalized_producer="altra tenuta",
+            normalized_vintage="2022",
+            name="Vino Profilato Test",
+            producer="Altra Tenuta",
+            vintage="2022",
+        )
+        db.add_all([available_identity, pending_identity, other_producer_identity])
+        db.flush()
+        available_profile = WineSensoryProfile(
+            identity_id=available_identity.id,
+            dimensions={"body": 0.72, "acidity": 0.61},
+            source="ai",
+            confidence=0.82,
+            validated=False,
+            generation_status="available",
+        )
+        pending_profile = WineSensoryProfile(
+            identity_id=pending_identity.id,
+            dimensions={},
+            source="pending",
+            confidence=0.0,
+            validated=False,
+            generation_status="pending",
+        )
+        other_producer_profile = WineSensoryProfile(
+            identity_id=other_producer_identity.id,
+            dimensions={"body": 0.55},
+            source="ai",
+            confidence=0.7,
+            validated=False,
+            generation_status="available",
+        )
+        db.add_all([available_profile, pending_profile, other_producer_profile])
+        db.commit()
+        available_profile_id = available_profile.id
+        pending_profile_id = pending_profile.id
+        other_producer_profile_id = other_producer_profile.id
+        user_id = user.id
+
+    approved = client.post(f"/api/v1/wines/catalog/{created.json()['id']}/approve")
+    assert approved.status_code == 200
+
+    with TestingSessionLocal() as db:
+        available_profile = db.get(WineSensoryProfile, available_profile_id)
+        pending_profile = db.get(WineSensoryProfile, pending_profile_id)
+        other_producer_profile = db.get(WineSensoryProfile, other_producer_profile_id)
+        assert available_profile is not None
+        assert available_profile.validated is True
+        assert available_profile.last_modified_by_user_id == user_id
+        assert pending_profile is not None
+        assert pending_profile.validated is False
+        assert other_producer_profile is not None
+        assert other_producer_profile.validated is False
+
+
 def test_create_wine_without_complementary_data_does_not_create_catalog_entry():
     client = TestClient(app)
     assert register(client).status_code == 201

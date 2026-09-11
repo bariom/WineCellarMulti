@@ -24,6 +24,7 @@ def luna_result(**updates):
         "appellation": "Barolo DOCG",
         "region": "Piemonte",
         "country": "Italia",
+        "wine_type": "Red",
         "label_text": ["Fontanafredda", "Barolo", "2019"],
         "alternative_candidates": [],
         "needs_user_confirmation": True,
@@ -38,6 +39,7 @@ def test_normalize_successful_luna_recognition():
     assert result["status"] == "recognized"
     assert result["producer"] == "Fontanafredda"
     assert result["vintage"] == "2019"
+    assert result["wine_type"] == "Red"
     assert result["needs_user_confirmation"] is True
 
 
@@ -76,6 +78,11 @@ def test_partial_label_identity_is_proposed_without_a_visible_producer():
     assert result["status"] == "recognized"
     assert result["producer"] == ""
     assert result["needs_user_confirmation"] is True
+
+
+def test_wine_type_is_canonicalized_and_unknown_values_are_ignored():
+    assert normalize_luna_result(luna_result(wine_type="rosso"))["wine_type"] == "Red"
+    assert normalize_luna_result(luna_result(wine_type="Nebbiolo"))["wine_type"] == ""
 
 
 @pytest.mark.parametrize(
@@ -122,8 +129,9 @@ def test_wine_image_prompt_is_versioned_localized_and_conservative():
         known_context="producer unknown",
     )
     assert prompt.id == "wine.image_recognition"
-    assert prompt.version == "2"
+    assert prompt.version == "3"
     assert "Italian" in prompt.system
     assert "Do not invent" in prompt.system
     assert "Testamatta" in prompt.user
     assert "wine name plus appellation" in prompt.user
+    assert "wine_type" in prompt.system

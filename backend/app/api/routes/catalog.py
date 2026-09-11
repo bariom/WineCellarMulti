@@ -15,9 +15,16 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentContext, get_current_context, require_write_context
 from app.core.config import settings
-from app.core.wine_types import normalize_wine_type
+from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
 from app.db.session import get_db
-from app.models import Wine, WineCatalogAlias, WineCatalogEntry, WineRecognitionLog
+from app.models import (
+    SharedWineIdentity,
+    Wine,
+    WineCatalogAlias,
+    WineCatalogEntry,
+    WineRecognitionLog,
+    WineSensoryProfile,
+)
 from app.schemas.catalog import (
     CatalogWineCreate,
     CatalogWineResponse,
@@ -27,10 +34,12 @@ from app.schemas.catalog import (
     WineImageRecognitionResponse,
 )
 from app.services.openai_client import OpenAIResponse
+from app.services.shared_wine_data import normalize_identity_part
 from app.services.taste_profiles import (
     generate_wine_sensory_profile,
     mark_wine_for_sensory_enrichment,
     sensory_profile_for_wine,
+    validated_dimensions,
 )
 from app.services.wine_image_recognition import recognize_wine_from_image
 
@@ -86,6 +95,38 @@ def catalog_response(entry: WineCatalogEntry) -> CatalogWineResponse:
         source=entry.source,
         is_active=entry.is_active,
     )
+
+
+def validate_available_sensory_profiles_for_catalog_entry(
+    db: Session,
+    entry: WineCatalogEntry,
+    *,
+    modified_by_user_id: uuid.UUID,
+) -> int:
+    """Validate complete profiles for every vintage of an approved catalog wine."""
+    normalized_name = normalize_identity_part(entry.name)
+    normalized_producer = normalize_identity_part(entry.producer)
+    if not normalized_name or not normalized_producer:
+        return 0
+
+    profiles = db.scalars(
+        select(WineSensoryProfile)
+        .join(SharedWineIdentity, SharedWineIdentity.id == WineSensoryProfile.identity_id)
+        .where(
+            SharedWineIdentity.normalized_name == normalized_name,
+            SharedWineIdentity.normalized_producer == normalized_producer,
+            WineSensoryProfile.generation_status == "available",
+            WineSensoryProfile.validated.is_(False),
+        )
+    )
+    validated = 0
+    for profile in profiles:
+        if not validated_dimensions(profile.dimensions):
+            continue
+        profile.validated = True
+        profile.last_modified_by_user_id = modified_by_user_id
+        validated += 1
+    return validated
 
 
 def ensure_catalog_seeded(db: Session) -> None:
@@ -249,7 +290,7 @@ def confirmed_candidate_catalog_data(
         "region": candidate.region.strip()[:120],
         "appellation": candidate.appellation.strip()[:120],
         "country": candidate.country.strip()[:120],
-        "type": "",
+        "type": normalize_wine_type(candidate.wine_type),
         "format": "",
         "grapes_text": "",
     }
@@ -409,6 +450,11 @@ def approve_wine_catalog_entry(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catalog entry not found")
     entry.is_active = True
     entry.updated_at = datetime.now(UTC)
+    validate_available_sensory_profiles_for_catalog_entry(
+        db,
+        entry,
+        modified_by_user_id=context.user.id,
+    )
     db.commit()
     db.refresh(entry)
     return catalog_response(entry)
@@ -424,6 +470,7 @@ def empty_image_candidate() -> dict[str, str]:
         "appellation": "",
         "region": "",
         "country": "",
+        "wine_type": "",
     }
 
 
@@ -523,19 +570,18 @@ async def recognize_wine_bottle(
         }
 
     candidate = WineImageRecognitionCandidate.model_validate(result)
-    query = " ".join(
-        value
-        for value in (
-            candidate.producer,
-            candidate.estate,
-            candidate.wine_name,
-            candidate.cuvee,
-            candidate.vintage,
-            candidate.appellation,
-        )
-        if value
+    recognized_name = " ".join(
+        value for value in (candidate.wine_name, candidate.cuvee) if value
     )
+    recognized_producer = candidate.producer or candidate.estate
+    query = " ".join(
+        value for value in (recognized_producer, recognized_name) if value
+    ) or candidate.appellation
     matches = search_catalog_entries(db, query, 5) if query else []
+    matched_wine_type = normalize_wine_type(matches[0].type) if matches else ""
+    if matched_wine_type in CANONICAL_WINE_TYPES:
+        candidate.wine_type = matched_wine_type
+        result["wine_type"] = matched_wine_type
     recognition_id = uuid.uuid4()
     recognition_log = WineRecognitionLog(
         id=recognition_id,
