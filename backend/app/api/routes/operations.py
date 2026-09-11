@@ -48,6 +48,7 @@ from app.models import (
     UserActivityLog,
     UserMonitorDeviceToken,
     Wine,
+    WineCatalogEntry,
     WineNewsArticle,
     WineNewsCollectionRun,
     WineNewsSource,
@@ -189,6 +190,26 @@ def vineyard_identity(wine: Wine) -> tuple[str, str, str]:
     return normalize(wine.name), normalize(wine.producer), normalize(wine.vintage)
 
 
+def catalog_identity(name: object, producer: object) -> tuple[str, str]:
+    return (
+        re.sub(r"\s+", " ", str(name or "").strip()).casefold(),
+        re.sub(r"\s+", " ", str(producer or "").strip()).casefold(),
+    )
+
+
+def wines_present_in_central_catalog(db: Session) -> list[Wine]:
+    """Operational queues must not process wines whose central catalog entry was removed."""
+    catalog_identities = {
+        catalog_identity(name, producer)
+        for name, producer in db.execute(select(WineCatalogEntry.name, WineCatalogEntry.producer))
+    }
+    return [
+        wine
+        for wine in db.scalars(select(Wine).order_by(Wine.created_at.asc(), Wine.id.asc()))
+        if catalog_identity(wine.name, wine.producer) in catalog_identities
+    ]
+
+
 def vineyard_candidate(wine: Wine) -> dict[str, object]:
     return {
         "wine_id": str(wine.id),
@@ -264,7 +285,7 @@ def vineyard_research_queue(
     db: Session = Depends(get_db),
     _: CurrentContext = Depends(require_app_admin_context),
 ) -> dict[str, object]:
-    wines = list(db.scalars(select(Wine).order_by(Wine.created_at.asc(), Wine.id.asc())))
+    wines = wines_present_in_central_catalog(db)
     representatives: dict[tuple[str, str, str], Wine] = {}
     for wine in wines:
         representatives.setdefault(vineyard_identity(wine), wine)

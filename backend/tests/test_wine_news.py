@@ -225,7 +225,6 @@ def test_default_sources_include_broader_editorial_coverage():
 
     assert {
         "wine-industry-advisor",
-        "wein-plus-news",
         "winemag",
         "civilta-del-bere",
         "gambero-rosso",

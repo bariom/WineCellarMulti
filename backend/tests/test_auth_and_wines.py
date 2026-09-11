@@ -5810,6 +5810,13 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
             region="Bordeaux",
         )
         db.add(wine)
+        db.add(
+            WineCatalogEntry(
+                name=wine.name,
+                producer=wine.producer,
+                search_text=f"{wine.producer} {wine.name}".lower(),
+            )
+        )
         db.commit()
         wine_id = wine.id
 
@@ -6004,6 +6011,21 @@ def test_app_admin_can_save_a_sourced_approximate_locality(monkeypatch):
     assert saved.vineyard_source_url == ""
     assert saved.vineyard_name == "Tenuta di Vincigliata"
     assert saved.vineyard_notes == "Punto verificato e impostato manualmente dall'amministratore."
+    with TestingSessionLocal() as db:
+        catalog_entry = db.scalar(
+            select(WineCatalogEntry).where(
+                WineCatalogEntry.name == "Château Citran",
+                WineCatalogEntry.producer == "Château Citran",
+            )
+        )
+        assert catalog_entry is not None
+        db.delete(catalog_entry)
+        db.commit()
+        assert db.get(Wine, wine_id) is not None
+
+    removed_catalog_queue = client.get("/api/v1/admin/operations/vineyards?q=citran")
+    assert removed_catalog_queue.status_code == 200
+    assert removed_catalog_queue.json()["candidates"] == []
 
 
 def test_monitor_device_token_can_trigger_a_fresh_sample(monkeypatch):

@@ -99,13 +99,6 @@ DEFAULT_SOURCES = (
         "language": "en",
     },
     {
-        "id": "wein-plus-news",
-        "name": "wein.plus News",
-        "feed_url": "https://magazine.wein.plus/news/feed.xml",
-        "website_url": "https://magazine.wein.plus/",
-        "language": "en",
-    },
-    {
         "id": "winemag",
         "name": "WineMag",
         "feed_url": "https://winemag.it/feed/",
