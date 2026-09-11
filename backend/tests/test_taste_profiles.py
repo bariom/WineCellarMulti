@@ -261,6 +261,62 @@ def test_regeneration_completes_verified_metadata_before_profile(monkeypatch) ->
     assert profile is not None and profile.model == "metadata-model"
 
 
+def test_admin_can_complete_metadata_for_a_validated_profile(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="admin@example.test", display_name="Admin", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Metadata Upgrade", wine_type="Red")
+    db.add(
+        WineSensoryProfile(
+            identity_id=wine.shared_identity_id,
+            dimensions={"body": 0.55},
+            source="wine_type",
+            confidence=0.68,
+            validated=True,
+            generation_status="available",
+        )
+    )
+    db.add(
+        SensoryProfileBaseline(
+            entity_type="grape",
+            entity_key="nebbiolo",
+            dimensions={"body": 0.7, "tannin": 0.8},
+            confidence=0.85,
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "_ai_sensory_metadata",
+        lambda _wine, response_factory=None: (
+            {
+                "type": "Red",
+                "region": "Piemonte",
+                "appellation": "Langhe DOC",
+                "grapes": [{"name": "Nebbiolo"}],
+                "source_url": "https://example.test/wine",
+                "source_title": "Producer technical sheet",
+            },
+            "metadata-model",
+        ),
+    )
+
+    response = taste_profile_routes.complete_sensory_profile_metadata(
+        wine.shared_identity_id,
+        db,
+        SimpleNamespace(user=user, household=household, has_active_entitlement=True),
+    )
+
+    assert response.metadata_updated == ["region", "appellation", "grapes"]
+    assert response.validated is False
+    assert response.source == "grape"
+    assert wine.region == "Piemonte"
+    assert wine.appellation == "Langhe DOC"
+    assert wine.grapes == [{"name": "Nebbiolo"}]
+
+
 def test_orphan_identity_is_previewed_and_generated_without_creating_a_wine(monkeypatch):
     db = Session()
     household = Household(name="Home")

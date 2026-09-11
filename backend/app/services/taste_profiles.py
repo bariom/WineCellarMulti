@@ -224,10 +224,11 @@ def generate_wine_sensory_profile(
     allow_ai: bool = False,
     ai_generate: Callable[[Any], tuple[dict[str, float], str]] | None = None,
     modified_by_user_id: UUID | None = None,
+    force_refresh: bool = False,
 ) -> WineSensoryProfile | None:
     """Resolve once. AI is opt-in and only reached after every free source failed."""
     existing = sensory_profile_for_wine(db, wine, create_identity=True)
-    if existing and existing.validated:
+    if existing and existing.validated and not force_refresh:
         return existing
     dimensions, source, confidence = infer_sensory_profile(db, wine)
     model = ""

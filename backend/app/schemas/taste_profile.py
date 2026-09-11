@@ -16,6 +16,11 @@ class SensoryProfileResponse(BaseModel):
     generated_at: datetime
 
 
+class SensoryMetadataEnrichmentResponse(SensoryProfileResponse):
+    metadata_updated: list[str] = Field(default_factory=list)
+    estimated_cost_usd: str = "0"
+
+
 class TasteProfileResponse(BaseModel):
     category: str
     dimensions: dict[str, dict] = Field(default_factory=dict)

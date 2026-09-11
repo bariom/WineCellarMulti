@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
@@ -40,13 +41,14 @@ from app.schemas.taste_profile import (
     LegacyTastingClaimStatus,
     SensoryBaselineInput,
     SensoryBaselineResponse,
+    SensoryMetadataEnrichmentResponse,
     SensoryProfileResponse,
     SensoryProfileUpdate,
     TasteMatchResponse,
     TasteProfileCollectionResponse,
     TasteProfileResponse,
 )
-from app.services.openai_client import create_response
+from app.services.openai_client import OpenAIResponse, create_response
 from app.services.shared_wine_data import (
     identity_parts,
     normalize_identity_part,
@@ -376,7 +378,11 @@ def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:
     return dimensions, response.model
 
 
-def _ai_sensory_metadata(wine: Wine) -> tuple[dict[str, object], str]:
+def _ai_sensory_metadata(
+    wine: Wine,
+    *,
+    response_factory: Callable[[str, str, str, dict], OpenAIResponse] | None = None,
+) -> tuple[dict[str, object], str]:
     """Find source-backed identity metadata without overwriting cellar data."""
     if not settings.wine_sensory_ai_enabled:
         raise HTTPException(
@@ -410,18 +416,22 @@ def _ai_sensory_metadata(wine: Wine) -> tuple[dict[str, object], str]:
             "required": ["type", "region", "appellation", "grapes", "source_url", "source_title"],
         },
     }
-    response = create_response(
-        settings.openai_economy_model,
-        prompt.system,
-        prompt.user,
-        json_schema=schema,
-        web_search=True,
-        web_search_use_default_location=False,
-        web_search_context_size="low",
-        task_type="sensory_profile",
-        max_output_tokens=800,
-        max_tool_calls=1,
-        reasoning_effort="low",
+    response = (
+        response_factory(settings.openai_economy_model, prompt.system, prompt.user, schema)
+        if response_factory
+        else create_response(
+            settings.openai_economy_model,
+            prompt.system,
+            prompt.user,
+            json_schema=schema,
+            web_search=True,
+            web_search_use_default_location=False,
+            web_search_context_size="low",
+            task_type="sensory_profile",
+            max_output_tokens=800,
+            max_tool_calls=1,
+            reasoning_effort="low",
+        )
     )
     try:
         result = json.loads(response.text)
@@ -472,6 +482,28 @@ def _complete_missing_sensory_metadata(wine: Wine) -> str:
         wine.grapes_source_title = str(metadata.get("source_title") or "")[:200]
         wine.grapes_not_applicable = False
     return model
+
+
+def _apply_sensory_metadata(wine: Wine, metadata: dict[str, object]) -> list[str]:
+    """Apply only source-backed missing identity fields and report what changed."""
+    updated: list[str] = []
+    candidate_type = normalize_wine_type(str(metadata.get("type") or ""))
+    if not wine.type.strip() and candidate_type in CANONICAL_WINE_TYPES:
+        wine.type = candidate_type
+        updated.append("type")
+    if not wine.region.strip() and str(metadata.get("region") or "").strip():
+        wine.region = str(metadata["region"]).strip()[:120]
+        updated.append("region")
+    if not wine.appellation.strip() and str(metadata.get("appellation") or "").strip():
+        wine.appellation = str(metadata["appellation"]).strip()[:120]
+        updated.append("appellation")
+    if not wine.grapes and metadata.get("grapes"):
+        wine.grapes = cast(list[dict], metadata["grapes"])
+        wine.grapes_source_url = str(metadata.get("source_url") or "")[:500]
+        wine.grapes_source_title = str(metadata.get("source_title") or "")[:200]
+        wine.grapes_not_applicable = False
+        updated.append("grapes")
+    return updated
 
 
 def _generate_with_sensory_metadata(
@@ -780,6 +812,110 @@ def regenerate_sensory_profile(
         raise HTTPException(status_code=422, detail="No sensory profile can be inferred")
     db.commit()
     return sensory_response(generated)
+
+
+@router.post(
+    "/admin/profiles/{identity_id}/complete-metadata",
+    response_model=SensoryMetadataEnrichmentResponse,
+)
+def complete_sensory_profile_metadata(
+    identity_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> SensoryMetadataEnrichmentResponse:
+    """Research missing wine facts, then recalculate an existing sensory profile."""
+    from app.api.routes.ai import (
+        create_ai_response,
+        effective_response_model,
+        get_or_create_user_ai_settings,
+        record_ai_audit,
+    )
+
+    profile = _admin_profile(identity_id, db)
+    wine = db.scalar(
+        select(Wine)
+        .where(Wine.shared_identity_id == identity_id)
+        .order_by(Wine.created_at.desc())
+    )
+    if wine is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="A cellar wine is required to enrich this profile",
+        )
+
+    billed_response: OpenAIResponse | None = None
+    provider_source = ""
+
+    def response_factory(
+        model: str, system_prompt: str, user_prompt: str, json_schema: dict
+    ) -> OpenAIResponse:
+        nonlocal billed_response, provider_source
+        settings_for_user = get_or_create_user_ai_settings(db, context)
+        response, provider_source = create_ai_response(
+            db,
+            context,
+            settings_for_user,
+            model=model,
+            system_prompt=system_prompt,
+            user_prompt=user_prompt,
+            json_schema=json_schema,
+            web_search=True,
+            web_search_use_default_location=False,
+            web_search_context_size="low",
+            task_type="sensory_profile",
+            max_output_tokens=800,
+            max_tool_calls=1,
+            reasoning_effort="low",
+        )
+        billed_response = response
+        return response
+
+    metadata, model = _ai_sensory_metadata(wine, response_factory=response_factory)
+    if not metadata:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="No source-backed metadata was found for this wine",
+        )
+    updated = _apply_sensory_metadata(wine, metadata)
+    if not updated:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="The verified metadata does not add any missing wine facts",
+        )
+
+    profile.validated = False
+    generated = generate_wine_sensory_profile(
+        db,
+        wine,
+        modified_by_user_id=context.user.id,
+        force_refresh=True,
+    )
+    if generated is None or generated.generation_status != "available":
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="No sensory profile can be inferred from the enriched metadata",
+        )
+    generated.validated = False
+    generated.model = model[:120]
+    if billed_response is not None:
+        record_ai_audit(
+            db,
+            context,
+            entity_type="wine",
+            entity_id=wine.id,
+            feature="sensory_metadata_enrichment",
+            model=effective_response_model(billed_response, settings.openai_economy_model),
+            summary=f"Completed sensory metadata for {wine.producer} {wine.name}".strip(),
+            usage=billed_response.usage,
+            provider_source=provider_source,
+        )
+    db.commit()
+    db.refresh(generated)
+    return SensoryMetadataEnrichmentResponse(
+        **sensory_response(generated).model_dump(),
+        metadata_updated=updated,
+        estimated_cost_usd=str(billed_response.charged_cost_usd if billed_response else 0),
+    )
 
 
 @router.post("/admin/batch-preview", response_model=BatchEnrichmentPreview)
