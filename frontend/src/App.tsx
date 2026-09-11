@@ -7459,6 +7459,7 @@ export function App() {
   };
   const allNotificationTabCount = notificationCategoryCounts.action + notificationCategoryCounts.update + notificationCategoryCounts.system;
   const notificationCount = notificationActiveCounts.unread
+    + supplementalOperationalItems.length
     + (canAppAdmin ? pendingCatalogEntries.length : 0);
   const activeNotificationItems = notificationTab === "all"
     ? visibleCenterItems

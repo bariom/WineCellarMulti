@@ -336,6 +336,14 @@ test("app admin sees pending catalog wines from the normal interface", async ({ 
   await expect(page.getByRole("button", { name: /1 Vini in catalogo da approvare/ })).toBeVisible();
 });
 
+test("a wine marked To Collect immediately appears in notifications", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [{ ...wine, status: "To Collect" }]);
+  await page.goto("/");
+
+  const notifications = page.getByRole("button", { name: "Notifiche", exact: true });
+  await expect(notifications.locator("strong")).toBeVisible();
+});
+
 test("opens the buying sommelier from desktop and mobile navigation", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await mockApi(page);
