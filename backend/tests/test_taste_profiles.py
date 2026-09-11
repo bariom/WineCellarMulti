@@ -640,6 +640,30 @@ def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
     assert 0 < match["confidence"] < 0.3
 
 
+def test_wine_match_does_not_rebuild_a_missing_profile_during_a_list_read() -> None:
+    """A wine-list render may request many matches concurrently."""
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="match-read@example.test", display_name="Match", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Candidate")
+    db.commit()
+
+    response = taste_profile_routes.wine_taste_match(
+        wine.id,
+        db,
+        SimpleNamespace(
+            user=user,
+            household=household,
+            membership=SimpleNamespace(role="owner", visibility_scope="all"),
+        ),
+    )
+
+    assert response.score is None
+    assert db.scalar(select(UserTasteProfile.id).where(UserTasteProfile.user_id == user.id)) is None
+
+
 def test_external_tasting_contributes_to_the_private_taste_match() -> None:
     db = Session()
     household = Household(name="Home")

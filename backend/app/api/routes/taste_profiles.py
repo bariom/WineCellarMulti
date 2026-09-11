@@ -293,13 +293,13 @@ def wine_taste_match(
     db: Session = Depends(get_db),
     context: CurrentContext = Depends(get_current_context),
 ) -> TasteMatchResponse:
+    """Return a lightweight affinity estimate for a wine.
+
+    This endpoint is requested once for every visible wine card.  It must stay
+    read-only: rebuilding a missing profile here turns a list render into
+    concurrent profile rebuilds and can block interactive traffic.
+    """
     wine = get_household_wine(db, context, wine_id)
-    has_profile = db.scalar(
-        select(UserTasteProfile.id).where(UserTasteProfile.user_id == context.user.id).limit(1)
-    )
-    if has_profile is None:
-        rebuild_user_taste_profile(db, context.user.id)
-        db.commit()
     return TasteMatchResponse(**calculate_taste_match(db, context.user.id, wine))
 
 
@@ -833,9 +833,7 @@ def complete_sensory_profile_metadata(
 
     profile = _admin_profile(identity_id, db)
     wine = db.scalar(
-        select(Wine)
-        .where(Wine.shared_identity_id == identity_id)
-        .order_by(Wine.created_at.desc())
+        select(Wine).where(Wine.shared_identity_id == identity_id).order_by(Wine.created_at.desc())
     )
     if wine is None:
         raise HTTPException(
