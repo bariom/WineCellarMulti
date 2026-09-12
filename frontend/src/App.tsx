@@ -6481,14 +6481,10 @@ export function App() {
   }, [offlineMode, session?.authenticated, selectedWineId]);
 
   useEffect(() => {
-    if (offlineMode || !session?.authenticated || !selectedWineId || !canWriteWine) {
-      setShareOfferRecipients([]);
-      setOutgoingShareOffers([]);
-      return;
-    }
-    loadShareOfferRecipients(selectedWineId).catch(() => setShareOfferRecipients([]));
-    loadOutgoingShareOffers(selectedWineId).catch(() => setOutgoingShareOffers([]));
-  }, [offlineMode, session?.authenticated, selectedWineId, canWriteWine]);
+    setShareOfferRecipients([]);
+    setOutgoingShareOffers([]);
+    setShareDraft({ email: "", share_pct: "50", message: "" });
+  }, [selectedWineId]);
 
   const cellarOwnership = ownershipStats(cellarWines, session);
   const parsedValueRefreshDays = Number(valueRefreshDays);
@@ -11932,7 +11928,7 @@ export function App() {
                     <small>{selectedWine ? `${wineEditorStrategySummary?.wineId === selectedWine.id ? wineEditorStrategySummary.allocated : "–"} / ${selectedWine.quantity}` : "0 / 0"}</small>
                   </button>
                   <div className={`wine-editor-section-body ${openWineEditorSections.strategy ? "is-visible" : "is-preloaded"}`}>
-                    {editingId && selectedWine ? (
+                    {openWineEditorSections.strategy && editingId && selectedWine ? (
                       <WineStrategySection
                         wine={selectedWine}
                         locale={locale}

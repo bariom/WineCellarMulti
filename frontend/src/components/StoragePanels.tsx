@@ -141,6 +141,7 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged, onAlloc
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [requested, setRequested] = useState(embedded);
   const quantities = STRATEGY_PURPOSES.reduce<Record<WineStrategyPurpose, number>>((result, purpose) => {
     result[purpose] = allocations.filter((item) => item.purpose === purpose).reduce((total, item) => total + item.quantity, 0);
     return result;
@@ -156,8 +157,9 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged, onAlloc
   useEffect(() => {
     setEditing(false);
     setError("");
+    if (!requested) return;
     void load().catch(() => setAllocations([]));
-  }, [wine.id]);
+  }, [requested, wine.id]);
   function beginEdit() {
     setDraftQuantities(quantities);
     setError("");
@@ -204,7 +206,9 @@ export function WineStrategySection({ wine, locale, canWrite, onChanged, onAlloc
       setSaving(false);
     }
   }
-  return <details className={`detail-section wine-strategy-section${embedded ? " wine-strategy-section--embedded" : ""}`} data-wine-detail-section="04" tabIndex={-1} open={embedded || undefined}>
+  return <details className={`detail-section wine-strategy-section${embedded ? " wine-strategy-section--embedded" : ""}`} data-wine-detail-section="04" tabIndex={-1} open={embedded || undefined} onToggle={(event) => {
+    if ((event.currentTarget as HTMLDetailsElement).open) setRequested(true);
+  }}>
     {!embedded ? <summary className="wine-detail-structured-summary">
       <div><span>04</span><strong>{locale === "it" ? "Obiettivo in cantina" : "Cellar purpose"}</strong></div>
       <small>{allocated} / {wine.quantity}</small>

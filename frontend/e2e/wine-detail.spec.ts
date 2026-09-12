@@ -727,16 +727,18 @@ test.describe("Wine Detail compact/mobile", () => {
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
 
     const strategyToggle = editor.getByRole("button", { name: /Obiettivo in cantina/ });
-    const strategyCounter = strategyToggle.getByText("1 / 4", { exact: true });
     const auditToggle = editor.getByRole("button", { name: /Audit AI/ });
     const auditCounter = auditToggle.getByText("0", { exact: true });
-    await expect(strategyCounter).toBeVisible();
     await expect(auditCounter).toBeVisible();
-    for (const [toggle, counter] of [[strategyToggle, strategyCounter], [auditToggle, auditCounter]]) {
+    for (const [toggle, counter] of [[auditToggle, auditCounter]]) {
       const toggleBox = (await toggle.boundingBox())!;
       const counterBox = (await counter.boundingBox())!;
       expect(counterBox.x).toBeGreaterThan(toggleBox.x + toggleBox.width * 0.7);
     }
+
+    await expect(strategyToggle.getByText("– / 4", { exact: true })).toBeVisible();
+    await strategyToggle.click();
+    await expect(strategyToggle.getByText("1 / 4", { exact: true })).toBeVisible();
 
     await editor.getByRole("button", { name: /Profilo e riconoscimenti/ }).click();
     await expect(editor.getByRole("heading", { name: "Punteggi" })).toBeVisible();

@@ -960,15 +960,38 @@ function TasteHeartScale({ score, confidence, locale, compact = false, className
 
 export function TasteHearts({ wineId, locale, compact = false, className = "" }: { wineId: string; locale: Locale; compact?: boolean; className?: string }) {
   const [match, setMatch] = useState<TasteMatch | null>(null);
+  const [visible, setVisible] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
   useEffect(() => {
+    setMatch(null);
+    setVisible(false);
+    const target = anchorRef.current?.parentElement;
+    if (!target || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      setVisible(true);
+      observer.disconnect();
+    }, { rootMargin: "160px 0px" });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [wineId]);
+
+  useEffect(() => {
+    if (!visible) return;
     let active = true;
     api<TasteMatch>(`/api/v1/taste-profile/wines/${wineId}/match`)
       .then((result) => { if (active) setMatch(result); })
       .catch(() => { if (active) setMatch(null); });
     return () => { active = false; };
-  }, [wineId]);
-  if (!match || match.score === null) return null;
-  return <TasteHeartScale score={match.score} confidence={match.confidence} locale={locale} compact={compact} className={className} />;
+  }, [visible, wineId]);
+
+  return <span ref={anchorRef} className="taste-heart-anchor">
+    {match && match.score !== null ? <TasteHeartScale score={match.score} confidence={match.confidence} locale={locale} compact={compact} className={className} /> : null}
+  </span>;
 }
 
 function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
