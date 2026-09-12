@@ -398,10 +398,11 @@ function assessPhotoSetup(pixels: ImageData): PhotoSetupChecks {
       totalLuminance += luminance;
       sampledPixels += 1;
       if (red > 245 && green > 245 && blue > 245) highlightCount += 1;
-      // Test each side independently: a plain wall may be brighter on one side
-      // while still being an excellent background for isolating the bottle.
-      if (y > height * 0.08 && y < height * 0.52 && x < width * 0.22) leftBackgroundLuminance.push(luminance);
-      if (y > height * 0.08 && y < height * 0.52 && x > width * 0.78) rightBackgroundLuminance.push(luminance);
+      // Judge only the backdrop immediately around the guide. The outer frame
+      // and the lower support surface do not affect isolation and should not
+      // make an otherwise well-composed capture look unsuitable.
+      if (y > height * 0.1 && y < height * 0.48 && x > width * 0.15 && x < width * 0.28) leftBackgroundLuminance.push(luminance);
+      if (y > height * 0.1 && y < height * 0.48 && x > width * 0.72 && x < width * 0.85) rightBackgroundLuminance.push(luminance);
     }
   }
 
@@ -440,7 +441,7 @@ function assessPhotoSetup(pixels: ImageData): PhotoSetupChecks {
   }
 
   return {
-    backgroundUniform: backgroundDeviation < 30,
+    backgroundUniform: backgroundDeviation < 36,
     bottleAligned,
     lightingSuitable: lightingMean > 52 && lightingMean < 218 && highlightCount / Math.max(1, sampledPixels) < 0.08,
   };
