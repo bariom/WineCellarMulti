@@ -279,11 +279,12 @@ async function mockApi(
   fixtureWines = [wine],
   fixtureSession = session,
   fixturePendingCatalog: unknown[] = [],
+  fixtureNotificationCenter: unknown = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false },
 ) {
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
-  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive, tasteProfileCollection }) => {
+  await page.addInitScript(({ fixtureWine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations, fixtureIntelligenceSnapshot, fixtureIntelligencePlan, fixturePreviousIntelligencePlan, fixtureAiEnabled, fixtureCellarMemberships, fixtureMerchants, fixtureTastingArchive, tasteProfileCollection }) => {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = async (input, init) => {
       const requestUrl = typeof input === "string" ? input : input instanceof URL ? input.toString() : input.url;
@@ -309,7 +310,7 @@ async function mockApi(
       else if (path.includes("value-history/portfolio") || path.includes("wishlist/lists") || path.includes("operational-action-snoozes")) body = [];
       else if (path.includes("regional-gap-settings")) body = { targets: [], last_ai_suggestion: null };
       else if (path.includes("taste-profile/me")) body = tasteProfileCollection;
-      else if (path.includes("notifications")) body = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false };
+      else if (path.includes("notifications")) body = fixtureNotificationCenter;
       else if (path.endsWith("/billing/redeem-codes")) body = [];
       else if (path.includes("billing")) body = { is_free_tier: false, has_active_entitlement: true, entitlement_valid_until: null, entitlement_days_remaining: null, ai_credit_balance_usd: "0" };
       else if (path.includes("household/memberships")) body = fixtureCellarMemberships;
@@ -318,7 +319,7 @@ async function mockApi(
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive, tasteProfileCollection });
+  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive, tasteProfileCollection });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -341,7 +342,7 @@ async function mockApi(
     if (path.includes("/wine-pulse")) return fulfillJson(route, { items: [], total: 0, offset: 0, limit: 3, has_more: false });
     if (path.includes("value-history/portfolio")) return fulfillJson(route, []);
     if (path.includes("wishlist/lists")) return fulfillJson(route, []);
-    if (path.includes("notifications")) return fulfillJson(route, { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false });
+    if (path.includes("notifications")) return fulfillJson(route, fixtureNotificationCenter);
     if (path.includes("regional-gap-settings")) return fulfillJson(route, { targets: [], last_ai_suggestion: null });
     if (path.includes("taste-profile/me")) return fulfillJson(route, tasteProfileCollection);
     if (path.includes("operational-action-snoozes")) return fulfillJson(route, []);
@@ -404,6 +405,58 @@ test("a wine marked To Collect immediately appears in notifications", async ({ p
 
   const notifications = page.getByRole("button", { name: "Notifiche", exact: true });
   await expect(notifications.locator("strong")).toBeVisible();
+});
+
+test("separates archivable notifications from operational reminders", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const notificationCenter = {
+    items: [{
+      id: "notification-e2e-1",
+      source: "notification",
+      kind: "value_updated",
+      category: "update",
+      state: "unread",
+      title: "Valore aggiornato",
+      message: "La stima di mercato è stata aggiornata.",
+      action_url: null,
+      action_kind: "open",
+      resource_id: null,
+      actor_label: null,
+      metadata: {},
+      created_at: "2026-09-12T10:00:00Z",
+      read_at: null,
+      archived_at: null,
+    }],
+    counts: { total: 1, unread: 1, actionable: 0, attention: 1, actions: 0, updates: 1, system: 0 },
+    offset: 0,
+    next_offset: null,
+    has_more: false,
+  };
+  await mockApi(page, [], false, memberships, [{ ...wine, status: "To Collect" }], session, [], notificationCenter);
+  await page.goto("/");
+
+  await page.getByRole("button", { name: "Notifiche", exact: true }).click();
+  await expect(page.getByLabel(/elementi da controllare/)).toBeVisible();
+
+  const notificationSection = page.getByRole("region", { name: "Notifiche" });
+  await expect(notificationSection.getByText("Messaggi ed eventi: puoi segnarli come letti o archiviarli.")).toBeVisible();
+  await expect(notificationSection.getByRole("button", { name: "Segna letta" })).toBeVisible();
+  await expect(notificationSection.getByRole("button", { name: "Archivia" })).toBeVisible();
+
+  const reminderSection = page.getByRole("region", { name: "Promemoria operativi" });
+  await expect(reminderSection.getByText(/Derivano dallo stato della cantina/)).toBeVisible();
+  await expect(reminderSection.getByText("Non è una notifica da archiviare").first()).toBeVisible();
+  await expect(reminderSection.getByRole("button", { name: "Rimanda di 14 giorni" }).first()).toBeVisible();
+  await expect(reminderSection.getByRole("button", { name: "Archivia" })).toHaveCount(0);
+
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }]) {
+    await page.setViewportSize(viewport);
+    const [notificationBox, reminderBox] = await Promise.all([notificationSection.boundingBox(), reminderSection.boundingBox()]);
+    expect(notificationBox).not.toBeNull();
+    expect(reminderBox).not.toBeNull();
+    expect(notificationBox!.y + notificationBox!.height).toBeLessThanOrEqual(reminderBox!.y);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
 });
 
 test("opens the buying sommelier from desktop and mobile navigation", async ({ page }) => {

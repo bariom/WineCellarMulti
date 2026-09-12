@@ -8960,11 +8960,11 @@ export function App() {
                     <div className="notification-heading">
                       <div>
                         <strong>{locale === "it" ? "Centro di controllo" : "Control center"}</strong>
-                        <span>{locale === "it" ? "Eventi e attività operative" : "Events and operational activity"}</span>
+                        <span>{locale === "it" ? "Notifiche e promemoria operativi" : "Notifications and operational reminders"}</span>
                       </div>
                       <div className="notification-heading-actions">
-                        <span className="notification-unread-count" aria-label={locale === "it" ? `${notificationCount} notifiche nuove` : `${notificationCount} new notifications`}>
-                          {notificationCount} <small>{locale === "it" ? "nuove" : "new"}</small>
+                        <span className="notification-unread-count" aria-label={locale === "it" ? `${notificationCount} elementi da controllare` : `${notificationCount} items to review`}>
+                          {notificationCount} <small>{locale === "it" ? "da controllare" : "to review"}</small>
                         </span>
                         <button
                           type="button"
@@ -9009,7 +9009,7 @@ export function App() {
                           : category === "action"
                           ? (locale === "it" ? "Da fare" : "To do")
                           : category === "update"
-                            ? (locale === "it" ? "Aggiornamenti" : "Updates")
+                            ? (locale === "it" ? "Novità" : "Updates")
                             : (locale === "it" ? "Sistema" : "System");
                         return (
                           <button
@@ -9027,6 +9027,20 @@ export function App() {
                       })}
                     </div>
                     <div className="notification-feed" role="tabpanel">
+                    {activeNotificationItems.length ? (
+                      <section
+                        className="notification-feed-section notification-feed-section-events"
+                        aria-label={notificationView === "archived" ? (locale === "it" ? "Notifiche archiviate" : "Archived notifications") : t("notifications")}
+                      >
+                        <div className="notification-feed-section-heading">
+                          <div>
+                            <strong>{notificationView === "archived" ? (locale === "it" ? "Notifiche archiviate" : "Archived notifications") : t("notifications")}</strong>
+                            <span>{notificationView === "archived"
+                              ? (locale === "it" ? "Puoi ripristinarle o eliminarle definitivamente." : "You can restore or permanently delete them.")
+                              : (locale === "it" ? "Messaggi ed eventi: puoi segnarli come letti o archiviarli." : "Messages and events: mark them as read or archive them.")}</span>
+                          </div>
+                          <b>{activeNotificationItems.length}</b>
+                        </div>
                     {activeNotificationItems.map((item) => {
                       const notificationCopy = localizedNotification(item, locale);
                       return (
@@ -9096,8 +9110,33 @@ export function App() {
                       </div>
                       );
                     })}
+                    {notificationCenter.has_more ? (
+                      <button type="button" className="secondary notification-load-more" onClick={loadMoreNotifications}>
+                        {locale === "it" ? "Carica altre" : "Load more"}
+                      </button>
+                    ) : null}
+                      </section>
+                    ) : null}
+                    {activeOperationalItems.length || (showAdminActionItems && showLiveAdminItems && canAppAdmin && (pendingUsers.length || pendingCatalogEntries.length)) ? (
+                      <section
+                        className="notification-feed-section notification-feed-section-reminders"
+                        aria-label={locale === "it" ? "Promemoria operativi" : "Operational reminders"}
+                      >
+                        <div className="notification-feed-section-heading">
+                          <div>
+                            <strong>{locale === "it" ? "Promemoria operativi" : "Operational reminders"}</strong>
+                            <span>{locale === "it"
+                              ? "Derivano dallo stato della cantina: scompaiono quando risolti oppure puoi rimandarli di 14 giorni."
+                              : "Based on your cellar status: they disappear when resolved, or you can postpone them for 14 days."}</span>
+                          </div>
+                          <b>{activeOperationalItems.length + (showAdminActionItems && showLiveAdminItems && canAppAdmin ? pendingUsers.length + pendingCatalogEntries.length : 0)}</b>
+                        </div>
                     {activeOperationalItems.map((item) => (
                       <div className="notification-item operational-action-item" key={`operational:${item.id}`}>
+                        <div className="operational-action-meta">
+                          <span>{locale === "it" ? "Promemoria" : "Reminder"}</span>
+                          <small>{locale === "it" ? "Non è una notifica da archiviare" : "Not an archivable notification"}</small>
+                        </div>
                         <button type="button" className="operational-action-open" onClick={item.onOpen}>
                           <strong className="notification-title">
                             <i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>
@@ -9123,13 +9162,10 @@ export function App() {
                         <span>{t("approveCatalogEntry")}</span>
                       </button>
                     ) : null}
+                      </section>
+                    ) : null}
                     {!activeNotificationItems.length && !activeOperationalItems.length && !(showAdminActionItems && adminActionCount) ? (
                       <p className="empty-state">{locale === "it" ? "Nessuna attività in questa sezione" : "No activity in this section"}</p>
-                    ) : null}
-                    {notificationCenter.has_more ? (
-                      <button type="button" className="secondary notification-load-more" onClick={loadMoreNotifications}>
-                        {locale === "it" ? "Carica altre" : "Load more"}
-                      </button>
                     ) : null}
                     </div>
                   </div>
