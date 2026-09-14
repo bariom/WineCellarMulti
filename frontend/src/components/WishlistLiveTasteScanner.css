@@ -62,7 +62,7 @@
 }
 
 .wishlist-live-scan-stage video,
-.wishlist-live-scan-stage > img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: cover; }
+.wishlist-live-scan-stage > img { width: 100%; height: 100%; position: absolute; inset: 0; object-fit: contain; }
 
 .wishlist-live-scan-reticle { position: absolute; inset: 20% 14% 28%; transition: opacity .25s ease; }
 .wishlist-live-scan-reticle i { position: absolute; width: 44px; height: 44px; border-color: #ffe19a; border-style: solid; filter: drop-shadow(0 2px 5px #000); }

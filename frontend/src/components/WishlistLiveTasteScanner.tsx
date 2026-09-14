@@ -11,6 +11,21 @@ export type WishlistLiveTasteScan = {
 
 type ScannerPhase = "framing" | "analysing" | "result" | "error";
 
+async function resetCameraZoom(stream: MediaStream) {
+  const track = stream.getVideoTracks()[0];
+  const capabilities = (track as unknown as { getCapabilities?: () => { zoom?: { min: number; max: number } } } | undefined)
+    ?.getCapabilities?.();
+  const zoom = capabilities?.zoom;
+  if (!track || !zoom) return;
+  const normalZoom = Math.min(zoom.max, Math.max(zoom.min, 1));
+
+  try {
+    await track.applyConstraints({ advanced: [{ zoom: normalZoom }] } as unknown as MediaTrackConstraints);
+  } catch {
+    // Some cameras expose zoom capabilities but do not allow changing them.
+  }
+}
+
 function frameBlob(video: HTMLVideoElement): Promise<{ blob: Blob; previewUrl: string }> {
   const canvas = document.createElement("canvas");
   const maxWidth = 1600;
@@ -110,6 +125,7 @@ export function WishlistLiveTasteScanner({
         audio: false,
       });
       streamRef.current = stream;
+      await resetCameraZoom(stream);
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play();
