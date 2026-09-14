@@ -4,6 +4,8 @@ from __future__ import annotations
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -702,6 +704,48 @@ def test_external_tasting_contributes_to_the_private_taste_match() -> None:
     rebuild_user_taste_profile(db, user.id)
 
     assert calculate_taste_match(db, user.id, candidate)["score"] is not None
+
+
+def test_explicit_external_tasting_enrichment_surfaces_ai_configuration_errors(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="outside-enrichment@example.test", display_name="Outside", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Needs a profile", wine_type="")
+    db.add(
+        ExternalWineTasting(
+            household_id=household.id,
+            created_by_user_id=user.id,
+            shared_identity_id=wine.shared_identity_id,
+            name=wine.name,
+            producer=wine.producer,
+            vintage=wine.vintage,
+            type=wine.type,
+            region=wine.region,
+            appellation=wine.appellation,
+            consumed_at=date(2026, 1, 1),
+            rating=5,
+            enjoyment="positive",
+        )
+    )
+    db.commit()
+    called_with_explicit_request = False
+
+    def unavailable_enrichment(_db, _context, _tasting, *, raise_configuration_errors=False):
+        nonlocal called_with_explicit_request
+        called_with_explicit_request = raise_configuration_errors
+        raise HTTPException(status_code=503, detail="No AI provider configured")
+
+    monkeypatch.setattr(
+        taste_profile_routes, "enrich_external_tasting_sensory_profile", unavailable_enrichment
+    )
+    context = SimpleNamespace(user=user, household=household)
+
+    with pytest.raises(HTTPException, match="No AI provider configured"):
+        taste_profile_routes.enrich_external_tastings(db, context)
+
+    assert called_with_explicit_request
 
 
 def test_private_star_rating_contributes_without_becoming_another_users_signal() -> None:

@@ -245,7 +245,9 @@ def enrich_external_tastings(
     for tasting in tastings:
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
-        enrich_external_tasting_sensory_profile(db, context, tasting)
+        enrich_external_tasting_sensory_profile(
+            db, context, tasting, raise_configuration_errors=True
+        )
         profile = sensory_profile_for_wine(db, tasting)
         if profile is not None and profile.generation_status == "available":
             enriched += 1

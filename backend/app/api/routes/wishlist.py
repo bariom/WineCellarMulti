@@ -50,10 +50,19 @@ WISHLIST_AI_DATE_FEATURES = {"wishlist_strategy", "wishlist_target_price", "wish
 
 
 def enrich_external_tasting_sensory_profile(
-    db: Session, context: CurrentContext, tasting: ExternalWineTasting
+    db: Session,
+    context: CurrentContext,
+    tasting: ExternalWineTasting,
+    *,
+    raise_configuration_errors: bool = False,
 ) -> None:
     """Best-effort, billable sensory enrichment for a personally recorded outside tasting."""
     if not settings.wine_sensory_ai_enabled:
+        if raise_configuration_errors:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Sensory profile AI generation is disabled",
+            )
         return
     # Imported lazily: the AI route also uses wishlist helpers during application startup.
     from app.api.routes.ai import (
@@ -140,6 +149,14 @@ def enrich_external_tasting_sensory_profile(
             ai_generate=ai_generate,
             modified_by_user_id=context.user.id,
         )
+    except HTTPException as exc:
+        if raise_configuration_errors and exc.status_code in {
+            status.HTTP_402_PAYMENT_REQUIRED,
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+        }:
+            raise
+        # Recording a real tasting must never fail because one enrichment fails.
+        return
     except Exception:
         # Recording a real tasting must never fail because credits, a provider, or AI are unavailable.
         return
