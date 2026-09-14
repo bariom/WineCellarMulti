@@ -48,6 +48,17 @@ class LegacyTastingClaimResponse(TasteProfileCollectionResponse):
 
 class ExternalTastingEnrichmentPreview(BaseModel):
     missing_count: int = 0
+    items: list[ExternalTastingEnrichmentItem] = Field(default_factory=list)
+
+
+class ExternalTastingEnrichmentItem(BaseModel):
+    id: UUID
+    name: str
+    producer: str = ""
+    vintage: str = ""
+    type: str = ""
+    region: str = ""
+    appellation: str = ""
 
 
 class ExternalTastingEnrichmentResponse(TasteProfileCollectionResponse):

@@ -773,13 +773,17 @@ def test_external_tasting_enrichment_returns_the_total_ai_cost(monkeypatch) -> N
         )
     )
     db.commit()
+    context = SimpleNamespace(user=user, household=household)
+    preview = taste_profile_routes.external_tasting_enrichment_preview(db, context)
+    assert preview.missing_count == 1
+    assert [(item.producer, item.name, item.vintage) for item in preview.items] == [
+        ("Producer", "Costed profile", "2020")
+    ]
     monkeypatch.setattr(
         taste_profile_routes,
         "enrich_external_tasting_sensory_profile",
         lambda *_args, **_kwargs: Decimal("0.012345"),
     )
-    context = SimpleNamespace(user=user, household=household)
-
     result = taste_profile_routes.enrich_external_tastings(db, context)
 
     assert result.estimated_cost_usd == Decimal("0.012345")

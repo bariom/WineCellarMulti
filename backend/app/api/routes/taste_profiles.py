@@ -36,6 +36,7 @@ from app.schemas.taste_profile import (
     BatchEnrichmentPreview,
     BatchEnrichmentRequest,
     BatchProfileApprovalResponse,
+    ExternalTastingEnrichmentItem,
     ExternalTastingEnrichmentPreview,
     ExternalTastingEnrichmentResponse,
     LegacyTastingClaimResponse,
@@ -229,8 +230,21 @@ def legacy_tasting_status(
 def external_tasting_enrichment_preview(
     db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)
 ) -> ExternalTastingEnrichmentPreview:
+    tastings = external_tastings_missing_sensory_profiles(db, context)
     return ExternalTastingEnrichmentPreview(
-        missing_count=len(external_tastings_missing_sensory_profiles(db, context))
+        missing_count=len(tastings),
+        items=[
+            ExternalTastingEnrichmentItem(
+                id=tasting.id,
+                name=tasting.name,
+                producer=tasting.producer,
+                vintage=tasting.vintage,
+                type=tasting.type,
+                region=tasting.region,
+                appellation=tasting.appellation,
+            )
+            for tasting in tastings
+        ],
     )
 
 
