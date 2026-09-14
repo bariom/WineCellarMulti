@@ -1441,6 +1441,7 @@ export function App() {
   });
   const observedNotificationKindsRef = useRef(new Set<string>());
   const observedNotificationScopeRef = useRef<string | null>(null);
+  const notificationRequestIdRef = useRef(0);
   const [notificationActiveCounts, setNotificationActiveCounts] = useState<NotificationCenterResponse["counts"]>({ total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 });
   const [notificationTab, setNotificationTab] = useState<"all" | NotificationCenterCategory>("all");
   const [notificationView, setNotificationView] = useState<"active" | "archived">("active");
@@ -2565,6 +2566,8 @@ export function App() {
     } = {},
   ) {
     if (authenticated) {
+      const requestId = notificationRequestIdRef.current + 1;
+      notificationRequestIdRef.current = requestId;
       const notificationScope = session?.user_email || "";
       if (observedNotificationScopeRef.current !== notificationScope) {
         observedNotificationScopeRef.current = notificationScope;
@@ -2583,6 +2586,7 @@ export function App() {
       });
       if (category) query.set("category", category);
       const center = await api<NotificationCenterResponse>(`/api/v1/notifications/center?${query}`);
+      if (requestId !== notificationRequestIdRef.current) return;
       const items = center.items.map((item) => item.kind === "smart_to_collect"
         ? { ...item, category: "action" as const }
         : item);
@@ -2605,6 +2609,7 @@ export function App() {
       }));
       if (view === "active" && itemState === "all") setNotificationActiveCounts(counts);
     } else {
+      notificationRequestIdRef.current += 1;
       observedNotificationScopeRef.current = null;
       observedNotificationKindsRef.current.clear();
       setNotificationCenter({
