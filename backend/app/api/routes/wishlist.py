@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import cast
 from uuid import UUID
 
@@ -17,7 +18,7 @@ from app.core.config import settings
 from app.core.wine_types import normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, ExternalWineTasting, Wine, WishlistItem, WishlistList
-from app.prompts.library import wine_sensory_profile_prompt
+from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profile_prompt
 from app.schemas.taste_profile import TasteMatchResponse
 from app.schemas.wishlist import (
     ExternalWineTastingCreate,
@@ -55,15 +56,15 @@ def enrich_external_tasting_sensory_profile(
     tasting: ExternalWineTasting,
     *,
     raise_configuration_errors: bool = False,
-) -> None:
-    """Best-effort, billable sensory enrichment for a personally recorded outside tasting."""
+) -> Decimal:
+    """Enrich a personally recorded tasting, using verified AI research when needed."""
     if not settings.wine_sensory_ai_enabled:
         if raise_configuration_errors:
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Sensory profile AI generation is disabled",
             )
-        return
+        return Decimal("0")
     # Imported lazily: the AI route also uses wishlist helpers during application startup.
     from app.api.routes.ai import (
         create_ai_response,
@@ -72,6 +73,108 @@ def enrich_external_tasting_sensory_profile(
     )
 
     response_details: dict[str, object] = {}
+    total_cost = Decimal("0")
+    researched_grapes: list[dict[str, str]] = []
+
+    def charged_cost(response: object) -> Decimal:
+        try:
+            return Decimal(str(getattr(response, "charged_cost_usd", "0") or "0"))
+        except Exception:
+            return Decimal("0")
+
+    def research_missing_metadata() -> None:
+        nonlocal total_cost, researched_grapes
+        prompt = wine_sensory_metadata_prompt(
+            wine_context={
+                "name": tasting.name,
+                "producer": tasting.producer,
+                "vintage": tasting.vintage,
+                "type": tasting.type,
+                "region": tasting.region,
+                "appellation": tasting.appellation,
+                "grapes": [],
+            }
+        )
+        schema = {
+            "name": "wine_sensory_metadata",
+            "schema": {
+                "type": "object",
+                "additionalProperties": False,
+                "properties": {
+                    "type": {"type": "string"},
+                    "region": {"type": "string"},
+                    "appellation": {"type": "string"},
+                    "grapes": {"type": "array", "items": {"type": "string"}},
+                    "source_url": {"type": "string"},
+                    "source_title": {"type": "string"},
+                },
+                "required": [
+                    "type",
+                    "region",
+                    "appellation",
+                    "grapes",
+                    "source_url",
+                    "source_title",
+                ],
+            },
+        }
+        response, provider_source = create_ai_response(
+            db,
+            context,
+            get_or_create_user_ai_settings(db, context),
+            model=settings.openai_economy_model,
+            system_prompt=prompt.system,
+            user_prompt=prompt.user,
+            json_schema=schema,
+            web_search=True,
+            web_search_use_default_location=False,
+            web_search_context_size="low",
+            task_type="sensory_profile",
+            max_output_tokens=800,
+            max_tool_calls=1,
+            reasoning_effort="low",
+        )
+        total_cost += charged_cost(response)
+        try:
+            result = json.loads(response.text)
+        except (TypeError, json.JSONDecodeError):
+            result = {}
+        source_url = str(result.get("source_url") or "").strip()
+        verified_source = next(
+            (
+                source
+                for source in response.web_sources
+                if str(source.get("url") or "").strip().rstrip("/") == source_url.rstrip("/")
+            ),
+            None,
+        )
+        record_ai_audit(
+            db,
+            context,
+            entity_type="external_tasting",
+            entity_id=tasting.id,
+            feature="sensory_metadata",
+            model=str(response.model or settings.openai_economy_model),
+            summary="Researched sensory metadata for an outside tasting",
+            reasoning_effort="low",
+            sources=[verified_source] if verified_source else [],
+            usage=response.usage,
+            provider_source=provider_source,
+        )
+        if not verified_source:
+            return
+        candidate_type = normalize_wine_type(str(result.get("type") or ""))
+        if not tasting.type.strip() and candidate_type:
+            tasting.type = candidate_type
+        if not tasting.region.strip():
+            tasting.region = str(result.get("region") or "").strip()[:120]
+        if not tasting.appellation.strip():
+            tasting.appellation = str(result.get("appellation") or "").strip()[:120]
+        researched_grapes = [
+            {"name": grape.strip()}
+            for item in result.get("grapes", [])
+            if isinstance(item, str) and (grape := item.strip())
+        ]
 
     def ai_generate(item: Wine | ExternalWineTasting) -> tuple[dict[str, float], str]:
         prompt = wine_sensory_profile_prompt(
@@ -82,7 +185,7 @@ def enrich_external_tasting_sensory_profile(
                 "type": item.type,
                 "region": item.region,
                 "appellation": item.appellation,
-                "grapes": [],
+                "grapes": researched_grapes,
                 "description": "",
             }
         )
@@ -139,9 +242,19 @@ def enrich_external_tasting_sensory_profile(
             provider_source=provider_source,
             usage=response.usage,
         )
+        nonlocal total_cost
+        total_cost += charged_cost(response)
         return dimensions, str(response_details["model"])
 
     try:
+        profile = generate_wine_sensory_profile(
+            db,
+            tasting,
+            modified_by_user_id=context.user.id,
+        )
+        if profile is not None and profile.generation_status == "available":
+            return total_cost
+        research_missing_metadata()
         profile = generate_wine_sensory_profile(
             db,
             tasting,
@@ -156,10 +269,10 @@ def enrich_external_tasting_sensory_profile(
         }:
             raise
         # Recording a real tasting must never fail because one enrichment fails.
-        return
+        return total_cost
     except Exception:
         # Recording a real tasting must never fail because credits, a provider, or AI are unavailable.
-        return
+        return total_cost
     if profile is not None and profile.source == "ai" and response_details:
         record_ai_audit(
             db,
@@ -173,6 +286,7 @@ def enrich_external_tasting_sensory_profile(
             usage=cast(TokenUsage, response_details["usage"]),
             provider_source=str(response_details["provider_source"]),
         )
+    return total_cost
 
 
 def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) -> WishlistList:

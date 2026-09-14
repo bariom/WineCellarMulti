@@ -2,6 +2,7 @@ from __future__ import annotations
 
 # ruff: noqa: E501
 from datetime import date
+from decimal import Decimal
 from types import SimpleNamespace
 
 import pytest
@@ -746,6 +747,42 @@ def test_explicit_external_tasting_enrichment_surfaces_ai_configuration_errors(m
         taste_profile_routes.enrich_external_tastings(db, context)
 
     assert called_with_explicit_request
+
+
+def test_external_tasting_enrichment_returns_the_total_ai_cost(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="outside-cost@example.test", display_name="Outside", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Costed profile", wine_type="")
+    db.add(
+        ExternalWineTasting(
+            household_id=household.id,
+            created_by_user_id=user.id,
+            shared_identity_id=wine.shared_identity_id,
+            name=wine.name,
+            producer=wine.producer,
+            vintage=wine.vintage,
+            type=wine.type,
+            region=wine.region,
+            appellation=wine.appellation,
+            consumed_at=date(2026, 1, 1),
+            rating=5,
+            enjoyment="positive",
+        )
+    )
+    db.commit()
+    monkeypatch.setattr(
+        taste_profile_routes,
+        "enrich_external_tasting_sensory_profile",
+        lambda *_args, **_kwargs: Decimal("0.012345"),
+    )
+    context = SimpleNamespace(user=user, household=household)
+
+    result = taste_profile_routes.enrich_external_tastings(db, context)
+
+    assert result.estimated_cost_usd == Decimal("0.012345")
 
 
 def test_private_star_rating_contributes_without_becoming_another_users_signal() -> None:

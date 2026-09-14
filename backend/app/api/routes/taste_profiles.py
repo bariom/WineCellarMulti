@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import cast
 from uuid import UUID
 
@@ -242,10 +243,11 @@ def enrich_external_tastings(
 ) -> ExternalTastingEnrichmentResponse:
     tastings = external_tastings_missing_sensory_profiles(db, context)
     enriched = 0
+    total_cost = Decimal("0")
     for tasting in tastings:
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
-        enrich_external_tasting_sensory_profile(
+        total_cost += enrich_external_tasting_sensory_profile(
             db, context, tasting, raise_configuration_errors=True
         )
         profile = sensory_profile_for_wine(db, tasting)
@@ -259,6 +261,7 @@ def enrich_external_tastings(
         processed_count=len(tastings),
         enriched_count=enriched,
         unresolved_count=len(tastings) - enriched,
+        estimated_cost_usd=total_cost,
         profiles=[
             profile_response(
                 profile, tasting_count=tasting_count, star_rating_count=star_rating_count

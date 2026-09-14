@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -53,6 +54,7 @@ class ExternalTastingEnrichmentResponse(TasteProfileCollectionResponse):
     processed_count: int = 0
     enriched_count: int = 0
     unresolved_count: int = 0
+    estimated_cost_usd: Decimal = Decimal("0")
 
 
 class TasteMatchResponse(BaseModel):

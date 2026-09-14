@@ -11,6 +11,7 @@ type ExternalTastingEnrichmentResult = TasteProfileCollection & {
   processed_count: number;
   enriched_count: number;
   unresolved_count: number;
+  estimated_cost_usd: string | number;
 };
 
 const sensoryDimensionOrder = ["body", "acidity", "tannin", "sweetness", "aromatic_intensity", "fruit", "wood", "spice", "minerality"];
@@ -207,8 +208,8 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
 
   async function enrichHistoricalExternalTastings() {
     const message = italian
-      ? `Analizzare ${externalTastingsMissingProfile} degustazioni esterne senza profilo sensoriale? Verrà usato il modello AI economy con la tua chiave o i tuoi crediti disponibili.`
-      : `Analyse ${externalTastingsMissingProfile} outside-cellar tastings without a sensory profile? The economy AI model will use your configured key or available credits.`;
+      ? `Cercare dati verificabili e generare il profilo sensoriale per ${externalTastingsMissingProfile} degustazioni? Saranno usati il modello AI economy e la tua chiave o i tuoi crediti disponibili; al termine vedrai il costo effettivo.`
+      : `Research verified data and generate sensory profiles for ${externalTastingsMissingProfile} outside-cellar tastings? The economy AI model will use your configured key or available credits; the final cost will be shown afterwards.`;
     if (!window.confirm(message)) return;
     setEnrichingExternalTastings(true);
     setExternalEnrichmentMessage("");
@@ -217,8 +218,8 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
       setProfiles(result.profiles);
       setExternalTastingsMissingProfile(result.unresolved_count);
       setExternalEnrichmentMessage(italian
-        ? `${result.enriched_count} profili sensoriali aggiunti. Il tuo profilo gusto è stato aggiornato.${result.unresolved_count ? ` ${result.unresolved_count} vini non avevano dati sufficienti.` : ""}`
-        : `${result.enriched_count} sensory profiles added. Your taste profile has been updated.${result.unresolved_count ? ` ${result.unresolved_count} wines did not have enough data.` : ""}`);
+        ? `${result.enriched_count} profili sensoriali aggiunti. Il tuo profilo gusto è stato aggiornato.${result.unresolved_count ? ` ${result.unresolved_count} vini non sono stati identificati con sufficiente certezza.` : ""} Costo AI: $${Number(result.estimated_cost_usd || 0).toFixed(4)}.`
+        : `${result.enriched_count} sensory profiles added. Your taste profile has been updated.${result.unresolved_count ? ` ${result.unresolved_count} wines could not be identified with enough certainty.` : ""} AI cost: $${Number(result.estimated_cost_usd || 0).toFixed(4)}.`);
     } catch (error) {
       setExternalEnrichmentMessage(error instanceof Error ? error.message : (italian ? "Impossibile completare le degustazioni." : "Unable to complete the tastings."));
     } finally { setEnrichingExternalTastings(false); }
@@ -230,7 +231,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
       <button type="button" className="secondary compact" disabled={rebuilding} onClick={() => void rebuild()}>{rebuilding ? (italian ? "Aggiornamento…" : "Updating…") : (italian ? "Aggiorna profilo" : "Refresh profile")}</button>
     </div>
     {unassignedTastings ? <div className="taste-profile-legacy"><div><strong>{italian ? "Degustazioni storiche da attribuire" : "Historical tastings to assign"}</strong><span>{italian ? `${unassignedTastings} degustazioni senza autore non entrano ancora nel tuo profilo.` : `${unassignedTastings} tastings without an author are not yet included in your profile.`}</span></div><button type="button" className="secondary compact" disabled={claimingTastings} onClick={() => void claimLegacyTastings()}>{claimingTastings ? (italian ? "Attribuzione…" : "Assigning…") : italian ? "Attribuisci a me" : "Assign to me"}</button></div> : null}
-    {externalTastingsMissingProfile ? <div className="taste-profile-legacy taste-profile-external-enrichment"><div><strong>{italian ? `Abbiamo trovato ${externalTastingsMissingProfile} degustazioni senza profilo sensoriale` : `We found ${externalTastingsMissingProfile} tastings without a sensory profile`}</strong><span>{italian ? "Completandole con l’AI, Vinaris può usare anche acidità, corpo, tannini e intensità aromatica per rendere più precisi il tuo gusto e le affinità dei consigli." : "Completing them with AI lets Vinaris use acidity, body, tannin, and aromatic intensity to refine your taste profile and recommendation affinity."}</span><small>{italian ? "Analizziamo solo i vini senza profilo già disponibile, con il modello economy e la tua chiave o i tuoi crediti AI." : "Only wines without an existing profile are analysed, using the economy model and your configured key or AI credits."}</small></div><button type="button" className="secondary compact" disabled={enrichingExternalTastings} onClick={() => void enrichHistoricalExternalTastings()}>{enrichingExternalTastings ? (italian ? "Analisi in corso…" : "Analysing…") : italian ? `Completa ${externalTastingsMissingProfile} degustazioni con AI` : `Complete ${externalTastingsMissingProfile} tastings with AI`}</button></div> : null}
+    {externalTastingsMissingProfile ? <div className="taste-profile-legacy taste-profile-external-enrichment"><div><strong>{italian ? `Abbiamo trovato ${externalTastingsMissingProfile} degustazioni senza profilo sensoriale` : `We found ${externalTastingsMissingProfile} tastings without a sensory profile`}</strong><span>{italian ? "L’AI cerca prima dati verificabili sul vino, poi genera acidità, corpo, tannini e intensità aromatica per rendere più precisi il tuo gusto e le affinità dei consigli." : "AI first researches verifiable wine data, then generates acidity, body, tannin, and aromatic intensity to refine your taste profile and recommendation affinity."}</span><small>{italian ? "Useremo il modello economy e la tua chiave o i tuoi crediti AI. Il costo effettivo viene mostrato al termine." : "The economy model uses your configured key or AI credits. The final cost is shown afterwards."}</small></div><button type="button" className="secondary compact" disabled={enrichingExternalTastings} onClick={() => void enrichHistoricalExternalTastings()}>{enrichingExternalTastings ? (italian ? "Analisi in corso…" : "Analysing…") : italian ? `Completa ${externalTastingsMissingProfile} degustazioni con AI` : `Complete ${externalTastingsMissingProfile} tastings with AI`}</button></div> : null}
     {claimMessage ? <p className="taste-profile-claim-message" role="status">{claimMessage}</p> : null}
     {externalEnrichmentMessage ? <p className="taste-profile-claim-message" role="status">{externalEnrichmentMessage}</p> : null}
     {loading ? <p className="empty-state">{italian ? "Caricamento profilo…" : "Loading taste profile…"}</p> : !overall ? <p className="empty-state">{italian ? "Valuta alcuni vini degustati per iniziare a costruire il tuo profilo." : "Rate a few wines you have tasted to start building your profile."}</p> : <>
