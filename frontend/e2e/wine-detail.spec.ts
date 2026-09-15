@@ -367,6 +367,49 @@ async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
 
+test("shows contextual KPIs for every dashboard insight", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page);
+  await page.goto("/");
+
+  const hero = page.locator(".hero-panel");
+  const insightSwitcher = page.locator(".dashboard-analysis-switcher");
+  const insights = [
+    { focus: "Valore", labels: ["Valore totale", "Rendimento vs acquisto", "Valore medio bottiglia"] },
+    { focus: "Finestra degustazione", labels: ["Pronti da bere", "In attesa della finestra ideale", "Finestra scaduta"] },
+    { focus: "Timeline", labels: ["Consegne future", "Prossimi 30 giorni", "Prossima consegna"] },
+    { focus: "Qualità dati", labels: ["Completezza dati", "Dati incompleti", "Campi da completare"] },
+  ];
+
+  for (const insight of insights) {
+    await insightSwitcher.locator("summary").click();
+    await insightSwitcher.getByRole("tab", { name: insight.focus, exact: true }).click();
+    await expect(hero.getByRole("heading", { name: insight.focus, exact: true })).toBeVisible();
+    for (const label of insight.labels) await expect(hero.getByText(label, { exact: true })).toBeVisible();
+    await expect(hero.getByText("Le mie bottiglie", { exact: true })).toHaveCount(0);
+    const kpiCards = await hero.locator(".hero-kpi").all();
+    const kpiBoxes = (await Promise.all(kpiCards.map((card) => card.boundingBox()))).filter((box) => box !== null);
+    expect(kpiBoxes).toHaveLength(3);
+    kpiBoxes.forEach((box, index) => {
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(391);
+      if (index > 0) expect(kpiBoxes[index - 1].y + kpiBoxes[index - 1].height).toBeLessThanOrEqual(box.y);
+    });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await insightSwitcher.locator("summary").click();
+  await insightSwitcher.getByRole("tab", { name: "Valore", exact: true }).click();
+  const desktopCards = await hero.locator(".hero-kpi").all();
+  const desktopBoxes = (await Promise.all(desktopCards.map((card) => card.boundingBox()))).filter((box) => box !== null);
+  expect(desktopBoxes).toHaveLength(3);
+  desktopBoxes.forEach((box, index) => {
+    expect(box.x + box.width).toBeLessThanOrEqual(1441);
+    if (index > 0) expect(desktopBoxes[index - 1].x + desktopBoxes[index - 1].width).toBeLessThanOrEqual(box.x);
+  });
+});
+
 test("app admin sees pending catalog wines from the normal interface", async ({ page }) => {
   const pendingCatalogEntry = {
     id: "catalog-pending-e2e",

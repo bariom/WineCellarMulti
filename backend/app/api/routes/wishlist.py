@@ -50,6 +50,29 @@ DEFAULT_WISHLIST_LIST_NAME = "Wishlist"
 WISHLIST_AI_DATE_FEATURES = {"wishlist_strategy", "wishlist_target_price", "wishlist_purpose"}
 
 
+def propose_wishlist_catalog_entry(
+    db: Session, wishlist_item: WishlistItem, *, grapes: list[dict[str, str]]
+) -> None:
+    """Submit source-backed wishlist metadata for central catalog review."""
+    from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
+
+    ensure_catalog_entry_for_wine_data(
+        db,
+        {
+            "name": wishlist_item.name,
+            "producer": wishlist_item.producer,
+            "vintage": wishlist_item.vintage,
+            "region": wishlist_item.region,
+            "appellation": wishlist_item.appellation,
+            "type": wishlist_item.type,
+            "format": wishlist_item.format,
+            "country": "",
+            "grapes_text": ", ".join(grape["name"] for grape in grapes),
+        },
+        source="wishlist_ai_research",
+    )
+
+
 def enrich_external_tasting_sensory_profile(
     db: Session,
     context: CurrentContext,
@@ -75,6 +98,20 @@ def enrich_external_tasting_sensory_profile(
     response_details: dict[str, object] = {}
     total_cost = Decimal("0")
     researched_grapes: list[dict[str, str]] = []
+    wishlist_item = (
+        db.scalar(
+            select(WishlistItem).where(
+                WishlistItem.id == tasting.wishlist_item_id,
+                WishlistItem.household_id == context.household.id,
+            )
+        )
+        if tasting.wishlist_item_id
+        else None
+    )
+    if wishlist_item is not None:
+        for field in ("name", "producer", "vintage", "format", "type", "region", "appellation"):
+            setattr(tasting, field, getattr(wishlist_item, field))
+        resolve_shared_identity(db, tasting, create=True)
 
     def charged_cost(response: object) -> Decimal:
         try:
@@ -166,15 +203,25 @@ def enrich_external_tasting_sensory_profile(
         candidate_type = normalize_wine_type(str(result.get("type") or ""))
         if not tasting.type.strip() and candidate_type:
             tasting.type = candidate_type
+            if wishlist_item is not None and not wishlist_item.type.strip():
+                wishlist_item.type = candidate_type
         if not tasting.region.strip():
-            tasting.region = str(result.get("region") or "").strip()[:120]
+            researched_region = str(result.get("region") or "").strip()[:120]
+            tasting.region = researched_region
+            if wishlist_item is not None and not wishlist_item.region.strip():
+                wishlist_item.region = researched_region
         if not tasting.appellation.strip():
-            tasting.appellation = str(result.get("appellation") or "").strip()[:120]
+            researched_appellation = str(result.get("appellation") or "").strip()[:120]
+            tasting.appellation = researched_appellation
+            if wishlist_item is not None and not wishlist_item.appellation.strip():
+                wishlist_item.appellation = researched_appellation
         researched_grapes = [
             {"name": grape.strip()}
             for item in result.get("grapes", [])
             if isinstance(item, str) and (grape := item.strip())
         ]
+        if wishlist_item is not None:
+            propose_wishlist_catalog_entry(db, wishlist_item, grapes=researched_grapes)
 
     def ai_generate(item: Wine | ExternalWineTasting) -> tuple[dict[str, float], str]:
         prompt = wine_sensory_profile_prompt(

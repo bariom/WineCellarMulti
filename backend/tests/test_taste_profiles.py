@@ -13,6 +13,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.api.routes import taste_profiles as taste_profile_routes
+from app.api.routes import wishlist as wishlist_routes
 from app.core.legal import LEGAL_DOCUMENT_VERSION
 from app.db.base import Base
 from app.db.session import get_db
@@ -25,6 +26,7 @@ from app.models import (
     UserTasteProfile,
     UserWineRating,
     Wine,
+    WineCatalogEntry,
     WineSensoryProfile,
     WineTastingEntry,
     WishlistItem,
@@ -787,6 +789,96 @@ def test_external_tasting_enrichment_returns_the_total_ai_cost(monkeypatch) -> N
     result = taste_profile_routes.enrich_external_tastings(db, context)
 
     assert result.estimated_cost_usd == Decimal("0.012345")
+
+
+def test_wishlist_tasting_enrichment_uses_the_current_wishlist_identity(monkeypatch) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="wishlist-source@example.test", display_name="Wishlist", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wishlist_list = WishlistList(
+        household_id=household.id,
+        created_by_user_id=user.id,
+        name="Wishlist",
+    )
+    db.add(wishlist_list)
+    db.flush()
+    item = WishlistItem(
+        household_id=household.id,
+        wishlist_list_id=wishlist_list.id,
+        created_by_user_id=user.id,
+        name="Current wine",
+        producer="Current producer",
+        vintage="2021",
+        type="Red",
+    )
+    db.add(item)
+    db.flush()
+    tasting = ExternalWineTasting(
+        household_id=household.id,
+        created_by_user_id=user.id,
+        wishlist_item_id=item.id,
+        name="Old wine name",
+        producer="Old producer",
+        vintage="2019",
+        consumed_at=date(2026, 1, 1),
+        rating=5,
+        enjoyment="positive",
+    )
+    db.add(tasting)
+    db.flush()
+    context = SimpleNamespace(user=user, household=household)
+    monkeypatch.setattr(wishlist_routes.settings, "wine_sensory_ai_enabled", True)
+
+    wishlist_routes.enrich_external_tasting_sensory_profile(db, context, tasting)
+
+    assert (tasting.name, tasting.producer, tasting.vintage, tasting.type) == (
+        "Current wine",
+        "Current producer",
+        "2021",
+        "Red",
+    )
+    profile = db.scalar(
+        select(WineSensoryProfile).where(
+            WineSensoryProfile.identity_id == tasting.shared_identity_id
+        )
+    )
+    assert profile is not None and profile.generation_status == "available"
+
+
+def test_verified_wishlist_data_is_proposed_to_the_central_catalog() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="wishlist-catalog@example.test", display_name="Wishlist", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wishlist_list = WishlistList(
+        household_id=household.id,
+        created_by_user_id=user.id,
+        name="Wishlist",
+    )
+    db.add(wishlist_list)
+    db.flush()
+    item = WishlistItem(
+        household_id=household.id,
+        wishlist_list_id=wishlist_list.id,
+        created_by_user_id=user.id,
+        name="Catalog candidate",
+        producer="Catalog producer",
+        vintage="2021",
+        type="Red",
+    )
+    db.add(item)
+    db.flush()
+
+    wishlist_routes.propose_wishlist_catalog_entry(db, item, grapes=[{"name": "Nebbiolo"}])
+
+    entry = db.scalar(select(WineCatalogEntry).where(WineCatalogEntry.name == item.name))
+    assert entry is not None
+    assert entry.is_active is False
+    assert entry.source == "wishlist_ai_research"
+    assert entry.grapes_text == "Nebbiolo"
 
 
 def test_private_star_rating_contributes_without_becoming_another_users_signal() -> None:
