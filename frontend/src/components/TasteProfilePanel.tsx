@@ -14,6 +14,15 @@ type ExternalTastingEnrichmentResult = TasteProfileCollection & {
   processed_count: number;
   enriched_count: number;
   unresolved_count: number;
+  catalog_pending_count: number;
+  catalog_existing_count: number;
+  results: Array<{
+    id: string;
+    name: string;
+    profile_status: "available" | "unresolved";
+    catalog_status: "pending" | "existing" | "not_proposed" | "failed";
+    issue: "" | "missing_name" | "missing_producer" | "missing_vintage" | "profile_generation_failed" | "catalog_save_failed" | "processing_error";
+  }>;
   estimated_cost_usd: string | number;
 };
 
@@ -227,10 +236,34 @@ export function TasteProfilePanel({ locale, variant = "settings", wines }: { loc
       const result = await api<ExternalTastingEnrichmentResult>("/api/v1/taste-profile/me/external-tastings/enrich", { method: "POST" });
       setProfiles(result.profiles);
       setExternalTastingsMissingProfile(result.unresolved_count);
-      setExternalTastingsMissingProfileItems([]);
+      const unresolvedIds = new Set(result.results.filter((item) => item.profile_status === "unresolved").map((item) => item.id));
+      setExternalTastingsMissingProfileItems((current) => current.filter((item) => unresolvedIds.has(item.id)));
+      const issueLabels: Record<string, string> = italian ? {
+        missing_name: "nome mancante",
+        missing_producer: "produttore mancante",
+        missing_vintage: "annata assente e vino non verificato come NV/MV",
+        profile_generation_failed: "profilo sensoriale non generato",
+        catalog_save_failed: "profilo creato, ma salvataggio nel catalogo non riuscito",
+        processing_error: "errore durante l’elaborazione",
+      } : {
+        missing_name: "missing name",
+        missing_producer: "missing producer",
+        missing_vintage: "missing vintage and wine not verified as NV/MV",
+        profile_generation_failed: "sensory profile was not generated",
+        catalog_save_failed: "profile created, but catalog save failed",
+        processing_error: "processing error",
+      };
+      const issueSummary = result.results
+        .filter((item) => item.issue)
+        .map((item) => `${item.name}: ${issueLabels[item.issue] || item.issue}`)
+        .join("; ");
+      const catalogNotProposed = result.results.filter((item) => item.catalog_status === "not_proposed").length;
+      const addedProfileLabel = italian
+        ? `${result.enriched_count} ${result.enriched_count === 1 ? "profilo sensoriale aggiunto" : "profili sensoriali aggiunti"}`
+        : `${result.enriched_count} sensory ${result.enriched_count === 1 ? "profile" : "profiles"} added`;
       setExternalEnrichmentMessage(italian
-        ? `${result.enriched_count} profili sensoriali aggiunti. Il tuo profilo gusto è stato aggiornato.${result.unresolved_count ? ` ${result.unresolved_count} vini non sono stati identificati con sufficiente certezza.` : ""} Costo AI: $${Number(result.estimated_cost_usd || 0).toFixed(4)}.`
-        : `${result.enriched_count} sensory profiles added. Your taste profile has been updated.${result.unresolved_count ? ` ${result.unresolved_count} wines could not be identified with enough certainty.` : ""} AI cost: $${Number(result.estimated_cost_usd || 0).toFixed(4)}.`);
+        ? `${addedProfileLabel}.${result.enriched_count ? " Il tuo profilo gusto è stato aggiornato." : " Il profilo gusto non è cambiato."} Catalogo centrale: ${result.catalog_pending_count} da approvare, ${result.catalog_existing_count} già presenti, ${catalogNotProposed} non proposti.${issueSummary ? ` Dettagli: ${issueSummary}.` : ""} Costo AI: $${Number(result.estimated_cost_usd || 0).toFixed(4)}.`
+        : `${addedProfileLabel}.${result.enriched_count ? " Your taste profile was updated." : " Your taste profile did not change."} Central catalog: ${result.catalog_pending_count} pending approval, ${result.catalog_existing_count} already present, ${catalogNotProposed} not submitted.${issueSummary ? ` Details: ${issueSummary}.` : ""} AI cost: $${Number(result.estimated_cost_usd || 0).toFixed(4)}.`);
     } catch (error) {
       setExternalEnrichmentMessage(error instanceof Error ? error.message : (italian ? "Impossibile completare le degustazioni." : "Unable to complete the tastings."));
     } finally { setEnrichingExternalTastings(false); }

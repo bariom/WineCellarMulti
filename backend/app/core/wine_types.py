@@ -1,3 +1,5 @@
+import re
+
 CANONICAL_WINE_TYPES = ("Red", "White", "Rose", "Sparkling", "Sweet", "Fortified", "Other")
 
 
@@ -21,3 +23,9 @@ def normalize_wine_type(value: str | None) -> str:
     if normalized in {"other", "altro"}:
         return "Other"
     return next((item for item in CANONICAL_WINE_TYPES if item.lower() == normalized), cleaned)
+
+
+def normalize_verified_vintage(value: str | None) -> str:
+    """Accept only an explicit vintage year or the standard non-vintage markers."""
+    cleaned = (value or "").strip().upper()
+    return cleaned if re.fullmatch(r"(?:19|20)\d{2}|NV|MV", cleaned) else ""

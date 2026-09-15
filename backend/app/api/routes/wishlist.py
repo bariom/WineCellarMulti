@@ -1,7 +1,8 @@
 import json
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
-from typing import cast
+from typing import Literal, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -15,7 +16,7 @@ from app.api.deps import (
     require_write_context,
 )
 from app.core.config import settings
-from app.core.wine_types import normalize_wine_type
+from app.core.wine_types import normalize_verified_vintage, normalize_wine_type
 from app.db.session import get_db
 from app.models import AiAuditLog, ExternalWineTasting, Wine, WishlistItem, WishlistList
 from app.prompts.library import wine_sensory_metadata_prompt, wine_sensory_profile_prompt
@@ -50,13 +51,33 @@ DEFAULT_WISHLIST_LIST_NAME = "Wishlist"
 WISHLIST_AI_DATE_FEATURES = {"wishlist_strategy", "wishlist_target_price", "wishlist_purpose"}
 
 
+CatalogEnrichmentStatus = Literal["pending", "existing", "not_proposed", "failed"]
+ExternalTastingEnrichmentIssue = Literal[
+    "",
+    "missing_name",
+    "missing_producer",
+    "missing_vintage",
+    "profile_generation_failed",
+    "catalog_save_failed",
+    "processing_error",
+]
+
+
+@dataclass(frozen=True)
+class ExternalTastingEnrichmentOutcome:
+    estimated_cost_usd: Decimal = Decimal("0")
+    profile_available: bool = False
+    catalog_status: CatalogEnrichmentStatus = "not_proposed"
+    issue: ExternalTastingEnrichmentIssue = ""
+
+
 def propose_wishlist_catalog_entry(
     db: Session, wishlist_item: WishlistItem, *, grapes: list[dict[str, str]]
-) -> None:
+) -> Literal["pending", "existing", "not_proposed"]:
     """Submit source-backed wishlist metadata for central catalog review."""
     from app.api.routes.catalog import ensure_catalog_entry_for_wine_data
 
-    ensure_catalog_entry_for_wine_data(
+    entry = ensure_catalog_entry_for_wine_data(
         db,
         {
             "name": wishlist_item.name,
@@ -71,6 +92,9 @@ def propose_wishlist_catalog_entry(
         },
         source="wishlist_ai_research",
     )
+    if entry is None:
+        return "not_proposed"
+    return "existing" if entry.is_active else "pending"
 
 
 def enrich_external_tasting_sensory_profile(
@@ -79,7 +103,8 @@ def enrich_external_tasting_sensory_profile(
     tasting: ExternalWineTasting,
     *,
     raise_configuration_errors: bool = False,
-) -> Decimal:
+    research_catalog: bool = False,
+) -> ExternalTastingEnrichmentOutcome:
     """Enrich a personally recorded tasting, using verified AI research when needed."""
     if not settings.wine_sensory_ai_enabled:
         if raise_configuration_errors:
@@ -87,7 +112,7 @@ def enrich_external_tasting_sensory_profile(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Sensory profile AI generation is disabled",
             )
-        return Decimal("0")
+        return ExternalTastingEnrichmentOutcome(issue="processing_error")
     # Imported lazily: the AI route also uses wishlist helpers during application startup.
     from app.api.routes.ai import (
         create_ai_response,
@@ -98,6 +123,7 @@ def enrich_external_tasting_sensory_profile(
     response_details: dict[str, object] = {}
     total_cost = Decimal("0")
     researched_grapes: list[dict[str, str]] = []
+    catalog_status: CatalogEnrichmentStatus = "not_proposed"
     wishlist_item = (
         db.scalar(
             select(WishlistItem).where(
@@ -120,7 +146,7 @@ def enrich_external_tasting_sensory_profile(
             return Decimal("0")
 
     def research_missing_metadata() -> None:
-        nonlocal total_cost, researched_grapes
+        nonlocal catalog_status, total_cost, researched_grapes
         prompt = wine_sensory_metadata_prompt(
             wine_context={
                 "name": tasting.name,
@@ -138,6 +164,7 @@ def enrich_external_tasting_sensory_profile(
                 "type": "object",
                 "additionalProperties": False,
                 "properties": {
+                    "vintage": {"type": "string"},
                     "type": {"type": "string"},
                     "region": {"type": "string"},
                     "appellation": {"type": "string"},
@@ -146,6 +173,7 @@ def enrich_external_tasting_sensory_profile(
                     "source_title": {"type": "string"},
                 },
                 "required": [
+                    "vintage",
                     "type",
                     "region",
                     "appellation",
@@ -200,6 +228,11 @@ def enrich_external_tasting_sensory_profile(
         )
         if not verified_source:
             return
+        researched_vintage = normalize_verified_vintage(str(result.get("vintage") or ""))
+        if not tasting.vintage.strip() and researched_vintage:
+            tasting.vintage = researched_vintage
+            if wishlist_item is not None and not wishlist_item.vintage.strip():
+                wishlist_item.vintage = researched_vintage
         candidate_type = normalize_wine_type(str(result.get("type") or ""))
         if not tasting.type.strip() and candidate_type:
             tasting.type = candidate_type
@@ -220,8 +253,15 @@ def enrich_external_tasting_sensory_profile(
             for item in result.get("grapes", [])
             if isinstance(item, str) and (grape := item.strip())
         ]
+        resolve_shared_identity(db, tasting, create=True)
         if wishlist_item is not None:
-            propose_wishlist_catalog_entry(db, wishlist_item, grapes=researched_grapes)
+            try:
+                with db.begin_nested():
+                    catalog_status = propose_wishlist_catalog_entry(
+                        db, wishlist_item, grapes=researched_grapes
+                    )
+            except Exception:
+                catalog_status = "failed"
 
     def ai_generate(item: Wine | ExternalWineTasting) -> tuple[dict[str, float], str]:
         prompt = wine_sensory_profile_prompt(
@@ -294,13 +334,14 @@ def enrich_external_tasting_sensory_profile(
         return dimensions, str(response_details["model"])
 
     try:
-        profile = generate_wine_sensory_profile(
-            db,
-            tasting,
-            modified_by_user_id=context.user.id,
-        )
-        if profile is not None and profile.generation_status == "available":
-            return total_cost
+        if not research_catalog:
+            profile = generate_wine_sensory_profile(
+                db,
+                tasting,
+                modified_by_user_id=context.user.id,
+            )
+            if profile is not None and profile.generation_status == "available":
+                return ExternalTastingEnrichmentOutcome(profile_available=True)
         research_missing_metadata()
         profile = generate_wine_sensory_profile(
             db,
@@ -316,10 +357,18 @@ def enrich_external_tasting_sensory_profile(
         }:
             raise
         # Recording a real tasting must never fail because one enrichment fails.
-        return total_cost
+        return ExternalTastingEnrichmentOutcome(
+            estimated_cost_usd=total_cost,
+            catalog_status=catalog_status,
+            issue="processing_error",
+        )
     except Exception:
         # Recording a real tasting must never fail because credits, a provider, or AI are unavailable.
-        return total_cost
+        return ExternalTastingEnrichmentOutcome(
+            estimated_cost_usd=total_cost,
+            catalog_status=catalog_status,
+            issue="processing_error",
+        )
     if profile is not None and profile.source == "ai" and response_details:
         record_ai_audit(
             db,
@@ -333,7 +382,24 @@ def enrich_external_tasting_sensory_profile(
             usage=cast(TokenUsage, response_details["usage"]),
             provider_source=str(response_details["provider_source"]),
         )
-    return total_cost
+    profile_available = profile is not None and profile.generation_status == "available"
+    issue: ExternalTastingEnrichmentIssue
+    if profile_available:
+        issue = "catalog_save_failed" if catalog_status == "failed" else ""
+    elif not tasting.name.strip():
+        issue = "missing_name"
+    elif not tasting.producer.strip():
+        issue = "missing_producer"
+    elif not tasting.vintage.strip():
+        issue = "missing_vintage"
+    else:
+        issue = "profile_generation_failed"
+    return ExternalTastingEnrichmentOutcome(
+        estimated_cost_usd=total_cost,
+        profile_available=profile_available,
+        catalog_status=catalog_status,
+        issue=issue,
+    )
 
 
 def get_or_create_default_wishlist_list(db: Session, context: CurrentContext) -> WishlistList:

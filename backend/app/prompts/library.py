@@ -508,17 +508,20 @@ def wine_full_enrichment_prompt(
 def wine_sensory_metadata_prompt(*, wine_context: dict) -> Prompt:
     return Prompt(
         id="wine.sensory_metadata",
-        version="3",
+        version="4",
         system=(
             "You verify only the metadata needed to derive a wine sensory profile. "
-            "Run one exact-match web search using the quoted producer, wine name, and vintage; "
+            "Run one exact-match web search using the quoted producer, wine name, and vintage when supplied; "
             "do not broaden the search or open additional results. "
             "Never replace the supplied wine identity and never invent a blend. "
-            "Return type, region, appellation, and grapes only when a credible source supports "
-            "the exact wine; otherwise use empty values. Include the concrete source URL used."
+            "Return vintage, type, region, appellation, and grapes only when a credible source supports "
+            "the exact wine; otherwise use empty values. For a wine explicitly sold without a declared "
+            "vintage return NV; for an explicit multi-vintage blend return MV. Never treat an absent year "
+            "as proof of NV or MV. Include the concrete source URL used."
         ),
         user=(
             "Find verified sensory-profile metadata for this wine. "
+            "Vintage must be a four-digit year, NV, MV, or empty. "
             "Type must be one of Red, White, Rose, Sparkling, Sweet, Fortified, Other, or empty. "
             "For grapes, return only names supported by the source; percentages are not required.\n\n"
             f"Wine context: {wine_context}"

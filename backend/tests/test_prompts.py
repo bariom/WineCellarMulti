@@ -7,6 +7,7 @@ from app.prompts import (
     pairing_prompt,
     restaurant_wine_list_scan_prompt,
     wine_full_enrichment_prompt,
+    wine_sensory_metadata_prompt,
     wine_value_prompt,
     wine_vineyard_location_prompt,
     wishlist_portfolio_strategy_prompt,
@@ -249,3 +250,15 @@ def test_vineyard_prompt_prefers_the_physical_producer_before_a_locality():
     assert "physical estate or winery before considering" in prompt.user
     assert "Italian" in prompt.system
     assert "Wine: Example 2020" in prompt.user
+
+
+def test_sensory_metadata_prompt_requires_verified_vintage_or_non_vintage_marker():
+    prompt = wine_sensory_metadata_prompt(
+        wine_context={"name": "Réflexion Brut", "producer": "Lallier", "vintage": ""}
+    )
+
+    assert (prompt.id, prompt.version) == ("wine.sensory_metadata", "4")
+    assert "return NV" in prompt.system
+    assert "return MV" in prompt.system
+    assert "Never treat an absent year as proof" in prompt.system
+    assert "four-digit year, NV, MV, or empty" in prompt.user

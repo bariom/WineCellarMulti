@@ -12,6 +12,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.routes import ai as ai_routes
 from app.api.routes import taste_profiles as taste_profile_routes
 from app.api.routes import wishlist as wishlist_routes
 from app.core.legal import LEGAL_DOCUMENT_VERSION
@@ -104,6 +105,29 @@ def test_existing_shared_profile_is_reused_without_ai() -> None:
     second = generate_wine_sensory_profile(db, wine, allow_ai=True, ai_generate=ai)
     assert second is first
     assert not called
+
+
+def test_validated_pending_profile_is_completed_instead_of_reused() -> None:
+    db = Session()
+    household = Household(name="Home")
+    db.add(household)
+    db.flush()
+    wine = make_wine(db, household)
+    pending = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        dimensions={},
+        validated=True,
+        generation_status="pending",
+        source="missing",
+    )
+    db.add(pending)
+    db.flush()
+
+    profile = generate_wine_sensory_profile(db, wine)
+
+    assert profile is pending
+    assert profile.generation_status == "available"
+    assert profile.dimensions
 
 
 def test_baselines_are_blended_and_missing_dimensions_stay_missing() -> None:
@@ -362,7 +386,7 @@ def test_ai_metadata_search_uses_a_small_single_search_budget(monkeypatch) -> No
         request_options.update(kwargs)
         return SimpleNamespace(
             text=(
-                '{"type":"Red","region":"Veneto","appellation":"","grapes":[],'
+                '{"vintage":"2022","type":"Red","region":"Veneto","appellation":"","grapes":[],'
                 '"source_url":"https://example.test/wine","source_title":"Producer"}'
             ),
             model="test-model",
@@ -383,6 +407,8 @@ def test_ai_metadata_search_uses_a_small_single_search_budget(monkeypatch) -> No
     )
 
     assert metadata["type"] == "Red"
+    assert metadata["vintage"] == "2022"
+    assert "vintage" in request_options["json_schema"]["schema"]["required"]
     assert request_options["web_search_context_size"] == "low"
     assert request_options["max_tool_calls"] == 1
     assert request_options["max_output_tokens"] == 800
@@ -735,7 +761,9 @@ def test_explicit_external_tasting_enrichment_surfaces_ai_configuration_errors(m
     db.commit()
     called_with_explicit_request = False
 
-    def unavailable_enrichment(_db, _context, _tasting, *, raise_configuration_errors=False):
+    def unavailable_enrichment(
+        _db, _context, _tasting, *, raise_configuration_errors=False, **_kwargs
+    ):
         nonlocal called_with_explicit_request
         called_with_explicit_request = raise_configuration_errors
         raise HTTPException(status_code=503, detail="No AI provider configured")
@@ -784,11 +812,18 @@ def test_external_tasting_enrichment_returns_the_total_ai_cost(monkeypatch) -> N
     monkeypatch.setattr(
         taste_profile_routes,
         "enrich_external_tasting_sensory_profile",
-        lambda *_args, **_kwargs: Decimal("0.012345"),
+        lambda *_args, **_kwargs: wishlist_routes.ExternalTastingEnrichmentOutcome(
+            estimated_cost_usd=Decimal("0.012345"),
+            profile_available=True,
+            catalog_status="pending",
+        ),
     )
     result = taste_profile_routes.enrich_external_tastings(db, context)
 
     assert result.estimated_cost_usd == Decimal("0.012345")
+    assert result.enriched_count == 1
+    assert result.catalog_pending_count == 1
+    assert result.results[0].profile_status == "available"
 
 
 def test_wishlist_tasting_enrichment_uses_the_current_wishlist_identity(monkeypatch) -> None:
@@ -879,6 +914,160 @@ def test_verified_wishlist_data_is_proposed_to_the_central_catalog() -> None:
     assert entry.is_active is False
     assert entry.source == "wishlist_ai_research"
     assert entry.grapes_text == "Nebbiolo"
+
+
+def test_verified_non_vintage_wishlist_tasting_gets_a_profile_and_catalog_entry(
+    monkeypatch,
+) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="wishlist-nv@example.test", display_name="Wishlist NV", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wishlist_list = WishlistList(
+        household_id=household.id,
+        created_by_user_id=user.id,
+        name="Wishlist",
+    )
+    db.add(wishlist_list)
+    db.flush()
+    item = WishlistItem(
+        household_id=household.id,
+        wishlist_list_id=wishlist_list.id,
+        created_by_user_id=user.id,
+        name="Réflexion Brut Balthazar",
+        producer="Lallier",
+        vintage="",
+        type="Sparkling",
+        region="Champagne",
+        appellation="Champagne",
+    )
+    db.add(item)
+    db.flush()
+    tasting = ExternalWineTasting(
+        household_id=household.id,
+        created_by_user_id=user.id,
+        wishlist_item_id=item.id,
+        name=item.name,
+        producer=item.producer,
+        vintage="",
+        type=item.type,
+        region=item.region,
+        appellation=item.appellation,
+        consumed_at=date(2026, 1, 1),
+        rating=5,
+        enjoyment="positive",
+    )
+    db.add(tasting)
+    db.flush()
+    source_url = "https://example.test/lallier-reflexion"
+    response = SimpleNamespace(
+        text=(
+            '{"vintage":"NV","type":"Sparkling","region":"Champagne",'
+            '"appellation":"Champagne","grapes":["Chardonnay","Pinot Noir"],'
+            f'"source_url":"{source_url}","source_title":"Lallier"}}'
+        ),
+        model="economy-test",
+        web_sources=({"url": source_url, "title": "Lallier"},),
+        usage=SimpleNamespace(),
+        charged_cost_usd=Decimal("0.0042"),
+    )
+    monkeypatch.setattr(wishlist_routes.settings, "wine_sensory_ai_enabled", True)
+    monkeypatch.setattr(
+        ai_routes, "get_or_create_user_ai_settings", lambda *_args: SimpleNamespace()
+    )
+    monkeypatch.setattr(
+        ai_routes, "create_ai_response", lambda *_args, **_kwargs: (response, "application")
+    )
+    monkeypatch.setattr(ai_routes, "record_ai_audit", lambda *_args, **_kwargs: None)
+
+    outcome = wishlist_routes.enrich_external_tasting_sensory_profile(
+        db,
+        SimpleNamespace(user=user, household=household),
+        tasting,
+        raise_configuration_errors=True,
+        research_catalog=True,
+    )
+
+    assert tasting.vintage == item.vintage == "NV"
+    assert tasting.shared_identity_id is not None
+    assert outcome.profile_available is True
+    assert outcome.catalog_status == "pending"
+    assert outcome.issue == ""
+    assert outcome.estimated_cost_usd == Decimal("0.0042")
+    profile = db.scalar(
+        select(WineSensoryProfile).where(
+            WineSensoryProfile.identity_id == tasting.shared_identity_id
+        )
+    )
+    assert profile is not None and profile.generation_status == "available"
+    catalog_entry = db.scalar(select(WineCatalogEntry).where(WineCatalogEntry.name == item.name))
+    assert catalog_entry is not None and catalog_entry.is_active is False
+
+
+@pytest.mark.parametrize(
+    ("response_text", "web_sources"),
+    [
+        ("not-json", ()),
+        (
+            '{"vintage":"NV","type":"Sparkling","region":"Champagne",'
+            '"appellation":"Champagne","grapes":[],"source_url":"https://wrong.test/wine",'
+            '"source_title":"Wrong"}',
+            ({"url": "https://credible.test/wine", "title": "Credible"},),
+        ),
+    ],
+)
+def test_non_vintage_enrichment_reports_missing_vintage_without_verified_evidence(
+    monkeypatch, response_text, web_sources
+) -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(
+        email="wishlist-unverified@example.test", display_name="Unverified", password_hash="x"
+    )
+    db.add_all([household, user])
+    db.flush()
+    tasting = ExternalWineTasting(
+        household_id=household.id,
+        created_by_user_id=user.id,
+        name="Unknown cuvée",
+        producer="Unknown producer",
+        vintage="",
+        type="Sparkling",
+        consumed_at=date(2026, 1, 1),
+        rating=5,
+        enjoyment="positive",
+    )
+    db.add(tasting)
+    db.flush()
+    response = SimpleNamespace(
+        text=response_text,
+        model="economy-test",
+        web_sources=web_sources,
+        usage=SimpleNamespace(),
+        charged_cost_usd=Decimal("0.0010"),
+    )
+    monkeypatch.setattr(wishlist_routes.settings, "wine_sensory_ai_enabled", True)
+    monkeypatch.setattr(
+        ai_routes, "get_or_create_user_ai_settings", lambda *_args: SimpleNamespace()
+    )
+    monkeypatch.setattr(
+        ai_routes, "create_ai_response", lambda *_args, **_kwargs: (response, "application")
+    )
+    monkeypatch.setattr(ai_routes, "record_ai_audit", lambda *_args, **_kwargs: None)
+
+    outcome = wishlist_routes.enrich_external_tasting_sensory_profile(
+        db,
+        SimpleNamespace(user=user, household=household),
+        tasting,
+        raise_configuration_errors=True,
+        research_catalog=True,
+    )
+
+    assert outcome.profile_available is False
+    assert outcome.catalog_status == "not_proposed"
+    assert outcome.issue == "missing_vintage"
+    assert tasting.shared_identity_id is None
 
 
 def test_private_star_rating_contributes_without_becoming_another_users_signal() -> None:

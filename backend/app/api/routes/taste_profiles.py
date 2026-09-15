@@ -20,7 +20,11 @@ from app.api.deps import (
 from app.api.routes.wines import get_household_wine
 from app.api.routes.wishlist import enrich_external_tasting_sensory_profile
 from app.core.config import settings
-from app.core.wine_types import CANONICAL_WINE_TYPES, normalize_wine_type
+from app.core.wine_types import (
+    CANONICAL_WINE_TYPES,
+    normalize_verified_vintage,
+    normalize_wine_type,
+)
 from app.db.session import get_db
 from app.models import (
     ExternalWineTasting,
@@ -39,6 +43,7 @@ from app.schemas.taste_profile import (
     ExternalTastingEnrichmentItem,
     ExternalTastingEnrichmentPreview,
     ExternalTastingEnrichmentResponse,
+    ExternalTastingEnrichmentResultItem,
     LegacyTastingClaimResponse,
     LegacyTastingClaimStatus,
     SensoryBaselineInput,
@@ -258,15 +263,29 @@ def enrich_external_tastings(
     tastings = external_tastings_missing_sensory_profiles(db, context)
     enriched = 0
     total_cost = Decimal("0")
+    results: list[ExternalTastingEnrichmentResultItem] = []
     for tasting in tastings:
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
-        total_cost += enrich_external_tasting_sensory_profile(
-            db, context, tasting, raise_configuration_errors=True
+        outcome = enrich_external_tasting_sensory_profile(
+            db,
+            context,
+            tasting,
+            raise_configuration_errors=True,
+            research_catalog=True,
         )
-        profile = sensory_profile_for_wine(db, tasting)
-        if profile is not None and profile.generation_status == "available":
+        total_cost += outcome.estimated_cost_usd
+        if outcome.profile_available:
             enriched += 1
+        results.append(
+            ExternalTastingEnrichmentResultItem(
+                id=tasting.id,
+                name=tasting.name,
+                profile_status="available" if outcome.profile_available else "unresolved",
+                catalog_status=outcome.catalog_status,
+                issue=outcome.issue,
+            )
+        )
     profiles = rebuild_user_taste_profile(db, context.user.id)
     db.commit()
     star_rating_count = household_star_rating_count(db, context)
@@ -275,6 +294,9 @@ def enrich_external_tastings(
         processed_count=len(tastings),
         enriched_count=enriched,
         unresolved_count=len(tastings) - enriched,
+        catalog_pending_count=sum(item.catalog_status == "pending" for item in results),
+        catalog_existing_count=sum(item.catalog_status == "existing" for item in results),
+        results=results,
         estimated_cost_usd=total_cost,
         profiles=[
             profile_response(
@@ -425,6 +447,7 @@ def _ai_sensory_metadata(
             "type": "object",
             "additionalProperties": False,
             "properties": {
+                "vintage": {"type": "string"},
                 "type": {"type": "string"},
                 "region": {"type": "string"},
                 "appellation": {"type": "string"},
@@ -432,7 +455,15 @@ def _ai_sensory_metadata(
                 "source_url": {"type": "string"},
                 "source_title": {"type": "string"},
             },
-            "required": ["type", "region", "appellation", "grapes", "source_url", "source_title"],
+            "required": [
+                "vintage",
+                "type",
+                "region",
+                "appellation",
+                "grapes",
+                "source_url",
+                "source_title",
+            ],
         },
     }
     response = (
@@ -473,6 +504,7 @@ def _ai_sensory_metadata(
         if isinstance(item, str) and (name := item.strip())
     ]
     return {
+        "vintage": normalize_verified_vintage(str(result.get("vintage") or "")),
         "type": str(result.get("type") or "").strip(),
         "region": str(result.get("region") or "").strip(),
         "appellation": str(result.get("appellation") or "").strip(),
@@ -488,6 +520,8 @@ def _complete_missing_sensory_metadata(wine: Wine) -> str:
     metadata, model = _ai_sensory_metadata(wine)
     if not metadata:
         return ""
+    if not wine.vintage.strip() and metadata.get("vintage"):
+        wine.vintage = str(metadata["vintage"])
     candidate_type = normalize_wine_type(str(metadata.get("type") or ""))
     if not wine.type.strip() and candidate_type in CANONICAL_WINE_TYPES:
         wine.type = candidate_type
@@ -506,6 +540,9 @@ def _complete_missing_sensory_metadata(wine: Wine) -> str:
 def _apply_sensory_metadata(wine: Wine, metadata: dict[str, object]) -> list[str]:
     """Apply only source-backed missing identity fields and report what changed."""
     updated: list[str] = []
+    if not wine.vintage.strip() and metadata.get("vintage"):
+        wine.vintage = str(metadata["vintage"])
+        updated.append("vintage")
     candidate_type = normalize_wine_type(str(metadata.get("type") or ""))
     if not wine.type.strip() and candidate_type in CANONICAL_WINE_TYPES:
         wine.type = candidate_type

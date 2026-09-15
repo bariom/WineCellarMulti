@@ -11,12 +11,9 @@ test("taste preferences use an individual scale and expandable wine styles", asy
       window.__vite_plugin_react_preamble_installed__ = true;
       const {default: React} = await import('/node_modules/.vite/deps/react.js');
       const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
-      const {default: Panel, TasteProfileExplanation} = await import('/src/components/TasteProfilePanel.tsx');
+      const {default: Panel} = await import('/src/components/TasteProfilePanel.tsx');
       await import('/src/styles.css');
-      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(React.Fragment, null,
-        React.createElement(Panel, {locale:'it', variant:'insight', wines:[{rating:4}, {rating:0}], ratedTastingCount:16}),
-        React.createElement(TasteProfileExplanation, {locale:'it'})
-      ));
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it', variant:'insight', wines:[{rating:4}, {rating:0}]}));
     </script></body></html>`,
   }));
   const profile = (category: string, sampleCount: number) => ({
@@ -30,14 +27,17 @@ test("taste preferences use an individual scale and expandable wine styles", asy
     confidence_level: "probable",
   });
   await page.route("**/api/v1/taste-profile/me**", route => route.fulfill({ json: { profiles: [profile("global", 16), profile("red", 8), profile("white", 5)] } }));
+  await page.route("**/api/v1/map-config", route => route.fulfill({ json: {} }));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/taste-profile-test");
-  await expect(page.locator(".taste-profile-portrait-copy small")).toContainText("I valori non sono percentuali da sommare.");
+  await expect(page.locator(".taste-profile-hero-copy small")).toContainText("I valori non sono percentuali da sommare.");
   await expect(page.locator(".taste-profile-evidence-summary > div").nth(1).locator("strong")).toHaveText("1");
   await expect(page.locator(".taste-profile-evidence-summary > div").first().locator("strong")).toHaveText("16");
-  await expect(page.locator(".taste-profile-signature-values")).toContainText("70/100");
-  await expect(page.locator(".taste-profile-radar-wrap .regional-radar")).toBeAttached();
+  await expect(page.locator(".taste-profile-hero-metrics")).toContainText("70/100");
+  await expect(page.locator(".taste-profile-sensory-groups")).toContainText("Struttura");
   const red = page.locator(".taste-profile-category").filter({ hasText: "Rossi" });
+  await expect(red).toHaveAttribute("open", "");
+  await red.locator("summary").click();
   await expect(red).not.toHaveAttribute("open", "");
   await red.locator("summary").click();
   await expect(red).toHaveAttribute("open", "");
@@ -46,4 +46,48 @@ test("taste preferences use an individual scale and expandable wine styles", asy
     await page.setViewportSize({ width, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
+});
+
+test("external tasting enrichment reports profile and catalog outcomes separately", async ({ page }) => {
+  await page.route("**/taste-profile-enrichment-test", route => route.fulfill({
+    contentType: "text/html",
+    body: `<html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
+      import RefreshRuntime from '/@react-refresh';
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => (type) => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+      const {default: React} = await import('/node_modules/.vite/deps/react.js');
+      const {default: ReactDOM} = await import('/node_modules/.vite/deps/react-dom_client.js');
+      const {default: Panel} = await import('/src/components/TasteProfilePanel.tsx');
+      await import('/src/styles.css');
+      ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(Panel, {locale:'it', variant:'insight', wines:[]}));
+    </script></body></html>`,
+  }));
+  const profiles = { profiles: [] };
+  const tasting = { id: "tasting-nv-1", name: "Réflexion Brut Balthazar", producer: "Lallier", vintage: "", type: "Sparkling", region: "Champagne", appellation: "Champagne" };
+  await page.route("**/api/v1/taste-profile/me", route => route.fulfill({ json: profiles }));
+  await page.route("**/api/v1/taste-profile/me/legacy-tastings", route => route.fulfill({ json: { unassigned_count: 0 } }));
+  await page.route("**/api/v1/taste-profile/me/external-tastings/enrichment-preview", route => route.fulfill({ json: { missing_count: 1, items: [tasting] } }));
+  await page.route("**/api/v1/taste-profile/me/external-tastings/enrich", route => route.fulfill({ json: {
+    ...profiles,
+    processed_count: 1,
+    enriched_count: 1,
+    unresolved_count: 0,
+    catalog_pending_count: 1,
+    catalog_existing_count: 0,
+    results: [{ id: tasting.id, name: tasting.name, profile_status: "available", catalog_status: "pending", issue: "" }],
+    estimated_cost_usd: "0.0042",
+  } }));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/taste-profile-enrichment-test");
+  await expect(page.getByText("Lallier · Réflexion Brut Balthazar")).toBeVisible();
+  page.once("dialog", dialog => dialog.accept());
+  await page.getByRole("button", { name: "Completa 1 degustazioni con AI" }).click();
+
+  const outcome = page.getByRole("status");
+  await expect(outcome).toContainText("1 profilo sensoriale aggiunto");
+  await expect(outcome).toContainText("Catalogo centrale: 1 da approvare, 0 già presenti, 0 non proposti");
+  await expect(outcome).toContainText("Costo AI: $0.0042");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from decimal import Decimal
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -61,10 +62,29 @@ class ExternalTastingEnrichmentItem(BaseModel):
     appellation: str = ""
 
 
+class ExternalTastingEnrichmentResultItem(BaseModel):
+    id: UUID
+    name: str
+    profile_status: Literal["available", "unresolved"]
+    catalog_status: Literal["pending", "existing", "not_proposed", "failed"]
+    issue: Literal[
+        "",
+        "missing_name",
+        "missing_producer",
+        "missing_vintage",
+        "profile_generation_failed",
+        "catalog_save_failed",
+        "processing_error",
+    ] = ""
+
+
 class ExternalTastingEnrichmentResponse(TasteProfileCollectionResponse):
     processed_count: int = 0
     enriched_count: int = 0
     unresolved_count: int = 0
+    catalog_pending_count: int = 0
+    catalog_existing_count: int = 0
+    results: list[ExternalTastingEnrichmentResultItem] = Field(default_factory=list)
     estimated_cost_usd: Decimal = Decimal("0")
 
 
