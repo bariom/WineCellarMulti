@@ -983,6 +983,12 @@ test("collector overview has consistent counts, currency coverage and actionable
   await expect(value).toContainText("100");
   await expect(value).toContainText("EUR");
   await expect(value).toContainText("CHF");
+  await expect(value.locator(".collector-currency-and")).toHaveCount(1);
+  await expect(value).toContainText("Valore delle posizioni, raggruppato per valuta");
+  const currencyLabels = value.locator(".collector-currency-total strong small");
+  const chfLabel = (await currencyLabels.nth(0).boundingBox())!;
+  const eurLabel = (await currencyLabels.nth(1).boundingBox())!;
+  expect(Math.abs(chfLabel.x - eurLabel.x)).toBeLessThan(1);
   const priorities = page.getByRole("region", { name: "Da seguire adesso" });
   await expect(priorities).toContainText("12 bottiglie · 1 vino");
   await expect(priorities).toContainText("3 bottiglie · 1 vino");
