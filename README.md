@@ -106,6 +106,26 @@ Frontend E2E guardrails and scope-aware test selection are documented in
 [`docs/FRONTEND_E2E.md`](docs/FRONTEND_E2E.md). The focused Wine Detail command
 is `npm run test:e2e:wine-detail` from `frontend/`.
 
+Collector dashboard checks: run `npm run test:e2e:collector` from `frontend/`.
+Bottle photography leads the dashboard: key positions, ready-to-drink wines and recent
+arrivals are visible before the KPIs, with larger photos on mobile and desktop.
+Recent arrivals form one horizontal photo gallery below the two main cards; on narrow
+screens the gallery scrolls independently without horizontal page overflow.
+Mobile cards are grouped into four horizontal carousels (wines, cellar indicators,
+priorities, maturity), with swipe, previous/next controls and an active-card counter.
+Each carousel adapts its height to the active card, including expanded details;
+desktop retains the grid layout. Its ready-to-drink selection shows two photographed
+wines per page, with manual previous/next controls and a compact single-wine layout.
+The overview counts the whole active cellar (including shared ownership), separates
+physical availability from other stock, and shows bottle and wine counts together.
+Valuation coverage is weighted by bottles; totals use current values with purchase
+prices as a fallback and keep currencies separate. Drinking-window priorities use
+physically available stock and calendar years, not exact expiry dates. Details and
+wine selections expand inline; the extended collection analysis is collapsed by default.
+The collector tests cover KPI calculations, navigation, empty data, responsive geometry
+and a reviewed 390 px visual baseline. Update that baseline only after visual review:
+`npx playwright test e2e/wine-detail.spec.ts -g "collector responsive layout 390" --update-snapshots`.
+
 Install the backend development dependencies and activate its virtual environment:
 
 ```bash

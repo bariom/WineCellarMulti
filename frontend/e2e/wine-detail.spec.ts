@@ -960,3 +960,204 @@ test.describe("Wine Detail compact/mobile", () => {
     await expect(page).toHaveScreenshot("wine-detail-compact.png", { fullPage: true });
   });
 });
+
+test("collector overview has consistent counts, currency coverage and actionable priorities", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+  const stock = [
+    wine,
+    { ...wine, id: "old", name: "Riserva storica", quantity: 12, drink_from: 2015, drink_peak_from: 2017, drink_peak_to: 2019, drink_to: 2020 },
+    { ...wine, id: "closing", name: "Finestra 2026", quantity: 3, drink_to: 2026, drink_peak_to: 2026, current_value: "", price: "20" },
+    { ...wine, id: "collect", name: "Ritiro in enoteca", quantity: 6, status: "to_collect", current_value: "", price: "", drink_from: null, drink_to: null },
+    { ...wine, id: "euro", name: "Collezione europea", quantity: 2, currency: "EUR", current_value: "50", price: "40", status: "ordered" },
+    { ...wine, id: "empty", quantity: 0 },
+  ];
+  await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const overview = page.getByRole("region", { name: "Panoramica collezionista" });
+  await expect(overview).toContainText("27 bottiglie · 5 vini");
+  const coverage = overview.locator("article").filter({ has: page.getByRole("heading", { name: "Copertura valutazioni", exact: true }) });
+  await expect(coverage).toContainText("67%");
+  await expect(overview.locator("article").filter({ has: page.getByRole("heading", { name: "Disponibilità", exact: true }) }).locator(".collector-number")).toContainText("19");
+  const value = overview.locator("article").filter({ has: page.getByRole("heading", { name: "Valore della collezione", exact: true }) });
+  await expect(value).toContainText("828");
+  await expect(value).toContainText("100");
+  await expect(value).toContainText("EUR");
+  await expect(value).toContainText("CHF");
+  const priorities = page.getByRole("region", { name: "Da seguire adesso" });
+  await expect(priorities).toContainText("12 bottiglie · 1 vino");
+  await expect(priorities).toContainText("3 bottiglie · 1 vino");
+  await expect(priorities).toContainText("6 bottiglie · 1 vino");
+  await priorities.locator("summary").filter({ hasText: "Vini da verificare" }).click();
+  await expect(priorities.getByRole("button", { name: /Riserva storica/ })).toBeVisible();
+  await expect(page.locator(".collector-explore")).not.toHaveAttribute("open", "");
+  // A missing purchase date must not create a synthetic time series.
+  await expect(page.locator(".key-position-card").getByText("Acquisto → valore attuale / bott.").first()).toBeVisible();
+  await overview.getByText("Vedi disponibilità", { exact: true }).click();
+  const available = overview.locator("summary").filter({ hasText: /^In cantina/ });
+  await available.click();
+  await overview.getByRole("button", { name: /Nebbiolo di Test/ }).first().click();
+  await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
+});
+
+for (const width of [360, 390, 430, 1440]) {
+  test(`collector responsive layout ${width}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : width === 1440 ? 1000 : 844 });
+    const galleryWines = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `gallery-${index}` : wine.id, name: index ? `Riserva della collezione ${index}` : wine.name }));
+    await mockApi(page, [], false, memberships, galleryWines, { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    await expect(page.getByRole("heading", { name: "La cantina, a colpo d’occhio" })).toBeVisible();
+    const stage = page.getByRole("region", { name: "I vini della tua collezione" });
+    await expect(stage.locator(".key-position-card img").first()).toBeVisible();
+    await expect(stage.locator(".priority-card img").first()).toBeVisible();
+    await expect(stage.locator(".recent-wines-card img").first()).toBeVisible();
+    for (const selector of [".priority-card", ".recent-wines-card"]) {
+      const photoBox = await stage.locator(`${selector} .key-position-bottle-visual`).first().boundingBox();
+      expect(photoBox!.height).toBeGreaterThanOrEqual(140);
+    }
+    const arrivals = stage.locator(".recent-wines-card");
+    const gallery = arrivals.getByRole("list");
+    await expect(gallery.getByRole("listitem")).toHaveCount(5);
+    const galleryItems = await gallery.getByRole("listitem").all();
+    const firstGalleryBox = await galleryItems[0].boundingBox();
+    for (const item of galleryItems) {
+      const itemBox = (await item.boundingBox())!;
+      expect(itemBox.y).toBe(firstGalleryBox!.y);
+      const copyBox = (await item.locator(".dashboard-bottle-copy").boundingBox())!;
+      expect(copyBox.y + copyBox.height).toBeLessThanOrEqual(itemBox.y + itemBox.height);
+    }
+    const arrivalsBox = await arrivals.boundingBox();
+    expect(arrivalsBox!.height).toBeLessThan(440);
+    if (width === 1440) {
+      const readySelection = stage.getByRole("region", { name: "Selezione da bere ora" });
+      await expect(readySelection.locator(".collector-ready-wine")).toHaveCount(2);
+      const readyTiles = await readySelection.locator(".collector-ready-wine").all();
+      const firstReady = (await readyTiles[0].boundingBox())!;
+      const secondReady = (await readyTiles[1].boundingBox())!;
+      expect(firstReady.x + firstReady.width).toBeLessThanOrEqual(secondReady.x);
+      expect(firstReady.y).toBe(secondReady.y);
+      await readySelection.getByRole("button", { name: "Vini successivi", exact: true }).click();
+      await expect(readySelection.locator(".collector-ready-controls")).toContainText("3–4 / 5");
+      await readySelection.getByRole("button", { name: "Vini successivi", exact: true }).click();
+      await expect(readySelection.locator(".collector-ready-wine")).toHaveCount(1);
+      expect((await readySelection.locator(".collector-ready-wine").boundingBox())!.height).toBeLessThan(200);
+      await expect(readySelection.getByRole("button", { name: "Vini successivi", exact: true })).toBeDisabled();
+      await readySelection.getByRole("button", { name: "Vini precedenti", exact: true }).click();
+      await readySelection.getByRole("button", { name: "Vini precedenti", exact: true }).click();
+      await expect(readySelection.locator(".collector-ready-controls")).toContainText("1–2 / 5");
+      const featuredBox = (await stage.locator(".key-position-card").boundingBox())!;
+      const readyBox = (await stage.locator(".priority-card").boundingBox())!;
+      expect(Math.abs(featuredBox.y + featuredBox.height - readyBox.y - readyBox.height)).toBeLessThan(1);
+      expect((await arrivals.boundingBox())!.y - featuredBox.y - featuredBox.height).toBeLessThanOrEqual(18);
+    }
+    const stageBox = await stage.boundingBox();
+    const overviewBox = await page.locator(".collector-overview").boundingBox();
+    expect(stageBox!.y + stageBox!.height).toBeLessThanOrEqual(overviewBox!.y);
+    const stageCards = await stage.locator(":scope > article").all();
+    for (const card of width === 1440 ? stageCards : []) {
+      const box = await card.boundingBox();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+    }
+    const tiles = await page.locator(".collector-tile").all();
+    const boxes = await Promise.all(tiles.map(tile => tile.boundingBox()));
+    for (const [index, box] of width === 1440 ? boxes.entries() : []) {
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(0);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+      for (const previous of boxes.slice(0, index)) {
+        expect(box!.x >= previous!.x + previous!.width - .5 || previous!.x >= box!.x + box!.width - .5 || box!.y >= previous!.y + previous!.height - .5 || previous!.y >= box!.y + box!.height - .5).toBe(true);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const key = page.locator(".key-position-button").first();
+    const photo = await key.locator(".key-position-bottle-visual").boundingBox();
+    const title = await key.locator("h2").boundingBox();
+    const metrics = await key.locator(".key-position-metrics").boundingBox();
+    expect(photo!.x + photo!.width).toBeLessThanOrEqual(title!.x);
+    expect(title!.y + title!.height).toBeLessThanOrEqual(metrics!.y);
+    if (width < 900) expect(photo!.y + photo!.height).toBeLessThanOrEqual(metrics!.y);
+    if (width < 900) {
+      const groups = await page.locator(".collector-card-group").all();
+      expect(groups).toHaveLength(4);
+      for (const group of groups) {
+        const track = group.locator(".collector-card-track").first();
+        const cards = track.locator(":scope > article");
+        const total = await cards.count();
+        const next = group.getByRole("button", { name: "Scheda successiva", exact: true });
+        const previous = group.getByRole("button", { name: "Scheda precedente", exact: true });
+        for (let index = 0; index < total; index++) {
+          await expect(group.locator(".collector-group-controls span")).toContainText(`${index + 1}/${total}`);
+          const cardBox = (await cards.nth(index).boundingBox())!;
+          expect(cardBox.x).toBeGreaterThanOrEqual(0);
+          expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(width);
+          await expect.poll(async () => {
+            const trackBox = (await track.boundingBox())!;
+            const activeBox = (await cards.nth(index).boundingBox())!;
+            return Math.abs(trackBox.height - activeBox.height - 8);
+          }).toBeLessThan(2);
+          if (index < total - 1) await next.click();
+        }
+        await expect(next).toBeDisabled();
+        for (let index = total - 1; index > 0; index--) await previous.click();
+        await expect(previous).toBeDisabled();
+        await track.evaluate(element => element.scrollTo({ left: element.scrollWidth, behavior: "instant" }));
+        await expect(group.locator(".collector-group-controls span")).toContainText(`${total}/${total}`);
+        for (let index = total - 1; index > 0; index--) await previous.click();
+      }
+      await page.evaluate(() => window.scrollTo(0, 0));
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    }
+    if (width === 390) {
+      const summaryGroup = page.locator(".collector-overview > .collector-card-group");
+      const summaryTrack = summaryGroup.locator(".collector-card-track");
+      const before = (await summaryTrack.boundingBox())!.height;
+      await summaryGroup.getByText("Composizione del valore", { exact: true }).click();
+      await expect.poll(async () => (await summaryTrack.boundingBox())!.height).toBeGreaterThan(before);
+      const expandedCard = summaryTrack.locator(":scope > article").first();
+      await expect.poll(async () => Math.abs((await summaryTrack.boundingBox())!.height - (await expandedCard.boundingBox())!.height - 8)).toBeLessThan(2);
+      await summaryGroup.getByText("Composizione del valore", { exact: true }).click();
+      await expect.poll(async () => (await summaryTrack.boundingBox())!.height).toBe(before);
+      await page.evaluate(() => window.scrollTo(0, 0));
+      // Rasterize the offscreen photo cards before comparing the full-page image.
+      await page.screenshot({ fullPage: true });
+      await expect(page).toHaveScreenshot("collector-compact.png", { fullPage: true });
+    }
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: testInfo.outputPath(`collector-${width}.png`), fullPage: true });
+    await page.locator(".collector-explore > summary").click();
+    await expect(page.locator(".collector-explore .geographic-map-card")).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`collector-expanded-${width}.png`), fullPage: true });
+    if (width === 1440) {
+      await stage.getByRole("region", { name: "Selezione da bere ora" }).getByRole("button", { name: /Nebbiolo di Test/ }).click();
+      await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
+    }
+  });
+}
+
+test("collector empty state has no misleading percentages", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
+  await page.goto("/");
+  const overview = page.getByRole("region", { name: "Collector overview" });
+  await expect(overview).toContainText("0 bottles · 0 wines");
+  await expect(overview).not.toContainText("NaN");
+  await expect(overview).not.toContainText("100%");
+  await expect(overview.getByText("—", { exact: true })).toHaveCount(4);
+});
+test("collector excludes incomplete windows and keeps dated history changes consistent", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+  const item = { ...wine, drink_from: 2030, drink_to: 2025, producer: "", current_value: "48", value_history: [
+    { id: "a", value: "40", currency: "CHF", source: "manual", recorded_at: "2025-01-01T12:00:00Z" },
+    { id: "b", value: "48", currency: "CHF", source: "manual", recorded_at: "2026-01-01T12:00:00Z" },
+  ] };
+  await mockApi(page, [], false, memberships, [item], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const known = page.locator(".collector-tile").filter({ has: page.getByRole("heading", { name: "Finestre conosciute", exact: true }) });
+  await expect(known).toContainText("0%");
+  await expect(known).toContainText("4 bottiglie · 1 vino");
+  const priorities = page.getByRole("region", { name: "Da seguire adesso" });
+  await expect(priorities).not.toContainText("4 bottiglie");
+  await expect(page.locator(".key-position-trend")).toContainText("20");
+  await expect(page.locator(".key-position-trend")).not.toContainText("14.3");
+});

@@ -12,6 +12,7 @@
     "android:monitor": "npm run build:monitor && npx cap sync android && npx cap open android",
     "test:help": "node scripts/check-help-content.mjs",
     "test:e2e": "playwright test",
+    "test:e2e:collector": "playwright test e2e/wine-detail.spec.ts -g collector",
     "test:e2e:wine-detail": "playwright test e2e/wine-detail.spec.ts",
     "test:e2e:update": "playwright test e2e/wine-detail.spec.ts --update-snapshots",
     "preview": "vite preview --host 0.0.0.0 --port 4173",

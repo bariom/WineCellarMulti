@@ -26,6 +26,9 @@ import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
 import WishlistLiveTasteScanner from "./components/WishlistLiveTasteScanner";
 import type { WishlistLiveTasteScan } from "./components/WishlistLiveTasteScanner";
 import { useChartReveal } from "./components/chartMotion";
+import { CollectorReadyWines } from "./components/CollectorReadyWines";
+import { CollectorCardGroup } from "./components/CollectorCardGroup";
+import { CollectorOverview } from "./components/CollectorOverview";
 import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
 import CellarAssistantView from "./views/CellarAssistantView";
@@ -33,6 +36,7 @@ import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import { openCookieConsentSettings } from "./services/cookieConsent";
 import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
 import "./styles.css";
+import "./components/CollectorOverview.css";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -7069,9 +7073,9 @@ export function App() {
     return selected.slice(0, 4).map((wine) => {
       const sharePct = currentUserSharePct(wine, session);
       const totalValue = positionValue(wine);
-      const increasePct = priceIncreasePct(wine);
       const purchasePrice = Number(wine.price || 0);
       const historicalPoints = wine.value_history
+        .filter((entry) => entry.currency === wine.currency)
         .map((entry) => {
           const timestamp = new Date(entry.recorded_at).getTime();
           return {
@@ -7084,24 +7088,21 @@ export function App() {
         .sort((first, second) => first.timestamp - second.timestamp);
       const currentValue = Number(wine.current_value || historicalPoints[historicalPoints.length - 1]?.value || 0);
       const parsedOrderDate = wine.order_date ? new Date(`${wine.order_date.slice(0, 10)}T00:00:00`).getTime() : Number.NaN;
-      const purchaseTimestamp = Number.isFinite(parsedOrderDate)
-        ? parsedOrderDate
-        : historicalPoints.length ? historicalPoints[0].timestamp - 86_400_000 : Date.now() - 86_400_000;
+      const purchaseTimestamp = parsedOrderDate;
       const historySincePurchase = historicalPoints.filter((point) => point.timestamp > purchaseTimestamp);
-      const trendPoints = purchasePrice > 0 && currentValue > 0
+      const trendPoints = purchasePrice > 0 && currentValue > 0 && Number.isFinite(purchaseTimestamp)
         ? [{ value: purchasePrice, timestamp: purchaseTimestamp, label: t("purchasePrice") }, ...historySincePurchase]
         : historicalPoints;
       const latestTrendPoint = trendPoints[trendPoints.length - 1];
-      if (purchasePrice > 0 && currentValue > 0 && (!latestTrendPoint || latestTrendPoint.value !== currentValue || trendPoints.length < 2)) {
-        const estimatedAt = wine.ai_value_estimated_at ? new Date(wine.ai_value_estimated_at).getTime() : Number.NaN;
-        const currentTimestamp = Number.isFinite(estimatedAt) && estimatedAt > (latestTrendPoint?.timestamp || purchaseTimestamp)
-          ? estimatedAt
-          : Math.max(Date.now(), (latestTrendPoint?.timestamp || purchaseTimestamp) + 1);
-        trendPoints.push({ value: currentValue, timestamp: currentTimestamp, label: t("today") });
+      const estimatedAt = wine.ai_value_estimated_at ? new Date(wine.ai_value_estimated_at).getTime() : Number.NaN;
+      if (currentValue > 0 && Number.isFinite(estimatedAt) && (!latestTrendPoint || estimatedAt > latestTrendPoint.timestamp)) {
+        trendPoints.push({ value: currentValue, timestamp: estimatedAt, label: formatDisplayDate(wine.ai_value_estimated_at!) });
       }
       const trendStart = trendPoints[0];
       const trendEnd = trendPoints[trendPoints.length - 1];
-      const trendChangePct = increasePct;
+      const trendChangePct = trendStart && trendEnd && trendStart.value > 0
+        ? (trendEnd.value - trendStart.value) / trendStart.value * 100
+        : null;
       const trendChangeValue = trendStart && trendEnd ? trendEnd.value - trendStart.value : null;
       const drinkStart = wine.drink_from || wine.drink_peak_from || null;
       const drinkEnd = wine.drink_to || wine.drink_peak_to || null;
@@ -10132,7 +10133,7 @@ export function App() {
                 </aside>
               ) : null}
 
-              {dashboardFocus !== "taste" ? <section className="hero-panel">
+              {dashboardFocus !== "taste" && dashboardFocus !== "collector" ? <section className="hero-panel">
                 <div className="hero-copy">
                   <p className="eyebrow">{t("dashboard")}</p>
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
@@ -10561,7 +10562,8 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "collector" ? (
-              <DashboardCarousel label={t("priorityActions")} className="collector-dashboard-carousel">
+              <div className="collector-dashboard-layout">
+                <CollectorCardGroup className="collector-wine-stage" locale={locale} label={locale === "it" ? "I vini della tua collezione" : "Wines in your collection"}>
                 <article className="dashboard-card key-position-card">
                   {keyPositionCandidates.length ? (
                     <>
@@ -10613,6 +10615,7 @@ export function App() {
                             <div className={`key-position-metrics${trendPoints.length >= 2 ? " has-value-trend" : ""}`}>
                               <KeyPositionCircularKpi label={t("totalValue")} value={formatMoney(totalValue, wine.currency, locale)} />
                               <KeyPositionCircularKpi label={t("bottles")} value={formatBottleCount(wine.quantity, locale)} tone="count" />
+                              {trendPoints.length < 2 && Number(wine.price) > 0 && Number(wine.current_value) > 0 ? <KeyPositionCircularKpi label={locale === "it" ? "Acquisto → valore attuale / bott." : "Purchase → current value / btl."} value={`${formatMoney(Number(wine.price), wine.currency, locale)} → ${formatMoney(Number(wine.current_value), wine.currency, locale)}`} /> : null}
                               {trendPoints.length >= 2 ? (
                                 <KeyPositionTrendKpi
                                   label={t("valueEvolution")}
@@ -10646,13 +10649,14 @@ export function App() {
                   )}
                 </article>
 
+
                 <article className="dashboard-card priority-card">
                   <div className="card-heading">
                     <div>
                       <span>{t("priorityActions")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</i>{t("drinkNow")}</h2>
                     </div>
-                    <strong>{cellarStats.drinkNow}</strong>
+                    <strong>{formatBottleCount(cellarStats.drinkNow, locale)} {locale === "it" ? "bott." : "btl."}</strong>
                   </div>
                   <div className="priority-summary" aria-label={t("drinkNow")}>
                     <div>
@@ -10665,10 +10669,11 @@ export function App() {
                     </div>
                     <button type="button" onClick={() => openOperationalCellarFilter("drink_soon")}>
                       <span>{t("drinkIn2Years")}</span>
-                      <strong>{formatBottleCount(cellarStats.drinkSoon, locale)}</strong>
+                      <strong>{cellarStats.drinkSoon} {t("wines").toLowerCase()}</strong>
                     </button>
                   </div>
                   {drinkNowWines.length ? (
+                    <CollectorReadyWines wines={drinkNowWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}>
                     <DashboardBottleSlideshow
                       wines={drinkNowWines}
                       canShowPhotos={canAccessWinePhotos}
@@ -10680,6 +10685,7 @@ export function App() {
                       pauseLabel={locale === "it" ? "Pausa slideshow" : "Pause slideshow"}
                       playLabel={locale === "it" ? "Avvia slideshow" : "Play slideshow"}
                     />
+                    </CollectorReadyWines>
                   ) : <p className="empty-state">{t("noActionItems")}</p>}
                   {priorityDrinkSoonWines.length ? (
                     <div className="priority-next-window">
@@ -10721,13 +10727,16 @@ export function App() {
                   ) : <p className="empty-state">{t("noActionItems")}</p>}
                 </article>
 
+                </CollectorCardGroup>
+                <CollectorOverview wines={cellarWines} locale={locale} now={now} refreshDays={valueRefreshDaysNumber} onOpen={openWineFromDashboard} />
+                <details className="collector-explore"><summary>{locale === "it" ? "Esplora la collezione: vini, maturità e origini" : "Explore the collection: wines, maturity and origins"}</summary><section className="dashboard-grid">
                 <article className="dashboard-card">
                   <div className="card-heading">
                     <div>
                       <span>{t("atRiskWines")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("past_window")}</i>{t("pastWindow")}</h2>
                     </div>
-                    <strong>{cellarStats.pastWindow}</strong>
+                    <strong>{cellarStats.pastWindow} {t("wines").toLowerCase()}</strong>
                   </div>
                   <div className="action-list">
                     {atRiskWines.length ? atRiskWines.map((wine) => (
@@ -10745,7 +10754,7 @@ export function App() {
                       <span>{t("upcomingDeliveries")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("future_deliveries")}</i>{t("futureDeliveries")}</h2>
                     </div>
-                    <strong>{cellarStats.futureDeliveries}</strong>
+                    <strong>{cellarStats.futureDeliveries} {t("wines").toLowerCase()}</strong>
                   </button>
                   <div className="action-list">
                     {upcomingDeliveries.length ? upcomingDeliveries.map(({ wine, days }) => (
@@ -10763,7 +10772,7 @@ export function App() {
                       <span>{t("upcomingDeliveries")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("to_collect")}</i>{t("winesToCollect")}</h2>
                     </div>
-                    <strong>{cellarStats.toCollect}</strong>
+                    <strong>{cellarStats.toCollect} {t("wines").toLowerCase()}</strong>
                   </button>
                   <div className="action-list">
                     {winesToCollect.length ? winesToCollect.map((wine) => (
@@ -10781,7 +10790,7 @@ export function App() {
                       <span>{t("incompleteData")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("missing_data")}</i>{t("dataQuality")}</h2>
                     </div>
-                      <strong>{incompleteCellarWineCount}</strong>
+                      <strong>{incompleteCellarWineCount} {t("wines").toLowerCase()}</strong>
                   </div>
                   <div className="action-list">
                     {incompleteWines.length ? incompleteWines.map((wine) => (
@@ -10840,7 +10849,7 @@ export function App() {
                     ))}
                   </div>
                 </article>
-              </DashboardCarousel>
+              </section></details></div>
               ) : null}
 
               {dashboardFocus === "value" ? (
