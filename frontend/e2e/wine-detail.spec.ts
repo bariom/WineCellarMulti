@@ -607,9 +607,9 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.locator(".dashboard-analysis-switcher > summary").click();
     await page.getByRole("tab", { name: "Il mio gusto", exact: true }).click();
     await expect(page.locator(".taste-profile-panel").getByRole("heading", { name: "Il mio gusto", exact: true })).toBeVisible();
-    await expect(page.getByText("Uve preferite", { exact: true })).toBeVisible();
-    await expect(page.locator(".taste-profile-panel").getByText("vini ascoltati", { exact: false })).toBeVisible();
-    await page.getByText("Come viene costruito il profilo", { exact: true }).click();
+    await expect(page.getByText("Regioni preferite", { exact: true })).toBeVisible();
+    await expect(page.locator(".taste-profile-panel").getByText("vini distinti", { exact: false })).toBeVisible();
+    await page.getByText("Come Vinaris ha costruito questo profilo", { exact: true }).click();
     await expect(page.getByText(/Vinaris usa solo le degustazioni che hai registrato tu/)).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   });

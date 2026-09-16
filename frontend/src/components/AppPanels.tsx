@@ -949,6 +949,17 @@ function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: 
   </details>;
 }
 
+function tasteTraitLabel(trait: string, locale: Locale) {
+  const labels: Record<string, string> = locale === "it" ? {
+    body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
+    aromatic_intensity: "intensità aromatica", "aromatic intensity": "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
+  } : {
+    body: "body", acidity: "acidity", tannin: "tannin", sweetness: "sweetness",
+    aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "wood", spice: "spice", minerality: "minerality",
+  };
+  return labels[trait] || trait;
+}
+
 function TasteHeartScale({ score, confidence, locale, compact = false, className = "" }: { score: number; confidence: number; locale: Locale; compact?: boolean; className?: string }) {
   const hearts = Math.min(6, Math.max(1, Math.round(score * 6)));
   const provisional = confidence < 0.3;
@@ -1008,14 +1019,6 @@ function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
   }, [wineId]);
 
   if (!match || match.score === null) return null;
-  const traitLabels: Record<string, string> = italian ? {
-    body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
-    aromatic_intensity: "intensità aromatica", "aromatic intensity": "intensità aromatica", fruit: "frutto", wood: "legno", spice: "spezie", minerality: "mineralità",
-  } : {
-    body: "body", acidity: "acidity", tannin: "tannin", sweetness: "sweetness",
-    aromatic_intensity: "aromatic intensity", fruit: "fruit", wood: "wood", spice: "spice", minerality: "minerality",
-  };
-  const label = (trait: string) => traitLabels[trait] || trait;
   const score = Math.round(match.score * 100);
 
   return <aside className="taste-note" aria-label={italian ? "Nota di gusto" : "Taste note"}>
@@ -1024,8 +1027,8 @@ function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
       <div><span>{italian ? "Nota di gusto" : "Taste note"}</span><strong>{italian ? `${score}% in sintonia con i tuoi gusti` : `${score}% aligned with your taste`}</strong></div>
       <i aria-hidden="true">✦</i>
     </div>
-    {match.matching_traits.length ? <p>{italian ? "In sintonia: " : "Aligned traits: "}{match.matching_traits.map(label).join(", ")}.</p> : <p>{italian ? "Questo vino è compatibile con il tuo profilo personale." : "This wine is compatible with your personal profile."}</p>}
-    {match.conflicting_traits.length ? <small>{italian ? "Da esplorare: " : "To explore: "}{match.conflicting_traits.map(label).join(", ")}.</small> : null}
+    {match.matching_traits.length ? <p>{italian ? "In sintonia: " : "Aligned traits: "}{match.matching_traits.map((trait) => tasteTraitLabel(trait, locale)).join(", ")}.</p> : <p>{italian ? "Questo vino è compatibile con il tuo profilo personale." : "This wine is compatible with your personal profile."}</p>}
+    {match.conflicting_traits.length ? <small>{italian ? "Da esplorare: " : "To explore: "}{match.conflicting_traits.map((trait) => tasteTraitLabel(trait, locale)).join(", ")}.</small> : null}
   </aside>;
 }
 
@@ -1857,7 +1860,7 @@ export function WishlistDetail({
         <div>
           <span>{locale === "it" ? "IL TUO GUSTO" : "YOUR TASTE"}</span>
           <h3>{tasteMatch.score === null ? (locale === "it" ? "Affinità non ancora stimabile" : "Affinity cannot be estimated yet") : (locale === "it" ? "Compatibilità personale" : "Personal compatibility")}</h3>
-          {tasteMatch.score === null ? <p>{locale === "it" ? "Servono più dati sul tuo profilo o sul carattere di questo vino. Puoi comunque tenerlo in wishlist e tornare qui dopo nuove degustazioni." : "More information is needed about your profile or this wine. You can keep it in your wishlist and check again after new tastings."}</p> : <><TasteHeartScale score={tasteMatch.score} confidence={tasteMatch.confidence} locale={locale} /><p>{locale === "it" ? "Stima basata sul tuo profilo gusto e sui dati sensoriali disponibili per questo vino." : "Estimate based on your taste profile and the sensory information available for this wine."}</p>{tasteMatch.matching_traits.length ? <small>{locale === "it" ? `In sintonia: ${tasteMatch.matching_traits.join(", ")}.` : `In tune: ${tasteMatch.matching_traits.join(", ")}.`}</small> : null}{tasteMatch.conflicting_traits.length ? <small>{locale === "it" ? `Da valutare: ${tasteMatch.conflicting_traits.join(", ")}.` : `Worth considering: ${tasteMatch.conflicting_traits.join(", ")}.`}</small> : null}</>}
+          {tasteMatch.score === null ? <p>{locale === "it" ? "Servono più dati sul tuo profilo o sul carattere di questo vino. Puoi comunque tenerlo in wishlist e tornare qui dopo nuove degustazioni." : "More information is needed about your profile or this wine. You can keep it in your wishlist and check again after new tastings."}</p> : <><TasteHeartScale score={tasteMatch.score} confidence={tasteMatch.confidence} locale={locale} /><p>{locale === "it" ? `Stima basata sul tuo profilo gusto (${tasteMatch.confidence < .3 ? "ancora in formazione" : "consolidato"}) e sui dati sensoriali disponibili.` : `Estimate based on your ${tasteMatch.confidence < .3 ? "emerging" : "established"} taste profile and available sensory data.`}</p>{tasteMatch.matching_traits.length ? <small>{locale === "it" ? `In sintonia: ${tasteMatch.matching_traits.map((trait) => tasteTraitLabel(trait, locale)).join(", ")}.` : `In tune: ${tasteMatch.matching_traits.map((trait) => tasteTraitLabel(trait, locale)).join(", ")}.`}</small> : null}{tasteMatch.conflicting_traits.length ? <small>{locale === "it" ? `Da valutare: ${tasteMatch.conflicting_traits.map((trait) => tasteTraitLabel(trait, locale)).join(", ")}.` : `Worth considering: ${tasteMatch.conflicting_traits.map((trait) => tasteTraitLabel(trait, locale)).join(", ")}.`}</small> : null}</>}
         </div>
         <button type="button" className="secondary compact" disabled={tasteMatchLoading} onClick={() => void checkTasteCompatibility()}>{locale === "it" ? "Aggiorna" : "Refresh"}</button>
       </section> : null}

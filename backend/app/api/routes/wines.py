@@ -1890,9 +1890,9 @@ def consume_wine_bottle(
 
     # Tasting remains synchronous and inexpensive: it only marks missing shared data and
     # rebuilds this user's private cache. It never invokes AI.
-    if payload.tasting_rating > 0:
+    if payload.tasting_rating > 0 or payload.tasting_enjoyment:
         mark_wine_for_sensory_enrichment(db, wine)
-        rebuild_user_taste_profile(db, context.user.id)
+        rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
 
     db.commit()
     db.refresh(wine)
@@ -1940,9 +1940,13 @@ def update_wine_tasting_entry(
         tasting.pairing = payload.tasting_pairing.strip()
         tasting.companions = payload.tasting_companions.strip()
         if tasting.created_by_user_id:
-            if payload.tasting_rating > 0:
+            if payload.tasting_rating > 0 or payload.tasting_enjoyment:
                 mark_wine_for_sensory_enrichment(db, wine)
-            rebuild_user_taste_profile(db, tasting.created_by_user_id)
+            rebuild_user_taste_profile(
+                db,
+                household_id=context.household.id,
+                user_id=tasting.created_by_user_id,
+            )
 
     db.commit()
     db.refresh(wine)
@@ -1973,7 +1977,9 @@ def delete_wine_tasting_entry(
         tasting_user_id = tasting.created_by_user_id
         db.delete(tasting)
         if tasting_user_id:
-            rebuild_user_taste_profile(db, tasting_user_id)
+            rebuild_user_taste_profile(
+                db, household_id=context.household.id, user_id=tasting_user_id
+            )
 
     db.commit()
     db.refresh(wine)

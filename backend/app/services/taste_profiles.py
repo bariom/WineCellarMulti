@@ -19,6 +19,7 @@ from app.models import (
     SensoryProfileBaseline,
     SharedWineIdentity,
     UserTasteProfile,
+    UserTasteProfileRevision,
     UserWineRating,
     Wine,
     WineSensoryProfile,
@@ -46,6 +47,7 @@ SENSORY_DIMENSIONS = (
 TASTE_CATEGORIES = {"Red", "White", "Rose", "Sparkling", "Sweet", "Fortified"}
 NEUTRAL_RATING = 3.0  # Vinaris tastings are 1..6 stars; zero means not rated.
 TASTE_PROFILE_CALCULATION_VERSION = 2
+TASTE_PROFILE_SHADOW_VERSION = 3
 
 # These are deliberately small, explainable zero-cost defaults. Appellation/grape baselines in the
 # database override/augment them and are maintained by app administrators.
@@ -323,7 +325,66 @@ def _attribute_values(wine: Wine | ExternalWineTasting) -> dict[str, list[str]]:
     }
 
 
-def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProfile]:
+def _shadow_dimension(
+    contributions: list[tuple[float, float, float]],
+) -> tuple[dict[str, float | int], float] | None:
+    """Estimate an ideal sensory level without replacing the active v2 score."""
+    weighted_targets: list[tuple[float, float]] = []
+    total_signal = 0.0
+    confidence_total = 0.0
+    for signal, sensory_value, source_confidence in contributions:
+        strength = abs(signal)
+        if not strength:
+            continue
+        confidence = max(0.0, min(float(source_confidence), 1.0))
+        weight = strength * confidence
+        if not weight:
+            continue
+        # Positive experiences pull toward the wine's level; negative ones push
+        # toward the opposite side of the scale.
+        target = sensory_value if signal > 0 else 1 - sensory_value
+        weighted_targets.append((weight, target))
+        total_signal += strength
+        confidence_total += weight
+    if not weighted_targets or not total_signal:
+        return None
+    total_weight = sum(weight for weight, _ in weighted_targets)
+    raw_target = sum(weight * target for weight, target in weighted_targets) / total_weight
+    evidence_stability = 1 - exp(-total_signal / 6)
+    preference = 0.5 + (raw_target - 0.5) * evidence_stability
+    confidence = evidence_stability * min(1.0, confidence_total / total_signal)
+    return (
+        {
+            "preference": round(preference, 4),
+            "confidence": round(confidence, 4),
+            "samples": len(contributions),
+        },
+        confidence,
+    )
+
+
+def _archive_profile(db: Session, profile: UserTasteProfile, *, reason: str = "rebuild") -> None:
+    db.add(
+        UserTasteProfileRevision(
+            profile_id=profile.id,
+            user_id=profile.user_id,
+            household_id=profile.household_id,
+            category=profile.category,
+            dimensions=dict(profile.dimensions or {}),
+            attributes=dict(profile.attributes or {}),
+            confidence=profile.confidence,
+            sample_count=profile.sample_count,
+            calculation_version=profile.calculation_version,
+            rebuilt_at=profile.rebuilt_at,
+            archived_at=datetime.now(UTC),
+            archive_reason=reason,
+        )
+    )
+
+
+def rebuild_user_taste_profile(
+    db: Session, *, household_id: UUID, user_id: UUID
+) -> list[UserTasteProfile]:
     """Authoritative rebuild: only the user's own tasting entries are eligible."""
     rows = list(
         db.execute(
@@ -333,6 +394,8 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
                 WineSensoryProfile, WineSensoryProfile.identity_id == Wine.shared_identity_id
             )
             .where(
+                Wine.household_id == household_id,
+                WineTastingEntry.household_id == household_id,
                 WineTastingEntry.created_by_user_id == user_id,
                 or_(
                     WineTastingEntry.rating > 0,
@@ -366,7 +429,12 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
         select(UserWineRating, Wine, WineSensoryProfile)
         .join(Wine, Wine.id == UserWineRating.wine_id)
         .outerjoin(WineSensoryProfile, WineSensoryProfile.identity_id == Wine.shared_identity_id)
-        .where(UserWineRating.user_id == user_id, UserWineRating.rating > 0)
+        .where(
+            UserWineRating.user_id == user_id,
+            UserWineRating.household_id == household_id,
+            Wine.household_id == household_id,
+            UserWineRating.rating > 0,
+        )
     )
     for star_rating, wine, profile in rating_rows:
         weight = rating_weight(float(star_rating.rating)) * 0.5
@@ -387,6 +455,7 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
             WineSensoryProfile.identity_id == ExternalWineTasting.shared_identity_id,
         )
         .where(
+            ExternalWineTasting.household_id == household_id,
             ExternalWineTasting.created_by_user_id == user_id,
             or_(
                 ExternalWineTasting.rating > 0,
@@ -406,28 +475,24 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
                 continue
             for dimension, value in validated_dimensions(profile.dimensions).items():
                 accumulators[category][dimension].append((weight, value, profile.confidence))
-    db.query(UserTasteProfile).filter(UserTasteProfile.user_id == user_id).delete(
-        synchronize_session=False
-    )
-    if not samples:
-        empty = UserTasteProfile(
-            user_id=user_id,
-            category="global",
-            dimensions={},
-            attributes={},
-            confidence=0.0,
-            sample_count=0,
-            calculation_version=TASTE_PROFILE_CALCULATION_VERSION,
-            rebuilt_at=datetime.now(UTC),
+    existing_profiles = {
+        profile.category: profile
+        for profile in db.scalars(
+            select(UserTasteProfile).where(
+                UserTasteProfile.user_id == user_id,
+                UserTasteProfile.household_id == household_id,
+            )
         )
-        db.add(empty)
-        db.flush()
-        return [empty]
+    }
+    if not samples:
+        samples["global"] = 0
     now = datetime.now(UTC)
     profiles: list[UserTasteProfile] = []
     for category in sorted(samples):
         dimensions: dict[str, dict] = {}
         confidence_values: list[float] = []
+        shadow_dimensions: dict[str, dict] = {}
+        shadow_confidence_values: list[float] = []
         for dimension, contributions in accumulators[category].items():
             total_strength = sum(abs(weight) for weight, _, _ in contributions)
             if not total_strength:
@@ -444,6 +509,11 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
                 "samples": len(contributions),
             }
             confidence_values.append(confidence)
+            shadow = _shadow_dimension(contributions)
+            if shadow is not None:
+                shadow_value, shadow_confidence = shadow
+                shadow_dimensions[dimension] = shadow_value
+                shadow_confidence_values.append(shadow_confidence)
         attributes = {
             key: [
                 [value, round(score, 4)]
@@ -455,18 +525,41 @@ def rebuild_user_taste_profile(db: Session, user_id: UUID) -> list[UserTasteProf
         confidence = round(
             (sum(confidence_values) / len(confidence_values)) if confidence_values else 0.0, 4
         )
-        profile = UserTasteProfile(
-            user_id=user_id,
-            category=category,
-            dimensions=dimensions,
-            attributes=attributes,
-            confidence=confidence,
-            sample_count=samples[category],
-            calculation_version=TASTE_PROFILE_CALCULATION_VERSION,
-            rebuilt_at=now,
+        shadow_confidence = round(
+            (sum(shadow_confidence_values) / len(shadow_confidence_values))
+            if shadow_confidence_values
+            else 0.0,
+            4,
         )
-        db.add(profile)
+        profile = existing_profiles.pop(category, None)
+        if profile is None:
+            profile = UserTasteProfile(
+                user_id=user_id,
+                household_id=household_id,
+                category=category,
+            )
+            db.add(profile)
+        elif (
+            profile.dimensions != dimensions
+            or profile.attributes != attributes
+            or profile.confidence != confidence
+            or profile.sample_count != samples[category]
+            or profile.calculation_version != TASTE_PROFILE_CALCULATION_VERSION
+        ):
+            _archive_profile(db, profile)
+        profile.dimensions = dimensions
+        profile.attributes = attributes
+        profile.confidence = confidence
+        profile.sample_count = samples[category]
+        profile.calculation_version = TASTE_PROFILE_CALCULATION_VERSION
+        profile.shadow_dimensions = shadow_dimensions
+        profile.shadow_confidence = shadow_confidence
+        profile.shadow_calculation_version = TASTE_PROFILE_SHADOW_VERSION
+        profile.rebuilt_at = now
         profiles.append(profile)
+    for stale_profile in existing_profiles.values():
+        _archive_profile(db, stale_profile, reason="category_removed")
+        db.delete(stale_profile)
     db.flush()
     return profiles
 
@@ -492,7 +585,7 @@ def record_user_wine_rating(db: Session, *, user_id: UUID, wine: Wine, rating: i
     else:
         personal_rating.rating = rating
     db.flush()
-    rebuild_user_taste_profile(db, user_id)
+    rebuild_user_taste_profile(db, household_id=wine.household_id, user_id=user_id)
 
 
 def unassigned_tasting_count(db: Session, household_id: UUID) -> int:
@@ -525,7 +618,7 @@ def claim_unassigned_tastings(
     )
     for entry in entries:
         entry.created_by_user_id = user_id
-    return len(entries), rebuild_user_taste_profile(db, user_id)
+    return len(entries), rebuild_user_taste_profile(db, household_id=household_id, user_id=user_id)
 
 
 def calculate_taste_match(
@@ -535,7 +628,9 @@ def calculate_taste_match(
     target_category = category or _category(wine)
     profile = db.scalar(
         select(UserTasteProfile).where(
-            UserTasteProfile.user_id == user_id, UserTasteProfile.category == target_category
+            UserTasteProfile.user_id == user_id,
+            UserTasteProfile.household_id == wine.household_id,
+            UserTasteProfile.category == target_category,
         )
     )
     profile_has_dimensions = bool(
@@ -549,7 +644,9 @@ def calculate_taste_match(
     if not profile_has_dimensions and target_category != "global":
         profile = db.scalar(
             select(UserTasteProfile).where(
-                UserTasteProfile.user_id == user_id, UserTasteProfile.category == "global"
+                UserTasteProfile.user_id == user_id,
+                UserTasteProfile.household_id == wine.household_id,
+                UserTasteProfile.category == "global",
             )
         )
     dimensions = (
@@ -647,7 +744,9 @@ def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistIte
     target_category = _category(item)
     profile = db.scalar(
         select(UserTasteProfile).where(
-            UserTasteProfile.user_id == user_id, UserTasteProfile.category == target_category
+            UserTasteProfile.user_id == user_id,
+            UserTasteProfile.household_id == item.household_id,
+            UserTasteProfile.category == target_category,
         )
     )
     profile_has_dimensions = bool(
@@ -661,7 +760,9 @@ def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistIte
     if not profile_has_dimensions and target_category != "global":
         profile = db.scalar(
             select(UserTasteProfile).where(
-                UserTasteProfile.user_id == user_id, UserTasteProfile.category == "global"
+                UserTasteProfile.user_id == user_id,
+                UserTasteProfile.household_id == item.household_id,
+                UserTasteProfile.category == "global",
             )
         )
     if not profile or not dimensions:
@@ -708,14 +809,26 @@ def confidence_level(confidence: float, *, tasting_count: int) -> str:
     return "emerging"
 
 
-def compact_taste_context(db: Session, user_id: UUID, *, category: str | None = None) -> dict:
+def compact_taste_context(
+    db: Session, *, household_id: UUID, user_id: UUID, category: str | None = None
+) -> dict:
     """Small, non-identifying context safe to pass to the sommelier prompt."""
     selected = category if category in TASTE_CATEGORIES else "global"
     profile = db.scalar(
         select(UserTasteProfile).where(
-            UserTasteProfile.user_id == user_id, UserTasteProfile.category == selected
+            UserTasteProfile.user_id == user_id,
+            UserTasteProfile.household_id == household_id,
+            UserTasteProfile.category == selected,
         )
     )
+    if (profile is None or profile.confidence < 0.2) and selected != "global":
+        profile = db.scalar(
+            select(UserTasteProfile).where(
+                UserTasteProfile.user_id == user_id,
+                UserTasteProfile.household_id == household_id,
+                UserTasteProfile.category == "global",
+            )
+        )
     if profile is None or profile.confidence < 0.2:
         return {}
     dimensions = {

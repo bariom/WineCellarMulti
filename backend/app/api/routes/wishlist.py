@@ -877,7 +877,7 @@ def record_wishlist_tasting(
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
         enrich_external_tasting_sensory_profile(db, context, tasting)
-        rebuild_user_taste_profile(db, context.user.id)
+        rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
     db.commit()
     db.refresh(tasting)
     return ExternalWineTastingResponse.model_validate(tasting)
@@ -913,7 +913,7 @@ def update_wishlist_tasting(
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
         enrich_external_tasting_sensory_profile(db, context, tasting)
-    rebuild_user_taste_profile(db, context.user.id)
+    rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
     db.commit()
     db.refresh(tasting)
     return ExternalWineTastingResponse.model_validate(tasting)
@@ -937,7 +937,7 @@ def delete_wishlist_tasting(
             status_code=status.HTTP_404_NOT_FOUND, detail="External tasting not found"
         )
     db.delete(tasting)
-    rebuild_user_taste_profile(db, context.user.id)
+    rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
     db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

@@ -27412,6 +27412,16 @@ body,
   font-size: .62em;
 }
 
+.sensory-signature-row > strong em {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: .58em;
+  font-style: normal;
+  text-align: right;
+}
+
 .sensory-signature-track {
   position: relative;
   height: 8px;
@@ -27899,6 +27909,210 @@ body,
   line-height: 1.45;
 }
 
+.taste-profile-category-view {
+  display: inline-flex;
+  justify-self: start;
+  gap: 3px;
+  margin-top: 10px;
+  padding: 3px;
+  border: 1px solid color-mix(in srgb, var(--border) 82%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+}
+
+.taste-profile-category-view button {
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: transparent;
+  box-shadow: none;
+  font-size: .78rem;
+}
+
+.taste-profile-category-view button.is-active {
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--collector-depth) 12%, transparent);
+}
+
+.taste-profile-category-explanation {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.taste-profile-category-explanation p,
+.taste-profile-no-differences {
+  margin: 0;
+}
+
+.taste-profile-category-explanation > small,
+.taste-profile-no-differences {
+  color: var(--text-muted);
+  font-size: .78rem;
+  line-height: 1.4;
+}
+
+.taste-profile-comparison-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-bottom: 12px;
+  color: var(--text-muted);
+  font-size: .68rem;
+  font-weight: 700;
+}
+
+.taste-profile-comparison-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.taste-profile-comparison-legend i {
+  width: 22px;
+  height: 5px;
+  border-radius: 99px;
+  background: var(--primary);
+}
+
+.taste-profile-comparison-legend b {
+  width: 2px;
+  height: 13px;
+  border-radius: 99px;
+  background: var(--accent);
+}
+
+.taste-profile-evidence-detail {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.taste-profile-maintenance {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.taste-profile-maintenance small {
+  color: var(--text-muted);
+}
+
+.taste-profile-algorithm-diagnostics {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--surface));
+}
+
+.taste-profile-algorithm-heading,
+.taste-profile-algorithm-heading > div,
+.taste-profile-algorithm-content,
+.taste-profile-algorithm-categories,
+.taste-profile-algorithm-categories article {
+  display: grid;
+  gap: 8px;
+}
+
+.taste-profile-algorithm-heading {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.taste-profile-algorithm-heading span {
+  color: var(--primary);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.taste-profile-algorithm-content > p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .82rem;
+}
+
+.taste-profile-algorithm-categories {
+  gap: 12px;
+}
+
+.taste-profile-algorithm-categories article {
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  background: var(--surface);
+}
+
+.taste-profile-algorithm-categories article > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.taste-profile-algorithm-categories article > header > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+}
+
+.taste-profile-algorithm-categories article > header small,
+.taste-profile-algorithm-categories article > header span {
+  color: var(--text-muted);
+  font-size: .72rem;
+}
+
+.taste-profile-algorithm-table {
+  display: grid;
+  margin-top: 4px;
+}
+
+.taste-profile-algorithm-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 1fr) repeat(3, minmax(42px, .45fr));
+  align-items: center;
+  min-height: 38px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
+  font-size: .78rem;
+  text-align: right;
+}
+
+.taste-profile-algorithm-row > :first-child {
+  text-align: left;
+}
+
+.taste-profile-algorithm-labels {
+  min-height: 28px;
+  border-top: 0;
+  color: var(--text-muted);
+  font-size: .66rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.taste-profile-algorithm-row em {
+  color: var(--text-muted);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.taste-profile-algorithm-row em.is-positive {
+  color: var(--success, #39734d);
+}
+
+.taste-profile-algorithm-row em.is-negative,
+.taste-profile-algorithm-error {
+  color: var(--danger, #a23b46);
+}
+
 .taste-profile-panel--insight .taste-profile-method {
   margin-top: clamp(34px, 5vw, 58px);
   padding: 18px 4px 2px;
@@ -27948,14 +28162,14 @@ body,
   }
 
   .taste-profile-premium-hero {
-    gap: 24px;
+    gap: 16px;
     min-height: 0;
-    padding: 22px 18px;
+    padding: 18px 16px;
     border-radius: 20px;
   }
 
   .taste-profile-hero-copy h3 {
-    font-size: clamp(1.7rem, 8vw, 2.35rem);
+    font-size: clamp(1.55rem, 7vw, 2rem);
   }
 
   .taste-profile-hero-metrics {
@@ -27963,7 +28177,8 @@ body,
   }
 
   .taste-profile-hero-metrics article {
-    min-height: 122px;
+    min-height: 96px;
+    padding: 12px;
   }
 
   .taste-profile-premium-hero .taste-profile-evidence-summary {
@@ -28004,6 +28219,23 @@ body,
 
   .taste-profile-panel--insight .taste-profile-category-content {
     gap: 18px;
+  }
+
+  .taste-profile-maintenance {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .taste-profile-maintenance button {
+    min-height: 44px;
+  }
+
+  .taste-profile-algorithm-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .taste-profile-algorithm-heading button {
+    min-height: 44px;
   }
 }
 

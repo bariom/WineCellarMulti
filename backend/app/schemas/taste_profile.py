@@ -35,8 +35,45 @@ class TasteProfileResponse(BaseModel):
     rebuilt_at: datetime
 
 
+class TasteProfileEvidence(BaseModel):
+    tasting_rating_count: int = 0
+    enjoyment_only_count: int = 0
+    direct_rating_count: int = 0
+    unique_wine_count: int = 0
+    sensory_covered_count: int = 0
+    sensory_missing_count: int = 0
+
+
 class TasteProfileCollectionResponse(BaseModel):
     profiles: list[TasteProfileResponse] = Field(default_factory=list)
+    evidence: TasteProfileEvidence = Field(default_factory=TasteProfileEvidence)
+
+
+class TasteProfileAlgorithmDimension(BaseModel):
+    dimension: str
+    v2_preference: float | None = None
+    v2_confidence: float | None = None
+    v3_preference: float | None = None
+    v3_confidence: float | None = None
+    delta: float | None = None
+
+
+class TasteProfileAlgorithmCategory(BaseModel):
+    category: str
+    sample_count: int
+    v2_version: int
+    v2_confidence: float
+    v3_version: int | None = None
+    v3_confidence: float | None = None
+    dimensions: list[TasteProfileAlgorithmDimension] = Field(default_factory=list)
+    rebuilt_at: datetime
+
+
+class TasteProfileAlgorithmDiagnostics(BaseModel):
+    mode: Literal["shadow"] = "shadow"
+    active_version: int = 2
+    candidate_version: int = 3
+    categories: list[TasteProfileAlgorithmCategory] = Field(default_factory=list)
 
 
 class LegacyTastingClaimStatus(BaseModel):

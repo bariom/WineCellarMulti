@@ -30,6 +30,7 @@ from app.models.tags import UserTag, UserWineTag
 from app.models.taste_profile import (
     SensoryProfileBaseline,
     UserTasteProfile,
+    UserTasteProfileRevision,
     UserWineRating,
     WineSensoryProfile,
 )
@@ -95,6 +96,7 @@ __all__ = [
     "UserWineTag",
     "SensoryProfileBaseline",
     "UserTasteProfile",
+    "UserTasteProfileRevision",
     "UserWineRating",
     "WineSensoryProfile",
     "Wine",

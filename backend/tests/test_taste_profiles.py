@@ -25,6 +25,7 @@ from app.models import (
     SensoryProfileBaseline,
     User,
     UserTasteProfile,
+    UserTasteProfileRevision,
     UserWineRating,
     Wine,
     WineCatalogEntry,
@@ -39,6 +40,7 @@ from app.services.taste_profiles import (
     calculate_taste_match,
     calculate_wishlist_taste_match,
     claim_unassigned_tastings,
+    compact_taste_context,
     confidence_level,
     generate_wine_sensory_profile,
     rating_weight,
@@ -472,7 +474,10 @@ def test_rebuild_is_private_weighted_and_category_specific() -> None:
     add_tasting(db, second_user, household, red, 1)
     db.commit()
     profiles = {
-        profile.category: profile for profile in rebuild_user_taste_profile(db, first_user.id)
+        profile.category: profile
+        for profile in rebuild_user_taste_profile(
+            db, household_id=household.id, user_id=first_user.id
+        )
     }
     assert profiles["Red"].dimensions["body"]["preference"] > 0.8
     assert profiles["global"].dimensions["body"]["preference"] > 0.8
@@ -502,7 +507,10 @@ def test_rebuild_creates_dedicated_profiles_for_rose_and_fortified_wines() -> No
         add_tasting(db, user, household, wine, 6)
     db.commit()
 
-    profiles = {profile.category: profile for profile in rebuild_user_taste_profile(db, user.id)}
+    profiles = {
+        profile.category: profile
+        for profile in rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    }
 
     assert profiles["Rose"].sample_count == 1
     assert profiles["Fortified"].sample_count == 1
@@ -537,7 +545,7 @@ def test_taste_match_prefers_closer_wine_and_suppresses_thin_data() -> None:
             2026, 1, index + 1
         )
     db.commit()
-    rebuild_user_taste_profile(db, user.id)
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
     assert (
         calculate_taste_match(db, user.id, close)["score"]
         > calculate_taste_match(db, user.id, distant)["score"]
@@ -585,7 +593,7 @@ def test_wishlist_taste_match_uses_shared_sensory_profile_without_creating_stock
     )
     db.add(wishlist_item)
     db.commit()
-    rebuild_user_taste_profile(db, user.id)
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
 
     match = calculate_wishlist_taste_match(db, user.id, wishlist_item)
 
@@ -664,7 +672,7 @@ def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
     add_tasting(db, user, household, tasted, 4)
     db.commit()
 
-    rebuild_user_taste_profile(db, user.id)
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
     match = calculate_taste_match(db, user.id, candidate)
 
     assert match["score"] is not None
@@ -730,7 +738,7 @@ def test_external_tasting_contributes_to_the_private_taste_match() -> None:
     )
     db.commit()
 
-    rebuild_user_taste_profile(db, user.id)
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
 
     assert calculate_taste_match(db, user.id, candidate)["score"] is not None
 
@@ -1115,10 +1123,11 @@ def test_match_falls_back_to_global_when_the_wine_category_profile_has_no_dimens
         )
     add_tasting(db, user, household, rated, 5)
     db.commit()
-    rebuild_user_taste_profile(db, user.id)
+    rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
     db.add(
         UserTasteProfile(
             user_id=user.id,
+            household_id=household.id,
             category="Red",
             dimensions={},
             attributes={},
@@ -1151,6 +1160,7 @@ def test_direct_negative_tasting_overrides_a_high_aggregate_affinity() -> None:
     db.add(
         UserTasteProfile(
             user_id=user.id,
+            household_id=household.id,
             category="Red",
             dimensions={
                 key: {"preference": value, "confidence": 0.8} for key, value in dimensions.items()
@@ -1205,6 +1215,161 @@ def test_claiming_unassigned_historical_tastings_is_household_scoped() -> None:
     assert next(profile for profile in profiles if profile.category == "global").sample_count == 1
 
 
+def test_profiles_are_isolated_per_household_for_the_same_user() -> None:
+    db = Session()
+    first_household = Household(name="First cellar")
+    second_household = Household(name="Second cellar")
+    user = User(email="multi-cellar@example.test", display_name="Collector", password_hash="x")
+    db.add_all([first_household, second_household, user])
+    db.flush()
+    first_wine = make_wine(db, first_household, name="First red")
+    second_wine = make_wine(db, second_household, name="Second white", wine_type="White")
+    for wine in (first_wine, second_wine):
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={"body": 0.7, "acidity": 0.6, "fruit": 0.7},
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+    add_tasting(db, user, first_household, first_wine, 6)
+    add_tasting(db, user, second_household, second_wine, 1)
+    db.commit()
+
+    first_profiles = rebuild_user_taste_profile(
+        db, household_id=first_household.id, user_id=user.id
+    )
+    second_profiles = rebuild_user_taste_profile(
+        db, household_id=second_household.id, user_id=user.id
+    )
+
+    assert next(item for item in first_profiles if item.category == "global").sample_count == 1
+    assert next(item for item in second_profiles if item.category == "global").sample_count == 1
+    assert (
+        len(
+            list(
+                db.scalars(
+                    select(UserTasteProfile).where(
+                        UserTasteProfile.user_id == user.id,
+                        UserTasteProfile.category == "global",
+                    )
+                )
+            )
+        )
+        == 2
+    )
+
+
+def test_rebuild_archives_changed_profile_and_keeps_v3_in_shadow() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="history@example.test", display_name="History", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Versioned")
+    db.add(
+        WineSensoryProfile(
+            identity_id=wine.shared_identity_id,
+            dimensions={"body": 0.8, "acidity": 0.4, "fruit": 0.7},
+            confidence=0.8,
+            generation_status="available",
+        )
+    )
+    add_tasting(db, user, household, wine, 5)
+    db.commit()
+    first = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    db.commit()
+    first_global = next(item for item in first if item.category == "global")
+    original_dimensions = dict(first_global.dimensions)
+    add_tasting(db, user, household, wine, 1)
+    db.commit()
+
+    rebuilt = rebuild_user_taste_profile(db, household_id=household.id, user_id=user.id)
+    db.commit()
+    rebuilt_global = next(item for item in rebuilt if item.category == "global")
+    revision = db.scalar(
+        select(UserTasteProfileRevision).where(
+            UserTasteProfileRevision.profile_id == rebuilt_global.id,
+            UserTasteProfileRevision.category == "global",
+        )
+    )
+
+    assert revision is not None
+    assert revision.dimensions == original_dimensions
+    assert rebuilt_global.calculation_version == 2
+    assert rebuilt_global.shadow_calculation_version == 3
+    assert rebuilt_global.shadow_dimensions
+
+
+def test_evidence_counts_only_personal_signals_in_the_active_household() -> None:
+    db = Session()
+    household = Household(name="Home")
+    other_household = Household(name="Other")
+    user = User(email="evidence@example.test", display_name="Evidence", password_hash="x")
+    db.add_all([household, other_household, user])
+    db.flush()
+    wine = make_wine(db, household, name="Rated")
+    other_wine = make_wine(db, other_household, name="Other rated")
+    for item in (wine, other_wine):
+        db.add(
+            WineSensoryProfile(
+                identity_id=item.shared_identity_id,
+                dimensions={"body": 0.7},
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+    add_tasting(db, user, household, wine, 5)
+    add_tasting(db, user, other_household, other_wine, 5)
+    db.add(
+        UserWineRating(
+            user_id=user.id,
+            household_id=household.id,
+            wine_id=wine.id,
+            rating=5,
+        )
+    )
+    db.commit()
+    context = SimpleNamespace(user=user, household=household)
+
+    evidence = taste_profile_routes.taste_profile_evidence(db, context)
+
+    assert evidence.tasting_rating_count == 1
+    assert evidence.direct_rating_count == 1
+    assert evidence.unique_wine_count == 1
+    assert evidence.sensory_covered_count == 2
+    assert evidence.sensory_missing_count == 0
+
+
+def test_ai_context_falls_back_to_the_scoped_global_profile() -> None:
+    db = Session()
+    household = Household(name="Home")
+    user = User(email="context@example.test", display_name="Context", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    db.add(
+        UserTasteProfile(
+            user_id=user.id,
+            household_id=household.id,
+            category="global",
+            dimensions={"body": {"preference": 0.72, "confidence": 0.6}},
+            attributes={},
+            confidence=0.6,
+            sample_count=12,
+            calculation_version=2,
+        )
+    )
+    db.commit()
+
+    context = compact_taste_context(
+        db, household_id=household.id, user_id=user.id, category="White"
+    )
+
+    assert context["category"] == "global"
+    assert context["dimensions"] == {"body": 0.72}
+
+
 def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
     def override_db():
         db = Session()
@@ -1231,6 +1396,65 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
             },
         )
         assert registered.status_code == 201, registered.text
+        with Session() as db:
+            user = db.query(User).filter(User.email == "admin@vinaris.ch").one()
+            user.is_app_admin = True
+            active_household = db.query(Household).filter(Household.name == "Home").one()
+            other_household = Household(name="Other home")
+            db.add(other_household)
+            db.flush()
+            db.add_all(
+                [
+                    UserTasteProfile(
+                        user_id=user.id,
+                        household_id=active_household.id,
+                        category="global",
+                        dimensions={"body": {"preference": 0.6, "confidence": 0.5, "samples": 4}},
+                        attributes={},
+                        confidence=0.5,
+                        sample_count=4,
+                        calculation_version=2,
+                        shadow_dimensions={
+                            "body": {"preference": 0.72, "confidence": 0.4, "samples": 4}
+                        },
+                        shadow_confidence=0.4,
+                        shadow_calculation_version=3,
+                    ),
+                    UserTasteProfile(
+                        user_id=user.id,
+                        household_id=other_household.id,
+                        category="White",
+                        dimensions={"body": {"preference": 0.2, "confidence": 0.2}},
+                        attributes={},
+                        confidence=0.2,
+                        sample_count=2,
+                        calculation_version=2,
+                        shadow_dimensions={"body": {"preference": 0.9, "confidence": 0.2}},
+                        shadow_confidence=0.2,
+                        shadow_calculation_version=3,
+                    ),
+                ]
+            )
+            db.commit()
+        diagnostics = client.get("/api/v1/taste-profile/me/algorithm-diagnostics")
+        assert diagnostics.status_code == 200, diagnostics.text
+        assert diagnostics.json()["mode"] == "shadow"
+        assert [item["category"] for item in diagnostics.json()["categories"]] == ["global"]
+        body = diagnostics.json()["categories"][0]["dimensions"][0]
+        assert body == {
+            "dimension": "body",
+            "v2_preference": 0.6,
+            "v2_confidence": 0.5,
+            "v3_preference": 0.72,
+            "v3_confidence": 0.4,
+            "delta": 0.12,
+        }
+        with Session() as db:
+            user = db.query(User).filter(User.email == "admin@vinaris.ch").one()
+            user.is_app_admin = False
+            db.commit()
+        denied_diagnostics = client.get("/api/v1/taste-profile/me/algorithm-diagnostics")
+        assert denied_diagnostics.status_code == 403
         with Session() as db:
             user = db.query(User).filter(User.email == "admin@vinaris.ch").one()
             user.is_app_admin = True

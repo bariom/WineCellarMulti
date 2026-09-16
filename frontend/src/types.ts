@@ -1457,9 +1457,49 @@ export type TasteProfile = {
   tasting_count?: number;
   star_rating_count?: number;
   confidence_level: "emerging" | "probable" | "established";
+  rebuilt_at?: string;
 };
 
-export type TasteProfileCollection = { profiles: TasteProfile[] };
+export type TasteProfileEvidence = {
+  tasting_rating_count: number;
+  enjoyment_only_count: number;
+  direct_rating_count: number;
+  unique_wine_count: number;
+  sensory_covered_count: number;
+  sensory_missing_count: number;
+};
+
+export type TasteProfileCollection = {
+  profiles: TasteProfile[];
+  evidence?: TasteProfileEvidence;
+};
+
+export type TasteProfileAlgorithmDimension = {
+  dimension: string;
+  v2_preference: number | null;
+  v2_confidence: number | null;
+  v3_preference: number | null;
+  v3_confidence: number | null;
+  delta: number | null;
+};
+
+export type TasteProfileAlgorithmCategory = {
+  category: string;
+  sample_count: number;
+  v2_version: number;
+  v2_confidence: number;
+  v3_version: number | null;
+  v3_confidence: number | null;
+  dimensions: TasteProfileAlgorithmDimension[];
+  rebuilt_at: string;
+};
+
+export type TasteProfileAlgorithmDiagnostics = {
+  mode: "shadow";
+  active_version: number;
+  candidate_version: number;
+  categories: TasteProfileAlgorithmCategory[];
+};
 
 export type LegacyTastingClaimStatus = { unassigned_count: number };
 export type LegacyTastingClaimResult = TasteProfileCollection & { claimed_count: number };

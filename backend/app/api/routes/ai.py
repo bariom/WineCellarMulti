@@ -3674,7 +3674,7 @@ def clean_pairing_response(
                         price_hint=str(item.get("price_hint") or "").strip(),
                         reason=str(item.get("reason") or "").strip(),
                         taste_affinity=(
-                            int(item.get("taste_affinity"))
+                            int(cast(int, item.get("taste_affinity")))
                             if taste_profile_applied
                             and isinstance(item.get("taste_affinity"), int)
                             and 0 <= item["taste_affinity"] <= 6
@@ -3973,7 +3973,10 @@ def suggest_pairing(
         {}
         if payload.ignore_preferences
         else compact_taste_context(
-            db, context.user.id, category=target_wine.type if target_wine is not None else None
+            db,
+            household_id=context.household.id,
+            user_id=context.user.id,
+            category=target_wine.type if target_wine is not None else None,
         )
     )
     schema = {
@@ -4152,7 +4155,11 @@ async def scan_restaurant_wine_list(
     # List transcription is intentionally separate from the conversational pairing model.
     # The configured economy model is sufficient for one-photo OCR plus structured ranking.
     selected_model = settings.openai_economy_model
-    taste_context = {} if ignore_preferences else compact_taste_context(db, context.user.id)
+    taste_context = (
+        {}
+        if ignore_preferences
+        else compact_taste_context(db, household_id=context.household.id, user_id=context.user.id)
+    )
     prompt = restaurant_wine_list_scan_prompt(
         locale=locale,
         dish=dish.strip(),
@@ -4451,7 +4458,12 @@ def suggest_buying_advice(
         "can_wait": "delivery can take several days",
     }
     taste_context = (
-        compact_taste_context(db, context.user.id, category=payload.wine_type or None)
+        compact_taste_context(
+            db,
+            household_id=context.household.id,
+            user_id=context.user.id,
+            category=payload.wine_type or None,
+        )
         if payload.use_taste_profile
         else {}
     )
@@ -6036,7 +6048,11 @@ def generate_wishlist_portfolio_strategy(
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Wishlist is empty"
         )
-    taste_context = compact_taste_context(db, context.user.id) if payload.use_taste_profile else {}
+    taste_context = (
+        compact_taste_context(db, household_id=context.household.id, user_id=context.user.id)
+        if payload.use_taste_profile
+        else {}
+    )
     prompt = wishlist_portfolio_strategy_prompt(
         locale=payload.locale,
         wishlist_name=wishlist_list.name,

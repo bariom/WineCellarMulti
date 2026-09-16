@@ -75,13 +75,65 @@ class SensoryProfileBaseline(Base):
 class UserTasteProfile(Base):
     __tablename__ = "user_taste_profiles"
     __table_args__ = (
-        UniqueConstraint("user_id", "category", name="uq_user_taste_profile_category"),
-        Index("ix_user_taste_profiles_user_category", "user_id", "category"),
+        UniqueConstraint("user_id", "household_id", "category", name="uq_user_taste_profile_scope"),
+        Index("ix_user_taste_profiles_scope", "user_id", "household_id", "category"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    # Nullable only for preserved profiles created before household scoping.
+    household_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("households.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+    category: Mapped[str] = mapped_column(String(24), default="global")
+    dimensions: Mapped[dict] = mapped_column(JSON, default=dict)
+    attributes: Mapped[dict] = mapped_column(JSON, default=dict)
+    confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    sample_count: Mapped[int] = mapped_column(default=0)
+    calculation_version: Mapped[int] = mapped_column(default=2)
+    shadow_dimensions: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    shadow_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    shadow_calculation_version: Mapped[int | None] = mapped_column(nullable=True)
+    rebuilt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
+
+
+class UserTasteProfileRevision(Base):
+    """Immutable snapshot retained before a derived taste profile changes."""
+
+    __tablename__ = "user_taste_profile_revisions"
+    __table_args__ = (
+        Index(
+            "ix_user_taste_profile_revisions_scope",
+            "user_id",
+            "household_id",
+            "category",
+            "archived_at",
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("user_taste_profiles.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    household_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid(as_uuid=True),
+        ForeignKey("households.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
     )
     category: Mapped[str] = mapped_column(String(24), default="global")
     dimensions: Mapped[dict] = mapped_column(JSON, default=dict)
@@ -90,10 +142,8 @@ class UserTasteProfile(Base):
     sample_count: Mapped[int] = mapped_column(default=0)
     calculation_version: Mapped[int] = mapped_column(default=2)
     rebuilt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
-    )
+    archived_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    archive_reason: Mapped[str] = mapped_column(String(32), default="rebuild")
 
 
 class UserWineRating(Base):

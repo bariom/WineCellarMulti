@@ -31,6 +31,7 @@ from app.models import (
     SensoryProfileBaseline,
     SharedWineIdentity,
     UserTasteProfile,
+    UserWineRating,
     Wine,
     WineSensoryProfile,
     WineTastingEntry,
@@ -52,7 +53,11 @@ from app.schemas.taste_profile import (
     SensoryProfileResponse,
     SensoryProfileUpdate,
     TasteMatchResponse,
+    TasteProfileAlgorithmCategory,
+    TasteProfileAlgorithmDiagnostics,
+    TasteProfileAlgorithmDimension,
     TasteProfileCollectionResponse,
+    TasteProfileEvidence,
     TasteProfileResponse,
 )
 from app.services.openai_client import OpenAIResponse, create_response
@@ -77,40 +82,93 @@ from app.services.taste_profiles import (
 router = APIRouter(prefix="/taste-profile")
 
 
-def household_star_rating_count(db: Session, context: CurrentContext) -> int:
-    return int(
-        db.scalar(
-            select(func.count(Wine.id)).where(
-                Wine.household_id == context.household.id,
-                Wine.rating > 0,
+def taste_profile_evidence(db: Session, context: CurrentContext) -> TasteProfileEvidence:
+    cellar_rows = list(
+        db.execute(
+            select(
+                WineTastingEntry.rating,
+                WineTastingEntry.enjoyment,
+                Wine.id,
+                Wine.shared_identity_id,
+                WineSensoryProfile.generation_status,
             )
-        )
-        or 0
-    )
-
-
-def household_rated_tasting_count(db: Session, context: CurrentContext) -> int:
-    cellar_tastings = int(
-        db.scalar(
-            select(func.count(WineTastingEntry.id)).where(
+            .join(Wine, Wine.id == WineTastingEntry.wine_id)
+            .outerjoin(
+                WineSensoryProfile,
+                WineSensoryProfile.identity_id == Wine.shared_identity_id,
+            )
+            .where(
                 WineTastingEntry.household_id == context.household.id,
+                Wine.household_id == context.household.id,
                 WineTastingEntry.created_by_user_id == context.user.id,
-                WineTastingEntry.rating > 0,
+                (WineTastingEntry.rating > 0)
+                | (WineTastingEntry.enjoyment.in_(("positive", "negative"))),
             )
         )
-        or 0
     )
-    external_tastings = int(
-        db.scalar(
-            select(func.count(ExternalWineTasting.id)).where(
+    external_rows = list(
+        db.execute(
+            select(
+                ExternalWineTasting.rating,
+                ExternalWineTasting.enjoyment,
+                ExternalWineTasting.id,
+                ExternalWineTasting.shared_identity_id,
+                WineSensoryProfile.generation_status,
+            )
+            .outerjoin(
+                WineSensoryProfile,
+                WineSensoryProfile.identity_id == ExternalWineTasting.shared_identity_id,
+            )
+            .where(
                 ExternalWineTasting.household_id == context.household.id,
                 ExternalWineTasting.created_by_user_id == context.user.id,
-                ExternalWineTasting.rating > 0,
+                (ExternalWineTasting.rating > 0)
+                | (ExternalWineTasting.enjoyment.in_(("positive", "negative"))),
             )
         )
-        or 0
     )
-    return cellar_tastings + external_tastings
+    direct_rows = list(
+        db.execute(
+            select(
+                UserWineRating.wine_id,
+                Wine.shared_identity_id,
+                WineSensoryProfile.generation_status,
+            )
+            .join(Wine, Wine.id == UserWineRating.wine_id)
+            .outerjoin(
+                WineSensoryProfile,
+                WineSensoryProfile.identity_id == Wine.shared_identity_id,
+            )
+            .where(
+                UserWineRating.user_id == context.user.id,
+                UserWineRating.household_id == context.household.id,
+                Wine.household_id == context.household.id,
+                UserWineRating.rating > 0,
+            )
+        )
+    )
+    tasting_rows = cellar_rows + external_rows
+    covered = sum(row.generation_status == "available" for row in tasting_rows)
+    covered += sum(row.generation_status == "available" for row in direct_rows)
+    total_signals = len(tasting_rows) + len(direct_rows)
+    unique_wines = {
+        str(shared_identity_id or source_id)
+        for _rating, _enjoyment, source_id, shared_identity_id, _status in tasting_rows
+    }
+    unique_wines.update(
+        str(shared_identity_id or wine_id) for wine_id, shared_identity_id, _status in direct_rows
+    )
+    return TasteProfileEvidence(
+        tasting_rating_count=sum(int(row.rating or 0) > 0 for row in tasting_rows),
+        enjoyment_only_count=sum(
+            int(row.rating or 0) <= 0 and row.enjoyment in ("positive", "negative")
+            for row in tasting_rows
+        ),
+        direct_rating_count=len(direct_rows),
+        unique_wine_count=len(unique_wines),
+        sensory_covered_count=covered,
+        sensory_missing_count=total_signals - covered,
+    )
 
 
 def external_tastings_missing_sensory_profiles(
@@ -182,40 +240,117 @@ def get_my_taste_profile(
     profiles = list(
         db.scalars(
             select(UserTasteProfile)
-            .where(UserTasteProfile.user_id == context.user.id)
+            .where(
+                UserTasteProfile.user_id == context.user.id,
+                UserTasteProfile.household_id == context.household.id,
+            )
             .order_by(UserTasteProfile.category)
         )
     )
     if not profiles:
-        profiles = rebuild_user_taste_profile(db, context.user.id)
+        profiles = rebuild_user_taste_profile(
+            db, household_id=context.household.id, user_id=context.user.id
+        )
         db.commit()
-    star_rating_count = household_star_rating_count(db, context)
-    tasting_count = household_rated_tasting_count(db, context)
+    evidence = taste_profile_evidence(db, context)
+    tasting_count = evidence.tasting_rating_count + evidence.enjoyment_only_count
+    star_rating_count = evidence.direct_rating_count
     return TasteProfileCollectionResponse(
+        evidence=evidence,
         profiles=[
             profile_response(
                 profile, tasting_count=tasting_count, star_rating_count=star_rating_count
             )
             for profile in profiles
-        ]
+        ],
     )
+
+
+def _diagnostic_value(payload: object, field: str) -> float | None:
+    if not isinstance(payload, dict):
+        return None
+    value = payload.get(field)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return round(float(value), 4)
+
+
+@router.get(
+    "/me/algorithm-diagnostics",
+    response_model=TasteProfileAlgorithmDiagnostics,
+)
+def taste_profile_algorithm_diagnostics(
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_app_admin_context),
+) -> TasteProfileAlgorithmDiagnostics:
+    """Compare the active profile with its shadow candidate for the current admin only."""
+    profiles = list(
+        db.scalars(
+            select(UserTasteProfile)
+            .where(
+                UserTasteProfile.user_id == context.user.id,
+                UserTasteProfile.household_id == context.household.id,
+            )
+            .order_by(UserTasteProfile.category)
+        )
+    )
+    categories: list[TasteProfileAlgorithmCategory] = []
+    for profile in profiles:
+        active_dimensions = profile.dimensions or {}
+        shadow_dimensions = profile.shadow_dimensions or {}
+        dimension_names = sorted(set(active_dimensions) | set(shadow_dimensions))
+        dimensions: list[TasteProfileAlgorithmDimension] = []
+        for dimension in dimension_names:
+            v2_preference = _diagnostic_value(active_dimensions.get(dimension), "preference")
+            v3_preference = _diagnostic_value(shadow_dimensions.get(dimension), "preference")
+            dimensions.append(
+                TasteProfileAlgorithmDimension(
+                    dimension=dimension,
+                    v2_preference=v2_preference,
+                    v2_confidence=_diagnostic_value(active_dimensions.get(dimension), "confidence"),
+                    v3_preference=v3_preference,
+                    v3_confidence=_diagnostic_value(shadow_dimensions.get(dimension), "confidence"),
+                    delta=(
+                        round(v3_preference - v2_preference, 4)
+                        if v2_preference is not None and v3_preference is not None
+                        else None
+                    ),
+                )
+            )
+        categories.append(
+            TasteProfileAlgorithmCategory(
+                category=profile.category,
+                sample_count=profile.sample_count,
+                v2_version=profile.calculation_version,
+                v2_confidence=profile.confidence,
+                v3_version=profile.shadow_calculation_version,
+                v3_confidence=profile.shadow_confidence,
+                dimensions=dimensions,
+                rebuilt_at=profile.rebuilt_at,
+            )
+        )
+    return TasteProfileAlgorithmDiagnostics(categories=categories)
 
 
 @router.post("/me/rebuild", response_model=TasteProfileCollectionResponse)
 def rebuild_my_taste_profile(
     db: Session = Depends(get_db), context: CurrentContext = Depends(require_write_context)
 ) -> TasteProfileCollectionResponse:
-    profiles = rebuild_user_taste_profile(db, context.user.id)
+    profiles = rebuild_user_taste_profile(
+        db, household_id=context.household.id, user_id=context.user.id
+    )
     db.commit()
-    star_rating_count = household_star_rating_count(db, context)
-    tasting_count = household_rated_tasting_count(db, context)
+    evidence = taste_profile_evidence(db, context)
+    tasting_count = evidence.tasting_rating_count + evidence.enjoyment_only_count
+    star_rating_count = evidence.direct_rating_count
     return TasteProfileCollectionResponse(
+        evidence=evidence,
         profiles=[
             profile_response(
                 profile, tasting_count=tasting_count, star_rating_count=star_rating_count
             )
             for profile in profiles
-        ]
+        ],
     )
 
 
@@ -286,11 +421,15 @@ def enrich_external_tastings(
                 issue=outcome.issue,
             )
         )
-    profiles = rebuild_user_taste_profile(db, context.user.id)
+    profiles = rebuild_user_taste_profile(
+        db, household_id=context.household.id, user_id=context.user.id
+    )
     db.commit()
-    star_rating_count = household_star_rating_count(db, context)
-    tasting_count = household_rated_tasting_count(db, context)
+    evidence = taste_profile_evidence(db, context)
+    tasting_count = evidence.tasting_rating_count + evidence.enjoyment_only_count
+    star_rating_count = evidence.direct_rating_count
     return ExternalTastingEnrichmentResponse(
+        evidence=evidence,
         processed_count=len(tastings),
         enriched_count=enriched,
         unresolved_count=len(tastings) - enriched,
@@ -315,9 +454,11 @@ def claim_legacy_tastings(
         db, household_id=context.household.id, user_id=context.user.id
     )
     db.commit()
-    star_rating_count = household_star_rating_count(db, context)
-    tasting_count = household_rated_tasting_count(db, context)
+    evidence = taste_profile_evidence(db, context)
+    tasting_count = evidence.tasting_rating_count + evidence.enjoyment_only_count
+    star_rating_count = evidence.direct_rating_count
     return LegacyTastingClaimResponse(
+        evidence=evidence,
         claimed_count=claimed_count,
         profiles=[
             profile_response(
