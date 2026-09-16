@@ -35,7 +35,6 @@
 .collector-ready-controls button { width: 44px; height: 44px; padding: 0; background: var(--surface); border: 1px solid var(--border); color: var(--primary); box-shadow: none; font-size: 1.5rem; }
 .collector-ready-controls button:disabled { opacity: .35; }
 .collector-ready-controls span { color: var(--text-muted); font-size: .8rem; }
-.collector-group-controls { display: none; }
 .collector-wine-stage { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 16px; align-items: start; min-width: 0; }
 .collector-wine-stage > .recent-wines-card { grid-column: 1 / -1; }
 .collector-wine-stage .recent-wines-card .dashboard-bottle-list { display: flex; gap: 12px; overflow-x: auto; padding: 3px 3px 12px; scroll-snap-type: x proximity; }
@@ -85,13 +84,6 @@
   .collector-wine-stage .priority-card .dashboard-bottle-tile .key-position-bottle-visual { width: 110px; height: 100%; max-height: 240px; }
 }
 @media (max-width: 900px) {
-  .collector-card-group > .collector-card-track { display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: calc(100% - 18px); align-items: start; gap: 12px; overflow-x: auto; overflow-y: hidden; scroll-snap-type: x mandatory; scrollbar-width: none; height: var(--collector-card-height, auto); padding-bottom: 8px; }
-  .collector-card-group > .collector-card-track > * { grid-column: auto; min-width: 0; scroll-snap-align: start; }
-  .collector-card-track::-webkit-scrollbar { display: none; }
-  .collector-group-controls { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 4px; }
-  .collector-group-controls span { min-width: 0; text-align: center; color: var(--text-muted); font-size: .75rem; }
-  .collector-group-controls button { flex-shrink: 0; width: 44px; height: 44px; padding: 0; border: 1px solid var(--border); background: var(--surface); color: var(--primary); font-size: 1.5rem; box-shadow: none; }
-  .collector-group-controls button:disabled { opacity: .35; }
   .collector-wine-stage { grid-template-columns: minmax(0, 1fr); }
   .collector-wine-stage .key-position-card .key-position-button { grid-template-columns: 106px minmax(0, 1fr); }
   .collector-wine-stage > .key-position-card .key-position-bottle-visual { height: 190px; }
@@ -104,4 +96,49 @@
   .collector-dashboard-layout .key-position-button { grid-template-columns: 70px minmax(0, 1fr); }
   .collector-wine-stage > .key-position-card .key-position-bottle-visual { grid-row: 1; height: 190px; }
   .collector-dashboard-layout .key-position-metrics { grid-column: 1 / -1; }
+}
+.collector-dashboard-content { display: grid; gap: 22px; min-width: 0; }
+.collector-mobile-navigation, .collector-mobile-photos { display: none; }
+@media (max-width: 900px) {
+  .collector-dashboard-layout { gap: 18px; }
+  .collector-mobile-navigation { display: block; min-width: 0; }
+  .collector-mobile-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px; margin: 6px 0 16px; }
+  .collector-mobile-heading h2 { font: 1.65rem Georgia, serif; margin: 0; }
+  .collector-mobile-heading > span { color: var(--text-muted); font-size: .8rem; }
+  .collector-mobile-navigation [role="tablist"] { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 14px; background: var(--surface-raised); border: 1px solid var(--border); }
+  .collector-mobile-navigation [role="tab"] { min-width: 0; min-height: 44px; padding: 8px 4px; background: transparent; color: var(--text-muted); box-shadow: none; font-size: .85rem; border-radius: 10px; }
+  .collector-mobile-navigation [role="tab"][aria-selected="true"] { background: var(--primary); color: var(--on-primary, #fff); }
+  .collector-mobile-photos { display: grid; gap: 24px; min-width: 0; }
+  .collector-mobile-gallery { min-width: 0; }
+  .collector-mobile-gallery header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+  .collector-mobile-gallery h2 { margin: 0; font: 1.2rem Georgia, serif; }
+  .collector-mobile-gallery header > span { color: var(--text-muted); font-size: .75rem; white-space: nowrap; }
+  .collector-photo-rail { display: grid; grid-auto-flow: column; grid-auto-columns: 160px; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 10px; scrollbar-width: thin; scrollbar-color: var(--border) transparent; }
+  .collector-photo-rail > div { display: flex; min-width: 0; scroll-snap-align: start; }
+  .collector-photo-rail button { display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 6px; width: 100%; min-width: 0; padding: 12px; text-align: left; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 14px; box-shadow: none; overflow-wrap: anywhere; }
+  .collector-photo-rail .key-position-bottle-visual { position: relative; display: block; grid-area: auto; transform: none; width: 100%; height: 150px; min-height: 150px; margin: 0 0 6px; }
+  .collector-photo-rail .key-position-bottle-visual img,
+  .collector-photo-rail .key-position-wine-illustration,
+  .collector-photo-rail .key-position-wine-illustration svg { display: block; width: 100%; height: 150px; max-height: 150px; object-fit: contain; }
+  .collector-photo-rail strong { font-size: .88rem; line-height: 1.35; }
+  .collector-photo-rail button > span { font-size: .75rem; line-height: 1.4; color: var(--text-muted); }
+  .collector-photo-rail small { padding-top: 8px; margin-top: auto; font-size: .7rem; line-height: 1.4; color: var(--primary); }
+  .collector-dashboard-content > .collector-card-group { display: none; }
+  [data-mobile-view="wines"] .collector-overview,
+  [data-mobile-view="wines"] .collector-explore,
+  [data-mobile-view="priorities"] .collector-explore,
+  [data-mobile-view="priorities"] .collector-overview > :not(.collector-priorities),
+  [data-mobile-view="collection"] .collector-priorities,
+  [data-mobile-view="collection"] .collector-mobile-photos { display: none; }
+  .collector-overview { gap: 18px; }
+  .collector-overview header { padding: 0; }
+  .collector-overview header .eyebrow { display: none; }
+  .collector-overview h2 { font-size: 1.2rem; }
+  .collector-tile { padding: 14px; box-shadow: none; }
+  .collector-tile h3 { margin-bottom: 8px; }
+  .collector-number { font-size: 1.6rem; }
+  .collector-priority-grid { gap: 10px; }
+  .collector-priorities .collector-tile { border-radius: 10px; }
+  .collector-composition > summary { min-height: 48px; padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: var(--surface); cursor: pointer; font-size: 1.1rem; }
+  .collector-composition[open] > summary { margin-bottom: 12px; }
 }

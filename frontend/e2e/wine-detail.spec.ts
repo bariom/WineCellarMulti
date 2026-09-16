@@ -1006,6 +1006,78 @@ for (const width of [360, 390, 430, 1440]) {
     const galleryWines = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `gallery-${index}` : wine.id, name: index ? `Riserva della collezione ${index}` : wine.name }));
     await mockApi(page, [], false, memberships, galleryWines, { ...session, dashboard_focus: "collector" });
     await page.goto("/");
+    if (width < 900) {
+      const tabs = page.getByRole("tablist", { name: "Dashboard collezionista" });
+      const mobile = page.locator(".collector-mobile-photos");
+      await expect(tabs.getByRole("tab", { name: "Vini", exact: true })).toHaveAttribute("aria-selected", "true");
+      await expect(mobile.getByRole("heading", { name: "In primo piano" })).toBeVisible();
+      await expect(page.locator(".collector-overview")).toBeHidden();
+      await expect(page.locator(".collector-wine-stage")).toBeHidden();
+      async function checkRails() {
+        for (const rail of await mobile.getByRole("list").all()) {
+          const before = (await rail.boundingBox())!;
+          const pageHeight = await page.evaluate(() => document.documentElement.scrollHeight);
+          const cards = rail.getByRole("listitem");
+          for (const card of await cards.all()) {
+            const box = (await card.boundingBox())!;
+            expect(box.height).toBe((await cards.first().boundingBox())!.height);
+            const photo = (await card.locator(".key-position-bottle-visual").boundingBox())!;
+            const title = (await card.locator("strong").boundingBox())!;
+            expect(photo.height).toBeGreaterThanOrEqual(150);
+            expect(photo.y + photo.height).toBeLessThanOrEqual(title.y);
+            const image = (await card.locator("img").boundingBox())!;
+            expect(image.y + image.height).toBeLessThanOrEqual(title.y);
+            const caption = (await card.locator("small").boundingBox())!;
+            expect(caption.y + caption.height).toBeLessThanOrEqual(box.y + box.height);
+          }
+          await rail.evaluate(element => element.scrollTo({ left: element.scrollWidth, behavior: "instant" }));
+          await expect.poll(async () => (await rail.boundingBox())!.height).toBe(before.height);
+          expect(await page.evaluate(() => document.documentElement.scrollHeight)).toBe(pageHeight);
+          await rail.evaluate(element => element.scrollTo({ left: 0, behavior: "instant" }));
+        }
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      }
+      await checkRails();
+      await page.screenshot({ path: testInfo.outputPath(`collector-${width}.png`), fullPage: true });
+      await tabs.getByRole("tab", { name: "Priorità", exact: true }).click();
+      await expect(mobile.getByRole("heading", { name: "Da bere ora" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Da seguire adesso" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Valore della collezione" })).toBeHidden();
+      await checkRails();
+      await page.screenshot({ path: testInfo.outputPath(`collector-priorities-${width}.png`), fullPage: true });
+      await tabs.getByRole("tab", { name: "Collezione", exact: true }).click();
+      await expect(page.getByRole("heading", { name: "Valore della collezione" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Da seguire adesso" })).toBeHidden();
+      await page.getByText("Composizione del valore", { exact: true }).click();
+      await expect(page.getByText("Con valutazione corrente", { exact: false }).first()).toBeVisible();
+      await page.getByText("Composizione del valore", { exact: true }).click();
+      await page.locator(".collector-composition > summary").click();
+      await expect(page.getByRole("heading", { name: "Finestre conosciute" })).toBeVisible();
+      const tiles = await page.locator(".collector-tile:visible").all();
+      let bottom = -Infinity;
+      for (const tile of tiles) {
+        const box = (await tile.boundingBox())!;
+        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width).toBeLessThanOrEqual(width);
+        expect(box.y).toBeGreaterThanOrEqual(bottom);
+        bottom = box.y + box.height;
+      }
+      await page.locator(".collector-composition > summary").click();
+      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.screenshot({ path: testInfo.outputPath(`collector-collection-${width}.png`), fullPage: true });
+      await page.locator(".collector-explore > summary").click();
+      await expect(page.locator(".collector-explore .geographic-map-card")).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await tabs.getByRole("tab", { name: "Collezione", exact: true }).focus();
+      await page.keyboard.press("Home");
+      await expect(tabs.getByRole("tab", { name: "Vini", exact: true })).toBeFocused();
+      await expect(tabs.getByRole("tab", { name: "Vini", exact: true })).toHaveAttribute("aria-selected", "true");
+      await page.evaluate(() => window.scrollTo(0, 0));
+      if (width === 390) await expect(page).toHaveScreenshot("collector-compact.png", { fullPage: true });
+      await mobile.getByRole("button", { name: /Nebbiolo di Test/ }).first().click();
+      await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
+      return;
+    }
     await expect(page.getByRole("heading", { name: "La cantina, a colpo d’occhio" })).toBeVisible();
     const stage = page.getByRole("region", { name: "I vini della tua collezione" });
     await expect(stage.locator(".key-position-card img").first()).toBeVisible();
@@ -1076,53 +1148,6 @@ for (const width of [360, 390, 430, 1440]) {
     const metrics = await key.locator(".key-position-metrics").boundingBox();
     expect(photo!.x + photo!.width).toBeLessThanOrEqual(title!.x);
     expect(title!.y + title!.height).toBeLessThanOrEqual(metrics!.y);
-    if (width < 900) expect(photo!.y + photo!.height).toBeLessThanOrEqual(metrics!.y);
-    if (width < 900) {
-      const groups = await page.locator(".collector-card-group").all();
-      expect(groups).toHaveLength(4);
-      for (const group of groups) {
-        const track = group.locator(".collector-card-track").first();
-        const cards = track.locator(":scope > article");
-        const total = await cards.count();
-        const next = group.getByRole("button", { name: "Scheda successiva", exact: true });
-        const previous = group.getByRole("button", { name: "Scheda precedente", exact: true });
-        for (let index = 0; index < total; index++) {
-          await expect(group.locator(".collector-group-controls span")).toContainText(`${index + 1}/${total}`);
-          const cardBox = (await cards.nth(index).boundingBox())!;
-          expect(cardBox.x).toBeGreaterThanOrEqual(0);
-          expect(cardBox.x + cardBox.width).toBeLessThanOrEqual(width);
-          await expect.poll(async () => {
-            const trackBox = (await track.boundingBox())!;
-            const activeBox = (await cards.nth(index).boundingBox())!;
-            return Math.abs(trackBox.height - activeBox.height - 8);
-          }).toBeLessThan(2);
-          if (index < total - 1) await next.click();
-        }
-        await expect(next).toBeDisabled();
-        for (let index = total - 1; index > 0; index--) await previous.click();
-        await expect(previous).toBeDisabled();
-        await track.evaluate(element => element.scrollTo({ left: element.scrollWidth, behavior: "instant" }));
-        await expect(group.locator(".collector-group-controls span")).toContainText(`${total}/${total}`);
-        for (let index = total - 1; index > 0; index--) await previous.click();
-      }
-      await page.evaluate(() => window.scrollTo(0, 0));
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-    }
-    if (width === 390) {
-      const summaryGroup = page.locator(".collector-overview > .collector-card-group");
-      const summaryTrack = summaryGroup.locator(".collector-card-track");
-      const before = (await summaryTrack.boundingBox())!.height;
-      await summaryGroup.getByText("Composizione del valore", { exact: true }).click();
-      await expect.poll(async () => (await summaryTrack.boundingBox())!.height).toBeGreaterThan(before);
-      const expandedCard = summaryTrack.locator(":scope > article").first();
-      await expect.poll(async () => Math.abs((await summaryTrack.boundingBox())!.height - (await expandedCard.boundingBox())!.height - 8)).toBeLessThan(2);
-      await summaryGroup.getByText("Composizione del valore", { exact: true }).click();
-      await expect.poll(async () => (await summaryTrack.boundingBox())!.height).toBe(before);
-      await page.evaluate(() => window.scrollTo(0, 0));
-      // Rasterize the offscreen photo cards before comparing the full-page image.
-      await page.screenshot({ fullPage: true });
-      await expect(page).toHaveScreenshot("collector-compact.png", { fullPage: true });
-    }
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`collector-${width}.png`), fullPage: true });
     await page.locator(".collector-explore > summary").click();

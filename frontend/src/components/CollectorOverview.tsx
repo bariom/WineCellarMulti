@@ -1,4 +1,5 @@
 import { CollectorCardGroup } from "./CollectorCardGroup";
+import { useEffect, useState } from "react";
 import type { Locale, Wine } from "../types";
 import { formatBottleCount, isWinePhysicallyInCellar, isToCollectWine, isWineReadyToPrioritize, needsValueRefresh } from "../domain/cellar";
 import { formatMoney } from "./panelSupport";
@@ -6,6 +7,14 @@ import { formatMoney } from "./panelSupport";
 export function CollectorOverview({ wines, locale, now, refreshDays, onOpen }: {
   wines: Wine[]; locale: Locale; now: Date; refreshDays: number; onOpen: (wine: Wine) => void;
 }) {
+  const [mobile, setMobile] = useState(() => window.matchMedia("(max-width: 900px)").matches);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 900px)");
+    const update = () => setMobile(media.matches);
+    media.addEventListener("change", update);
+    return () => media.removeEventListener("change", update);
+  }, []);
+  const Composition = mobile ? "details" : "section";
   const it = locale === "it";
   const year = now.getFullYear();
   const stock = wines.filter(wine => wine.quantity > 0);
@@ -93,13 +102,13 @@ export function CollectorOverview({ wines, locale, now, refreshDays, onOpen }: {
         <article className="collector-tile"><h3>{it ? "Da ritirare" : "To collect"}</h3>{selection(it ? "Organizza il ritiro" : "Arrange collection", toCollect)}</article>
       </CollectorCardGroup>
     </section>
-    <section aria-label={it ? "Maturità e composizione" : "Maturity and composition"}>
-      <h2>{it ? "Maturità e composizione" : "Maturity and composition"}</h2>
+    <Composition className="collector-composition" aria-label={it ? "Maturità e composizione" : "Maturity and composition"}>
+      {mobile ? <summary>{it ? "Maturità e composizione" : "Maturity and composition"}</summary> : <h2>{it ? "Maturità e composizione" : "Maturity and composition"}</h2>}
       <CollectorCardGroup className="collector-summary-grid" locale={locale} label={it ? "Maturità e composizione" : "Maturity and composition"}>
         <article className="collector-tile"><h3>{it ? "Finestre conosciute" : "Known drinking windows"}</h3><strong className="collector-number">{pct(known)}</strong><p>{it ? "Copertura sulle bottiglie dell’intera cantina." : "Coverage across all bottles in the collection."}</p>{selection(it ? "Finestre da completare" : "Windows to complete", unknown)}</article>
         <article className="collector-tile"><h3>{it ? "Maturità in cantina" : "Maturity in cellar"}</h3><p>{it ? "Bottiglie fisicamente presenti, indipendentemente dall’obiettivo assegnato." : "Physically available bottles, regardless of assigned purpose."}</p>{selection(it ? "Nella finestra ideale o successiva" : "In or after the ideal window", ready)}{selection(it ? "Prima della finestra ideale" : "Before the ideal window", future)}</article>
         <article className="collector-tile"><h3>{it ? "Produttore principale" : "Largest producer"}</h3><strong className="collector-number">{pct(leading)}</strong><p>{it ? "Quota delle bottiglie totali. Una concentrazione descrive la collezione, non è un giudizio sulla qualità." : "Share of total bottles. Concentration describes the collection, not its quality."}</p>{selection(leading[0]?.producer || (it ? "Produttore non disponibile" : "Producer unavailable"), leading)}</article>
       </CollectorCardGroup>
-    </section>
+    </Composition>
   </section>;
 }

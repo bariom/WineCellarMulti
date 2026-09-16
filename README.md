@@ -111,10 +111,10 @@ Bottle photography leads the dashboard: key positions, ready-to-drink wines and 
 arrivals are visible before the KPIs, with larger photos on mobile and desktop.
 Recent arrivals form one horizontal photo gallery below the two main cards; on narrow
 screens the gallery scrolls independently without horizontal page overflow.
-Mobile cards are grouped into four horizontal carousels (wines, cellar indicators,
-priorities, maturity), with swipe, previous/next controls and an active-card counter.
-Each carousel adapts its height to the active card, including expanded details;
-desktop retains the grid layout. Its ready-to-drink selection shows two photographed
+Mobile has three dedicated views: Wines, Priorities and Collection. Only homogeneous
+photo galleries scroll horizontally, with stable row heights and no autoplay.
+Indicators and expandable selections use normal flow, without adaptive carousel heights.
+Desktop retains its grid layout. Its ready-to-drink selection shows two photographed
 wines per page, with manual previous/next controls and a compact single-wine layout.
 The overview counts the whole active cellar (including shared ownership), separates
 physical availability from other stock, and shows bottle and wine counts together.

@@ -28,6 +28,7 @@ import type { WishlistLiveTasteScan } from "./components/WishlistLiveTasteScanne
 import { useChartReveal } from "./components/chartMotion";
 import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
+import { CollectorDashboard } from "./components/CollectorDashboard";
 import { CollectorOverview } from "./components/CollectorOverview";
 import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
@@ -10562,7 +10563,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "collector" ? (
-              <div className="collector-dashboard-layout">
+              <CollectorDashboard wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}>
                 <CollectorCardGroup className="collector-wine-stage" locale={locale} label={locale === "it" ? "I vini della tua collezione" : "Wines in your collection"}>
                 <article className="dashboard-card key-position-card">
                   {keyPositionCandidates.length ? (
@@ -10849,7 +10850,7 @@ export function App() {
                     ))}
                   </div>
                 </article>
-              </section></details></div>
+              </section></details></CollectorDashboard>
               ) : null}
 
               {dashboardFocus === "value" ? (
