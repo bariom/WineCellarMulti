@@ -28044,6 +28044,66 @@ body,
   gap: 12px;
 }
 
+.taste-profile-algorithm-validation {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--primary) 28%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+
+.taste-profile-algorithm-validation > div:first-child {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 5px 12px;
+}
+
+.taste-profile-algorithm-validation > div:first-child span {
+  color: var(--text-muted);
+  font-size: .68rem;
+  font-weight: 800;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.taste-profile-algorithm-validation p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: .78rem;
+  line-height: 1.45;
+}
+
+.taste-profile-algorithm-validation-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.taste-profile-algorithm-validation-metrics span {
+  display: grid;
+  gap: 2px;
+  padding: 10px;
+  border-radius: 10px;
+  background: var(--surface);
+}
+
+.taste-profile-algorithm-validation-metrics small {
+  color: var(--text-muted);
+  font-size: .68rem;
+}
+
+.taste-profile-algorithm-validation-metrics strong {
+  font-size: 1.1rem;
+}
+
+.taste-profile-algorithm-verdict {
+  color: var(--text) !important;
+  font-weight: 700;
+}
+
 .taste-profile-algorithm-categories article {
   padding: 14px;
   border: 1px solid var(--border);
@@ -28077,7 +28137,7 @@ body,
 
 .taste-profile-algorithm-row {
   display: grid;
-  grid-template-columns: minmax(88px, 1fr) repeat(3, minmax(42px, .45fr));
+  grid-template-columns: minmax(88px, 1fr) repeat(2, minmax(62px, .55fr));
   align-items: center;
   min-height: 38px;
   border-top: 1px solid color-mix(in srgb, var(--border) 72%, transparent);
@@ -28098,17 +28158,6 @@ body,
   text-transform: uppercase;
 }
 
-.taste-profile-algorithm-row em {
-  color: var(--text-muted);
-  font-style: normal;
-  font-weight: 800;
-}
-
-.taste-profile-algorithm-row em.is-positive {
-  color: var(--success, #39734d);
-}
-
-.taste-profile-algorithm-row em.is-negative,
 .taste-profile-algorithm-error {
   color: var(--danger, #a23b46);
 }

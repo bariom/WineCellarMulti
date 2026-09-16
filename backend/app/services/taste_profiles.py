@@ -363,6 +363,169 @@ def _shadow_dimension(
     )
 
 
+def _active_dimension(
+    contributions: list[tuple[float, float, float]],
+) -> tuple[dict[str, float | int], float] | None:
+    total_strength = sum(abs(signal) for signal, _, _ in contributions)
+    if not total_strength:
+        return None
+    affinity = sum(signal * value for signal, value, _ in contributions) / total_strength
+    source_confidence = (
+        sum(abs(signal) * confidence for signal, _, confidence in contributions) / total_strength
+    )
+    confidence = (1 - exp(-total_strength / 6)) * source_confidence
+    return (
+        {
+            "preference": round(0.5 + affinity / 2, 4),
+            "confidence": round(confidence, 4),
+            "samples": len(contributions),
+        },
+        confidence,
+    )
+
+
+def validate_taste_profile_algorithms(
+    db: Session, *, household_id: UUID, user_id: UUID
+) -> dict[str, object]:
+    """Compare V2 and V3 against held-out experiences without changing either profile."""
+    observations: list[tuple[float, dict[str, float], float]] = []
+
+    def append_observation(signal: float, sensory_profile: WineSensoryProfile | None) -> None:
+        if (
+            not signal
+            or sensory_profile is None
+            or sensory_profile.generation_status != "available"
+        ):
+            return
+        dimensions = validated_dimensions(sensory_profile.dimensions)
+        if len(dimensions) < 3:
+            return
+        observations.append((signal, dimensions, float(sensory_profile.confidence)))
+
+    tasting_rows = db.execute(
+        select(WineTastingEntry, WineSensoryProfile)
+        .join(Wine, Wine.id == WineTastingEntry.wine_id)
+        .outerjoin(WineSensoryProfile, WineSensoryProfile.identity_id == Wine.shared_identity_id)
+        .where(
+            WineTastingEntry.household_id == household_id,
+            WineTastingEntry.created_by_user_id == user_id,
+            Wine.household_id == household_id,
+            or_(
+                WineTastingEntry.rating > 0,
+                WineTastingEntry.enjoyment.in_(("positive", "negative")),
+            ),
+        )
+    )
+    for tasting, sensory_profile in tasting_rows:
+        append_observation(
+            tasting_preference_weight(float(tasting.rating), tasting.enjoyment),
+            sensory_profile,
+        )
+
+    rating_rows = db.execute(
+        select(UserWineRating, WineSensoryProfile)
+        .join(Wine, Wine.id == UserWineRating.wine_id)
+        .outerjoin(WineSensoryProfile, WineSensoryProfile.identity_id == Wine.shared_identity_id)
+        .where(
+            UserWineRating.user_id == user_id,
+            UserWineRating.household_id == household_id,
+            Wine.household_id == household_id,
+            UserWineRating.rating > 0,
+        )
+    )
+    for rating, sensory_profile in rating_rows:
+        append_observation(rating_weight(float(rating.rating)) * 0.5, sensory_profile)
+
+    external_rows = db.execute(
+        select(ExternalWineTasting, WineSensoryProfile)
+        .outerjoin(
+            WineSensoryProfile,
+            WineSensoryProfile.identity_id == ExternalWineTasting.shared_identity_id,
+        )
+        .where(
+            ExternalWineTasting.household_id == household_id,
+            ExternalWineTasting.created_by_user_id == user_id,
+            or_(
+                ExternalWineTasting.rating > 0,
+                ExternalWineTasting.enjoyment.in_(("positive", "negative")),
+            ),
+        )
+    )
+    for tasting, sensory_profile in external_rows:
+        append_observation(
+            tasting_preference_weight(float(tasting.rating), tasting.enjoyment),
+            sensory_profile,
+        )
+
+    v2_errors: list[float] = []
+    v3_errors: list[float] = []
+    tested_signals: list[float] = []
+    for held_out_index, (held_out_signal, held_out_dimensions, _) in enumerate(observations):
+        training: dict[str, list[tuple[float, float, float]]] = defaultdict(list)
+        for index, (signal, dimensions, source_confidence) in enumerate(observations):
+            if index == held_out_index:
+                continue
+            for dimension, value in dimensions.items():
+                training[dimension].append((signal, value, source_confidence))
+
+        v2_targets: dict[str, float] = {}
+        v3_targets: dict[str, float] = {}
+        for dimension, contributions in training.items():
+            active = _active_dimension(contributions)
+            shadow = _shadow_dimension(contributions)
+            if active is not None:
+                v2_targets[dimension] = float(active[0]["preference"])
+            if shadow is not None:
+                v3_targets[dimension] = float(shadow[0]["preference"])
+
+        common_dimensions = [
+            dimension
+            for dimension in held_out_dimensions
+            if dimension in v2_targets and dimension in v3_targets
+        ]
+        if len(common_dimensions) < 3:
+            continue
+        v2_prediction = sum(
+            1 - abs(held_out_dimensions[dimension] - v2_targets[dimension])
+            for dimension in common_dimensions
+        ) / len(common_dimensions)
+        v3_prediction = sum(
+            1 - abs(held_out_dimensions[dimension] - v3_targets[dimension])
+            for dimension in common_dimensions
+        ) / len(common_dimensions)
+        actual = 0.5 + held_out_signal / 2
+        v2_errors.append(abs(v2_prediction - actual))
+        v3_errors.append(abs(v3_prediction - actual))
+        tested_signals.append(held_out_signal)
+
+    positive_count = sum(signal > 0 for signal in tested_signals)
+    negative_count = sum(signal < 0 for signal in tested_signals)
+    sufficient = len(tested_signals) >= 8 and positive_count >= 2 and negative_count >= 2
+    if not sufficient:
+        return {
+            "status": "insufficient",
+            "tested_experiences": len(tested_signals),
+            "positive_experiences": positive_count,
+            "negative_experiences": negative_count,
+            "v2_mean_absolute_error": None,
+            "v3_mean_absolute_error": None,
+            "winner": "insufficient",
+        }
+    v2_mae = sum(v2_errors) / len(v2_errors)
+    v3_mae = sum(v3_errors) / len(v3_errors)
+    difference = v2_mae - v3_mae
+    winner = "v3" if difference >= 0.02 else "v2" if difference <= -0.02 else "tie"
+    return {
+        "status": "ready",
+        "tested_experiences": len(tested_signals),
+        "positive_experiences": positive_count,
+        "negative_experiences": negative_count,
+        "v2_mean_absolute_error": round(v2_mae, 4),
+        "v3_mean_absolute_error": round(v3_mae, 4),
+        "winner": winner,
+    }
+
+
 def _archive_profile(db: Session, profile: UserTasteProfile, *, reason: str = "rebuild") -> None:
     db.add(
         UserTasteProfileRevision(
@@ -494,20 +657,11 @@ def rebuild_user_taste_profile(
         shadow_dimensions: dict[str, dict] = {}
         shadow_confidence_values: list[float] = []
         for dimension, contributions in accumulators[category].items():
-            total_strength = sum(abs(weight) for weight, _, _ in contributions)
-            if not total_strength:
+            active = _active_dimension(contributions)
+            if active is None:
                 continue
-            affinity = sum(weight * value for weight, value, _ in contributions) / total_strength
-            profile_confidence = (
-                sum(abs(weight) * confidence for weight, _, confidence in contributions)
-                / total_strength
-            )
-            confidence = (1 - exp(-total_strength / 6)) * profile_confidence
-            dimensions[dimension] = {
-                "preference": round(0.5 + affinity / 2, 4),
-                "confidence": round(confidence, 4),
-                "samples": len(contributions),
-            }
+            active_value, confidence = active
+            dimensions[dimension] = active_value
             confidence_values.append(confidence)
             shadow = _shadow_dimension(contributions)
             if shadow is not None:

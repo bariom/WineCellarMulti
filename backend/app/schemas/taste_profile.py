@@ -55,7 +55,7 @@ class TasteProfileAlgorithmDimension(BaseModel):
     v2_confidence: float | None = None
     v3_preference: float | None = None
     v3_confidence: float | None = None
-    delta: float | None = None
+    scale_gap: float | None = None
 
 
 class TasteProfileAlgorithmCategory(BaseModel):
@@ -69,11 +69,23 @@ class TasteProfileAlgorithmCategory(BaseModel):
     rebuilt_at: datetime
 
 
+class TasteProfileAlgorithmValidation(BaseModel):
+    status: Literal["ready", "insufficient"]
+    method: Literal["leave_one_experience_out"] = "leave_one_experience_out"
+    tested_experiences: int = 0
+    positive_experiences: int = 0
+    negative_experiences: int = 0
+    v2_mean_absolute_error: float | None = None
+    v3_mean_absolute_error: float | None = None
+    winner: Literal["v2", "v3", "tie", "insufficient"] = "insufficient"
+
+
 class TasteProfileAlgorithmDiagnostics(BaseModel):
     mode: Literal["shadow"] = "shadow"
     active_version: int = 2
     candidate_version: int = 3
     categories: list[TasteProfileAlgorithmCategory] = Field(default_factory=list)
+    validation: TasteProfileAlgorithmValidation
 
 
 class LegacyTastingClaimStatus(BaseModel):

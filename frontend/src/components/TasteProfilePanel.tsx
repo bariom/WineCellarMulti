@@ -453,18 +453,25 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
             </div>
             {diagnosticsVisible ? <div className="taste-profile-algorithm-content">
               <p>{italian ? "Il V2 resta attivo. Il V3 è solo osservato e non modifica affinità o suggerimenti." : "V2 remains active. V3 is observed only and does not change affinities or recommendations."}</p>
+              <p>{italian ? "Le colonne hanno significati diversi: V2 indica l’affinità associata ai vini apprezzati; V3 stima il livello sensoriale ideale. La loro distanza non è una variazione di gradimento." : "The columns have different meanings: V2 indicates affinity associated with liked wines; V3 estimates the ideal sensory level. Their distance is not a change in enjoyment."}</p>
               {diagnosticsLoading ? <p role="status">{italian ? "Caricamento confronto…" : "Loading comparison…"}</p> : null}
               {diagnosticsError ? <p className="taste-profile-algorithm-error" role="alert">{diagnosticsError}</p> : null}
-              {algorithmDiagnostics ? <div className="taste-profile-algorithm-categories">{algorithmDiagnostics.categories.map((category) => <article key={category.category}>
-                <header><div><strong>{label(category.category)}</strong><small>{category.sample_count} {italian ? "esperienze" : "experiences"}</small></div><div><span>V2 {Math.round(category.v2_confidence * 100)}%</span><span>V3 {category.v3_confidence === null ? "—" : `${Math.round(category.v3_confidence * 100)}%`}</span></div></header>
+              {algorithmDiagnostics ? <>
+                <section className={`taste-profile-algorithm-validation is-${algorithmDiagnostics.validation.status}`} aria-label={italian ? "Validazione retrospettiva" : "Retrospective validation"}>
+                  <div><span>{italian ? "Validazione retrospettiva" : "Retrospective validation"}</span><strong>Leave-one-experience-out</strong></div>
+                  {algorithmDiagnostics.validation.status === "ready" ? <>
+                    <p>{italian ? `${algorithmDiagnostics.validation.tested_experiences} esperienze confrontabili: ${algorithmDiagnostics.validation.positive_experiences} positive e ${algorithmDiagnostics.validation.negative_experiences} negative.` : `${algorithmDiagnostics.validation.tested_experiences} comparable experiences: ${algorithmDiagnostics.validation.positive_experiences} positive and ${algorithmDiagnostics.validation.negative_experiences} negative.`}</p>
+                    <div className="taste-profile-algorithm-validation-metrics"><span><small>{italian ? "Errore medio V2" : "V2 mean error"}</small><strong>{Math.round((algorithmDiagnostics.validation.v2_mean_absolute_error ?? 0) * 100)} pt</strong></span><span><small>{italian ? "Errore medio V3" : "V3 mean error"}</small><strong>{Math.round((algorithmDiagnostics.validation.v3_mean_absolute_error ?? 0) * 100)} pt</strong></span></div>
+                    <p className="taste-profile-algorithm-verdict">{algorithmDiagnostics.validation.winner === "v3" ? (italian ? "Il V3 predice meglio le esperienze escluse, ma resta in osservazione." : "V3 predicts held-out experiences better, but remains under observation.") : algorithmDiagnostics.validation.winner === "v2" ? (italian ? "Il V2 predice meglio le esperienze escluse: il V3 non è pronto." : "V2 predicts held-out experiences better: V3 is not ready.") : (italian ? "Le prestazioni sono equivalenti: non ci sono ancora motivi per sostituire il V2." : "Performance is equivalent: there is not yet a reason to replace V2.")}</p>
+                  </> : <p>{italian ? `Dati insufficienti: ${algorithmDiagnostics.validation.tested_experiences} esperienze confrontabili, di cui ${algorithmDiagnostics.validation.positive_experiences} positive e ${algorithmDiagnostics.validation.negative_experiences} negative. Servono almeno 8 esperienze, incluse 2 positive e 2 negative.` : `Insufficient data: ${algorithmDiagnostics.validation.tested_experiences} comparable experiences, including ${algorithmDiagnostics.validation.positive_experiences} positive and ${algorithmDiagnostics.validation.negative_experiences} negative. At least 8 experiences are required, including 2 positive and 2 negative.`}</p>}
+                </section>
+                <div className="taste-profile-algorithm-categories">{algorithmDiagnostics.categories.map((category) => <article key={category.category}>
+                <header><div><strong>{label(category.category)}</strong><small>{category.sample_count} {italian ? "esperienze" : "experiences"}</small></div><div><span>{italian ? "Affidabilità evidenze" : "Evidence confidence"} {Math.round(category.v2_confidence * 100)}%</span></div></header>
                 {category.dimensions.length ? <div className="taste-profile-algorithm-table">
-                  <div className="taste-profile-algorithm-row taste-profile-algorithm-labels"><span>{italian ? "Indicatore" : "Indicator"}</span><span>V2</span><span>V3</span><span>Δ</span></div>
-                  {category.dimensions.map((dimension) => {
-                    const delta = dimension.delta === null ? null : Math.round(dimension.delta * 100);
-                    return <div className="taste-profile-algorithm-row" key={dimension.dimension}><strong>{label(dimension.dimension)}</strong><span>{dimension.v2_preference === null ? "—" : Math.round(dimension.v2_preference * 100)}</span><span>{dimension.v3_preference === null ? "—" : Math.round(dimension.v3_preference * 100)}</span><em className={delta === null || delta === 0 ? "" : delta > 0 ? "is-positive" : "is-negative"}>{delta === null ? "—" : `${delta > 0 ? "+" : ""}${delta}`}</em></div>;
-                  })}
+                  <div className="taste-profile-algorithm-row taste-profile-algorithm-labels"><span>{italian ? "Indicatore" : "Indicator"}</span><span>{italian ? "Affinità V2" : "V2 affinity"}</span><span>{italian ? "Ideale V3" : "V3 ideal"}</span></div>
+                  {category.dimensions.map((dimension) => <div className="taste-profile-algorithm-row" key={dimension.dimension}><strong>{label(dimension.dimension)}</strong><span>{dimension.v2_preference === null ? "—" : Math.round(dimension.v2_preference * 100)}</span><span>{dimension.v3_preference === null ? "—" : Math.round(dimension.v3_preference * 100)}</span></div>)}
                 </div> : <p>{italian ? "Nessun indicatore calcolato." : "No calculated indicators."}</p>}
-              </article>)}</div> : null}
+              </article>)}</div></> : null}
             </div> : null}
           </section> : null}
         </div>

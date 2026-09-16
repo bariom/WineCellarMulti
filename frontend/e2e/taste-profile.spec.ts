@@ -36,6 +36,7 @@ test("taste preferences use an individual scale and expandable wine styles", asy
     mode: "shadow",
     active_version: 2,
     candidate_version: 3,
+    validation: { status: "ready", method: "leave_one_experience_out", tested_experiences: 12, positive_experiences: 8, negative_experiences: 4, v2_mean_absolute_error: .24, v3_mean_absolute_error: .17, winner: "v3" },
     categories: [{
       category: "global",
       sample_count: 16,
@@ -44,7 +45,7 @@ test("taste preferences use an individual scale and expandable wine styles", asy
       v3_version: 3,
       v3_confidence: .42,
       rebuilt_at: "2026-09-15T12:00:00Z",
-      dimensions: [{ dimension: "body", v2_preference: .6, v2_confidence: .5, v3_preference: .72, v3_confidence: .42, delta: .12 }],
+      dimensions: [{ dimension: "body", v2_preference: .6, v2_confidence: .5, v3_preference: .72, v3_confidence: .42, scale_gap: .12 }],
     }],
   } }));
   await page.route("**/api/v1/map-config", route => route.fulfill({ json: {} }));
@@ -82,7 +83,12 @@ test("taste preferences use an individual scale and expandable wine styles", asy
   const diagnostics = page.getByLabel("Diagnostica algoritmo gusto");
   await expect(diagnostics.getByText("Confronto algoritmo V2/V3", { exact: true })).toBeVisible();
   await expect(diagnostics.getByText("Il V2 resta attivo. Il V3 è solo osservato e non modifica affinità o suggerimenti.", { exact: true })).toBeVisible();
-  await expect(diagnostics.getByText("+12", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Affinità V2", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Ideale V3", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("Errore medio V2", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("24 pt", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText("17 pt", { exact: true })).toBeVisible();
+  await expect(diagnostics.getByText(/Il V3 predice meglio/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 });
 

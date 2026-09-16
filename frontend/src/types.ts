@@ -1480,7 +1480,7 @@ export type TasteProfileAlgorithmDimension = {
   v2_confidence: number | null;
   v3_preference: number | null;
   v3_confidence: number | null;
-  delta: number | null;
+  scale_gap: number | null;
 };
 
 export type TasteProfileAlgorithmCategory = {
@@ -1499,6 +1499,16 @@ export type TasteProfileAlgorithmDiagnostics = {
   active_version: number;
   candidate_version: number;
   categories: TasteProfileAlgorithmCategory[];
+  validation: {
+    status: "ready" | "insufficient";
+    method: "leave_one_experience_out";
+    tested_experiences: number;
+    positive_experiences: number;
+    negative_experiences: number;
+    v2_mean_absolute_error: number | null;
+    v3_mean_absolute_error: number | null;
+    winner: "v2" | "v3" | "tie" | "insufficient";
+  };
 };
 
 export type LegacyTastingClaimStatus = { unassigned_count: number };

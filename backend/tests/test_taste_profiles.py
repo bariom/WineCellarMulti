@@ -48,6 +48,7 @@ from app.services.taste_profiles import (
     record_user_wine_rating,
     tasting_preference_weight,
     unassigned_tasting_count,
+    validate_taste_profile_algorithms,
 )
 
 engine = create_engine(
@@ -1370,6 +1371,46 @@ def test_ai_context_falls_back_to_the_scoped_global_profile() -> None:
     assert context["dimensions"] == {"body": 0.72}
 
 
+def test_algorithm_validation_uses_held_out_positive_and_negative_experiences() -> None:
+    db = Session()
+    household = Household(name="Validation home")
+    user = User(email="validation@example.test", display_name="Validation", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    ratings_and_levels = [
+        (6, 0.82),
+        (5, 0.76),
+        (6, 0.88),
+        (5, 0.72),
+        (1, 0.18),
+        (2, 0.24),
+        (1, 0.12),
+        (2, 0.28),
+    ]
+    for index, (rating, level) in enumerate(ratings_and_levels):
+        wine = make_wine(db, household, name=f"Validation {index}")
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions={dimension: level for dimension in ("body", "acidity", "fruit")},
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+        add_tasting(db, user, household, wine, rating)
+    db.commit()
+
+    validation = validate_taste_profile_algorithms(db, household_id=household.id, user_id=user.id)
+
+    assert validation["status"] == "ready"
+    assert validation["tested_experiences"] == 8
+    assert validation["positive_experiences"] == 4
+    assert validation["negative_experiences"] == 4
+    assert validation["v2_mean_absolute_error"] is not None
+    assert validation["v3_mean_absolute_error"] is not None
+    assert validation["winner"] in {"v2", "v3", "tie"}
+
+
 def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
     def override_db():
         db = Session()
@@ -1447,7 +1488,17 @@ def test_admin_baselines_filters_and_historical_batch_endpoint() -> None:
             "v2_confidence": 0.5,
             "v3_preference": 0.72,
             "v3_confidence": 0.4,
-            "delta": 0.12,
+            "scale_gap": 0.12,
+        }
+        assert diagnostics.json()["validation"] == {
+            "status": "insufficient",
+            "method": "leave_one_experience_out",
+            "tested_experiences": 0,
+            "positive_experiences": 0,
+            "negative_experiences": 0,
+            "v2_mean_absolute_error": None,
+            "v3_mean_absolute_error": None,
+            "winner": "insufficient",
         }
         with Session() as db:
             user = db.query(User).filter(User.email == "admin@vinaris.ch").one()

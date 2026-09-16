@@ -56,6 +56,7 @@ from app.schemas.taste_profile import (
     TasteProfileAlgorithmCategory,
     TasteProfileAlgorithmDiagnostics,
     TasteProfileAlgorithmDimension,
+    TasteProfileAlgorithmValidation,
     TasteProfileCollectionResponse,
     TasteProfileEvidence,
     TasteProfileResponse,
@@ -76,6 +77,7 @@ from app.services.taste_profiles import (
     rebuild_user_taste_profile,
     sensory_profile_for_wine,
     unassigned_tasting_count,
+    validate_taste_profile_algorithms,
     validated_dimensions,
 )
 
@@ -310,7 +312,7 @@ def taste_profile_algorithm_diagnostics(
                     v2_confidence=_diagnostic_value(active_dimensions.get(dimension), "confidence"),
                     v3_preference=v3_preference,
                     v3_confidence=_diagnostic_value(shadow_dimensions.get(dimension), "confidence"),
-                    delta=(
+                    scale_gap=(
                         round(v3_preference - v2_preference, 4)
                         if v2_preference is not None and v3_preference is not None
                         else None
@@ -329,7 +331,15 @@ def taste_profile_algorithm_diagnostics(
                 rebuilt_at=profile.rebuilt_at,
             )
         )
-    return TasteProfileAlgorithmDiagnostics(categories=categories)
+    validation = validate_taste_profile_algorithms(
+        db,
+        household_id=context.household.id,
+        user_id=context.user.id,
+    )
+    return TasteProfileAlgorithmDiagnostics(
+        categories=categories,
+        validation=TasteProfileAlgorithmValidation.model_validate(validation),
+    )
 
 
 @router.post("/me/rebuild", response_model=TasteProfileCollectionResponse)
