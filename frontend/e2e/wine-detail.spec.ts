@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
+import { featuredValue } from "../src/domain/featuredValue";
 
 const wine = {
   id: "wine-e2e-1",
@@ -1081,6 +1082,8 @@ for (const width of [360, 390, 430, 1440]) {
       await page.evaluate(() => window.scrollTo(0, 0));
       if (width === 390) await expect(page).toHaveScreenshot("collector-compact.png", { fullPage: true });
       await mobile.getByRole("button", { name: /Nebbiolo di Test/ }).first().click();
+      await expect(page.getByRole("dialog")).toContainText("Dati datati insufficienti");
+      await page.getByRole("button", { name: "Apri scheda vino", exact: true }).click();
       await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
       return;
     }
@@ -1191,4 +1194,89 @@ test("collector excludes incomplete windows and keeps dated history changes cons
   await expect(priorities).not.toContainText("4 bottiglie");
   await expect(page.locator(".key-position-trend")).toContainText("20");
   await expect(page.locator(".key-position-trend")).not.toContainText("14.3");
+});
+
+for (const width of [360, 390, 430]) {
+  test(`collector highlight insight ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
+    const growth = { ...wine, price: "40", current_value: "60", order_date: "2024-01-01", ai_value_estimated_at: "2026-01-01T12:00:00Z",
+      value_history: [{ id: "mid", value: "45", currency: "CHF", source: "manual", recorded_at: "2025-01-01T12:00:00Z" }] };
+    const valuable = { ...wine, id: "valuable", name: "Riserva di grande valore della collezione", price: "200", current_value: "180" };
+    await mockApi(page, [], false, memberships, [growth, valuable], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    const rail = page.getByRole("list", { name: "In primo piano", exact: true });
+    const card = rail.getByRole("button", { name: /Nebbiolo di Test/ });
+    await expect(card).toContainText("+50%");
+    await card.click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toContainText("CHF 40");
+    await expect(dialog).toContainText("CHF 60");
+    await expect(dialog.getByRole("img", { name: /Andamento del valore/ })).toBeVisible();
+    const heading = (await dialog.getByRole("heading", { level: 2 }).boundingBox())!;
+    const close = (await dialog.getByRole("button", { name: "Chiudi approfondimento" }).boundingBox())!;
+    expect(heading.x + heading.width).toBeLessThanOrEqual(close.x);
+    expect(await dialog.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    const facts = await dialog.locator(".featured-wine-facts > div").all();
+    for (const fact of facts) {
+      const label = (await fact.locator("dt").boundingBox())!;
+      const value = (await fact.locator("dd").first().boundingBox())!;
+      expect(label.y + label.height).toBeLessThanOrEqual(value.y);
+    }
+    await page.screenshot({ path: testInfo.outputPath(`highlight-${width}.png`) });
+    if (width === 390) await expect(dialog).toHaveScreenshot("collector-highlight-insight.png");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(card).toBeFocused();
+    const valueCard = rail.getByRole("button", { name: /Riserva di grande valore/ });
+    await valueCard.scrollIntoViewIfNeeded();
+    const offset = await rail.evaluate(el => el.scrollLeft);
+    await valueCard.click();
+    await expect(dialog).toContainText("Valore della tua quota");
+    await expect(dialog).toContainText("CHF 720");
+    await expect(dialog.getByRole("img")).toHaveCount(0);
+    await page.screenshot({ path: testInfo.outputPath(`highlight-value-${width}.png`) });
+    await dialog.getByRole("button", { name: "Chiudi approfondimento" }).click();
+    await expect(valueCard).toBeFocused();
+    expect(await rail.evaluate(el => el.scrollLeft)).toBe(offset);
+    await card.click();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Apri scheda vino" })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(dialog.getByRole("button", { name: "Chiudi approfondimento" })).toBeFocused();
+    await dialog.getByRole("button", { name: "Apri scheda vino" }).click();
+    await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}
+
+test("collector highlight comparison handles gifts, currencies, missing dates and invalid values", () => {
+  const item = { ...wine, price: "0.01", current_value: "60", value_history: [
+    { id: "later", value: "50", currency: "CHF", source: "manual", recorded_at: "2025-01-01" },
+    { id: "foreign", value: "1", currency: "EUR", source: "manual", recorded_at: "2023-01-01" },
+    { id: "first", value: "40", currency: "CHF", source: "manual", recorded_at: "2024-01-01" },
+    { id: "invalid", value: "broken", currency: "CHF", source: "manual", recorded_at: "2022-01-01" },
+  ] };
+  const evidence = featuredValue(item as unknown as Parameters<typeof featuredValue>[0]);
+  expect(evidence.baseline).toBe(40);
+  expect(evidence.changePct).toBe(50);
+  expect(evidence.fromPurchase).toBe(false);
+  expect(evidence.points).toEqual([]);
+  const dated = featuredValue({ ...item, ai_value_estimated_at: "2026-01-01" } as unknown as Parameters<typeof featuredValue>[0]);
+  expect(dated.points.map(point => point.value)).toEqual([40, 50, 60]);
+  expect(featuredValue({ ...item, price: "100" } as unknown as Parameters<typeof featuredValue>[0]).changePct).toBe(-40);
+  expect(featuredValue({ ...item, current_value: null, value_history: [] } as unknown as Parameters<typeof featuredValue>[0]).changePct).toBeNull();
+});
+
+test("collector declining values have no growth label and insights support English", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [{ ...wine, price: "100", current_value: "80" }], { ...session, dashboard_focus: "collector", locale: "en" });
+  await page.goto("/");
+  const card = page.getByRole("list", { name: "Highlights", exact: true }).getByRole("button");
+  await expect(card).not.toContainText("Largest price increase");
+  await expect(card).toContainText("Value of your share");
+  await card.click();
+  await expect(page.getByRole("dialog")).toContainText("Your share");
+  await page.mouse.click(5, 5);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(card).toBeFocused();
 });

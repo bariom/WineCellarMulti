@@ -113,6 +113,11 @@ Recent arrivals form one horizontal photo gallery below the two main cards; on n
 screens the gallery scrolls independently without horizontal page overflow.
 Mobile has three dedicated views: Wines, Priorities and Collection. Only homogeneous
 photo galleries scroll horizontally, with stable row heights and no autoplay.
+Mobile highlights show their selection reason and a key figure. Tapping a highlight
+opens an accessible bottom sheet with supporting values and, when dates are available,
+a per-bottle value chart. The sheet links to the full wine detail. Growth comparisons
+use purchase price (excluding gift prices below 1) or the first valid same-currency
+valuation; zero or negative changes are not labelled as growth highlights.
 Indicators and expandable selections use normal flow, without adaptive carousel heights.
 Desktop retains its grid layout. Its ready-to-drink selection shows two photographed
 wines per page, with manual previous/next controls and a compact single-wine layout.
@@ -125,6 +130,8 @@ wine selections expand inline; the extended collection analysis is collapsed by 
 The collector tests cover KPI calculations, navigation, empty data, responsive geometry
 and a reviewed 390 px visual baseline. Update that baseline only after visual review:
 `npx playwright test e2e/wine-detail.spec.ts -g "collector responsive layout 390" --update-snapshots`.
+The highlight sheet also has a reviewed 390 px baseline; update it with
+`npx playwright test e2e/wine-detail.spec.ts -g "collector highlight insight 390" --update-snapshots`.
 
 Install the backend development dependencies and activate its virtual environment:
 

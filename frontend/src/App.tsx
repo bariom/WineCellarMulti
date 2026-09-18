@@ -29,6 +29,7 @@ import { useChartReveal } from "./components/chartMotion";
 import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorDashboard } from "./components/CollectorDashboard";
+import { featuredValue } from "./domain/featuredValue";
 import { CollectorOverview } from "./components/CollectorOverview";
 import { DashboardCountUp } from "./components/DashboardCountUp";
 import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
@@ -7038,16 +7039,7 @@ export function App() {
     const ownedValue = (wine: Wine) => positionValue(wine) * (currentUserSharePct(wine, session) / 100);
     const trendDateFormatter = new Intl.DateTimeFormat(numberLocale(locale), { month: "short", year: "numeric" });
     const priceIncreasePct = (wine: Wine) => {
-      const purchasePrice = Number(wine.price || 0);
-      const historicalValues = wine.value_history
-        .map((entry) => Number(entry.value || 0))
-        .filter((value) => Number.isFinite(value) && value > 0);
-      // A sub-unit purchase price is commonly used to record a gifted bottle.
-      // It is useful for the value timeline, but not as a meaningful ROI baseline.
-      const baseline = purchasePrice >= 1 ? purchasePrice : historicalValues[0] || 0;
-      const current = Number(wine.current_value || historicalValues[historicalValues.length - 1] || 0);
-      if (!baseline || !current) return null;
-      return ((current - baseline) / baseline) * 100;
+      return featuredValue(wine).changePct;
     };
     const ownWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) >= 99.999);
     const sharedWines = cellarWines.filter((wine) => currentUserSharePct(wine, session) > 0 && currentUserSharePct(wine, session) < 99.999);
@@ -7057,7 +7049,7 @@ export function App() {
     const orderedShared = [...sharedWines].sort((first, second) => ownedValue(second) - ownedValue(first));
     const largestPriceIncrease = cellarWines
       .map((wine) => ({ wine, increasePct: priceIncreasePct(wine) }))
-      .filter((item): item is { wine: Wine; increasePct: number } => item.increasePct !== null)
+      .filter((item): item is { wine: Wine; increasePct: number } => item.increasePct !== null && item.increasePct > 0)
       .sort((first, second) => second.increasePct - first.increasePct)[0];
     const selected: Wine[] = [];
     const add = (wine: Wine | undefined) => {
@@ -7123,6 +7115,11 @@ export function App() {
       return {
         wine,
         isLargestPriceIncrease: largestPriceIncrease?.wine.id === wine.id,
+        reason: largestPriceIncrease?.wine.id === wine.id ? "increase" as const
+          : orderedByOwnedValue[0]?.id === wine.id ? "owned" as const
+          : orderedByPositionValue[0]?.id === wine.id ? "position" as const
+          : orderedOwn[0]?.id === wine.id ? "personal" as const
+          : orderedShared[0]?.id === wine.id ? "shared" as const : "value" as const,
         highlight: largestPriceIncrease?.wine.id === wine.id ? t("largestPriceIncrease") : t("keyPosition"),
         sharePct,
         ownedValue: totalValue * (sharePct / 100),
