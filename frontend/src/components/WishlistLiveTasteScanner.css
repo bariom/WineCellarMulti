@@ -141,6 +141,22 @@
 .wishlist-live-scan-modal footer.result button { width: 100%; }
 .wishlist-live-continue { box-shadow: 0 10px 26px rgba(104, 23, 52, .35); }
 
+.wishlist-live-scan-stage.has-result { overflow: auto; min-height: 0; }
+.wishlist-live-scan-stage.has-result > img { position: static; display: block; height: 150px; object-fit: contain; }
+.wishlist-live-scan-stage.has-result .wishlist-live-scan-reticle { display: none; }
+.has-result .wishlist-live-result { position: relative; inset: auto; max-height: none; overflow: visible; margin: 10px; box-shadow: none; }
+.wishlist-live-result h2, .wishlist-live-result dd { overflow-wrap: anywhere; }
+.wishlist-live-facts { padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,.14); }
+.wishlist-live-facts h3 { margin: 0 0 9px; color: #e8c56d; font-size: .7rem; letter-spacing: .05em; }
+.wishlist-live-facts dl { display: grid; gap: 9px; margin: 0; }
+.wishlist-live-facts dl > div { display: grid; grid-template-columns: 95px minmax(0,1fr); gap: 8px; }
+.wishlist-live-facts dt { color: #bdb7aa; font-size: .75rem; }
+.wishlist-live-facts dd { margin: 0; color: #fffaf0; font-size: .82rem; }
+.wishlist-live-affinity-unavailable small { display: none; }
+.wishlist-live-result .wishlist-live-affinity-explanation { font-size: .84rem; padding: 0 0 12px; }
+.wishlist-live-ai-cost span { display: block; margin-top: 4px; font-weight: 400; font-size: .7rem; color: #bdb7aa; }
+.wishlist-live-scan-modal header button { flex-shrink: 0; }
+
 @keyframes wishlist-live-pulse { 50% { opacity: .35; transform: scale(.72); } }
 @keyframes wishlist-reticle-pulse { 50% { transform: scale(.985); opacity: .62; } }
 

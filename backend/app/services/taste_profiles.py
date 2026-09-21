@@ -919,9 +919,31 @@ def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistIte
                 UserTasteProfile.category == "global",
             )
         )
-    if not profile or not dimensions:
-        return {"score": None, "confidence": 0.0, "matching_traits": [], "conflicting_traits": []}
+    has_preferences = bool(
+        profile
+        and isinstance(profile.dimensions, dict)
+        and any(
+            isinstance(value, dict) and value.get("confidence", 0) > 0
+            for value in profile.dimensions.values()
+        )
+    )
+    if not has_preferences or not dimensions:
+        reason = (
+            "missing_both_profiles"
+            if not has_preferences and not dimensions
+            else "missing_user_profile"
+            if not has_preferences
+            else "missing_wine_profile"
+        )
+        return {
+            "score": None,
+            "confidence": 0.0,
+            "matching_traits": [],
+            "conflicting_traits": [],
+            "unavailable_reason": reason,
+        }
 
+    assert profile is not None
     compared: list[tuple[str, float, float]] = []
     for key, wine_value in dimensions.items():
         preference = profile.dimensions.get(key, {}) if isinstance(profile.dimensions, dict) else {}
@@ -932,6 +954,7 @@ def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistIte
         return {
             "score": None,
             "confidence": round(confidence, 4),
+            "unavailable_reason": "insufficient_comparison",
             "matching_traits": [],
             "conflicting_traits": [],
         }

@@ -1,5 +1,5 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
@@ -2103,6 +2103,7 @@ export function App() {
     if (!recognition) throw new Error(t("recognitionCouldNotIdentify"));
     const name = wineImageCandidateName(recognition);
     let match = null;
+    let matchFailed = false;
     if ((recognition.status === "recognized" || recognition.status === "ambiguous") && name) {
       const catalogMatch = recognition.matches[0];
       match = await api<import("./types").TasteMatch>("/api/v1/wishlist/taste-match-preview", {
@@ -2115,9 +2116,9 @@ export function App() {
           region: recognition.region || catalogMatch?.region || "",
           appellation: recognition.appellation || catalogMatch?.appellation || "",
         }),
-      }).catch(() => null);
+      }).catch(() => { matchFailed = true; return null; });
     }
-    return { recognition, match };
+    return { recognition, match, matchFailed };
   }
 
   function confirmWishlistLiveTaste(candidate: WineImageRecognitionCandidate) {
@@ -2157,8 +2158,20 @@ export function App() {
     const model = await requestAiModelAdvice(t("runAllWineAi"), "economy", aiSettings?.value_model || aiSettingsDraft.value_model);
     if (!model) return;
     wineCreationAiActionRef.current = { kind: "full", model };
-    setGeneratingAi("all");
-    setAiOverlayProgress({ itemName: [draft.name, draft.vintage].map((part) => part.trim()).filter(Boolean).join(" ") });
+    const progress = { itemName: [draft.name, draft.vintage].map((part) => part.trim()).filter(Boolean).join(" ") };
+    flushSync(() => {
+      setGeneratingAi("all");
+      setAiOverlayRenderMode("all");
+      setAiOverlayVisible(true);
+      setAiOverlayProgress(progress);
+    });
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    if (!form.isConnected) {
+      wineCreationAiActionRef.current = null;
+      setGeneratingAi("");
+      setAiOverlayProgress(null);
+      return;
+    }
     form.requestSubmit();
   }
 
@@ -4360,10 +4373,16 @@ export function App() {
     const drinkPeakTo = optionalYear(draft.drink_peak_to) ?? drinkTo;
     if ((drinkFrom === null) !== (drinkTo === null)) {
       setError(locale === "it" ? "Per impostare la finestra di beva, indica sia l'anno iniziale sia quello finale." : "Set both the start and end years for the drinking window.");
+      wineCreationAiActionRef.current = null;
+      setGeneratingAi("");
+      setAiOverlayProgress(null);
       return;
     }
     if (drinkFrom !== null && drinkTo !== null && !(drinkFrom <= drinkPeakFrom! && drinkPeakFrom! <= drinkPeakTo! && drinkPeakTo! <= drinkTo)) {
       setError(locale === "it" ? "Il picco deve rientrare nella finestra di beva." : "The peak period must fall within the drinking window.");
+      wineCreationAiActionRef.current = null;
+      setGeneratingAi("");
+      setAiOverlayProgress(null);
       return;
     }
     setSaving(true);
@@ -11573,18 +11592,26 @@ export function App() {
                             <div className="vintage-quick-choices" role="group" aria-label={t("vintageHelp")}>
                               {(["NV", "MV"] as const).map((value) => <button key={value} type="button" className={`secondary compact vintage-choice${draft.vintage.trim().toUpperCase() === value ? " is-selected" : ""}`} aria-pressed={draft.vintage.trim().toUpperCase() === value} disabled={!canWriteWine || wineEnrichmentLoading} onClick={() => setDraft((current) => ({ ...current, vintage: value }))}>{value}</button>)}
                             </div>
+                            <div className="recognition-enrichment-intro">
+                              <strong>{t("recognitionEnrichmentChoiceTitle")}</strong>
+                              <span>{t("recognitionEnrichmentChoiceHelp")}</span>
+                            </div>
                             <div className="recognition-enrichment-actions">
-                              <button type="button" className="compact" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={() => void confirmWineImageRecognition()}>
-                                <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("recognitionEnrich")} busyLabel={t("generating")} />
-                              </button>
-                              <button type="button" className="secondary compact" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={(event) => void startFullEnrichmentFromRecognition(event)}>
-                                {t("recognitionFullEnrichment")}
-                              </button>
+                              <div className="recognition-enrichment-choice">
+                                <button type="button" className="secondary compact" aria-describedby="recognition-catalog-help" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={() => void confirmWineImageRecognition()}>
+                                  <ButtonBusyContent busy={wineEnrichmentLoading} idleLabel={t("recognitionEnrich")} busyLabel={t("generating")} />
+                                </button>
+                                <small id="recognition-catalog-help">{t("recognitionEnrichHelp")}</small>
+                              </div>
+                              <div className="recognition-enrichment-choice is-full">
+                                <button type="button" className="compact" aria-describedby="recognition-full-help" disabled={wineEnrichmentLoading || wineRecognitionLoading || saving} onClick={(event) => void startFullEnrichmentFromRecognition(event)}>
+                                  {t("recognitionFullEnrichment")}
+                                </button>
+                                <small id="recognition-full-help">{t("recognitionFullEnrichmentHelp")}</small>
+                              </div>
                             </div>
                             <details className="recognition-enrichment-help">
                               <summary>{t("recognitionEnrichmentHelpTitle")}</summary>
-                              <p><strong>{t("recognitionEnrich")}</strong> — {t("recognitionEnrichHelp")}</p>
-                              <p><strong>{t("recognitionFullEnrichment")}</strong> — {t("recognitionFullEnrichmentHelp")}</p>
                               <small>{t("recognitionEnrichmentCostHelp")}</small>
                             </details>
                           </>

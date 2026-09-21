@@ -138,6 +138,7 @@ class ExternalTastingEnrichmentResponse(TasteProfileCollectionResponse):
 
 
 class TasteMatchResponse(BaseModel):
+    unavailable_reason: str | None = None
     score: float | None = None
     confidence: float
     matching_traits: list[str] = Field(default_factory=list)

@@ -25,7 +25,7 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
               region: 'Piemonte', country: 'Italia', wine_type: 'Red', label_text: ['BAROLO RISERVA', '2020'],
               alternative_candidates: [], needs_user_confirmation: true, recognition_notes: [], provider: 'luna', matches: [], estimated_cost_usd: '0.0018',
             },
-            match: { score: null, confidence: 0, matching_traits: [], conflicting_traits: [] },
+            match: { score: null, confidence: 0, matching_traits: [], conflicting_traits: [], unavailable_reason: 'missing_user_profile' },
           }),
         });
       }
@@ -37,16 +37,16 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
   await page.goto("/wishlist-live-scanner-test");
   await page.getByRole("button", { name: "Scansione gusto live" }).click();
   await page.locator('input[type="file"]').setInputFiles({
-    name: "label.jpg",
-    mimeType: "image/jpeg",
-    buffer: Buffer.from([0xff, 0xd8, 0xff, 0xd9]),
+    name: "label.svg",
+    mimeType: "image/svg+xml",
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="240" height="300"><rect width="240" height="300" fill="#602339"/><text x="30" y="150" fill="#ead599" font-size="24">Barolo Riserva</text></svg>'),
   });
 
   await expect(page.getByText("Barolo Riserva")).toBeVisible();
-  await expect(page.getByText(/Barolo DOCG · Rosso/)).toBeVisible();
+  await expect(page.getByText('Barolo DOCG', { exact: true })).toBeVisible();
   await expect(page.getByText("Affinità non ancora disponibile")).toBeVisible();
-  await expect(page.getByText("Puoi comunque continuare e aggiungere questo vino alla wishlist.")).toBeVisible();
-  await expect(page.getByText("Costo AI: $0.0018")).toBeVisible();
+  await expect(page.getByText(/Il tuo gusto non ha ancora abbastanza dati sensoriali/)).toBeVisible();
+  await expect(page.getByText(/Riconoscimento AI · \$0.0018/)).toBeVisible();
   await expect(page.locator(".wishlist-live-scan-status")).toHaveCount(0);
   const continueButton = page.getByRole("button", { name: "Continua con questo vino" });
   const retryButton = page.getByRole("button", { name: "Riprova" });
@@ -62,6 +62,8 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
     expect(retryBox!.y + retryBox!.height).toBeLessThanOrEqual(844);
     expect(continueBox!.x + continueBox!.width <= retryBox!.x || retryBox!.x + retryBox!.width <= continueBox!.x).toBe(true);
   }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'test-results/wishlist-result.png' });
   await continueButton.click();
   await expect(page.getByRole("dialog", { name: "Scansione gusto live" })).toBeHidden();
 });

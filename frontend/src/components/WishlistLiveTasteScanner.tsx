@@ -7,7 +7,31 @@ import "./WishlistLiveTasteScanner.css";
 export type WishlistLiveTasteScan = {
   recognition: WineImageRecognitionResult;
   match: TasteMatch | null;
+  matchFailed?: boolean;
 };
+
+function affinityExplanation(scan: WishlistLiveTasteScan, italian: boolean) {
+  if (scan.matchFailed) return italian
+    ? "Il confronto non è riuscito. I dati riconosciuti sono disponibili: puoi continuare e riprovare l’affinità dalla wishlist."
+    : "The comparison failed. The identified information is available: continue and retry affinity from your wishlist.";
+  switch (scan.match?.unavailable_reason) {
+    case "missing_user_profile": return italian
+      ? "Il tuo gusto non ha ancora abbastanza dati sensoriali. Registra e valuta le tue degustazioni per rendere possibile il confronto."
+      : "Your taste profile does not yet have enough sensory data. Record and rate tastings to enable the comparison.";
+    case "missing_wine_profile": return italian
+      ? "L’etichetta è riconosciuta, ma mancano dati sul profilo sensoriale del vino. Completa la scheda del vino per rendere possibile il confronto."
+      : "The label is identified, but the wine’s sensory profile is missing. Complete the wine information to enable the comparison.";
+    case "missing_both_profiles": return italian
+      ? "Mancano sia il profilo sensoriale del vino sia dati sufficienti sul tuo gusto. Completa la scheda e registra le tue degustazioni."
+      : "Both the wine’s sensory profile and enough personal taste data are missing. Complete the wine information and record your tastings.";
+    case "insufficient_comparison": return italian
+      ? "I profili sono presenti, ma hanno troppo poche caratteristiche confrontabili o dati ancora poco affidabili. Servono altre degustazioni o informazioni sul vino."
+      : "The profiles have too few comparable traits or insufficient confidence. More tastings or wine information are needed.";
+    default: return italian
+      ? "Non abbiamo abbastanza informazioni per spiegare il mancato confronto. Puoi conservare i dati riconosciuti e verificare i profili dalla wishlist."
+      : "There is not enough information to explain the unavailable comparison. Keep the identified data and check the profiles from your wishlist.";
+  }
+}
 
 type ScannerPhase = "framing" | "analysing" | "result" | "error";
 
@@ -230,6 +254,15 @@ export function WishlistLiveTasteScanner({
   }, [cameraReady, italian, open, phase]);
 
   const recognized = scan?.recognition;
+  const catalog = recognized?.matches.find((item) =>
+    item.name.trim().toLocaleLowerCase() === candidateName(recognized).trim().toLocaleLowerCase()
+    && Boolean(item.producer.trim())
+    && item.producer.trim().toLocaleLowerCase() === (recognized.producer || recognized.estate).trim().toLocaleLowerCase());
+  const facts = recognized ? [
+    [italian ? "Tipologia" : "Type", wineTypeLabel(recognized.wine_type, locale)],
+    [italian ? "Origine" : "Origin", [recognized.region, recognized.country].filter(Boolean).join(" · ")],
+    [italian ? "Denominazione" : "Appellation", recognized.appellation],
+  ].filter(([, value]) => value) : [];
   const canConfirm = Boolean(recognized && (recognized.status === "recognized" || recognized.status === "ambiguous") && candidateName(recognized));
   const hearts = scan?.match?.score === null || scan?.match?.score === undefined
     ? 0
@@ -243,17 +276,26 @@ export function WishlistLiveTasteScanner({
     {open ? createPortal(<div className="wishlist-live-scan-layer" role="dialog" aria-modal="true" aria-label={italian ? "Scansione gusto live" : "Live taste scan"}>
       <section className="wishlist-live-scan-modal">
         <header><div><span>VINARIS VISION</span><strong>{italian ? "Inquadra. Riconosci. Scopri." : "Frame. Identify. Discover."}</strong></div><button type="button" onClick={close} aria-label={italian ? "Chiudi" : "Close"}>×</button></header>
-        <div className="wishlist-live-scan-stage">
+        <div className={`wishlist-live-scan-stage${phase === "result" ? " has-result" : ""}`}>
           {previewUrl ? <img src={previewUrl} alt="" /> : <video ref={videoRef} autoPlay muted playsInline />}
           <div className={`wishlist-live-scan-reticle ${phase}`} aria-hidden="true"><i /><i /><i /><i /></div>
           {phase !== "result" ? <div className={`wishlist-live-scan-status ${phase}`} role="status"><span className="wishlist-live-scan-pulse" />{phase === "analysing" ? (italian ? "Sommelier AI al lavoro" : "AI sommelier working") : guide}</div> : null}
           {phase === "result" && recognized ? <article className="wishlist-live-result">
             <span>{recognized.status === "ambiguous" ? (italian ? "CONFERMA NECESSARIA" : "CONFIRMATION NEEDED") : (italian ? "VINO RICONOSCIUTO" : "WINE IDENTIFIED")}</span>
             <h2>{candidateName(recognized) || (italian ? "Etichetta non identificata" : "Label not identified")}</h2>
-            <p>{[recognized.producer || recognized.estate, recognized.vintage, recognized.appellation, wineTypeLabel(recognized.wine_type, locale)].filter(Boolean).join(" · ")}</p>
+            <p>{[recognized.producer || recognized.estate, recognized.vintage].filter(Boolean).join(" · ")}</p>
+            {facts.length ? <section className="wishlist-live-facts" aria-label={italian ? "Dati riconosciuti" : "Identified information"}>
+              <h3>{italian ? "Dall’etichetta" : "From the label"}</h3>
+              <dl>{facts.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}</dl>
+            </section> : null}
+            {catalog?.grapes_text ? <section className="wishlist-live-facts" aria-label={italian ? "Dati catalogo" : "Catalog information"}>
+              <h3>{italian ? "Dal catalogo · dati generali del vino" : "From the catalog · general wine information"}</h3>
+              <dl><div><dt>{italian ? "Uve" : "Grapes"}</dt><dd>{catalog.grapes_text}</dd></div></dl>
+            </section> : null}
             {hearts ? <div className="wishlist-live-affinity" aria-label={`${hearts}/6`}><div>{Array.from({ length: 6 }, (_, index) => <i key={index} className={index < hearts ? "filled" : ""}>♥</i>)}</div><span><small>{scan.match && scan.match.confidence < .3 ? (italian ? "Affinità iniziale" : "Early affinity") : (italian ? "Affinità personale" : "Personal affinity")}</small><strong>{hearts}/6</strong></span></div> : <div className="wishlist-live-affinity-unavailable"><strong>{italian ? "Affinità non ancora disponibile" : "Affinity not available yet"}</strong><small>{italian ? "Puoi comunque continuare e aggiungere questo vino alla wishlist." : "You can still continue and add this wine to your wishlist."}</small></div>}
             {scan.match?.matching_traits.length ? <small>{italian ? "In sintonia" : "In tune"}: {scan.match.matching_traits.map((trait) => traitLabel(trait, locale)).join(", ")}</small> : null}
-            <small className="wishlist-live-ai-cost">{italian ? "Costo AI" : "AI cost"}: ${Number(recognized.estimated_cost_usd || 0).toFixed(4)}</small>
+            {!hearts && scan ? <p className="wishlist-live-affinity-explanation">{affinityExplanation(scan, italian)}</p> : null}
+            <small className="wishlist-live-ai-cost">{italian ? "Riconoscimento AI" : "AI identification"} · ${Number(recognized.estimated_cost_usd || 0).toFixed(4)}<span>{italian ? "Identifica il vino dalla foto. L’affinità richiede anche i profili sensoriali." : "Identifies the wine from the photo. Affinity also requires sensory profiles."}</span></small>
           </article> : null}
         </div>
         <footer className={phase}>

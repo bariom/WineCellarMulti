@@ -1515,6 +1515,7 @@ export type LegacyTastingClaimStatus = { unassigned_count: number };
 export type LegacyTastingClaimResult = TasteProfileCollection & { claimed_count: number };
 
 export type TasteMatch = {
+  unavailable_reason?: string | null;
   score: number | null;
   confidence: number;
   matching_traits: string[];

@@ -600,6 +600,11 @@ def test_wishlist_taste_match_uses_shared_sensory_profile_without_creating_stock
 
     assert match["score"] is not None
     assert match["score"] > 0.7
+    db.query(UserTasteProfile).filter(UserTasteProfile.user_id == user.id).delete()
+    db.flush()
+    unavailable = calculate_wishlist_taste_match(db, user.id, wishlist_item)
+    assert unavailable["score"] is None
+    assert unavailable["unavailable_reason"] == "missing_user_profile"
 
 
 def test_validated_profile_is_never_overwritten_and_invalid_ai_is_rejected() -> None:

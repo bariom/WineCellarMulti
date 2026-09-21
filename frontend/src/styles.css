@@ -4188,11 +4188,55 @@ summary:focus-visible {
   color: var(--text-muted);
 }
 
+.recognition-enrichment-intro {
+  display: grid;
+  gap: 3px;
+  width: 100%;
+  padding-top: 4px;
+}
+
+.recognition-enrichment-intro strong {
+  font-size: 0.84rem;
+}
+
+.recognition-enrichment-intro span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
 .recognition-enrichment-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
   gap: 8px;
   width: 100%;
+}
+
+.recognition-enrichment-choice {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-muted) 78%, var(--surface));
+}
+
+.recognition-enrichment-choice.is-full {
+  border-color: color-mix(in srgb, var(--primary) 34%, var(--border));
+  background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+}
+
+.recognition-enrichment-choice button {
+  width: 100%;
+  min-height: 40px;
+}
+
+.recognition-enrichment-choice small {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  line-height: 1.4;
 }
 
 .recognition-enrichment-help {
