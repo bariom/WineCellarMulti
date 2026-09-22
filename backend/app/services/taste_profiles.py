@@ -778,16 +778,11 @@ def claim_unassigned_tastings(
 def calculate_taste_match(
     db: Session, user_id: UUID, wine: Wine, *, category: str | None = None
 ) -> dict:
-    sensory = sensory_profile_for_wine(db, wine)
-    target_category = category or _category(wine)
-    profile = db.scalar(
-        select(UserTasteProfile).where(
-            UserTasteProfile.user_id == user_id,
-            UserTasteProfile.household_id == wine.household_id,
-            UserTasteProfile.category == target_category,
-        )
-    )
-    profile_has_dimensions = bool(
+    return calculate_taste_matches(db, user_id, [wine], category=category)[wine.id]
+
+
+def _profile_has_dimensions(profile: UserTasteProfile | None) -> bool:
+    return bool(
         profile
         and isinstance(profile.dimensions, dict)
         and any(
@@ -795,14 +790,13 @@ def calculate_taste_match(
             for value in profile.dimensions.values()
         )
     )
-    if not profile_has_dimensions and target_category != "global":
-        profile = db.scalar(
-            select(UserTasteProfile).where(
-                UserTasteProfile.user_id == user_id,
-                UserTasteProfile.household_id == wine.household_id,
-                UserTasteProfile.category == "global",
-            )
-        )
+
+
+def _calculate_taste_match_from_data(
+    sensory: WineSensoryProfile | None,
+    profile: UserTasteProfile | None,
+    direct_weights: list[float],
+) -> dict:
     dimensions = (
         validated_dimensions(sensory.dimensions)
         if sensory and sensory.generation_status == "available"
@@ -841,29 +835,6 @@ def calculate_taste_match(
         if value < 0.45
     ]
     profile_score = sum(value for _, value in closeness) / len(closeness)
-    direct_weights = [
-        tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
-        for tasting in db.scalars(
-            select(WineTastingEntry).where(
-                WineTastingEntry.created_by_user_id == user_id,
-                WineTastingEntry.household_id == wine.household_id,
-                WineTastingEntry.wine_id == wine.id,
-                or_(
-                    WineTastingEntry.rating > 0,
-                    WineTastingEntry.enjoyment.in_(("positive", "negative")),
-                ),
-            )
-        )
-    ]
-    personal_rating = db.scalar(
-        select(UserWineRating).where(
-            UserWineRating.user_id == user_id,
-            UserWineRating.household_id == wine.household_id,
-            UserWineRating.wine_id == wine.id,
-        )
-    )
-    if personal_rating is not None:
-        direct_weights.append(rating_weight(float(personal_rating.rating)))
     direct_score = 0.5 + (sum(direct_weights) / len(direct_weights)) / 2 if direct_weights else None
     score = profile_score if direct_score is None else (profile_score * 0.25 + direct_score * 0.75)
     return {
@@ -872,6 +843,111 @@ def calculate_taste_match(
         "matching_traits": matching,
         "conflicting_traits": conflicting,
     }
+
+
+def calculate_taste_matches(
+    db: Session,
+    user_id: UUID,
+    wines: list[Wine],
+    *,
+    category: str | None = None,
+) -> dict[UUID, dict]:
+    """Calculate multiple private matches without repeating profile and signal queries per wine."""
+    if not wines:
+        return {}
+    household_ids = {wine.household_id for wine in wines}
+    if len(household_ids) != 1:
+        raise ValueError("Taste matches must belong to one household")
+    household_id = next(iter(household_ids))
+    wine_ids = [wine.id for wine in wines]
+
+    identity_keys_by_wine = {
+        wine.id: identity_key(parts)
+        for wine in wines
+        if (parts := identity_parts(wine)) is not None
+    }
+    identity_ids_by_wine: dict[UUID, UUID] = {}
+    if identity_keys_by_wine:
+        identities = list(
+            db.scalars(
+                select(SharedWineIdentity).where(
+                    SharedWineIdentity.identity_key.in_(set(identity_keys_by_wine.values()))
+                )
+            )
+        )
+        identity_ids_by_key = {identity.identity_key: identity.id for identity in identities}
+        identity_ids_by_wine = {
+            wine_id: identity_ids_by_key[key]
+            for wine_id, key in identity_keys_by_wine.items()
+            if key in identity_ids_by_key
+        }
+
+    identity_ids = set(identity_ids_by_wine.values())
+    sensory_by_identity = (
+        {
+            sensory.identity_id: sensory
+            for sensory in db.scalars(
+                select(WineSensoryProfile).where(WineSensoryProfile.identity_id.in_(identity_ids))
+            )
+        }
+        if identity_ids
+        else {}
+    )
+
+    target_categories = {category or _category(wine) for wine in wines}
+    profiles = list(
+        db.scalars(
+            select(UserTasteProfile).where(
+                UserTasteProfile.user_id == user_id,
+                UserTasteProfile.household_id == household_id,
+                UserTasteProfile.category.in_(target_categories | {"global"}),
+            )
+        )
+    )
+    profiles_by_category = {profile.category: profile for profile in profiles}
+
+    direct_weights_by_wine: dict[UUID, list[float]] = defaultdict(list)
+    tastings = db.scalars(
+        select(WineTastingEntry).where(
+            WineTastingEntry.created_by_user_id == user_id,
+            WineTastingEntry.household_id == household_id,
+            WineTastingEntry.wine_id.in_(wine_ids),
+            or_(
+                WineTastingEntry.rating > 0,
+                WineTastingEntry.enjoyment.in_(("positive", "negative")),
+            ),
+        )
+    )
+    for tasting in tastings:
+        direct_weights_by_wine[tasting.wine_id].append(
+            tasting_preference_weight(float(tasting.rating), tasting.enjoyment)
+        )
+    ratings = db.scalars(
+        select(UserWineRating).where(
+            UserWineRating.user_id == user_id,
+            UserWineRating.household_id == household_id,
+            UserWineRating.wine_id.in_(wine_ids),
+        )
+    )
+    for personal_rating in ratings:
+        direct_weights_by_wine[personal_rating.wine_id].append(
+            rating_weight(float(personal_rating.rating))
+        )
+
+    matches: dict[UUID, dict] = {}
+    for wine in wines:
+        target_category = category or _category(wine)
+        profile = profiles_by_category.get(target_category)
+        if not _profile_has_dimensions(profile) and target_category != "global":
+            profile = profiles_by_category.get("global")
+        identity_id = identity_ids_by_wine.get(wine.id)
+        sensory = sensory_by_identity.get(identity_id) if identity_id is not None else None
+        matches[wine.id] = _calculate_taste_match_from_data(
+            sensory,
+            profile,
+            direct_weights_by_wine[wine.id],
+        )
+    return matches
 
 
 def calculate_wishlist_taste_match(db: Session, user_id: UUID, item: WishlistItem) -> dict:

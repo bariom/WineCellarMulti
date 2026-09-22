@@ -5,7 +5,7 @@ import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, 
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
 import { displayValue, reasoningEffortTranslationKey } from "../i18n";
 import type { TranslationKey } from "../i18n";
-import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TasteMatch, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WinePhotoSuggestion, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
+import type { AiAuditLog, AiUsageBucket, ConsumeWineDraft, ContactSupportDraft, Locale, MarketViewContext, Session, TasteMatch, TasteMatchBatchResponse, TastingArchiveApiItem, TastingArchiveEntry, UserAdminStats, Wine, WineAiFeature, WineCompareAiResult, WineDraft, WinePhotoSuggestion, WineSalesHistory, WishlistDraft, WishlistItem, WishlistPortfolioStrategy } from "../types";
 import type { WineSaleDraft } from "../types";
 import { formatBottleCount, formatPercentage, numberLocale, wineQuantityLabel } from "../domain/cellar";
 import { rawNullableString, rawNumber, rawString } from "../services/offlineBackup";
@@ -969,6 +969,47 @@ function TasteHeartScale({ score, confidence, locale, compact = false, className
   </span>;
 }
 
+type TasteMatchWaiter = {
+  resolve: (match: TasteMatch | null) => void;
+  reject: (error: unknown) => void;
+};
+
+const tasteMatchQueue = new Map<string, TasteMatchWaiter[]>();
+let tasteMatchQueueTimer: ReturnType<typeof setTimeout> | null = null;
+
+async function flushTasteMatchQueue() {
+  tasteMatchQueueTimer = null;
+  const batch = new Map(tasteMatchQueue);
+  tasteMatchQueue.clear();
+  const wineIds = [...batch.keys()];
+  try {
+    const responses = await Promise.all(
+      Array.from({ length: Math.ceil(wineIds.length / 100) }, (_, index) =>
+        api<TasteMatchBatchResponse>("/api/v1/taste-profile/wines/matches", {
+          method: "POST",
+          body: JSON.stringify({ wine_ids: wineIds.slice(index * 100, (index + 1) * 100) }),
+        }),
+      ),
+    );
+    const matches = Object.assign({}, ...responses.map((response) => response.matches));
+    batch.forEach((waiters, wineId) => {
+      const match = matches[wineId] ?? null;
+      waiters.forEach(({ resolve }) => resolve(match));
+    });
+  } catch (error) {
+    batch.forEach((waiters) => waiters.forEach(({ reject }) => reject(error)));
+  }
+}
+
+function requestTasteMatch(wineId: string): Promise<TasteMatch | null> {
+  return new Promise((resolve, reject) => {
+    tasteMatchQueue.set(wineId, [...(tasteMatchQueue.get(wineId) ?? []), { resolve, reject }]);
+    if (tasteMatchQueueTimer === null) {
+      tasteMatchQueueTimer = setTimeout(() => void flushTasteMatchQueue(), 20);
+    }
+  });
+}
+
 export function TasteHearts({ wineId, locale, compact = false, className = "" }: { wineId: string; locale: Locale; compact?: boolean; className?: string }) {
   const [match, setMatch] = useState<TasteMatch | null>(null);
   const [visible, setVisible] = useState(false);
@@ -994,7 +1035,7 @@ export function TasteHearts({ wineId, locale, compact = false, className = "" }:
   useEffect(() => {
     if (!visible) return;
     let active = true;
-    api<TasteMatch>(`/api/v1/taste-profile/wines/${wineId}/match`)
+    requestTasteMatch(wineId)
       .then((result) => { if (active) setMatch(result); })
       .catch(() => { if (active) setMatch(null); });
     return () => { active = false; };
@@ -1012,7 +1053,7 @@ function TasteNote({ wineId, locale }: { wineId: string; locale: Locale }) {
   useEffect(() => {
     let active = true;
     setMatch(null);
-    api<TasteMatch>(`/api/v1/taste-profile/wines/${wineId}/match`)
+    requestTasteMatch(wineId)
       .then((result) => { if (active) setMatch(result); })
       .catch(() => { if (active) setMatch(null); });
     return () => { active = false; };

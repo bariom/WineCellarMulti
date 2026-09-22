@@ -1543,6 +1543,8 @@ export type TasteMatch = {
   conflicting_traits: string[];
 };
 
+export type TasteMatchBatchResponse = { matches: Record<string, TasteMatch> };
+
 export type WineSensoryProfile = {
   identity_id: string;
   name: string;

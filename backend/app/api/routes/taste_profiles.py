@@ -17,7 +17,7 @@ from app.api.deps import (
     require_app_admin_context,
     require_write_context,
 )
-from app.api.routes.wines import get_household_wine
+from app.api.routes.wines import get_household_wine, user_can_see_wine
 from app.api.routes.wishlist import enrich_external_tasting_sensory_profile
 from app.core.config import settings
 from app.core.wine_types import (
@@ -52,6 +52,8 @@ from app.schemas.taste_profile import (
     SensoryMetadataEnrichmentResponse,
     SensoryProfileResponse,
     SensoryProfileUpdate,
+    TasteMatchBatchRequest,
+    TasteMatchBatchResponse,
     TasteMatchResponse,
     TasteProfileAlgorithmCategory,
     TasteProfileAlgorithmDiagnostics,
@@ -69,6 +71,7 @@ from app.services.shared_wine_data import (
 )
 from app.services.taste_profiles import (
     calculate_taste_match,
+    calculate_taste_matches,
     claim_unassigned_tastings,
     confidence_level,
     generate_wine_sensory_profile,
@@ -493,6 +496,29 @@ def wine_taste_match(
     """
     wine = get_household_wine(db, context, wine_id)
     return TasteMatchResponse(**calculate_taste_match(db, context.user.id, wine))
+
+
+@router.post("/wines/matches", response_model=TasteMatchBatchResponse)
+def wine_taste_matches(
+    payload: TasteMatchBatchRequest,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> TasteMatchBatchResponse:
+    """Return affinity estimates for visible wines with a fixed number of database reads."""
+    requested_ids = set(payload.wine_ids)
+    wines = list(
+        db.scalars(
+            select(Wine).where(
+                Wine.household_id == context.household.id,
+                Wine.id.in_(requested_ids),
+            )
+        )
+    )
+    visible_wines = [wine for wine in wines if user_can_see_wine(context, wine)]
+    matches = calculate_taste_matches(db, context.user.id, visible_wines)
+    return TasteMatchBatchResponse(
+        matches={wine_id: TasteMatchResponse(**match) for wine_id, match in matches.items()}
+    )
 
 
 def _ai_sensory_profile(wine: Wine) -> tuple[dict[str, float], str]:

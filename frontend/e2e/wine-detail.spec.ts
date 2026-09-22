@@ -302,6 +302,12 @@ async function mockApi(
       else if (path.includes("/storage/allocations")) body = [];
       else if (path.endsWith("/merchants")) body = fixtureMerchants;
       else if (path.includes("/share-offer") || path.includes("/co-ownership-agreements") || path.includes("/recipients")) body = [];
+      else if (path.endsWith("/taste-profile/wines/matches")) {
+        const wineIds = JSON.parse(String(init?.body || "{}"))?.wine_ids || [];
+        const batches = JSON.parse(window.sessionStorage.getItem("vinaris-test-taste-batches") || "[]");
+        window.sessionStorage.setItem("vinaris-test-taste-batches", JSON.stringify([...batches, wineIds]));
+        body = { matches: Object.fromEntries(wineIds.map((wineId: string) => [wineId, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] }])) };
+      }
       else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] };
       else if (path.includes("/wines/tasting-archive")) body = fixtureTastingArchive;
       else if (path.endsWith("/wines/catalog/pending")) body = fixturePendingCatalog;
@@ -335,6 +341,10 @@ async function mockApi(
     if (path.includes("/intelligence/wines/")) return fulfillJson(route, strategyAllocations);
     if (path.includes("/storage/allocations")) return fulfillJson(route, []);
     if (path.endsWith("/merchants")) return fulfillJson(route, merchants);
+    if (path.endsWith("/taste-profile/wines/matches")) {
+      const wineIds = route.request().postDataJSON()?.wine_ids || [];
+      return fulfillJson(route, { matches: Object.fromEntries(wineIds.map((wineId: string) => [wineId, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] }])) });
+    }
     if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] });
     if (path.includes("/wines/tasting-archive")) return fulfillJson(route, tastingArchive);
     if (path.endsWith("/wines/catalog/pending")) return fulfillJson(route, fixturePendingCatalog);
@@ -764,6 +774,18 @@ test("groups untracked wine regions under Other origins in the regional radar", 
   const radar = page.locator(".regional-gap-card");
   await expect(radar.getByText("Altre origini", { exact: true })).toBeVisible();
   await expect(radar.getByText(/Le regioni fuori dagli assi tracciati/)).toBeVisible();
+});
+
+test("batches taste matches for visible cellar rows", async ({ page }) => {
+  const secondWine = { ...wine, id: "wine-e2e-2", name: "Barolo E2E" };
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page, [], false, memberships, [wine, secondWine]);
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+
+  await expect.poll(
+    () => page.evaluate(() => JSON.parse(window.sessionStorage.getItem("vinaris-test-taste-batches") || "[]").map((batch: string[]) => [...batch].sort())),
+  ).toEqual([["wine-e2e-1", "wine-e2e-2"]]);
 });
 
 test.describe("Wine Detail compact/mobile", () => {

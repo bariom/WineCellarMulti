@@ -8,7 +8,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, event, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -34,10 +34,11 @@ from app.models import (
     WishlistItem,
     WishlistList,
 )
-from app.schemas.taste_profile import BatchEnrichmentRequest
+from app.schemas.taste_profile import BatchEnrichmentRequest, TasteMatchBatchRequest
 from app.services.shared_wine_data import resolve_shared_identity
 from app.services.taste_profiles import (
     calculate_taste_match,
+    calculate_taste_matches,
     calculate_wishlist_taste_match,
     claim_unassigned_tastings,
     compact_taste_context,
@@ -551,6 +552,79 @@ def test_taste_match_prefers_closer_wine_and_suppresses_thin_data() -> None:
         calculate_taste_match(db, user.id, close)["score"]
         > calculate_taste_match(db, user.id, distant)["score"]
     )
+
+
+def test_taste_matches_batch_uses_fixed_query_count() -> None:
+    db = Session()
+    household = Household(name="Batch home")
+    user = User(email="batch@example.test", display_name="Batch", password_hash="x")
+    db.add_all([household, user])
+    db.flush()
+    wines = [make_wine(db, household, name=f"Candidate {index}") for index in range(5)]
+    dimensions = {"body": 0.8, "acidity": 0.6, "fruit": 0.7, "spice": 0.5}
+    for wine in wines:
+        db.add(
+            WineSensoryProfile(
+                identity_id=wine.shared_identity_id,
+                dimensions=dimensions,
+                confidence=0.8,
+                generation_status="available",
+            )
+        )
+    db.add(
+        UserTasteProfile(
+            user_id=user.id,
+            household_id=household.id,
+            category="Red",
+            dimensions={
+                key: {"preference": value, "confidence": 0.8} for key, value in dimensions.items()
+            },
+            confidence=0.8,
+            sample_count=5,
+        )
+    )
+    db.flush()
+
+    query_count = 0
+
+    def count_query(*_args) -> None:
+        nonlocal query_count
+        query_count += 1
+
+    event.listen(engine, "before_cursor_execute", count_query)
+    try:
+        matches = calculate_taste_matches(db, user.id, wines)
+    finally:
+        event.remove(engine, "before_cursor_execute", count_query)
+
+    assert set(matches) == {wine.id for wine in wines}
+    assert all(match["score"] is not None for match in matches.values())
+    assert query_count == 5
+
+
+def test_taste_match_batch_route_omits_hidden_and_other_household_wines() -> None:
+    db = Session()
+    household = Household(name="Visible home")
+    other_household = Household(name="Other home")
+    user = User(email="visible@example.test", display_name="Visible", password_hash="x")
+    db.add_all([household, other_household, user])
+    db.flush()
+    visible = make_wine(db, household, name="Visible")
+    visible.created_by_user_id = user.id
+    hidden = make_wine(db, household, name="Hidden")
+    elsewhere = make_wine(db, other_household, name="Elsewhere")
+    db.flush()
+    context = SimpleNamespace(
+        household=household,
+        user=user,
+        membership=SimpleNamespace(role="member", visibility_scope="own"),
+    )
+
+    response = taste_profile_routes.wine_taste_matches(
+        TasteMatchBatchRequest(wine_ids=[visible.id, hidden.id, elsewhere.id]), db, context
+    )
+
+    assert set(response.matches) == {visible.id}
 
 
 def test_wishlist_taste_match_uses_shared_sensory_profile_without_creating_stock() -> None:

@@ -145,6 +145,14 @@ class TasteMatchResponse(BaseModel):
     conflicting_traits: list[str] = Field(default_factory=list)
 
 
+class TasteMatchBatchRequest(BaseModel):
+    wine_ids: list[UUID] = Field(min_length=1, max_length=100)
+
+
+class TasteMatchBatchResponse(BaseModel):
+    matches: dict[UUID, TasteMatchResponse] = Field(default_factory=dict)
+
+
 class SensoryProfileUpdate(BaseModel):
     dimensions: dict[str, float | None]
     validated: bool | None = None
