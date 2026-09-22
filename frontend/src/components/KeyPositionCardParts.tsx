@@ -18,13 +18,20 @@ function KeyPositionWineIllustration() {
   );
 }
 
-export function KeyPositionBottleVisual({ photoUrl, tone = "other" }: { photoUrl: string; tone?: IllustrationWineTone }) {
+export function KeyPositionBottleVisual({ photoUrl, detailUrl, sizes = "160px", tone = "other" }: { photoUrl: string; detailUrl?: string; sizes?: string; tone?: IllustrationWineTone }) {
   const [imageFailed, setImageFailed] = useState(false);
+  const [detailFailed, setDetailFailed] = useState(false);
   const hasPhoto = Boolean(photoUrl) && !imageFailed;
 
   return (
     <div className={`key-position-bottle-visual tone-${tone}${hasPhoto ? " has-photo" : ""}`} aria-hidden="true">
-      {hasPhoto ? <img src={photoUrl} alt="" loading="lazy" onError={() => setImageFailed(true)} /> : <KeyPositionWineIllustration />}
+      {hasPhoto ? <img src={photoUrl}
+        srcSet={detailUrl && detailUrl !== photoUrl && !detailFailed ? `${photoUrl} 160w, ${detailUrl} 480w` : undefined}
+        sizes={detailUrl ? sizes : undefined} alt="" loading="lazy" decoding="async"
+        onError={(event) => {
+          if (detailUrl && !detailFailed && event.currentTarget.currentSrc !== new URL(photoUrl, window.location.href).href) setDetailFailed(true);
+          else setImageFailed(true);
+        }} /> : <KeyPositionWineIllustration />}
     </div>
   );
 }

@@ -1531,6 +1531,36 @@ for (const width of [1024, 1280, 1920]) {
   });
 }
 
+for (const scenario of [{ dpr: 1, failed: false }, { dpr: 2, failed: false }, { dpr: 2, failed: true }]) {
+  test.describe(`collector responsive photos ${scenario.dpr}x${scenario.failed ? " fallback" : ""}`, () => {
+    test.use({ deviceScaleFactor: scenario.dpr });
+    test("chooses the appropriate resolution", async ({ page }, testInfo) => {
+      await page.setViewportSize({ width: 1440, height: 900 });
+      const photoWine = { ...wine, photo_thumbnail_url: "/test-photos/thumbnail.png", photo_detail_url: "/test-photos/detail.png" };
+      await mockApi(page, [], false, memberships, [photoWine], { ...session, dashboard_focus: "collector" });
+      const requested: string[] = [];
+      await page.route("**/test-photos/*", route => {
+        const detail = route.request().url().includes("detail");
+        requested.push(detail ? "detail" : "thumbnail");
+        if (detail && scenario.failed) return route.fulfill({ status: 404, body: "" });
+        return route.fulfill({ contentType: "image/svg+xml", body: `<svg xmlns="http://www.w3.org/2000/svg" width="${detail ? 480 : 160}" height="${detail ? 720 : 240}" viewBox="0 0 160 240"><rect x="66" y="15" width="28" height="40" rx="4" fill="#64503b"/><rect x="50" y="48" width="60" height="178" rx="16" fill="#38372a"/><rect x="54" y="112" width="52" height="64" fill="#efe9d6"/></svg>` });
+      });
+      await page.goto("/");
+      const expected = scenario.dpr === 2 && !scenario.failed ? "detail.png" : "thumbnail.png";
+      const hero = page.locator(".key-position-button img").first();
+      await expect.poll(() => hero.evaluate((img: HTMLImageElement, suffix) => img.complete && img.naturalWidth > 0 && img.currentSrc.endsWith(suffix), expected)).toBe(true);
+      const arrivals = page.locator(".recent-wines-card img").first();
+      await arrivals.scrollIntoViewIfNeeded();
+      await expect.poll(() => arrivals.evaluate((img: HTMLImageElement, suffix) => img.complete && img.naturalWidth > 0 && img.currentSrc.endsWith(suffix), expected)).toBe(true);
+      await expect(arrivals).toHaveAttribute("loading", "lazy");
+      await expect(arrivals).toHaveAttribute("decoding", "async");
+      if (!scenario.failed) expect(requested.every(size => size === (scenario.dpr === 2 ? "detail" : "thumbnail"))).toBe(true);
+      else expect(requested).toEqual(expect.arrayContaining(["detail", "thumbnail"]));
+      await page.screenshot({ path: testInfo.outputPath("responsive-photos.png"), fullPage: true, animations: "disabled" });
+    });
+  });
+}
+
 for (const failed of [false, true]) {
   test(`collector loads featured history on first visit${failed ? " with unavailable detail" : ""}`, async ({ page }, testInfo) => {
     const detail = { ...wine, details_loaded: true, order_date: "2024-01-01", price: "20", current_value: "60", ai_value_estimated_at: "2026-09-01T00:00:00Z", value_history: [

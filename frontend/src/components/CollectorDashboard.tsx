@@ -29,7 +29,7 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
       {items.length ? <div className="collector-photo-rail" role="list" aria-label={title}>
         {items.map(wine => <div role="listitem" key={wine.id}>
           <button type="button" aria-haspopup={highlights ? "dialog" : undefined} onClick={() => highlights ? setSelectedId(wine.id) : onOpen(wine)}>
-            <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} tone={wineTone(wine.type)} />
+            <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="147px" tone={wineTone(wine.type)} />
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
             <small>{meta(wine)}</small>

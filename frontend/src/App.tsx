@@ -260,7 +260,7 @@ function DashboardBottleList({
     <div className="dashboard-bottle-list" role="list" aria-label={label}>
       {wines.map((wine) => (
         <button type="button" className="dashboard-bottle-tile" role="listitem" key={wine.id} onClick={() => onOpen(wine)}>
-          <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
+          <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="110px" tone={wineTone(wine.type)} />
           <span className="dashboard-bottle-copy">
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
@@ -10662,7 +10662,7 @@ export function App() {
                         {keyPositionCandidates.map(({ wine, highlight, totalValue, trendPoints, trendChangePct, trendChangeValue, trendRange }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
-                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} tone={wineTone(wine.type)} />
+                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canAccessWinePhotos ? wine.photo_detail_url : undefined} sizes="(max-width: 1100px) 100px, 127px" tone={wineTone(wine.type)} />
                             <div className="key-position-head">
                               <div>
                                 <span>{highlight}</span>

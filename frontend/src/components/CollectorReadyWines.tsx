@@ -23,7 +23,7 @@ export function CollectorReadyWines({ wines, locale, canShowPhotos, onOpen, chil
   return <div className="collector-ready-wines" role="region" aria-label={it ? "Selezione da bere ora" : "Ready-to-drink selection"}>
     <div className={`collector-ready-grid${visible.length === 1 ? " collector-ready-single" : ""}`}>
       {visible.map(wine => <button type="button" className="collector-ready-wine" key={wine.id} onClick={() => onOpen(wine)}>
-        <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
+        <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="107px" tone={wineTone(wine.type)} />
         <span className="collector-ready-copy"><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span><CollectorMaturity wine={wine} locale={locale} compact /></span>
       </button>)}
     </div>
