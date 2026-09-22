@@ -35,6 +35,31 @@ New multi-user foundation for Wine Cellar.
 
 This repository is intentionally separate from the existing `WineCellar` project.
 
+## Recording a tasting
+
+Use **Registra bevuta / Record a tasting** on Home or History. Choose a bottle from
+the cellar (deducts one bottle, with a storage location choice when needed), or
+**Un altro vino / Another wine** to save a tasting without adding inventory or a
+wishlist item. Search existing wines and wishlist lists, enter a name manually,
+or photograph the label when label recognition is enabled for your account.
+Review recognized details before saving. Date defaults to today; ratings, notes,
+occasion, pairing and companions are optional.
+
+External tastings appear in History and can be edited there. Use the origin filter
+to show all tastings, cellar bottles, or external wines. After saving an external
+wine, **Add to wishlist** opens a prefilled wishlist form; purchasing intent remains
+an explicit choice. Recording requires write access and an online connection.
+
+Targeted regression checks:
+
+```powershell
+cd backend
+.venv/Scripts/python.exe -m pytest tests/test_auth_and_wines.py -k "standalone_tasting or wishlist_tasting or tasting_archive"
+cd ../frontend
+npx playwright test e2e/wine-detail.spec.ts -g "record tasting"
+npm run build
+```
+
 ## Run Locally
 
 Generate local secrets first. This creates the root `.env` used by Docker and `backend/.env` used by Alembic/Uvicorn:

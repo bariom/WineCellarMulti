@@ -1,6 +1,7 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
+import RecordTastingDialog from "./components/RecordTastingDialog";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
@@ -1509,6 +1510,8 @@ export function App() {
   const [buyingMaxPrice, setBuyingMaxPrice] = useState("50");
   const [buyingAdviceResult, setBuyingAdviceResult] = useState<BuyingAdviceResult | null>(null);
   const [historySection, setHistorySection] = useState<HistorySection>("tastings");
+  const [recordTastingOpen, setRecordTastingOpen] = useState(false);
+  const [tastingOrigin, setTastingOrigin] = useState<"" | "cellar" | "external">("");
   const [tastingArchivePage, setTastingArchivePage] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOverview, setTastingArchiveOverview] = useState<TastingArchivePage | null>(null);
   const [tastingArchiveOffset, setTastingArchiveOffset] = useState(0);
@@ -2332,6 +2335,7 @@ export function App() {
     setTastingArchiveLoading(true);
     try {
       const query = new URLSearchParams();
+      if (tastingOrigin) query.set("origin", tastingOrigin);
       if (searchQuery.trim()) query.set("q", searchQuery.trim());
       if (typeFilter) query.set("type", typeFilter);
       if (statusFilter) query.set("status", statusFilter);
@@ -6461,12 +6465,14 @@ export function App() {
 
   useEffect(() => {
     setWishlistPortfolioStrategy(null);
+    setRecordTastingOpen(false);
+    setTastingOrigin("");
   }, [session?.active_household_id]);
 
   useEffect(() => {
     if (offlineMode || activeView !== "history" || historySection !== "tastings") return;
     setTastingArchiveOffset(0);
-  }, [offlineMode, activeView, historySection, searchQuery, typeFilter, statusFilter, session?.active_household_id]);
+  }, [offlineMode, activeView, historySection, searchQuery, typeFilter, statusFilter, tastingOrigin, session?.active_household_id]);
 
   useEffect(() => {
     if (offlineMode || !session?.authenticated || !selectedWishlistListId) return;
@@ -6491,7 +6497,7 @@ export function App() {
     loadTastingArchive(tastingArchiveOffset).catch((nextError) => {
       setError(nextError instanceof Error ? nextError.message : "Unable to load tasting archive");
     });
-  }, [offlineMode, session?.authenticated, session?.active_household_id, activeView, historySection, searchQuery, typeFilter, statusFilter, tastingArchiveOffset]);
+  }, [offlineMode, session?.authenticated, session?.active_household_id, activeView, historySection, searchQuery, typeFilter, statusFilter, tastingOrigin, tastingArchiveOffset]);
 
   useEffect(() => {
     if (offlineMode || !session?.authenticated || !selectedWineId) return;
@@ -9934,6 +9940,27 @@ export function App() {
               </nav>
             </>
           ) : null}
+          {canWriteWine && !offlineMode && (activeView === "home" || activeView === "history") ? <section className="record-tasting-entry">
+            <button type="button" onClick={() => setRecordTastingOpen(true)}>{locale === "it" ? "Registra bevuta" : "Record a tasting"}</button>
+            <p>{locale === "it" ? "Anche per vini extra cantina." : "For wines outside your cellar, too."}</p>
+          </section> : null}
+          {recordTastingOpen && canWriteWine && !offlineMode ? <RecordTastingDialog
+            key={session?.active_household_id}
+            locale={locale}
+            wines={wines}
+            canRecognize={canRecognizeBottlePhoto}
+            onClose={() => setRecordTastingOpen(false)}
+            onSaved={(updated) => {
+              if (updated) setWines(current => current.map(wine => wine.id === updated.id ? updated : wine));
+              void Promise.all([loadTastingArchiveOverview(), ...(activeView === "history" ? [loadTastingArchive(0)] : [])]).catch(() => setError(locale === "it" ? "Bevuta salvata. Riapri lo Storico per aggiornare l’elenco." : "Tasting saved. Reopen History to refresh the list."));
+            }}
+            onWishlist={(identity) => {
+              setRecordTastingOpen(false);
+              startAddWishlistItem();
+              setWishlistDraft(current => ({ ...current, ...identity }));
+              setActiveView("wishlist");
+            }}
+          /> : null}
           {activeView === "home" && isRestaurant ? (
             <Suspense fallback={<LoadingState label={t("loadingData")} />}>
               <RestaurantDashboard
@@ -12618,6 +12645,7 @@ export function App() {
                 {locale === "it" ? "Vendite" : "Sales"}
               </button>
             </div>
+            {historySection === "tastings" && !offlineMode ? <label className="record-tasting-origin"><span>{locale === "it" ? "Provenienza della bevuta" : "Tasting origin"}</span><select value={tastingOrigin} onChange={event => { setTastingOrigin(event.target.value as "" | "cellar" | "external"); setTastingArchiveOffset(0); }}><option value="">{locale === "it" ? "Tutte le bevute" : "All tastings"}</option><option value="cellar">{locale === "it" ? "Dalla cantina" : "From the cellar"}</option><option value="external">{locale === "it" ? "Extra cantina" : "Outside the cellar"}</option></select></label> : null}
             {historySection === "sales" ? (
               <Suspense fallback={<LoadingState label={t("loadingData")} />}>
                 <RestaurantDashboard

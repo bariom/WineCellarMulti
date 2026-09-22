@@ -1242,6 +1242,53 @@ def test_wishlist_tasting_updates_profile_without_creating_cellar_stock():
     assert updated.json()["pairing"] == "Agnolotti"
 
 
+def test_standalone_tasting_is_saved_without_wishlist_or_stock():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    tasting = client.post(
+        "/api/v1/wishlist/tastings",
+        json={"name": "  Vino da amici  ", "note": "Una bella serata", "tasting_rating": 5},
+    )
+    assert tasting.status_code == 201, tasting.text
+    assert tasting.json()["wishlist_item_id"] is None
+    assert client.get("/api/v1/wines").json() == []
+    assert client.get("/api/v1/wishlist").json() == []
+    archive = client.get("/api/v1/wines/tasting-archive?origin=external").json()
+    assert archive["total"] == 1
+    assert archive["items"][0]["wine_name"] == "Vino da amici"
+    assert archive["items"][0]["note"] == "Una bella serata"
+    assert client.get("/api/v1/wines/tasting-archive?origin=cellar").json()["total"] == 0
+    assert client.get("/api/v1/taste-profile/me").json()["profiles"][0]["tasting_count"] == 1
+    updated = client.patch(
+        f"/api/v1/wishlist/tastings/{tasting.json()['id']}", json={"note": "Ricordo aggiornato"}
+    )
+    assert updated.status_code == 200
+    assert updated.json()["note"] == "Ricordo aggiornato"
+    assert client.delete(f"/api/v1/wishlist/tastings/{tasting.json()['id']}").status_code == 204
+    assert client.get("/api/v1/wines/tasting-archive").json()["total"] == 0
+
+
+def test_standalone_tasting_validates_identity_and_tenant_access():
+    client = TestClient(app)
+    assert client.post("/api/v1/wishlist/tastings", json={"name": "Wine"}).status_code == 401
+    assert register(client).status_code == 201
+    for payload in [{"name": "  "}, {"name": "x" * 201}, {"name": "Wine", "vintage": "x" * 17}, {"name": "Wine", "tasting_rating": 7}]:
+        assert client.post("/api/v1/wishlist/tastings", json=payload).status_code == 422
+    item = client.post("/api/v1/wishlist", json={"name": "Existing wine"}).json()
+    tasting = client.post("/api/v1/wishlist/tastings", json={"name": "Ignored", "wishlist_item_id": item["id"]})
+    assert tasting.status_code == 201
+    assert client.get("/api/v1/wines/tasting-archive").json()["items"][0]["wine_name"] == "Existing wine"
+    other = TestClient(app)
+    assert register(other, email="another@example.com").status_code == 201
+    pending = client.get("/api/v1/auth/pending-users").json()[0]
+    assert client.post(f"/api/v1/auth/pending-users/{pending['id']}/approve").status_code == 200
+    assert other.post("/api/v1/auth/login", json={"email": "another@example.com", "password": "strong-password-1"}).status_code == 200
+    assert other.get("/api/v1/wines/tasting-archive").json()["total"] == 0
+    assert other.post("/api/v1/wishlist/tastings", json={"name": "Wine", "wishlist_item_id": item["id"]}).status_code == 404
+    assert other.patch(f"/api/v1/wishlist/tastings/{tasting.json()['id']}", json={"note": "No"}).status_code == 404
+    assert other.delete(f"/api/v1/wishlist/tastings/{tasting.json()['id']}").status_code == 404
+
+
 def register(
     client: TestClient, email: str = "owner@example.com", password: str = "strong-password-1"
 ):

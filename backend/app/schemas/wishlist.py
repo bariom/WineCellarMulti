@@ -2,7 +2,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class WishlistBase(BaseModel):
@@ -98,6 +98,22 @@ class ExternalWineTastingResponse(BaseModel):
     occasion: str = ""
     pairing: str = ""
     companions: str = ""
+
+
+class StandaloneWineTastingCreate(ExternalWineTastingCreate):
+    name: str = Field(min_length=1, max_length=200)
+    producer: str = Field(default="", max_length=200)
+    vintage: str = Field(default="", max_length=16)
+    format: str = Field(default="", max_length=80)
+    type: str = Field(default="", max_length=80)
+    region: str = Field(default="", max_length=120)
+    appellation: str = Field(default="", max_length=120)
+    wishlist_item_id: UUID | None = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def strip_name(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
 
 
 class WishlistResponse(WishlistBase):

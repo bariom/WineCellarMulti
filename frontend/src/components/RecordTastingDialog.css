@@ -1,0 +1,36 @@
+.record-tasting-dialog {
+  box-sizing: border-box;
+  width: min(540px, calc(100vw - 24px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.record-tasting-dialog::backdrop { background: rgb(15 12 20 / 65%); }
+.record-tasting-dialog header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.record-tasting-dialog h2 { margin: 0; font-size: 1.35rem; }
+.record-tasting-dialog h3, .record-tasting-dialog p { margin: 0; }
+.record-tasting-dialog header button { flex-shrink: 0; }
+.record-tasting-dialog fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+.record-tasting-dialog fieldset, .record-tasting-choices, .record-tasting-success, .record-tasting-fields { display: grid; gap: 16px; }
+.record-tasting-dialog label { display: grid; gap: 6px; min-width: 0; }
+.record-tasting-dialog input, .record-tasting-dialog select, .record-tasting-dialog textarea { box-sizing: border-box; width: 100%; min-width: 0; max-width: 100%; }
+.record-tasting-dialog button { min-height: 44px; white-space: normal; overflow-wrap: anywhere; }
+.record-tasting-choices button { display: grid; gap: 8px; text-align: left; padding: 18px; }
+.record-tasting-choices button span, .record-tasting-dialog small, .record-tasting-dialog p { color: var(--text-muted); line-height: 1.5; }
+.record-tasting-results { display: grid; gap: 8px; }
+.record-tasting-results:empty { display: none; }
+.record-tasting-results button { display: grid; text-align: left; gap: 4px; }
+.record-tasting-dialog summary { cursor: pointer; padding: 12px 0; }
+.record-tasting-entry { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px; margin: 12px 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
+.record-tasting-entry p { margin: 0; color: var(--text-muted); font-size: .85rem; line-height: 1.4; }
+.record-tasting-entry button { min-height: 44px; }
+.record-tasting-origin { display: grid; gap: 6px; margin: 12px 0; max-width: 320px; }
+@media (max-width: 480px) {
+  .record-tasting-dialog { padding: 18px; }
+}

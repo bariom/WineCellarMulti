@@ -293,7 +293,7 @@ export default function TastingArchiveSection({
               </div>
               <div className="tasting-archive-summary">
                 <span>{formatDisplayDate(entry.consumed_at)}</span>
-                {entry.source === "external_tasting" ? <small className="external-tasting-badge">{locale === "it" ? "Assaggiato fuori cantina" : "Tasted outside cellar"}</small> : null}
+                <small className="external-tasting-badge">{entry.source === "external_tasting" ? (locale === "it" ? "Extra cantina" : "Outside the cellar") : (locale === "it" ? "Dalla cantina" : "From the cellar")}</small>
                 {entry.sommelier_pairing_score !== null ? <strong className="tasting-archive-ai-score"><small>AI</small>{entry.sommelier_pairing_score}/10</strong> : null}
                 {entry.source !== "external_tasting" && canGenerateAi && entry.pairing && !entry.sommelier_feedback ? (
                   <button

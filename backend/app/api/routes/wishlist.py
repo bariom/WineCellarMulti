@@ -24,6 +24,7 @@ from app.schemas.taste_profile import TasteMatchResponse
 from app.schemas.wishlist import (
     ExternalWineTastingCreate,
     ExternalWineTastingResponse,
+    StandaloneWineTastingCreate,
     WishlistConvert,
     WishlistCreate,
     WishlistListCreate,
@@ -837,6 +838,30 @@ def update_wishlist_item(
 
 
 @router.post(
+    "/tastings",
+    response_model=ExternalWineTastingResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def record_standalone_tasting(
+    payload: StandaloneWineTastingCreate,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(require_write_context),
+) -> ExternalWineTastingResponse:
+    """Save a tasting directly, without creating wishlist or inventory records."""
+    if payload.wishlist_item_id is not None:
+        return record_wishlist_tasting(payload.wishlist_item_id, payload, db, context)
+    tasting = ExternalWineTasting(
+        household_id=context.household.id,
+        created_by_user_id=context.user.id,
+        **payload.model_dump(
+            include={"name", "producer", "vintage", "format", "region", "appellation"}
+        ),
+        type=normalize_wine_type(payload.type),
+    )
+    return save_external_tasting(db, context, tasting, payload)
+
+
+@router.post(
     "/{item_id}/tastings",
     response_model=ExternalWineTastingResponse,
     status_code=status.HTTP_201_CREATED,
@@ -860,14 +885,23 @@ def record_wishlist_tasting(
         type=normalize_wine_type(item.type),
         region=item.region,
         appellation=item.appellation,
-        consumed_at=payload.consumed_at or datetime.now(UTC).date(),
-        note=payload.note.strip(),
-        rating=payload.tasting_rating,
-        enjoyment=payload.tasting_enjoyment,
-        occasion=payload.tasting_occasion.strip(),
-        pairing=payload.tasting_pairing.strip(),
-        companions=payload.tasting_companions.strip(),
     )
+    return save_external_tasting(db, context, tasting, payload)
+
+
+def save_external_tasting(
+    db: Session,
+    context: CurrentContext,
+    tasting: ExternalWineTasting,
+    payload: ExternalWineTastingCreate,
+) -> ExternalWineTastingResponse:
+    tasting.consumed_at = payload.consumed_at or datetime.now(UTC).date()
+    tasting.note = payload.note.strip()
+    tasting.rating = payload.tasting_rating
+    tasting.enjoyment = payload.tasting_enjoyment
+    tasting.occasion = payload.tasting_occasion.strip()
+    tasting.pairing = payload.tasting_pairing.strip()
+    tasting.companions = payload.tasting_companions.strip()
     db.add(tasting)
     db.flush()
     # Shared sensory data is optional. Its absence never prevents the explicit

@@ -419,6 +419,27 @@ export type TastingArchivePage = {
   items: TastingArchiveApiItem[];
 };
 
+export type TastingWineIdentity = {
+  name: string;
+  producer: string;
+  vintage: string;
+  format: string;
+  type: string;
+  region: string;
+  appellation: string;
+  wishlist_item_id?: string;
+};
+
+export type StandaloneWineTastingCreate = TastingWineIdentity & {
+  consumed_at?: string;
+  note: string;
+  tasting_rating: number;
+  tasting_enjoyment: TastingEnjoyment;
+  tasting_occasion: string;
+  tasting_pairing: string;
+  tasting_companions: string;
+};
+
 export type WishlistItem = {
   id: string;
   household_id: string;

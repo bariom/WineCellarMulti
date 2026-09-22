@@ -734,6 +734,7 @@ def list_tasting_archive(
     type: str = Query(default=""),
     status_filter: str = Query(default="", alias="status"),
     from_date: date | None = Query(default=None),
+    origin: Literal["", "cellar", "external"] = Query(default=""),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -812,6 +813,10 @@ def list_tasting_archive(
         )
 
     visible_external_entries = [entry for entry in external_entries if external_matches(entry)]
+    if origin == "external":
+        visible_archive_rows = []
+    elif origin == "cellar":
+        visible_external_entries = []
     archive_items = [tasting_archive_entry(entry, wine) for entry, wine in visible_archive_rows] + [
         external_tasting_archive_entry(entry) for entry in visible_external_entries
     ]
