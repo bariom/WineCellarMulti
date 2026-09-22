@@ -577,6 +577,41 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   });
 }
 
+for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "data", "taste"]) {
+  for (const width of [360, 390, 430, 1440]) {
+    test(`editorial dashboard ${focus} ${width}`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: width === 1440 ? 900 : 844 });
+      await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: focus });
+      await page.goto("/");
+      const dashboard = page.locator(".home-dashboard-secondary");
+      await expect(dashboard).toBeVisible();
+      const heading = dashboard.locator(focus === "taste" ? ".taste-dashboard-carousel h2" : ".hero-copy h2").first();
+      await expect(heading).toBeVisible();
+      await expect(heading).toHaveCSS("font-family", "Georgia, serif");
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      const card = dashboard.locator(".dashboard-card").first();
+      if (await card.count()) {
+        await expect(card).toHaveCSS("border-radius", "0px");
+        const bounds = (await card.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(0);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+        const title = card.locator(".card-heading h2").first();
+        if (await title.count()) {
+          const titleBounds = (await title.boundingBox())!;
+          expect(titleBounds.x + titleBounds.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+        }
+      }
+      if (focus === "value" && width === 1440) {
+        const tile = dashboard.locator(".top-value-showcase-item").first();
+        const image = (await tile.locator("img").boundingBox())!;
+        const copy = (await tile.locator(".top-value-showcase-copy").boundingBox())!;
+        expect(image.y + image.height).toBeLessThanOrEqual(copy.y);
+      }
+      if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`${focus}-${width}.png`), fullPage: true, animations: "disabled" });
+    });
+  }
+}
+
 test("shows contextual KPIs for every dashboard insight", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);

@@ -133,6 +133,9 @@ Frontend E2E guardrails and scope-aware test selection are documented in
 is `npm run test:e2e:wine-detail` from `frontend/`.
 
 Collector dashboard checks: run `npm run test:e2e:collector` from `frontend/`.
+All private-cellar dashboard editions share the collector's editorial navigation,
+typography and surfaces. Check the seven other editions at 360, 390, 430 and 1440 px
+with `npx playwright test e2e/wine-detail.spec.ts --grep "editorial dashboard|shows contextual KPIs"`.
 The collector edition uses an editorial serif hierarchy, quiet navigation, paper-toned
 surfaces and open metric rows. The maturity instrument separates the drinking window
 from its ideal period and marks the current year; incomplete windows remain explicit.

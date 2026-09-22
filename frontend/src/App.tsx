@@ -41,6 +41,7 @@ import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
 import "./styles.css";
 import "./components/CollectorOverview.css";
 import "./components/CollectorEditorial.css";
+import "./components/DashboardEditorial.css";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 
 type BreakdownDrilldown = {
@@ -200,7 +201,7 @@ function DashboardBottleSlideshow({
               style={{ transform: `translate3d(0, ${(index - activeIndex) * 106}%, 0)` }}
               onClick={() => onOpen(wine)}
             >
-              <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
+              <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="110px" tone={wineTone(wine.type)} />
               {variant === "daily" ? (
                 <span className="daily-slide-copy">
                   <span className="daily-slide-topline">
@@ -9993,7 +9994,7 @@ export function App() {
             </Suspense>
           ) : null}
           {activeView === "home" && !isRestaurant ? (
-            <section className={`home-dashboard${dashboardFocus === "collector" ? " home-dashboard-editorial" : ""}`}>
+            <section className={`home-dashboard home-dashboard-editorial${dashboardFocus !== "collector" ? " home-dashboard-secondary" : ""}`}>
               {aiPackEnhancementHint}
               <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
                 <div className="dashboard-focus-lead">
@@ -10991,7 +10992,7 @@ export function App() {
                         <button type="button" className={`top-value-showcase-item tone-${wineTone(wine.type)}`} key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span className="top-value-showcase-rank">{String(index + 1).padStart(2, "0")}</span>
                           <span className="top-value-showcase-photo" aria-hidden="true">
-                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
+                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canAccessWinePhotos ? wine.photo_detail_url : undefined} sizes="110px" tone={wineTone(wine.type)} />
                           </span>
                           <span className="top-value-showcase-copy">
                             <strong>{wine.name}</strong>

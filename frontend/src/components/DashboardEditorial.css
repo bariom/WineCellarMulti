@@ -1,0 +1,83 @@
+/* Shared private-cellar editions. Keep each dashboard's grids, charts and actions. */
+.home-dashboard.home-dashboard-secondary .hero-panel {
+  background: transparent; border: 0; border-bottom: 1px solid var(--editorial-rule);
+  border-radius: 0; box-shadow: none; padding: 12px 0 18px; gap: 18px;
+}
+.home-dashboard.home-dashboard-secondary .hero-panel::before,
+.home-dashboard.home-dashboard-secondary .hero-panel::after,
+.home-dashboard.home-dashboard-secondary .hero-kpi::before,
+.home-dashboard.home-dashboard-secondary .hero-kpi::after,
+.home-dashboard.home-dashboard-secondary .dashboard-card::before,
+.home-dashboard.home-dashboard-secondary .dashboard-card::after { display: none; }
+.home-dashboard.home-dashboard-secondary .hero-copy h2 { font: normal 1.75rem/1.15 Georgia, serif; letter-spacing: -.025em; margin: 6px 0 0; }
+.home-dashboard.home-dashboard-secondary .hero-copy .eyebrow { font-size: .65rem; font-weight: 500; letter-spacing: .14em; }
+.home-dashboard.home-dashboard-secondary .hero-kpis { gap: 16px; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.home-dashboard.home-dashboard-secondary .hero-kpi + .hero-kpi { border: 0; border-top: 1px solid var(--editorial-rule); }
+.home-dashboard.home-dashboard-secondary .hero-kpi {
+  background: transparent; border: 0; border-top: 1px solid var(--editorial-rule);
+  border-radius: 0; box-shadow: none; padding: 12px 0; min-height: 0;
+}
+.home-dashboard.home-dashboard-secondary .hero-kpi > span { font-size: .7rem; font-weight: 500; letter-spacing: .035em; }
+.home-dashboard.home-dashboard-secondary .hero-kpi > strong { font: normal 1.65rem/1.2 Georgia, serif; letter-spacing: -.02em; }
+.home-dashboard.home-dashboard-secondary .hero-kpi p { font-size: .75rem; margin-top: 4px; }
+.home-dashboard.home-dashboard-secondary .dashboard-card,
+.home-dashboard.home-dashboard-secondary .dashboard-card:hover {
+  background: transparent; border: 0; border-top: 1px solid var(--editorial-rule);
+  border-radius: 0; box-shadow: none; padding: 20px 16px; transform: none;
+}
+.home-dashboard.home-dashboard-secondary .dashboard-card .card-heading { gap: 12px; align-items: start; }
+.home-dashboard.home-dashboard-secondary .dashboard-card .card-heading h2 { font: normal 1.5rem/1.2 Georgia, serif; letter-spacing: -.02em; }
+.home-dashboard.home-dashboard-secondary .dashboard-card .card-heading > div > span { font-size: .65rem; font-weight: 500; letter-spacing: .1em; }
+.home-dashboard.home-dashboard-secondary .dashboard-card .card-heading > strong {
+  background: transparent; border: 0; border-radius: 0; box-shadow: none;
+  padding: 0; font: normal 1.4rem/1.2 Georgia, serif;
+}
+.home-dashboard.home-dashboard-secondary :is(.daily-picks-card, .balance-overview-card, .portfolio-value-explorer) { background: var(--editorial-paper); }
+.home-dashboard.home-dashboard-secondary .dashboard-card-intro { font-weight: 400; font-size: .85rem; line-height: 1.6; }
+.home-dashboard.home-dashboard-secondary .action-row { border-radius: 0; box-shadow: none; background: transparent; border-bottom: 1px solid var(--editorial-rule); }
+.home-dashboard.home-dashboard-secondary .bar-track { border: 0; border-radius: 0; height: 6px; box-shadow: none; }
+.home-dashboard.home-dashboard-secondary .bar-track > span { border-radius: 0; box-shadow: none; }
+.home-dashboard.home-dashboard-secondary :is(.balance-indicator, .daily-summary-kpis > div, .portfolio-value-insights > div) {
+  background: transparent; border: 0; border-top: 1px solid var(--editorial-rule);
+  border-radius: 0; box-shadow: none; padding: 14px 8px;
+}
+.home-dashboard.home-dashboard-secondary :is(.balance-indicator, .daily-summary-kpis > div, .portfolio-value-insights > div) > strong { font: normal 1.6rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary .balance-tone-grid > button { background: transparent; border: 0; border-bottom: 1px solid var(--editorial-rule); border-radius: 0; box-shadow: none; }
+.home-dashboard.home-dashboard-secondary :is(.daily-tone-group, .daily-premium-panel, .top-value-showcase-item) {
+  border: 0; border-top: 1px solid var(--editorial-rule); border-radius: 0;
+  background: transparent; box-shadow: none;
+}
+.home-dashboard.home-dashboard-secondary .daily-premium-panel { background: var(--editorial-paper); }
+.home-dashboard.home-dashboard-secondary .dashboard-bottle-tile { border-radius: 0; box-shadow: none; background: transparent; }
+.home-dashboard.home-dashboard-secondary :is(.daily-slide-copy, .dashboard-bottle-copy, .top-value-showcase-copy) > strong { font: normal 1.15rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary .top-value-showcase-value strong { font: normal 1.3rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary .top-value-showcase-photo { display: block; height: 165px; margin: 0 0 8px; }
+.home-dashboard.home-dashboard-secondary .top-value-showcase-copy strong { white-space: normal; }
+.home-dashboard.home-dashboard-secondary .top-value-showcase-photo .key-position-bottle-visual { position: static; inset: auto; transform: none; display: block; height: 100%; width: 100%; }
+.home-dashboard.home-dashboard-secondary .top-value-showcase-photo img { height: 100%; max-height: 100%; width: 100%; object-fit: contain; }
+.home-dashboard.home-dashboard-secondary :is(.portfolio-value-explorer-summary > div, .portfolio-value-insights > button) { border: 0; border-top: 1px solid var(--editorial-rule); border-radius: 0; box-shadow: none; background: transparent; }
+.home-dashboard.home-dashboard-secondary .portfolio-value-insights > button strong { font: normal 1.3rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary .key-position-bottle-visual:not(.has-photo) { display: flex; align-items: center; justify-content: center; }
+.home-dashboard.home-dashboard-secondary .dashboard-card button.secondary { background: transparent; box-shadow: none; border-color: var(--editorial-rule); }
+.home-dashboard.home-dashboard-secondary .taste-profile-panel { background: transparent; border: 0; border-radius: 0; box-shadow: none; }
+.home-dashboard.home-dashboard-secondary .taste-profile-panel h2 { font: normal 1.75rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary .taste-profile-panel h3 { font: normal 1.4rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary :is(.taste-profile-premium-hero, .taste-profile-category, .taste-profile-sensory-group, .taste-profile-method) {
+  border-radius: 0; border: 0; border-top: 1px solid var(--editorial-rule); box-shadow: none; background: transparent;
+}
+.home-dashboard.home-dashboard-secondary .taste-profile-premium-hero { background: var(--editorial-paper); }
+.home-dashboard.home-dashboard-secondary .daily-tone-empty { background: transparent; border: 0; border-radius: 0; }
+.home-dashboard.home-dashboard-secondary :is(.timeline-kpis > div, .maturity-panorama-kpi, .taste-profile-hero-metrics > div) {
+  background: transparent; border: 0; border-top: 1px solid var(--editorial-rule); border-radius: 0; box-shadow: none;
+}
+.home-dashboard.home-dashboard-secondary :is(.timeline-kpis > div, .maturity-panorama-kpi) > strong { font: normal 1.5rem/1.2 Georgia, serif; }
+.home-dashboard.home-dashboard-secondary .timeline-kpis > div > span { font-size: .7rem; font-weight: 500; letter-spacing: .04em; }
+.home-dashboard.home-dashboard-secondary .maturity-stream-card { border: 0; border-top: 1px solid var(--editorial-rule); border-radius: 0; box-shadow: none; background: transparent; }
+@media (max-width: 900px) {
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-panel { padding: 10px 0 14px; gap: 14px; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-copy h2 { font-size: 1.65rem; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi { padding: 10px 0; background: transparent; border-radius: 0; box-shadow: none; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi > strong { font-size: 1.5rem; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .dashboard-card { padding: 18px 12px; border-radius: 0; box-shadow: none; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .dashboard-card .card-heading h2 { font-size: 1.35rem; }
+}
