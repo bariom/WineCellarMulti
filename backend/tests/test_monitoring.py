@@ -61,7 +61,13 @@ def test_technical_operations_requests_are_excluded_from_application_latency():
 
 def test_request_metrics_include_slowest_interactive_request_metadata():
     request_metrics.record(200, 87_654, interactive=True, method="GET", path="/api/v1/wines")
-    request_metrics.record(200, 2_500, interactive=False, method="POST", path="/api/v1/ai/wines/test/value")
+    request_metrics.record(
+        200,
+        2_500,
+        interactive=False,
+        method="POST",
+        path="/api/v1/ai/wines/test/value",
+    )
 
     snapshot = request_metrics.snapshot()
 
@@ -139,10 +145,29 @@ def test_operational_alerts_notify_once_and_send_a_recovery(monkeypatch):
             "host": {"cpu_percent": 20, "memory": {"percent": 20}, "disk": {"percent": 30}},
             "conntrack": {"count": 10, "max": 100},
         }
+        application = {
+            "interactive_window_seconds": 900,
+            "interactive_requests_recent": 160,
+            "interactive_p50_duration_ms": 155.65,
+            "interactive_p95_duration_ms": 1073.88,
+            "interactive_slowest_recent": [
+                {
+                    "recorded_at": "2026-09-22T13:21:23.611331+00:00",
+                    "method": "GET",
+                    "path": "/api/v1/taste-profile/wines/example/match",
+                    "status_code": 200,
+                    "duration_ms": 1352.8,
+                }
+            ],
+        }
 
-        operational_alerts.evaluate_operational_alerts(db, system=high_system, application={})
+        operational_alerts.evaluate_operational_alerts(
+            db, system=high_system, application=application
+        )
         db.commit()
-        operational_alerts.evaluate_operational_alerts(db, system=high_system, application={})
+        operational_alerts.evaluate_operational_alerts(
+            db, system=high_system, application=application
+        )
         db.commit()
         operational_alerts.evaluate_operational_alerts(db, system=normal_system, application={})
         db.commit()
@@ -150,6 +175,13 @@ def test_operational_alerts_notify_once_and_send_a_recovery(monkeypatch):
         assert len(deliveries) == 2
         assert deliveries[0]["recipients"] == ["admin@example.com"]
         assert "CPU: 91% (CRITICA)" in str(deliveries[0]["body"])
+        assert "--- INIZIO LOG PER CODEX ---" in str(deliveries[0]["body"])
+        assert "Finestra osservata: 15 minuti" in str(deliveries[0]["body"])
+        assert "P95: 1073.88 ms" in str(deliveries[0]["body"])
+        assert (
+            "GET /api/v1/taste-profile/wines/example/match | 200 | 1352.8 ms"
+            in str(deliveries[0]["body"])
+        )
         assert "Rientro operativo" in str(deliveries[1]["subject"])
     finally:
         db.close()

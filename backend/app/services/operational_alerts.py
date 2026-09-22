@@ -130,6 +130,71 @@ def _format_alert(alert: MetricAlert) -> str:
     return f"- {alert.label}: {alert.value:.0f}{alert.suffix} ({level})"
 
 
+def _display_number(value: float | None, *, decimals: int = 2) -> str:
+    if value is None:
+        return "n/d"
+    return f"{value:.{decimals}f}".rstrip("0").rstrip(".")
+
+
+def _codex_diagnostic(
+    system: dict[str, object], application: dict[str, object], collected_at: datetime
+) -> str:
+    """Build a durable, copy-ready diagnostic without secrets or user payloads."""
+    conntrack_count = _value(system, "conntrack", "count")
+    conntrack_max = _value(system, "conntrack", "max")
+    conntrack_percent = (
+        conntrack_count / conntrack_max * 100
+        if conntrack_count is not None and conntrack_max
+        else None
+    )
+    window_seconds = _value(application, "interactive_window_seconds")
+    window_minutes = round(window_seconds / 60) if window_seconds else None
+    samples = application.get("interactive_slowest_recent")
+    sample_lines: list[str] = []
+    if isinstance(samples, list):
+        for sample in samples[:5]:
+            if not isinstance(sample, dict):
+                continue
+            sample_lines.append(
+                f"{sample.get('recorded_at', 'n/d')} | "
+                f"{sample.get('method', 'n/d')} {sample.get('path', 'n/d')} | "
+                f"{sample.get('status_code', 'n/d')} | "
+                f"{sample.get('duration_ms', 'n/d')} ms"
+            )
+    if not sample_lines:
+        sample_lines.append("Nessun campione dettagliato disponibile nella finestra corrente.")
+
+    return "\n".join(
+        [
+            "--- INIZIO LOG PER CODEX ---",
+            "Vinaris Monitor - diagnosi operativa",
+            f"Campione raccolto: {collected_at.isoformat()}",
+            "Stato sistema:",
+            f"CPU: {_display_number(_value(system, 'host', 'cpu_percent'))}%",
+            f"RAM: {_display_number(_value(system, 'host', 'memory', 'percent'))}%",
+            f"Disco: {_display_number(_value(system, 'host', 'disk', 'percent'))}%",
+            f"Conntrack: {_display_number(conntrack_count, decimals=0)}/"
+            f"{_display_number(conntrack_max, decimals=0)} "
+            f"({_display_number(conntrack_percent)}%)",
+            "RSS processo: "
+            f"{_display_number(_value(system, 'process', 'memory_rss_bytes'), decimals=0)} byte",
+            "File descriptor aperti: "
+            f"{_display_number(_value(system, 'process', 'open_file_descriptors'), decimals=0)}",
+            "",
+            "API interattive:",
+            f"Finestra osservata: {window_minutes if window_minutes is not None else 'n/d'} minuti",
+            "Richieste interattive: "
+            f"{_display_number(_value(application, 'interactive_requests_recent'), decimals=0)}",
+            f"P50: {_display_number(_value(application, 'interactive_p50_duration_ms'))} ms",
+            f"P95: {_display_number(_value(application, 'interactive_p95_duration_ms'))} ms",
+            "",
+            "Richieste interattive più lente:",
+            *sample_lines,
+            "--- FINE LOG PER CODEX ---",
+        ]
+    )
+
+
 def evaluate_operational_alerts(
     db: Session,
     *,
@@ -197,6 +262,15 @@ def evaluate_operational_alerts(
             [
                 "Rientrate nella norma:",
                 *[f"- {state.metric.replace('_', ' ').title()}" for state in recoveries],
+            ]
+        )
+    if notifications:
+        body_parts.extend(
+            [
+                "",
+                "Log diagnostico da copiare e passare a Codex:",
+                "",
+                _codex_diagnostic(system, application, now),
             ]
         )
     body_parts.extend(
