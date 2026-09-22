@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Locale, Wine } from "../types";
-import { wineIdealWindowStart, winePriorityDrinkEnd } from "../domain/cellar";
+import { CollectorMaturity } from "./CollectorMaturity";
 import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
 import { wineTone } from "./panelSupport";
 
@@ -24,7 +24,7 @@ export function CollectorReadyWines({ wines, locale, canShowPhotos, onOpen, chil
     <div className={`collector-ready-grid${visible.length === 1 ? " collector-ready-single" : ""}`}>
       {visible.map(wine => <button type="button" className="collector-ready-wine" key={wine.id} onClick={() => onOpen(wine)}>
         <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url : ""} tone={wineTone(wine.type)} />
-        <span className="collector-ready-copy"><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span><small>{wineIdealWindowStart(wine)}–{winePriorityDrinkEnd(wine)}</small></span>
+        <span className="collector-ready-copy"><strong>{wine.name}</strong><span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span><CollectorMaturity wine={wine} locale={locale} compact /></span>
       </button>)}
     </div>
     {wines.length > 2 ? <nav className="collector-ready-controls" aria-label={it ? "Sfoglia i vini da bere" : "Browse ready wines"}>

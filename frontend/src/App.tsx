@@ -2,7 +2,7 @@ import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, 
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
 import RecordTastingDialog from "./components/RecordTastingDialog";
-import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionMaturityTimeline, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
+import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
@@ -40,6 +40,8 @@ import { openCookieConsentSettings } from "./services/cookieConsent";
 import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
 import "./styles.css";
 import "./components/CollectorOverview.css";
+import "./components/CollectorEditorial.css";
+import { CollectorMaturity } from "./components/CollectorMaturity";
 
 type BreakdownDrilldown = {
   title: TranslationKey;
@@ -114,13 +116,6 @@ const DRINK_NOW_SLIDESHOW_LIMIT = 10;
 function helpSlugFromLocation() {
   const match = window.location.pathname.match(/^\/help(?:\/([^/]+))?\/?$/);
   return match ? decodeURIComponent(match[1] || "") || null : null;
-}
-
-function keyPositionTitleVariant(name: string) {
-  const length = Array.from(name.trim()).length;
-  if (length > 31) return "long";
-  if (length > 17) return "medium";
-  return "short";
 }
 
 function DashboardBottleSlideshow({
@@ -7155,7 +7150,7 @@ export function App() {
         maturityPeakWidth,
         maturityStart: hasMaturityWindow ? maturityStart : null,
         maturityEnd: hasMaturityWindow ? maturityEnd : null,
-        trendPoints,
+        trendPoints: wine.details_loaded === false ? [] : trendPoints,
         trendChangePct,
         trendChangeValue,
         trendRange: trendPoints.length >= 2 && trendStart && trendEnd ? `${trendStart.label}–${trendEnd.label}` : null,
@@ -7165,6 +7160,19 @@ export function App() {
   })();
   const keyPositionIds = keyPositionCandidates.map(({ wine }) => wine.id).join("|");
   const activeKeyPosition = keyPositionCandidates[Math.min(activeKeyPositionIndex, Math.max(keyPositionCandidates.length - 1, 0))];
+  const featuredWineId = activeKeyPosition?.wine.id;
+  const featuredNeedsDetail = activeKeyPosition?.wine.details_loaded === false;
+  useEffect(() => {
+    if (activeView !== "home" || !featuredWineId || !featuredNeedsDetail || offlineMode || !session?.authenticated) return;
+    let cancelled = false;
+    api<Wine>(`/api/v1/wines/${featuredWineId}`).then((detail) => {
+      if (cancelled) return;
+      setWines(current => current.map(wine => wine.id === detail.id && wine.details_loaded === false ? detail : wine));
+    }).catch(() => {
+      // Keep the purchase/current-value comparison if history cannot be loaded.
+    });
+    return () => { cancelled = true; };
+  }, [activeView, featuredWineId, featuredNeedsDetail, offlineMode, session?.authenticated, session?.active_household_id]);
   const activeKeyPositionScope = activeKeyPosition
     ? activeKeyPosition.sharePct >= 99.999 ? t("myBottles") : t("sharedBottles")
     : "";
@@ -9985,7 +9993,7 @@ export function App() {
             </Suspense>
           ) : null}
           {activeView === "home" && !isRestaurant ? (
-            <section className="home-dashboard">
+            <section className={`home-dashboard${dashboardFocus === "collector" ? " home-dashboard-editorial" : ""}`}>
               {aiPackEnhancementHint}
               <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
                 <div className="dashboard-focus-lead">
@@ -10651,15 +10659,16 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, highlight, totalValue, maturityProgress, maturityPeakLeft, maturityPeakWidth, maturityStart, maturityEnd, trendPoints, trendChangePct, trendChangeValue, trendRange, hasMaturityWindow }) => (
+                        {keyPositionCandidates.map(({ wine, highlight, totalValue, trendPoints, trendChangePct, trendChangeValue, trendRange }) => (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
                             <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_detail_url : ""} tone={wineTone(wine.type)} />
                             <div className="key-position-head">
                               <div>
                                 <span>{highlight}</span>
-                                <h2 className={`key-position-title key-position-title--${keyPositionTitleVariant(wine.name)}`}>{wine.name}</h2>
-                                <p>{[wine.producer, wine.vintage].filter(Boolean).join(" - ")}</p>
+                                <h2 className="collector-feature-title">{wine.name}</h2>
+                                <p className="collector-feature-producer">{wine.producer}</p>
+                                <p className="collector-feature-origin">{[wine.appellation || wine.region, wine.vintage].filter(Boolean).join(" · ")}</p>
                               </div>
                             </div>
                             <div className={`key-position-metrics${trendPoints.length >= 2 ? " has-value-trend" : ""}`}>
@@ -10677,19 +10686,9 @@ export function App() {
                                   unavailableLabel={t("notSpecified")}
                                 />
                               ) : null}
+                              {trendPoints.length >= 2 && Number(wine.price) > 0 ? <p className="collector-purchase-note">{locale === "it" ? "Acquisto / bottiglia" : "Purchase / bottle"}: {formatMoney(Number(wine.price), wine.currency, locale)}{wine.order_date ? ` · ${formatDisplayDate(wine.order_date)}` : ""}</p> : null}
                             </div>
-                            <KeyPositionMaturityTimeline
-                              label={t("maturityMap")}
-                              startYear={maturityStart}
-                              peakEndYear={wine.drink_peak_to || null}
-                              endYear={maturityEnd}
-                              currentYearLabel={t("currentYear")}
-                              currentYear={currentYear}
-                              hasWindow={hasMaturityWindow}
-                              peakLeft={maturityPeakLeft}
-                              peakWidth={maturityPeakWidth}
-                              currentProgress={maturityProgress}
-                            />
+                            <CollectorMaturity wine={wine} locale={locale} currentYear={currentYear} />
                           </button>
                         ))}
                       </div>

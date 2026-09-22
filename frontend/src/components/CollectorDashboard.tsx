@@ -2,6 +2,7 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Locale, Wine } from "../types";
 import { formatBottleCount, wineIdealWindowStart, winePriorityDrinkEnd } from "../domain/cellar";
 import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
+import { CollectorMaturity } from "./CollectorMaturity";
 import { wineTone } from "./panelSupport";
 import { FeaturedWineDetails, featuredCaption, type FeaturedWine } from "./FeaturedWineDetails";
 
@@ -32,6 +33,7 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
             <small>{meta(wine)}</small>
+            {highlights ? <CollectorMaturity wine={wine} locale={locale} compact /> : null}
             {highlights ? <span className="featured-wine-discover">{it ? "Scopri perché" : "Discover why"} →</span> : null}
           </button>
         </div>)}
@@ -39,6 +41,10 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
     </section>;
   }
   return <div className="collector-dashboard-layout" data-mobile-view={view}>
+    <header className="collector-editorial-masthead">
+      <div><p>{it ? "IL TACCUINO DEL COLLEZIONISTA" : "THE COLLECTOR’S JOURNAL"}</p><h2>{it ? "Il tempo, in bottiglia." : "Time, bottled."}</h2></div>
+      <span>{formatBottleCount(wines.reduce((sum, wine) => sum + wine.quantity, 0), locale)} {it ? "bottiglie" : "bottles"}<br />{wines.length} {it ? "vini nella tua collezione" : "wines in your collection"}</span>
+    </header>
     <div className="collector-mobile-navigation">
       <p className="eyebrow">{it ? "La tua collezione" : "Your collection"}</p>
       <div className="collector-mobile-heading"><h2>{it ? "La mia cantina" : "My cellar"}</h2><span>{formatBottleCount(wines.reduce((sum, wine) => sum + wine.quantity, 0), locale)} {it ? "bott." : "btl."} · {wines.length} {it ? "vini" : "wines"}</span></div>
@@ -59,6 +65,7 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
             const caption = featuredCaption(item, locale);
             return `${caption.label} · ${caption.metric}`;
           }, true)}
+          {gallery(it ? "Da bere ora" : "Ready to drink", ready, wine => `${wineIdealWindowStart(wine)}–${winePriorityDrinkEnd(wine)} · ${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`)}
           {gallery(it ? "Ultimi arrivi" : "Recent arrivals", recent, wine => wine.created_at ? new Intl.DateTimeFormat(it ? "it-CH" : "en-GB").format(new Date(wine.created_at)) : `${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`)}
         </> : view === "priorities" ? gallery(it ? "Da bere ora" : "Ready to drink", ready, wine => `${wineIdealWindowStart(wine)}–${winePriorityDrinkEnd(wine)} · ${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`) : null}
       </div>

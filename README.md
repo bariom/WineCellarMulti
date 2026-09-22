@@ -133,6 +133,12 @@ Frontend E2E guardrails and scope-aware test selection are documented in
 is `npm run test:e2e:wine-detail` from `frontend/`.
 
 Collector dashboard checks: run `npm run test:e2e:collector` from `frontend/`.
+The collector edition uses an editorial serif hierarchy, quiet navigation, paper-toned
+surfaces and open metric rows. The maturity instrument separates the drinking window
+from its ideal period and marks the current year; incomplete windows remain explicit.
+Mobile Wines presents highlights, drink-now recommendations and recent arrivals in that
+order. Editorial layout checks also cover 1024, 1280 and 1920 px, alongside the existing
+360, 390, 430 and 1440 px checks. Review rendered images before updating visual baselines.
 Bottle photography leads the dashboard: key positions, ready-to-drink wines and recent
 arrivals are visible before the KPIs, with larger photos on mobile and desktop.
 Recent arrivals form one horizontal photo gallery below the two main cards; on narrow

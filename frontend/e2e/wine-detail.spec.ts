@@ -1413,6 +1413,7 @@ for (const width of [360, 390, 430, 1440]) {
     await expect(stage.locator(".key-position-card img").first()).toBeVisible();
     await expect(stage.locator(".priority-card img").first()).toBeVisible();
     await expect(stage.locator(".recent-wines-card img").first()).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath(`collector-opening-${width}.png`), fullPage: true });
     for (const selector of [".priority-card", ".recent-wines-card"]) {
       const photoBox = await stage.locator(`${selector} .key-position-bottle-visual`).first().boundingBox();
       expect(photoBox!.height).toBeGreaterThanOrEqual(140);
@@ -1476,6 +1477,8 @@ for (const width of [360, 390, 430, 1440]) {
     const photo = await key.locator(".key-position-bottle-visual").boundingBox();
     const title = await key.locator("h2").boundingBox();
     const metrics = await key.locator(".key-position-metrics").boundingBox();
+    const bottleImage = (await key.locator("img").boundingBox())!;
+    expect(bottleImage.y + bottleImage.height).toBeLessThanOrEqual(metrics!.y);
     expect(photo!.x + photo!.width).toBeLessThanOrEqual(title!.x);
     expect(title!.y + title!.height).toBeLessThanOrEqual(metrics!.y);
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -1488,6 +1491,104 @@ for (const width of [360, 390, 430, 1440]) {
       await stage.getByRole("region", { name: "Selezione da bere ora" }).getByRole("button", { name: /Nebbiolo di Test/ }).click();
       await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
     }
+  });
+}
+
+for (const width of [1024, 1280, 1920]) {
+  test(`collector editorial instrument ${width}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
+    await page.setViewportSize({ width, height: 900 });
+    const featured = { ...wine, name: "Les Femelottes — Bourgogne Chardonnay", producer: "Domaine Chavy-Chouet", price: "20", current_value: "60", order_date: "2024-01-01", ai_value_estimated_at: "2026-09-01T12:00:00Z", value_history: [
+      { id: "mid", value: "40", currency: "CHF", source: "manual", recorded_at: "2025-01-01T12:00:00Z" },
+    ] };
+    const waiting = { ...wine, id: "waiting", name: "Riserva da attendere", drink_from: 2027, drink_peak_from: 2027, drink_peak_to: 2030, drink_to: 2034 };
+    await mockApi(page, [], false, memberships, [featured, waiting], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    const hero = page.locator(".key-position-button").first();
+    await expect(hero.getByRole("heading", { name: featured.name })).toBeVisible();
+    await expect(hero.locator(".key-position-trend")).toContainText("200");
+    await expect(hero.locator(".key-position-trend-line")).toHaveCSS("stroke-dasharray", "none");
+    for (const selector of [".collector-wine-stage > .key-position-card", ".collector-wine-stage > .priority-card"]) {
+      const card = (await page.locator(selector).boundingBox())!;
+      expect(card.y + card.height).toBeLessThanOrEqual(width === 1024 ? 830 : 900);
+    }
+    await expect(hero.locator(".collector-maturity")).toContainText("2026–2028");
+    const photo = (await hero.locator("img").boundingBox())!;
+    const title = (await hero.getByRole("heading").boundingBox())!;
+    const metrics = (await hero.locator(".key-position-metrics").boundingBox())!;
+    expect(photo.x + photo.width).toBeLessThanOrEqual(title.x);
+    expect(photo.y + photo.height).toBeLessThanOrEqual(metrics.y);
+    expect(title.y + title.height).toBeLessThanOrEqual(metrics.y);
+    const dates = await hero.locator(".collector-maturity-dates > span").all();
+    for (const date of dates) {
+      expect(await date.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect(page.locator(".priority-next-list")).toContainText(waiting.name);
+    await page.screenshot({ path: testInfo.outputPath(`editorial-${width}.png`), fullPage: true, animations: "disabled" });
+    await page.locator(".priority-next-heading button").click();
+    await expect(page.locator(`[data-wine-row-id="${waiting.id}"]`)).toBeVisible();
+  });
+}
+
+for (const failed of [false, true]) {
+  test(`collector loads featured history on first visit${failed ? " with unavailable detail" : ""}`, async ({ page }, testInfo) => {
+    const detail = { ...wine, details_loaded: true, order_date: "2024-01-01", price: "20", current_value: "60", ai_value_estimated_at: "2026-09-01T00:00:00Z", value_history: [
+      { id: "early", value: "70", currency: "CHF", source: "manual", recorded_at: "2025-01-01T00:00:00Z" },
+      { id: "later", value: "40", currency: "CHF", source: "manual", recorded_at: "2026-01-01T00:00:00Z" },
+    ] };
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await mockApi(page, [], false, memberships, [{ ...detail, details_loaded: false, value_history: [] }], { ...session, dashboard_focus: "collector" });
+    await page.addInitScript(({ detail, failed }) => {
+      const original = window.fetch;
+      window.fetch = async (input, init) => {
+        const url = typeof input === "string" ? input : input instanceof Request ? input.url : String(input);
+        if (new URL(url, location.origin).pathname === `/api/v1/wines/${detail.id}`) {
+          sessionStorage.setItem("featured-detail-requests", String(Number(sessionStorage.getItem("featured-detail-requests") || 0) + 1));
+          await new Promise(resolve => setTimeout(resolve, 500));
+          sessionStorage.setItem("featured-detail-result", failed ? "failed" : "loaded");
+          return new Response(JSON.stringify(failed ? { detail: "Unavailable" } : detail), { status: failed ? 503 : 200, headers: { "Content-Type": "application/json" } });
+        }
+        return original(input, init);
+      };
+    }, { detail, failed });
+    await page.goto("/");
+    const hero = page.locator(".key-position-button").first();
+    await expect(hero).toContainText(detail.name);
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem("featured-detail-requests"))).toBe("1");
+    if (failed) {
+      await expect.poll(() => page.evaluate(() => sessionStorage.getItem("featured-detail-result"))).toBe("failed");
+      await expect(hero).toContainText("Acquisto → valore attuale");
+      await expect(hero.locator(".key-position-trend-line")).toHaveCount(0);
+    } else {
+      const line = hero.locator(".key-position-trend-line");
+      await expect(line).toHaveAttribute("d", /C/);
+      const firstPath = await line.getAttribute("d");
+      await page.screenshot({ path: testInfo.outputPath("first-visit-history.png"), animations: "disabled" });
+      await page.getByRole("button", { name: /^Cantina/ }).first().click();
+      await page.getByRole("button", { name: "Home", exact: true }).first().click();
+      await expect(line).toHaveAttribute("d", firstPath!);
+    }
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`collector missing photo stays discreet ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    await mockApi(page, [], false, memberships, [{ ...wine, photo_thumbnail_url: "", photo_detail_url: "" }], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    const glasses = page.locator(".home-dashboard-editorial .key-position-wine-illustration:visible");
+    await expect(glasses.first()).toBeVisible();
+    for (const glass of await glasses.all()) {
+      const icon = (await glass.locator("svg").boundingBox())!;
+      const container = (await glass.locator("..").boundingBox())!;
+      expect(icon.width).toBeLessThanOrEqual(90);
+      expect(icon.height).toBe(140);
+      expect(icon.y).toBeGreaterThanOrEqual(container.y);
+      expect(icon.y + icon.height).toBeLessThanOrEqual(container.y + container.height);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`fallback-${width}.png`), fullPage: true, animations: "disabled" });
   });
 }
 
