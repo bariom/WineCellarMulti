@@ -1600,6 +1600,7 @@ export function App() {
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.innerWidth <= 1099);
   const [mobileAccountMenuOpen, setMobileAccountMenuOpen] = useState(false);
   const [mobileNavigationOpen, setMobileNavigationOpen] = useState(false);
+  const mobileMenuButtonRef = useRef<HTMLButtonElement>(null);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
   const mobileAccountMenuRef = useRef<HTMLDivElement | null>(null);
   const [activeView, setActiveView] = useState<ViewName>("home");
@@ -9839,6 +9840,10 @@ export function App() {
               <AppIcon name="calendar" variant="navigation" />
               {t("history")}
             </button> : null}
+            {canWriteWine && !offlineMode ? <button type="button" className="secondary" aria-haspopup="dialog" onClick={() => setRecordTastingOpen(true)}>
+              <AppIcon name="tasting" variant="navigation" detailLevel="rich" />
+              {locale === "it" ? "Registra bevuta" : "Record a tasting"}
+            </button> : null}
             <details className={`view-tabs-ai-group${aiNavigationActive ? " is-active" : ""}`}>
               <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
               <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
@@ -9918,6 +9923,11 @@ export function App() {
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); setMobileSearchOpen(true); }}><AppIcon name="search" variant="action" />{t("search")}</button>
                 <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("wishlist"); setWineFormOpen(false); clearFilters("wishlist"); }}><AppIcon name="wishlist" variant="navigation" detailLevel="rich" />{t("wishlist")}</button>
                 {!isRestaurant ? <button type="button" onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("history"); setWineFormOpen(false); setWishlistFormOpen(false); setSelectedWineId(null); clearFilters("history"); }}><AppIcon name="calendar" variant="navigation" />{t("history")}</button> : null}
+                {canWriteWine && !offlineMode ? <button type="button" aria-haspopup="dialog" onClick={() => {
+                  mobileMenuButtonRef.current?.focus();
+                  setMobileNavigationOpen(false);
+                  setRecordTastingOpen(true);
+                }}><AppIcon name="tasting" variant="navigation" detailLevel="rich" />{locale === "it" ? "Registra bevuta" : "Record a tasting"}</button> : null}
                 <details className="mobile-navigation-ai-group">
                   <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
                   <div>
@@ -9936,14 +9946,10 @@ export function App() {
                 <button type="button" className={activeView === "cellar" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); leaveHelpFor("cellar"); setWishlistFormOpen(false); setWineFormOpen(false); setSelectedWineId(null); clearFilters("cellar"); }}><AppIcon name="cellar" variant="navigation" detailLevel="rich" /><span>{t("cellar")}</span></button>
                 {canWriteWine ? <button type="button" className="mobile-bottom-navigation-add" aria-label={locale === "it" ? "Aggiungi un vino" : "Add a wine"} onClick={() => { setMobileNavigationOpen(false); startAddWineFromAnywhere(); }}><span>+</span></button> : <span aria-hidden="true" />}
                 <button type="button" className={activeView === "pairing" ? "active" : ""} onClick={() => { setMobileNavigationOpen(false); setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}><AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" /><span>{t("pairing")}</span></button>
-                <button type="button" className={mobileNavigationOpen ? "active" : ""} aria-expanded={mobileNavigationOpen} onClick={() => setMobileNavigationOpen((open) => !open)}><AppIcon name="settings" variant="action" detailLevel="rich" /><span>{locale === "it" ? "Menu" : "Menu"}</span></button>
+                <button ref={mobileMenuButtonRef} type="button" className={mobileNavigationOpen ? "active" : ""} aria-expanded={mobileNavigationOpen} onClick={() => setMobileNavigationOpen((open) => !open)}><AppIcon name="settings" variant="action" detailLevel="rich" /><span>{locale === "it" ? "Menu" : "Menu"}</span></button>
               </nav>
             </>
           ) : null}
-          {canWriteWine && !offlineMode && (activeView === "home" || activeView === "history") ? <section className="record-tasting-entry">
-            <button type="button" onClick={() => setRecordTastingOpen(true)}>{locale === "it" ? "Registra bevuta" : "Record a tasting"}</button>
-            <p>{locale === "it" ? "Anche per vini extra cantina." : "For wines outside your cellar, too."}</p>
-          </section> : null}
           {recordTastingOpen && canWriteWine && !offlineMode ? <RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}

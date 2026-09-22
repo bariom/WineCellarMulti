@@ -27,9 +27,6 @@
 .record-tasting-results:empty { display: none; }
 .record-tasting-results button { display: grid; text-align: left; gap: 4px; }
 .record-tasting-dialog summary { cursor: pointer; padding: 12px 0; }
-.record-tasting-entry { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; padding: 12px; margin: 12px 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
-.record-tasting-entry p { margin: 0; color: var(--text-muted); font-size: .85rem; line-height: 1.4; }
-.record-tasting-entry button { min-height: 44px; }
 .record-tasting-origin { display: grid; gap: 6px; margin: 12px 0; max-width: 320px; }
 @media (max-width: 480px) {
   .record-tasting-dialog { padding: 18px; }

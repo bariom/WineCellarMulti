@@ -37,7 +37,8 @@ This repository is intentionally separate from the existing `WineCellar` project
 
 ## Recording a tasting
 
-Use **Registra bevuta / Record a tasting** on Home or History. Choose a bottle from
+Use **Registra bevuta / Record a tasting** in the desktop sidebar or the mobile
+**Menu**, next to History. Choose a bottle from
 the cellar (deducts one bottle, with a storage location choice when needed), or
 **Un altro vino / Another wine** to save a tasting without adding inventory or a
 wishlist item. Search existing wines and wishlist lists, enter a name manually,

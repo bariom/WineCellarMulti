@@ -368,11 +368,52 @@ async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
 
+async function openRecordTasting(page: Page) {
+  await expect(page.getByRole("button", { name: "Home", exact: true })).toBeVisible();
+  const menu = page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Menu", exact: true });
+  if (await menu.isVisible()) await menu.click();
+  await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+}
+
+for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 1000 }]) {
+  test(`tasting navigation belongs in the menu at ${viewport.width}`, async ({ page }) => {
+    await page.setViewportSize(viewport);
+    await mockApi(page, [], false, memberships, [wine], { ...session, theme_preference: viewport.width === 360 || viewport.width === 430 ? "private-cellar" : "light" });
+    await page.goto("/");
+    await expect(page.locator(".record-tasting-entry")).toHaveCount(0);
+    const mobile = viewport.width < 900;
+    if (mobile) {
+      await expect(page.getByRole("button", { name: "Registra bevuta", exact: true })).toHaveCount(0);
+      await page.getByRole("button", { name: "Menu", exact: true }).click();
+    }
+    const navigation = mobile ? page.getByRole("dialog", { name: "Menu di navigazione" }) : page.locator(".view-tabs-navigation");
+    const action = navigation.getByRole("button", { name: "Registra bevuta", exact: true });
+    await expect(action).toBeVisible();
+    await expect(action).toHaveAttribute("aria-haspopup", "dialog");
+    const [history, tasting] = await Promise.all([
+      navigation.getByRole("button", { name: "Storico", exact: true }).boundingBox(),
+      action.boundingBox(),
+    ]);
+    expect(history!.y + history!.height).toBeLessThanOrEqual(tasting!.y);
+    expect(tasting!.height).toBeGreaterThanOrEqual(44);
+    expect(tasting!.x).toBeGreaterThanOrEqual(0);
+    expect(tasting!.x + tasting!.width).toBeLessThanOrEqual(viewport.width);
+    expect(tasting!.y + tasting!.height).toBeLessThanOrEqual(viewport.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: `test-results/tasting-menu-${viewport.width}.png` });
+    await action.click();
+    if (mobile) await expect(navigation).toBeHidden();
+    await expect(page.getByRole("dialog", { name: "Registra bevuta" })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("button", { name: mobile ? "Menu" : "Registra bevuta", exact: true })).toBeFocused();
+  });
+}
+
 test("record tasting saves an external wine and preserves failures for retry", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  await openRecordTasting(page);
   const dialog = page.getByRole("dialog", { name: "Registra bevuta" });
   await dialog.getByRole("button", { name: /Un altro vino/ }).click();
   await dialog.getByLabel("Nome del vino", { exact: true }).fill("Vino da amici");
@@ -411,7 +452,7 @@ test("record tasting saves an external wine and preserves failures for retry", a
 test("record tasting cellar flow consumes the chosen bottle", async ({ page }) => {
   await mockApi(page);
   await page.goto("/");
-  await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  await openRecordTasting(page);
   const dialog = page.getByRole("dialog", { name: "Registra bevuta" });
   await dialog.getByRole("button", { name: /Dalla mia cantina/ }).click();
   await dialog.getByRole("button", { name: /Nebbiolo di Test/ }).click();
@@ -436,7 +477,7 @@ test("record tasting reuses wishlist search and confirms photo suggestions", asy
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], true, memberships, [wine], { ...session, can_use_label_recognition: true });
   await page.goto("/");
-  await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  await openRecordTasting(page);
   await page.evaluate(() => {
     const original = window.fetch;
     let scans = 0;
@@ -487,7 +528,7 @@ test("record tasting is available from History with origin filters", async ({ pa
   });
   await page.getByLabel("Provenienza della bevuta").selectOption("external");
   await expect.poll(() => page.evaluate(() => (window as any).archiveUrl)).toContain("origin=external");
-  await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+  await openRecordTasting(page);
   await expect(page.getByRole("dialog", { name: "Registra bevuta" })).toBeVisible();
 });
 
@@ -496,12 +537,13 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     await page.setViewportSize(viewport);
     await mockApi(page);
     await page.goto("/");
-    await page.getByRole("button", { name: "Registra bevuta", exact: true }).click();
+    await openRecordTasting(page);
     const dialog = page.getByRole("dialog", { name: "Registra bevuta" });
     const cellar = await dialog.getByRole("button", { name: /Dalla mia cantina/ }).boundingBox();
     const external = await dialog.getByRole("button", { name: /Un altro vino/ }).boundingBox();
     expect(cellar!.y + cellar!.height).toBeLessThanOrEqual(external!.y);
     if (viewport.width === 390) {
+      await page.mouse.move(0, 0);
       await page.screenshot({ path: "test-results/record-tasting-choice.png" });
       await expect(dialog).toHaveScreenshot("record-tasting-choice-mobile.png");
     }
@@ -521,7 +563,7 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
     if (viewport.width === 390) await page.screenshot({ path: "test-results/record-tasting-form-bottom.png" });
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole("button", { name: "Registra bevuta", exact: true })).toBeFocused();
+    await expect(page.getByRole("button", { name: viewport.width < 900 ? "Menu" : "Registra bevuta", exact: true })).toBeFocused();
   });
 }
 
