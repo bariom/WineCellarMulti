@@ -23,13 +23,13 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
   const id = useId();
   const it = locale === "it";
   const tabs = [{ id: "wines", label: it ? "Vini" : "Wines" }, { id: "priorities", label: it ? "Priorità" : "Priorities" }, { id: "collection", label: it ? "Collezione" : "Collection" }];
-  function gallery(title: string, items: Wine[], meta: (wine: Wine) => string, highlights = false) {
-    return <section className="collector-mobile-gallery" aria-label={title}>
+  function gallery(title: string, items: Wine[], meta: (wine: Wine) => ReactNode, highlights = false) {
+    return <section className={`collector-mobile-gallery${highlights ? " collector-mobile-highlights" : ""}`} aria-label={title}>
       <header><h2>{title}</h2><span>{items.length} {it ? "vini" : "wines"}</span></header>
       {items.length ? <div className="collector-photo-rail" role="list" aria-label={title}>
         {items.map(wine => <div role="listitem" key={wine.id}>
           <button type="button" aria-haspopup={highlights ? "dialog" : undefined} onClick={() => highlights ? setSelectedId(wine.id) : onOpen(wine)}>
-            <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="147px" tone={wineTone(wine.type)} />
+            <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes={highlights ? "104px" : "120px"} tone={wineTone(wine.type)} />
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
             <small>{meta(wine)}</small>
@@ -63,7 +63,7 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
           {gallery(it ? "In primo piano" : "Highlights", featured.map(item => item.wine), wine => {
             const item = featured.find(item => item.wine.id === wine.id)!;
             const caption = featuredCaption(item, locale);
-            return `${caption.label} · ${caption.metric}`;
+            return <><span className="collector-highlight-label">{caption.label}</span><span className="collector-highlight-value">{caption.metric}</span></>;
           }, true)}
           {gallery(it ? "Da bere ora" : "Ready to drink", ready, wine => `${wineIdealWindowStart(wine)}–${winePriorityDrinkEnd(wine)} · ${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`)}
           {gallery(it ? "Ultimi arrivi" : "Recent arrivals", recent, wine => wine.created_at ? new Intl.DateTimeFormat(it ? "it-CH" : "en-GB").format(new Date(wine.created_at)) : `${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`)}

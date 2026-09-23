@@ -588,17 +588,32 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
       const heading = dashboard.locator(focus === "taste" ? ".taste-dashboard-carousel h2" : ".hero-copy h2").first();
       await expect(heading).toBeVisible();
       await expect(heading).toHaveCSS("font-family", "Georgia, serif");
+      if (focus !== "taste" && width < 900) {
+        const hero = (await dashboard.locator(".hero-panel").boundingBox())!;
+        expect(hero.height).toBeLessThanOrEqual(210);
+        for (const kpi of await dashboard.locator(".hero-kpi").all()) {
+          const label = (await kpi.locator(":scope > span").boundingBox())!;
+          const value = (await kpi.locator(":scope > strong").boundingBox())!;
+          expect(label.x + label.width).toBeLessThanOrEqual(value.x);
+        }
+      }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       const card = dashboard.locator(".dashboard-card").first();
       if (await card.count()) {
         await expect(card).toHaveCSS("border-radius", "0px");
         const bounds = (await card.boundingBox())!;
+        if (width < 900 && focus !== "taste") expect(bounds.y).toBeLessThanOrEqual(470);
         expect(bounds.x).toBeGreaterThanOrEqual(0);
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
         const title = card.locator(".card-heading h2").first();
         if (await title.count()) {
           const titleBounds = (await title.boundingBox())!;
           expect(titleBounds.x + titleBounds.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+        }
+      }
+      if (focus === "daily" && width < 900) {
+        for (const empty of await dashboard.locator(".daily-tone-empty").all()) {
+          expect((await empty.boundingBox())!.height).toBeLessThanOrEqual(120);
         }
       }
       if (focus === "value" && width === 1440) {
@@ -610,6 +625,47 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
       if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`${focus}-${width}.png`), fullPage: true, animations: "disabled" });
     });
   }
+}
+
+test("editorial surfaces respect every user theme", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "daily" });
+  await page.goto("/");
+  await expect(page.locator(".daily-picks-card")).toBeVisible();
+  for (const theme of ["light", "dark", "private-cellar", "sepia", "white-wine", "red-wine", "rose-wine", "champagne", "bordeaux", "burgundy", "tuscany", "piedmont", "ticino", "atelier", "midnight-ledger"]) {
+    await page.evaluate((selected) => document.documentElement.setAttribute("data-theme", selected), theme);
+    await expect(page.locator(".authenticated-app-shell")).toHaveCSS("background-image", "none");
+    // Theme changes animate surfaces; compare their settled colors.
+    await expect.poll(() => page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.backgroundColor = "var(--surface)";
+      document.body.append(probe);
+      const surface = getComputedStyle(probe).backgroundColor;
+      probe.remove();
+      return surface === getComputedStyle(document.querySelector(".daily-picks-card")!).backgroundColor;
+    })).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (["light", "atelier", "private-cellar", "midnight-ledger"].includes(theme)) {
+      await page.screenshot({ path: testInfo.outputPath(`surfaces-${theme}.png`), animations: "disabled" });
+    }
+  }
+});
+
+for (const theme of ["atelier", "private-cellar", "midnight-ledger"]) {
+  test(`collector editorial hierarchy in ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });
+    await page.goto("/");
+    const card = page.locator(".collector-mobile-highlights button").first();
+    await expect(card).toBeVisible();
+    const label = (await card.locator(".collector-highlight-label").boundingBox())!;
+    const value = (await card.locator(".collector-highlight-value").boundingBox())!;
+    expect(value.y).toBeGreaterThanOrEqual(label.y + label.height);
+    const maturity = (await card.locator(".collector-maturity").boundingBox())!;
+    expect(maturity.y).toBeGreaterThanOrEqual(value.y + value.height);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`collector-${theme}.png`), animations: "disabled" });
+  });
 }
 
 test("shows contextual KPIs for every dashboard insight", async ({ page }) => {
@@ -1376,6 +1432,9 @@ for (const width of [360, 390, 430, 1440]) {
       await expect(mobile.getByRole("heading", { name: "In primo piano" })).toBeVisible();
       await expect(page.locator(".collector-overview")).toBeHidden();
       await expect(page.locator(".collector-wine-stage")).toBeHidden();
+      const firstHighlight = (await mobile.locator(".collector-mobile-highlights button").first().boundingBox())!;
+      const bottomNavigation = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
+      expect(firstHighlight.y + firstHighlight.height).toBeLessThanOrEqual(bottomNavigation.y);
       async function checkRails() {
         for (const rail of await mobile.getByRole("list").all()) {
           const before = (await rail.boundingBox())!;
@@ -1387,9 +1446,18 @@ for (const width of [360, 390, 430, 1440]) {
             const photo = (await card.locator(".key-position-bottle-visual").boundingBox())!;
             const title = (await card.locator("strong").boundingBox())!;
             expect(photo.height).toBeGreaterThanOrEqual(150);
-            expect(photo.y + photo.height).toBeLessThanOrEqual(title.y);
             const image = (await card.locator("img").boundingBox())!;
-            expect(image.y + image.height).toBeLessThanOrEqual(title.y);
+            if (await card.evaluate(el => Boolean(el.closest(".collector-mobile-highlights")))) {
+              expect(photo.x + photo.width).toBeLessThanOrEqual(title.x);
+              expect(image.y + image.height).toBeLessThanOrEqual(box.y + box.height);
+              const maturity = (await card.locator(".collector-maturity").boundingBox())!;
+              const caption = (await card.locator("small").boundingBox())!;
+              expect(maturity.y).toBeGreaterThanOrEqual(photo.y + photo.height);
+              expect(maturity.y).toBeGreaterThanOrEqual(caption.y + caption.height);
+            } else {
+              expect(photo.y + photo.height).toBeLessThanOrEqual(title.y);
+              expect(image.y + image.height).toBeLessThanOrEqual(title.y);
+            }
             const caption = (await card.locator("small").boundingBox())!;
             expect(caption.y + caption.height).toBeLessThanOrEqual(box.y + box.height);
           }

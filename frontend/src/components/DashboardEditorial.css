@@ -74,10 +74,26 @@
 .home-dashboard.home-dashboard-secondary .timeline-kpis > div > span { font-size: .7rem; font-weight: 500; letter-spacing: .04em; }
 .home-dashboard.home-dashboard-secondary .maturity-stream-card { border: 0; border-top: 1px solid var(--editorial-rule); border-radius: 0; box-shadow: none; background: transparent; }
 @media (max-width: 900px) {
-  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-panel { padding: 10px 0 14px; gap: 14px; }
-  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-copy h2 { font-size: 1.65rem; }
-  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi { padding: 10px 0; background: transparent; border-radius: 0; box-shadow: none; }
-  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi > strong { font-size: 1.5rem; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-panel { padding: 0 0 8px; gap: 10px; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-copy .eyebrow { display: none; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-copy h2 { font-size: 1.4rem; margin: 0; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpis { gap: 0; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi {
+    grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto; gap: 2px 12px;
+    min-height: 0; padding: 7px 0; background: transparent; border-radius: 0; box-shadow: none;
+  }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi > span { grid-column: 1; grid-row: 1; align-self: center; font-size: .65rem; line-height: 1.3; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi > strong { grid-column: 2; grid-row: 1 / 3; align-self: center; font-size: 1.25rem; text-align: right; overflow-wrap: anywhere; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .hero-kpi > p { grid-column: 1; grid-row: 2; align-self: start; justify-self: start; margin: 0; max-width: 100%; white-space: normal; font-size: .65rem; font-weight: 400; line-height: 1.25; text-align: left; }
   .authenticated-app-shell .home-dashboard.home-dashboard-secondary .dashboard-card { padding: 18px 12px; border-radius: 0; box-shadow: none; }
   .authenticated-app-shell .home-dashboard.home-dashboard-secondary .dashboard-card .card-heading h2 { font-size: 1.35rem; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .dashboard-card { gap: 12px; padding-block: 12px; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .dashboard-card-intro { margin-block: 0; font-size: .8rem; line-height: 1.45; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .daily-style-heading { gap: 4px; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .timeline-kpis { gap: 0; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .timeline-kpis > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 0; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .daily-tone-empty { min-height: 0; padding: 10px 0; display: grid; grid-template-columns: 32px minmax(0, 1fr); gap: 4px 10px; text-align: left; align-content: start; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .daily-tone-empty > .app-icon { grid-column: 1; grid-row: 1 / 3; width: 28px; height: 28px; font-size: 28px; margin: 0; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .daily-tone-empty > :not(.app-icon) { grid-column: 2; max-width: none; }
+  .authenticated-app-shell .home-dashboard.home-dashboard-secondary .daily-tone-empty > strong { font-size: .75rem; line-height: 1.4; }
 }

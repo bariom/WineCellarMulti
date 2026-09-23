@@ -140,7 +140,9 @@ The collector edition uses an editorial serif hierarchy, quiet navigation, paper
 surfaces and open metric rows. The maturity instrument separates the drinking window
 from its ideal period and marks the current year; incomplete windows remain explicit.
 Mobile Wines presents highlights, drink-now recommendations and recent arrivals in that
-order. Editorial layout checks also cover 1024, 1280 and 1920 px, alongside the existing
+order. Mobile highlights place the bottle beside its identity and selection metric,
+with the drinking window below. Geometry checks keep the first card above the bottom
+navigation at the supported phone sizes. Editorial layout checks also cover 1024, 1280 and 1920 px, alongside the existing
 360, 390, 430 and 1440 px checks. Review rendered images before updating visual baselines.
 Bottle photography leads the dashboard: key positions, ready-to-drink wines and recent
 arrivals are visible before the KPIs, with larger photos on mobile and desktop.
