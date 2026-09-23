@@ -68,7 +68,15 @@ export default defineConfig({
       output: {
         strictExecutionOrder: true,
         codeSplitting: {
+          includeDependenciesRecursively: false,
           groups: [
+            {
+              // Shared cellar UI changes less often than the application orchestration.
+              // Keep it independently cacheable across App updates.
+              name: "cellar-panels",
+              test: /src[\\/]components[\\/]AppPanels\.tsx$/,
+              priority: 5,
+            },
             {
               name: "react-vendor",
               test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/,

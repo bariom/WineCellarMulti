@@ -1,4 +1,4 @@
-import { readFile, stat } from "node:fs/promises";
+import { readFile, readdir, stat } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const limits = {
@@ -7,6 +7,7 @@ const limits = {
   javascriptGzipBytes: 210_000,
   cssBytes: 430_000,
   cssGzipBytes: 72_000,
+  chunkBytes: 500_000,
 };
 
 const html = await readFile(new URL("../dist/index.html", import.meta.url), "utf8");
@@ -30,6 +31,15 @@ async function totals(extension) {
 const javascript = await totals(".js");
 const css = await totals(".css");
 const failures = [];
+const assetsDirectory = new URL("../dist/assets/", import.meta.url);
+const chunks = await Promise.all((await readdir(assetsDirectory))
+  .filter((name) => name.endsWith(".js"))
+  .map(async (name) => ({ name, bytes: (await stat(new URL(name, assetsDirectory))).size })));
+for (const chunk of chunks) {
+  if (chunk.bytes > limits.chunkBytes) failures.push(`${chunk.name} ${chunk.bytes} > ${limits.chunkBytes} bytes`);
+}
+const largestChunk = chunks.sort((a, b) => b.bytes - a.bytes)[0];
+if (largestChunk) console.log(`Largest JS chunk: ${largestChunk.name}, ${(largestChunk.bytes / 1000).toFixed(2)} kB`);
 
 if (javascript.bytes > limits.javascriptBytes) failures.push(`initial JS ${javascript.bytes} > ${limits.javascriptBytes} bytes`);
 if (javascript.gzipBytes > limits.javascriptGzipBytes) failures.push(`initial JS gzip ${javascript.gzipBytes} > ${limits.javascriptGzipBytes} bytes`);

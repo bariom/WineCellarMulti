@@ -128,6 +128,15 @@ chmod +x dev.sh
 
 ## Code quality
 
+The frontend build checks both entry-asset budgets and a 500 kB minified limit for
+every JavaScript chunk, including lazy-loaded features. Cellar panels have a separate
+cacheable chunk; tasting, live scanning, the cellar assistant and Wine Pulse load
+when their UI is rendered. Keep shared dependencies outside manual chunk groups so
+they do not pull feature code into the initial entry.
+
+To validate the production chunk graph, serve `npm run preview` and run targeted
+Playwright tests with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173`.
+
 Frontend E2E guardrails and scope-aware test selection are documented in
 [`docs/FRONTEND_E2E.md`](docs/FRONTEND_E2E.md). The focused Wine Detail command
 is `npm run test:e2e:wine-detail` from `frontend/`.

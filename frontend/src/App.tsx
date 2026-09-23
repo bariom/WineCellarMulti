@@ -1,7 +1,6 @@
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
-import RecordTastingDialog from "./components/RecordTastingDialog";
 import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } from "./components/KeyPositionCardParts";
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
@@ -24,7 +23,6 @@ import { CellarStorageManager, WineLocationPicker, WineStrategySection } from ".
 import type { HelpRole } from "./help/types";
 import { HelpContext } from "./help/HelpContext";
 import type { PreparedBottlePhoto } from "./components/BottlePhotoCapture";
-import WishlistLiveTasteScanner from "./components/WishlistLiveTasteScanner";
 import type { WishlistLiveTasteScan } from "./components/WishlistLiveTasteScanner";
 import { useChartReveal } from "./components/chartMotion";
 import { CollectorReadyWines } from "./components/CollectorReadyWines";
@@ -33,8 +31,6 @@ import { CollectorDashboard } from "./components/CollectorDashboard";
 import { featuredValue } from "./domain/featuredValue";
 import { CollectorOverview } from "./components/CollectorOverview";
 import { DashboardCountUp } from "./components/DashboardCountUp";
-import WinePulseView, { WinePulsePreview } from "./views/WinePulseView";
-import CellarAssistantView from "./views/CellarAssistantView";
 import { LEGAL_DOCUMENT_VERSION } from "./legal/legalDocuments";
 import { openCookieConsentSettings } from "./services/cookieConsent";
 import { reportGoogleAdsCheckoutConversion } from "./services/googleAds";
@@ -91,6 +87,11 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const WinePulseView = lazy(() => import("./views/WinePulseView"));
+const WinePulsePreview = lazy(() => import("./views/WinePulseView").then(module => ({ default: module.WinePulsePreview })));
+const CellarAssistantView = lazy(() => import("./views/CellarAssistantView"));
+const RecordTastingDialog = lazy(() => import("./components/RecordTastingDialog"));
+const WishlistLiveTasteScanner = lazy(() => import("./components/WishlistLiveTasteScanner"));
 const CellarIntelligenceView = lazy(() => import("./views/CellarIntelligenceView"));
 const AI_PACK_ENHANCEMENT_DISMISS_KEY = "vinaris.ai-pack-enhancement-dismissed-until";
 const AI_PACK_ENHANCEMENT_REMINDER_MS = 7 * 24 * 60 * 60 * 1000;
@@ -9959,7 +9960,7 @@ export function App() {
               </nav>
             </>
           ) : null}
-          {recordTastingOpen && canWriteWine && !offlineMode ? <RecordTastingDialog
+          {recordTastingOpen && canWriteWine && !offlineMode ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><RecordTastingDialog
             key={session?.active_household_id}
             locale={locale}
             wines={wines}
@@ -9975,7 +9976,7 @@ export function App() {
               setWishlistDraft(current => ({ ...current, ...identity }));
               setActiveView("wishlist");
             }}
-          /> : null}
+          /></Suspense> : null}
           {activeView === "home" && isRestaurant ? (
             <Suspense fallback={<LoadingState label={t("loadingData")} />}>
               <RestaurantDashboard
@@ -11364,11 +11365,13 @@ export function App() {
                   </Suspense>
                 </DashboardCarousel>
               ) : null}
-              <WinePulsePreview locale={locale} onOpen={() => setActiveView("pulse")} />
+              <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                <WinePulsePreview locale={locale} onOpen={() => setActiveView("pulse")} />
+              </Suspense>
             </section>
           ) : null}
 
-          {activeView === "pulse" ? <WinePulseView locale={locale} /> : null}
+          {activeView === "pulse" ? <Suspense fallback={<LoadingState label={t("loadingData")} />}><WinePulseView locale={locale} /></Suspense> : null}
 
           {activeView === "intelligence" && !isRestaurant ? (
             <><>{aiPackUpgradeNotice}</><Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarIntelligenceView
@@ -11383,7 +11386,7 @@ export function App() {
           ) : null}
 
           {activeView === "assistant" && canAccessCellarAssistant ? (
-            <>{aiPackUpgradeNotice}<CellarAssistantView
+            <>{aiPackUpgradeNotice}<Suspense fallback={<LoadingState label={t("loadingData")} />}><CellarAssistantView
               locale={locale}
               disabled={!canGenerateAi || !canWriteWine}
               onPreparePurchase={prepareAssistantPurchaseDraft}
@@ -11392,7 +11395,7 @@ export function App() {
                 await Promise.all([loadWines(), loadWishlist(), loadWishlistLists()]);
                 if (!offlineMode && historySection === "tastings") await loadTastingArchive(0);
               }}
-            /></>
+            /></Suspense></>
           ) : null}
 
           {activeView === "pairing" ? (
@@ -12213,12 +12216,14 @@ export function App() {
                         <span>{t("choosePhotoFile")}</span>
                         <input type="file" accept="image/*" disabled={!canUseLabelRecognition || wineRecognitionLoading} onChange={(event) => handleWineRecognitionInput(event, "wishlist")} />
                       </label>
-                      <WishlistLiveTasteScanner
-                        disabled={!canUseLabelRecognition || wineRecognitionLoading}
-                        locale={locale}
-                        onAnalyse={analyseWishlistLiveTaste}
-                        onConfirm={confirmWishlistLiveTaste}
-                      />
+                      <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                        <WishlistLiveTasteScanner
+                          disabled={!canUseLabelRecognition || wineRecognitionLoading}
+                          locale={locale}
+                          onAnalyse={analyseWishlistLiveTaste}
+                          onConfirm={confirmWishlistLiveTaste}
+                        />
+                      </Suspense>
                     </div>
                     {wineImageRecognitionResult && wineRecognitionTarget === "wishlist" ? (
                       <div className="recognition-results">

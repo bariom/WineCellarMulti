@@ -419,6 +419,28 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
   });
 }
 
+test("secondary tools load only when opened", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const requestedModules: string[] = [];
+  page.on("request", request => {
+    if (/\/(CellarAssistantView|RecordTastingDialog|WishlistLiveTasteScanner)(?:-|\.tsx)/.test(request.url())) requestedModules.push(request.url());
+  });
+  await mockApi(page, [], false, memberships, [wine], { ...session, cellar_ai_assistant_available: true });
+  await page.goto("/");
+  await expect(page.locator(".home-dashboard")).toBeVisible();
+  expect(requestedModules).toEqual([]);
+  await openRecordTasting(page);
+  await expect(page.getByRole("dialog", { name: "Registra bevuta" })).toBeVisible();
+  expect(requestedModules.some(url => url.includes("RecordTastingDialog"))).toBe(true);
+  await page.keyboard.press("Escape");
+  await page.getByRole("button", { name: "Menu", exact: true }).click();
+  await page.locator(".mobile-navigation-sheet summary").filter({ hasText: "Strumenti AI" }).click();
+  await page.getByRole("button", { name: "Assistente AI", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "Assistente Cantina AI" })).toBeVisible();
+  expect(requestedModules.some(url => url.includes("CellarAssistantView"))).toBe(true);
+  expect(requestedModules.some(url => url.includes("WishlistLiveTasteScanner"))).toBe(false);
+});
+
 test("record tasting saves an external wine and preserves failures for retry", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
