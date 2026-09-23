@@ -281,6 +281,7 @@ async function mockApi(
   fixtureSession = session,
   fixturePendingCatalog: unknown[] = [],
   fixtureNotificationCenter: unknown = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false },
+  fixtureTastingArchive = tastingArchive,
 ) {
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
@@ -326,7 +327,7 @@ async function mockApi(
       else if (path.includes("public-config")) body = {};
       return new Response(JSON.stringify(body), { status: 200, headers: { "Content-Type": "application/json" } });
     };
-  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive: tastingArchive, tasteProfileCollection });
+  }, { fixtureWine: wine, fixtureWines, fixtureSession, fixturePendingCatalog, fixtureNotificationCenter, fixtureStrategyAllocations: strategyAllocations, fixtureIntelligenceSnapshot: intelligenceSnapshot, fixtureIntelligencePlan: intelligencePlan, fixturePreviousIntelligencePlan: previousIntelligencePlan, fixtureAiEnabled: aiEnabled, fixtureCellarMemberships: cellarMemberships, fixtureMerchants: merchants, fixtureTastingArchive, tasteProfileCollection });
   await page.route("**/*", async (route) => {
     const url = new URL(route.request().url());
     if (!url.pathname.startsWith("/api/")) return route.continue();
@@ -346,7 +347,7 @@ async function mockApi(
       return fulfillJson(route, { matches: Object.fromEntries(wineIds.map((wineId: string) => [wineId, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] }])) });
     }
     if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] });
-    if (path.includes("/wines/tasting-archive")) return fulfillJson(route, tastingArchive);
+    if (path.includes("/wines/tasting-archive")) return fulfillJson(route, fixtureTastingArchive);
     if (path.endsWith("/wines/catalog/pending")) return fulfillJson(route, fixturePendingCatalog);
     if (path.endsWith("/wines")) return fulfillJson(route, fixtureWines);
     if (path.includes("/wines/wine-e2e-1")) return fulfillJson(route, wine);
@@ -647,6 +648,65 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
       if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`${focus}-${width}.png`), fullPage: true, animations: "disabled" });
     });
   }
+}
+
+for (const width of [360, 390, 430]) {
+  test(`history stays within the mobile viewport ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
+    const fullArchive = { ...tastingArchive, total: 32, rated_count: 29, notes_count: 19, latest_consumed_at: "2026-09-21" };
+    await mockApi(page, [], true, memberships, [wine], session, [], undefined, fullArchive);
+    await page.goto("/");
+    await page.getByRole("button", { name: "Menu", exact: true }).click();
+    await page.getByRole("button", { name: "Storico", exact: true }).click();
+    const workspace = page.locator(".history-workspace");
+    await expect(workspace).toBeVisible();
+    await expect(workspace.getByRole("heading", { name: "Bottiglie bevute", exact: true })).toBeVisible();
+    await expect(workspace.locator(".pagination-bar")).toBeVisible();
+
+    const viewport = page.viewportSize()!;
+    for (const locator of [
+      workspace,
+      workspace.locator(".wine-list"),
+      workspace.locator(".history-section-tabs"),
+      workspace.locator(".record-tasting-origin"),
+      workspace.locator(".stats-panel-wrapper"),
+      workspace.locator(".collection-filter-dock"),
+      workspace.locator(".pagination-bar"),
+      workspace.locator(".tasting-archive-entry").first(),
+    ]) {
+      const box = (await locator.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    }
+    for (const button of await workspace.locator(".pagination-actions button").all()) {
+      const box = (await button.boundingBox())!;
+      expect(box.x + box.width).toBeLessThanOrEqual(viewport.width);
+    }
+    const pagination = (await workspace.locator(".pagination-actions").boundingBox())!;
+    const bottomNavigation = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
+    expect(pagination.y + pagination.height).toBeLessThanOrEqual(bottomNavigation.y);
+    const archiveTitle = (await workspace.locator(".tasting-archive-title").first().boundingBox())!;
+    const archiveSummary = (await workspace.locator(".tasting-archive-summary").first().boundingBox())!;
+    expect(archiveSummary.y).toBeGreaterThanOrEqual(archiveTitle.y + archiveTitle.height);
+    const summaryItems = await workspace.locator(".tasting-archive-summary").first().locator(":scope > *").all();
+    const summaryBoxes = await Promise.all(summaryItems.map(item => item.boundingBox()));
+    const entryBox = (await workspace.locator(".tasting-archive-entry").first().boundingBox())!;
+    for (const box of summaryBoxes) {
+      expect(box).not.toBeNull();
+      expect(box!.x).toBeGreaterThanOrEqual(entryBox.x);
+      expect(box!.x + box!.width).toBeLessThanOrEqual(entryBox.x + entryBox.width);
+    }
+    for (let first = 0; first < summaryBoxes.length; first += 1) {
+      for (let second = first + 1; second < summaryBoxes.length; second += 1) {
+        const a = summaryBoxes[first]!;
+        const b = summaryBoxes[second]!;
+        const overlap = !(a.x + a.width <= b.x || b.x + b.width <= a.x || a.y + a.height <= b.y || b.y + b.height <= a.y);
+        expect(overlap).toBe(false);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390) await page.screenshot({ path: testInfo.outputPath("history-mobile-390.png"), fullPage: true, animations: "disabled" });
+  });
 }
 
 test("editorial surfaces respect every user theme", async ({ page }, testInfo) => {
@@ -1483,6 +1543,8 @@ for (const width of [360, 390, 430, 1440]) {
       const mobile = page.locator(".collector-mobile-photos");
       await expect(tabs.getByRole("tab", { name: "Vini", exact: true })).toHaveAttribute("aria-selected", "true");
       await expect(mobile.getByRole("heading", { name: "In primo piano" })).toBeVisible();
+      await expect(mobile.getByRole("heading", { name: "Ultimi arrivi" })).toBeVisible();
+      await expect(mobile.getByRole("heading", { name: "Da bere ora" })).toHaveCount(0);
       await expect(page.locator(".collector-overview")).toBeHidden();
       await expect(page.locator(".collector-wine-stage")).toBeHidden();
       const firstHighlight = (await mobile.locator(".collector-mobile-highlights button").first().boundingBox())!;

@@ -13275,6 +13275,97 @@ button.stat-card:hover {
   gap: 8px;
 }
 
+@media (max-width: 900px) {
+  .authenticated-app-shell .history-workspace.content-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .authenticated-app-shell .history-workspace .wine-list,
+  .authenticated-app-shell .history-workspace .wine-list > *,
+  .authenticated-app-shell .history-workspace .stats-panel-wrapper,
+  .authenticated-app-shell .history-workspace .collection-filter-dock,
+  .authenticated-app-shell .history-workspace .filter-panel,
+  .authenticated-app-shell .history-workspace .tasting-archive-list,
+  .authenticated-app-shell .history-workspace .tasting-archive-entry {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .authenticated-app-shell .history-workspace .stats-panel-wrapper,
+  .authenticated-app-shell .history-workspace .filter-panel {
+    padding: 10px;
+  }
+
+  .authenticated-app-shell .history-workspace .history-section-tabs {
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .authenticated-app-shell .history-workspace .history-section-tabs button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 6px;
+    font-size: .78rem;
+    white-space: normal;
+  }
+
+  .authenticated-app-shell .history-workspace .record-tasting-origin,
+  .authenticated-app-shell .history-workspace .record-tasting-origin select {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .authenticated-app-shell .history-workspace .stats-panel {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  .authenticated-app-shell .history-workspace .stat-card {
+    min-width: 0;
+    gap: 3px;
+    padding: 9px 10px;
+    overflow-wrap: anywhere;
+  }
+
+  .authenticated-app-shell .history-workspace .stat-card span {
+    font-size: .62rem;
+    line-height: 1.25;
+  }
+
+  .authenticated-app-shell .history-workspace .pagination-bar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+  }
+
+  .authenticated-app-shell .history-workspace .pagination-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: min(210px, 100%);
+  }
+
+  .authenticated-app-shell .history-workspace .pagination-actions button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 8px;
+  }
+
+  .authenticated-app-shell .history-workspace .tasting-archive-summary {
+    min-width: 0;
+    max-width: 100%;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    white-space: normal;
+  }
+
+  .authenticated-app-shell .history-workspace .tasting-archive-summary > * {
+    max-width: 100%;
+  }
+}
+
 .tasting-archive-entry {
   display: grid;
   gap: 8px;
