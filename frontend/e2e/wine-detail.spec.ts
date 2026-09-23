@@ -690,6 +690,37 @@ for (const theme of ["atelier", "private-cellar", "midnight-ledger"]) {
   });
 }
 
+for (const width of [360, 390, 430, 1440]) {
+  test(`collector atlas exposes its visual scenes ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 844 });
+    await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    if (width < 900) await page.getByRole("tab", { name: "Collezione", exact: true }).click();
+    const atlas = page.getByRole("region", { name: "Atlante della collezione" });
+    await atlas.scrollIntoViewIfNeeded();
+    await expect(atlas.locator(".geographic-map-card")).toBeVisible();
+    await expect(page.locator(".collector-explore")).not.toHaveAttribute("open", "");
+    for (const label of ["Maturità", "Valore", "Origini"]) {
+      const tab = atlas.getByRole("tab", { name: label, exact: true });
+      await tab.click();
+      await expect(tab).toHaveAttribute("aria-selected", "true");
+      await expect(atlas.getByRole("tabpanel")).toBeVisible();
+      if (label === "Valore") await expect(atlas.locator(".collector-ranking-card")).toHaveCount(2);
+      if (label === "Maturità") await expect(atlas.locator(".maturity-heatmap-card")).toBeVisible();
+      const bounds = (await atlas.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (width === 390 || width === 1440) await atlas.screenshot({ path: testInfo.outputPath(`atlas-${label}-${width}.png`) });
+    }
+    await atlas.getByRole("tab", { name: "Origini", exact: true }).focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(atlas.getByRole("tab", { name: "Maturità", exact: true })).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(atlas.getByRole("tabpanel")).toBeFocused();
+  });
+}
+
 test("shows contextual KPIs for every dashboard insight", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page);
@@ -1518,14 +1549,16 @@ for (const width of [360, 390, 430, 1440]) {
       await page.locator(".collector-composition > summary").click();
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: testInfo.outputPath(`collector-collection-${width}.png`), fullPage: true });
-      await page.locator(".collector-explore > summary").click();
-      await expect(page.locator(".collector-explore .geographic-map-card")).toBeVisible();
+      await page.locator(".collector-atlas").getByRole("tab", { name: "Origini", exact: true }).click();
+      await expect(page.locator(".collector-atlas .geographic-map-card")).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       await tabs.getByRole("tab", { name: "Collezione", exact: true }).focus();
       await page.keyboard.press("Home");
       await expect(tabs.getByRole("tab", { name: "Vini", exact: true })).toBeFocused();
       await expect(tabs.getByRole("tab", { name: "Vini", exact: true })).toHaveAttribute("aria-selected", "true");
       await page.evaluate(() => window.scrollTo(0, 0));
+      // Returning from a lower section can leave the pointer over the first wine.
+      await page.mouse.move(0, 0);
       if (width === 390) await expect(page).toHaveScreenshot("collector-compact.png", { fullPage: true });
       await mobile.getByRole("button", { name: /Nebbiolo di Test/ }).first().click();
       await expect(page.getByRole("dialog")).toContainText("Dati datati insufficienti");
@@ -1608,8 +1641,8 @@ for (const width of [360, 390, 430, 1440]) {
     expect(title!.y + title!.height).toBeLessThanOrEqual(metrics!.y);
     await page.evaluate(() => window.scrollTo(0, 0));
     await page.screenshot({ path: testInfo.outputPath(`collector-${width}.png`), fullPage: true });
-    await page.locator(".collector-explore > summary").click();
-    await expect(page.locator(".collector-explore .geographic-map-card")).toBeVisible();
+    await page.locator(".collector-atlas").getByRole("tab", { name: "Origini", exact: true }).click();
+    await expect(page.locator(".collector-atlas .geographic-map-card")).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`collector-expanded-${width}.png`), fullPage: true });
     if (width === 1440) {

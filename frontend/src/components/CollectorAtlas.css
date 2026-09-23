@@ -1,0 +1,24 @@
+.collector-atlas { min-width: 0; border-top: 1px solid var(--editorial-rule); padding-top: 20px; }
+.collector-atlas > header { display: flex; justify-content: space-between; align-items: end; gap: 16px; margin-bottom: 16px; }
+.collector-atlas .eyebrow { font-size: .65rem; letter-spacing: .12em; color: var(--accent); }
+.collector-atlas h2 { margin: 4px 0; font: normal 1.65rem/1.2 Georgia, serif; }
+.collector-atlas header p { margin: 0; color: var(--text-muted); font-size: .8rem; }
+.authenticated-app-shell .collector-atlas [role="tablist"] { display: flex; gap: 6px; border-bottom: 1px solid var(--editorial-rule); }
+.authenticated-app-shell .collector-atlas [role="tab"] { min-height: 44px; padding: 8px 16px; border: 0; border-bottom: 2px solid transparent; border-radius: 0; background: transparent; color: var(--text-muted); box-shadow: none; font-weight: 500; }
+.authenticated-app-shell .collector-atlas [role="tab"][aria-selected="true"] { border-bottom-color: var(--primary); color: var(--text); }
+.collector-atlas-scene { min-width: 0; background: var(--editorial-paper); border-top: 1px solid color-mix(in srgb, var(--accent) 35%, var(--surface)); }
+.authenticated-app-shell .collector-atlas-scene > .dashboard-card { width: 100%; min-width: 0; margin: 0; border: 0; border-radius: 0; box-shadow: none; background: transparent; }
+.collector-atlas-values { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.collector-atlas-values > .dashboard-card { min-width: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+@media (max-width: 900px) {
+  [data-mobile-view="wines"] .collector-atlas, [data-mobile-view="priorities"] .collector-atlas { display: none; }
+  .collector-atlas > header { display: grid; gap: 12px; }
+  .collector-atlas h2 { font-size: 1.35rem; }
+  .authenticated-app-shell .collector-atlas [role="tablist"] { width: 100%; }
+  .authenticated-app-shell .collector-atlas [role="tab"] { flex: 1; min-width: 0; padding-inline: 8px; }
+  .collector-atlas-values { grid-template-columns: minmax(0, 1fr); }
+}
+
+.home-dashboard-editorial .collector-atlas-scene .card-heading h2 { font: normal 1.35rem/1.2 Georgia, serif; }
+.home-dashboard-editorial .collector-atlas-scene .card-heading span { font-size: .65rem; font-weight: 500; letter-spacing: .08em; }
+.home-dashboard-editorial .collector-atlas .eyebrow { font-weight: 500; }

@@ -27,6 +27,7 @@ import type { WishlistLiveTasteScan } from "./components/WishlistLiveTasteScanne
 import { useChartReveal } from "./components/chartMotion";
 import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
+import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
 import { featuredValue } from "./domain/featuredValue";
 import { CollectorOverview } from "./components/CollectorOverview";
@@ -10780,7 +10781,55 @@ export function App() {
 
                 </CollectorCardGroup>
                 <CollectorOverview wines={cellarWines} locale={locale} now={now} refreshDays={valueRefreshDaysNumber} onOpen={openWineFromDashboard} />
-                <details className="collector-explore"><summary>{locale === "it" ? "Esplora la collezione: vini, maturità e origini" : "Explore the collection: wines, maturity and origins"}</summary><section className="dashboard-grid">
+                <CollectorAtlas locale={locale} origins={<>
+                <article className="dashboard-card wide-card geographic-map-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("geographicMap")}</span>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("wineOrigins")}</h2>
+                    </div>
+                  </div>
+                  <DeferredWineGeographyMap wines={cellarWines} t={t} onSelectRegion={openCellarForRegion} locale={locale} />
+                </article>
+
+
+                </>} maturity={renderMaturityHeatmapCard()} value={<div className="collector-atlas-values">
+                <article className="dashboard-card collector-ranking-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("investedMore")}</span>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("topRegions")}</h2>
+                    </div>
+                  </div>
+                  <div className="bar-list">
+                    {valueByRegion.map((item) => (
+                      <div className="bar-row" key={item.label}>
+                        <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                <article className="dashboard-card collector-ranking-card">
+                  <div className="card-heading">
+                    <div>
+                      <span>{t("valueByProducer")}</span>
+                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("producer")}</i>{t("producer")}</h2>
+                    </div>
+                  </div>
+                  <div className="bar-list">
+                    {valueByProducer.map((item) => (
+                      <div className="bar-row" key={item.label}>
+                        <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
+                        <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
+                      </div>
+                    ))}
+                  </div>
+                </article>
+
+                </div>} />
+                <details className="collector-explore"><summary>{locale === "it" ? "Altri dettagli: scadenze, consegne e qualità dei dati" : "More details: deadlines, deliveries and data quality"}</summary><section className="dashboard-grid">
                 <article className="dashboard-card">
                   <div className="card-heading">
                     <div>
@@ -10855,51 +10904,6 @@ export function App() {
 
                 {renderRegionalGapCard(true)}
 
-                <article className="dashboard-card wide-card geographic-map-card">
-                  <div className="card-heading">
-                    <div>
-                      <span>{t("geographicMap")}</span>
-                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("wineOrigins")}</h2>
-                    </div>
-                  </div>
-                  <DeferredWineGeographyMap wines={cellarWines} t={t} onSelectRegion={openCellarForRegion} locale={locale} />
-                </article>
-
-                {renderMaturityHeatmapCard()}
-
-                <article className="dashboard-card collector-ranking-card">
-                  <div className="card-heading">
-                    <div>
-                      <span>{t("investedMore")}</span>
-                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("regions")}</i>{t("topRegions")}</h2>
-                    </div>
-                  </div>
-                  <div className="bar-list">
-                    {valueByRegion.map((item) => (
-                      <div className="bar-row" key={item.label}>
-                        <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
-                        <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxRegionValue) * 100, 5)}%` }} /></div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
-
-                <article className="dashboard-card collector-ranking-card">
-                  <div className="card-heading">
-                    <div>
-                      <span>{t("valueByProducer")}</span>
-                      <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("producer")}</i>{t("producer")}</h2>
-                    </div>
-                  </div>
-                  <div className="bar-list">
-                    {valueByProducer.map((item) => (
-                      <div className="bar-row" key={item.label}>
-                        <div><span>{item.label}</span><strong>{formatMoney(item.value, "CHF", locale)}</strong></div>
-                        <div className="bar-track"><span style={{ width: `${Math.max((item.value / maxProducerValue) * 100, 5)}%` }} /></div>
-                      </div>
-                    ))}
-                  </div>
-                </article>
               </section></details></CollectorDashboard>
               ) : null}
 
