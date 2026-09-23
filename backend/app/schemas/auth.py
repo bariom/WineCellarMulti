@@ -137,5 +137,5 @@ class UserPreferencesUpdate(BaseModel):
     daily_wine_budget_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     theme_preference: str | None = Field(
         default=None,
-        pattern="^(system|light|dark|private-cellar|sepia|white-wine|red-wine|rose-wine|champagne|bordeaux|burgundy|tuscany|piedmont|ticino|atelier|midnight-ledger)$",
+        pattern="^(system|light|dark|private-cellar|sepia|white-wine|red-wine|rose-wine|champagne|bordeaux|burgundy|tuscany|piedmont|ticino|atelier|midnight-ledger|maison-champagne|pietra-vigna|cave-privee)$",
     )

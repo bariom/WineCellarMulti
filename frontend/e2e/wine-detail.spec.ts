@@ -709,12 +709,26 @@ for (const width of [360, 390, 430]) {
   });
 }
 
+for (const theme of ["maison-champagne", "pietra-vigna", "cave-privee"]) {
+  for (const width of [360, 430, 1440]) {
+    test(`premium theme ${theme} fits ${width}`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: width === 360 ? 800 : 932 });
+      await mockApi(page, [], false, memberships, [wine], { ...session, theme_preference: theme });
+      await page.goto("/");
+      await expect(page.locator(".home-dashboard")).toBeVisible();
+      await expect(page.locator("html")).toHaveAttribute("data-theme", theme);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`premium-${theme}-${width}.png`), animations: "disabled" });
+    });
+  }
+}
+
 test("editorial surfaces respect every user theme", async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "daily" });
   await page.goto("/");
   await expect(page.locator(".daily-picks-card")).toBeVisible();
-  for (const theme of ["light", "dark", "private-cellar", "sepia", "white-wine", "red-wine", "rose-wine", "champagne", "bordeaux", "burgundy", "tuscany", "piedmont", "ticino", "atelier", "midnight-ledger"]) {
+  for (const theme of ["light", "dark", "private-cellar", "sepia", "white-wine", "red-wine", "rose-wine", "champagne", "bordeaux", "burgundy", "tuscany", "piedmont", "ticino", "atelier", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
     await page.evaluate((selected) => document.documentElement.setAttribute("data-theme", selected), theme);
     await expect(page.locator(".authenticated-app-shell")).toHaveCSS("background-image", "none");
     // Theme changes animate surfaces; compare their settled colors.
@@ -733,7 +747,7 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
   }
 });
 
-for (const theme of ["atelier", "private-cellar", "midnight-ledger"]) {
+for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
   test(`collector editorial hierarchy in ${theme}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });

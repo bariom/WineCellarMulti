@@ -5182,7 +5182,8 @@ textarea {
 :root[data-theme="ticino"] .tag-choice-list label,
 :root[data-theme="ticino"] .grapes-list label,
 :root[data-theme="midnight-ledger"] .tag-choice-list label,
-:root[data-theme="midnight-ledger"] .grapes-list label {
+:root[data-theme="midnight-ledger"] .grapes-list label,
+:root[data-theme="cave-privee"] .grapes-list label {
   background: var(--surface-raised);
   border-color: var(--border-strong);
   color: var(--text);
@@ -5199,7 +5200,8 @@ textarea {
 :root[data-theme="ticino"] .tag-choice-list label span,
 :root[data-theme="ticino"] .grapes-list label span,
 :root[data-theme="midnight-ledger"] .tag-choice-list label span,
-:root[data-theme="midnight-ledger"] .grapes-list label span {
+:root[data-theme="midnight-ledger"] .grapes-list label span,
+:root[data-theme="cave-privee"] .grapes-list label span {
   color: var(--text);
 }
 
@@ -5214,7 +5216,8 @@ textarea {
 :root[data-theme="ticino"] .tag-choice-list label.selected-filter-chip,
 :root[data-theme="ticino"] .grapes-list label.selected-filter-chip,
 :root[data-theme="midnight-ledger"] .tag-choice-list label.selected-filter-chip,
-:root[data-theme="midnight-ledger"] .grapes-list label.selected-filter-chip {
+:root[data-theme="midnight-ledger"] .grapes-list label.selected-filter-chip,
+:root[data-theme="cave-privee"] .grapes-list label.selected-filter-chip {
   background: color-mix(in srgb, var(--primary) 22%, var(--surface-raised));
   border-color: color-mix(in srgb, var(--primary) 52%, var(--border-strong));
 }
@@ -10670,7 +10673,8 @@ button.stat-card:hover {
 :root[data-theme="bordeaux"] .stat-card,
 :root[data-theme="burgundy"] .stat-card,
 :root[data-theme="ticino"] .stat-card,
-:root[data-theme="midnight-ledger"] .stat-card {
+:root[data-theme="midnight-ledger"] .stat-card,
+:root[data-theme="cave-privee"] .stat-card {
   background: linear-gradient(180deg, var(--surface-raised) 0%, var(--surface) 100%);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text) 4%, transparent);
 }
@@ -10692,7 +10696,8 @@ button.stat-card:hover {
 :root[data-theme="bordeaux"] .compact-list p,
 :root[data-theme="burgundy"] .compact-list p,
 :root[data-theme="ticino"] .compact-list p,
-:root[data-theme="midnight-ledger"] .compact-list p {
+:root[data-theme="midnight-ledger"] .compact-list p,
+:root[data-theme="cave-privee"] .compact-list p {
   color: var(--text-muted);
 }
 
@@ -15607,7 +15612,8 @@ textarea {
 :root[data-theme="burgundy"],
 :root[data-theme="piedmont"],
 :root[data-theme="ticino"],
-:root[data-theme="midnight-ledger"] {
+:root[data-theme="midnight-ledger"],
+:root[data-theme="cave-privee"] {
   --financial-text: #fff3dc;
   --wine-row-aura-radius: 3px;
   --wine-detail-aura-radius: 8px;
@@ -20596,7 +20602,8 @@ tbody tr:hover {
 :root[data-theme="burgundy"] .detail-bottle-photo img,
 :root[data-theme="piedmont"] .detail-bottle-photo img,
 :root[data-theme="ticino"] .detail-bottle-photo img,
-:root[data-theme="midnight-ledger"] .detail-bottle-photo img { mix-blend-mode: normal; }
+:root[data-theme="midnight-ledger"] .detail-bottle-photo img,
+:root[data-theme="cave-privee"] .detail-bottle-photo img { mix-blend-mode: normal; }
 
 /* Wine detail: editorial hierarchy with quieter supporting surfaces. */
 .wine-detail .detail-hero {
@@ -28557,3 +28564,151 @@ body,
 .taste-profile-external-tasting-list li { display: grid; gap: .12rem; padding: .45rem .55rem; border: 1px solid var(--border); border-radius: .5rem; background: var(--surface); }
 .taste-profile-external-tasting-list strong { font-size: .82rem; }
 .taste-profile-external-tasting-list small { color: var(--muted); line-height: 1.35; }
+
+/* Premium editions: complete semantic palettes, shared compact geometry. */
+:root[data-theme="maison-champagne"] {
+  color-scheme: light;
+  --page: #f7f4ed;
+  --surface: #fffcf6;
+  --surface-raised: #fffdf9;
+  --surface-muted: #f2eee4;
+  --surface-subtle: #e9e3d6;
+  --text: #282823;
+  --text-muted: #655f52;
+  --text-soft: #70664f;
+  --border: #ddd6c8;
+  --border-strong: #bfb299;
+  --primary: #625036;
+  --primary-contrast: #fffcf6;
+  --secondary: #ece5d7;
+  --accent: #9a753d;
+  --drink-young: #b39349;
+  --drink-ideal: #657e57;
+  --drink-past: #ac5562;
+  --bar-muted: var(--surface-subtle);
+  --chart-bar-start: var(--drink-ideal);
+  --chart-bar-end: var(--accent);
+  --maturity-bar-start: var(--drink-ideal);
+  --maturity-bar-end: var(--drink-young);
+  --financial-text: var(--text);
+  --icon-ai: #805881;
+  --danger: #a34c58;
+  --danger-text: #7e2937;
+  --danger-surface: #faedf0;
+  --success-surface: #eaf0e6;
+  --collector-sheen: rgba(255,255,255,.45);
+  --collector-depth: rgba(35,40,30,.04);
+  --collector-edge: color-mix(in srgb, var(--accent) 24%, transparent);
+  --collector-glow: color-mix(in srgb, var(--accent) 5%, transparent);
+  --focus: color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-soft: 0 6px 18px var(--collector-depth);
+  --shadow-premium: 0 12px 28px var(--collector-depth);
+  --luxury-ink-shadow: none;
+  --hero-bg: linear-gradient(125deg, var(--surface), var(--surface-muted));
+}
+
+:root[data-theme="pietra-vigna"] {
+  color-scheme: light;
+  --page: #eeeee7;
+  --surface: #f8f8f2;
+  --surface-raised: #fbfbf6;
+  --surface-muted: #e8ebe2;
+  --surface-subtle: #dce2d6;
+  --text: #243a33;
+  --text-muted: #536458;
+  --text-soft: #61705c;
+  --border: #cdd5c9;
+  --border-strong: #a7b6a5;
+  --primary: #2f5143;
+  --primary-contrast: #f8f8f2;
+  --secondary: #e1e7dc;
+  --accent: #a26048;
+  --drink-young: #b08a39;
+  --drink-ideal: #4a795f;
+  --drink-past: #a54e57;
+  --bar-muted: var(--surface-subtle);
+  --chart-bar-start: var(--drink-ideal);
+  --chart-bar-end: var(--accent);
+  --maturity-bar-start: var(--drink-ideal);
+  --maturity-bar-end: var(--drink-young);
+  --financial-text: var(--text);
+  --icon-ai: #805881;
+  --danger: #a34c58;
+  --danger-text: #7e2937;
+  --danger-surface: #faedf0;
+  --success-surface: #eaf0e6;
+  --collector-sheen: rgba(255,255,255,.45);
+  --collector-depth: rgba(35,40,30,.04);
+  --collector-edge: color-mix(in srgb, var(--accent) 24%, transparent);
+  --collector-glow: color-mix(in srgb, var(--accent) 5%, transparent);
+  --focus: color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-soft: 0 6px 18px var(--collector-depth);
+  --shadow-premium: 0 12px 28px var(--collector-depth);
+  --luxury-ink-shadow: none;
+  --hero-bg: linear-gradient(125deg, var(--surface), var(--surface-muted));
+}
+
+:root[data-theme="cave-privee"] {
+  color-scheme: dark;
+  --page: #191b1a;
+  --surface: #232725;
+  --surface-raised: #292e2b;
+  --surface-muted: #272c29;
+  --surface-subtle: #323934;
+  --text: #eee8dc;
+  --text-muted: #bdbdaf;
+  --text-soft: #afb4a5;
+  --border: #414a43;
+  --border-strong: #647064;
+  --primary: #c5aa76;
+  --primary-contrast: #191b1a;
+  --secondary: #323a34;
+  --accent: #c5aa76;
+  --drink-young: #c8ac70;
+  --drink-ideal: #91b49a;
+  --drink-past: #d68788;
+  --bar-muted: var(--surface-subtle);
+  --chart-bar-start: var(--drink-ideal);
+  --chart-bar-end: var(--accent);
+  --maturity-bar-start: var(--drink-ideal);
+  --maturity-bar-end: var(--drink-young);
+  --financial-text: var(--text);
+  --icon-ai: #c9a7cb;
+  --danger: #d68788;
+  --danger-text: #f2c4c6;
+  --danger-surface: #3a272b;
+  --success-surface: #283b30;
+  --collector-sheen: rgba(255,255,255,.04);
+  --collector-depth: rgba(0,0,0,.18);
+  --collector-edge: color-mix(in srgb, var(--accent) 24%, transparent);
+  --collector-glow: color-mix(in srgb, var(--accent) 5%, transparent);
+  --focus: color-mix(in srgb, var(--primary) 45%, transparent);
+  --shadow-soft: 0 6px 18px var(--collector-depth);
+  --shadow-premium: 0 12px 28px var(--collector-depth);
+  --luxury-ink-shadow: none;
+  --hero-bg: linear-gradient(125deg, var(--surface), var(--surface-muted));
+}
+
+/* A restrained masthead replaces the legacy burgundy gradient in these editions. */
+:root[data-theme="maison-champagne"] { --edition-masthead: #38342c; }
+:root[data-theme="pietra-vigna"] { --edition-masthead: #243a33; }
+:root[data-theme="cave-privee"] { --edition-masthead: #181d1a; }
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell .topbar {
+  background: var(--edition-masthead);
+  border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--edition-masthead));
+  color: #fffaf0;
+  box-shadow: 0 3px 12px var(--collector-depth);
+}
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell .topbar :is(h1, .topbar-brand .eyebrow) { color: #fffaf0; }
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .mobile-bottom-navigation .mobile-bottom-navigation-add {
+  color: var(--primary-contrast);
+  background: var(--primary);
+  box-shadow: 0 5px 14px var(--collector-depth);
+}
+
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell .view-tabs button:not(.secondary) {
+  color: var(--primary-contrast);
+  background: var(--primary);
+  --icon-primary: var(--primary-contrast);
+  --icon-secondary: var(--primary-contrast);
+}

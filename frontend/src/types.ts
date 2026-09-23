@@ -1408,7 +1408,10 @@ export type ThemePreference =
   | "piedmont"
   | "ticino"
   | "atelier"
-  | "midnight-ledger";
+  | "midnight-ledger"
+  | "maison-champagne"
+  | "pietra-vigna"
+  | "cave-privee";
 
 export type TastingArchiveEntry = {
   id: string;

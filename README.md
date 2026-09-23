@@ -489,3 +489,7 @@ hostname -I
 - `POST /api/v1/ai/buying-advice`
 
 The current auth flow uses email/password registration, HTTP-only session cookies, and one active household per session. Legacy JSON import is scoped to the active household and requires an owner/admin role.
+
+Three additional premium themes are available in Settings > Theme: Maison Champagne
+(warm ivory), Pietra & Vigna (mineral white and pine), and Cave Privée (dark ink and
+champagne). They share the compact editorial layout and persist per user.
