@@ -54,6 +54,8 @@ const seoContent = {
     title: "Cantina vino digitale per collezionisti e sommelier",
     body: "Vinaris è una cantina digitale privata per organizzare bottiglie, annate, produttori, valore e finestre di beva. È pensata per chi cerca un wine cellar moderno, per il collezionista e per chi vuole un sommelier AI che conosca davvero i vini presenti in cantina.",
     regionsTitle: "Regioni vinicole e denominazioni",
+    mapAlt: "Mappa reale delle regioni dei vini nella cantina demo Vinaris",
+    mapCaption: "Le regioni della cantina demo, a colpo d’occhio.",
     regionsBody: "Organizza la tua collezione per regione produttrice e scopri l’equilibrio della cantina tra grandi classici italiani e internazionali.",
     regions: ["Ticino", "Piemonte", "Toscana", "Veneto", "Borgogna", "Bordeaux", "Champagne", "Rodano", "Rioja", "Napa Valley"],
     faqTitle: "Domande frequenti su Vinaris",
@@ -68,6 +70,8 @@ const seoContent = {
     title: "Digital wine cellar for collectors and sommeliers",
     body: "Vinaris is a private digital wine cellar for organising bottles, vintages, producers, value, and drinking windows. It is built for collectors and for anyone who wants an AI sommelier that understands the wines in their own cellar.",
     regionsTitle: "Wine regions and classic appellations",
+    mapAlt: "Real map of the wine regions in the Vinaris demo cellar",
+    mapCaption: "The demo cellar’s wine regions, at a glance.",
     regionsBody: "Organise your collection by producing region and understand the balance between classic Italian and international wines.",
     regions: ["Ticino", "Piedmont", "Tuscany", "Veneto", "Burgundy", "Bordeaux", "Champagne", "Rhône", "Rioja", "Napa Valley"],
     faqTitle: "Frequently asked questions about Vinaris",
@@ -104,8 +108,7 @@ export default function PublicLanding({
   const seo = seoContent[locale];
   const desktopDemoImage = locale === "it" ? "/landing/vinaris-demo-desktop-it.png" : "/landing/vinaris-demo-desktop-en.png";
   const mobileDemoImage = locale === "it" ? "/landing/vinaris-demo-mobile-it.png" : "/landing/vinaris-demo-mobile-en.png";
-  const desktopDemoSize = locale === "it" ? { width: 1675, height: 938 } : { width: 1668, height: 936 };
-  const mobileDemoSize = locale === "it" ? { width: 361, height: 782 } : { width: 363, height: 783 };
+  const mobileDemoSize = { width: 390, height: 844 };
   const openingLabel = locale === "it" ? "Apertura…" : "Opening…";
 
   useEffect(() => {
@@ -169,12 +172,12 @@ export default function PublicLanding({
             <h1 id="marketing-title">{copy.hero.title}</h1>
             <p className="marketing-hero-lead">{copy.hero.lead}</p>
             <div className="marketing-actions">
-              <button type="button" className="marketing-button primary" onClick={onRegister}>{copy.hero.primary}</button>
-              <a className="marketing-button secondary" href="#product">{copy.hero.secondary}</a>
-              <button type="button" className="marketing-button secondary marketing-demo-button" onClick={onDemo} disabled={demoLoading}>
-                <span aria-hidden="true">↗</span>{demoLoading ? openingLabel : copy.hero.demo}
+              <button type="button" className="marketing-button primary" onClick={onDemo} disabled={demoLoading} aria-describedby="demo-note">
+                {demoLoading ? openingLabel : copy.hero.demo}
               </button>
             </div>
+            <p id="demo-note" className="marketing-demo-note">{copy.hero.demoNote}</p>
+            <button type="button" className="marketing-register-link" onClick={onRegister}>{copy.hero.primary} →</button>
             <div className="marketing-hero-proof">
               <span><i />{dynamicCopy.hero.signal}</span>
               <span>{dynamicCopy.hero.web}</span>
@@ -182,15 +185,16 @@ export default function PublicLanding({
           </div>
           <figure data-reveal className="marketing-hero-product marketing-real-product">
             <picture>
+              <source media="(max-width: 600px)" srcSet={`/landing/demo-drink-mobile-${locale}.png`} width={330} height={257} />
               <img
-                src={desktopDemoImage}
-                alt={copy.origin.desktopAlt}
-                width={desktopDemoSize.width}
-                height={desktopDemoSize.height}
+                src={`/landing/demo-drink-desktop-${locale}.png`}
+                alt={copy.hero.previewAlt}
+                width={1144}
+                height={locale === "it" ? 733 : 732}
                 fetchPriority="high"
               />
             </picture>
-            <figcaption><span>{copy.origin.demoLabel}</span><strong>{copy.origin.desktopCaption}</strong></figcaption>
+            <figcaption><span>{copy.origin.demoLabel}</span><strong>{copy.hero.previewCaption}</strong></figcaption>
           </figure>
         </section>
 
@@ -268,6 +272,10 @@ export default function PublicLanding({
             <h2 id="seo-title">{seo.title}</h2>
             <p>{seo.body}</p>
           </div>
+          <figure className="marketing-regions-preview">
+            <img src={`/landing/demo-regions-${locale}.png`} alt={seo.mapAlt} width={760} height={361} loading="lazy" />
+            <figcaption><span>{copy.origin.demoLabel}</span>{seo.mapCaption}</figcaption>
+          </figure>
           <div className="marketing-seo-regions">
             <h3>{seo.regionsTitle}</h3>
             <p>{seo.regionsBody}</p>
@@ -285,8 +293,8 @@ export default function PublicLanding({
             <h2>{copy.closing.title}</h2>
             <p>{copy.closing.body}</p>
             <div className="marketing-actions">
-              <button type="button" className="marketing-button primary" onClick={onRegister}>{copy.closing.primary}</button>
-              <button type="button" className="marketing-button secondary" onClick={onDemo} disabled={demoLoading}>{demoLoading ? openingLabel : copy.closing.demo}</button>
+              <button type="button" className="marketing-button primary" onClick={onDemo} disabled={demoLoading}>{demoLoading ? openingLabel : copy.closing.demo}</button>
+              <button type="button" className="marketing-button secondary" onClick={onRegister}>{copy.closing.primary}</button>
             </div>
           </div>
           <aside aria-label={copy.nav.pricing}>

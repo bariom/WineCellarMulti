@@ -10,6 +10,9 @@ export type LandingCopy = {
     primary: string;
     secondary: string;
     demo: string;
+    demoNote: string;
+    previewCaption: string;
+    previewAlt: string;
     signal: string;
     web: string;
   };
@@ -99,14 +102,17 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     nav: { product: "Prodotto", maturity: "Finestra di beva", sommelier: "Sommelier", insights: "Analisi", pricing: "Accesso" },
     header: { login: "Accedi", register: "Inizia", menu: "Apri menu", close: "Chiudi menu", language: "Lingua" },
     hero: {
-      eyebrow: "Private Cellar Intelligence",
-      title: "Il vino giusto. Al momento giusto.",
-      lead: "Gestisci la cantina, segui la maturità di ogni bottiglia e ricevi indicazioni costruite sui vini che possiedi davvero.",
+      eyebrow: "L’app per i vini che possiedi",
+      title: "Quale vino apri stasera?",
+      lead: "Organizza la tua cantina, scopri quali bottiglie sono pronte e quali lasciare riposare. Parti da una cantina già pronta da esplorare.",
       primary: "Crea la tua cantina",
       secondary: "Scopri come funziona",
-      demo: "Esplora la cantina demo",
+      demo: "Prova la cantina demo",
+      demoNote: "Senza registrazione · Cantina dimostrativa in sola lettura",
+      previewCaption: "Dalla demo: i vini da bere oggi",
+      previewAlt: "Schermata reale della demo Vinaris: selezione di vini pronti da bere con finestre di beva",
       signal: "Gratis con tutte le funzioni private fino a 15 etichette attive",
-      web: "Web app privata · piano gratuito disponibile",
+      web: "Dal browser, anche sul telefono",
     },
     value: [
       { title: "Trova ogni bottiglia", body: "Ricerca, filtri, fotografie, formati e posizione: la collezione resta leggibile mentre cresce." },
@@ -197,7 +203,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       title: "La collezione esiste già. Vinaris ti aiuta a comprenderla.",
       body: "Costruisci un archivio privato che accompagna acquisti, attese, aperture e memoria nel tempo.",
       primary: "Inizia con Degustazione",
-      demo: "Guarda la cantina demo",
+      demo: "Prova la cantina demo",
       tiers: [
         { label: "Piano gratuito", name: "Degustazione", body: "Tutte le funzioni private, fino a 15 etichette attive.", note: "Le funzioni AI si usano con un AI Pack." },
         { label: "Per collezionisti", name: "Riserva", body: "Per collezioni oltre 15 etichette attive e per chi desidera ancora più libertà.", note: "AI Pack o chiave OpenAI personale inclusi." },
@@ -211,14 +217,17 @@ export const landingCopy: Record<Locale, LandingCopy> = {
     nav: { product: "Product", maturity: "Drinking window", sommelier: "Sommelier", insights: "Insights", pricing: "Access" },
     header: { login: "Log in", register: "Get started", menu: "Open menu", close: "Close menu", language: "Language" },
     hero: {
-      eyebrow: "Private Cellar Intelligence",
+      eyebrow: "The app for the wines you own",
       title: "Know what to drink. Know what to keep.",
-      lead: "Manage your cellar, follow every bottle’s maturity, and get intelligent recommendations based on the wines you actually own.",
+      lead: "Organise your cellar, discover which bottles are ready and which to keep. Start by exploring a cellar that is already stocked.",
       primary: "Build your cellar",
       secondary: "See how it works",
-      demo: "Explore the demo cellar",
+      demo: "Try the demo cellar",
+      demoNote: "No sign-up · Read-only demo cellar",
+      previewCaption: "From the demo: wines to drink today",
+      previewAlt: "Real Vinaris demo screenshot: wines ready to drink with their drinking windows",
       signal: "Free with every private feature for up to 15 active labels",
-      web: "Private web app · free tier available",
+      web: "In your browser, on your phone too",
     },
     value: [
       { title: "Find every bottle", body: "Search, filters, photographs, formats, and location keep the collection readable as it grows." },
@@ -309,7 +318,7 @@ export const landingCopy: Record<Locale, LandingCopy> = {
       title: "Your cellar already has a story. Vinaris helps you understand it.",
       body: "Build a private archive that supports purchases, patience, openings, and memory over time.",
       primary: "Start with Tasting",
-      demo: "View the demo cellar",
+      demo: "Try the demo cellar",
       tiers: [
         { label: "Free plan", name: "Tasting", body: "Every private feature, for up to 15 active labels.", note: "AI features use an AI Pack." },
         { label: "For collectors", name: "Reserve", body: "For collections over 15 active labels and those who want more freedom.", note: "Use an AI Pack or a personal OpenAI key." },
