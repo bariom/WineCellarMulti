@@ -1,7 +1,9 @@
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.schemas.dashboard import DashboardWidgetPreference
 
 
 class RegisterRequest(BaseModel):
@@ -132,8 +134,21 @@ class UserPreferencesUpdate(BaseModel):
     locale: str | None = Field(default=None, pattern="^(en|it)$")
     dashboard_focus: str | None = Field(
         default=None,
-        pattern="^(collector|daily|balanced)$",
+        pattern="^(collector|daily|balanced|personal)$",
     )
+    personal_dashboard_widgets: list[DashboardWidgetPreference] | None = Field(
+        default=None, max_length=22
+    )
+
+    @field_validator("personal_dashboard_widgets")
+    @classmethod
+    def unique_dashboard_widgets(
+        cls, widgets: list[DashboardWidgetPreference] | None
+    ) -> list[DashboardWidgetPreference] | None:
+        if widgets is not None and len({widget.id for widget in widgets}) != len(widgets):
+            raise ValueError("Dashboard widgets must be unique")
+        return widgets
+
     daily_wine_budget_chf: Decimal | None = Field(default=None, gt=0, le=100000)
     theme_preference: str | None = Field(
         default=None,

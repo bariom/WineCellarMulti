@@ -1,0 +1,84 @@
+.personal-dashboard { display: grid; gap: 24px; min-width: 0; }
+.personal-dashboard-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 18px; }
+.personal-dashboard-header h2 { margin: 6px 0; }
+.personal-dashboard-header p { margin: 6px 0; max-width: 65ch; }
+.personal-dashboard-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.personal-dashboard button, .personal-dashboard select { min-height: 44px; }
+.personal-widget-picker { min-width: 0; margin: 0; padding: 20px; border: 1px solid var(--line, #c9bdab); border-radius: 16px; }
+.personal-widget-picker legend { font-weight: 750; padding: 0 8px; }
+.personal-widget-catalogue { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.personal-widget-catalogue label { display: flex; align-items: start; gap: 12px; padding: 14px; border: 1px solid var(--line, #c9bdab); border-radius: 12px; cursor: pointer; }
+.personal-widget-catalogue input { flex: 0 0 auto; width: 20px; height: 20px; margin: 2px 0; }
+.personal-widget-catalogue span { min-width: 0; }
+.personal-widget-catalogue small { display: block; margin-top: 6px; line-height: 1.5; }
+.personal-widget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.personal-widget { min-width: 0; container-type: inline-size; }
+.personal-widget-full { grid-column: 1 / -1; }
+.personal-widget-toolbar { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line, #c9bdab); border-radius: 12px 12px 0 0; }
+.personal-widget-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
+.personal-widget-toolbar select { max-width: 100%; }
+.personal-widget-toolbar .personal-widget-heading { align-items: center; flex-wrap: nowrap; }
+.personal-widget-heading strong { min-width: 0; overflow-wrap: anywhere; }
+.personal-dashboard .personal-widget-drag-handle { flex: 0 0 44px; width: 44px; padding: 0; font-size: 1.6rem; cursor: grab; touch-action: none; user-select: none; }
+.personal-dashboard .personal-widget-drag-handle:active { cursor: grabbing; }
+.personal-widget.is-dragging { opacity: .55; }
+.personal-widget.is-drop-target { outline: 3px solid var(--primary); outline-offset: 3px; border-radius: 12px; }
+.personal-widget-drag-preview { position: fixed; z-index: 10000; pointer-events: none; width: 240px; box-sizing: border-box; padding: 12px 16px; border: 1px solid var(--primary); border-radius: 12px; background: var(--surface, #fff); color: var(--text, #203830); box-shadow: 0 8px 24px #0003; font-weight: 700; }
+.personal-widget-drag-preview > span { margin-right: 8px; }
+.personal-widget-drag-preview small { display: block; margin-top: 4px; font-weight: 400; }
+.personal-widget-content { min-width: 0; }
+.personal-widget-content > * { min-width: 0; width: 100%; margin-inline: 0; }
+.personal-widget-content .dashboard-card { height: auto; }
+.personal-featured-list { display: grid; gap: 12px; }
+.personal-featured-list > button { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 14px; text-align: left; color: var(--text); background: var(--surface); box-shadow: none; border: 1px solid var(--border); }
+.personal-featured-list > button > span { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.personal-featured-list small { font-weight: 400; color: var(--text-muted); }
+.personal-dashboard .personal-featured-list .key-position-bottle-visual { grid-area: auto; width: 64px; height: 130px; }
+.personal-widget-content .bar-row > div:first-child { flex-wrap: wrap; gap: 8px; }
+.home-dashboard .personal-widget-content .top-value-showcase { display: grid; }
+@container (max-width: 900px) {
+  .personal-widget-content .top-value-showcase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-widget-content .wine-value-constellation { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-content .daily-pick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-widget-content .daily-lower-layout,
+  .personal-widget-content .daily-structured-grid { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-content .balance-indicator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 600px) {
+  .personal-widget-content .top-value-showcase-grid { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-content .top-value-showcase-copy :is(strong, small, em) { white-space: normal; overflow-wrap: anywhere; }
+  .personal-widget-content .daily-pick-grid,
+  .personal-widget-content .daily-lower-layout { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-content .daily-style-heading { flex-direction: column; align-items: start; }
+  .personal-widget-content .daily-style-heading > small { text-align: left; }
+  .personal-widget-content .balance-indicator-grid,
+  .personal-widget-content .balance-tone-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-widget-content .balance-indicator > span { overflow-wrap: anywhere; }
+}
+.home-dashboard-editorial .personal-dashboard .collector-ready-wine .key-position-bottle-visual { grid-area: auto; width: 80px; height: 140px; flex-shrink: 0; }
+@container (max-width: 900px) {
+  .personal-widget-content .taste-profile-premium-hero { grid-template-columns: minmax(0, 1fr); padding: 18px 16px; gap: 16px; }
+  .personal-widget-content .taste-profile-geography-layout,
+  .personal-widget-content .taste-profile-sensory-groups,
+  .personal-widget-content .taste-profile-category-list,
+  .personal-widget-content .taste-profile-category-content { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-content .taste-profile-section-heading { flex-wrap: wrap; }
+}
+@container (max-width: 600px) {
+  .personal-widget-content .collector-summary-grid,
+  .personal-widget-content .collector-priority-grid { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-content .taste-profile-hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-widget-content .taste-profile-hero-copy h3 { font-size: 1.55rem; }
+  .personal-widget-content .taste-profile-evidence-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .personal-widget-content .taste-profile-evidence-summary > div { grid-template-columns: 1fr; }
+  .personal-widget-content .taste-profile-evidence-summary > small { grid-column: 1 / -1; margin: 4px 0 0; }
+}
+@media (max-width: 1000px) {
+  .personal-widget-grid { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-catalogue { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .personal-widget-catalogue { grid-template-columns: minmax(0, 1fr); }
+  .personal-widget-picker { padding: 12px; }
+  .personal-dashboard-header { align-items: start; }
+}

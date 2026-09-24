@@ -1,0 +1,26 @@
+import type { PersonalDashboardWidgetId } from "../types";
+
+export const personalDashboardCatalogue: Array<{ id: PersonalDashboardWidgetId; it: [string, string]; en: [string, string] }> = [
+  { id: "overview", it: ["La cantina in numeri", "Valore, disponibilità e composizione della collezione."], en: ["Cellar overview", "Value, availability and composition of your collection."] },
+  { id: "ready", it: ["Pronti da bere", "Le bottiglie da aprire e le prossime finestre di beva."], en: ["Ready to drink", "Bottles to open and upcoming drinking windows."] },
+  { id: "regions", it: ["Mappa delle regioni", "Le origini dei vini presenti nella tua cantina."], en: ["Region map", "Where the wines in your cellar come from."] },
+  { id: "maturity", it: ["Mappa maturità", "Come evolvono le finestre di beva negli anni."], en: ["Maturity map", "How drinking windows evolve over the years."] },
+  { id: "balance", it: ["Equilibrio regionale", "Distribuzione della cantina e regioni da esplorare."], en: ["Regional balance", "Your cellar distribution and regions to explore."] },
+  { id: "recent", it: ["Ultimi arrivi", "I vini aggiunti più di recente alla collezione."], en: ["Recent arrivals", "The latest additions to your collection."] },
+  { id: "deliveries", it: ["Consegne in arrivo", "Bottiglie attese nei prossimi mesi."], en: ["Upcoming deliveries", "Bottles expected over the coming months."] },
+  { id: "taste", it: ["Il mio gusto", "Preferenze personali e degustazioni."], en: ["My taste", "Personal preferences and tasting experiences."] },
+  { id: "news", it: ["Wine Pulse", "Le ultime notizie dal mondo del vino."], en: ["Wine Pulse", "The latest news from the wine world."] },
+  { id: "featured", it: ["Bottiglie in primo piano", "Le posizioni significative della collezione e le variazioni di valore."], en: ["Featured bottles", "Significant positions and changes in value."] },
+  { id: "top_value", it: ["Le 5 bottiglie più preziose", "Le bottiglie con il valore unitario più alto."], en: ["The 5 most valuable bottles", "Bottles with the highest unit value."] },
+  { id: "value_type", it: ["Valore per tipologia", "Il peso economico dei diversi stili di vino."], en: ["Value by type", "The value of each wine style."] },
+  { id: "value_region", it: ["Valore per regione", "Come si distribuisce il valore tra le regioni."], en: ["Value by region", "Value distributed across regions."] },
+  { id: "value_producer", it: ["Valore per produttore", "I produttori più rappresentati in valore."], en: ["Value by producer", "The producers with the largest share of value."] },
+  { id: "tonight", it: ["Cosa apro stasera?", "Proposte pronte da bere per stile e budget."], en: ["What to open tonight?", "Ready-to-drink suggestions by style and budget."] },
+  { id: "past_window", it: ["Finestre di beva superate", "Vini da verificare perché oltre la finestra indicativa."], en: ["Past drinking windows", "Wines to review beyond their indicative drinking window."] },
+  { id: "to_collect", it: ["Vini da ritirare", "Bottiglie acquistate ancora da recuperare."], en: ["Wines to collect", "Purchased bottles awaiting collection."] },
+  { id: "data_quality", it: ["Qualità dei dati", "Completezza delle informazioni e accesso ai dati mancanti."], en: ["Data quality", "Information completeness and access to missing data."] },
+  { id: "style_balance", it: ["Equilibrio per stile", "Disponibilità, varietà e concentrazione delle tipologie."], en: ["Balance by style", "Availability, variety and concentration of wine styles."] },
+  { id: "collection_value", it: ["Valore della collezione", "Totali per valuta e composizione delle valutazioni."], en: ["Collection value", "Totals by currency and valuation breakdown."] },
+  { id: "availability", it: ["Disponibilità", "Bottiglie presenti e non ancora in cantina."], en: ["Availability", "Bottles in the cellar and those still to arrive."] },
+  { id: "composition", it: ["Maturità e composizione", "Copertura delle finestre, maturità e produttore principale."], en: ["Maturity and composition", "Window coverage, maturity and leading producer."] },
+];

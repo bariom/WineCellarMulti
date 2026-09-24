@@ -2,6 +2,8 @@ from decimal import Decimal
 
 from pydantic import BaseModel
 
+from app.schemas.dashboard import DashboardWidgetPreference
+
 
 class SessionResponse(BaseModel):
     authenticated: bool
@@ -22,6 +24,7 @@ class SessionResponse(BaseModel):
     locale: str = "it"
     theme_preference: str = "system"
     dashboard_focus: str = "collector"
+    personal_dashboard_widgets: list[DashboardWidgetPreference] | None = None
     daily_wine_budget_chf: Decimal | None = None
     can_use_label_recognition: bool = False
     can_manage_wine_photos: bool = False

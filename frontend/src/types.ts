@@ -16,6 +16,7 @@ export type Session = {
   locale: Locale;
   theme_preference: ThemePreference;
   dashboard_focus: PrimaryDashboardFocus;
+  personal_dashboard_widgets?: PersonalDashboardWidget[] | null;
   daily_wine_budget_chf: string | null;
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
@@ -983,7 +984,12 @@ export type AiOverlayProgress = {
 
 export type TastingEnjoyment = "" | "positive" | "negative";
 
-export type PrimaryDashboardFocus = "collector" | "daily" | "balanced";
+export type PersonalDashboardWidgetId = "overview" | "ready" | "regions" | "maturity" | "balance" | "recent" | "deliveries" | "taste" | "news"
+  | "featured" | "top_value" | "value_type" | "value_region" | "value_producer"
+  | "tonight" | "past_window" | "to_collect" | "data_quality" | "style_balance"
+  | "collection_value" | "availability" | "composition";
+export type PersonalDashboardWidget = { id: PersonalDashboardWidgetId; width: "half" | "full" };
+export type PrimaryDashboardFocus = "collector" | "daily" | "balanced" | "personal";
 
 export type DashboardFocus =
   | PrimaryDashboardFocus

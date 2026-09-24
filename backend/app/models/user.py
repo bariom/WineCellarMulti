@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Numeric, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -50,6 +50,9 @@ class User(Base):
     locale: Mapped[str] = mapped_column(String(8), default="it")
     theme_preference: Mapped[str] = mapped_column(String(32), default="system")
     dashboard_focus: Mapped[str] = mapped_column(String(32), default="collector")
+    personal_dashboard_widgets: Mapped[list[dict[str, str]] | None] = mapped_column(
+        JSON, nullable=True
+    )
     daily_wine_budget_chf: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     access_override_until: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

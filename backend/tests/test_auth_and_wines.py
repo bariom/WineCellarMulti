@@ -1308,6 +1308,67 @@ def register(
     )
 
 
+def test_personal_dashboard_is_private_persistent_and_validated():
+    first = TestClient(app)
+    second = TestClient(app)
+    assert register(first).status_code == 201
+    assert register(second, "other-dashboard@example.com").status_code == 201
+    layout = [{"id": "regions", "width": "full"}, {"id": "ready", "width": "half"}]
+    response = first.patch("/api/v1/auth/preferences", json={
+        "personal_dashboard_widgets": layout, "dashboard_focus": "personal",
+    })
+    assert response.status_code == 200, response.text
+    assert response.json()["personal_dashboard_widgets"] == layout
+    assert first.get("/api/v1/session").json()["dashboard_focus"] == "personal"
+    assert second.get("/api/v1/session").json()["personal_dashboard_widgets"] is None
+    # An unrelated preference update must retain the stored layout.
+    response = first.patch("/api/v1/auth/preferences", json={"locale": "en"})
+    assert response.json()["personal_dashboard_widgets"] == layout
+    for invalid in [
+        [{"id": "unknown", "width": "full"}],
+        [{"id": "ready", "width": "giant"}],
+        [{"id": "ready"}, {"id": "ready"}],
+        [{"id": "ready", "household_id": "another-household"}],
+    ]:
+        assert first.patch("/api/v1/auth/preferences", json={
+            "personal_dashboard_widgets": invalid,
+        }).status_code == 422
+    assert first.get("/api/v1/session").json()["personal_dashboard_widgets"] == layout
+    first.post("/api/v1/auth/logout")
+    assert first.post("/api/v1/auth/login", json={
+        "email": "owner@example.com", "password": "strong-password-1",
+    }).json()["personal_dashboard_widgets"] == layout
+    assert first.patch("/api/v1/auth/preferences", json={
+        "personal_dashboard_widgets": [],
+    }).json()["personal_dashboard_widgets"] == []
+    assert first.patch("/api/v1/auth/preferences", json={
+        "personal_dashboard_widgets": None,
+    }).json()["personal_dashboard_widgets"] is None
+    assert TestClient(app).patch("/api/v1/auth/preferences", json={
+        "personal_dashboard_widgets": layout,
+    }).status_code == 401
+
+
+
+def test_personal_dashboard_supports_complete_catalogue():
+    from typing import get_args
+
+    from app.schemas.dashboard import DashboardWidgetPreference
+
+    widget_ids = get_args(DashboardWidgetPreference.model_fields["id"].annotation)
+    assert len(widget_ids) == 22
+    with TestClient(app) as client:
+        assert register(client).status_code == 201
+        layout = [{"id": widget_id, "width": "half"} for widget_id in widget_ids]
+        response = client.patch("/api/v1/auth/preferences", json={"personal_dashboard_widgets": layout})
+        assert response.status_code == 200, response.text
+        assert client.get("/api/v1/session").json()["personal_dashboard_widgets"] == layout
+        assert client.patch("/api/v1/auth/preferences", json={"personal_dashboard_widgets": layout + [layout[0]]}).status_code == 422
+        reversed_layout = list(reversed(layout))
+        assert client.patch("/api/v1/auth/preferences", json={"personal_dashboard_widgets": reversed_layout}).status_code == 200
+        assert client.get("/api/v1/session").json()["personal_dashboard_widgets"] == reversed_layout
+
+
 def create_redeem_code(
     admin_client: TestClient, email: str | None = None, duration_days: int = 30
 ) -> str:
@@ -1994,6 +2055,9 @@ def test_admin_publishes_sanitized_read_only_demo_cellar(tmp_path):
         entered = visitor.post("/api/v1/auth/demo", params={"locale": "en"})
         assert entered.status_code == 200
         assert entered.json()["is_demo"] is True
+        assert visitor.patch("/api/v1/auth/preferences", json={
+            "personal_dashboard_widgets": [{"id": "ready", "width": "full"}],
+        }).status_code == 403
         assert entered.json()["membership_role"] == "viewer"
         assert entered.json()["has_active_entitlement"] is True
         if entered.json()["requires_legal_acceptance"]:

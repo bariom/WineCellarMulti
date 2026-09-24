@@ -265,8 +265,8 @@ def create_session(db: Session, user: User, household: Household) -> tuple[UserS
 
 def session_response_for(db: Session, user: User, household: Household, membership: Membership, user_session: UserSession) -> SessionResponse:
     entitlement_valid_until = active_entitlement_valid_until(db, user)
-    return SessionResponse(
-        **build_session_response(
+    return SessionResponse.model_validate(
+        build_session_response(
             CurrentContext(
                 user=user,
                 household=household,
@@ -339,7 +339,7 @@ def user_admin_response(user: User, db: Session) -> UserAdminResponse:
         can_manage_wine_photos=user.can_manage_wine_photos,
         has_demo_access=has_demo_access,
         has_active_subscription=has_active_subscription,
-        subscription_plan=subscription.plan if has_active_subscription else None,
+        subscription_plan=subscription.plan if subscription is not None and has_active_subscription else None,
         subscription_cancel_at_period_end=bool(subscription and subscription.cancel_at_period_end),
         access_override_until=user.access_override_until.isoformat() if user.access_override_until else None,
         ai_credit_balance_usd=ai_credit_balance(db, user),
@@ -721,7 +721,7 @@ def accept_legal_documents(
     context.user.legal_acceptance_locale = payload.locale
     db.commit()
     db.refresh(context.user)
-    return SessionResponse(**build_session_response(context))
+    return SessionResponse.model_validate(build_session_response(context))
 
 
 @router.get("/verify-email")
@@ -928,15 +928,19 @@ def update_preferences(
     db: Session = Depends(get_db),
 ) -> SessionResponse:
     if context.household.is_demo and (
-        payload.dashboard_focus is not None or "daily_wine_budget_chf" in payload.model_fields_set
+        payload.dashboard_focus is not None
+        or "daily_wine_budget_chf" in payload.model_fields_set
+        or "personal_dashboard_widgets" in payload.model_fields_set
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo preferences are limited to language and theme")
     daily_budget_provided = "daily_wine_budget_chf" in payload.model_fields_set
+    dashboard_provided = "personal_dashboard_widgets" in payload.model_fields_set
     if (
         payload.locale is None
         and payload.theme_preference is None
         and payload.dashboard_focus is None
         and not daily_budget_provided
+        and not dashboard_provided
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No preferences provided")
     if payload.locale is not None:
@@ -947,9 +951,14 @@ def update_preferences(
         context.user.dashboard_focus = payload.dashboard_focus
     if daily_budget_provided:
         context.user.daily_wine_budget_chf = payload.daily_wine_budget_chf
+    if dashboard_provided:
+        context.user.personal_dashboard_widgets = (
+            [widget.model_dump() for widget in payload.personal_dashboard_widgets]
+            if payload.personal_dashboard_widgets is not None else None
+        )
     db.commit()
     db.refresh(context.user)
-    return SessionResponse(**build_session_response(context))
+    return SessionResponse.model_validate(build_session_response(context))
 
 
 @router.get("/passkeys", response_model=list[PasskeyResponse])

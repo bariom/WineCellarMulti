@@ -1,5 +1,336 @@
 import { expect, test, type Page, type Route } from "@playwright/test";
 import { featuredValue } from "../src/domain/featuredValue";
+import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
+
+test("local entry reload keeps a single application and unsaved dashboard edits", async ({ page }, testInfo) => {
+  const rootWarnings: string[] = [];
+  page.on("console", message => { if (message.text().includes("createRoot")) rootWarnings.push(message.text()); });
+  await mockApi(page);
+  await page.goto("/");
+  test.skip(await page.locator('script[src="/@vite/client"]').count() === 0, "Entry updates apply only to the Vite development server.");
+  await expect(page.locator(".authenticated-app-shell")).toHaveCount(1);
+  await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
+  await page.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Mappa delle regioni/ }).uncheck();
+  const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
+  for (const width of [1440, 390]) {
+    await page.evaluate(async () => {
+      // Re-evaluate the entry as a local development module update would.
+      await import(/* @vite-ignore */ `/src/main.tsx?t=${Date.now()}`);
+    });
+    await page.setViewportSize({ width, height: 844 });
+    await expect(dashboard).toBeVisible();
+    await expect(page.getByRole("checkbox", { name: /Mappa delle regioni/ })).not.toBeChecked();
+    await expect(dashboard.locator(".personal-widget")).toHaveCount(3);
+    await dashboard.locator(".personal-widget").last().scrollIntoViewIfNeeded();
+    await expect(page.locator(".authenticated-app-shell")).toHaveCount(1);
+    await expect(page.locator(".topbar")).toHaveCount(1);
+    await page.screenshot({ path: testInfo.outputPath(`entry-update-${width}.png`), animations: "disabled" });
+  }
+  expect(rootWarnings).toEqual([]);
+});
+
+test("personal dashboard editor keeps a single application through the last widget", async ({ page }, testInfo) => {
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: personalDashboardCatalogue.map(({ id }) => ({ id, width: "full" })) });
+  await page.goto("/");
+  const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await expect(dashboard.locator(".personal-widget")).toHaveCount(personalDashboardCatalogue.length);
+  for (const width of [1440, 360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await dashboard.locator(".personal-widget").last().scrollIntoViewIfNeeded();
+    await expect(page.locator(".authenticated-app-shell")).toHaveCount(1);
+    await expect(page.locator(".topbar")).toHaveCount(1);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 1440 || width === 390) await page.screenshot({ path: testInfo.outputPath(`editor-bottom-${width}.png`), animations: "disabled" });
+  }
+  await dashboard.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+  await page.reload();
+  await expect(dashboard.locator(".personal-widget")).toHaveCount(personalDashboardCatalogue.length);
+  await expect(page.locator(".authenticated-app-shell")).toHaveCount(1);
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await dashboard.locator(".personal-widget").last().scrollIntoViewIfNeeded();
+  await expect(page.locator(".topbar")).toHaveCount(1);
+});
+
+test("personal dashboard saves selection, order, width and default; preserves edits on failure", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-09-24T12:00:00Z"));
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByRole("checkbox", { name: /Mappa delle regioni/ }).uncheck();
+  await page.getByRole("checkbox", { name: /Mappa maturità/ }).uncheck();
+  await page.getByRole("button", { name: "Sposta su: Ultimi arrivi", exact: true }).click();
+  await page.getByLabel("Larghezza: Ultimi arrivi", { exact: true }).selectOption("full");
+  await page.evaluate(() => sessionStorage.setItem("vinaris-test-save-error", "1"));
+  await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+  await expect(dashboard.getByRole("alert")).toContainText("Le modifiche sono ancora qui");
+  await page.evaluate(() => sessionStorage.removeItem("vinaris-test-save-error"));
+  await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+  await expect(dashboard.getByRole("status")).toContainText("salvata");
+  const saved = [{ id: "recent", width: "full" }, { id: "ready", width: "half" }];
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("vinaris-test-preferences")!).personal_dashboard_widgets)).toEqual(saved);
+  await page.reload();
+  await expect(dashboard.getByRole("region", { name: "Ultimi arrivi", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("personal-compact-review.png"), fullPage: true, animations: "disabled" });
+  await expect(page).toHaveScreenshot("personal-dashboard-compact.png", { fullPage: true });
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByRole("button", { name: "Rimuovi: Ultimi arrivi", exact: true }).click();
+  await page.getByRole("button", { name: "Annulla", exact: true }).click();
+  await expect(dashboard.getByRole("region", { name: "Ultimi arrivi", exact: true })).toBeVisible();
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByRole("button", { name: "Rimuovi: Ultimi arrivi", exact: true }).click();
+  await page.getByRole("button", { name: "Rimuovi: Pronti da bere", exact: true }).click();
+  await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+  await page.reload();
+  await expect(dashboard).toContainText("La tua dashboard è vuota");
+  await page.getByRole("tab", { name: /Focus collezionista/ }).click();
+  await expect(page.getByText("La mia cantina", { exact: true })).toBeVisible();
+});
+
+test("personal dashboard widgets fit mobile and desktop and can become the default", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.goto("/");
+  await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
+  const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
+  await dashboard.getByRole("button", { name: "Usa come iniziale", exact: true }).click();
+  await expect(dashboard.getByText("Dashboard iniziale", { exact: true })).toBeVisible();
+  await page.reload();
+  await expect(dashboard).toBeVisible();
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    await page.evaluate(() => scrollTo(0, 0));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const boxes = await dashboard.locator('.personal-widget').evaluateAll(elements => elements.map(element => { const b = element.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }));
+    for (const box of boxes) { expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width); }
+    for (let i = 1; i < boxes.length; i++) {
+      const a = boxes[i - 1], b = boxes[i];
+      expect(a.x + a.width <= b.x + 1 || b.x + b.width <= a.x + 1 || a.y + a.height <= b.y + 1).toBe(true);
+    }
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`personal-${width}.png`) });
+  }
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  for (const checkbox of await page.getByRole("checkbox").all()) await checkbox.check();
+  await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+  await expect(dashboard.locator('.personal-widget')).toHaveCount(personalDashboardCatalogue.length);
+  await page.reload();
+  await expect(dashboard.locator('.personal-widget')).toHaveCount(personalDashboardCatalogue.length);
+  expect(await dashboard.locator('[data-widget-id]').evaluateAll(elements => elements.map(element => element.getAttribute('data-widget-id')).sort())).toEqual(personalDashboardCatalogue.map(widget => widget.id).sort());
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByRole("group", { name: "Scegli i tuoi widget" }).screenshot({ path: testInfo.outputPath("personal-editor-390.png") });
+});
+
+test("personal dashboard demo stays read-only", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [wine], { ...session, is_demo: true });
+  await page.goto("/");
+  await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Personalizza", exact: true })).toBeDisabled();
+});
+
+test("personal dashboard supports every widget at half width", async ({ page }, testInfo) => {
+  const ids = personalDashboardCatalogue.map(widget => widget.id);
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: ids.map(id => ({ id, width: "half" })) });
+  await page.goto("/");
+  const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
+  await expect(dashboard.locator('.personal-widget')).toHaveCount(ids.length);
+  for (const width of [360, 390, 430, 768, 1100, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    for (const widget of await dashboard.locator('.personal-widget').all()) {
+      await widget.scrollIntoViewIfNeeded();
+      expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}px: ${await widget.getAttribute("aria-label")}`).toBe(true);
+    }
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`personal-all-${width}.png`), fullPage: true, animations: "disabled" });
+  }
+});
+
+for (const width of [360, 390, 430, 1440]) {
+  test(`personal dashboard drag and drop ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [
+      { id: "deliveries", width: "half" }, { id: "recent", width: "half" }, { id: "ready", width: "full" },
+    ] });
+    await page.goto("/");
+    await page.getByRole("button", { name: "Personalizza", exact: true }).click();
+    const handle = page.getByRole("button", { name: "Trascina per riordinare: Consegne in arrivo", exact: true });
+    const order = () => page.locator('[data-widget-id]').evaluateAll(elements => elements.map(e => e.getAttribute('data-widget-id')));
+    const original = ["deliveries", "recent", "ready"];
+    // Keyboard ordering retains focus on the same handle.
+    await handle.focus();
+    await handle.press("ArrowDown");
+    await expect.poll(order).toEqual(["recent", "deliveries", "ready"]);
+    await expect(handle).toBeFocused();
+    await handle.press("ArrowUp");
+    await expect.poll(order).toEqual(original);
+    await page.locator('[data-widget-id="deliveries"]').evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 110));
+    const source = (await handle.boundingBox())!;
+    const target = (await page.getByRole("button", { name: "Trascina per riordinare: Ultimi arrivi", exact: true }).boundingBox())!;
+    const start = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
+    const end = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
+    expect(end.y).toBeLessThan(760);
+    const cdp = width === 1440 ? null : await page.context().newCDPSession(page);
+    async function startDrag() {
+      if (cdp) {
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ ...start, id: 1 }] });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: start.x + 10, y: start.y + 10, id: 1 }] });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ ...end, id: 1 }] });
+      } else {
+        await page.mouse.move(start.x, start.y); await page.mouse.down();
+        await page.mouse.move(end.x, end.y, { steps: 8 });
+      }
+      await expect(page.locator('[data-widget-id="recent"]')).toHaveClass(/is-drop-target/);
+    }
+    await startDrag();
+    if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+    else { await page.keyboard.press("Escape"); await page.mouse.up(); }
+    await expect(page.locator('.personal-widget-drag-preview')).toHaveCount(0);
+    await expect.poll(order).toEqual(original);
+    if (!cdp) {
+      await startDrag();
+      await page.mouse.move(5, 400);
+      await page.mouse.up();
+      await expect.poll(order).toEqual(original);
+    }
+    await startDrag();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`drag-${width}.png`), animations: "disabled" });
+    if (cdp) await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    else await page.mouse.up();
+    await expect.poll(order).toEqual(["recent", "deliveries", "ready"]);
+    await expect(page.locator('.personal-widget-drag-preview')).toHaveCount(0);
+    await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Personalizza", exact: true })).toBeVisible();
+    await page.reload();
+    await expect.poll(order).toEqual(["recent", "deliveries", "ready"]);
+    expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("vinaris-test-preferences")!).personal_dashboard_widgets)).toEqual([
+      { id: "recent", width: "half" }, { id: "deliveries", width: "half" }, { id: "ready", width: "full" },
+    ]);
+    await cdp?.detach();
+  });
+}
+
+test("personal dashboard drag scrolls on touch and stops after cancellation", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal" });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Personalizza", exact: true }).click();
+  const handle = page.getByRole("button", { name: "Trascina per riordinare: Pronti da bere", exact: true });
+  await handle.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 130));
+  const box = (await handle.boundingBox())!;
+  const initialScroll = await page.evaluate(() => scrollY);
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: box.x + 20, y: box.y + 20, id: 1 }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: box.x + 20, y: 820, id: 1 }] });
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(initialScroll + 40);
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchCancel", touchPoints: [] });
+  await expect(page.locator('.personal-widget-drag-preview')).toHaveCount(0);
+  const stopped = await page.evaluate(() => scrollY);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+  expect(await page.evaluate(() => scrollY)).toBe(stopped);
+  expect(await page.locator('[data-widget-id]').evaluateAll(elements => elements.map(e => e.getAttribute('data-widget-id')))).toEqual(["ready", "recent", "regions", "maturity"]);
+  await cdp.detach();
+});
+
+test("personal dashboard financial widgets work at every width", async ({ page }, testInfo) => {
+  const ids = ["featured", "top_value", "value_type", "value_region", "value_producer"];
+  const stock = Array.from({ length: 6 }, (_, index) => ({ ...wine, id: `finance-${index}`, name: `Selezione ${index + 1}`, current_value: String(40 + index * 10) }));
+  await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "personal", personal_dashboard_widgets: ids.map(id => ({ id, width: "half" })) });
+  await page.goto("/");
+  const widgets = page.locator('[data-widget-id]');
+  await expect(widgets).toHaveCount(ids.length);
+  await expect(page.locator('[data-widget-id="top_value"] .top-value-showcase-item')).toHaveCount(5);
+  await expect(page.locator('[data-widget-id="top_value"] .top-value-showcase-item').first()).toContainText("Selezione 6");
+  for (const width of [360, 390, 430, 768, 1100, 1440]) {
+    await page.setViewportSize({ width, height: 900 });
+    for (const widget of await widgets.all()) {
+      await widget.scrollIntoViewIfNeeded();
+      expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}: ${await widget.getAttribute('data-widget-id')}`).toBe(true);
+      await expect(widget.getByRole('heading').first()).toBeVisible();
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1100) await page.screenshot({ path: testInfo.outputPath(`finance-${width}.png`), fullPage: true, animations: "disabled" });
+  }
+  await page.locator('[data-widget-id="featured"] button[aria-haspopup="dialog"]').first().click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.getByRole('button', { name: 'Chiudi approfondimento', exact: true }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await page.locator('[data-widget-id="top_value"] .top-value-showcase-item').first().click();
+  await expect(page.locator('.wine-detail:visible').first()).toContainText('Selezione 6');
+});
+
+test("personal dashboard operational widgets and separate summaries", async ({ page }, testInfo) => {
+  const ids = ["tonight", "past_window", "to_collect", "data_quality", "style_balance", "collection_value", "availability", "composition"];
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: ids.map(id => ({ id, width: "half" })) });
+  await page.goto("/");
+  const widgets = page.locator('[data-widget-id]');
+  await expect(widgets).toHaveCount(ids.length);
+  for (const width of [360, 390, 430, 768, 1100, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const widget of await widgets.all()) {
+      await widget.scrollIntoViewIfNeeded();
+      await expect(widget.getByRole('heading').first()).toBeVisible();
+      expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}: ${await widget.getAttribute('data-widget-id')}`).toBe(true);
+    }
+    const tonight = page.locator('[data-widget-id="tonight"]');
+    for (const group of await tonight.locator('.daily-tone-group').all()) {
+      const groupBox = (await group.boundingBox())!;
+      if (width <= 430 || width === 1100) expect(groupBox.width).toBeGreaterThan(230);
+    }
+    for (const label of await page.locator('[data-widget-id="style_balance"] .balance-indicator > span').all()) {
+      expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1100) await page.screenshot({ path: testInfo.outputPath(`operations-${width}.png`), fullPage: true, animations: "disabled" });
+  }
+  const value = page.locator('[data-widget-id="collection_value"]');
+  await expect(value).toContainText('CHF');
+  await expect(value).toContainText('192');
+  await expect(value).not.toContainText('Da seguire adesso');
+  await expect(page.locator('[data-widget-id="availability"]')).toContainText('4');
+  await expect(page.locator('[data-widget-id="composition"]')).toContainText('Finestre conosciute');
+  await page.getByRole('button', { name: 'Personalizza', exact: true }).click();
+  await page.getByRole('searchbox', { name: 'Cerca widget', exact: true }).fill('produttore');
+  await expect(page.getByRole('checkbox', { name: /Valore per produttore/ })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Cosa apro stasera/ })).toHaveCount(0);
+  await page.getByRole('searchbox', { name: 'Cerca widget', exact: true }).fill('inesistente');
+  await expect(page.getByText('Nessun widget corrisponde alla ricerca.')).toBeVisible();
+  await page.getByRole('button', { name: 'Annulla', exact: true }).click();
+  await expect(widgets).toHaveCount(ids.length);
+  await page.locator('[data-widget-id="data_quality"]').getByRole('button', { name: /Apri gestione dati/ }).click();
+  await expect(page.locator('.data-dashboard-carousel')).toBeVisible();
+});
+
+test("personal dashboard complete catalogue handles an empty cellar in English", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [], { ...session, locale: 'en', dashboard_focus: 'personal', personal_dashboard_widgets: personalDashboardCatalogue.map(({ id }) => ({ id, width: 'full' })) });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await expect(page.locator('[data-widget-id]')).toHaveCount(22);
+  await expect(page.getByRole('heading', { name: 'My dashboard', exact: true })).toBeVisible();
+  for (const widget of await page.locator('[data-widget-id]').all()) {
+    await widget.scrollIntoViewIfNeeded();
+    await expect(widget).not.toContainText('NaN');
+    await expect(widget).not.toContainText('Infinity');
+    expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  }
+});
+
+test("personal dashboard operational lists open the right wines", async ({ page }) => {
+  await page.clock.setFixedTime(new Date('2026-09-24T12:00:00Z'));
+  const past = { ...wine, id: 'past-window', name: 'Vino da verificare', drink_from: 2015, drink_peak_from: 2018, drink_peak_to: 2020, drink_to: 2022 };
+  const pickup = { ...wine, id: 'pickup', name: 'Vino da ritirare', status: 'to_collect', expected_delivery: '2026-09-20' };
+  const widgets = [{ id: 'past_window', width: 'half' }, { id: 'to_collect', width: 'half' }];
+  await mockApi(page, [], false, memberships, [wine, past, pickup], { ...session, dashboard_focus: 'personal', personal_dashboard_widgets: widgets });
+  await page.goto('/');
+  await page.locator('[data-widget-id="past_window"]').getByRole('button', { name: /Vino da verificare/ }).click();
+  await expect(page.locator('.wine-detail:visible').first()).toContainText('Vino da verificare');
+  await page.reload();
+  await page.locator('[data-widget-id="to_collect"]').getByRole('button', { name: /Vino da ritirare/ }).click();
+  await expect(page.locator('.wine-detail:visible').first()).toContainText('Vino da ritirare');
+});
 
 const wine = {
   id: "wine-e2e-1",
@@ -294,7 +625,13 @@ async function mockApi(
       if (!url.pathname.startsWith("/api/")) return nativeFetch(input, init);
       const path = url.pathname;
       let body: unknown = [];
-      if (path.endsWith("/session")) body = fixtureSession;
+      if (path.endsWith("/session")) body = { ...fixtureSession, ...JSON.parse(window.sessionStorage.getItem("vinaris-test-preferences") || "{}") };
+      else if (path.endsWith("/auth/preferences")) {
+        if (window.sessionStorage.getItem("vinaris-test-save-error")) return new Response(JSON.stringify({ detail: "Save unavailable" }), { status: 503 });
+        const preferences = { ...JSON.parse(window.sessionStorage.getItem("vinaris-test-preferences") || "{}"), ...JSON.parse(String(init?.body || "{}")) };
+        window.sessionStorage.setItem("vinaris-test-preferences", JSON.stringify(preferences));
+        body = { ...fixtureSession, ...preferences };
+      }
       else if (path.endsWith("/intelligence/cellar")) body = fixtureIntelligenceSnapshot;
       else if (path.endsWith("/ai/cellar-intelligence/latest")) body = fixtureIntelligencePlan;
       else if (path.endsWith("/ai/cellar-intelligence/history")) body = [fixtureIntelligencePlan, fixturePreviousIntelligencePlan];
@@ -1092,6 +1429,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page);
     await page.goto("/");
+    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
     await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
 
@@ -1127,6 +1465,7 @@ test.describe("Wine Detail compact/mobile", () => {
       };
     });
     await page.goto("/");
+    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
     await page.setViewportSize({ width: 390, height: 844 });
 
@@ -1139,6 +1478,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page);
     await page.goto("/");
+    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
 
     await expect(page.getByText("Il piano riflette dati precedenti", { exact: true })).toBeVisible();
@@ -1165,6 +1505,7 @@ test.describe("Wine Detail compact/mobile", () => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await mockApi(page, [], true);
     await page.goto("/");
+    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
     await page.getByText("Seleziona e gestisci più vini", { exact: true }).click();
     await page.getByRole("button", { name: "Seleziona visibili", exact: true }).click();
@@ -1192,6 +1533,7 @@ test.describe("Wine Detail compact/mobile", () => {
       };
     }, intelligencePlan);
     await page.goto("/");
+    await page.locator("summary").filter({ hasText: "Strumenti AI" }).click();
     await page.getByRole("button", { name: "Intelligence", exact: true }).first().click();
 
     await page.getByRole("button", { name: "Crea piano AI", exact: true }).click();
