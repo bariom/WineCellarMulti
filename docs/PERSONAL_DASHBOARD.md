@@ -1,68 +1,95 @@
 # Dashboard personale
 
 Da Home scegliere **La mia dashboard**, quindi **Personalizza**. Il catalogo
-permette di aggiungere o rimuovere 22 widget. Il campo **Cerca widget** filtra
-nomi e descrizioni senza modificare le selezioni.
+contiene 31 widget sintetici: una visualizzazione dominante, pochi indicatori,
+fino a tre bottiglie per selezione e un collegamento **Approfondisci**.
+Le dashboard predefinite conservano le analisi complete.
 
 | Gruppo | Widget |
 | --- | --- |
-| Riepilogo | La cantina in numeri, Valore della collezione, Disponibilità, Maturità e composizione |
-| Collezione e valore | Bottiglie in primo piano, Le 5 bottiglie più preziose, Valore per tipologia, Valore per regione, Valore per produttore |
-| Da bere | Pronti da bere, Cosa apro stasera?, Finestre di beva superate, Mappa maturità |
-| Distribuzione | Mappa delle regioni, Equilibrio regionale, Equilibrio per stile |
-| Gestione | Ultimi arrivi, Consegne in arrivo, Vini da ritirare, Qualità dei dati |
-| Preferenze e notizie | Il mio gusto, Wine Pulse |
+| Valore | Evoluzione del valore, Valore e costo d’acquisto, Bottiglie chiave, Le più preziose, Variazioni di valore, Distribuzione del valore |
+| Collezione | Ultimi vini aggiunti, La cantina in numeri, Mappa delle regioni, Colori della cantina, Le annate della collezione, Vitigni protagonisti, Produttori protagonisti, Formati della collezione |
+| Tempo | Panorama di maturità, Da bere adesso, Da tenere d’occhio, Le prossime al picco, Una bottiglia per stasera |
+| Gusto e diario | Mappa del gusto, Geografia del gusto, Le degustazioni più apprezzate, Ultime degustazioni, Il ritmo delle degustazioni |
+| Gestione | Bottiglie in viaggio, Da ritirare, Dove sono le mie bottiglie, Wishlist in primo piano, Obiettivi della collezione, Cantina da completare |
+| Notizie | Wine Pulse essenziale |
 
-I widget riutilizzano dati, calcoli e azioni delle dashboard predefinite.
-Le bottiglie in primo piano aprono la spiegazione della selezione; la qualità
-dei dati consente anche di aprire la gestione delle valutazioni da aggiornare.
-I tre riepiloghi separati permettono di scegliere valore, disponibilità e
-composizione senza includere l'intera panoramica.
+## Personalizzazione e compatibilità
 
-La maniglia accanto al titolo permette di trascinare i widget con mouse o touch.
-Il bordo evidenzia la destinazione; vicino ai margini la pagina scorre durante
-il trascinamento. Esc o l'interruzione del gesto annullano lo spostamento.
-Restano disponibili i pulsanti Su/Giù e le frecce della tastiera sulla maniglia.
-Ogni widget può occupare mezza riga o
-una riga intera su desktop; su telefono i widget sono in una sola colonna.
-**Salva dashboard** conserva la composizione nell'account, anche su altri
-dispositivi. **Annulla** scarta la modifica in corso. È possibile salvare anche
-una dashboard vuota. **Usa come iniziale** la imposta come Home predefinita.
+Cerca widget, aggiungili o rimuovili, scegli mezza riga o intera riga su desktop.
+Su telefono ciascun widget occupa una riga. Trascina dalla maniglia con mouse o
+touch, oppure usa Su/Giù e le frecce della tastiera. Esc annulla il trascinamento.
+**Salva dashboard** conserva ordine, larghezza e raggruppamento iniziale del
+widget Distribuzione del valore. Il selettore dentro il widget permette un
+confronto temporaneo; il raggruppamento da conservare si sceglie nell’editor.
+**Annulla** conserva la composizione precedente. Anche una dashboard vuota è valida.
 
-La composizione è unica per utente. Cambiando cantina si mantiene la stessa
-composizione, con i dati della cantina attiva. La demo è in sola lettura e la
-modifica delle preferenze richiede una connessione attiva.
+La composizione è unica per utente e segue l’account nelle diverse cantine;
+i dati appartengono sempre alla cantina attiva. La demo è in sola lettura.
 
-## Distribuzione e contratto
+Le composizioni precedenti vengono normalizzate senza scritture automatiche:
+- valore per regione/produttore/tipologia → Distribuzione del valore;
+- equilibrio regionale → Mappa delle regioni;
+- equilibrio per stile → Colori della cantina;
+- maturità e composizione → Panorama di maturità;
+- disponibilità → La cantina in numeri.
 
-Prima di avviare il backend aggiornato, eseguire da `backend/`:
+In caso di duplicati si mantiene la prima posizione con la sua larghezza.
+I vecchi identificativi restano accettati dall’API. Il successivo salvataggio
+conserva la composizione normalizzata; non serve una nuova migrazione SQL.
+La revisione iniziale `0108_personal_dashboard` deve essere già applicata.
 
-```sh
-alembic upgrade head
-```
+## Dati e significato dei grafici
 
-La revisione `0108_personal_dashboard` aggiunge una colonna JSON nullable a
-`users`. Non modifica i dati delle cantine. `null` usa la composizione iniziale;
-`[]` rappresenta una composizione volutamente vuota.
+- Importi in valute diverse rimangono separati: il selettore non esegue conversioni.
+- Lo storico usa `GET /api/v1/wines/value-history/portfolio?currency=CHF`.
+  Il parametro opzionale filtra posizioni e rilevazioni per valuta; i vecchi
+  chiamanti senza parametro mantengono il contratto precedente.
+  È una ricostruzione delle valutazioni sulle quantità attuali, non il patrimonio
+  storico effettivo né un rendimento. Con meno di due punti non si disegna un trend.
+- Il confronto con l’acquisto include solo bottiglie con entrambi i valori.
+- Le variazioni individuali confrontano prima e ultima rilevazione nella stessa
+  valuta, mostrando le date; non si inventano serie per vini senza storico.
+- Il radar usa le affinità del profilo attivo: 50 è neutro, non l’intensità ideale.
+  Mostra numerosità e affidabilità; un profilo emergente resta dichiarato tale.
+- Diario e ritmo usano l’archivio degli ultimi 12 mesi, paginato fino al totale,
+  includendo esperienze esterne. I voti sono normalizzati su scala 100; un semplice
+  apprezzamento non viene trasformato in un voto numerico.
+- I vitigni contano le bottiglie che li contengono: gli assemblaggi possono apparire
+  in più gruppi. Le finalità possono sovrapporsi se non hanno quantità ripartite.
+- Lo stoccaggio comprende solo bottiglie fisicamente disponibili, incluse quelle
+  non collocate. La wishlist usa prezzi obiettivo e non dispone di foto proprie:
+  viene rappresentata come una piccola lista visiva numerata.
+- Nessun widget genera contenuti AI o avvia ricalcoli a pagamento al caricamento.
 
-`PATCH /api/v1/auth/preferences` accetta `personal_dashboard_widgets`, una lista
-di oggetti `{ "id": "ready", "width": "half" }`, e `dashboard_focus: "personal"`.
-Gli ID sono enumerati, unici e limitati a 22; le larghezze sono `half` e `full`.
-La sessione restituisce la composizione. L'endpoint usa l'utente autenticato,
-senza accettare identificativi di altri utenti o cantine.
+Le richieste di profilo, archivio, notizie e storico sono condivise nella singola
+istanza della dashboard. Alla sua chiusura vengono interrotte; la chiave account/
+cantina ricrea il provider per evitare riuso di dati di un’altra cantina.
+Gli errori sono visibili e consentono di riprovare.
+
+## Librerie e accessibilità
+
+Valutate le capacità di [uPlot](https://github.com/leeoniya/uPlot),
+[Leaflet](https://leafletjs.com/) e [Chart.js](https://www.chartjs.org/docs/latest/charts/radar.html).
+Non sono state aggiunte dipendenze: uPlot e Leaflet sono già disponibili.
+Radar, anelli, barre e mosaici compatti usano SVG/CSS con etichette testuali.
+I grafici temporali mantengono cursore e navigazione da tastiera, con segmenti
+lineari e margini adatti ai widget. Le viste estese mantengono il comportamento
+precedente. Le immagini delle bottiglie provengono dai dati reali dell’app.
 
 ## Verifica mirata
 
 ```sh
 # backend/
-python -m pytest tests/test_personal_dashboard_migration.py tests/test_auth_and_wines.py -k "personal_dashboard or admin_publishes_sanitized_read_only_demo"
+python -m pytest tests/test_auth_and_wines.py -k personal_dashboard
 
 # frontend/
-npx playwright test e2e/wine-detail.spec.ts -g "personal dashboard"
+npx playwright test e2e/wine-detail.spec.ts -g "personal dashboard|local entry reload"
 npm run build
 ```
 
-I test coprono isolamento tra utenti, persistenza, input invalidi, demo,
-migrazione reversibile, salvataggio e recupero errori, ordine, larghezza,
-annullamento, dashboard vuota, catalogo completo, cantina vuota in inglese,
-azioni sui vini e layout mobile/desktop anche a mezza larghezza.
+Copertura: preferenze e isolamento, filtro valuta e storico, compatibilità dei
+vecchi layout, raggruppamento persistente, richieste condivise, errori/riprova,
+selezione completa, azioni sui vini, drag & drop, viewport 360/390/430/768/1100/1440,
+geometria e controllo visivo dei nuovi widget. Le baseline vengono aggiornate
+solo dopo l’ispezione delle immagini effettivamente renderizzate.

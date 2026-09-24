@@ -11,7 +11,7 @@
 .personal-widget-catalogue input { flex: 0 0 auto; width: 20px; height: 20px; margin: 2px 0; }
 .personal-widget-catalogue span { min-width: 0; }
 .personal-widget-catalogue small { display: block; margin-top: 6px; line-height: 1.5; }
-.personal-widget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.personal-widget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
 .personal-widget { min-width: 0; container-type: inline-size; }
 .personal-widget-full { grid-column: 1 / -1; }
 .personal-widget-toolbar { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line, #c9bdab); border-radius: 12px 12px 0 0; }
@@ -28,51 +28,6 @@
 .personal-widget-drag-preview small { display: block; margin-top: 4px; font-weight: 400; }
 .personal-widget-content { min-width: 0; }
 .personal-widget-content > * { min-width: 0; width: 100%; margin-inline: 0; }
-.personal-widget-content .dashboard-card { height: auto; }
-.personal-featured-list { display: grid; gap: 12px; }
-.personal-featured-list > button { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 16px; padding: 14px; text-align: left; color: var(--text); background: var(--surface); box-shadow: none; border: 1px solid var(--border); }
-.personal-featured-list > button > span { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
-.personal-featured-list small { font-weight: 400; color: var(--text-muted); }
-.personal-dashboard .personal-featured-list .key-position-bottle-visual { grid-area: auto; width: 64px; height: 130px; }
-.personal-widget-content .bar-row > div:first-child { flex-wrap: wrap; gap: 8px; }
-.home-dashboard .personal-widget-content .top-value-showcase { display: grid; }
-@container (max-width: 900px) {
-  .personal-widget-content .top-value-showcase-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .personal-widget-content .wine-value-constellation { grid-template-columns: minmax(0, 1fr); }
-  .personal-widget-content .daily-pick-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .personal-widget-content .daily-lower-layout,
-  .personal-widget-content .daily-structured-grid { grid-template-columns: minmax(0, 1fr); }
-  .personal-widget-content .balance-indicator-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-@container (max-width: 600px) {
-  .personal-widget-content .top-value-showcase-grid { grid-template-columns: minmax(0, 1fr); }
-  .personal-widget-content .top-value-showcase-copy :is(strong, small, em) { white-space: normal; overflow-wrap: anywhere; }
-  .personal-widget-content .daily-pick-grid,
-  .personal-widget-content .daily-lower-layout { grid-template-columns: minmax(0, 1fr); }
-  .personal-widget-content .daily-style-heading { flex-direction: column; align-items: start; }
-  .personal-widget-content .daily-style-heading > small { text-align: left; }
-  .personal-widget-content .balance-indicator-grid,
-  .personal-widget-content .balance-tone-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .personal-widget-content .balance-indicator > span { overflow-wrap: anywhere; }
-}
-.home-dashboard-editorial .personal-dashboard .collector-ready-wine .key-position-bottle-visual { grid-area: auto; width: 80px; height: 140px; flex-shrink: 0; }
-@container (max-width: 900px) {
-  .personal-widget-content .taste-profile-premium-hero { grid-template-columns: minmax(0, 1fr); padding: 18px 16px; gap: 16px; }
-  .personal-widget-content .taste-profile-geography-layout,
-  .personal-widget-content .taste-profile-sensory-groups,
-  .personal-widget-content .taste-profile-category-list,
-  .personal-widget-content .taste-profile-category-content { grid-template-columns: minmax(0, 1fr); }
-  .personal-widget-content .taste-profile-section-heading { flex-wrap: wrap; }
-}
-@container (max-width: 600px) {
-  .personal-widget-content .collector-summary-grid,
-  .personal-widget-content .collector-priority-grid { grid-template-columns: minmax(0, 1fr); }
-  .personal-widget-content .taste-profile-hero-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .personal-widget-content .taste-profile-hero-copy h3 { font-size: 1.55rem; }
-  .personal-widget-content .taste-profile-evidence-summary { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .personal-widget-content .taste-profile-evidence-summary > div { grid-template-columns: 1fr; }
-  .personal-widget-content .taste-profile-evidence-summary > small { grid-column: 1 / -1; margin: 4px 0 0; }
-}
 @media (max-width: 1000px) {
   .personal-widget-grid { grid-template-columns: minmax(0, 1fr); }
   .personal-widget-catalogue { grid-template-columns: repeat(2, minmax(0, 1fr)); }

@@ -687,12 +687,15 @@ def list_wines(
 
 @router.get("/value-history/portfolio")
 def portfolio_value_history(
-    db: Session = Depends(get_db), context: CurrentContext = Depends(get_current_context)
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+    currency: str | None = Query(default=None, min_length=3, max_length=3),
 ) -> list[dict]:
     wines = {
         wine.id: wine
         for wine in db.scalars(select(Wine).where(Wine.household_id == context.household.id))
         if user_can_see_wine(context, wine)
+        and (currency is None or wine.currency == currency.upper())
     }
     if not wines:
         return []
@@ -705,6 +708,8 @@ def portfolio_value_history(
     daily_points: dict[date, dict] = {}
     for row in rows:
         wine = wines[row.wine_id]
+        if currency is not None and row.currency != currency.upper():
+            continue
         values[wine.id] = row.value * max(wine.quantity, 0)
         # Several wines are often updated by one AI batch. Keeping only the
         # last value of that day turns those technical events into a useful

@@ -1,9 +1,10 @@
+import { DashboardSummaryData } from "./dashboardSummaryData";
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useWidgetDrag } from "./useWidgetDrag";
 import type { Locale, PersonalDashboardWidget, PersonalDashboardWidgetId } from "../types";
 import "./PersonalDashboard.css";
-import { personalDashboardCatalogue as catalogue } from "./personalDashboardCatalogue";
+import { personalDashboardCatalogue as catalogue, normalizeDashboardLayout } from "./personalDashboardCatalogue";
 
 const initialLayout: PersonalDashboardWidget[] = [
   { id: "ready", width: "half" }, { id: "recent", width: "half" },
@@ -17,7 +18,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
   isDefault: boolean;
   onSave: (widgets: PersonalDashboardWidget[]) => Promise<void>;
   onMakeDefault: () => Promise<void>;
-  renderWidget: (id: PersonalDashboardWidgetId) => ReactNode;
+  renderWidget: (widget: PersonalDashboardWidget) => ReactNode;
 }) {
   const it = locale === "it";
   const [editing, setEditing] = useState(false);
@@ -28,7 +29,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
   const [reorderNotice, setReorderNotice] = useState("");
   const [search, setSearch] = useState("");
   const matchingWidgets = catalogue.filter(widget => widget[locale].join(" ").toLocaleLowerCase().includes(search.trim().toLocaleLowerCase()));
-  const saved = widgets ?? initialLayout;
+  const saved = normalizeDashboardLayout(widgets ?? initialLayout);
   const layout = editing ? draft : saved;
   const titleFor = (id: PersonalDashboardWidgetId) => catalogue.find(item => item.id === id)?.[locale][0] ?? id;
   function reorder(from: PersonalDashboardWidgetId, to: PersonalDashboardWidgetId) {
@@ -54,9 +55,9 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
       setError(it ? "Salvataggio non riuscito. Le modifiche sono ancora qui: riprova." : "Could not save. Your changes are still here: try again.");
     } finally { setSaving(false); }
   }
-  return <section className="personal-dashboard" aria-label={it ? "La mia dashboard" : "My dashboard"}>
+  return <DashboardSummaryData><section className="personal-dashboard" aria-label={it ? "La mia dashboard" : "My dashboard"}>
     <header className="personal-dashboard-header">
-      <div><p className="eyebrow">{it ? "Il tuo spazio in cantina" : "Your space in the cellar"}</p><h2>{it ? "La mia dashboard" : "My dashboard"}</h2><p>{it ? "Scegli le sezioni che contano per te e disponile nel tuo ordine." : "Choose the sections that matter to you and arrange them your way."}</p></div>
+      <div><p className="eyebrow">{it ? "Il tuo spazio in cantina" : "Your space in the cellar"}</p><h2>{it ? "La mia dashboard" : "My dashboard"}</h2><p>{it ? "La tua cantina a colpo d’occhio. Scegli i widget e disponili nel tuo ordine." : "Your cellar at a glance. Choose your widgets and arrange them your way."}</p></div>
       <div className="personal-dashboard-actions">
         {!editing && <button type="button" disabled={readOnly} onClick={() => { setDraft(saved.map(widget => ({ ...widget }))); setEditing(true); setError(""); setNotice(""); }}>{it ? "Personalizza" : "Customize"}</button>}
         {!editing && !isDefault && <button type="button" className="secondary" disabled={readOnly} onClick={() => void onMakeDefault()}>{it ? "Usa come iniziale" : "Use as default"}</button>}
@@ -90,11 +91,12 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
           }}><span aria-hidden="true">⠿</span></button><strong>{index + 1}. {title}</strong></div>
           <div><button type="button" className="secondary" disabled={saving || index === 0} aria-label={`${it ? "Sposta su" : "Move up"}: ${title}`} onClick={() => move(index, -1)}>↑ {it ? "Su" : "Up"}</button><button type="button" className="secondary" disabled={saving || index === draft.length - 1} aria-label={`${it ? "Sposta giù" : "Move down"}: ${title}`} onClick={() => move(index, 1)}>↓ {it ? "Giù" : "Down"}</button>
             <label><span className="sr-only">{it ? "Larghezza" : "Width"}: {title}</span><select aria-label={`${it ? "Larghezza" : "Width"}: ${title}`} disabled={saving} value={widget.width} onChange={event => setDraft(draft.map(item => item.id === widget.id ? { ...item, width: event.target.value as "half" | "full" } : item))}><option value="full">{it ? "Intera riga" : "Full row"}</option><option value="half">{it ? "Mezza riga" : "Half row"}</option></select></label>
+            {widget.id === "value_distribution" && <label><span className="sr-only">{it ? "Raggruppa valore" : "Group value"}</span><select aria-label={it ? "Raggruppa valore" : "Group value"} value={widget.group_by ?? "region"} onChange={event => setDraft(draft.map(item => item.id === widget.id ? { ...item, group_by: event.target.value as "region" | "producer" | "type" } : item))}><option value="region">{it ? "Regione" : "Region"}</option><option value="producer">{it ? "Produttore" : "Producer"}</option><option value="type">{it ? "Tipologia" : "Style"}</option></select></label>}
             <button type="button" className="secondary" disabled={saving} aria-label={`${it ? "Rimuovi" : "Remove"}: ${title}`} onClick={() => setDraft(draft.filter(item => item.id !== widget.id))}>{it ? "Rimuovi" : "Remove"}</button></div>
         </div>}
-        <div className="personal-widget-content">{renderWidget(widget.id)}</div>
+        <div className="personal-widget-content">{renderWidget(widget)}</div>
       </section>;
     })}</div>
     {drag && createPortal(<div className="personal-widget-drag-preview" aria-hidden="true" style={{ left: Math.max(8, Math.min(drag.x + 14, window.innerWidth - 248)), top: Math.max(8, Math.min(drag.y + 18, window.innerHeight - 96)) }}><span>⠿</span>{titleFor(drag.id)}<small>{drag.over && drag.over !== drag.id ? (it ? `Rilascia ${draft.findIndex(widget => widget.id === drag.id) < draft.findIndex(widget => widget.id === drag.over) ? "dopo" : "prima di"} ${titleFor(drag.over)}` : `Drop ${draft.findIndex(widget => widget.id === drag.id) < draft.findIndex(widget => widget.id === drag.over) ? "after" : "before"} ${titleFor(drag.over)}`) : (it ? "Trascina su un altro widget" : "Drag over another widget")}</small></div>, document.body)}
-  </section>;
+  </section></DashboardSummaryData>;
 }

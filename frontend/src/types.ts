@@ -987,8 +987,10 @@ export type TastingEnjoyment = "" | "positive" | "negative";
 export type PersonalDashboardWidgetId = "overview" | "ready" | "regions" | "maturity" | "balance" | "recent" | "deliveries" | "taste" | "news"
   | "featured" | "top_value" | "value_type" | "value_region" | "value_producer"
   | "tonight" | "past_window" | "to_collect" | "data_quality" | "style_balance"
-  | "collection_value" | "availability" | "composition";
-export type PersonalDashboardWidget = { id: PersonalDashboardWidgetId; width: "half" | "full" };
+  | "collection_value" | "availability" | "composition"
+  | "purchase_value" | "value_changes" | "value_distribution" | "styles" | "vintages" | "grapes" | "producers" | "formats"
+  | "next_peak" | "taste_origins" | "best_tastings" | "recent_tastings" | "tasting_rhythm" | "storage" | "wishlist" | "purposes";
+export type PersonalDashboardWidget = { id: PersonalDashboardWidgetId; width: "half" | "full"; group_by?: "region" | "producer" | "type" | null };
 export type PrimaryDashboardFocus = "collector" | "daily" | "balanced" | "personal";
 
 export type DashboardFocus =

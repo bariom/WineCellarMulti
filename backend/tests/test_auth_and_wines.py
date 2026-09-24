@@ -1313,7 +1313,7 @@ def test_personal_dashboard_is_private_persistent_and_validated():
     second = TestClient(app)
     assert register(first).status_code == 201
     assert register(second, "other-dashboard@example.com").status_code == 201
-    layout = [{"id": "regions", "width": "full"}, {"id": "ready", "width": "half"}]
+    layout = [{"id": "regions", "width": "full"}, {"id": "ready", "width": "half"}, {"id": "value_distribution", "width": "half", "group_by": "producer"}]
     response = first.patch("/api/v1/auth/preferences", json={
         "personal_dashboard_widgets": layout, "dashboard_focus": "personal",
     })
@@ -1327,6 +1327,7 @@ def test_personal_dashboard_is_private_persistent_and_validated():
     for invalid in [
         [{"id": "unknown", "width": "full"}],
         [{"id": "ready", "width": "giant"}],
+        [{"id": "value_distribution", "group_by": "household_id"}],
         [{"id": "ready"}, {"id": "ready"}],
         [{"id": "ready", "household_id": "another-household"}],
     ]:
@@ -1356,7 +1357,7 @@ def test_personal_dashboard_supports_complete_catalogue():
     from app.schemas.dashboard import DashboardWidgetPreference
 
     widget_ids = get_args(DashboardWidgetPreference.model_fields["id"].annotation)
-    assert len(widget_ids) == 22
+    assert len(widget_ids) == 38
     with TestClient(app) as client:
         assert register(client).status_code == 201
         layout = [{"id": widget_id, "width": "half"} for widget_id in widget_ids]
@@ -1367,6 +1368,43 @@ def test_personal_dashboard_supports_complete_catalogue():
         reversed_layout = list(reversed(layout))
         assert client.patch("/api/v1/auth/preferences", json={"personal_dashboard_widgets": reversed_layout}).status_code == 200
         assert client.get("/api/v1/session").json()["personal_dashboard_widgets"] == reversed_layout
+
+
+def test_personal_dashboard_portfolio_currency_keeps_households_and_histories_separate():
+    from app.models.wine import WineValueHistory
+
+    first = TestClient(app)
+    second = TestClient(app)
+    assert register(first).status_code == 201
+    assert register(second, "other-portfolio@example.com").status_code == 201
+    pending = first.get("/api/v1/auth/pending-users").json()[0]
+    assert first.post(f"/api/v1/auth/pending-users/{pending['id']}/approve").status_code == 200
+    assert second.post("/api/v1/auth/login", json={"email": "other-portfolio@example.com", "password": "strong-password-1"}).status_code == 200
+    identifiers = []
+    for client, currency, value in [(first, "CHF", "20"), (first, "EUR", "100"), (second, "CHF", "900")]:
+        response = client.post("/api/v1/wines", json={
+            "name": f"Portfolio {currency}", "quantity": 2,
+            "currency": currency, "price": value, "current_value": value,
+        })
+        assert response.status_code == 201, response.text
+        identifiers.append(response.json()["id"])
+    with TestingSessionLocal() as db:
+        db.add_all([
+            WineValueHistory(wine_id=uuid.UUID(identifiers[0]), value=Decimal("10"), currency="CHF", recorded_at=datetime(2025, 1, 1, tzinfo=UTC)),
+            WineValueHistory(wine_id=uuid.UUID(identifiers[0]), value=Decimal("800"), currency="EUR", recorded_at=datetime(2025, 1, 2, tzinfo=UTC)),
+        ])
+        db.commit()
+    chf = first.get("/api/v1/wines/value-history/portfolio?currency=chf")
+    assert chf.status_code == 200
+    assert Decimal(str(chf.json()[0]["value"])) == 20
+    assert Decimal(str(chf.json()[-1]["value"])) == 40
+    assert all(Decimal(str(point["value"])) <= 40 for point in chf.json())
+    eur = first.get("/api/v1/wines/value-history/portfolio?currency=EUR")
+    assert Decimal(str(eur.json()[-1]["value"])) == 200
+    assert first.get("/api/v1/wines/value-history/portfolio?currency=USD").json() == []
+    # Existing callers retain their response shape and unfiltered behaviour.
+    assert Decimal(str(first.get("/api/v1/wines/value-history/portfolio").json()[-1]["value"])) == 240
+    assert TestClient(app).get("/api/v1/wines/value-history/portfolio?currency=CHF").status_code == 401
 
 
 def create_redeem_code(

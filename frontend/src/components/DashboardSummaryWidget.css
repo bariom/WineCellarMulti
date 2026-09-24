@@ -1,0 +1,108 @@
+.personal-widget-content { height: 100%; }
+.personal-widget:has(.personal-widget-toolbar) .personal-widget-content { height: auto; }
+.dashboard-summary { display: flex; flex-direction: column; gap: 18px; height: 100%; min-width: 0; padding: 24px; border: 1px solid var(--border); border-radius: 18px; background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 96%, #ad9155), var(--surface)); color: var(--text); }
+.dashboard-summary > header p { margin: 0 0 6px; color: var(--text-muted); font-size: .68rem; letter-spacing: .13em; text-transform: uppercase; }
+.dashboard-summary > header h3 { margin: 0; font-family: var(--font-display, Georgia, serif); font-size: clamp(1.3rem, 3cqi, 1.8rem); line-height: 1.2; font-weight: 500; overflow-wrap: anywhere; }
+.dashboard-summary .summary-body { display: grid; gap: 14px; min-width: 0; flex: 1; align-content: center; }
+.dashboard-summary > footer { margin-top: auto; border-top: 1px solid var(--border); padding-top: 10px; }
+.dashboard-summary > footer p { margin: 0 0 6px; font-size: .73rem; line-height: 1.5; color: var(--text-muted); }
+.dashboard-summary .summary-explore { display: flex; justify-content: space-between; align-items: center; width: 100%; background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 8px 0; color: var(--text); text-align: left; }
+.summary-explore > span { font-size: 1.3rem; color: var(--accent); }
+.summary-empty { min-height: 140px; display: grid; place-content: center; gap: 8px; text-align: center; color: var(--text-muted); font-size: .88rem; margin: 0; padding: 18px; background: color-mix(in srgb, var(--surface-muted) 35%, transparent); border-radius: 12px; }
+.summary-value { display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px 20px; }
+.summary-value > strong { font: 500 clamp(1.9rem, 6cqi, 3.1rem)/1.15 var(--font-display, Georgia, serif); overflow-wrap: anywhere; }
+.summary-value > span { color: var(--text-muted); font-size: .82rem; }
+.summary-controls { display: flex; flex-wrap: wrap; gap: 10px; }
+.summary-control { display: flex; align-items: center; gap: 8px; font-size: .76rem; margin: 0; }
+.summary-control select { width: auto; max-width: 100%; min-width: 0; background: var(--surface); }
+.summary-numbers { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding-block: 30px; }
+.summary-numbers > div { display: grid; gap: 6px; min-width: 0; }
+.summary-numbers strong { font: 500 clamp(1.8rem, 8cqi, 3.7rem)/1.1 var(--font-display, Georgia, serif); overflow-wrap: anywhere; }
+.summary-numbers span { font-size: .76rem; color: var(--text-muted); }
+.summary-bottles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; align-items: start; }
+.dashboard-summary .summary-bottle { display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; width: 100%; padding: 12px 6px; border: 0; border-radius: 12px; color: var(--text); box-shadow: none; background: radial-gradient(ellipse at 50% 40%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%); text-align: center; }
+.dashboard-summary .summary-bottle:hover { background-color: color-mix(in srgb, var(--primary) 5%, transparent); }
+.personal-dashboard .dashboard-summary .key-position-bottle-visual { width: 70px; height: 150px; grid-area: auto; flex-shrink: 0; margin: 0; }
+.dashboard-summary .key-position-bottle-visual img { max-width: 100%; max-height: 100%; object-fit: contain; }
+.summary-bottle-copy { display: grid; gap: 5px; min-width: 0; width: 100%; }
+.summary-bottle-copy > strong { font-size: .89rem; line-height: 1.3; overflow-wrap: anywhere; }
+.summary-bottle-copy small { display: block; font-weight: 400; color: var(--text-muted); font-size: .71rem; line-height: 1.4; overflow-wrap: anywhere; }
+.summary-bottle-copy > span { display: grid; gap: 5px; font-size: .76rem; }
+.summary-bottles-single { grid-template-columns: minmax(0, 1fr); }
+.dashboard-summary .summary-bottles-single .summary-bottle { display: grid; grid-template-columns: 100px minmax(0, 1fr); text-align: left; padding: 8px; }
+.summary-window { display: block; height: 5px; background: color-mix(in srgb, var(--primary) 15%, transparent); border-radius: 5px; overflow: hidden; }
+.summary-window i { display: block; height: 100%; background: #426b5a; }
+.summary-bars { display: grid; gap: 14px; }
+.summary-bars > :is(div, button) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; min-width: 0; font-size: .79rem; }
+.summary-bars > button { width: 100%; text-align: left; background: none; color: var(--text); border: 0; box-shadow: none; }
+.summary-bars span { overflow-wrap: anywhere; }
+.summary-bars strong { grid-column: 2; grid-row: 1; font-weight: 700; }
+.summary-bars i { grid-column: 1 / -1; height: 7px; background: color-mix(in srgb, var(--border) 40%, transparent); border-radius: 4px; overflow: hidden; }
+.summary-bars i b { display: block; height: 100%; border-radius: inherit; }
+.summary-ring-layout { display: grid; grid-template-columns: minmax(110px, .9fr) minmax(0, 1fr); gap: 18px; align-items: center; }
+.summary-ring-layout svg { width: 100%; max-height: 220px; }
+.dashboard-summary svg text { fill: var(--text); font-size: 10px; font-family: inherit; }
+.dashboard-summary svg .summary-svg-number { font-size: 27px; font-family: var(--font-display, Georgia, serif); }
+.summary-legend { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.summary-legend li { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; font-size: .76rem; }
+.summary-legend li span { overflow-wrap: anywhere; }
+.summary-legend i { width: 8px; height: 8px; border-radius: 50%; }
+.summary-mosaic { display: grid; gap: 14px; }
+.summary-mosaic > svg { display: block; width: 100%; height: auto; border-radius: 8px; }
+.dashboard-summary .summary-mosaic text { fill: #fff; font-size: 15px; paint-order: stroke; stroke: #0006; stroke-width: 2px; }
+.summary-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: end; gap: 5px; }
+.summary-columns > div { display: flex; flex-direction: column; gap: 7px; min-width: 0; text-align: center; font-size: .62rem; }
+.summary-columns span { order: 3; overflow-wrap: anywhere; }
+.summary-columns strong { order: 1; font-size: .71rem; }
+.summary-columns i { display: flex; align-items: end; order: 2; height: 140px; background: color-mix(in srgb, var(--border) 20%, transparent); border-radius: 4px; }
+.summary-columns b { width: 100%; border-radius: 4px; }
+.summary-radar { display: block; width: 100%; max-height: 270px; }
+.summary-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.summary-chips > span { font-size: .75rem; padding: 6px 10px; border: 1px solid var(--border); border-radius: 20px; }
+.summary-maturity { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; font-size: .7rem; text-align: center; }
+.summary-maturity > div { display: grid; gap: 8px; }
+.summary-maturity-stack { display: flex; flex-direction: column; height: 175px; overflow: hidden; border-radius: 6px; }
+.summary-maturity-stack i { display: block; }
+.summary-maturity > p { grid-column: 1 / -1; color: var(--text-muted); }
+.summary-maturity-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.summary-maturity-legend > span { display: inline-flex; align-items: center; gap: 4px; }
+.summary-maturity-legend i { width: 7px; height: 7px; border-radius: 50%; }
+.summary-timeline .summary-bottle-copy { padding-top: 12px; border-top: 2px solid var(--border); }
+.summary-formats { display: flex; justify-content: space-around; gap: 12px; }
+.summary-formats > div { display: grid; justify-items: center; gap: 8px; min-width: 0; text-align: center; }
+.summary-formats svg { height: 130px; width: 55px; }
+.summary-formats span { font-size: .72rem; overflow-wrap: anywhere; }
+.summary-formats strong { font: 500 1.8rem var(--font-display, Georgia, serif); }
+.summary-tastings, .summary-wishes { display: grid; gap: 12px; }
+.dashboard-summary :is(.summary-tastings, .summary-wishes) > button { display: flex; align-items: center; gap: 16px; text-align: left; background: transparent; color: var(--text); border: 0; border-bottom: 1px solid var(--border); box-shadow: none; padding: 4px 0 10px; border-radius: 0; }
+.personal-dashboard .summary-tastings .key-position-bottle-visual { width: 35px; height: 65px; }
+.summary-tastings button > span, .summary-wishes button > span:not(.summary-rank) { display: grid; min-width: 0; gap: 4px; }
+.summary-tastings strong, .summary-wishes strong { font-size: .88rem; overflow-wrap: anywhere; }
+.summary-tastings small, .summary-wishes small { font-size: .7rem; font-weight: 400; color: var(--text-muted); }
+.summary-tastings b, .summary-wishes b { font-size: .79rem; }
+.summary-rank { font: 500 2.5rem var(--font-display, Georgia, serif); color: var(--accent); }
+.summary-trends { display: grid; gap: 14px; }
+.summary-trends > div { min-width: 0; }
+.summary-trends button { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; width: 100%; border: 0; background: none; color: var(--text); padding: 0; box-shadow: none; text-align: left; font-size: .84rem; }
+.summary-trends small { color: var(--text-muted); font-size: .65rem; }
+.summary-news { display: grid; gap: 12px; }
+.summary-news img { width: 100%; height: 155px; object-fit: cover; border-radius: 9px; }
+.summary-news img[hidden] { display: none; }
+.summary-news small { color: var(--text-muted); font-size: .72rem; }
+.summary-news h3 { margin: 0; font: 500 1.35rem/1.3 var(--font-display, Georgia, serif); }
+.summary-news a { min-height: 44px; display: flex; align-items: center; font-size: .8rem; }
+.dashboard-summary .wine-geography-leaflet { height: 240px; }
+.dashboard-summary .wine-geography-legend { font-size: .7rem; }
+@container (max-width: 430px) {
+  .dashboard-summary { padding: 18px 14px; gap: 14px; }
+  .summary-bottles { gap: 5px; }
+  .personal-dashboard .dashboard-summary .key-position-bottle-visual { width: 52px; height: 120px; }
+  .summary-bottle-copy > strong { font-size: .8rem; }
+  .summary-bottle-copy small { font-size: .65rem; }
+  .summary-ring-layout { gap: 10px; grid-template-columns: 140px minmax(0, 1fr); }
+  .summary-ring-layout svg text { font-size: 13px; }
+  .summary-maturity { gap: 4px; font-size: .63rem; }
+  .summary-columns { gap: 3px; }
+  .summary-columns i { height: 110px; }
+  .personal-dashboard .summary-tastings .key-position-bottle-visual { width: 30px; height: 65px; }
+}

@@ -2,6 +2,109 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { featuredValue } from "../src/domain/featuredValue";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
 
+test("personal dashboard scenic summaries share data and keep charts compact", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-09-24T12:00:00Z"));
+  const ids = ["collection_value", "featured", "recent", "taste", "taste_origins", "regions", "maturity", "styles", "best_tastings", "recent_tastings", "tasting_rhythm", "value_changes", "news"];
+  const stock = [{ ...wine, value_history: [
+    { id: "old", recorded_at: "2026-01-01", value: "40", currency: "CHF", source: "manual" },
+    { id: "different-currency", recorded_at: "2026-02-01", value: "500", currency: "EUR", source: "manual" },
+    { id: "new", recorded_at: "2026-09-01", value: "48", currency: "CHF", source: "manual" },
+  ] }, { ...wine, id: "white", name: "Chardonnay di Test", producer: "Domaine Test", type: "White", region: "Borgogna", vintage: "2022", quantity: 7 }, { ...wine, id: "ticino", name: "Merlot di Test", region: "Ticino", quantity: 2 }];
+  await mockApi(page, [], false, memberships, stock, { ...session, personal_dashboard_widgets: ids.map(id => ({ id, width: id === "collection_value" ? "full" : "half" })) });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto("/");
+  await expect(page.locator(".authenticated-app-shell")).toBeVisible();
+  await page.evaluate(() => {
+    const original = window.fetch;
+    (window as any).summaryRequests = [];
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      (window as any).summaryRequests.push(url);
+      if (url.includes("value-history/portfolio")) return new Response(JSON.stringify([{ recorded_at: "2026-06-01", value: "420" }, { recorded_at: "2026-08-01", value: "480" }, { recorded_at: "2026-09-20", value: "624" }]), { headers: { "Content-Type": "application/json" } });
+      if (url.includes("wine-pulse")) return new Response(JSON.stringify({ items: [{ id: "story", source: "Vinaris Test", headline: "Un viaggio tra le vigne del Ticino", article_url: "https://example.com/wine", published_at: "2026-09-23", image_url: null }] }), { headers: { "Content-Type": "application/json" } });
+      return original(input, init);
+    };
+  });
+  await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
+  const taste = page.locator('[data-widget-id="taste"]');
+  await expect(taste.getByRole("img", { name: /Mappa del gusto/ })).toBeVisible();
+  await expect(taste).toContainText("21 esperienze");
+  await expect(taste).not.toContainText("Confronto algoritmo");
+  await expect(page.locator('[data-widget-id="recent"] .summary-bottle')).toHaveCount(3);
+  await expect(page.locator('[data-widget-id="collection_value"] .time-series-chart')).toBeVisible();
+  await expect(page.locator('[data-widget-id="news"]')).toContainText("Un viaggio tra le vigne");
+  await expect(page.locator('[data-widget-id="recent_tastings"]')).toContainText("Nebbiolo");
+  await expect(page.locator('[data-widget-id="value_changes"]')).toContainText("+20%");
+  const requests: string[] = await page.evaluate(() => (window as any).summaryRequests);
+  expect(requests.filter(url => url.includes("taste-profile/me"))).toHaveLength(1);
+  expect(requests.filter(url => url.includes("tasting-archive") && url.includes("limit=200"))).toHaveLength(1);
+  expect(requests.some(url => url.includes("currency=CHF"))).toBe(true);
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const id of ["collection_value", "taste", "recent", "maturity", "styles", "tasting_rhythm", "value_changes"]) {
+      const widget = page.locator(`[data-widget-id="${id}"]`);
+      await widget.scrollIntoViewIfNeeded();
+      expect((await widget.boundingBox())!.height).toBeLessThan(750);
+      const header = (await widget.locator(".dashboard-summary > header").boundingBox())!;
+      const body = (await widget.locator(".summary-body").boundingBox())!;
+      const footer = (await widget.locator(".dashboard-summary > footer").boundingBox())!;
+      expect(header.y + header.height).toBeLessThanOrEqual(body.y);
+      expect(body.y + body.height).toBeLessThanOrEqual(footer.y);
+      expect(header.width).toBeGreaterThan(240);
+      await widget.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 110));
+      await widget.screenshot({ path: testInfo.outputPath(`summary-${id}-${width}.png`), animations: "disabled" });
+      if (width === 390 && id === "taste") await expect(widget).toHaveScreenshot("personal-taste-summary-compact.png", { animations: "disabled" });
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  }
+  await taste.getByRole("button", { name: "Approfondisci" }).click();
+  await expect(page.locator(".taste-profile-premium-hero")).toBeVisible();
+});
+
+test("personal dashboard migrates legacy panels and persists distribution grouping", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [
+    { id: "value_producer", width: "half" }, { id: "value_type", width: "full" }, { id: "balance", width: "full" }, { id: "regions", width: "half" }, { id: "composition", width: "half" }, { id: "maturity", width: "full" },
+  ] });
+  await page.goto("/");
+  await expect(page.locator('[data-widget-id]')).toHaveCount(3);
+  expect(await page.locator('[data-widget-id]').evaluateAll(elements => elements.map(element => element.getAttribute("data-widget-id")))).toEqual(["value_distribution", "regions", "maturity"]);
+  await expect(page.getByLabel("Distribuzione", { exact: true })).toHaveValue("producer");
+  await page.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByLabel("Raggruppa valore", { exact: true }).selectOption("type");
+  await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
+  await page.reload();
+  await expect(page.getByLabel("Distribuzione", { exact: true })).toHaveValue("type");
+  await expect(page.locator('[data-widget-id="value_distribution"]')).toHaveClass(/personal-widget-half/);
+  expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("vinaris-test-preferences")!).personal_dashboard_widgets)).toEqual([
+    { id: "value_distribution", width: "half", group_by: "type" }, { id: "regions", width: "full" }, { id: "maturity", width: "half" },
+  ]);
+});
+
+test("personal dashboard summary errors retry and currencies stay separate", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [wine, { ...wine, id: "eur", currency: "EUR", current_value: "100" }], { ...session, personal_dashboard_widgets: [{ id: "taste", width: "half" }, { id: "collection_value", width: "half" }] });
+  await page.goto("/");
+  await expect(page.locator(".authenticated-app-shell")).toBeVisible();
+  await page.evaluate(() => {
+    const original = window.fetch;
+    let failed = false;
+    window.fetch = async (input, init) => {
+      if (String(input).includes("taste-profile/me") && !failed) { failed = true; return new Response("Unavailable", { status: 503 }); }
+      return original(input, init);
+    };
+  });
+  await page.getByRole("tab", { name: "La mia dashboard", exact: true }).click();
+  const taste = page.locator('[data-widget-id="taste"]');
+  await expect(taste.getByRole("alert")).toBeVisible();
+  await taste.getByRole("button", { name: "Riprova" }).click();
+  await expect(taste.getByRole("img", { name: /Mappa del gusto/ })).toBeVisible();
+  const value = page.locator('[data-widget-id="collection_value"]');
+  await expect(value).toContainText("192");
+  await value.getByLabel("Valuta", { exact: true }).selectOption("EUR");
+  await expect(value).toContainText("400");
+  await expect(value).not.toContainText("592");
+  await expect(value).toContainText("Servono almeno due rilevazioni");
+});
+
 test("local entry reload keeps a single application and unsaved dashboard edits", async ({ page }, testInfo) => {
   const rootWarnings: string[] = [];
   page.on("console", message => { if (message.text().includes("createRoot")) rootWarnings.push(message.text()); });
@@ -61,9 +164,9 @@ test("personal dashboard saves selection, order, width and default; preserves ed
   const dashboard = page.getByRole("region", { name: "La mia dashboard", exact: true });
   await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
   await page.getByRole("checkbox", { name: /Mappa delle regioni/ }).uncheck();
-  await page.getByRole("checkbox", { name: /Mappa maturità/ }).uncheck();
-  await page.getByRole("button", { name: "Sposta su: Ultimi arrivi", exact: true }).click();
-  await page.getByLabel("Larghezza: Ultimi arrivi", { exact: true }).selectOption("full");
+  await page.getByRole("checkbox", { name: /Panorama di maturità/ }).uncheck();
+  await page.getByRole("button", { name: "Sposta su: Ultimi vini aggiunti", exact: true }).click();
+  await page.getByLabel("Larghezza: Ultimi vini aggiunti", { exact: true }).selectOption("full");
   await page.evaluate(() => sessionStorage.setItem("vinaris-test-save-error", "1"));
   await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
   await expect(dashboard.getByRole("alert")).toContainText("Le modifiche sono ancora qui");
@@ -73,16 +176,16 @@ test("personal dashboard saves selection, order, width and default; preserves ed
   const saved = [{ id: "recent", width: "full" }, { id: "ready", width: "half" }];
   expect(await page.evaluate(() => JSON.parse(sessionStorage.getItem("vinaris-test-preferences")!).personal_dashboard_widgets)).toEqual(saved);
   await page.reload();
-  await expect(dashboard.getByRole("region", { name: "Ultimi arrivi", exact: true })).toBeVisible();
+  await expect(dashboard.getByRole("region", { name: "Ultimi vini aggiunti", exact: true })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("personal-compact-review.png"), fullPage: true, animations: "disabled" });
   await expect(page).toHaveScreenshot("personal-dashboard-compact.png", { fullPage: true });
   await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
-  await page.getByRole("button", { name: "Rimuovi: Ultimi arrivi", exact: true }).click();
+  await page.getByRole("button", { name: "Rimuovi: Ultimi vini aggiunti", exact: true }).click();
   await page.getByRole("button", { name: "Annulla", exact: true }).click();
-  await expect(dashboard.getByRole("region", { name: "Ultimi arrivi", exact: true })).toBeVisible();
+  await expect(dashboard.getByRole("region", { name: "Ultimi vini aggiunti", exact: true })).toBeVisible();
   await dashboard.getByRole("button", { name: "Personalizza", exact: true }).click();
-  await page.getByRole("button", { name: "Rimuovi: Ultimi arrivi", exact: true }).click();
-  await page.getByRole("button", { name: "Rimuovi: Pronti da bere", exact: true }).click();
+  await page.getByRole("button", { name: "Rimuovi: Ultimi vini aggiunti", exact: true }).click();
+  await page.getByRole("button", { name: "Rimuovi: Da bere adesso", exact: true }).click();
   await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
   await page.reload();
   await expect(dashboard).toContainText("La tua dashboard è vuota");
@@ -143,6 +246,12 @@ test("personal dashboard supports every widget at half width", async ({ page }, 
     for (const widget of await dashboard.locator('.personal-widget').all()) {
       await widget.scrollIntoViewIfNeeded();
       expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}px: ${await widget.getAttribute("aria-label")}`).toBe(true);
+      const header = (await widget.locator(".dashboard-summary > header").boundingBox())!;
+      const body = (await widget.locator(".summary-body").boundingBox())!;
+      const footer = (await widget.locator(".dashboard-summary > footer").boundingBox())!;
+      expect(header.y + header.height).toBeLessThanOrEqual(body.y + 1);
+      expect(body.y + body.height).toBeLessThanOrEqual(footer.y + 1);
+      expect(header.width).toBeGreaterThan((await widget.boundingBox())!.width - 60);
     }
     if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`personal-all-${width}.png`), fullPage: true, animations: "disabled" });
   }
@@ -156,7 +265,7 @@ for (const width of [360, 390, 430, 1440]) {
     ] });
     await page.goto("/");
     await page.getByRole("button", { name: "Personalizza", exact: true }).click();
-    const handle = page.getByRole("button", { name: "Trascina per riordinare: Consegne in arrivo", exact: true });
+    const handle = page.getByRole("button", { name: "Trascina per riordinare: Bottiglie in viaggio", exact: true });
     const order = () => page.locator('[data-widget-id]').evaluateAll(elements => elements.map(e => e.getAttribute('data-widget-id')));
     const original = ["deliveries", "recent", "ready"];
     // Keyboard ordering retains focus on the same handle.
@@ -168,7 +277,7 @@ for (const width of [360, 390, 430, 1440]) {
     await expect.poll(order).toEqual(original);
     await page.locator('[data-widget-id="deliveries"]').evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 110));
     const source = (await handle.boundingBox())!;
-    const target = (await page.getByRole("button", { name: "Trascina per riordinare: Ultimi arrivi", exact: true }).boundingBox())!;
+    const target = (await page.getByRole("button", { name: "Trascina per riordinare: Ultimi vini aggiunti", exact: true }).boundingBox())!;
     const start = { x: source.x + source.width / 2, y: source.y + source.height / 2 };
     const end = { x: target.x + target.width / 2, y: target.y + target.height / 2 };
     expect(end.y).toBeLessThan(760);
@@ -218,7 +327,7 @@ test("personal dashboard drag scrolls on touch and stops after cancellation", as
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal" });
   await page.goto("/");
   await page.getByRole("button", { name: "Personalizza", exact: true }).click();
-  const handle = page.getByRole("button", { name: "Trascina per riordinare: Pronti da bere", exact: true });
+  const handle = page.getByRole("button", { name: "Trascina per riordinare: Da bere adesso", exact: true });
   await handle.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 130));
   const box = (await handle.boundingBox())!;
   const initialScroll = await page.evaluate(() => scrollY);
@@ -237,13 +346,17 @@ test("personal dashboard drag scrolls on touch and stops after cancellation", as
 
 test("personal dashboard financial widgets work at every width", async ({ page }, testInfo) => {
   const ids = ["featured", "top_value", "value_type", "value_region", "value_producer"];
-  const stock = Array.from({ length: 6 }, (_, index) => ({ ...wine, id: `finance-${index}`, name: `Selezione ${index + 1}`, current_value: String(40 + index * 10) }));
+  const stock = Array.from({ length: 6 }, (_, index) => ({ ...wine, id: `finance-${index}`, name: `Selezione ${index + 1}`, type: index % 2 ? "White" : "Red", current_value: String(40 + index * 10) }));
   await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "personal", personal_dashboard_widgets: ids.map(id => ({ id, width: "half" })) });
   await page.goto("/");
   const widgets = page.locator('[data-widget-id]');
-  await expect(widgets).toHaveCount(ids.length);
-  await expect(page.locator('[data-widget-id="top_value"] .top-value-showcase-item')).toHaveCount(5);
-  await expect(page.locator('[data-widget-id="top_value"] .top-value-showcase-item').first()).toContainText("Selezione 6");
+  await expect(widgets).toHaveCount(3);
+  await expect(page.locator('[data-widget-id="top_value"] .summary-bottle')).toHaveCount(3);
+  await expect(page.locator('[data-widget-id="top_value"] .summary-bottle').first()).toContainText("Selezione 6");
+  const tiles = page.locator('[data-widget-id="value_distribution"] .summary-mosaic rect');
+  await expect(tiles).toHaveCount(2);
+  const areas = await tiles.evaluateAll(elements => elements.map(element => { const rect = element as SVGRectElement; return rect.width.baseVal.value * rect.height.baseVal.value; }));
+  expect(areas[0] / (areas[0] + areas[1])).toBeCloseTo(840 / 1560, 5);
   for (const width of [360, 390, 430, 768, 1100, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     for (const widget of await widgets.all()) {
@@ -254,16 +367,12 @@ test("personal dashboard financial widgets work at every width", async ({ page }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     if (width === 390 || width === 1100) await page.screenshot({ path: testInfo.outputPath(`finance-${width}.png`), fullPage: true, animations: "disabled" });
   }
-  await page.locator('[data-widget-id="featured"] button[aria-haspopup="dialog"]').first().click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.getByRole('button', { name: 'Chiudi approfondimento', exact: true }).click();
-  await expect(page.getByRole('dialog')).toHaveCount(0);
-  await page.locator('[data-widget-id="top_value"] .top-value-showcase-item').first().click();
+  await page.locator('[data-widget-id="top_value"] .summary-bottle').first().click();
   await expect(page.locator('.wine-detail:visible').first()).toContainText('Selezione 6');
 });
 
 test("personal dashboard operational widgets and separate summaries", async ({ page }, testInfo) => {
-  const ids = ["tonight", "past_window", "to_collect", "data_quality", "style_balance", "collection_value", "availability", "composition"];
+  const ids = ["tonight", "past_window", "to_collect", "data_quality", "styles", "collection_value", "overview", "maturity"];
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: ids.map(id => ({ id, width: "half" })) });
   await page.goto("/");
   const widgets = page.locator('[data-widget-id]');
@@ -275,14 +384,6 @@ test("personal dashboard operational widgets and separate summaries", async ({ p
       await expect(widget.getByRole('heading').first()).toBeVisible();
       expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1), `${width}: ${await widget.getAttribute('data-widget-id')}`).toBe(true);
     }
-    const tonight = page.locator('[data-widget-id="tonight"]');
-    for (const group of await tonight.locator('.daily-tone-group').all()) {
-      const groupBox = (await group.boundingBox())!;
-      if (width <= 430 || width === 1100) expect(groupBox.width).toBeGreaterThan(230);
-    }
-    for (const label of await page.locator('[data-widget-id="style_balance"] .balance-indicator > span').all()) {
-      expect(await label.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
-    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
     if (width === 390 || width === 1100) await page.screenshot({ path: testInfo.outputPath(`operations-${width}.png`), fullPage: true, animations: "disabled" });
   }
@@ -290,17 +391,17 @@ test("personal dashboard operational widgets and separate summaries", async ({ p
   await expect(value).toContainText('CHF');
   await expect(value).toContainText('192');
   await expect(value).not.toContainText('Da seguire adesso');
-  await expect(page.locator('[data-widget-id="availability"]')).toContainText('4');
-  await expect(page.locator('[data-widget-id="composition"]')).toContainText('Finestre conosciute');
+  await expect(page.locator('[data-widget-id="overview"]')).toContainText('4');
+  await expect(page.locator('[data-widget-id="maturity"]')).toContainText('bottiglie con finestra nota');
   await page.getByRole('button', { name: 'Personalizza', exact: true }).click();
-  await page.getByRole('searchbox', { name: 'Cerca widget', exact: true }).fill('produttore');
-  await expect(page.getByRole('checkbox', { name: /Valore per produttore/ })).toBeVisible();
-  await expect(page.getByRole('checkbox', { name: /Cosa apro stasera/ })).toHaveCount(0);
+  await page.getByRole('searchbox', { name: 'Cerca widget', exact: true }).fill('produttor');
+  await expect(page.getByRole('checkbox', { name: /Produttori protagonisti/ })).toBeVisible();
+  await expect(page.getByRole('checkbox', { name: /Una bottiglia per stasera/ })).toHaveCount(0);
   await page.getByRole('searchbox', { name: 'Cerca widget', exact: true }).fill('inesistente');
   await expect(page.getByText('Nessun widget corrisponde alla ricerca.')).toBeVisible();
   await page.getByRole('button', { name: 'Annulla', exact: true }).click();
   await expect(widgets).toHaveCount(ids.length);
-  await page.locator('[data-widget-id="data_quality"]').getByRole('button', { name: /Apri gestione dati/ }).click();
+  await page.locator('[data-widget-id="data_quality"]').getByRole('button', { name: 'Approfondisci' }).click();
   await expect(page.locator('.data-dashboard-carousel')).toBeVisible();
 });
 
@@ -308,7 +409,7 @@ test("personal dashboard complete catalogue handles an empty cellar in English",
   await mockApi(page, [], false, memberships, [], { ...session, locale: 'en', dashboard_focus: 'personal', personal_dashboard_widgets: personalDashboardCatalogue.map(({ id }) => ({ id, width: 'full' })) });
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
-  await expect(page.locator('[data-widget-id]')).toHaveCount(22);
+  await expect(page.locator('[data-widget-id]')).toHaveCount(personalDashboardCatalogue.length);
   await expect(page.getByRole('heading', { name: 'My dashboard', exact: true })).toBeVisible();
   for (const widget of await page.locator('[data-widget-id]').all()) {
     await widget.scrollIntoViewIfNeeded();

@@ -21,6 +21,7 @@ type TimeSeriesChartProps = {
   primaryLabel?: string;
   secondaryLabel?: string;
   timeUnit?: "day" | "week" | "month";
+  compact?: boolean;
 };
 
 function resolvedColor(host: HTMLElement, value: string, fallback: string) {
@@ -44,6 +45,7 @@ export default function TimeSeriesChart({
   primaryLabel,
   secondaryLabel,
   timeUnit = "day",
+  compact = false,
 }: TimeSeriesChartProps) {
   const chartHostRef = useRef<HTMLDivElement | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(() => window.matchMedia("(max-width: 640px)").matches);
@@ -145,7 +147,7 @@ export default function TimeSeriesChart({
     const options: uPlot.Options = {
       width: Math.floor(chartHost.clientWidth) || 520,
       height: chartHeight,
-      padding: [12, 8, 2, 4],
+      padding: [12, compact ? 30 : 8, 2, 4],
       scales: { x: { time: true }, y: { auto: true } },
       axes: [
         {
@@ -176,7 +178,7 @@ export default function TimeSeriesChart({
           stroke: lineColor,
           fill: fillColor,
           width: 2.5,
-          paths: splinePath,
+          paths: compact ? uPlot.paths.linear!() : splinePath,
           points: { show: false },
           value: (_chart, value) => value === null || value === undefined ? "—" : `${currency} ${valueFormat.format(Number(value))}`.trim(),
         },
@@ -204,7 +206,7 @@ export default function TimeSeriesChart({
             tooltipDate.textContent = timeUnit === "week"
               ? `${locale === "it" ? "Settimana del" : "Week of"} ${formattedDate}`
               : formattedDate;
-            tooltipPrimaryLabel.textContent = primaryLabel || (locale === "it" ? "Ricavi" : "Revenue");
+            tooltipPrimaryLabel.textContent = primaryLabel || (compact ? ariaLabel : locale === "it" ? "Ricavi" : "Revenue");
             tooltipPrimaryValue.textContent = `${currency} ${valueFormat.format(values[index])}`.trim();
             if (chartSecondaryPoints.length) {
               tooltipSecondaryLabel.textContent = secondaryLabel || (locale === "it" ? "Media mobile" : "Moving average");
@@ -271,7 +273,7 @@ export default function TimeSeriesChart({
       chartHost.removeEventListener("keydown", handleKeyboard);
       chart.destroy();
     };
-  }, [ariaLabel, chartHeight, chartPoints, chartSecondaryPoints, currency, locale, pointsKey, primaryLabel, secondaryLabel, timeUnit]);
+  }, [ariaLabel, chartHeight, chartPoints, chartSecondaryPoints, compact, currency, locale, pointsKey, primaryLabel, secondaryLabel, timeUnit]);
 
   return <div className="time-series-chart" ref={chartHostRef} role="img" aria-label={`${ariaLabel}. ${locale === "it" ? "Usa le frecce sinistra e destra per esplorare i valori." : "Use the left and right arrow keys to explore values."}`} tabIndex={0} />;
 }

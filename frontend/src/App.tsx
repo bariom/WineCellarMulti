@@ -29,7 +29,7 @@ import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
-import type { PersonalDashboardWidget, PersonalDashboardWidgetId } from "./types";
+import type { PersonalDashboardWidget } from "./types";
 import { featuredValue } from "./domain/featuredValue";
 import { CollectorOverview } from "./components/CollectorOverview";
 import { DashboardCountUp } from "./components/DashboardCountUp";
@@ -104,7 +104,7 @@ const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const PersonalDashboard = lazy(() => import("./components/PersonalDashboard").then(module => ({ default: module.PersonalDashboard })));
-const FeaturedDashboardWidget = lazy(() => import("./components/FeaturedDashboardWidget"));
+const DashboardSummaryWidget = lazy(() => import("./components/DashboardSummaryWidget"));
 const HelpView = lazy(() => import("./views/HelpView"));
 const TimeSeriesChart = lazy(() => import("./components/TimeSeriesChart"));
 const OperationsPanel = lazy(() => import("./components/OperationsPanel").then((module) => ({ default: module.OperationsPanel })));
@@ -8838,31 +8838,22 @@ export function App() {
                   </article>);
   }
 
-  function renderPersonalWidget(id: PersonalDashboardWidgetId) {
-    switch (id) {
-      case "tonight": return renderTonightWidget();
-      case "style_balance": return renderStyleBalanceWidget();
-      case "past_window": return renderPastWindowWidget();
-      case "to_collect": return renderToCollectWidget();
-      case "data_quality": return renderDataQualityWidget(true);
-      case "featured": return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><FeaturedDashboardWidget items={keyPositionCandidates} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard} /></Suspense>;
-      case "top_value": return renderTopValueWidget();
-      case "value_type": return renderValueTypeWidget();
-      case "value_region": return renderValueRegionWidget();
-      case "value_producer": return renderValueProducerWidget();
-      case "collection_value":
-      case "availability":
-      case "composition":
-      case "overview": return <CollectorOverview part={id === "overview" ? "all" : id === "collection_value" ? "value" : id} wines={cellarWines} locale={locale} now={now} refreshDays={valueRefreshDaysNumber} onOpen={openWineFromDashboard} />;
-      case "ready": return renderReadyWidget();
-      case "recent": return renderRecentWidget();
-      case "regions": return renderRegionsWidget();
-      case "deliveries": return renderDeliveriesWidget();
-      case "maturity": return renderMaturityHeatmapCard();
-      case "balance": return renderRegionalGapCard(true);
-      case "taste": return <Suspense fallback={<LoadingState label={t("loadingData")} />}><TasteProfilePanel locale={locale} variant="insight" wines={wines} isAppAdmin={Boolean(session?.is_app_admin)} /></Suspense>;
-      case "news": return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><WinePulsePreview locale={locale} onOpen={() => setActiveView("pulse")} /></Suspense>;
-    }
+  function renderPersonalWidget(widget: PersonalDashboardWidget) {
+    return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
+      widget={widget} locale={locale} wines={wines} wishlist={wishlist} featured={keyPositionCandidates}
+      canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard} onRegion={openCellarForRegion}
+      onPairing={openDishPairingForWine}
+      onNavigate={destination => {
+        if (["value", "readiness", "taste", "data"].includes(destination)) {
+          setActiveView("home"); setDashboardFocus(destination as DashboardFocus);
+        } else if (destination === "history") {
+          setHistorySection("tastings"); setActiveView("history");
+        } else {
+          setSearchQuery(""); setActiveView(destination as "cellar" | "wishlist" | "pulse");
+        }
+        window.scrollTo({ top: 0, behavior: "auto" });
+      }}
+    /></Suspense>;
   }
 
   function renderMaturityHeatmapCard(fullWidth = false) {

@@ -953,7 +953,7 @@ def update_preferences(
         context.user.daily_wine_budget_chf = payload.daily_wine_budget_chf
     if dashboard_provided:
         context.user.personal_dashboard_widgets = (
-            [widget.model_dump() for widget in payload.personal_dashboard_widgets]
+            [widget.model_dump(exclude_none=True) for widget in payload.personal_dashboard_widgets]
             if payload.personal_dashboard_widgets is not None else None
         )
     db.commit()
