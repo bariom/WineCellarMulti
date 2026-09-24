@@ -5,6 +5,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
+from starlette.concurrency import run_in_threadpool
 
 from app.api.router import api_router
 from app.core.config import settings
@@ -252,7 +253,9 @@ async def enforce_demo_read_only(request: Request, call_next):
     if (
         request.method not in {"GET", "HEAD", "OPTIONS"}
         and request.url.path not in DEMO_MUTATION_EXCEPTIONS
-        and request_uses_demo_session(request)
+        # The helper owns and closes its DB session in the worker thread.
+        # Waiting for the database here must not stall unrelated API requests.
+        and await run_in_threadpool(request_uses_demo_session, request)
     ):
         return JSONResponse(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -282,7 +285,7 @@ async def collect_user_activity(request: Request, call_next):
     response = await call_next(request)
     action = user_activity_action(request.method, request.url.path)
     if action and 200 <= response.status_code < 300:
-        save_user_activity(request, action)
+        await run_in_threadpool(save_user_activity, request, action)
     return response
 
 
