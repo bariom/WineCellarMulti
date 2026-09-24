@@ -1,4 +1,5 @@
 import { DashboardSummaryData } from "./dashboardSummaryData";
+import { WidgetPickerCard } from "./WidgetPickerCard";
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useWidgetDrag } from "./useWidgetDrag";
@@ -75,7 +76,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
       <div className="personal-widget-catalogue">{matchingWidgets.map(widget => {
         const [title, description] = widget[locale];
         const selected = draft.some(item => item.id === widget.id);
-        return <label key={widget.id}><input type="checkbox" checked={selected} onChange={() => setDraft(selected ? draft.filter(item => item.id !== widget.id) : [...draft, { id: widget.id, width: "full" }])} /><span><strong>{title}</strong><small>{description}</small></span></label>;
+        return <WidgetPickerCard key={widget.id} title={title} description={description} selected={selected} it={it} onSelect={() => setDraft(selected ? draft.filter(item => item.id !== widget.id) : [...draft, { id: widget.id, width: "full" }])} renderPreview={() => renderWidget(draft.find(item => item.id === widget.id) ?? { id: widget.id, width: "half" })} />;
       })}</div>
       <p>{it ? "Trascina i widget dalla maniglia oppure usa Su e Giù. La larghezza si applica su desktop; sul telefono ogni widget occupa una riga." : "Drag widgets by their handle or use Up and Down. Width applies on desktop; on phones each widget takes a row."}</p>
       <div className="personal-dashboard-actions"><button type="button" onClick={() => void save()}>{saving ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva dashboard" : "Save dashboard")}</button><button type="button" className="secondary" onClick={() => { setEditing(false); setError(""); }}>{it ? "Annulla" : "Cancel"}</button></div>

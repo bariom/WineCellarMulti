@@ -2,6 +2,85 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { featuredValue } from "../src/domain/featuredValue";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
 
+test("personal dashboard previews without selecting and supports keyboard and compact screens", async ({ page }, testInfo) => {
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Personalizza", exact: true }).click();
+  const trigger = page.getByRole("button", { name: "Anteprima: Ultimi vini aggiunti", exact: true });
+  const preview = page.getByRole("region", { name: "Anteprima: Ultimi vini aggiunti", exact: true });
+  await trigger.hover();
+  await page.getByRole("searchbox", { name: "Cerca widget" }).hover();
+  await page.waitForTimeout(450);
+  await expect(preview).toBeHidden();
+  await trigger.hover();
+  await expect(preview).toBeVisible();
+  await expect(preview.locator(".summary-bottle")).toHaveCount(1);
+  await expect(page.locator("[data-widget-id]")).toHaveCount(0);
+  await preview.hover();
+  await page.waitForTimeout(450);
+  await expect(preview).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("preview-desktop.png") });
+  await page.keyboard.press("Escape");
+  await expect(preview).toBeHidden();
+  await trigger.focus();
+  await page.keyboard.press("Enter");
+  await expect(preview).toBeVisible();
+  await preview.getByRole("button", { name: "Aggiungi widget", exact: true }).click();
+  await expect(page.locator('[data-widget-id="recent"]')).toHaveCount(1);
+  await expect(preview.getByRole("button", { name: "Selezionato", exact: true })).toBeDisabled();
+  await preview.getByRole("button", { name: "Chiudi anteprima" }).click();
+  await expect(trigger).toBeFocused();
+  await trigger.click();
+  // Click the uncovered heading, outside the floating preview.
+  await page.getByRole("heading", { name: "La mia dashboard", exact: true }).click();
+  await expect(preview).toBeHidden();
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await trigger.click();
+    await expect(preview).toBeVisible();
+    const bounds = (await preview.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(bounds.y).toBeGreaterThanOrEqual(0);
+    expect(bounds.y + bounds.height).toBeLessThanOrEqual(844);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`preview-${width}.png`) });
+    if (width === 390) await expect(preview).toHaveScreenshot("widget-preview-compact.png", { animations: "disabled" });
+    await preview.getByRole("button", { name: "Chiudi anteprima" }).click();
+  }
+  await page.getByRole("button", { name: "Annulla", exact: true }).click();
+  await expect(page.locator("[data-widget-id]")).toHaveCount(0);
+});
+
+test("personal dashboard preview opens on touch and every widget can be inspected", async ({ browser }, testInfo) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+  const page = await context.newPage();
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
+  await page.goto("/");
+  await page.getByRole("button", { name: "Personalizza", exact: true }).tap();
+  for (const widget of personalDashboardCatalogue) {
+    const name = `Anteprima: ${widget.it[0]}`;
+    await page.getByRole("button", { name, exact: true }).tap();
+    const preview = page.getByRole("region", { name, exact: true });
+    await expect(preview).toBeVisible();
+    await expect(preview.locator(".dashboard-summary")).toBeVisible();
+    await expect(page.locator("[data-widget-id]")).toHaveCount(0);
+    const footer = (await preview.locator(":scope > footer").boundingBox())!;
+    const header = (await preview.locator(":scope > header").boundingBox())!;
+    const body = (await preview.locator(".personal-preview-body").boundingBox())!;
+    expect(footer.y + footer.height).toBeLessThanOrEqual(844);
+    expect(header.y + header.height).toBeLessThanOrEqual(body.y);
+    expect(body.y + body.height).toBeLessThanOrEqual(footer.y + 1);
+    if (widget.id === "taste" || widget.id === "regions") {
+      await page.screenshot({ path: testInfo.outputPath(`preview-${widget.id}.png`) });
+    }
+    await preview.getByRole("button", { name: "Chiudi anteprima" }).tap();
+    await expect(preview).toBeHidden();
+  }
+  await context.close();
+});
+
 test("personal dashboard scenic summaries share data and keep charts compact", async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-09-24T12:00:00Z"));
   const ids = ["collection_value", "featured", "recent", "taste", "taste_origins", "regions", "maturity", "styles", "best_tastings", "recent_tastings", "tasting_rhythm", "value_changes", "news"];

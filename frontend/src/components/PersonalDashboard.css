@@ -7,7 +7,21 @@
 .personal-widget-picker { min-width: 0; margin: 0; padding: 20px; border: 1px solid var(--line, #c9bdab); border-radius: 16px; }
 .personal-widget-picker legend { font-weight: 750; padding: 0 8px; }
 .personal-widget-catalogue { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.personal-widget-catalogue label { display: flex; align-items: start; gap: 12px; padding: 14px; border: 1px solid var(--line, #c9bdab); border-radius: 12px; cursor: pointer; }
+.personal-widget-choice { min-width: 0; display: flex; flex-direction: column; align-items: start; border: 1px solid var(--line, #c9bdab); border-radius: 12px; padding: 14px; gap: 10px; }
+.personal-widget-catalogue label { display: flex; align-items: start; gap: 12px; cursor: pointer; width: 100%; }
+.personal-preview-trigger { margin-top: auto; }
+.personal-widget-preview { position: fixed; margin: 0; box-sizing: border-box; width: min(480px, calc(100vw - 24px)); max-height: min(600px, calc(100dvh - 24px)); padding: 16px; border: 1px solid var(--line, #c9bdab); border-radius: 16px; background: var(--surface, #fff); color: var(--text, #203830); box-shadow: 0 12px 50px #0004; overflow-y: auto; overscroll-behavior: contain; }
+.personal-widget-preview:popover-open { display: flex; flex-direction: column; }
+.personal-widget-preview > header, .personal-widget-preview > footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; }
+.personal-widget-preview > header { margin-bottom: 12px; }
+.personal-widget-preview > header button { min-width: 44px; font-size: 24px; }
+.personal-widget-preview > footer { margin-top: 12px; flex-wrap: wrap; }
+.personal-widget-preview > footer span { font-size: .85rem; }
+.personal-preview-body { min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; container-type: inline-size; }
+.personal-preview-body .dashboard-summary > footer { display: none; }
+@media (max-width: 600px) {
+  .personal-widget-preview { top: auto !important; bottom: 12px; left: 12px !important; }
+}
 .personal-widget-catalogue input { flex: 0 0 auto; width: 20px; height: 20px; margin: 2px 0; }
 .personal-widget-catalogue span { min-width: 0; }
 .personal-widget-catalogue small { display: block; margin-top: 6px; line-height: 1.5; }

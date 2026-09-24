@@ -5,6 +5,16 @@ contiene 31 widget sintetici: una visualizzazione dominante, pochi indicatori,
 fino a tre bottiglie per selezione e un collegamento **Approfondisci**.
 Le dashboard predefinite conservano le analisi complete.
 
+Nel catalogo, una pausa del mouse di 400 ms apre l'anteprima del widget reale
+con i dati della cantina, senza modificarne la selezione. Il pulsante **Anteprima**
+funziona anche con tastiera e touch. Il pannello rimane aperto mentre lo si
+consulta; si chiude con **Chiudi anteprima**, Esc o un clic esterno.
+**Aggiungi widget** modifica solo la bozza: occorre ancora **Salva dashboard**.
+Sul telefono l'anteprima compare in basso, entro i limiti dello schermo.
+Le anteprime sono in sola lettura e caricate all'apertura, condividendo la cache
+dati della dashboard. Non richiedono nuove librerie; usano il
+[Popover API del browser](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API).
+
 | Gruppo | Widget |
 | --- | --- |
 | Valore | Evoluzione del valore, Valore e costo d’acquisto, Bottiglie chiave, Le più preziose, Variazioni di valore, Distribuzione del valore |
