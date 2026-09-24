@@ -55,7 +55,17 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
   const history = useDashboardResource<Array<{ recorded_at: string; value: string }>>(id === "collection_value" && stock.length ? `/api/v1/wines/value-history/portfolio?currency=${encodeURIComponent(currency)}` : null);
   const empty = (message = it ? "Qui prenderanno forma i dati della tua cantina." : "Your cellar data will take shape here.") => <p className="summary-empty">{message}</p>;
   const loading = <p className="summary-empty" role="status">{it ? "Caricamento…" : "Loading…"}</p>;
-  const status = (resource: { data?: unknown; error?: boolean; retry: () => void }) => resource.error ? <div className="summary-empty" role="alert"><p>{it ? "Dati non disponibili al momento." : "Data is currently unavailable."}</p><button type="button" className="secondary" onClick={resource.retry}>{it ? "Riprova" : "Retry"}</button></div> : loading;
+  const status = (resource: { data?: unknown; error?: boolean; status?: number; retry: () => void }) => {
+    if (!resource.error) return loading;
+    const code = resource.status;
+    const message = code === 401 ? (it ? "Sessione scaduta. Accedi nuovamente per caricare i dati." : "Session expired. Sign in again to load data.")
+      : code === 403 ? (it ? "Il tuo account non ha accesso a questi dati." : "Your account cannot access this data.")
+      : code === 404 ? (it ? "Il servizio richiesto non è disponibile sul server." : "The requested service is not available on the server.")
+      : code === 429 ? (it ? "Troppe richieste. Attendi qualche istante e riprova." : "Too many requests. Wait a moment and retry.")
+      : code && code >= 500 ? (it ? "Il server non riesce a caricare questi dati. Riprova tra poco." : "The server could not load this data. Please retry shortly.")
+      : (it ? "Caricamento non riuscito. Verifica la connessione e riprova." : "Loading failed. Check your connection and retry.");
+    return <div className="summary-empty" role="alert"><p>{message}</p>{code && <small>{it ? "Codice risposta" : "Response code"}: {code}</small>}<button type="button" className="secondary" onClick={resource.retry}>{it ? "Riprova" : "Retry"}</button></div>;
+  };
   const currencyPicker = currencies.length > 1 ? <label className="summary-control">{it ? "Valuta" : "Currency"}<select aria-label={it ? "Valuta" : "Currency"} value={currency} onChange={event => setCurrency(event.target.value)}>{currencies.map(value => <option key={value}>{value}</option>)}</select></label> : null;
   const wineLabel = (wine: Wine) => [wine.producer, wine.vintage].filter(Boolean).join(" · ");
   const date = (value?: string | null) => value && Number.isFinite(Date.parse(value)) ? new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", year: "numeric" }).format(new Date(value)) : unknown;

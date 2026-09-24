@@ -8838,12 +8838,13 @@ export function App() {
                   </article>);
   }
 
-  function renderPersonalWidget(widget: PersonalDashboardWidget) {
+  function renderPersonalWidget(widget: PersonalDashboardWidget, preview = false) {
     return <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><DashboardSummaryWidget
       widget={widget} locale={locale} wines={wines} wishlist={wishlist} featured={keyPositionCandidates}
-      canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard} onRegion={openCellarForRegion}
-      onPairing={openDishPairingForWine}
+      canShowPhotos={canAccessWinePhotos} onOpen={wine => { if (!preview) openWineFromDashboard(wine); }} onRegion={region => { if (!preview) openCellarForRegion(region); }}
+      onPairing={wine => { if (!preview) openDishPairingForWine(wine); }}
       onNavigate={destination => {
+        if (preview) return;
         if (["value", "readiness", "taste", "data"].includes(destination)) {
           setActiveView("home"); setDashboardFocus(destination as DashboardFocus);
         } else if (destination === "history") {

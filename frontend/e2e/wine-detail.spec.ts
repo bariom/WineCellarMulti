@@ -2,6 +2,34 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { featuredValue } from "../src/domain/featuredValue";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
 
+test("personal dashboard preview retries server errors without leaving the editor", async ({ page }, testInfo) => {
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
+  await page.goto("/");
+  await expect(page.locator(".authenticated-app-shell")).toBeVisible();
+  await page.evaluate(() => {
+    const original = window.fetch;
+    let fail = true;
+    window.fetch = async (input, init) => {
+      if (String(input).includes("taste-profile/me") && fail) {
+        fail = false;
+        return new Response(JSON.stringify({ detail: "Private internal detail" }), { status: 503 });
+      }
+      return original(input, init);
+    };
+  });
+  await page.getByRole("button", { name: "Personalizza", exact: true }).click();
+  await page.getByRole("button", { name: "Anteprima: Geografia del gusto", exact: true }).click();
+  const preview = page.getByRole("region", { name: "Anteprima: Geografia del gusto", exact: true });
+  await expect(preview.getByRole("alert")).toContainText("Codice risposta: 503");
+  await expect(preview).not.toContainText("Private internal detail");
+  await preview.screenshot({ path: testInfo.outputPath("preview-load-error.png") });
+  await preview.getByRole("button", { name: "Riprova", exact: true }).click();
+  await expect(preview.getByRole("alert")).toHaveCount(0);
+  await expect(preview.locator(".leaflet-container")).toBeVisible();
+  await expect(page.locator("[data-widget-id]")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Salva dashboard", exact: true })).toBeVisible();
+});
+
 test("personal dashboard previews without selecting and supports keyboard and compact screens", async ({ page }, testInfo) => {
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -249,6 +277,7 @@ test("personal dashboard saves selection, order, width and default; preserves ed
   await page.evaluate(() => sessionStorage.setItem("vinaris-test-save-error", "1"));
   await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
   await expect(dashboard.getByRole("alert")).toContainText("Le modifiche sono ancora qui");
+  await expect(dashboard.getByRole("alert")).toContainText("HTTP 503");
   await page.evaluate(() => sessionStorage.removeItem("vinaris-test-save-error"));
   await page.getByRole("button", { name: "Salva dashboard", exact: true }).click();
   await expect(dashboard.getByRole("status")).toContainText("salvata");

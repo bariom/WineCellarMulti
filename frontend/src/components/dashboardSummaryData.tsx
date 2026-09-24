@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { api } from "../services/api";
+import { api, ApiError } from "../services/api";
 import type { TastingArchivePage, Wine } from "../types";
 
 // The provider is keyed by account/household. Requests are shared only within
@@ -46,14 +46,14 @@ export function DashboardSummaryData({ children }: { children: ReactNode }) {
 export function useDashboardResource<T>(url: string | null) {
   const load = useContext(Resources);
   const [attempt, setAttempt] = useState(0);
-  const [state, setState] = useState<{ url: string | null; data?: T; error?: boolean }>({ url: null });
+  const [state, setState] = useState<{ url: string | null; data?: T; error?: boolean; status?: number }>({ url: null });
   useEffect(() => {
     let active = true;
     setState({ url });
-    if (url) load(url).then(data => { if (active) setState({ url, data: data as T }); }).catch(() => { if (active) setState({ url, error: true }); });
+    if (url) load(url).then(data => { if (active) setState({ url, data: data as T }); }).catch(error => { if (active) setState({ url, error: true, status: error instanceof ApiError ? error.status : undefined }); });
     return () => { active = false; };
   }, [url, load, attempt]);
-  return { data: state.url === url ? state.data : undefined, error: state.url === url && state.error, retry: () => setAttempt(value => value + 1) };
+  return { data: state.url === url ? state.data : undefined, error: state.url === url && state.error, status: state.url === url ? state.status : undefined, retry: () => setAttempt(value => value + 1) };
 }
 
 export type SummarySlice = { label: string; value: number };

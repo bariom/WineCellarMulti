@@ -1,5 +1,6 @@
 import { DashboardSummaryData } from "./dashboardSummaryData";
 import { WidgetPickerCard } from "./WidgetPickerCard";
+import { ApiError } from "../services/api";
 import { useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useWidgetDrag } from "./useWidgetDrag";
@@ -19,7 +20,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
   isDefault: boolean;
   onSave: (widgets: PersonalDashboardWidget[]) => Promise<void>;
   onMakeDefault: () => Promise<void>;
-  renderWidget: (widget: PersonalDashboardWidget) => ReactNode;
+  renderWidget: (widget: PersonalDashboardWidget, preview?: boolean) => ReactNode;
 }) {
   const it = locale === "it";
   const [editing, setEditing] = useState(false);
@@ -52,8 +53,14 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
       await onSave(draft);
       setEditing(false);
       setNotice(it ? "Dashboard salvata nel tuo account." : "Dashboard saved to your account.");
-    } catch {
-      setError(it ? "Salvataggio non riuscito. Le modifiche sono ancora qui: riprova." : "Could not save. Your changes are still here: try again.");
+    } catch (cause) {
+      const code = cause instanceof ApiError ? cause.status : undefined;
+      const reason = code === 401 ? (it ? "La sessione è scaduta." : "Your session has expired.")
+        : code === 403 ? (it ? "Il server non autorizza questa modifica." : "The server does not allow this change.")
+        : code === 422 ? (it ? "Il server ha rifiutato la configurazione dei widget." : "The server rejected the widget configuration.")
+        : code && code >= 500 ? (it ? "Il server ha incontrato un errore." : "The server encountered an error.")
+        : "";
+      setError(`${it ? "Salvataggio non riuscito. Le modifiche sono ancora qui: riprova." : "Could not save. Your changes are still here: try again."}${reason ? ` ${reason}` : ""}${code ? ` (HTTP ${code})` : ""}`);
     } finally { setSaving(false); }
   }
   return <DashboardSummaryData><section className="personal-dashboard" aria-label={it ? "La mia dashboard" : "My dashboard"}>
@@ -76,7 +83,7 @@ export function PersonalDashboard({ locale, widgets, readOnly, isDefault, onSave
       <div className="personal-widget-catalogue">{matchingWidgets.map(widget => {
         const [title, description] = widget[locale];
         const selected = draft.some(item => item.id === widget.id);
-        return <WidgetPickerCard key={widget.id} title={title} description={description} selected={selected} it={it} onSelect={() => setDraft(selected ? draft.filter(item => item.id !== widget.id) : [...draft, { id: widget.id, width: "full" }])} renderPreview={() => renderWidget(draft.find(item => item.id === widget.id) ?? { id: widget.id, width: "half" })} />;
+        return <WidgetPickerCard key={widget.id} title={title} description={description} selected={selected} it={it} onSelect={() => setDraft(selected ? draft.filter(item => item.id !== widget.id) : [...draft, { id: widget.id, width: "full" }])} renderPreview={() => renderWidget(draft.find(item => item.id === widget.id) ?? { id: widget.id, width: "half" }, true)} />;
       })}</div>
       <p>{it ? "Trascina i widget dalla maniglia oppure usa Su e Giù. La larghezza si applica su desktop; sul telefono ogni widget occupa una riga." : "Drag widgets by their handle or use Up and Down. Width applies on desktop; on phones each widget takes a row."}</p>
       <div className="personal-dashboard-actions"><button type="button" onClick={() => void save()}>{saving ? (it ? "Salvataggio…" : "Saving…") : (it ? "Salva dashboard" : "Save dashboard")}</button><button type="button" className="secondary" onClick={() => { setEditing(false); setError(""); }}>{it ? "Annulla" : "Cancel"}</button></div>

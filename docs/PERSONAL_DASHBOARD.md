@@ -14,6 +14,10 @@ Sul telefono l'anteprima compare in basso, entro i limiti dello schermo.
 Le anteprime sono in sola lettura e caricate all'apertura, condividendo la cache
 dati della dashboard. Non richiedono nuove librerie; usano il
 [Popover API del browser](https://developer.mozilla.org/en-US/docs/Web/API/Popover_API).
+I controlli di consultazione e **Riprova** funzionano anche nell'anteprima;
+aprire vini o collegamenti non fa uscire dall'editor. Gli errori di caricamento
+mostrano un messaggio e il codice HTTP, senza esporre dettagli interni del server.
+Un errore di caricamento non significa che la cantina non contenga dati.
 
 | Gruppo | Widget |
 | --- | --- |

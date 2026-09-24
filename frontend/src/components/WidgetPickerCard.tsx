@@ -45,7 +45,10 @@ export function WidgetPickerCard({ title, description, selected, onSelect, rende
       {open && <>
         <header><div><strong>{it ? "Anteprima" : "Preview"}</strong><small>{it ? "Con i dati della tua cantina" : "With your cellar data"}</small></div><button type="button" className="secondary" aria-label={it ? "Chiudi anteprima" : "Close preview"} onClick={() => { close(); trigger.current?.focus(); }}>×</button></header>
         <p className="sr-only">{title}: {description}</p>
-        <div className="personal-preview-body" tabIndex={0} aria-label={it ? "Contenuto anteprima, sola lettura" : "Preview content, read only"}><div ref={element => element?.setAttribute("inert", "")}>{renderPreview()}</div></div>
+        <div className="personal-preview-body" tabIndex={0} aria-label={it ? "Contenuto anteprima, sola lettura" : "Preview content, read only"} onClickCapture={event => {
+          // Keep external links in the editor; read-only chart controls and retry remain usable.
+          if ((event.target as Element).closest("a")) { event.preventDefault(); event.stopPropagation(); }
+        }}>{renderPreview()}</div>
         <footer><span>{selected ? (it ? "Già nella tua selezione" : "Already selected") : (it ? "Non ancora selezionato" : "Not selected yet")}</span><button type="button" disabled={selected} onClick={onSelect}>{selected ? (it ? "Selezionato" : "Selected") : (it ? "Aggiungi widget" : "Add widget")}</button></footer>
       </>}
     </div>
