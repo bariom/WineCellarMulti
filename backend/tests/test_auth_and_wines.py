@@ -7867,6 +7867,15 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
     )
     assert created.status_code == 201
 
+    source_url = "https://example.com/barolo-2019"
+    duplicate_quote = "Example Producer Barolo 2019 Existing Critic 94 points."
+    new_quote = "Example Producer Barolo 2019 New Critic 96 points."
+    verified_new = {
+        "critic": "New Critic", "score": "96", "note": "New score",
+        "source_url": source_url, "evidence_quote": new_quote,
+        "verification_method": "page_evidence_v1",
+    }
+
     def fake_create_response(*args, **kwargs):
         assert args[0] == "gpt-5.4"
         assert "Name: Barolo" in args[2]
@@ -7878,19 +7887,34 @@ def test_ai_scores_preserves_existing_scores_and_adds_only_new_ones(monkeypatch)
         assert kwargs["web_search"] is True
         assert kwargs["web_search_context_size"] == "medium"
         return OpenAIResponse(
-            text='{"scores":[{"critic":"Existing Critic","score":"94","note":"Duplicate"},{"critic":"New Critic","score":"96","note":"New score"}]}',
+            text=json.dumps({"scores": [
+                {"critic": "Existing Critic", "score": "94", "note": "Duplicate", "source_url": source_url, "evidence_quote": duplicate_quote, "exact_wine_and_vintage": True},
+                {key: value for key, value in verified_new.items() if key != "verification_method"} | {"exact_wine_and_vintage": True},
+            ]}),
             usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150),
+            web_sources=({"url": source_url, "title": "Barolo 2019 reviews"},),
         )
 
     monkeypatch.setattr(ai_routes, "create_response", fake_create_response)
+    read_sources = []
+
+    def read_page(url):
+        read_sources.append(url)
+        assert url == source_url
+        return f"{duplicate_quote} {new_quote}"
+
+    monkeypatch.setattr(ai_routes, "public_page_text", read_page)
     generated = client.post(
         f"/api/v1/ai/wines/{created.json()['id']}/scores", json={"model": "gpt-5.4"}
     )
     assert generated.status_code == 200
     assert generated.json()["scores"] == [
         {"critic": "Existing Critic", "score": "94", "note": "Stored score"},
-        {"critic": "New Critic", "score": "96", "note": "New score"},
+        verified_new,
     ]
+    assert read_sources == [source_url]
+    reopened = client.get(f"/api/v1/wines/{created.json()['id']}")
+    assert reopened.json()["scores"] == generated.json()["scores"]
 
 
 def test_manual_score_deletion_is_not_restored_from_shared_data():
@@ -7947,7 +7971,7 @@ def test_manual_score_deletion_is_not_restored_from_shared_data():
     assert reopened.json()["scores"] == []
 
 
-def test_ai_scores_excludes_wine_when_no_scores_are_found(monkeypatch):
+def test_ai_scores_keeps_future_searches_enabled_when_no_scores_are_found(monkeypatch):
     from app.api.routes import ai as ai_routes
 
     client = TestClient(app)
@@ -7973,7 +7997,13 @@ def test_ai_scores_excludes_wine_when_no_scores_are_found(monkeypatch):
     generated = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores")
     assert generated.status_code == 200
     assert generated.json()["scores"] == []
-    assert generated.json()["scores_not_applicable"] is True
+    assert generated.json()["scores_not_applicable"] is False
+    reopened = client.get(f"/api/v1/wines/{created.json()['id']}")
+    assert reopened.json()["scores_not_applicable"] is False
+    retried = client.post(f"/api/v1/ai/wines/{created.json()['id']}/scores")
+    assert retried.status_code == 200
+    assert retried.json()["scores"] == []
+    assert retried.json()["scores_not_applicable"] is False
 
 
 def test_ai_grapes_cache_verified_web_result(monkeypatch):
