@@ -124,9 +124,15 @@ from app.services.ai_credits import (
     quantize_usd,
 )
 from app.services.ai_models import parameters_for_model
+from app.services.critic_scores import (
+    score_has_weak_evidence,
+    score_matches_page,
+    supported_ai_scores,
+)
 from app.services.free_tier import ensure_free_tier_label_capacity, is_free_tier
 from app.services.merchants import get_or_create_merchant
 from app.services.openai_client import TokenUsage, create_response, parse_json_response
+from app.services.score_sources import public_page_text
 from app.services.shared_wine_data import (
     SHARED_FEATURES,
     apply_shared_fact,
@@ -955,6 +961,11 @@ def reuse_shared_wine_feature(
         return False
     fact = get_shared_fact(db, wine, feature, locale=locale)
     if fact is None:
+        return False
+    if feature == "scores" and any(
+        not isinstance(score, dict) or score.get("verification_method") != "page_evidence_v1" or score_has_weak_evidence(score)
+        for score in fact.payload.get("scores", [])
+    ):
         return False
     if feature == "value" and contains_hospitality_market_sources(fact.sources):
         return False
@@ -5525,9 +5536,12 @@ def generate_scores(
                         "properties": {
                             "critic": {"type": "string"},
                             "score": {"type": "string"},
+                            "source_url": {"type": "string"},
+                            "exact_wine_and_vintage": {"type": "boolean"},
+                            "evidence_quote": {"type": "string"},
                             "note": {"type": "string"},
                         },
-                        "required": ["critic", "score", "note"],
+                        "required": ["critic", "score", "note", "source_url", "exact_wine_and_vintage", "evidence_quote"],
                     },
                 },
             },
@@ -5554,21 +5568,22 @@ def generate_scores(
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY, detail="AI returned invalid scores"
         )
-    new_scores = [
-        {
-            "critic": str(item.get("critic") or "")[:120],
-            "score": str(item.get("score") or "")[:40],
-            "note": str(item.get("note") or "")[:800],
-        }
-        for item in scores
-        if isinstance(item, dict) and (item.get("critic") or item.get("score"))
-    ][:8]
+    new_scores = supported_ai_scores(scores, response.web_sources)
+    source_texts = {score["source_url"]: "" for score in new_scores}
+    for url in source_texts:
+        source_texts[url] = public_page_text(url)
+    new_scores = [score for score in new_scores if score_matches_page(
+        score, source_texts[score["source_url"]], name=wine.name, producer=wine.producer, vintage=wine.vintage
+    )]
+    for score in new_scores:
+        score["verification_method"] = "page_evidence_v1"
     known_scores = {
         (
             str(score.get("critic") or "").strip().casefold(),
             str(score.get("score") or "").strip().casefold(),
         )
         for score in existing_scores
+        if not score_has_weak_evidence(score)
     }
     additional_scores = []
     for score in new_scores:
@@ -5580,8 +5595,6 @@ def generate_scores(
     wine.scores = [*existing_scores, *additional_scores]
     if wine.scores:
         wine.scores_not_applicable = False
-    else:
-        wine.scores_not_applicable = True
     if wine.scores:
         mark_local_feature(wine, "scores")
         existing_shared_scores: list[dict] = []
@@ -5593,6 +5606,8 @@ def generate_scores(
         verified_scores: list[dict] = []
         verified_keys: set[tuple[str, str]] = set()
         for score in [*existing_shared_scores, *new_scores]:
+            if score_has_weak_evidence(score) or score.get("verification_method") != "page_evidence_v1":
+                continue
             key = (
                 str(score.get("critic") or "").strip().casefold(),
                 str(score.get("score") or "").strip().casefold(),

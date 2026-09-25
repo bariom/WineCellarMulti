@@ -1,0 +1,6 @@
+.horizontal-scroll-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+.horizontal-scroll-controls button { width: 44px; min-width: 44px; min-height: 44px; padding: 0; font-size: 1.5rem; line-height: 1; }
+.horizontal-scroll-controls span { min-width: 48px; text-align: center; white-space: nowrap; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.horizontal-scroll-hint { margin: 0; font-size: .8rem; color: var(--text-muted); }
+.collector-mobile-gallery > header { flex-wrap: wrap; gap: 8px; }
+.dashboard-scroll-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }

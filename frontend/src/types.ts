@@ -79,7 +79,7 @@ export type Wine = {
   grapes_source_title: string;
   grapes_verified_at: string | null;
   grapes_not_applicable: boolean;
-  scores: Array<{ critic: string; score: string; note: string }>;
+  scores: Array<{ critic: string; score: string; note: string; source_url?: string; verification_status?: "unverified" }>;
   scores_not_applicable: boolean;
   vineyard_name: string;
   vineyard_locality: string;
@@ -283,7 +283,7 @@ export type WineDraft = {
   owners: Array<{ name: string; email: string; share_pct: string }>;
   tags: string[];
   grapes: Array<{ name: string; percentage_from: string; percentage_to: string }>;
-  scores: Array<{ critic: string; score: string; note: string }>;
+  scores: Array<{ critic: string; score: string; note: string; source_url?: string; verification_status?: "unverified" }>;
 };
 
 export type WineTone = "red" | "white" | "sparkling" | "rose" | "sweet" | "other";

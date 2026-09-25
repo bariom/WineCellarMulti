@@ -1,5 +1,6 @@
-import { Children, lazy, Suspense, useEffect, useRef, useState } from "react";
-import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction, UIEvent } from "react";
+import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
+import { ScrollControls, ScrollHint, useHorizontalScroll } from "./HorizontalScroll";
+import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import { AppIcon } from "./AppIcon";
 import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
 import { clipUiText, consumeDraftFromTastingEntry, emptyConsumeWineDraft, formatAiBudget, formatDisplayDate, formatGrape, formatMoney, formatUsd, grapesSvgIcon, readableLegacyAiText, wineTone } from "./panelSupport";
@@ -276,7 +277,7 @@ export function compareDrinkWindowLabel(wine: Wine, t: (key: TranslationKey) => 
 
 export function compareScoresLabel(wine: Wine, t: (key: TranslationKey) => string) {
   if (!wine.scores.length) return t("notSpecified");
-  return wine.scores.slice(0, 2).map((score) => `${score.critic} ${score.score}`.trim()).join(" • ");
+  return wine.scores.filter(score => score.verification_status !== "unverified").slice(0, 2).map((score) => `${score.critic} ${score.score}`.trim()).join(" • ");
 }
 
 export function compareGrapesLabel(wine: Wine, t: (key: TranslationKey) => string) {
@@ -1583,19 +1584,26 @@ export function WineDetail({
             <div><span>03</span><strong>{locale === "it" ? "Profilo e riconoscimenti" : "Profile and ratings"}</strong></div>
             <small>{locale === "it" ? "Uvaggi, punteggi e tag" : "Grapes, scores and tags"}</small>
           </summary>
-          {wine.scores.length ? (
+          {wine.scores.some(score => score.verification_status !== "unverified") ? (
             <div className="detail-section">
               <h3>{t("scores")}</h3>
               <ul>
-                {wine.scores.map((score, index) => (
+                {wine.scores.filter(score => score.verification_status !== "unverified").map((score, index) => (
                   <li key={`${score.critic}-${index}`}>
                     <strong>{score.critic} {score.score}</strong>
                     {score.note ? <span>{score.note}</span> : null}
+                    {score.source_url && /^https?:\/\//.test(score.source_url) && <a href={score.source_url} target="_blank" rel="noopener noreferrer">{locale === "it" ? "Consulta la fonte" : "View source"}</a>}
                   </li>
                 ))}
               </ul>
             </div>
           ) : null}
+
+          {wine.scores.some(score => score.verification_status === "unverified") && <details className="detail-section unverified-score-section">
+            <summary>{locale === "it" ? "Dati precedenti non verificati" : "Unverified previous data"}</summary>
+            <p>{locale === "it" ? "Queste voci contengono stime o dubbi espliciti. Sono conservate per revisione, ma escluse dai punteggi mostrati in cantina." : "These entries contain estimates or explicit uncertainty. They are retained for review but excluded from cellar score badges."}</p>
+            <ul>{wine.scores.filter(score => score.verification_status === "unverified").map((score, index) => <li key={index}><strong>{score.critic} {score.score}</strong><span>{score.note}</span></li>)}</ul>
+          </details>}
 
           {wine.grapes.length ? (
             <div className="detail-section">
@@ -2136,63 +2144,16 @@ export function ContactSupportPanel({
   );
 }
 
-export function DashboardCarousel({
-  label,
-  children,
-  className,
-}: {
-  label: string;
-  children: ReactNode;
-  className?: string;
+export function DashboardCarousel({ label, children, className, locale }: {
+  label: string; children: ReactNode; className?: string; locale: Locale;
 }) {
-  const cards = Children.toArray(children);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const carouselRef = useRef<HTMLElement | null>(null);
-
-  function updateActiveIndex(event: UIEvent<HTMLElement>) {
-    const container = event.currentTarget;
-    const items = Array.from(container.children) as HTMLElement[];
-    if (!items.length) return;
-    const scrollLeft = container.scrollLeft;
-    let nearestIndex = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-    items.forEach((item, index) => {
-      const distance = Math.abs(item.offsetLeft - scrollLeft);
-      if (distance < nearestDistance) {
-        nearestDistance = distance;
-        nearestIndex = index;
-      }
-    });
-    setActiveIndex(nearestIndex);
-  }
-
-  function goToCard(index: number) {
-    const container = carouselRef.current;
-    const item = container?.children[index] as HTMLElement | undefined;
-    if (!container || !item) return;
-    container.scrollTo({ left: item.offsetLeft, behavior: "smooth" });
-    setActiveIndex(index);
-  }
-
-  return (
-    <div className={["dashboard-carousel-shell", className].filter(Boolean).join(" ")}>
-      <section className="dashboard-grid" aria-label={label} onScroll={updateActiveIndex} ref={carouselRef}>
-        {children}
-      </section>
-      {cards.length > 1 ? (
-        <div className="dashboard-dots" aria-label={label}>
-          {cards.map((_, index) => (
-            <button
-              type="button"
-              className={index === activeIndex ? "active" : ""}
-              key={index}
-              aria-label={`${label} ${index + 1}`}
-              aria-current={index === activeIndex ? "true" : undefined}
-              onClick={() => goToCard(index)}
-            />
-          ))}
-        </div>
-      ) : null}
+  const scroll = useHorizontalScroll();
+  const id = useId();
+  return <div className={["dashboard-carousel-shell", className].filter(Boolean).join(" ")}>
+    {scroll.overflow && <div className="dashboard-scroll-heading"><ScrollControls scroll={scroll} label={label} locale={locale} target={id} /></div>}
+    <ScrollHint scroll={scroll} locale={locale} />
+    <div className="dashboard-grid" id={id} aria-label={label} role="region" ref={scroll.ref} onPointerDown={scroll.interact} onKeyDown={scroll.interact}>
+      {children}
     </div>
-  );
+  </div>;
 }

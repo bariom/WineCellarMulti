@@ -4797,6 +4797,11 @@ export function App() {
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setSelectedWineId(updated.id);
       const [nextAudit] = await Promise.all([loadAiAudit(), loadAiUsage()]);
+      if (feature === "scores") {
+        const previous = new Set(wine.scores.filter(score => score.verification_status !== "unverified").map(score => `${score.critic}|${score.score}`));
+        const found = updated.scores.filter(score => score.verification_status !== "unverified" && !previous.has(`${score.critic}|${score.score}`)).length;
+        setNotice(found ? (locale === "it" ? `${found} nuovi punteggi con fonte trovati.` : `${found} new sourced scores found.`) : (locale === "it" ? "Nessun nuovo punteggio verificato trovato per questo vino e questa annata. Le stime non vengono aggiunte." : "No new verified scores found for this wine and vintage. Estimates are not added."));
+      }
       if (feature === "value" && openMarketModal) {
         const marketEntry = nextAudit.find((entry) => entry.entity_type === "wine" && entry.entity_id === updated.id && ["ai_value", "wine_full_enrichment", "shared_value", "shared_full_enrichment"].includes(entry.feature));
         if (marketEntry && auditMarketSources(marketEntry).length) {
@@ -10809,7 +10814,7 @@ export function App() {
                 renderWidget={renderPersonalWidget}
               /></Suspense> : null}
               {dashboardFocus === "daily" ? (
-                <DashboardCarousel label={t("dailyFocus")} className="daily-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("dailyFocus")} className="daily-dashboard-carousel">
                   {renderTonightWidget()}
 
                   <article className="dashboard-card daily-summary-card">
@@ -10866,7 +10871,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "balanced" ? (
-                <DashboardCarousel label={t("balancedFocus")} className="balanced-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("balancedFocus")} className="balanced-dashboard-carousel">
                   {renderStyleBalanceWidget()}
 
                   <article className="dashboard-card">
@@ -11123,7 +11128,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "value" ? (
-                <DashboardCarousel label={t("valueFocus")} className="value-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("valueFocus")} className="value-dashboard-carousel">
                   <article className="dashboard-card wide-card portfolio-value-explorer">
                     <div className="card-heading">
                       <div>
@@ -11220,7 +11225,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "readiness" ? (
-                <DashboardCarousel label={t("drinkingWindow")} className="readiness-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("drinkingWindow")} className="readiness-dashboard-carousel">
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -11277,7 +11282,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "timeline" ? (
-                <DashboardCarousel label={t("deliveryTimeline")} className="timeline-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("deliveryTimeline")} className="timeline-dashboard-carousel">
                   {renderDeliveriesWidget()}
 
                   <article className="dashboard-card wide-card timeline-card">
@@ -11327,7 +11332,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "data" ? (
-                <DashboardCarousel label={t("dataFocus")} className="data-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("dataFocus")} className="data-dashboard-carousel">
                   {renderDataQualityWidget()}
                   <article className="dashboard-card">
                     <div className="card-heading">
@@ -11460,7 +11465,7 @@ export function App() {
                 </DashboardCarousel>
               ) : null}
               {dashboardFocus === "taste" ? (
-                <DashboardCarousel label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
                     <TasteProfilePanel locale={locale} variant="insight" wines={wines} isAppAdmin={Boolean(session?.is_app_admin)} />
                   </Suspense>
@@ -13481,7 +13486,7 @@ export function App() {
                         ) : null}
                         {wine.scores.length ? (
                           <div className="row-meta-group row-meta-group-secondary">
-                            {wine.scores.slice(0, 3).map((score) => <span className="row-chip row-score-chip" key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
+                            {wine.scores.filter(score => score.verification_status !== "unverified").slice(0, 3).map((score) => <span className="row-chip row-score-chip" key={`${score.critic}-${score.score}`}>{score.critic} {score.score}</span>)}
                           </div>
                         ) : null}
                       </div>

@@ -11,7 +11,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session, defer
+from sqlalchemy.orm import Session, defer, object_session
 from starlette.concurrency import run_in_threadpool
 
 from app.api.deps import (
@@ -61,6 +61,7 @@ from app.services.bottle_photo_ai import (
     process_bottle_photo,
     warm_bottle_photo_worker,
 )
+from app.services.critic_scores import scores_for_display
 from app.services.free_tier import ensure_free_tier_label_capacity
 from app.services.merchants import get_or_create_merchant
 from app.services.notifications import create_user_notification
@@ -297,11 +298,24 @@ def wine_response(
     strategy_purposes: list[WineStrategyPurpose] | None = None,
     strategy_purpose_quantities: dict[WineStrategyPurpose, int] | None = None,
 ) -> WineResponse:
+    # Detail and mutation responses must carry the same strategy data as the
+    # list: the frontend replaces its cached wine with these responses.
+    if strategy_purposes is None or strategy_purpose_quantities is None:
+        db = object_session(wine)
+        if db is not None:
+            purposes, quantities = strategy_allocation_data_by_wine(
+                db, wine.household_id, [wine.id]
+            ).get(wine.id, ([], {}))
+            if strategy_purposes is None:
+                strategy_purposes = purposes
+            if strategy_purpose_quantities is None:
+                strategy_purpose_quantities = quantities
     if include_details:
         response = WineResponse.model_validate(wine)
         response = response.model_copy(
             update={
                 "details_loaded": True,
+                "scores": scores_for_display(wine.scores or []),
                 "shared_data_features": [
                     feature
                     for feature in (wine.shared_data_features or [])
@@ -376,7 +390,7 @@ def wine_response(
         grapes_source_title=wine.grapes_source_title or "",
         grapes_verified_at=wine.grapes_verified_at,
         grapes_not_applicable=wine.grapes_not_applicable,
-        scores=wine.scores or [],
+        scores=scores_for_display(wine.scores or []),
         scores_not_applicable=wine.scores_not_applicable,
         vineyard_name=wine.vineyard_name or "",
         vineyard_locality=wine.vineyard_locality or "",

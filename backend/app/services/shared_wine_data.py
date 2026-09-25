@@ -11,6 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models import AiAuditLog, SharedWineFact, SharedWineIdentity, Wine
+from app.services.critic_scores import score_has_weak_evidence
 
 SHARED_FEATURES = ("notes", "drink_window", "value", "grapes", "scores")
 LOCAL_FEATURE_PREFIX = "local:"
@@ -252,7 +253,11 @@ def apply_shared_fact(wine: Wine, fact: SharedWineFact, *, only_missing: bool) -
                 for item in current
             }
             for item in shared_scores:
-                if not isinstance(item, dict):
+                if (
+                    not isinstance(item, dict)
+                    or score_has_weak_evidence(item)
+                    or item.get("verification_method") != "page_evidence_v1"
+                ):
                     continue
                 key = (
                     str(item.get("critic") or "").casefold(),

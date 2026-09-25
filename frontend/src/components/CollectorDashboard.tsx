@@ -3,6 +3,7 @@ import type { Locale, Wine } from "../types";
 import { formatBottleCount, wineIdealWindowStart, winePriorityDrinkEnd } from "../domain/cellar";
 import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
 import { CollectorMaturity } from "./CollectorMaturity";
+import { ScrollGallery } from "./HorizontalScroll";
 import { wineTone } from "./panelSupport";
 import { FeaturedWineDetails, featuredCaption, type FeaturedWine } from "./FeaturedWineDetails";
 
@@ -24,9 +25,7 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
   const it = locale === "it";
   const tabs = [{ id: "wines", label: it ? "Vini" : "Wines" }, { id: "priorities", label: it ? "Priorità" : "Priorities" }, { id: "collection", label: it ? "Collezione" : "Collection" }];
   function gallery(title: string, items: Wine[], meta: (wine: Wine) => ReactNode, highlights = false) {
-    return <section className={`collector-mobile-gallery${highlights ? " collector-mobile-highlights" : ""}`} aria-label={title}>
-      <header><h2>{title}</h2><span>{items.length} {it ? "vini" : "wines"}</span></header>
-      {items.length ? <div className="collector-photo-rail" role="list" aria-label={title}>
+    return <ScrollGallery key={title} title={title} locale={locale} count={items.length} className={`collector-mobile-gallery${highlights ? " collector-mobile-highlights" : ""}`}>
         {items.map(wine => <div role="listitem" key={wine.id}>
           <button type="button" aria-haspopup={highlights ? "dialog" : undefined} onClick={() => highlights ? setSelectedId(wine.id) : onOpen(wine)}>
             <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes={highlights ? "104px" : "120px"} tone={wineTone(wine.type)} />
@@ -37,8 +36,7 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
             {highlights ? <span className="featured-wine-discover">{it ? "Scopri perché" : "Discover why"} →</span> : null}
           </button>
         </div>)}
-      </div> : <p>{it ? "Nessun vino in questa selezione." : "No wines in this selection."}</p>}
-    </section>;
+    </ScrollGallery>;
   }
   return <div className="collector-dashboard-layout" data-mobile-view={view}>
     <header className="collector-editorial-masthead">

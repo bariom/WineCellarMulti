@@ -41,3 +41,15 @@ smallest relevant frontend test, `npm run test:e2e:wine-detail` when applicable,
 and `npm run build`; they do not require the full backend pytest suite. Backend
 or cross-stack changes add their targeted backend/contract checks, and the full
 repository suite is reserved for changes whose scope justifies it.
+## Indicatori di scorrimento delle dashboard
+
+Le gallerie mobili del collezionista e `DashboardCarousel` condividono
+`HorizontalScroll`: frecce con contatore, suggerimento iniziale e rilevamento
+dello spazio effettivamente scorrevole. I controlli scompaiono quando tutto il
+contenuto entra nel contenitore; il suggerimento scompare dopo l'interazione.
+Il componente osserva ridimensionamenti e cambiamenti dei figli e rispetta
+la preferenza di movimento ridotto.
+
+Verifica mirata: `npx playwright test e2e/wine-detail.spec.ts -g "scroll cues|collector responsive layout|collector empty"`.
+I test coprono touch nativo, tastiera, estremi del carosello, assenza di overflow
+della pagina e viewport 360, 390, 430 e 1440 px.

@@ -2,6 +2,125 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { featuredValue } from "../src/domain/featuredValue";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
 
+test("collector scroll cues track navigation and disappear without overflow", async ({ page }, testInfo) => {
+  const stock = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `gallery-${index}` : wine.id, name: `Vino ${index + 1}` }));
+  await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const gallery = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
+  const next = gallery.getByRole("button", { name: "Successivo: Ultimi arrivi" });
+  const previous = gallery.getByRole("button", { name: "Precedente: Ultimi arrivi" });
+  await expect(gallery.getByText("1 di 5", { exact: true })).toBeVisible();
+  await expect(previous).toBeDisabled();
+  await expect(gallery.getByText("Scorri per esplorare →")).toBeVisible();
+  await next.click();
+  await expect(gallery.getByText("2 di 5", { exact: true })).toBeVisible();
+  await expect(gallery.getByText("Scorri per esplorare →")).toHaveCount(0);
+  await expect(previous).toBeEnabled();
+  await gallery.getByRole("list").evaluate(element => element.scrollTo({ left: element.scrollWidth, behavior: "instant" }));
+  await expect(gallery.getByText("5 di 5", { exact: true })).toBeVisible();
+  await expect(next).toBeDisabled();
+  await previous.focus();
+  await page.keyboard.press("Enter");
+  await expect(next).toBeEnabled();
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    const header = (await gallery.locator("header").boundingBox())!;
+    const title = (await gallery.getByRole("heading").boundingBox())!;
+    const controls = (await gallery.getByRole("group").boundingBox())!;
+    expect(controls.x + controls.width).toBeLessThanOrEqual(header.x + header.width + 1);
+    expect(title.x + title.width <= controls.x || title.y + title.height <= controls.y).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.getByRole("region", { name: "In primo piano", exact: true }).screenshot({ path: testInfo.outputPath(`scroll-cues-${width}.png`) });
+  }
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await expect(next).toBeHidden();
+});
+
+test("scroll cues stay hidden for one wine and follow dashboard overflow", async ({ page }, testInfo) => {
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const recent = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
+  await expect(recent.getByRole("listitem")).toHaveCount(1);
+  await expect(recent.getByRole("group")).toHaveCount(0);
+  await expect(recent.getByText("Scorri per esplorare →")).toHaveCount(0);
+  await page.getByRole("tab", { name: "Bere bene oggi", exact: true }).click();
+  const shell = page.locator(".daily-dashboard-carousel");
+  await expect(shell).toBeVisible();
+  const overflows = await shell.locator(".dashboard-grid").evaluate(el => el.scrollWidth > el.clientWidth + 2);
+  if (overflows) {
+    await expect(shell.getByRole("group")).toBeVisible();
+    const next = shell.getByRole("button", { name: /^Successivo:/ });
+    await next.click();
+    await expect(shell.getByRole("button", { name: /^Precedente:/ })).toBeEnabled();
+    await shell.screenshot({ path: testInfo.outputPath("dashboard-scroll-cues.png") });
+  } else await expect(shell.getByRole("group")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test("collector scroll cues respond to a native touch swipe", async ({ browser }) => {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+  const page = await context.newPage();
+  await mockApi(page, [], false, memberships, [wine, { ...wine, id: "second", name: "Secondo vino" }, { ...wine, id: "third", name: "Terzo vino" }], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const gallery = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
+  await gallery.scrollIntoViewIfNeeded();
+  await gallery.evaluate(element => window.scrollBy(0, element.getBoundingClientRect().top - 110));
+  const rail = (await gallery.getByRole("list").boundingBox())!;
+  const cdp = await context.newCDPSession(page);
+  const y = rail.y + 100;
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: 300, y }] });
+  for (const x of [250, 200, 150, 100, 50]) await cdp.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y }] });
+  await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await expect(gallery.getByRole("button", { name: "Precedente: Ultimi arrivi" })).toBeEnabled();
+  await expect(gallery.getByText("Scorri per esplorare →")).toHaveCount(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await context.close();
+});
+
+test("wine detail separates speculative legacy scores from ratings", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await expect(page.locator(".authenticated-app-shell")).toBeVisible();
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await original(input, init);
+      if (String(input).endsWith("/wines") || String(input).endsWith("/wines/wine-e2e-1")) {
+        const body = await response.json();
+        const enrich = (item: object) => ({ ...item, scores: [
+          { critic: "Critico ipotetico", score: "92-94", note: "Possibile fascia; da verificare", verification_status: "unverified" },
+          { critic: "Fonte documentata", score: "92", note: "Punteggio pubblicato", source_url: "https://example.com/review" },
+        ] });
+        return new Response(JSON.stringify(Array.isArray(body) ? body.map(enrich) : enrich(body)), { headers: { "Content-Type": "application/json" } });
+      }
+      return response;
+    };
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+  const detail = page.locator(".wine-detail:visible").first();
+  await detail.locator('summary').filter({ hasText: "Profilo e riconoscimenti" }).click();
+  await expect(detail.getByText("Fonte documentata 92", { exact: true })).toBeVisible();
+  await expect(detail.getByRole("link", { name: "Consulta la fonte" })).toHaveAttribute("href", "https://example.com/review");
+  await expect(detail.getByText("Critico ipotetico 92-94", { exact: true })).toBeHidden();
+  await detail.locator("summary").filter({ hasText: "Dati precedenti non verificati" }).click();
+  await expect(detail.getByText("Critico ipotetico 92-94", { exact: true })).toBeVisible();
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const legacy = (await detail.locator(".unverified-score-section").boundingBox())!;
+    const following = (await detail.locator(".unverified-score-section + .detail-section").boundingBox())!;
+    expect(legacy.y + legacy.height).toBeLessThanOrEqual(following.y);
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await detail.locator('[data-wine-detail-section="03"]').screenshot({ path: testInfo.outputPath("score-review-390.png") });
+  await expect(detail.locator('[data-wine-detail-section="03"]')).toHaveScreenshot("critic-score-review-compact.png");
+});
+
 test("personal dashboard preview retries server errors without leaving the editor", async ({ page }, testInfo) => {
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
   await page.goto("/");
@@ -1298,7 +1417,7 @@ for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-cha
     await page.setViewportSize({ width: 390, height: 844 });
     await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });
     await page.goto("/");
-    const card = page.locator(".collector-mobile-highlights button").first();
+    const card = page.locator(".collector-mobile-highlights .collector-photo-rail button").first();
     await expect(card).toBeVisible();
     const label = (await card.locator(".collector-highlight-label").boundingBox())!;
     const value = (await card.locator(".collector-highlight-value").boundingBox())!;
@@ -2112,7 +2231,7 @@ for (const width of [360, 390, 430, 1440]) {
       await expect(mobile.getByRole("heading", { name: "Da bere ora" })).toHaveCount(0);
       await expect(page.locator(".collector-overview")).toBeHidden();
       await expect(page.locator(".collector-wine-stage")).toBeHidden();
-      const firstHighlight = (await mobile.locator(".collector-mobile-highlights button").first().boundingBox())!;
+      const firstHighlight = (await mobile.locator(".collector-mobile-highlights .collector-photo-rail button").first().boundingBox())!;
       const bottomNavigation = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
       expect(firstHighlight.y + firstHighlight.height).toBeLessThanOrEqual(bottomNavigation.y);
       async function checkRails() {

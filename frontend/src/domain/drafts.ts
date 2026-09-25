@@ -42,7 +42,7 @@ export function wineToDraft(wine: Wine): WineDraft {
       percentage_from: grape.percentage_from === undefined ? "" : String(grape.percentage_from),
       percentage_to: grape.percentage_to === undefined ? "" : String(grape.percentage_to),
     })),
-    scores: wine.scores.map((score) => ({ critic: String(score.critic ?? ""), score: String(score.score ?? ""), note: String(score.note ?? "") })),
+    scores: wine.scores.map((score) => ({ critic: String(score.critic ?? ""), score: String(score.score ?? ""), note: String(score.note ?? ""), source_url: score.source_url })),
   };
 }
 
@@ -99,7 +99,7 @@ export function draftPayload(draft: WineDraft) {
       }))
       .filter((grape) => grape.name),
     scores: draft.scores
-      .map((score) => ({ critic: String(score.critic ?? "").trim(), score: String(score.score ?? "").trim(), note: String(score.note ?? "").trim() }))
+      .map((score) => ({ critic: String(score.critic ?? "").trim(), score: String(score.score ?? "").trim(), note: String(score.note ?? "").trim(), source_url: score.source_url }))
       .filter((score) => score.critic || score.score || score.note),
   };
 }

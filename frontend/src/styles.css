@@ -18044,6 +18044,17 @@ textarea:hover {
   margin: 0;
 }
 
+.wine-detail .unverified-score-section {
+  display: block;
+  padding-bottom: 16px;
+  margin-block: 12px;
+}
+
+.wine-detail .unverified-score-section summary {
+  min-height: 44px;
+  cursor: pointer;
+}
+
 .wine-form .form-actions,
 .consume-form .form-actions,
 .auth-modal-card .form-actions {

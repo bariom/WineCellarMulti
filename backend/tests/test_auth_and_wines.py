@@ -173,6 +173,44 @@ def test_cellar_locations_bins_and_relocations_follow_stock():
     }
 
 
+def test_legacy_score_warnings_are_returned_without_rewriting_database():
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    legacy = {"critic": "Decanter", "score": "93/100", "note": "Rose 2016, da verificare"}
+    created = client.post("/api/v1/wines", json={"name": "Rose", "producer": "Test", "vintage": "2016", "quantity": 1, "price": 20, "scores": [legacy]})
+    assert created.status_code == 201, created.text
+    wine_id = created.json()["id"]
+    assert created.json()["scores"][0]["verification_status"] == "unverified"
+    assert client.get("/api/v1/wines").json()[0]["scores"][0]["verification_status"] == "unverified"
+    assert client.get(f"/api/v1/wines/{wine_id}").json()["scores"][0]["verification_status"] == "unverified"
+    with TestingSessionLocal() as db:
+        persisted = db.get(Wine, uuid.UUID(wine_id))
+        assert persisted.scores == [legacy]
+
+
+def test_score_lookup_checks_page_evidence_and_keeps_strategy(monkeypatch):
+    from app.api.routes import ai as ai_routes
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    created = client.post("/api/v1/wines", json={"name": "Les Femelottes", "producer": "Chavy-Chouet", "vintage": "2022", "quantity": 1, "price": 20})
+    wine_id = created.json()["id"]
+    client.put(f"/api/v1/intelligence/wines/{wine_id}/allocations", json={"allocations": [{"purpose": "drink", "quantity": 1}]})
+    quote = "Chavy-Chouet Les Femelottes 2022 Jasper Morris 89-91 points"
+    candidate = {"critic": "Jasper Morris", "score": "89-91", "note": "Published range", "source_url": "https://example.com/review", "exact_wine_and_vintage": True, "evidence_quote": quote}
+    monkeypatch.setattr(ai_routes, "create_ai_response", lambda *a, **kw: (OpenAIResponse(text=json.dumps({"scores": [candidate]}), usage=TokenUsage(), web_sources=({"url": candidate["source_url"]},)), "platform"))
+    monkeypatch.setattr(ai_routes, "public_page_text", lambda url: "Unavailable")
+    rejected = client.post(f"/api/v1/ai/wines/{wine_id}/scores", json={"force_refresh": True})
+    assert rejected.status_code == 200, rejected.text
+    assert rejected.json()["scores"] == []
+    assert not rejected.json()["scores_not_applicable"]
+    assert rejected.json()["strategy_purposes"] == ["drink"]
+    monkeypatch.setattr(ai_routes, "public_page_text", lambda url: quote)
+    accepted = client.post(f"/api/v1/ai/wines/{wine_id}/scores", json={"force_refresh": True})
+    assert accepted.status_code == 200, accepted.text
+    assert accepted.json()["scores"][0]["verification_method"] == "page_evidence_v1"
+    assert accepted.json()["strategy_purposes"] == ["drink"]
+
+
 def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
     client = TestClient(app)
     assert register(client).status_code == 201
@@ -213,6 +251,14 @@ def test_cellar_intelligence_allocates_quantities_and_builds_snapshot():
     assert listed.status_code == 200, listed.text
     assert listed.json()[0]["strategy_purposes"] == ["drink", "investment"]
     assert listed.json()[0]["strategy_purpose_quantities"] == {"drink": 2, "investment": 4}
+    detail = client.get(f"/api/v1/wines/{wine_id}")
+    assert detail.status_code == 200
+    assert detail.json()["strategy_purposes"] == ["drink", "investment"]
+    assert detail.json()["strategy_purpose_quantities"] == {"drink": 2, "investment": 4}
+    updated = client.patch(f"/api/v1/wines/{wine_id}", json={"notes": "Updated notes"})
+    assert updated.status_code == 200, updated.text
+    assert updated.json()["strategy_purposes"] == ["drink", "investment"]
+    assert updated.json()["strategy_purpose_quantities"] == {"drink": 2, "investment": 4}
 
     snapshot = client.get("/api/v1/intelligence/cellar")
     assert snapshot.status_code == 200, snapshot.text
@@ -7872,14 +7918,14 @@ def test_manual_score_deletion_is_not_restored_from_shared_data():
             db,
             wine,
             "scores",
-            {"scores": [{"critic": "Shared Critic", "score": "95", "note": "Verified"}]},
+            {"scores": [{"critic": "Shared Critic", "score": "95", "note": "Verified", "source_url": "https://example.com/review", "verification_method": "page_evidence_v1"}]},
         )
         db.commit()
 
     hydrated = client.get(f"/api/v1/wines/{wine_id}")
     assert hydrated.status_code == 200
     assert hydrated.json()["scores"] == [
-        {"critic": "Shared Critic", "score": "95", "note": "Verified"}
+        {"critic": "Shared Critic", "score": "95", "note": "Verified", "source_url": "https://example.com/review", "verification_method": "page_evidence_v1"}
     ]
 
     cleared = client.patch(

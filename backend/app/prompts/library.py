@@ -532,10 +532,15 @@ def wine_sensory_metadata_prompt(*, wine_context: dict) -> Prompt:
 def wine_scores_prompt(*, locale: str, wine_context: str) -> Prompt:
     return Prompt(
         id="wine.critic_scores",
-        version="1",
+        version="2",
         system=(
             "You research published wine critic scores using web sources. Return JSON only. "
             "Never invent a score: include a score only when a credible source supports the wine, vintage and critic. "
+            "Never infer scores from the producer, region, nearby vintages or typical score ranges. "
+            "Each score must include source_url from the consulted web sources and exact_wine_and_vintage=true. "
+            "Include evidence_quote: a short verbatim contiguous passage (at most 1000 characters) from the page "
+            "that explicitly names the wine, producer, vintage, critic and numeric score together. "
+            "The server checks this passage against the page. Do not fabricate, combine or paraphrase excerpts. "
             f"{language_instruction(locale)}"
         ),
         user=(
