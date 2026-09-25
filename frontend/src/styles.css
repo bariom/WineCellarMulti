@@ -864,7 +864,8 @@ summary:focus-visible {
   position: fixed;
   top: max(78px, calc(env(safe-area-inset-top, 0px) + 70px));
   right: max(16px, env(safe-area-inset-right, 0px));
-  z-index: 120;
+  /* Body portal: above the desktop topbar (320) and its dimming backdrop. */
+  z-index: 330;
   display: grid;
   gap: 10px;
   width: min(460px, calc(100vw - 32px));
@@ -882,7 +883,7 @@ summary:focus-visible {
 .notification-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 95;
+  z-index: 325;
   border: 0;
   background: rgba(10, 14, 12, 0.28);
   padding: 0;
@@ -1875,12 +1876,17 @@ summary:focus-visible {
     content: "−";
   }
 
-  .authenticated-app-shell .view-tabs-navigation .view-tabs-ai-group > button {
+  .authenticated-app-shell .view-tabs-navigation .view-tabs-ai-options > button {
     width: calc(100% - 12px);
     margin-left: 12px;
     min-height: 40px;
     padding-block: 8px;
     font-size: 0.79rem;
+  }
+
+  .authenticated-app-shell .view-tabs-navigation .view-tabs-ai-options {
+    display: grid;
+    gap: 5px;
   }
 
   .authenticated-app-shell .workspace:not(.settings-workspace) .view-tabs-quick-actions {
@@ -28704,7 +28710,7 @@ body,
 :root[data-theme="maison-champagne"] { --edition-masthead: #38342c; }
 :root[data-theme="pietra-vigna"] { --edition-masthead: #243a33; }
 :root[data-theme="cave-privee"] { --edition-masthead: #181d1a; }
-:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell .topbar {
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell:not(.cellar-home-edition) .topbar:not(.cellar-compact-header) {
   background: var(--edition-masthead);
   border-bottom: 1px solid color-mix(in srgb, var(--accent) 38%, var(--edition-masthead));
   color: #fffaf0;
@@ -28717,7 +28723,7 @@ body,
   box-shadow: 0 5px 14px var(--collector-depth);
 }
 
-:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell .view-tabs button:not(.secondary) {
+:root:is([data-theme="maison-champagne"], [data-theme="pietra-vigna"], [data-theme="cave-privee"]) .authenticated-app-shell:not(.cellar-home-edition) .view-tabs button:not(.secondary) {
   color: var(--primary-contrast);
   background: var(--primary);
   --icon-primary: var(--primary-contrast);

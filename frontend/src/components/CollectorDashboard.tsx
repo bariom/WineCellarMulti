@@ -2,14 +2,16 @@ import { useEffect, useId, useState, type ReactNode } from "react";
 import type { Locale, Wine } from "../types";
 import { formatBottleCount, wineIdealWindowStart, winePriorityDrinkEnd } from "../domain/cellar";
 import { KeyPositionBottleVisual } from "./KeyPositionCardParts";
-import { CollectorMaturity } from "./CollectorMaturity";
+import { FeaturedWineCard } from "./FeaturedWineCard";
+import { RiservaBanner } from "./RiservaBanner";
 import { ScrollGallery } from "./HorizontalScroll";
 import { wineTone } from "./panelSupport";
-import { FeaturedWineDetails, featuredCaption, type FeaturedWine } from "./FeaturedWineDetails";
+import { FeaturedWineDetails, type FeaturedWine } from "./FeaturedWineDetails";
 
-export function CollectorDashboard({ children, wines, featured, ready, recent, locale, canShowPhotos, onOpen }: {
+export function CollectorDashboard({ children, wines, featured, ready, recent, locale, canShowPhotos, showRiserva, onExploreRiserva, onOpen }: {
   children: ReactNode; wines: Wine[]; featured: FeaturedWine[];
   ready: Wine[]; recent: Wine[]; locale: Locale; canShowPhotos: boolean; onOpen: (wine: Wine) => void;
+  showRiserva: boolean; onExploreRiserva: () => void;
 }) {
   const [view, setView] = useState("wines");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -24,16 +26,14 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
   const id = useId();
   const it = locale === "it";
   const tabs = [{ id: "wines", label: it ? "Vini" : "Wines" }, { id: "priorities", label: it ? "Priorità" : "Priorities" }, { id: "collection", label: it ? "Collezione" : "Collection" }];
-  function gallery(title: string, items: Wine[], meta: (wine: Wine) => ReactNode, highlights = false) {
-    return <ScrollGallery key={title} title={title} locale={locale} count={items.length} className={`collector-mobile-gallery${highlights ? " collector-mobile-highlights" : ""}`}>
+  function gallery(title: string, items: Wine[], meta: (wine: Wine) => ReactNode) {
+    return <ScrollGallery key={title} title={title} locale={locale} count={items.length} className="collector-mobile-gallery collector-mobile-arrivals">
         {items.map(wine => <div role="listitem" key={wine.id}>
-          <button type="button" aria-haspopup={highlights ? "dialog" : undefined} onClick={() => highlights ? setSelectedId(wine.id) : onOpen(wine)}>
-            <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes={highlights ? "104px" : "120px"} tone={wineTone(wine.type)} />
+          <button type="button" onClick={() => onOpen(wine)}>
+            <KeyPositionBottleVisual photoUrl={canShowPhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canShowPhotos ? wine.photo_detail_url : undefined} sizes="160px" tone={wineTone(wine.type)} />
             <strong>{wine.name}</strong>
             <span>{[wine.producer, wine.vintage].filter(Boolean).join(" · ")}</span>
             <small>{meta(wine)}</small>
-            {highlights ? <CollectorMaturity wine={wine} locale={locale} compact /> : null}
-            {highlights ? <span className="featured-wine-discover">{it ? "Scopri perché" : "Discover why"} →</span> : null}
           </button>
         </div>)}
     </ScrollGallery>;
@@ -44,8 +44,6 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
       <span>{formatBottleCount(wines.reduce((sum, wine) => sum + wine.quantity, 0), locale)} {it ? "bottiglie" : "bottles"}<br />{wines.length} {it ? "vini nella tua collezione" : "wines in your collection"}</span>
     </header>
     <div className="collector-mobile-navigation">
-      <p className="eyebrow">{it ? "La tua collezione" : "Your collection"}</p>
-      <div className="collector-mobile-heading"><h2>{it ? "La mia cantina" : "My cellar"}</h2><span>{formatBottleCount(wines.reduce((sum, wine) => sum + wine.quantity, 0), locale)} {it ? "bott." : "btl."} · {wines.length} {it ? "vini" : "wines"}</span></div>
       <div role="tablist" aria-label={it ? "Dashboard collezionista" : "Collector dashboard"}>
         {tabs.map((tab, index) => <button type="button" role="tab" key={tab.id} id={`${id}-${tab.id}`} aria-controls={`${id}-panel`} aria-selected={view === tab.id} tabIndex={view === tab.id ? 0 : -1}
           onClick={() => setView(tab.id)} onKeyDown={event => {
@@ -58,11 +56,12 @@ export function CollectorDashboard({ children, wines, featured, ready, recent, l
     <div className="collector-dashboard-content" id={`${id}-panel`} role={mobile ? "tabpanel" : undefined} aria-labelledby={mobile ? `${id}-${view}` : undefined}>
       <div className="collector-mobile-photos">
         {view === "wines" ? <>
-          {gallery(it ? "In primo piano" : "Highlights", featured.map(item => item.wine), wine => {
-            const item = featured.find(item => item.wine.id === wine.id)!;
-            const caption = featuredCaption(item, locale);
-            return <><span className="collector-highlight-label">{caption.label}</span><span className="collector-highlight-value">{caption.metric}</span></>;
-          }, true)}
+          <ScrollGallery title={it ? "In primo piano" : "Highlights"} locale={locale} count={featured.length} className="collector-mobile-gallery collector-mobile-highlights">
+            {featured.map(item => <div role="listitem" key={item.wine.id}>
+              <FeaturedWineCard item={item} locale={locale} canShowPhotos={canShowPhotos} onDiscover={() => setSelectedId(item.wine.id)} />
+            </div>)}
+          </ScrollGallery>
+          {showRiserva ? <RiservaBanner locale={locale} onExplore={onExploreRiserva} /> : null}
           {gallery(it ? "Ultimi arrivi" : "Recent arrivals", recent, wine => wine.created_at ? new Intl.DateTimeFormat(it ? "it-CH" : "en-GB").format(new Date(wine.created_at)) : `${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`)}
         </> : view === "priorities" ? gallery(it ? "Da bere ora" : "Ready to drink", ready, wine => `${wineIdealWindowStart(wine)}–${winePriorityDrinkEnd(wine)} · ${formatBottleCount(wine.quantity, locale)} ${it ? "bott." : "btl."}`) : null}
       </div>

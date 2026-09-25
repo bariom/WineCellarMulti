@@ -2,6 +2,617 @@ import { expect, test, type Page, type Route } from "@playwright/test";
 import { featuredValue } from "../src/domain/featuredValue";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
 
+for (const width of [360, 390, 430, 1440]) {
+  test(`admin announcements preview and safe retry ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    await mockApi(page, [], false, memberships, [wine], { ...session, is_app_admin: true });
+    await page.goto("/");
+    await page.evaluate(() => {
+      const original = window.fetch;
+      const writes: unknown[] = [];
+      Object.assign(window, { announcementWrites: writes });
+      window.fetch = async (input, init) => {
+        const url = String(input);
+        if (!url.includes("/admin/announcements")) return original(input, init);
+        if (url.endsWith("/audience")) return new Response(JSON.stringify({ recipient_count: 23 }));
+        if (init?.method === "POST") {
+          const payload = JSON.parse(String(init.body));
+          writes.push(payload);
+          if (writes.length === 1) return new Response(JSON.stringify({ detail: "Temporary error" }), { status: 503 });
+          return new Response(JSON.stringify({ ...payload, recipient_count: 23, created_by_user_id: "admin", created_at: "2026-09-26T12:00:00Z" }));
+        }
+        return new Response("[]");
+      };
+    });
+    if (width < 1100) {
+      await page.getByRole("button", { name: "Apri menu account", exact: true }).click();
+      await page.getByRole("menuitem", { name: "Impostazioni", exact: true }).click();
+    } else await page.getByRole("button", { name: "Impostazioni", exact: true }).click();
+    await page.locator(".settings-tabs").getByRole("tab", { name: "Comunicazioni", exact: true }).click();
+    const form = page.getByRole("region", { name: "Comunicazioni agli utenti", exact: true });
+    await expect(form).toContainText("23 destinatari attuali");
+    await form.getByRole("button", { name: "Prepara annuncio nuova grafica", exact: true }).click();
+    await expect(form.getByLabel("Titolo", { exact: true })).toHaveValue("Vinaris si rinnova");
+    await expect(form.getByLabel("Messaggio", { exact: true })).toHaveValue(/I tuoi vini e i tuoi dati restano invariati/);
+    expect(await page.evaluate(() => (window as any).announcementWrites.length)).toBe(0);
+    await form.getByLabel("Titolo", { exact: true }).fill("Vinaris si rinnova");
+    await form.getByLabel("Messaggio", { exact: true }).fill("La tua cantina ha una nuova veste.\nScopri la Home e le nuove dashboard. <img src=x onerror=alert(1)>");
+    await form.getByRole("combobox").selectOption("/home");
+    await form.getByRole("button", { name: "Anteprima invio", exact: true }).click();
+    const preview = form.getByRole("region", { name: "Anteprima comunicazione" });
+    await expect(preview).toContainText("attualmente 23");
+    await expect(preview.locator("img")).toHaveCount(0);
+    expect(await page.evaluate(() => (window as any).announcementWrites.length)).toBe(0);
+    await preview.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("announcement-preview.png") });
+    await expect(page.locator(".back-to-top-button")).toBeHidden();
+    if (width === 390) await expect(preview).toHaveScreenshot("admin-announcement-preview-compact.png");
+    await preview.getByRole("button", { name: "Conferma e invia a tutti", exact: true }).click();
+    await expect(form.getByRole("alert")).toContainText("Invio non confermato");
+    await expect(preview.getByRole("button", { name: "Modifica", exact: true })).toBeDisabled();
+    await preview.getByRole("button", { name: "Riprova invio", exact: true }).click();
+    await expect(form.getByRole("status")).toContainText("inviata a 23 utenti");
+    await expect(form.getByRole("region", { name: "Storico comunicazioni" })).toContainText("Vinaris si rinnova");
+    const writes = await page.evaluate(() => (window as any).announcementWrites);
+    expect(writes).toHaveLength(2);
+    expect(writes[0]).toEqual(writes[1]);
+    expect(writes[0].confirm).toBe(true);
+    await expect(form.getByLabel("Titolo", { exact: true })).toHaveValue("");
+  });
+}
+
+test("admin announcements are not offered to cellar owners", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await mockApi(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Impostazioni", exact: true }).click();
+  await expect(page.locator(".settings-tabs")).toBeVisible();
+  await expect(page.locator(".settings-tabs").getByRole("tab", { name: "Comunicazioni" })).toHaveCount(0);
+});
+
+test("admin announcements appear for recipients and open Home", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const center = {
+    items: [{ id: "announcement-copy", source: "notification", kind: "admin_announcement", category: "system", state: "unread",
+      title: "Vinaris si rinnova", message: "Scopri la nuova Home.\nI tuoi dati restano invariati.", action_url: "/home",
+      action_kind: "open", resource_id: null, actor_label: null, metadata: {}, created_at: "2026-09-26T12:00:00Z", read_at: null, archived_at: null }],
+    counts: { total: 1, unread: 1, actionable: 0, attention: 1, actions: 0, updates: 0, system: 1 }, offset: 0, next_offset: null, has_more: false,
+  };
+  await mockApi(page, [], false, memberships, [wine], session, [], center);
+  await page.goto("/");
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.getByRole("button", { name: "Notifiche", exact: true }).click();
+  const section = page.getByRole("region", { name: "Notifiche", exact: true });
+  await expect(section).toContainText("Vinaris si rinnova");
+  await expect(section.getByText("Scopri la nuova Home.\nI tuoi dati restano invariati.", { exact: true })).toHaveCSS("white-space", "pre-wrap");
+  await expect(section.getByRole("button", { name: "Archivia", exact: true })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("recipient.png") });
+  await section.getByRole("button", { name: "Apri", exact: true }).click();
+  await expect(page.locator(".cellar-home-hero")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Notifiche", exact: true })).toBeHidden();
+});
+
+// Component snapshots should not include fixed page controls over the component.
+async function snapshotChrome(page: Page, visible: boolean) {
+  await page.locator(".topbar, .mobile-bottom-navigation, .back-to-top-button").evaluateAll((elements, show) => {
+    for (const element of elements) {
+      if (show) (element as HTMLElement).style.removeProperty("opacity");
+      else (element as HTMLElement).style.setProperty("opacity", "0", "important");
+    }
+  }, visible);
+}
+
+for (const width of [1200, 1440]) {
+  test(`Home AI navigation overlays without shifting content ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockApi(page);
+    await page.goto("/");
+    const navigation = page.locator(".view-tabs-navigation");
+    const group = navigation.locator(".view-tabs-ai-group");
+    const after = navigation.getByRole("button", { name: "Wine Pulse", exact: true });
+    const dashboard = page.locator(".dashboard-focus-navigation");
+    const before = await Promise.all([navigation, after, dashboard].map(el => el.boundingBox()));
+    await group.locator("summary").click();
+    const afterOpen = await Promise.all([navigation, after, dashboard].map(el => el.boundingBox()));
+    for (let index = 0; index < before.length; index++) {
+      expect(afterOpen[index]!.x).toBeCloseTo(before[index]!.x, 0);
+      expect(afterOpen[index]!.y).toBeCloseTo(before[index]!.y, 0);
+      expect(afterOpen[index]!.height).toBeCloseTo(before[index]!.height, 0);
+    }
+    const options = group.locator(".view-tabs-ai-options");
+    await expect(options.getByRole("button", { name: "Intelligence", exact: true })).toBeVisible();
+    const box = (await options.boundingBox())!;
+    expect(box.x + box.width).toBeLessThanOrEqual(width);
+    expect(box.y).toBeGreaterThanOrEqual((await group.locator("summary").boundingBox())!.y);
+    const hit = await options.evaluate(el => { const b = el.getBoundingClientRect(); const point = document.elementFromPoint(b.x + b.width / 2, b.y + 18); return { inside: el.contains(point), element: point?.outerHTML.slice(0, 220), navOverflow: getComputedStyle(el.closest(".view-tabs-navigation")!).overflow, tabsOverflow: getComputedStyle(el.closest(".view-tabs")!).overflow }; });
+    expect(hit, JSON.stringify(hit)).toMatchObject({ inside: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`home-ai-menu-${width}.png`) });
+    await options.getByRole("button", { name: "Intelligence", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
+  });
+}
+
+for (const width of [1100, 1440, 1920]) {
+  test(`cellar detail column stays steady when selecting a wine ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockApi(page);
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    const list = page.locator(".wine-list");
+    const panel = page.locator(".wine-side-panel");
+    const emptyWidth = (await panel.boundingBox())!.width;
+    if (width === 1440) await page.screenshot({ path: testInfo.outputPath("empty-cellar-1440.png") });
+    await page.locator('[data-wine-row-id="wine-e2e-1"] .wine-title').click();
+    await expect(panel.locator(".wine-detail:not(.empty-detail)")).toBeVisible();
+    const listBox = (await list.boundingBox())!;
+    const panelBox = (await panel.boundingBox())!;
+    expect(panelBox.width).toBeCloseTo(emptyWidth, 0);
+    expect(panelBox.width).toBeLessThanOrEqual(550);
+    expect(listBox.width).toBeGreaterThan(500);
+    expect(listBox.x + listBox.width).toBeLessThanOrEqual(panelBox.x);
+    expect(panelBox.x + panelBox.width).toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`selected-cellar-${width}.png`) });
+  });
+
+  test(`desktop navigation stays horizontal across sections ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: 900 });
+    await mockApi(page);
+    await page.goto("/");
+    for (const [label, view] of [[/^Cantina/, "cellar"], [/^Wishlist/, "wishlist"], [/^Storico$/, "history"]] as const) {
+      await page.getByRole("button", { name: label }).first().click();
+      const navigation = page.locator(".view-tabs-navigation");
+      const nav = (await navigation.boundingBox())!;
+      const header = (await page.locator(".topbar").boundingBox())!;
+      expect(nav.y).toBeGreaterThanOrEqual(header.y + header.height);
+      expect(nav.y - (header.y + header.height)).toBeLessThan(20);
+      expect(nav.height).toBeLessThan(110);
+      const home = (await navigation.getByRole("button", { name: "Home", exact: true }).boundingBox())!;
+      const cellar = (await navigation.getByRole("button", { name: /^Cantina/ }).boundingBox())!;
+      expect(home.y).toBeCloseTo(cellar.y, 0);
+      expect(home.x + home.width).toBeLessThanOrEqual(cellar.x);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      if (view === "cellar") {
+        const list = (await page.locator(".wine-list").boundingBox())!;
+        const side = (await page.locator(".wine-side-panel").boundingBox())!;
+        expect(list.y).toBeGreaterThanOrEqual(nav.y + nav.height);
+        expect(side.x).toBeGreaterThanOrEqual(list.x + list.width);
+        await page.screenshot({ path: testInfo.outputPath(`cellar-horizontal-${width}.png`) });
+      }
+      if (width === 1440 && view !== "cellar") await page.screenshot({ path: testInfo.outputPath(`${view}-horizontal.png`) });
+    }
+    const nav = page.locator(".view-tabs-navigation");
+    const pulse = nav.getByRole("button", { name: "Wine Pulse", exact: true });
+    const pulseBefore = (await pulse.boundingBox())!;
+    await nav.locator(".view-tabs-ai-group > summary").click();
+    const options = nav.locator(".view-tabs-ai-options");
+    await expect(options.getByRole("button", { name: "Intelligence", exact: true })).toBeVisible();
+    expect((await pulse.boundingBox())!.y).toBeCloseTo(pulseBefore.y, 0);
+    expect(await options.evaluate(el => { const b = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(b.x + b.width / 2, b.y + 18)); })).toBe(true);
+    await options.getByRole("button", { name: "Intelligence", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Piano cantina", exact: true })).toBeVisible();
+    await nav.getByRole("button", { name: "Home", exact: true }).click();
+    await expect(page.locator(".cellar-home-hero")).toBeVisible();
+  });
+}
+
+for (const [width, theme] of [[360, "atelier"], [390, "atelier"], [430, "atelier"], [1024, "atelier"], [1440, "atelier"], [1440, "private-cellar"], [1440, "midnight-ledger"], [1440, "maison-champagne"], [1440, "pietra-vigna"], [1440, "cave-privee"]] as const) {
+  test(`compact section header ${width} ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width < 901 ? 844 : 1000 });
+    await mockApi(page, [], false, [...memberships, { ...memberships[0], membership_id: "second", household_id: "second", household_name: "Seconda cantina" }], [wine], { ...session, theme_preference: theme });
+    await page.goto("/");
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    const header = page.locator(".cellar-compact-header");
+    await expect(header).toBeVisible();
+    await expect(header.locator(".topbar-brand-mark")).toBeHidden();
+    await expect(header.locator(".eyebrow")).toHaveCSS("font-family", "Georgia, serif");
+    await expect(header.locator(".tier-badge")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const bounds = (await header.boundingBox())!;
+    expect(bounds.height).toBeLessThanOrEqual(110);
+    const brand = (await header.locator(".topbar-brand").boundingBox())!;
+    const actions = (await header.locator(".session-pill").boundingBox())!;
+    expect(brand.x + brand.width).toBeLessThanOrEqual(actions.x);
+    expect(actions.x + actions.width).toBeLessThanOrEqual(width);
+    const selector = header.getByRole("combobox", { name: "Cambia cantina" });
+    await expect(selector).toBeVisible();
+    await expect(header.locator(".household-switch")).toHaveCSS("border-radius", "50%");
+    const bell = header.getByRole("button", { name: "Notifiche", exact: true });
+    await expect(bell.locator("svg")).toHaveCSS("stroke", "rgb(250, 247, 239)");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath("cellar.png") });
+    if (theme === "atelier" && (width === 390 || width === 1440)) {
+      await expect(header).toHaveScreenshot(`compact-section-header-${width}.png`);
+    }
+    await bell.click();
+    const panel = page.getByRole("dialog", { name: "Notifiche", exact: true });
+    await expect(panel).toBeVisible();
+    expect(await panel.evaluate(el => { const b = el.getBoundingClientRect(); return el.contains(document.elementFromPoint(b.x + 24, b.y + 24)); })).toBe(true);
+    await page.locator(".notification-backdrop").click({ position: { x: 2, y: 2 } });
+    if (width >= 1100) {
+      const search = header.getByRole("textbox", { name: "Cerca", exact: true });
+      await expect(search).toBeVisible();
+      const searchBounds = (await header.locator(".desktop-topbar-search").boundingBox())!;
+      expect(brand.x + brand.width).toBeLessThanOrEqual(searchBounds.x);
+      expect(searchBounds.x + searchBounds.width).toBeLessThanOrEqual(actions.x);
+      await page.getByRole("button", { name: /^Wishlist/ }).first().click();
+      await expect(header).toBeVisible();
+      await header.getByRole("button", { name: "Impostazioni", exact: true }).click();
+      await expect(page.locator(".settings-tabs")).toBeVisible();
+      await expect(header).toBeVisible();
+      await expect(header.locator(".desktop-topbar-search")).toHaveCount(0);
+      await page.screenshot({ path: testInfo.outputPath("settings.png") });
+    }
+  });
+}
+
+test("header palettes stay coherent and legible across all themes", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await mockApi(page);
+  await page.goto("/");
+  await expect(page.locator(".cellar-home-backdrop img")).toBeVisible();
+  const palettes = {
+    light: "#183c31", dark: "#172a24", "private-cellar": "#30231b",
+    sepia: "#403326", "white-wine": "#333822", "red-wine": "#421b2a",
+    "rose-wine": "#482b35", champagne: "#403326", bordeaux: "#421b2a",
+    burgundy: "#482b35", tuscany: "#462622", piedmont: "#333822",
+    ticino: "#243a33", atelier: "#421b2a", "midnight-ledger": "#172a24",
+    "maison-champagne": "#403326", "pietra-vigna": "#243a33", "cave-privee": "#202623",
+  };
+  const luminance = (rgb: number[]) => rgb.map(value => {
+    const channel = value / 255;
+    return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+  }).reduce((sum, value, index) => sum + value * [.2126, .7152, .0722][index], 0);
+  const image = await page.locator(".cellar-home-backdrop img").getAttribute("src");
+  for (const section of ["home", "cellar"]) {
+    if (section === "cellar") await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    for (const [theme, hex] of Object.entries(palettes)) {
+      // Exercise the theme CSS contract on both real header compositions without reloading.
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      const rgb = hex.match(/[a-f0-9]{2}/g)!.map(value => parseInt(value, 16));
+      await expect(page.locator(".topbar")).toHaveCSS("background-color", `rgb(${rgb.join(", ")})`);
+      const text = await page.locator(".topbar .eyebrow").evaluate(el => getComputedStyle(el).color);
+      expect((luminance(text.match(/\d+/g)!.map(Number)) + .05) / (luminance(rgb) + .05)).toBeGreaterThan(4.5);
+      await expect(page.getByRole("button", { name: "Notifiche", exact: true }).locator("svg")).toHaveCSS("stroke", "rgb(250, 247, 239)");
+      if (section === "home") await expect(page.locator(".cellar-home-backdrop img")).toHaveAttribute("src", image!);
+    }
+  }
+});
+
+for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-champagne", "pietra-vigna", "cave-privee"]) {
+  for (const width of theme === "atelier" ? [360, 390, 430, 1440] : [390, 1440]) {
+    test(`Home backdrop themes ${theme} ${width}`, async ({ page }, testInfo) => {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+      await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector", theme_preference: theme });
+      await page.goto("/");
+      const photo = page.locator(".cellar-home-backdrop img");
+      await expect(photo).toBeVisible();
+      await expect.poll(() => photo.evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(1000);
+      const bell = page.getByRole("button", { name: "Notifiche", exact: true });
+      await expect(bell.locator("svg")).toHaveCSS("stroke", "rgb(250, 247, 239)");
+      const bellBounds = (await bell.locator("svg").boundingBox())!;
+      // Mobile retains its existing compact icon; the desktop bell is now 21 px.
+      expect(bellBounds.width).toBeGreaterThanOrEqual(width === 1440 ? 21 : 17);
+      expect(bellBounds.height).toBeGreaterThanOrEqual(width === 1440 ? 21 : 17);
+      const header = (await page.locator(".topbar").boundingBox())!;
+      if (width === 1440) {
+        expect(header.height).toBeLessThan(260);
+        await expect(page.locator(".view-tabs-navigation")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath("theme.png") });
+      await bell.click();
+      const panel = page.getByRole("dialog", { name: "Notifiche", exact: true });
+      await expect(panel).toBeVisible();
+      // Visibility alone does not detect the topbar painting over this body portal.
+      expect(await panel.evaluate(element => {
+        const box = element.getBoundingClientRect();
+        return [24, box.width / 2, box.width - 24].every(dx =>
+          element.contains(document.elementFromPoint(box.x + dx, box.y + 24)));
+      })).toBe(true);
+      expect(await page.locator(".topbar-brand").evaluate(element => {
+        const box = element.getBoundingClientRect();
+        return document.elementFromPoint(box.x + 4, box.y + 4)?.classList.contains("notification-backdrop");
+      })).toBe(true);
+      const panelBounds = (await panel.boundingBox())!;
+      expect(panelBounds.x).toBeGreaterThanOrEqual(0);
+      expect(panelBounds.x + panelBounds.width).toBeLessThanOrEqual(width);
+      await page.screenshot({ path: testInfo.outputPath("notifications-open.png") });
+      await page.locator(".notification-backdrop").click({ position: { x: 2, y: 2 } });
+      await expect(panel).toBeHidden();
+    });
+  }
+}
+
+for (const [random, scene] of [[0.1, "vineyard"], [0.5, "barrels"], [0.9, "tasting"]] as const) {
+  test(`Home backdrop session ${scene}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.addInitScript(value => { Math.random = () => value; }, random);
+    await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" }, [], undefined, undefined, null);
+    await page.goto("/");
+    const backdrop = page.locator(".cellar-home-backdrop");
+    await expect(backdrop).toHaveAttribute("data-scene", scene);
+    await expect.poll(() => backdrop.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(1000);
+    await page.screenshot({ path: testInfo.outputPath("scene.png") });
+    await page.evaluate(() => { Math.random = () => 0.99; });
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    await expect(backdrop).toHaveCount(0);
+    await page.getByRole("button", { name: "Home", exact: true }).click();
+    await expect(backdrop).toHaveAttribute("data-scene", scene);
+    await page.reload();
+    await expect(backdrop).not.toHaveAttribute("data-scene", scene);
+    const reloadedScene = await backdrop.getAttribute("data-scene");
+    expect(await page.evaluate(() => sessionStorage.getItem("vinaris.home-backdrop.v1"))).toBe(reloadedScene);
+    await page.getByRole("button", { name: /^Cantina/ }).first().click();
+    await page.getByRole("button", { name: "Home", exact: true }).click();
+    await expect(backdrop).toHaveAttribute("data-scene", reloadedScene!);
+    const cdp = await page.context().newCDPSession(page);
+    await Promise.all([
+      page.waitForEvent("domcontentloaded"),
+      cdp.send("Page.reload", { ignoreCache: true }),
+    ]);
+    await expect(backdrop).toBeVisible();
+    await expect(backdrop).not.toHaveAttribute("data-scene", reloadedScene!);
+    await expect.poll(() => backdrop.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(1000);
+    await cdp.detach();
+    await page.locator(".topbar-logout-button").click();
+    await expect.poll(() => page.evaluate(() => sessionStorage.getItem("vinaris.home-backdrop.v1"))).toBeNull();
+  });
+}
+
+test("Home backdrop unavailable photograph falls back", async ({ page }) => {
+  await mockApi(page);
+  await page.route("**/images/home-vineyard-v1.jpg", route => route.fulfill({ status: 404 }));
+  await page.goto("/");
+  await expect(page.locator(".cellar-home-backdrop img")).toHaveAttribute("src", "/images/premium-cellar-empty.jpg");
+  await expect.poll(() => page.locator(".cellar-home-backdrop img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(0);
+});
+
+test("Home backdrop works without session storage and missing images", async ({ page }) => {
+  await mockApi(page, [], false, memberships, [wine], session, [], undefined, undefined, null);
+  await page.addInitScript(() => {
+    const get = Storage.prototype.getItem;
+    const set = Storage.prototype.setItem;
+    Storage.prototype.getItem = function(key) {
+      if (key === "vinaris.home-backdrop.v1") throw new Error("Storage unavailable");
+      return get.call(this, key);
+    };
+    Storage.prototype.setItem = function(key, value) {
+      if (key === "vinaris.home-backdrop.v1") throw new Error("Storage unavailable");
+      return set.call(this, key, value);
+    };
+  });
+  await page.route("**/images/home-*-v1.jpg", route => route.fulfill({ status: 404 }));
+  await page.route("**/images/premium-cellar-empty.jpg", route => route.fulfill({ status: 404 }));
+  await page.goto("/");
+  await expect(page.locator(".cellar-home-backdrop")).toBeAttached();
+  await expect(page.locator(".cellar-home-backdrop img")).toHaveCount(0);
+  await expect(page.locator(".cellar-home-hero")).toBeVisible();
+});
+
+for (const width of [1024, 1280, 1366, 1440, 1600, 1920]) {
+  test(`desktop cellar editorial composition ${width}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
+    await page.setViewportSize({ width, height: 1000 });
+    const stock = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `desktop-${index}` : wine.id, name: index ? `Riserva della collezione ${index}` : wine.name }));
+    await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    await expect(page.locator(".cellar-home-hero")).toBeVisible();
+    await expect(page.getByRole("region", { name: "Riepilogo cantina" })).toContainText("CHF 960");
+    const summary = (await page.locator(".cellar-home-stats").boundingBox())!;
+    expect(summary.y + summary.height).toBeLessThan(720);
+    if (width >= 1100) expect((await page.locator(".view-tabs-navigation").boundingBox())!.height).toBeLessThan(130);
+    const stage = page.locator(".collector-wine-stage");
+    const key = stage.locator(".key-position-button").first();
+    await expect(key).toBeVisible();
+    const image = (await key.locator("img").boundingBox())!;
+    const title = (await key.locator("h2").boundingBox())!;
+    expect(image.height).toBeGreaterThanOrEqual(400);
+    expect(image.x + image.width).toBeLessThanOrEqual(title.x);
+    const featured = (await stage.locator(".key-position-card").boundingBox())!;
+    const arrivals = (await stage.locator(".recent-wines-card").boundingBox())!;
+    const ready = (await stage.locator(".priority-card").boundingBox())!;
+    expect(arrivals.y).toBeGreaterThanOrEqual(featured.y + featured.height);
+    expect(arrivals.x + arrivals.width).toBeLessThanOrEqual(ready.x);
+    expect(Math.abs(arrivals.y - ready.y)).toBeLessThan(1);
+    expect(arrivals.width).toBeGreaterThan(ready.width);
+    await expect(page.locator(".cellar-riserva:visible")).toHaveCount(0);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`desktop-home-${width}.png`), animations: "disabled" });
+    if (width === 1440) await expect(page).toHaveScreenshot("collector-desktop-home.webp", { animations: "disabled" });
+    await stage.screenshot({ path: testInfo.outputPath(`desktop-stage-${width}.png`), animations: "disabled" });
+    if (width === 1440) {
+      await snapshotChrome(page, false);
+      await expect(stage).toHaveScreenshot("collector-desktop-stage.webp", { animations: "disabled" });
+      await snapshotChrome(page, true);
+    }
+    await key.click();
+    await expect(page.locator(".wine-detail:visible").first()).toContainText(wine.name);
+  });
+}
+
+test("desktop cellar Riserva and navigation preserve existing actions", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await mockApi(page, [], false, [...memberships, { ...memberships[0], membership_id: "second", household_id: "second", household_name: "Seconda cantina" }], [wine], { ...session, dashboard_focus: "collector", has_active_entitlement: false, is_free_tier: true });
+  await page.goto("/");
+  const banner = page.locator(".collector-desktop-riserva");
+  await expect(banner).toBeVisible();
+  const featured = (await page.locator(".collector-wine-stage > .key-position-card").boundingBox())!;
+  const bounds = (await banner.boundingBox())!;
+  expect(bounds.y).toBeGreaterThanOrEqual(featured.y + featured.height);
+  expect(bounds.y + bounds.height).toBeLessThanOrEqual((await page.locator(".recent-wines-card").boundingBox())!.y);
+  const brand = (await page.locator(".topbar-brand").boundingBox())!;
+  const search = (await page.locator(".desktop-topbar-search").boundingBox())!;
+  const actions = (await page.locator(".session-pill").boundingBox())!;
+  expect(brand.x + brand.width).toBeLessThanOrEqual(search.x);
+  expect(search.x + search.width).toBeLessThanOrEqual(actions.x);
+  await expect(page.getByRole("combobox", { name: "Cambia cantina" })).toBeVisible();
+  const selector = page.locator(".household-switch");
+  await expect(selector).toHaveCSS("border-radius", "50%");
+  await expect(selector).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+  expect((await selector.boundingBox())!.width).toBe(44);
+  await page.locator(".topbar").screenshot({ path: testInfo.outputPath("desktop-header-cellars.png") });
+  await page.mouse.move(0, 0);
+  await page.locator(".collector-wine-stage").screenshot({ path: testInfo.outputPath("desktop-riserva.png"), animations: "disabled" });
+  await banner.getByRole("button", { name: "Scopri Riserva" }).click();
+  await expect(page.locator(".settings-tabs")).toBeVisible();
+});
+
+for (const theme of ["atelier", "midnight-ledger"]) {
+  test(`desktop cellar empty English and theme ${theme}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", theme_preference: theme, locale: "en" });
+    await page.goto("/");
+    await expect(page.locator(".cellar-home-hero")).toContainText("0 bottles");
+    await expect(page.locator(".cellar-home-stats")).not.toContainText("NaN");
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`desktop-empty-${theme}.png`) });
+    const navigation = page.locator(".view-tabs-navigation");
+    await navigation.locator("summary").click();
+    await navigation.getByRole("button", { name: "Intelligence", exact: true }).click();
+    await expect(page.locator(".home-dashboard")).toHaveCount(0);
+  });
+}
+
+for (const width of [360, 390, 412, 430, 480, 768]) {
+  test(`collector premium Home composition ${width}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : 844 });
+    await mockApi(page, [], false, memberships, [wine, { ...wine, id: "second", name: "Una riserva dalla lunga storia", producer: "Un produttore dal nome particolarmente lungo", vintage: "2008", drink_to: 2025, drink_peak_to: 2025 }], { ...session, dashboard_focus: "collector", has_active_entitlement: false, is_free_tier: true });
+    await page.goto("/");
+    const hero = page.getByRole("region", { name: "La mia cantina", exact: true });
+    const stats = page.getByRole("region", { name: "Riepilogo cantina" });
+    await expect(hero).toContainText("8 bottiglie · 2 vini");
+    await expect(stats.getByRole("article", { name: "Valore cantina" })).toContainText("CHF 384");
+    await expect(stats.getByRole("article", { name: "Da monitorare" }).locator("strong")).toHaveText("1");
+    const featured = page.getByRole("region", { name: "In primo piano", exact: true });
+    const banner = page.getByRole("region", { name: "Vinaris Riserva" });
+    const recent = page.getByRole("region", { name: "Ultimi arrivi", exact: true });
+    const boxes = await Promise.all([hero, stats, featured, banner, recent].map(el => el.boundingBox()));
+    for (let i = 1; i < boxes.length; i++) expect(boxes[i]!.y).toBeGreaterThanOrEqual(boxes[i - 1]!.y + boxes[i - 1]!.height);
+    const card = featured.getByRole("listitem").first();
+    const photo = (await card.locator(".key-position-bottle-visual").boundingBox())!;
+    const identity = (await card.locator(".cellar-featured-identity").boundingBox())!;
+    const maturity = (await card.locator(".collector-maturity").boundingBox())!;
+    const insight = (await card.locator(".cellar-wine-insight").boundingBox())!;
+    expect(photo.height).toBeGreaterThanOrEqual(220);
+    expect(photo.x + photo.width).toBeLessThanOrEqual(identity.x);
+    expect(maturity.y).toBeGreaterThanOrEqual(photo.y + photo.height);
+    expect(insight.y).toBeGreaterThanOrEqual(maturity.y + maturity.height);
+    const controls = page.locator(".topbar").getByRole("button");
+    let right = 0;
+    for (const control of await controls.all()) {
+      if (!await control.isVisible()) continue;
+      const box = (await control.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(right);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      expect(box.width).toBeGreaterThanOrEqual(44);
+      expect(box.height).toBeGreaterThanOrEqual(44);
+      right = box.x + box.width;
+    }
+    await stats.evaluate(el => el.scrollTo({ left: el.scrollWidth, behavior: "instant" }));
+    await expect(stats.getByRole("article", { name: "Da monitorare" })).toBeInViewport({ ratio: 1 });
+    await stats.evaluate(el => el.scrollTo({ left: 0, behavior: "instant" }));
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`premium-home-${width}.png`), fullPage: true, animations: "disabled" });
+    if (width === 390) await expect(page).toHaveScreenshot("collector-riserva-home-compact.png", { fullPage: true });
+    await banner.getByRole("button", { name: "Scopri Riserva" }).click();
+    await expect(page.locator(".settings-tabs")).toBeVisible();
+  });
+}
+
+test("collector premium summary keeps currencies, unavailable data and entitlements honest", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [wine,
+    { ...wine, id: "euro", currency: "EUR", current_value: "10", price: null },
+    { ...wine, id: "unknown", current_value: null, price: null, drink_from: null, drink_to: null, drink_peak_from: null, drink_peak_to: null },
+  ], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const value = page.getByRole("article", { name: "Valore cantina" });
+  await expect(value).toContainText("CHF 192");
+  await expect(value).toContainText("EUR 40");
+  await expect(value).toContainText("2/3 vini");
+  await expect(page.getByRole("region", { name: "Vinaris Riserva" })).toHaveCount(0);
+  await page.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(page.locator("#mobile-topbar-search input")).toBeFocused();
+  await page.getByRole("button", { name: "Chiudi ricerca" }).click();
+  await page.getByRole("button", { name: "Apri menu account" }).click();
+  await expect(page.getByRole("menu", { name: "Menu account" })).toBeVisible();
+});
+
+test("collector premium empty Home supports English without fabricated figures", async ({ page }) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
+  await page.goto("/");
+  await expect(page.getByRole("region", { name: "My cellar", exact: true })).toContainText("0 bottles · 0 wines");
+  await expect(page.getByRole("article", { name: "Cellar value" }).locator("strong")).toHaveText("—");
+  await expect(page.getByRole("article", { name: "Ready to drink" }).locator("strong")).toHaveText("0");
+  await expect(page.getByRole("region", { name: "Highlights", exact: true })).toContainText("No wines in this selection.");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+test("collector premium Home keeps multiple cellars and read-only navigation usable", async ({ page }, testInfo) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await mockApi(page, [], false, [...memberships, { ...memberships[0], membership_id: "second-member", household_id: "second-cellar", household_name: "Seconda cantina" }], [wine], { ...session, dashboard_focus: "collector", membership_role: "viewer", active_household_name: "Una cantina dal nome particolarmente lungo" });
+  await page.goto("/");
+  await expect(page.getByRole("combobox", { name: "Cambia cantina" })).toBeVisible();
+  const brand = (await page.locator(".topbar-brand").boundingBox())!;
+  const actions = (await page.locator(".session-pill").boundingBox())!;
+  expect(brand.x + brand.width).toBeLessThanOrEqual(actions.x);
+  expect(actions.x + actions.width).toBeLessThanOrEqual(360);
+  for (const width of [360, 390, 430, 768]) {
+    await page.setViewportSize({ width, height: 844 });
+    const selector = page.locator(".topbar .household-switch");
+    await expect(selector).toHaveCSS("border-radius", "50%");
+    await expect(selector).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    const box = (await selector.boundingBox())!;
+    expect(box.width).toBe(44);
+    expect(box.height).toBe(44);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.locator(".topbar").screenshot({ path: testInfo.outputPath(`cellar-selector-${width}.png`) });
+  }
+  await expect(page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Aggiungi un vino" })).toHaveCount(0);
+  await page.getByRole("navigation", { name: "Navigazione principale" }).getByRole("button", { name: "Cantina", exact: true }).click();
+  await expect(page.locator(".cellar-list-header")).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+});
+
+for (const width of [360, 390, 430]) {
+  test(`collector dashboard choices stay above the content ${width}`, async ({ page }, testInfo) => {
+    await page.setViewportSize({ width, height: width === 360 ? 800 : 844 });
+    await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    const navigation = page.getByRole("region", { name: "Focus principale della dashboard", exact: true });
+    const summary = page.getByRole("region", { name: "Riepilogo cantina" });
+    const featured = page.getByRole("region", { name: "In primo piano", exact: true });
+    const summaryBox = (await summary.boundingBox())!;
+    const navigationBox = (await navigation.boundingBox())!;
+    const featuredBox = (await featured.boundingBox())!;
+    // Switching panels can trigger browser scroll anchoring; compare document coordinates.
+    const navigationTop = await navigation.evaluate(element => element.getBoundingClientRect().top + window.scrollY);
+    const bottom = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
+    const headerBox = (await page.locator(".topbar").boundingBox())!;
+    expect(navigationBox.y).toBeGreaterThanOrEqual(headerBox.y + headerBox.height);
+    expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(summaryBox.y);
+    expect(summaryBox.y + summaryBox.height).toBeLessThanOrEqual(featuredBox.y);
+    expect(navigationBox.y + navigationBox.height).toBeLessThanOrEqual(bottom.y);
+    await expect(navigation.getByRole("tab", { name: "La mia dashboard", exact: true })).toBeInViewport({ ratio: 1 });
+    await page.screenshot({ path: testInfo.outputPath(`dashboard-choice-${width}.png`) });
+    for (const name of ["Bere bene oggi", "Cantina equilibrata", "La mia dashboard"]) {
+      await navigation.getByRole("tab", { name, exact: true }).click();
+      await expect(navigation.getByRole("tab", { name, exact: true })).toHaveAttribute("aria-selected", "true");
+      expect(await navigation.evaluate(element => element.getBoundingClientRect().top + window.scrollY)).toBeCloseTo(navigationTop, 1);
+      await navigation.getByRole("tab", { name: "Focus collezionista", exact: true }).click();
+      await expect(featured).toBeVisible();
+      expect(await navigation.evaluate(element => element.getBoundingClientRect().top + window.scrollY)).toBeCloseTo(navigationTop, 1);
+    }
+    await navigation.getByText("Approfondimenti", { exact: true }).click();
+    await expect(navigation.getByRole("tablist", { name: "Approfondimenti", exact: true })).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  });
+}
+
 test("collector scroll cues track navigation and disappear without overflow", async ({ page }, testInfo) => {
   const stock = Array.from({ length: 5 }, (_, index) => ({ ...wine, id: index ? `gallery-${index}` : wine.id, name: `Vino ${index + 1}` }));
   await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
@@ -433,6 +1044,12 @@ test("personal dashboard widgets fit mobile and desktop and can become the defau
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
     await page.evaluate(() => scrollTo(0, 0));
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width < 900) {
+      await expect(page.locator(".cellar-home-hero")).toBeVisible();
+      const nav = (await page.locator(".dashboard-focus-navigation").boundingBox())!;
+      expect(nav.y + nav.height).toBeLessThanOrEqual((await dashboard.boundingBox())!.y);
+      await expect(dashboard.locator(".dashboard-summary").first()).toHaveCSS("border-radius", "14px");
+    }
     const boxes = await dashboard.locator('.personal-widget').evaluateAll(elements => elements.map(element => { const b = element.getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height }; }));
     for (const box of boxes) { expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(width); }
     for (let i = 1; i < boxes.length; i++) {
@@ -551,8 +1168,10 @@ for (const width of [360, 390, 430, 1440]) {
     await expect(evolution.locator(".time-series-chart canvas")).toBeVisible();
     await evolution.locator(".time-series-chart").scrollIntoViewIfNeeded();
     await expect(evolution.locator(".time-series-chart .uplot")).toHaveCSS("opacity", "1");
-    await evolution.screenshot({ path: testInfo.outputPath(`evolution-${width}.png`), animations: "disabled", style: ".topbar, .mobile-bottom-navigation, .back-to-top-button { visibility: hidden !important; }" });
-    if (width === 390) await expect(evolution).toHaveScreenshot("collector-evolution-compact.png", { style: ".topbar, .mobile-bottom-navigation, .back-to-top-button { visibility: hidden !important; }" });
+    await snapshotChrome(page, false);
+    await evolution.screenshot({ path: testInfo.outputPath(`evolution-${width}.png`), animations: "disabled" });
+    if (width === 390) await expect(evolution).toHaveScreenshot("collector-evolution-compact.png");
+    await snapshotChrome(page, true);
     await evolution.getByRole("button", { name: "2031+: 4 bottiglie", exact: true }).click();
     await expect(evolution.locator(".collector-wine-list button")).toHaveCount(1);
     await evolution.getByLabel("Valuta dello storico").selectOption("EUR");
@@ -1018,7 +1637,11 @@ async function mockApi(
   fixturePendingCatalog: unknown[] = [],
   fixtureNotificationCenter: unknown = { items: [], counts: { total: 0, unread: 0, actionable: 0, attention: 0, actions: 0, updates: 0, system: 0 }, offset: 0, next_offset: null, has_more: false },
   fixtureTastingArchive = tastingArchive,
+  heroScene: string | null = "vineyard",
 ) {
+  await page.addInitScript(scene => {
+    if (scene && !sessionStorage.getItem("vinaris.home-backdrop.v1")) sessionStorage.setItem("vinaris.home-backdrop.v1", scene);
+  }, heroScene);
   await page.addInitScript(() => {
     window.localStorage.setItem("vinaris.cookie-consent", JSON.stringify({ marketing: false, updatedAt: "2026-01-01T00:00:00Z" }));
   });
@@ -1147,7 +1770,11 @@ for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }
       navigation.getByRole("button", { name: "Storico", exact: true }).boundingBox(),
       action.boundingBox(),
     ]);
-    expect(history!.y + history!.height).toBeLessThanOrEqual(tasting!.y);
+    if (mobile) expect(history!.y + history!.height).toBeLessThanOrEqual(tasting!.y);
+    else {
+      expect(history!.x + history!.width).toBeLessThanOrEqual(tasting!.x);
+      expect(Math.abs(history!.y - tasting!.y)).toBeLessThan(1);
+    }
     expect(tasting!.height).toBeGreaterThanOrEqual(44);
     expect(tasting!.x).toBeGreaterThanOrEqual(0);
     expect(tasting!.x + tasting!.width).toBeLessThanOrEqual(viewport.width);
@@ -1353,21 +1980,41 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
       const heading = dashboard.locator(focus === "taste" ? ".taste-dashboard-carousel h2" : ".hero-copy h2").first();
       await expect(heading).toBeVisible();
       await expect(heading).toHaveCSS("font-family", "Georgia, serif");
+      if (width < 900) {
+        const header = page.locator(".cellar-home-hero");
+        await expect(header).toBeVisible();
+        const navigation = dashboard.locator(".dashboard-focus-navigation");
+        const nav = (await navigation.boundingBox())!;
+        const title = (await heading.boundingBox())!;
+        expect(nav.y).toBeGreaterThanOrEqual((await header.boundingBox())!.y + (await header.boundingBox())!.height);
+        expect(nav.y + nav.height).toBeLessThanOrEqual(title.y);
+        expect(nav.y + nav.height).toBeLessThan((await page.locator(".mobile-bottom-navigation").boundingBox())!.y);
+        await expect(page.locator(".cellar-home-search")).toBeVisible();
+      }
       if (focus !== "taste" && width < 900) {
         const hero = (await dashboard.locator(".hero-panel").boundingBox())!;
         expect(hero.height).toBeLessThanOrEqual(210);
         for (const kpi of await dashboard.locator(".hero-kpi").all()) {
           const label = (await kpi.locator(":scope > span").boundingBox())!;
           const value = (await kpi.locator(":scope > strong").boundingBox())!;
-          expect(label.x + label.width).toBeLessThanOrEqual(value.x);
+          expect(label.y + label.height).toBeLessThanOrEqual(value.y);
+          const bounds = (await kpi.boundingBox())!;
+          expect(value.x).toBeGreaterThanOrEqual(bounds.x);
+          expect(value.x + value.width).toBeLessThanOrEqual(bounds.x + bounds.width);
+          await expect(kpi).toHaveCSS("border-radius", "12px");
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       const card = dashboard.locator(".dashboard-card").first();
       if (await card.count()) {
-        await expect(card).toHaveCSS("border-radius", "0px");
+        await expect(card).toHaveCSS("border-radius", width < 900 ? "14px" : "0px");
         const bounds = (await card.boundingBox())!;
-        if (width < 900 && focus !== "taste") expect(bounds.y).toBeLessThanOrEqual(470);
+        if (width < 900 && focus !== "taste") {
+          const hero = (await dashboard.locator(".hero-panel").boundingBox())!;
+          // The shared cellar masthead adds context above the focus-specific summary.
+          // Check real section order instead of tying the first card to an absolute page offset.
+          expect(bounds.y).toBeGreaterThanOrEqual(hero.y + hero.height);
+        }
         expect(bounds.x).toBeGreaterThanOrEqual(0);
         expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
         const title = card.locator(".card-heading h2").first();
@@ -1388,6 +2035,9 @@ for (const focus of ["daily", "balanced", "value", "readiness", "timeline", "dat
         expect(image.y + image.height).toBeLessThanOrEqual(copy.y);
       }
       if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`${focus}-${width}.png`), fullPage: true, animations: "disabled" });
+      if (focus === "balanced" && width === 390) {
+        await expect(page).toHaveScreenshot("balanced-home-compact.png", { fullPage: true, animations: "disabled" });
+      }
     });
   }
 }
@@ -1476,7 +2126,8 @@ test("editorial surfaces respect every user theme", async ({ page }, testInfo) =
     // Theme changes animate surfaces; compare their settled colors.
     await expect.poll(() => page.evaluate(() => {
       const probe = document.createElement("span");
-      probe.style.backgroundColor = "var(--surface)";
+      // The mobile Home paper is tinted while remaining derived from the active theme.
+      probe.style.backgroundColor = "color-mix(in srgb, var(--surface) 88%, #c5ad86)";
       document.body.append(probe);
       const surface = getComputedStyle(probe).backgroundColor;
       probe.remove();
@@ -1560,11 +2211,16 @@ test("shows contextual KPIs for every dashboard insight", async ({ page }) => {
     const kpiCards = await hero.locator(".hero-kpi").all();
     const kpiBoxes = (await Promise.all(kpiCards.map((card) => card.boundingBox()))).filter((box) => box !== null);
     expect(kpiBoxes).toHaveLength(3);
+    // Mobile KPIs form a horizontal rail; each card must be reachable and fit the viewport.
     kpiBoxes.forEach((box, index) => {
+      if (index > 0) expect(kpiBoxes[index - 1].x + kpiBoxes[index - 1].width).toBeLessThanOrEqual(box.x);
+    });
+    for (const card of kpiCards) {
+      await card.scrollIntoViewIfNeeded();
+      const box = (await card.boundingBox())!;
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(391);
-      if (index > 0) expect(kpiBoxes[index - 1].y + kpiBoxes[index - 1].height).toBeLessThanOrEqual(box.y);
-    });
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
 
@@ -1698,7 +2354,10 @@ test("opens the buying sommelier from desktop and mobile navigation", async ({ p
   const primaryNavigationBoxes = await Promise.all(primaryNavigation.map((item) => item.boundingBox()));
   primaryNavigationBoxes.forEach((box, index) => {
     expect(box).not.toBeNull();
-    if (index > 0) expect(box!.y).toBeGreaterThan(primaryNavigationBoxes[index - 1]!.y);
+    if (index > 0) {
+      expect(box!.x).toBeGreaterThanOrEqual(primaryNavigationBoxes[index - 1]!.x + primaryNavigationBoxes[index - 1]!.width);
+      expect(Math.abs(box!.y - primaryNavigationBoxes[index - 1]!.y)).toBeLessThan(1);
+    }
   });
 
   await page.locator(".view-tabs-ai-group > summary").click();
@@ -2186,7 +2845,10 @@ test.describe("Wine Detail compact/mobile", () => {
     expect(cellarBox).not.toBeNull();
     expect(notificationsBox).not.toBeNull();
     expect(accountBox).not.toBeNull();
-    expect(cellarBox!.width).toBeLessThanOrEqual(40);
+    // Home controls now use 44px touch targets (the select sits inside its border).
+    expect(cellarBox!.width).toBeLessThanOrEqual(44);
+    expect(cellarBox!.x + cellarBox!.width).toBeLessThanOrEqual(notificationsBox!.x);
+    expect(notificationsBox!.x + notificationsBox!.width).toBeLessThanOrEqual(accountBox!.x);
     expect(Math.abs(cellarBox!.y - notificationsBox!.y)).toBeLessThanOrEqual(2);
     expect(Math.abs(notificationsBox!.y - accountBox!.y)).toBeLessThanOrEqual(2);
     expect(accountBox!.x + accountBox!.width).toBeLessThanOrEqual(834);
@@ -2294,8 +2956,10 @@ for (const width of [360, 390, 430, 1440]) {
     await overview.scrollIntoViewIfNeeded();
     await page.evaluate(() => window.scrollBy(0, -100));
     await page.screenshot({ path: testInfo.outputPath(`glance-viewport-${width}.png`), animations: "disabled" });
-    await overview.screenshot({ path: testInfo.outputPath(`glance-${width}.png`), animations: "disabled", style: ".topbar, .mobile-bottom-navigation { visibility: hidden !important; }" });
-    if (width === 390) await expect(overview).toHaveScreenshot("collector-glance-compact.png", { style: ".topbar, .mobile-bottom-navigation { visibility: hidden !important; }" });
+    await snapshotChrome(page, false);
+    await overview.screenshot({ path: testInfo.outputPath(`glance-${width}.png`), animations: "disabled" });
+    if (width === 390) await expect(overview).toHaveScreenshot("collector-glance-compact.png");
+    await snapshotChrome(page, true);
     await maturity.locator("summary").filter({ hasText: "Pronte da bere" }).click();
     await expect(maturity.getByRole("button", { name: /Nebbiolo di Test/ })).toBeVisible();
   });
@@ -2358,9 +3022,14 @@ for (const width of [360, 390, 430, 1440]) {
       await expect(mobile.getByRole("heading", { name: "Da bere ora" })).toHaveCount(0);
       await expect(page.locator(".collector-overview")).toBeHidden();
       await expect(page.locator(".collector-wine-stage")).toBeHidden();
-      const firstHighlight = (await mobile.locator(".collector-mobile-highlights .collector-photo-rail button").first().boundingBox())!;
+      const firstCard = mobile.locator(".collector-mobile-highlights .collector-photo-rail button").first();
+      // The editorial card intentionally follows the hero and live summary.
+      // It must be fully readable when scrolled into view, above the fixed navigation.
+      await firstCard.evaluate(element => element.scrollIntoView({ block: "center", behavior: "instant" }));
+      const firstHighlight = (await firstCard.boundingBox())!;
       const bottomNavigation = (await page.getByRole("navigation", { name: "Navigazione principale" }).boundingBox())!;
       expect(firstHighlight.y + firstHighlight.height).toBeLessThanOrEqual(bottomNavigation.y);
+      await page.evaluate(() => window.scrollTo(0, 0));
       async function checkRails() {
         for (const rail of await mobile.getByRole("list").all()) {
           const before = (await rail.boundingBox())!;
@@ -2451,12 +3120,16 @@ for (const width of [360, 390, 430, 1440]) {
     const firstGalleryBox = await galleryItems[0].boundingBox();
     for (const item of galleryItems) {
       const itemBox = (await item.boundingBox())!;
-      expect(itemBox.y).toBe(firstGalleryBox!.y);
+      expect(itemBox.y).toBeGreaterThanOrEqual(firstGalleryBox!.y);
+      const galleryBox = (await gallery.boundingBox())!;
+      expect(itemBox.x).toBeGreaterThanOrEqual(galleryBox.x);
+      expect(itemBox.x + itemBox.width).toBeLessThanOrEqual(galleryBox.x + galleryBox.width);
       const copyBox = (await item.locator(".dashboard-bottle-copy").boundingBox())!;
       expect(copyBox.y + copyBox.height).toBeLessThanOrEqual(itemBox.y + itemBox.height);
     }
     const arrivalsBox = await arrivals.boundingBox();
-    expect(arrivalsBox!.height).toBeLessThan(440);
+    expect((await galleryItems[3].boundingBox())!.y).toBeGreaterThan(firstGalleryBox!.y + firstGalleryBox!.height);
+    expect((await galleryItems[4].boundingBox())!.y + (await galleryItems[4].boundingBox())!.height).toBeLessThanOrEqual(arrivalsBox!.y + arrivalsBox!.height);
     if (width === 1440) {
       const readySelection = stage.getByRole("region", { name: "Selezione da bere ora" });
       await expect(readySelection.locator(".collector-ready-wine")).toHaveCount(2);
@@ -2476,8 +3149,8 @@ for (const width of [360, 390, 430, 1440]) {
       await expect(readySelection.locator(".collector-ready-controls")).toContainText("1–2 / 5");
       const featuredBox = (await stage.locator(".key-position-card").boundingBox())!;
       const readyBox = (await stage.locator(".priority-card").boundingBox())!;
-      expect(Math.abs(featuredBox.y + featuredBox.height - readyBox.y - readyBox.height)).toBeLessThan(1);
-      expect((await arrivals.boundingBox())!.y - featuredBox.y - featuredBox.height).toBeLessThanOrEqual(18);
+      expect(readyBox.y).toBeGreaterThanOrEqual(featuredBox.y + featuredBox.height);
+      expect((await arrivals.boundingBox())!.y).toBe(readyBox.y);
     }
     const stageBox = await stage.boundingBox();
     const overviewBox = await page.locator(".collector-overview").boundingBox();
@@ -2504,7 +3177,7 @@ for (const width of [360, 390, 430, 1440]) {
     const title = await key.locator("h2").boundingBox();
     const metrics = await key.locator(".key-position-metrics").boundingBox();
     const bottleImage = (await key.locator("img").boundingBox())!;
-    expect(bottleImage.y + bottleImage.height).toBeLessThanOrEqual(metrics!.y);
+    expect(bottleImage.x + bottleImage.width).toBeLessThanOrEqual(metrics!.x);
     expect(photo!.x + photo!.width).toBeLessThanOrEqual(title!.x);
     expect(title!.y + title!.height).toBeLessThanOrEqual(metrics!.y);
     await page.evaluate(() => window.scrollTo(0, 0));
@@ -2534,16 +3207,17 @@ for (const width of [1024, 1280, 1920]) {
     await expect(hero.getByRole("heading", { name: featured.name })).toBeVisible();
     await expect(hero.locator(".key-position-trend")).toContainText("200");
     await expect(hero.locator(".key-position-trend-line")).toHaveCSS("stroke-dasharray", "none");
-    for (const selector of [".collector-wine-stage > .key-position-card", ".collector-wine-stage > .priority-card"]) {
-      const card = (await page.locator(selector).boundingBox())!;
-      expect(card.y + card.height).toBeLessThanOrEqual(width === 1024 ? 830 : 900);
-    }
+    const summary = (await page.locator(".cellar-home-stats").boundingBox())!;
+    const feature = (await page.locator(".collector-wine-stage > .key-position-card").boundingBox())!;
+    expect(summary.y + summary.height).toBeLessThanOrEqual(feature.y);
+    expect(feature.y).toBeLessThan(800);
+    expect((await page.locator(".collector-wine-stage > .priority-card").boundingBox())!.y).toBeGreaterThanOrEqual(feature.y + feature.height);
     await expect(hero.locator(".collector-maturity")).toContainText("2026–2028");
     const photo = (await hero.locator("img").boundingBox())!;
     const title = (await hero.getByRole("heading").boundingBox())!;
     const metrics = (await hero.locator(".key-position-metrics").boundingBox())!;
     expect(photo.x + photo.width).toBeLessThanOrEqual(title.x);
-    expect(photo.y + photo.height).toBeLessThanOrEqual(metrics.y);
+    expect(photo.x + photo.width).toBeLessThanOrEqual(metrics.x);
     expect(title.y + title.height).toBeLessThanOrEqual(metrics.y);
     const dates = await hero.locator(".collector-maturity-dates > span").all();
     for (const date of dates) {
@@ -2574,13 +3248,14 @@ for (const scenario of [{ dpr: 1, failed: false }, { dpr: 2, failed: false }, { 
       await page.goto("/");
       const expected = scenario.dpr === 2 && !scenario.failed ? "detail.png" : "thumbnail.png";
       const hero = page.locator(".key-position-button img").first();
-      await expect.poll(() => hero.evaluate((img: HTMLImageElement, suffix) => img.complete && img.naturalWidth > 0 && img.currentSrc.endsWith(suffix), expected)).toBe(true);
+      // The large editorial hero needs the detail image even on a 1x display.
+      await expect.poll(() => hero.evaluate((img: HTMLImageElement, suffix) => img.complete && img.naturalWidth > 0 && img.currentSrc.endsWith(suffix), scenario.failed ? "thumbnail.png" : "detail.png")).toBe(true);
       const arrivals = page.locator(".recent-wines-card img").first();
       await arrivals.scrollIntoViewIfNeeded();
       await expect.poll(() => arrivals.evaluate((img: HTMLImageElement, suffix) => img.complete && img.naturalWidth > 0 && img.currentSrc.endsWith(suffix), expected)).toBe(true);
       await expect(arrivals).toHaveAttribute("loading", "lazy");
       await expect(arrivals).toHaveAttribute("decoding", "async");
-      if (!scenario.failed) expect(requested.every(size => size === (scenario.dpr === 2 ? "detail" : "thumbnail"))).toBe(true);
+      if (!scenario.failed) expect(requested).toContain("detail");
       else expect(requested).toEqual(expect.arrayContaining(["detail", "thumbnail"]));
       await page.screenshot({ path: testInfo.outputPath("responsive-photos.png"), fullPage: true, animations: "disabled" });
     });

@@ -10,7 +10,7 @@ export function CollectorMaturity({ wine, locale, compact = false, currentYear =
   const valid = Boolean(start && end && end >= start);
   const vintage = Number(wine.vintage);
   const reference = vintage > 0 ? vintage : start;
-  const first = Math.min(reference || currentYear, start || currentYear, currentYear);
+  const first = Math.min((compact ? start : reference) || currentYear, start || currentYear, currentYear);
   const last = Math.max(end || currentYear, currentYear, first + 1);
   const position = (year: number) => Math.max(0, Math.min(100, (year - first) / (last - first) * 100));
   const peakStart = wine.drink_peak_from;
@@ -26,7 +26,7 @@ export function CollectorMaturity({ wine, locale, compact = false, currentYear =
         {hasPeak ? <span className="collector-maturity-ideal" style={{ left: `${position(peakStart)}%`, width: `${position(peakEnd) - position(peakStart)}%` }} /> : null}
         <span className="collector-maturity-needle" style={{ left: `${position(currentYear)}%` }} />
       </span>
-      {compact ? <span className="collector-maturity-endpoints"><span>{start}</span><span>{end}</span></span> : <span className="collector-maturity-dates">
+      {compact ? <span className="collector-maturity-endpoints"><span>{first}</span><span>{last}</span></span> : <span className="collector-maturity-dates">
         <span>{it ? "Riferimento" : "Reference"}<strong>{reference || first}</strong></span>
         <span>{it ? "Apertura" : "Opens"}<strong>{start}</strong></span>
         <span>{it ? "Ideale" : "Ideal"}<strong>{ideal}</strong></span>

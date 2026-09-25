@@ -1,0 +1,135 @@
+/* Keep the same desktop navigation position when leaving Home. */
+@media (min-width: 1100px) {
+  :root .authenticated-app-shell:not(.cellar-home-edition) .workspace:not(.settings-workspace) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto;
+    gap: 0;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .content-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 480px) !important;
+    gap: 14px 18px;
+  }
+
+  /* Keep the cellar detail column steady as a wine is opened or closed. */
+  :root .authenticated-app-shell:not(.cellar-home-edition) .cellar-workspace {
+    grid-template-columns: minmax(0, 1fr) minmax(480px, clamp(480px, 35vw, 550px)) !important;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .workspace:not(.settings-workspace) > .view-tabs {
+    display: block;
+    position: relative;
+    z-index: 10;
+    grid-column: 1 / -1;
+    grid-row: 1;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: visible;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .workspace:not(.settings-workspace) .view-tabs-navigation {
+    display: flex;
+    position: static;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    align-self: auto;
+    gap: 2px 8px;
+    width: 100%;
+    min-height: 0;
+    height: auto;
+    max-height: none;
+    padding: 6px 0;
+    overflow: visible;
+    border: 0;
+    border-bottom: 1px solid color-mix(in srgb, var(--text-muted) 19%, transparent);
+    background: transparent;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button,
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-ai-group > summary {
+    flex: 0 1 auto;
+    justify-content: center;
+    width: auto;
+    min-height: 44px;
+    padding: 10px;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    color: var(--text-muted);
+    font: normal .85rem/1.4 "Segoe UI", sans-serif;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button:not(.secondary) {
+    color: var(--text);
+    background: transparent;
+    box-shadow: inset 0 -2px var(--accent);
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button .app-icon { display: none; }
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation .help-context-trigger { width: auto; margin: 0 0 0 auto; }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation .view-tabs-ai-group {
+    display: block;
+    position: relative;
+    width: auto;
+    padding: 0;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-ai-group[open] > summary {
+    color: var(--text);
+    background: color-mix(in srgb, var(--primary) 7%, var(--surface));
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-ai-options {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    width: max(240px, 100%);
+    padding: 8px;
+    border: 1px solid color-mix(in srgb, var(--text-muted) 19%, transparent);
+    border-radius: 10px;
+    background: var(--surface-raised);
+    box-shadow: 0 12px 28px color-mix(in srgb, var(--text) 18%, transparent);
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-ai-options > button {
+    width: 100%;
+    min-height: 44px;
+    margin: 0;
+    text-align: left;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .home-workspace > :not(.view-tabs) {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-width: 0;
+    margin-right: 0;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .content-workspace > .wine-list {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition) .content-workspace > .wine-side-panel {
+    grid-column: 2;
+    grid-row: 2;
+    margin-right: 0;
+  }
+
+  :root .authenticated-app-shell:not(.cellar-home-edition).collection-workspace-shell .wine-side-panel {
+    top: 88px;
+  }
+}

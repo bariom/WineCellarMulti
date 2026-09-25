@@ -1,0 +1,342 @@
+/* Shared Home materials; desktop and mobile have independent compositions. */
+:root .authenticated-app-shell.cellar-home-edition {
+  --home-forest: #183c31;
+  --home-copper: #b87f5e;
+  --home-paper: color-mix(in srgb, var(--surface) 88%, #c5ad86);
+  --home-rule: color-mix(in srgb, var(--text-muted) 19%, transparent);
+  --home-serif: Georgia, serif;
+  --home-shadow: 0 5px 16px #192c2008;
+}
+.collector-desktop-insight, .collector-desktop-riserva { display: none; }
+.cellar-home-intro, .cellar-home-hero, .cellar-home-search { display: none; }
+.cellar-home-edition .topbar { isolation: isolate; }
+.cellar-home-edition .cellar-home-backdrop { position: absolute; inset: 0; z-index: -1; overflow: hidden; border-radius: inherit; pointer-events: none; }
+.cellar-home-backdrop img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 52%; }
+.cellar-home-backdrop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, #102c2473, transparent 58%), linear-gradient(90deg, #102c24eb 0%, #102c24b3 36%, #102c2433 68%, #102c2426 100%); }
+
+@media (max-width: 900px) {
+  :root .authenticated-app-shell.cellar-home-edition {
+    background: var(--home-paper);
+    padding-bottom: calc(110px + env(safe-area-inset-bottom, 0px));
+  }
+  :root .authenticated-app-shell.cellar-home-edition .topbar {
+    position: relative; top: auto; margin-bottom: 0; padding: 20px 16px 16px;
+    background: var(--home-forest);
+    color: #faf7ef; box-shadow: none; border: 0;
+    grid-template-columns: minmax(0, 1fr) auto; gap: 8px;
+  }
+  .cellar-home-edition .topbar-brand { min-width: 0; }
+  .cellar-home-edition .topbar-brand > div { min-width: 0; }
+  .cellar-home-edition .topbar-brand-mark { display: none; }
+  .cellar-home-edition .brand-eyebrow-row { flex-wrap: wrap; gap: 6px; }
+  :root .cellar-home-edition .topbar-brand .eyebrow { font: normal 1.12rem/1.2 Georgia, serif; letter-spacing: .18em; color: #faf7ef; }
+  :root .cellar-home-edition .topbar-brand h1 { margin-top: 6px; font: 400 .68rem/1.4 "Segoe UI", sans-serif; color: #e3e8dc; overflow-wrap: anywhere; }
+  .cellar-home-edition .topbar .tier-badge { color: #e5b698; border: 1px solid #bd896b; background: transparent; font: normal .6rem/1.3 Georgia, serif; letter-spacing: .12em; padding: 4px 7px; }
+  :root .cellar-home-edition .session-pill { display: flex; align-items: center; padding: 0; gap: 4px; width: auto; max-width: none; background: transparent; border: 0; box-shadow: none; }
+  .cellar-home-edition .session-pill .notification-wrap { display: grid; flex: 0 0 44px; width: 44px; height: 44px; }
+  :root .authenticated-app-shell.cellar-home-edition .session-pill :is(.cellar-home-search, .household-switch, .notification-button, .mobile-account-menu-toggle) {
+    display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+    padding: 0; border: 1px solid #74887b; border-radius: 50%; background: transparent; color: #faf7ef; box-shadow: none;
+    --icon-primary: #faf7ef; --icon-muted: #faf7ef; font-size: 1.15rem;
+  }
+  :root .authenticated-app-shell.cellar-home-edition .session-pill .household-switch:focus-within { outline: 2px solid #ebbc9c; outline-offset: 2px; }
+  .cellar-home-edition .session-pill .topbar-icon-button { width: 44px; min-width: 44px; height: 44px; min-height: 44px; padding: 0; border-radius: 50%; border: 1px solid #74887b; background: transparent; color: #faf7ef; }
+  .cellar-home-edition .session-pill .notification-button svg { width: 21px; height: 21px; color: #faf7ef; }
+  .cellar-home-edition .topbar .session-pill .app-icon { color: #faf7ef; }
+  .cellar-home-edition .topbar button:focus-visible { outline: 2px solid #ebbc9c; outline-offset: 2px; }
+  .cellar-home-edition .home-dashboard { gap: 24px; padding-top: 0; }
+  .cellar-home-edition .home-dashboard > .dashboard-focus-navigation { margin: 0; border-bottom: 1px solid var(--home-rule); }
+  .authenticated-app-shell.cellar-home-edition .home-dashboard-editorial .focus-switcher-primary { gap: 6px; margin: 0; }
+  .authenticated-app-shell.cellar-home-edition .home-dashboard-editorial .focus-switcher-primary button {
+    justify-content: flex-start; padding: 10px; min-height: 44px; border: 1px solid transparent; border-radius: 8px;
+    font-size: .72rem; text-align: left;
+  }
+  .authenticated-app-shell.cellar-home-edition .home-dashboard-editorial .focus-switcher-primary button[aria-selected="true"] {
+    border-color: var(--home-rule); background: color-mix(in srgb, var(--primary) 8%, var(--home-paper));
+  }
+  .cellar-home-edition .dashboard-analysis-switcher > summary { min-height: 44px; padding: 10px; font-size: .78rem; }
+  .cellar-home-intro { display: grid; min-width: 0; gap: 16px; }
+  .cellar-home-hero {
+    display: block; grid-column: 1 / -1; padding: 20px 0 12px; color: #faf7ef;
+  }
+  .cellar-home-kicker { margin: 0 0 12px; color: #e4c5a2; font-size: .62rem; letter-spacing: .18em; text-transform: uppercase; }
+  .cellar-home-hero h2 { margin: 0 0 10px; font: normal clamp(2.2rem, 8.5vw, 3rem)/1.05 Georgia, serif; letter-spacing: -.03em; color: inherit; }
+  .cellar-home-count { margin: 0; font-size: .88rem; letter-spacing: .04em; color: #f1f0e5; }
+  .cellar-home-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(136px, 1fr); gap: 10px; min-width: 0; overflow-x: auto; padding: 2px 1px 10px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--home-rule) transparent; }
+  .cellar-home-stat { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start; }
+  .cellar-home-stat > .app-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper)); color: var(--primary); font-size: 1.1rem; }
+  .cellar-home-stat h3 { margin: 0; font-size: .75rem; font-weight: 500; color: var(--text-muted); }
+  .cellar-home-stat-values { display: grid; gap: 6px; }
+  .cellar-home-stat strong { font: 500 1.25rem/1.2 "Segoe UI", sans-serif; letter-spacing: -.03em; overflow-wrap: anywhere; color: var(--text); }
+  .cellar-home-stat p { margin: 0; font-size: .65rem; line-height: 1.5; color: var(--text-muted); }
+  .cellar-home-edition .collector-mobile-navigation { order: 2; }
+  .cellar-home-edition .collector-mobile-navigation > .collector-mobile-heading { display: none; }
+  .cellar-home-edition .collector-dashboard-layout { gap: 24px; }
+  .cellar-home-edition .collector-mobile-photos { gap: 24px; }
+  .cellar-home-edition .collector-mobile-gallery > header { align-items: center; gap: 8px; margin-bottom: 12px; }
+  .cellar-home-edition .collector-mobile-gallery h2 { font: normal 1.65rem/1.2 Georgia, serif; letter-spacing: -.025em; }
+  .cellar-home-edition .horizontal-scroll-controls { gap: 2px; }
+  .cellar-home-edition .horizontal-scroll-controls button { border: 1px solid var(--home-rule); border-radius: 50%; background: transparent; }
+  .cellar-home-edition .horizontal-scroll-controls span { font-size: .7rem; min-width: 38px; }
+  .cellar-home-edition .horizontal-scroll-hint { font-size: .65rem; margin-bottom: 8px; }
+  .cellar-home-edition .collector-mobile-highlights .collector-photo-rail { grid-auto-columns: calc(100% - 16px); gap: 12px; padding: 2px 1px 10px; }
+  .cellar-home-edition .collector-mobile-highlights .collector-photo-rail .cellar-featured-wine {
+    display: grid; grid-template-columns: minmax(100px, .8fr) minmax(0, 1fr); grid-template-rows: auto auto auto auto;
+    align-content: start; align-items: start; column-gap: 16px; row-gap: 16px; padding: 16px;
+    border: 1px solid var(--home-rule); border-radius: 14px; background: var(--home-paper); box-shadow: 0 5px 16px #192c2008;
+  }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual {
+    grid-column: 1; grid-row: 1 / 3; align-self: stretch; width: 100%; height: 224px; max-height: none; margin: 0;
+    background: radial-gradient(ellipse at 50% 70%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 72%);
+  }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual img { height: 100%; max-height: 224px; width: 100%; object-fit: contain; }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .cellar-featured-identity { display: grid; gap: 8px; grid-column: 2; grid-row: 1; min-width: 0; padding-top: 8px; }
+  .cellar-home-edition .cellar-featured-origin { font-size: .56rem; line-height: 1.5; letter-spacing: .12em; text-transform: uppercase; color: var(--text-muted); }
+  .cellar-home-edition .cellar-featured-identity > strong { font: normal clamp(1.4rem, 5.7vw, 1.9rem)/1.1 Georgia, serif; color: var(--text); overflow-wrap: anywhere; }
+  .cellar-home-edition .cellar-featured-producer { font: normal .86rem/1.4 Georgia, serif; color: var(--text); }
+  .cellar-home-edition .cellar-featured-vintage { font-size: .8rem; color: var(--text-muted); }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .cellar-featured-metric { grid-column: 2; grid-row: 2; padding-top: 12px; margin: 0; border-top: 1px solid var(--home-rule); }
+  .cellar-home-edition .collector-highlight-label { font-size: .66rem; line-height: 1.4; }
+  .cellar-home-edition .collector-highlight-value { font: 500 1.5rem/1.25 "Segoe UI", sans-serif; letter-spacing: -.03em; margin-top: 8px; }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .collector-maturity { grid-column: 1 / -1; grid-row: 3; padding: 8px 0 0; margin: 0; gap: 12px; }
+  .cellar-home-edition .collector-maturity-compact .collector-maturity-caption { font-size: .65rem; }
+  .cellar-home-edition .collector-maturity-caption > :first-child { letter-spacing: .04em; text-transform: none; }
+  .cellar-home-edition .collector-maturity-compact .collector-maturity-instrument { height: 6px; }
+  .cellar-home-edition .collector-maturity-endpoints { font-size: .72rem; }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .cellar-wine-insight {
+    grid-column: 1 / -1; grid-row: 4; display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px 10px;
+    padding: 12px; border: 1px solid var(--home-rule); border-radius: 10px;
+    background: color-mix(in srgb, var(--primary) 3%, var(--home-paper)); color: var(--text-muted); font: normal .8rem/1.5 Georgia, serif;
+  }
+  .cellar-home-edition .cellar-wine-insight > .app-icon { color: var(--home-copper); font-size: 1.25rem; }
+  .cellar-home-edition .cellar-wine-insight .featured-wine-discover { grid-column: 2; grid-row: 2; padding: 4px 0 0; text-align: left; font: 600 .75rem/1.5 "Segoe UI", sans-serif; color: var(--primary); }
+  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail { grid-auto-columns: 46%; gap: 12px; }
+  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail button { padding: 16px 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); gap: 8px; }
+  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail strong { font-size: 1.12rem; line-height: 1.25; }
+  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail small { padding-top: 8px; border: 0; font-size: .65rem; }
+  .cellar-riserva { padding: 24px; border-radius: 14px; background: #183c31; color: #faf7ef; border: 1px solid #436052; }
+  .cellar-riserva > p:first-child { display: flex; align-items: center; gap: 10px; margin: 0 0 16px; font: normal .68rem/1.4 Georgia, serif; letter-spacing: .2em; }
+  .cellar-riserva > p:first-child > span, .cellar-riserva .app-icon { color: #e1b293; }
+  .cellar-riserva h2 { margin: 0 0 12px; font: normal 1.65rem/1.15 Georgia, serif; color: inherit; }
+  .cellar-riserva > p { margin: 0; font-size: .8rem; line-height: 1.6; color: #e2e6d9; }
+  .cellar-riserva button { display: flex; align-items: center; justify-content: space-between; gap: 20px; min-height: 44px; margin-top: 20px; padding: 10px 16px; border-radius: 8px; border: 1px solid #d1a183; background: #9a6248; color: #fffaf2; box-shadow: none; font-size: .8rem; }
+  .cellar-home-edition .mobile-bottom-navigation { background: var(--home-paper); border: 1px solid var(--home-rule); border-bottom: 0; border-radius: 22px 22px 0 0; box-shadow: 0 -3px 16px #192c200c; backdrop-filter: none; align-items: center; padding-top: 8px; }
+  .cellar-home-edition .mobile-bottom-navigation button { font-size: .65rem; font-weight: 500; min-height: 52px; }
+  .cellar-home-edition .mobile-bottom-navigation button .app-icon { font-size: 1.35rem; }
+  :root .cellar-home-edition .mobile-bottom-navigation .mobile-bottom-navigation-add { margin: 0 auto; width: 56px; height: 56px; border: 3px solid var(--home-paper); background: #214b3c; color: white; box-shadow: 0 3px 10px #183c3120; }
+  .cellar-home-edition .mobile-bottom-navigation .mobile-bottom-navigation-add > span { font-size: 2rem; line-height: 1; font-weight: 400; }
+  .cellar-home-stats:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+
+  /* The other focuses use their own metrics within the same editorial shell. */
+  :root .cellar-home-edition .home-dashboard-secondary .hero-panel {
+    display: grid; gap: 14px; padding: 0; border: 0; background: transparent;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary :is(.hero-copy h2, .personal-dashboard-header h2) {
+    margin: 0; font: normal 1.65rem/1.2 Georgia, serif; letter-spacing: -.025em;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary .hero-kpis {
+    display: grid; grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(160px, 1fr);
+    gap: 10px; min-width: 0; overflow-x: auto; padding: 2px 1px 10px;
+    scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--home-rule) transparent;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary .hero-kpi {
+    display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto auto 1fr;
+    align-content: start; gap: 8px; min-width: 0; padding: 12px;
+    border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper);
+    box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary .hero-kpi > span {
+    grid-column: 1; grid-row: 1; display: flex; align-items: center; gap: 8px;
+    font-size: .75rem; line-height: 1.4; color: var(--text-muted); white-space: normal;
+  }
+  :root .cellar-home-edition .hero-kpi .stat-icon {
+    display: grid; place-items: center; flex: 0 0 32px; width: 32px; height: 32px;
+    border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper));
+  }
+  :root .cellar-home-edition .home-dashboard-secondary .hero-kpi > strong {
+    grid-column: 1; grid-row: 2; text-align: left; overflow-wrap: anywhere;
+    font: 500 1.25rem/1.2 "Segoe UI", sans-serif; letter-spacing: -.03em;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary .hero-kpi > p {
+    grid-column: 1; grid-row: 3; margin: 0; font-size: .65rem; line-height: 1.5; overflow-wrap: anywhere;
+  }
+  .cellar-home-edition .hero-kpis:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+  :root .cellar-home-edition .home-dashboard-secondary :is(.dashboard-card, .dashboard-card:hover, .dashboard-summary, .taste-profile-premium-hero) {
+    min-width: 0; padding: 18px 16px; border: 1px solid var(--home-rule); border-radius: 14px;
+    background: var(--home-paper); box-shadow: 0 5px 16px #192c2008; transform: none;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary :is(.card-heading h2, .dashboard-summary > header h3) {
+    font: normal 1.5rem/1.2 Georgia, serif; letter-spacing: -.025em; overflow-wrap: anywhere;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary :is(.card-heading > div > span, .dashboard-summary > header p) {
+    color: var(--text-muted); font-size: .62rem; line-height: 1.5; letter-spacing: .1em;
+  }
+  :root .cellar-home-edition .home-dashboard-secondary :is(.daily-premium-panel, .dashboard-bottle-tile, .top-value-showcase-item) {
+    border: 1px solid var(--home-rule); border-radius: 12px; padding: 12px;
+    background: color-mix(in srgb, var(--primary) 3%, var(--home-paper));
+  }
+  .cellar-home-edition .personal-dashboard-header { gap: 14px; }
+  .cellar-home-edition :is(.personal-widget-picker, .personal-widget-toolbar) {
+    border-color: var(--home-rule); background: var(--home-paper);
+  }
+  .cellar-home-edition .personal-widget:has(.personal-widget-toolbar) .dashboard-summary { border-radius: 0 0 14px 14px; }
+}
+
+@media (min-width: 901px) {
+  :root .authenticated-app-shell.cellar-home-edition {
+    width: min(100%, 1600px); max-width: 1600px; margin-inline: auto;
+    padding: 20px clamp(24px, 3vw, 56px) 64px; background: var(--home-paper);
+  }
+  :root .cellar-home-edition .topbar {
+    position: relative; top: auto; display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 420px) auto;
+    gap: 8px 24px; padding: 18px 28px 22px; margin: 0; border: 0; border-radius: 14px;
+    color: #faf7ef; background: var(--home-forest);
+    box-shadow: none;
+  }
+  .cellar-home-edition .topbar::after { display: none; }
+  :root .cellar-home-edition .topbar-brand { display: block; grid-column: 1; grid-row: 1; min-width: 0; }
+  :root .cellar-home-edition .topbar-brand > div { display: block; }
+  .cellar-home-edition .topbar-brand-mark { display: none; }
+  :root .cellar-home-edition .brand-eyebrow-row { margin: 0; gap: 12px; }
+  :root .cellar-home-edition .topbar-brand .eyebrow { color: #faf7ef; font: normal 1.25rem/1.2 var(--home-serif); letter-spacing: .22em; }
+  :root .cellar-home-edition .topbar-brand h1 { color: #e3e8dc; margin: 8px 0 0; font: normal .78rem/1.4 "Segoe UI", sans-serif; white-space: normal; overflow-wrap: anywhere; }
+  .cellar-home-edition .topbar .tier-badge { color: #e5b698; background: transparent; border: 1px solid var(--home-copper); font: normal .65rem/1.2 var(--home-serif); letter-spacing: .12em; }
+  :root .cellar-home-edition .desktop-topbar-search { display: flex; grid-column: 2; grid-row: 1; width: 100%; background: #183c3180; color: #faf7ef; border: 1px solid #74887b; border-radius: 24px; }
+  .cellar-home-edition .desktop-topbar-search input { color: #faf7ef; }
+  .cellar-home-edition .desktop-topbar-search input::placeholder { color: #d5ddd3; }
+  :root .cellar-home-edition .session-pill { grid-column: 3; grid-row: 1; display: flex; flex-wrap: nowrap; width: auto; gap: 6px; padding: 0; background: transparent; border: 0; box-shadow: none; }
+  .cellar-home-edition .session-pill > strong, .cellar-home-edition .session-pill > span:not(.status-pill) { display: none; }
+  :root .cellar-home-edition .session-pill :is(.household-switch, .notification-button, .topbar-icon-button, .mobile-account-menu-toggle) {
+    width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 0; border-radius: 50%; border: 1px solid #74887b;
+    color: #faf7ef; background: transparent; box-shadow: none; --icon-primary: #faf7ef; --icon-muted: #faf7ef;
+  }
+  .cellar-home-edition .household-switch:focus-within { outline: 2px solid #ebbc9c; outline-offset: 2px; }
+  .cellar-home-edition .session-pill .notification-button-icon { color: #faf7ef; width: 21px; height: 21px; }
+  :root .cellar-home-edition .session-pill .household-switch { position: relative; display: grid; place-items: center; flex: 0 0 44px; }
+  .cellar-home-edition .topbar .session-pill .app-icon { color: #faf7ef; }
+  :root .cellar-home-edition .household-switch .app-icon { display: inline-grid; }
+  :root .cellar-home-edition .session-pill .household-switch select { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+  :root .cellar-home-edition .cellar-home-hero { display: block; grid-column: 1 / -1; padding: 12px 0 0; color: #faf7ef; }
+  .cellar-home-edition .cellar-home-kicker { display: none; }
+  .cellar-home-edition .cellar-home-hero h2 { margin: 0 0 8px; font: normal clamp(2.6rem, 3.2vw, 3.1rem)/1.05 var(--home-serif); color: inherit; letter-spacing: -.035em; }
+  .cellar-home-edition .cellar-home-count { margin: 0; color: #e3e8dc; font-size: .9rem; letter-spacing: .04em; }
+
+  /* Reuse the existing routes and permission-aware buttons as horizontal navigation. */
+  :root .authenticated-app-shell.cellar-home-edition .home-workspace { display: flex; flex-direction: column; gap: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+  :root .cellar-home-edition .home-workspace > .view-tabs { display: block; position: relative; z-index: 10; width: 100%; margin: 0; padding: 0; overflow: visible; border: 0; background: transparent; box-shadow: none; }
+  :root .authenticated-app-shell.cellar-home-edition .home-workspace .view-tabs-navigation {
+    display: flex; position: static; flex-direction: row; flex-wrap: wrap; align-items: center; min-height: 0; height: auto; max-height: none; overflow: visible; gap: 2px 8px;
+    padding: 6px 0; border: 0; border-bottom: 1px solid var(--home-rule); border-radius: 0; background: transparent; color: var(--text);
+  }
+  :root .cellar-home-edition .view-tabs-navigation > button, :root .cellar-home-edition .view-tabs-ai-group > summary {
+    flex: 0 1 auto; width: auto; min-height: 44px; padding: 10px; border: 0; border-radius: 0;
+    background: transparent; box-shadow: none; color: var(--text-muted); font: normal .85rem/1.4 "Segoe UI", sans-serif;
+  }
+  :root .cellar-home-edition .view-tabs-navigation > button:not(.secondary) { color: var(--text); background: transparent; box-shadow: inset 0 -2px var(--home-copper); }
+  .cellar-home-edition .view-tabs-navigation > button .app-icon { display: none; }
+  :root .cellar-home-edition .view-tabs-ai-group { display: block; position: relative; width: auto; border: 0; padding: 0; }
+  :root .cellar-home-edition .view-tabs-ai-group[open] { background: var(--surface); border-radius: 8px; }
+  :root .cellar-home-edition .view-tabs-ai-group[open] > summary { color: var(--text); }
+  :root .cellar-home-edition .view-tabs-ai-group .view-tabs-ai-options {
+    position: absolute; z-index: 20; top: 100%; left: 0;
+    width: max(240px, 100%); padding: 8px;
+    border: 1px solid var(--home-rule); border-radius: 10px;
+    background: var(--home-paper); box-shadow: 0 12px 28px color-mix(in srgb, var(--text) 18%, transparent);
+  }
+  :root .cellar-home-edition .view-tabs-ai-options > button {
+    width: 100%; min-height: 44px; margin: 0; text-align: left;
+  }
+  :root .cellar-home-edition .view-tabs-navigation .help-context-trigger { margin: 0 0 0 auto; }
+  :root .cellar-home-edition .home-workspace .view-tabs-quick-actions { display: none; }
+  :root .cellar-home-edition .home-workspace > .home-dashboard { width: 100%; margin: 0; padding: 0; gap: 32px; }
+  :root .cellar-home-edition .dashboard-focus-navigation { grid-template-columns: minmax(0, 1fr) auto; padding: 12px 0; gap: 20px; }
+  .cellar-home-edition .dashboard-focus-lead { display: none; }
+  .cellar-home-edition .focus-switcher-primary button { font-size: .85rem; }
+  .cellar-home-edition .cellar-home-intro { display: block; }
+  .cellar-home-edition .cellar-home-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
+  .cellar-home-edition .cellar-home-stat { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-content: start; gap: 10px 16px; padding: 24px; min-width: 0; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: var(--home-shadow); }
+  .cellar-home-edition .cellar-home-stat > .app-icon { grid-column: 1; grid-row: 1 / 4; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper)); font-size: 1.4rem; color: var(--primary); }
+  .cellar-home-edition .cellar-home-stat h3 { margin: 0; font-size: .85rem; font-weight: 400; color: var(--text-muted); }
+  .cellar-home-edition .cellar-home-stat-values { display: grid; gap: 8px; }
+  .cellar-home-edition .cellar-home-stat strong { font: normal clamp(1.6rem, 2.3vw, 2.4rem)/1.1 var(--home-serif); overflow-wrap: anywhere; color: var(--text); }
+  .cellar-home-edition .cellar-home-stat p { margin: 0; grid-column: 2; font-size: .72rem; line-height: 1.5; color: var(--text-muted); }
+
+  .cellar-home-edition .collector-editorial-masthead { display: none; }
+  :root .cellar-home-edition .collector-dashboard-content { gap: 48px; }
+  :root .cellar-home-edition .collector-wine-stage { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 48px 32px; align-items: start; }
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card { grid-column: 1 / -1; grid-row: auto; width: 100%; border: 1px solid var(--home-rule); border-radius: 14px; background: var(--home-paper); box-shadow: var(--home-shadow); }
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card:has(> .empty-state) { min-height: 0; padding: 32px; }
+  .cellar-home-edition .key-position-card > .empty-state { margin: 0; border: 0; background: transparent; }
+  :root .cellar-home-edition .key-position-card-heading { padding: 24px 32px 0; font-size: .85rem; letter-spacing: .1em; }
+  :root .cellar-home-edition .key-position-card-heading > div > span { font: normal 1.75rem/1.2 var(--home-serif); letter-spacing: -.02em; text-transform: none; }
+  :root .cellar-home-edition .key-position-nav { padding: 16px 24px 0 0; }
+  :root .cellar-home-edition .key-position-nav button { width: 44px; height: 44px; border-radius: 50%; }
+  :root .cellar-home-edition .collector-wine-stage .key-position-card .key-position-button {
+    display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr);
+    grid-template-areas: "bottle head" "bottle metrics" "bottle maturity" "bottle insight";
+    grid-template-rows: auto auto auto auto; align-content: start; align-items: start;
+    gap: 24px 40px; padding: 32px; text-align: left;
+  }
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card .key-position-bottle-visual {
+    grid-area: bottle; width: 100%; height: 100%; min-height: 460px; max-height: none; align-self: stretch; margin: 0;
+    background: radial-gradient(ellipse at 50% 65%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%);
+  }
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card .key-position-bottle-visual img { height: 460px; max-height: none; width: 100%; object-fit: contain; filter: drop-shadow(0 14px 10px #192c201a); }
+  .cellar-home-edition .key-position-card .key-position-bottle-visual::after { display: none; }
+  .cellar-home-edition .key-position-yearmark { display: none; }
+  :root .cellar-home-edition .key-position-head { grid-area: head; padding: 0; }
+  :root .cellar-home-edition .collector-wine-stage .key-position-head h2 { font: normal clamp(2.25rem, 3vw, 3rem)/1.08 var(--home-serif); margin: 12px 0; }
+  :root .cellar-home-edition .key-position-head p { font-size: 1rem; }
+  :root .cellar-home-edition .key-position-metrics { grid-area: metrics; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }
+  :root .cellar-home-edition .key-position-metric { padding: 12px 0; }
+  :root .cellar-home-edition .key-position-metric strong { font: normal 1.65rem/1.2 var(--home-serif); }
+  :root .cellar-home-edition .key-position-trend { grid-column: 1 / -1; min-height: 80px; padding: 12px 0; }
+  :root .cellar-home-edition .key-position-button > .collector-maturity { grid-area: maturity; }
+  :root .cellar-home-edition .key-position-button > .collector-desktop-insight { grid-area: insight; display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px 12px; border-top: 1px solid var(--home-rule); padding-top: 20px; font: normal 1rem/1.6 var(--home-serif); color: var(--text-muted); }
+  .cellar-home-edition .collector-desktop-insight > .app-icon { color: var(--home-copper); }
+  .cellar-home-edition .collector-desktop-explore { grid-column: 2; font: 600 .85rem/1.5 "Segoe UI", sans-serif; color: var(--primary); }
+  .cellar-home-edition .collector-desktop-riserva { display: block; grid-column: 1 / -1; }
+  .cellar-home-edition .cellar-riserva { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 12px 48px; padding: 32px 40px; border-radius: 14px; background: var(--home-forest); color: #faf7ef; }
+  .cellar-home-edition .cellar-riserva > p:first-child { display: flex; align-items: center; gap: 12px; font: normal .75rem var(--home-serif); letter-spacing: .18em; }
+  .cellar-home-edition .cellar-riserva > p:first-child > span, .cellar-home-edition .cellar-riserva .app-icon { color: #e1b293; }
+  .cellar-home-edition .cellar-riserva h2 { grid-column: 1; margin: 0; font: normal 2rem/1.2 var(--home-serif); color: inherit; }
+  .cellar-home-edition .cellar-riserva p { grid-column: 1; margin: 0; font-size: .9rem; line-height: 1.6; color: #e2e6d9; }
+  .cellar-home-edition .cellar-riserva button { grid-column: 2; grid-row: 1 / 4; align-self: center; min-height: 48px; padding: 12px 24px; border: 1px solid #d1a183; border-radius: 8px; background: #9a6248; color: #fffaf2; box-shadow: none; }
+  :root .cellar-home-edition .collector-wine-stage > .recent-wines-card { grid-column: 1; grid-row: auto; padding: 0; }
+  :root .cellar-home-edition .collector-wine-stage > .priority-card { grid-column: 2; grid-row: auto; padding: 0 0 0 24px; border-left: 1px solid var(--home-rule); }
+  :root .cellar-home-edition .collector-wine-stage :is(.recent-wines-card, .priority-card) .card-heading h2 { font: normal clamp(1.75rem, 2.1vw, 2.25rem)/1.2 var(--home-serif); }
+  :root .cellar-home-edition .recent-wines-card .dashboard-bottle-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-flow: row; grid-auto-columns: auto; gap: 24px 16px; overflow: visible; }
+  :root .cellar-home-edition .recent-wines-card .dashboard-bottle-tile { width: 100%; min-width: 0; }
+  :root .cellar-home-edition .recent-wines-card .horizontal-scroll-controls, .cellar-home-edition .recent-wines-card .horizontal-scroll-hint { display: none; }
+  :root .cellar-home-edition .recent-wines-card .key-position-bottle-visual { height: 200px; }
+  :root .cellar-home-edition .collector-ready-grid { gap: 16px; }
+  :root .cellar-home-edition .collector-ready-wine { min-width: 0; }
+  :root .cellar-home-edition .home-dashboard-secondary .dashboard-card { border-color: var(--home-rule); background: transparent; }
+  .cellar-home-edition .home-dashboard :is(button, summary):focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+  .cellar-home-edition .topbar button:focus-visible { outline: 2px solid #ebbc9c; }
+  .cellar-home-edition .view-tabs-navigation > button:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+}
+@media (min-width: 901px) and (max-width: 1099px) {
+  :root .cellar-home-edition .home-workspace > .view-tabs { display: none; }
+  :root .authenticated-app-shell.cellar-home-edition { padding-bottom: 110px; }
+}
+@media (min-width: 901px) and (max-width: 1200px) {
+  :root .cellar-home-edition .topbar { padding-inline: 24px; gap: 16px; }
+  :root .cellar-home-edition .collector-wine-stage { grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 32px 24px; }
+  :root .cellar-home-edition .collector-wine-stage .key-position-card .key-position-button { gap: 20px 24px; padding: 24px; }
+  :root .cellar-home-edition .recent-wines-card .dashboard-bottle-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .cellar-home-edition .cellar-home-stats { gap: 16px; }
+  .cellar-home-edition .cellar-home-stat { padding: 18px; gap: 10px; }
+}
+@media (prefers-reduced-motion: no-preference) and (min-width: 901px) {
+  .cellar-home-edition .collector-wine-stage .key-position-bottle-visual img { transition: transform 180ms ease; }
+  .cellar-home-edition .collector-wine-stage button:hover .key-position-bottle-visual img { transform: translateY(-3px); }
+  .cellar-home-edition .view-tabs-navigation > button:hover { color: var(--text); background: color-mix(in srgb, var(--primary) 5%, transparent); }
+}
+
+@media (min-width: 600px) and (max-width: 900px) {
+  .cellar-home-edition .collector-mobile-highlights .collector-photo-rail { grid-auto-columns: 80%; }
+  .cellar-home-edition .collector-mobile-arrivals .collector-photo-rail { grid-auto-columns: 30%; }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual { height: 280px; }
+  .cellar-home-edition .collector-mobile-highlights .cellar-featured-wine > .key-position-bottle-visual img { max-height: 280px; }
+}

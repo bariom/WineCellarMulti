@@ -35,8 +35,13 @@ export function useHorizontalScroll() {
   function go(index: number) {
     const rail = ref.current;
     const items = rail && Array.from(rail.children).filter(item => (item as HTMLElement).offsetWidth > 0);
-    const item = items?.[Math.max(0, Math.min(index, items.length - 1))];
+    let item = items?.[Math.max(0, Math.min(index, items.length - 1))];
     if (!rail || !item) return;
+    // At the end, several cards can share the same clamped scroll position.
+    // Previous must reach the preceding snap point, not another clamped card.
+    if (index < position.index && item.getBoundingClientRect().left >= rail.getBoundingClientRect().left - 2) {
+      item = items?.slice().reverse().find(candidate => candidate.getBoundingClientRect().left < rail.getBoundingClientRect().left - 2) || item;
+    }
     setInteracted(true);
     const left = rail.scrollLeft + item.getBoundingClientRect().left - rail.getBoundingClientRect().left;
     rail.scrollTo({ left, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });

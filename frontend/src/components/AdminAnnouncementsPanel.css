@@ -1,0 +1,19 @@
+.admin-announcements { grid-column: 1 / -1; min-width: 0; }
+.admin-announcements form, .admin-announcements fieldset { display: grid; gap: 14px; min-width: 0; }
+.admin-announcements fieldset { margin: 0; padding: 0; border: 0; }
+.admin-announcements label { display: grid; gap: 6px; min-width: 0; }
+.announcement-field { display: grid; gap: 6px; min-width: 0; }
+.admin-announcements :is(input, textarea, select) { width: 100%; min-width: 0; box-sizing: border-box; }
+.admin-announcements button { min-height: 44px; white-space: normal; }
+.admin-announcements :is(p, strong, small, [role="alert"]) { overflow-wrap: anywhere; }
+.admin-announcements [role="alert"] { color: var(--danger); }
+.admin-announcements [role="status"] { padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
+.announcement-preview, .announcement-history article { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+.announcement-preview { margin-top: 20px; }
+.announcement-preview p, .announcement-history p { margin: 0; }
+.announcement-message { white-space: pre-wrap; }
+.announcement-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.announcement-history { display: grid; gap: 12px; margin-top: 24px; }
+.announcement-audience { color: var(--text-muted); }
+/* The floating page shortcut must not obscure the send confirmation on mobile. */
+.app-shell:has(.admin-announcements) .back-to-top-button { display: none; }

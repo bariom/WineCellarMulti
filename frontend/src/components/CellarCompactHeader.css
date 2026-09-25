@@ -1,0 +1,76 @@
+/* Private inner pages share Home's identity, without its large photographic hero.
+   Keep existing routes, sidebar, responsive action visibility and sticky behavior. */
+:root .authenticated-app-shell .topbar.cellar-compact-header {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px 24px;
+  width: 100%;
+  min-height: 82px;
+  margin: 0;
+  padding: 14px 24px;
+  border: 0;
+  border-radius: 14px;
+  background: #183c31;
+  color: #faf7ef;
+  box-shadow: none;
+}
+.cellar-compact-header::after { display: none; }
+:root .authenticated-app-shell .cellar-compact-header .topbar-brand {
+  display: block; grid-column: 1; grid-row: 1; min-width: 0;
+}
+:root .authenticated-app-shell .cellar-compact-header .topbar-brand > div { display: block; min-width: 0; }
+:root .authenticated-app-shell .cellar-compact-header .topbar-brand-mark { display: none; }
+:root .authenticated-app-shell .cellar-compact-header .brand-eyebrow-row { margin: 0; gap: 12px; flex-wrap: wrap; }
+:root .authenticated-app-shell .cellar-compact-header .topbar-brand .eyebrow {
+  color: #faf7ef; font: normal 1.25rem/1.2 Georgia, serif; letter-spacing: .22em;
+}
+:root .authenticated-app-shell .cellar-compact-header .topbar-brand h1 {
+  margin: 6px 0 0; color: #e3e8dc; font: normal .78rem/1.4 "Segoe UI", sans-serif;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+:root .authenticated-app-shell .cellar-compact-header .tier-badge {
+  color: #e5b698; background: transparent; border: 1px solid #b87f5e;
+  font: normal .65rem/1.2 Georgia, serif; letter-spacing: .12em; padding: 4px 7px;
+}
+:root .authenticated-app-shell .cellar-compact-header .session-pill {
+  grid-column: -2 / -1; grid-row: 1; display: flex; align-items: center; flex-wrap: nowrap;
+  gap: 6px; width: auto; max-width: none; padding: 0; border: 0; background: transparent; box-shadow: none;
+}
+.cellar-compact-header .session-pill > strong,
+.cellar-compact-header .session-pill > span:not(.status-pill) { display: none; }
+:root .authenticated-app-shell .cellar-compact-header .session-pill :is(.household-switch, .notification-button, .topbar-icon-button, .mobile-account-menu-toggle) {
+  flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px;
+  padding: 0; border: 1px solid #74887b; border-radius: 50%; background: transparent;
+  color: #faf7ef; box-shadow: none; --icon-primary: #faf7ef; --icon-muted: #faf7ef;
+}
+:root .authenticated-app-shell .cellar-compact-header .notification-wrap { flex: 0 0 44px; width: 44px; height: 44px; }
+:root .authenticated-app-shell .cellar-compact-header .notification-button-icon { color: #faf7ef; width: 21px; height: 21px; }
+:root .authenticated-app-shell .cellar-compact-header .session-pill .app-icon { color: #faf7ef; }
+:root .authenticated-app-shell .cellar-compact-header .household-switch { position: relative; display: grid; place-items: center; }
+:root .authenticated-app-shell .cellar-compact-header .household-switch .app-icon { display: inline-grid; }
+:root .authenticated-app-shell .cellar-compact-header .household-switch select {
+  position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; min-height: 0;
+  margin: 0; padding: 0; opacity: 0; cursor: pointer;
+}
+.cellar-compact-header :is(button:focus-visible, .household-switch:focus-within) { outline: 2px solid #ebbc9c; outline-offset: 2px; }
+:root .authenticated-app-shell .cellar-compact-header .desktop-topbar-search {
+  grid-column: 2; grid-row: 1; width: 100%; min-width: 0; border-radius: 24px;
+  background: #183c3180; color: #faf7ef; border: 1px solid #74887b; box-shadow: none;
+}
+:root .authenticated-app-shell .cellar-compact-header .desktop-topbar-search input { color: #faf7ef; }
+.cellar-compact-header .desktop-topbar-search input::placeholder { color: #d5ddd3; }
+.cellar-compact-header .desktop-topbar-search .app-icon { color: #d5ddd3; }
+@media (min-width: 1100px) {
+  :root .authenticated-app-shell .topbar.cellar-compact-header:has(.desktop-topbar-search) {
+    grid-template-columns: minmax(220px, 1fr) minmax(220px, 420px) auto;
+  }
+}
+@media (max-width: 900px) {
+  :root .authenticated-app-shell .topbar.cellar-compact-header { padding: 12px 14px; gap: 10px; border-radius: 0; }
+  :root .authenticated-app-shell .cellar-compact-header .brand-eyebrow-row { gap: 6px; }
+  :root .authenticated-app-shell .cellar-compact-header .topbar-brand .eyebrow { font-size: 1.12rem; letter-spacing: .18em; }
+  :root .authenticated-app-shell .cellar-compact-header .topbar-brand h1 { font-size: .68rem; }
+  :root .authenticated-app-shell .cellar-compact-header .tier-badge { font-size: .6rem; }
+  :root .authenticated-app-shell .cellar-compact-header .session-pill { gap: 4px; }
+}

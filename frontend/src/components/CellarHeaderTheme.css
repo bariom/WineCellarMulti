@@ -1,0 +1,66 @@
+/* Shared masthead palette only: never recolor cards, navigation or Riserva artwork.
+   Each surface stays dark enough for the existing ivory text and controls. */
+:root {
+  --cellar-header-bg: #183c31;
+  --cellar-header-tint: 16, 44, 36;
+  --cellar-header-accent: #e5b698;
+  --cellar-header-border: #74887b;
+}
+:root[data-theme="dark"], :root[data-theme="midnight-ledger"] {
+  --cellar-header-bg: #172a24; --cellar-header-tint: 12, 28, 23;
+  --cellar-header-accent: #d2c29b; --cellar-header-border: #7c9084;
+}
+:root[data-theme="private-cellar"] {
+  --cellar-header-bg: #30231b; --cellar-header-tint: 32, 22, 15;
+  --cellar-header-accent: #dfc18e; --cellar-header-border: #9a8772;
+}
+:root[data-theme="sepia"], :root[data-theme="champagne"], :root[data-theme="maison-champagne"] {
+  --cellar-header-bg: #403326; --cellar-header-tint: 43, 32, 21;
+  --cellar-header-accent: #e4c698; --cellar-header-border: #a2927b;
+}
+:root[data-theme="white-wine"], :root[data-theme="piedmont"] {
+  --cellar-header-bg: #333822; --cellar-header-tint: 32, 37, 19;
+  --cellar-header-accent: #ddd09a; --cellar-header-border: #94977b;
+}
+:root[data-theme="red-wine"], :root[data-theme="bordeaux"], :root[data-theme="atelier"] {
+  --cellar-header-bg: #421b2a; --cellar-header-tint: 44, 15, 26;
+  --cellar-header-accent: #e6bd9a; --cellar-header-border: #a08790;
+}
+:root[data-theme="rose-wine"], :root[data-theme="burgundy"] {
+  --cellar-header-bg: #482b35; --cellar-header-tint: 48, 24, 33;
+  --cellar-header-accent: #e8beb5; --cellar-header-border: #aa9299;
+}
+:root[data-theme="tuscany"] {
+  --cellar-header-bg: #462622; --cellar-header-tint: 47, 23, 19;
+  --cellar-header-accent: #e5b79a; --cellar-header-border: #a38a7f;
+}
+:root[data-theme="ticino"], :root[data-theme="pietra-vigna"] {
+  --cellar-header-bg: #243a33; --cellar-header-tint: 20, 40, 32;
+  --cellar-header-accent: #d8c59e; --cellar-header-border: #88988b;
+}
+:root[data-theme="cave-privee"] {
+  --cellar-header-bg: #202623; --cellar-header-tint: 16, 22, 19;
+  --cellar-header-accent: #d2bc98; --cellar-header-border: #879289;
+}
+:root .authenticated-app-shell .topbar.cellar-compact-header,
+:root .authenticated-app-shell.cellar-home-edition .topbar {
+  background: var(--cellar-header-bg);
+}
+.cellar-home-backdrop::after {
+  background: linear-gradient(180deg, rgba(var(--cellar-header-tint), .4509803922), transparent 58%),
+    linear-gradient(90deg, rgba(var(--cellar-header-tint), .9215686275) 0%, rgba(var(--cellar-header-tint), .7019607843) 36%, rgba(var(--cellar-header-tint), .2) 68%, rgba(var(--cellar-header-tint), .1490196078) 100%);
+}
+:root .authenticated-app-shell :is(.cellar-compact-header, .topbar:has(.cellar-home-backdrop)) .session-pill :is(.household-switch, .notification-button, .topbar-icon-button, .mobile-account-menu-toggle, .cellar-home-search) {
+  border-color: var(--cellar-header-border);
+}
+:root .authenticated-app-shell :is(.cellar-compact-header, .topbar:has(.cellar-home-backdrop)) .desktop-topbar-search {
+  background: color-mix(in srgb, var(--cellar-header-bg) 50%, transparent);
+  border-color: var(--cellar-header-border);
+}
+:root .authenticated-app-shell :is(.cellar-compact-header, .topbar:has(.cellar-home-backdrop)) .tier-badge {
+  color: var(--cellar-header-accent);
+  border-color: color-mix(in srgb, var(--cellar-header-accent) 75%, var(--cellar-header-bg));
+}
+:root .authenticated-app-shell :is(.cellar-compact-header, .topbar:has(.cellar-home-backdrop)) :is(button:focus-visible, .household-switch:focus-within) {
+  outline-color: var(--cellar-header-accent);
+}

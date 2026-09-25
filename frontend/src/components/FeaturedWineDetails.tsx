@@ -29,6 +29,15 @@ export function featuredCaption(item: FeaturedWine, locale: Locale) {
   return { label: labels[item.reason], metric };
 }
 
+export function featuredExplanation(item: FeaturedWine, locale: Locale) {
+  const it = locale === "it";
+  return item.reason === "increase"
+    ? (it ? "È il vino con il maggiore incremento percentuale tra quelli confrontabili della tua cantina." : "This wine has the largest percentage increase among comparable wines in your cellar.")
+    : item.reason === "position"
+      ? (it ? "In evidenza per il valore complessivo delle bottiglie in questa posizione." : "Highlighted for the combined value of the bottles in this position.")
+      : (it ? "In evidenza per il valore delle bottiglie attribuibile alla tua quota di proprietà." : "Highlighted for the bottle value attributable to your ownership share.");
+}
+
 export function FeaturedWineDetails({ item, locale, onClose, onOpen }: {
   item: FeaturedWine; locale: Locale; onClose: () => void; onOpen: (wine: Wine) => void;
 }) {
@@ -53,11 +62,7 @@ export function FeaturedWineDetails({ item, locale, onClose, onOpen }: {
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, []);
-  const explanation = item.reason === "increase"
-    ? (it ? "È il vino con il maggiore incremento percentuale tra quelli confrontabili della tua cantina." : "This wine has the largest percentage increase among comparable wines in your cellar.")
-    : item.reason === "position"
-      ? (it ? "In evidenza per il valore complessivo delle bottiglie in questa posizione." : "Highlighted for the combined value of the bottles in this position.")
-      : (it ? "In evidenza per il valore delle bottiglie attribuibile alla tua quota di proprietà." : "Highlighted for the bottle value attributable to your ownership share.");
+  const explanation = featuredExplanation(item, locale);
   return createPortal(<dialog ref={dialog} className="featured-wine-dialog" aria-labelledby={titleId}
     onKeyDown={event => {
       if (event.key !== "Tab") return;

@@ -1001,7 +1001,19 @@ export type DashboardFocus =
   | "data"
   | "taste";
 
-export type SettingsTab = "profile" | "ai" | "restaurant" | "storage" | "tags" | "sharing" | "users" | "photos" | "operations" | "data";
+export type SettingsTab = "profile" | "ai" | "restaurant" | "storage" | "tags" | "sharing" | "users" | "photos" | "operations" | "announcements" | "data";
+
+export type AnnouncementDestination = "/home" | "/cellar" | "/pulse" | null;
+export type AdminAnnouncement = {
+  id: string;
+  title: string;
+  message: string;
+  action_url: AnnouncementDestination;
+  recipient_count: number;
+  created_by_user_id: string | null;
+  created_at: string;
+};
+export type AnnouncementDraft = Pick<AdminAnnouncement, "id" | "title" | "message" | "action_url"> & { confirm: true };
 
 export type UserActivityLogEntry = {
   id: string;

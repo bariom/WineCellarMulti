@@ -1,4 +1,5 @@
 from app.models.ai_audit import AiAuditLog
+from app.models.announcement import AdminAnnouncement
 from app.models.app_ai_pricing import AppAiPricing
 from app.models.billing import (
     RedeemCode,
@@ -87,6 +88,7 @@ __all__ = [
     "UserActivityLog",
     "UserAiSettings",
     "UserEntitlement",
+    "AdminAnnouncement",
     "UserNotification",
     "UserNotificationDismissal",
     "UserOperationalActionSnooze",

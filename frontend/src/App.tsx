@@ -29,6 +29,10 @@ import { CollectorReadyWines } from "./components/CollectorReadyWines";
 import { CollectorCardGroup } from "./components/CollectorCardGroup";
 import { CollectorAtlas } from "./components/CollectorAtlas";
 import { CollectorDashboard } from "./components/CollectorDashboard";
+import { CellarHomeHero, CellarHomeStats } from "./components/CellarHomeHero";
+import { CellarHomeBackdrop, resetHomeBackdropSession } from "./components/CellarHomeBackdrop";
+import { RiservaBanner } from "./components/RiservaBanner";
+import { featuredExplanation } from "./components/FeaturedWineDetails";
 import type { PersonalDashboardWidget } from "./types";
 import { featuredValue } from "./domain/featuredValue";
 import { CollectorOverview } from "./components/CollectorOverview";
@@ -40,6 +44,10 @@ import "./styles.css";
 import "./components/CollectorOverview.css";
 import "./components/CollectorEditorial.css";
 import "./components/DashboardEditorial.css";
+import "./components/CellarHome.css";
+import "./components/CellarCompactHeader.css";
+import "./components/CellarHeaderTheme.css";
+import "./components/CellarDesktopNavigation.css";
 import { CollectorMaturity } from "./components/CollectorMaturity";
 
 type BreakdownDrilldown = {
@@ -112,6 +120,7 @@ const RestaurantDashboard = lazy(() => import("./views/RestaurantDashboard"));
 const AdminPhotosPanel = lazy(() => import("./components/AdminPhotosPanel").then((module) => ({ default: module.AdminPhotosPanel })));
 const TasteProfilePanel = lazy(() => import("./components/TasteProfilePanel"));
 const AdminSensoryProfilesPanel = lazy(() => import("./components/AdminSensoryProfilesPanel"));
+const AdminAnnouncementsPanel = lazy(() => import("./components/AdminAnnouncementsPanel"));
 const CoOwnershipPanel = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPanel })));
 const CoOwnershipPublicPage = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipPublicPage })));
 const CoOwnershipAgreementLibrary = lazy(() => import("./components/CoOwnershipPanels").then((module) => ({ default: module.CoOwnershipAgreementLibrary })));
@@ -3349,6 +3358,7 @@ export function App() {
       await api<void>("/api/v1/auth/logout", { method: "POST" });
     }
     setOfflineMode(false);
+    resetHomeBackdropSession();
     setOfflineFileName("");
     setSession({
       authenticated: false,
@@ -7303,12 +7313,13 @@ export function App() {
     tags: t("settingsTags"),
     sharing: t("settingsSharing"),
     users: t("settingsUsers"),
+    announcements: locale === "it" ? "Comunicazioni" : "Announcements",
     photos: locale === "it" ? "Fotografie" : "Photographs",
     operations: locale === "it" ? "Operatività" : "Operations",
     data: t("settingsData"),
   };
   const settingsTabs = (Object.keys(settingsTabLabels) as SettingsTab[]).filter(
-    (tab) => (tab !== "restaurant" || isRestaurant) && (tab !== "users" || canAppAdmin) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
+    (tab) => (tab !== "restaurant" || isRestaurant) && (tab !== "users" || canAppAdmin) && (tab !== "announcements" || (canAppAdmin && !session?.is_demo)) && (tab !== "photos" || canAppAdmin) && (tab !== "operations" || canAppAdmin) && (tab !== "tags" || canWriteWine),
   );
   const operationalActionScope = `${session?.user_email || "anonymous"}:${session?.active_household_id || "offline"}`;
   const pendingCoOwnershipAgreements = myCoOwnershipAgreements.filter((agreement) => agreement.status === "pending");
@@ -9347,9 +9358,10 @@ export function App() {
 
   return (
     <HelpContext.Provider value={{ openHelp }}>
-    <main className={`app-shell${authenticated ? " authenticated-app-shell" : ""}${isCollectionView ? " collection-workspace-shell" : ""}${activeView === "home" && !isRestaurant ? " home-mobile-experience" : ""}`}>
+    <main className={`app-shell${authenticated ? " authenticated-app-shell" : ""}${isCollectionView ? " collection-workspace-shell" : ""}${activeView === "home" && !isRestaurant ? " home-mobile-experience" : ""}${authenticated && activeView === "home" && !isRestaurant ? " cellar-home-edition" : ""}`}>
       {authenticated || shouldPrioritizeAuthAction ? (
-      <header className="topbar" style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
+      <header className={`topbar${authenticated && !isRestaurant && activeView !== "home" ? " cellar-compact-header" : ""}`} style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
+        {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeBackdrop /> : null}
         <div className="topbar-brand">
           {authenticated ? (
             <>
@@ -9414,6 +9426,7 @@ export function App() {
             } : undefined}
           >
             {!session?.is_demo ? <strong>{session?.user_display_name || session?.user_email}</strong> : null}
+            {activeView === "home" && !isRestaurant ? <button type="button" className="cellar-home-search" aria-label={t("search")} aria-expanded={mobileSearchOpen} aria-controls="mobile-topbar-search" onClick={() => setMobileSearchOpen(open => !open)}><AppIcon name="search" detailLevel="compact" /></button> : null}
             {householdMemberships.length > 1 ? (
               <label className="household-switch" title={locale === "it" ? "Cambia cantina" : "Switch cellar"}>
                 <AppIcon name="cellar" variant="action" tone="muted" size="0.95rem" />
@@ -9565,7 +9578,7 @@ export function App() {
                           <time dateTime={item.created_at}>{formatDisplayDate(item.created_at)}</time>
                         </div>
                         <strong className="notification-title"><i className="notification-icon" aria-hidden="true">{notificationSvgIcon(item.kind)}</i>{notificationCopy.title}</strong>
-                        <span>{notificationCopy.message}</span>
+                        <span style={item.kind === "admin_announcement" ? { whiteSpace: "pre-wrap", overflowWrap: "anywhere" } : undefined}>{notificationCopy.message}</span>
                         {item.metadata.message ? <span className="share-offer-message">{String(item.metadata.message)}</span> : null}
                         {notificationView === "archived" ? (
                           <div className="member-actions">
@@ -9770,6 +9783,7 @@ export function App() {
             <button type="button" onClick={() => { openQuickWineSearch(""); setMobileSearchOpen(false); }} aria-label={locale === "it" ? "Chiudi ricerca" : "Close search"}>×</button>
           </form>
         ) : null}
+        {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeHero wines={cellarWines} locale={locale} /> : null}
       </header>
       ) : null}
 
@@ -10298,7 +10312,7 @@ export function App() {
               : activeView === "home" || activeView === "intelligence" || activeView === "assistant" || activeView === "pairing" || activeView === "pulse" || activeView === "buying" || activeView === "help"
                 ? "home-workspace"
                 : "content-workspace"
-          } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${activeView === "history" ? "history-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
+          } ${activeView === "cellar" || activeView === "history" || activeView === "wishlist" ? "operational-workspace" : ""} ${activeView === "cellar" ? "cellar-workspace" : ""} ${activeView === "history" ? "history-workspace" : ""} ${wineDetailExpanded && isWineCollectionView && selectedVisibleWine ? "wine-detail-expanded" : ""}`}
         >
           {activeView !== "settings" ? (
           <div className="view-tabs">
@@ -10325,6 +10339,7 @@ export function App() {
             </button> : null}
             <details className={`view-tabs-ai-group${aiNavigationActive ? " is-active" : ""}`}>
               <summary><AppIcon name="assistant" variant="ai" detailLevel="rich" />{t("aiTools")}</summary>
+              <div className="view-tabs-ai-options">
               <button type="button" className={activeView === "pairing" ? "" : "secondary"} onClick={() => { setPairingTargetWineId(null); leaveHelpFor("pairing"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pairing"); }}>
                 <AppIcon name="glass-sparkle" variant="ai" detailLevel="rich" />
                 {t("pairing")}
@@ -10341,6 +10356,7 @@ export function App() {
                 <AppIcon name="assistant" variant="ai" detailLevel="rich" />
                 {locale === "it" ? "Assistente AI" : "AI Assistant"}
               </button> : null}
+              </div>
             </details>
             <button type="button" className={activeView === "pulse" ? "" : "secondary"} onClick={() => { leaveHelpFor("pulse"); setWineFormOpen(false); setWishlistFormOpen(false); clearFilters("pulse"); }}>
               <AppIcon name="pulse" variant="premium" detailLevel="rich" />
@@ -10465,7 +10481,6 @@ export function App() {
           ) : null}
           {activeView === "home" && !isRestaurant ? (
             <section className={`home-dashboard home-dashboard-editorial${dashboardFocus !== "collector" ? " home-dashboard-secondary" : ""}`}>
-              {aiPackEnhancementHint}
               <section className="dashboard-focus-navigation" aria-label={t("primaryDashboardFocus")}>
                 <div className="dashboard-focus-lead">
                   <AppIcon name="dashboard-cards" variant="feature" tone="accent" size="1.15rem" />
@@ -10525,6 +10540,8 @@ export function App() {
                   </div>
                 </details>
               </section>
+              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={dailyReadyInCellarWines.length} locale={locale} currentYear={currentYear} /> : null}
+              {aiPackEnhancementHint}
 
               {!isRestaurant && cellarSommelierVisible ? (
                 <aside
@@ -10667,7 +10684,7 @@ export function App() {
                   <p className="eyebrow">{t("dashboard")}</p>
                   <h2>{dashboardFocusLabels[dashboardFocus]}</h2>
                 </div>
-                <div className="hero-kpis" key={dashboardFocus} aria-label={t("cellarSnapshot")}>
+                <div className="hero-kpis" key={dashboardFocus} role="region" tabIndex={0} aria-label={t("cellarSnapshot")}>
                   {dashboardFocus === "daily" ? (
                     <>
                       <div className="hero-kpi">
@@ -10940,14 +10957,16 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "collector" ? (
-              <CollectorDashboard wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}>
+              <CollectorDashboard wines={cellarWines} featured={keyPositionCandidates} ready={drinkNowWines} recent={recentCellarWines} locale={locale} canShowPhotos={canAccessWinePhotos} onOpen={openWineFromDashboard}
+                showRiserva={!offlineMode && !session?.is_demo && !session?.has_active_entitlement && !session?.is_app_admin}
+                onExploreRiserva={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }}>
                 <CollectorCardGroup className="collector-wine-stage" locale={locale} label={locale === "it" ? "I vini della tua collezione" : "Wines in your collection"}>
                 <article className="dashboard-card key-position-card">
                   {keyPositionCandidates.length ? (
                     <>
                       <div className="key-position-card-heading">
                         <div>
-                          <span>{activeKeyPositionScope ? `${t("keyPositions")} - ${activeKeyPositionScope}` : t("keyPositions")}</span>
+                          <span>{locale === "it" ? "In primo piano" : "Highlights"}{activeKeyPositionScope ? ` · ${activeKeyPositionScope}` : ""}</span>
                           <strong>{keyPositionCandidates.length}</strong>
                         </div>
                       </div>
@@ -10979,10 +10998,12 @@ export function App() {
                         onWheel={() => { pendingKeyPositionIndexRef.current = null; }}
                         ref={keyPositionStripRef}
                       >
-                        {keyPositionCandidates.map(({ wine, highlight, totalValue, trendPoints, trendChangePct, trendChangeValue, trendRange }) => (
+                        {keyPositionCandidates.map((item) => {
+                          const { wine, highlight, totalValue, trendPoints, trendChangePct, trendChangeValue, trendRange } = item;
+                          return (
                           <button type="button" className="key-position-button" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                             {wine.vintage ? <span className="key-position-yearmark" aria-hidden="true">{wine.vintage}</span> : null}
-                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canAccessWinePhotos ? wine.photo_detail_url : undefined} sizes="(max-width: 1100px) 100px, 127px" tone={wineTone(wine.type)} />
+                            <KeyPositionBottleVisual photoUrl={canAccessWinePhotos ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} detailUrl={canAccessWinePhotos ? wine.photo_detail_url : undefined} sizes="(max-width: 1200px) 320px, 480px" tone={wineTone(wine.type)} />
                             <div className="key-position-head">
                               <div>
                                 <span>{highlight}</span>
@@ -11009,8 +11030,13 @@ export function App() {
                               {trendPoints.length >= 2 && Number(wine.price) > 0 ? <p className="collector-purchase-note">{locale === "it" ? "Acquisto / bottiglia" : "Purchase / bottle"}: {formatMoney(Number(wine.price), wine.currency, locale)}{wine.order_date ? ` · ${formatDisplayDate(wine.order_date)}` : ""}</p> : null}
                             </div>
                             <CollectorMaturity wine={wine} locale={locale} currentYear={currentYear} />
+                            <span className="collector-desktop-insight">
+                              <AppIcon name="star" detailLevel="compact" />
+                              <span>{featuredExplanation(item, locale)}</span>
+                              <span className="collector-desktop-explore">{locale === "it" ? "Esplora il vino" : "Explore this wine"} <span aria-hidden="true">→</span></span>
+                            </span>
                           </button>
-                        ))}
+                        ); })}
                       </div>
                     </>
                   ) : (
@@ -11019,9 +11045,10 @@ export function App() {
                 </article>
 
 
-                {renderReadyWidget()}
-
+                {!offlineMode && !session?.is_demo && !session?.has_active_entitlement && !session?.is_app_admin ? <div className="collector-desktop-riserva"><RiservaBanner locale={locale} onExplore={() => { setActiveView("settings"); setSettingsTab("profile"); loadSettingsTabData("profile"); }} /></div> : null}
                 {renderRecentWidget()}
+
+                {renderReadyWidget()}
 
                 </CollectorCardGroup>
                 <CollectorOverview key={`${session?.user_email}:${session?.active_household_id}`} wines={cellarWines} locale={locale} now={now} onOpen={openWineFromDashboard} />
@@ -15123,6 +15150,12 @@ export function App() {
               {settingsTab === "photos" && canAppAdmin ? (
                 <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento fotografie…" : "Loading photographs…"} />}>
                   <AdminPhotosPanel locale={locale} />
+                </Suspense>
+              ) : null}
+
+              {settingsTab === "announcements" && canAppAdmin && !session?.is_demo ? (
+                <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento comunicazioni…" : "Loading announcements…"} />}>
+                  <AdminAnnouncementsPanel locale={locale} />
                 </Suspense>
               ) : null}
 

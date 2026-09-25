@@ -2,6 +2,7 @@ from fastapi import APIRouter
 
 from app.api.routes import (
     ai,
+    announcements,
     auth,
     billing,
     catalog,
@@ -28,6 +29,7 @@ from app.api.routes import (
 )
 
 api_router = APIRouter()
+api_router.include_router(announcements.router, tags=["admin announcements"])
 api_router.include_router(auth.router, tags=["auth"])
 api_router.include_router(billing.router, tags=["billing"])
 api_router.include_router(ai.router, tags=["ai"])
