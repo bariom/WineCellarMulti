@@ -11024,7 +11024,7 @@ export function App() {
                 {renderRecentWidget()}
 
                 </CollectorCardGroup>
-                <CollectorOverview wines={cellarWines} locale={locale} now={now} refreshDays={valueRefreshDaysNumber} onOpen={openWineFromDashboard} />
+                <CollectorOverview key={`${session?.user_email}:${session?.active_household_id}`} wines={cellarWines} locale={locale} now={now} onOpen={openWineFromDashboard} />
                 <CollectorAtlas locale={locale} origins={<>
                 {renderRegionsWidget()}
 

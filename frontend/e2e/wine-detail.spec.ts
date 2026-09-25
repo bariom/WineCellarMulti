@@ -484,6 +484,83 @@ test("personal dashboard supports every widget at half width", async ({ page }, 
   }
 });
 
+test("collector evolution retries failures and labels partial movement history", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const url = String(input);
+      if (url.includes("inventory/movements") || url.includes("value-history/portfolio")) {
+        if (!sessionStorage.getItem("history-recovered")) return new Response("{}", { status: 503 });
+        const body = url.includes("inventory/movements") ? Array.from({ length: 500 }, () => ({ movement_type: "purchase", quantity_delta: 1, occurred_on: "2026-08-01" })) : [{ recorded_at: "2026-09-01", value: "100" }];
+        return new Response(JSON.stringify(body), { headers: { "Content-Type": "application/json" } });
+      }
+      return original(input, init);
+    };
+  });
+  await page.goto("/");
+  const evolution = page.getByRole("region", { name: "Come sta cambiando la tua cantina" });
+  await expect(evolution.getByRole("alert")).toHaveCount(2);
+  await expect(evolution.locator(".evolution-movements")).toHaveCount(0);
+  await page.evaluate(() => sessionStorage.setItem("history-recovered", "yes"));
+  await evolution.getByRole("button", { name: "Riprova" }).first().click();
+  await evolution.getByRole("button", { name: "Riprova" }).click();
+  await expect(evolution.getByRole("alert")).toHaveCount(0);
+  await expect(evolution.getByText(/ultimi 500: dati parziali/)).toBeVisible();
+  await expect(evolution.locator(".evolution-metric")).toHaveCount(0);
+});
+
+for (const width of [360, 390, 430, 1440]) {
+  test(`collector evolution uses recorded data ${width}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+    await page.setViewportSize({ width, height: 844 });
+    await mockApi(page, [], false, memberships, [{ ...wine, drink_to: 2028 }, { ...wine, id: "eur", currency: "EUR", drink_to: 2035 }], { ...session, dashboard_focus: "collector" });
+    await page.addInitScript(() => {
+      const original = window.fetch;
+      window.fetch = async (input, init) => {
+        const url = String(input);
+        if (url.includes("value-history/portfolio")) return new Response(JSON.stringify(url.includes("EUR") ? [] : [{ recorded_at: "2026-01-01", value: "100" }, { recorded_at: "2026-09-01", value: "140" }]), { headers: { "Content-Type": "application/json" } });
+        if (url.includes("inventory/movements")) return new Response(JSON.stringify([
+          { movement_type: "purchase", quantity_delta: 12, occurred_on: "2026-01-01" },
+          { movement_type: "initial_purchase", quantity_delta: 2, occurred_on: "2026-02-01" },
+          { movement_type: "consumption", quantity_delta: -3, occurred_on: "2026-03-01" },
+          { movement_type: "sale", quantity_delta: -5, occurred_on: "2026-04-01" },
+          { movement_type: "sale_void", quantity_delta: 2, occurred_on: "2026-04-02" },
+          { movement_type: "opening_balance", quantity_delta: 100, occurred_on: "2026-01-01" },
+          { movement_type: "purchase", quantity_delta: 99, occurred_on: "2020-01-01" },
+          { movement_type: "purchase", quantity_delta: 99, occurred_on: "2027-01-01" },
+        ]), { headers: { "Content-Type": "application/json" } });
+        return original(input, init);
+      };
+    });
+    await page.goto("/");
+    if (width < 900) await page.getByRole("tab", { name: "Collezione", exact: true }).click();
+    const evolution = page.getByRole("region", { name: "Come sta cambiando la tua cantina" });
+    await expect(evolution.locator(".evolution-metric")).toContainText("40");
+    await expect(evolution.locator(".evolution-movements > div").filter({ hasText: "Aggiunte" })).toContainText("14");
+    await expect(evolution.locator(".evolution-movements > div").filter({ hasText: "Bevute" })).toContainText("3");
+    await expect(evolution.locator(".evolution-movements > div").filter({ hasText: "Vendite nette" })).toContainText("3");
+    await expect(evolution.getByRole("button", { name: "2031+: 4 bottiglie", exact: true })).toBeEnabled();
+    for (const tile of await evolution.locator("article").all()) {
+      const box = (await tile.boundingBox())!;
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await expect(evolution.locator(".time-series-chart canvas")).toBeVisible();
+    await evolution.locator(".time-series-chart").scrollIntoViewIfNeeded();
+    await expect(evolution.locator(".time-series-chart .uplot")).toHaveCSS("opacity", "1");
+    await evolution.screenshot({ path: testInfo.outputPath(`evolution-${width}.png`), animations: "disabled", style: ".topbar, .mobile-bottom-navigation, .back-to-top-button { visibility: hidden !important; }" });
+    if (width === 390) await expect(evolution).toHaveScreenshot("collector-evolution-compact.png", { style: ".topbar, .mobile-bottom-navigation, .back-to-top-button { visibility: hidden !important; }" });
+    await evolution.getByRole("button", { name: "2031+: 4 bottiglie", exact: true }).click();
+    await expect(evolution.locator(".collector-wine-list button")).toHaveCount(1);
+    await evolution.getByLabel("Valuta dello storico").selectOption("EUR");
+    await expect(evolution.getByText("Servono due rilevazioni per mostrare l’andamento.")).toBeVisible();
+    await expect(evolution.locator(".evolution-metric")).toHaveCount(0);
+  });
+}
+
 for (const width of [360, 390, 430, 1440]) {
   test(`personal dashboard drag and drop ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
@@ -2171,6 +2248,59 @@ test.describe("Wine Detail compact/mobile", () => {
   });
 });
 
+for (const width of [360, 390, 430, 1440]) {
+  test(`collector glance summary and exclusive maturity ${width}`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
+    await page.setViewportSize({ width, height: width === 360 ? 800 : width === 430 ? 932 : width === 1440 ? 1000 : 844 });
+    const stock = [
+      { ...wine, quantity: 4, drink_from: 2020, drink_peak_from: 2022, drink_to: 2028 },
+      { ...wine, id: "future", quantity: 3, drink_from: 2028, drink_peak_from: 2029, drink_to: 2035 },
+      { ...wine, id: "closing", quantity: 2, drink_from: 2020, drink_to: 2026 },
+      { ...wine, id: "past", quantity: 1, drink_from: 2018, drink_to: 2025 },
+      { ...wine, id: "unknown", quantity: 5, drink_from: 2030, drink_to: 2025 },
+      { ...wine, id: "ordered", quantity: 6, currency: "EUR", status: "ordered" },
+    ];
+    await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    if (width < 900) await page.getByRole("tab", { name: "Collezione", exact: true }).click();
+    const overview = page.getByRole("region", { name: "Panoramica collezionista" });
+    await expect(overview.locator(".collector-glance-details")).toHaveCount(0);
+    await expect(overview.getByRole("heading", { name: "Copertura valutazioni" })).toBeHidden();
+    await expect(overview.locator(".collector-glance-numbers")).toContainText("21");
+    const maturity = overview.getByRole("article", { name: "Maturità in cantina", exact: true });
+    const bar = maturity.getByRole("img");
+    await expect(bar).toHaveAttribute("aria-label", "Da attendere: 3; Pronte da bere: 4; In chiusura quest’anno: 2; Oltre la finestra: 1; Senza finestra: 5");
+    const sizes = await bar.locator("span").evaluateAll(elements => elements.map(el => el.getBoundingClientRect().width));
+    expect(sizes[1] / sizes[0]).toBeCloseTo(4 / 3, 1);
+    const priorities = overview.getByRole("region", { name: "Da seguire adesso" });
+    await expect(priorities.locator("summary")).toHaveCount(2);
+    await expect(priorities.getByText("Da ritirare", { exact: true })).toHaveCount(0);
+    const blocks = overview.locator(":scope > header, :scope > div, :scope > section, :scope > details");
+    let bottom = -Infinity;
+    for (const block of await blocks.all()) {
+      const box = (await block.boundingBox())!;
+      expect(box.y).toBeGreaterThanOrEqual(bottom - 1);
+      expect(box.x).toBeGreaterThanOrEqual(0);
+      expect(box.x + box.width).toBeLessThanOrEqual(width);
+      bottom = box.y + box.height;
+    }
+    for (const row of await overview.locator(".collector-distribution-entry summary").all()) {
+      const rowBox = (await row.boundingBox())!;
+      const countBox = (await row.locator("span").boundingBox())!;
+      expect(countBox.x + countBox.width).toBeLessThanOrEqual(rowBox.x + rowBox.width + 1);
+      expect(countBox.y + countBox.height).toBeLessThanOrEqual(rowBox.y + rowBox.height);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await overview.scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, -100));
+    await page.screenshot({ path: testInfo.outputPath(`glance-viewport-${width}.png`), animations: "disabled" });
+    await overview.screenshot({ path: testInfo.outputPath(`glance-${width}.png`), animations: "disabled", style: ".topbar, .mobile-bottom-navigation { visibility: hidden !important; }" });
+    if (width === 390) await expect(overview).toHaveScreenshot("collector-glance-compact.png", { style: ".topbar, .mobile-bottom-navigation { visibility: hidden !important; }" });
+    await maturity.locator("summary").filter({ hasText: "Pronte da bere" }).click();
+    await expect(maturity.getByRole("button", { name: /Nebbiolo di Test/ })).toBeVisible();
+  });
+}
+
 test("collector overview has consistent counts, currency coverage and actionable priorities", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
   const stock = [
@@ -2184,17 +2314,15 @@ test("collector overview has consistent counts, currency coverage and actionable
   await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "collector" });
   await page.goto("/");
   const overview = page.getByRole("region", { name: "Panoramica collezionista" });
-  await expect(overview).toContainText("27 bottiglie · 5 vini");
-  const coverage = overview.locator("article").filter({ has: page.getByRole("heading", { name: "Copertura valutazioni", exact: true }) });
-  await expect(coverage).toContainText("67%");
-  await expect(overview.locator("article").filter({ has: page.getByRole("heading", { name: "Disponibilità", exact: true }) }).locator(".collector-number")).toContainText("19");
+  await expect(overview.locator(".collector-glance-numbers")).toContainText("27");
+  await expect(overview.locator(".collector-glance-details")).toHaveCount(0);
+  await expect(overview.getByRole("article", { name: "Disponibilità", exact: true })).toContainText("19 bottiglie");
   const value = overview.locator("article").filter({ has: page.getByRole("heading", { name: "Valore della collezione", exact: true }) });
   await expect(value).toContainText("828");
   await expect(value).toContainText("100");
   await expect(value).toContainText("EUR");
   await expect(value).toContainText("CHF");
-  await expect(value.locator(".collector-currency-and")).toHaveCount(1);
-  await expect(value).toContainText("Valore delle posizioni, raggruppato per valuta");
+  await expect(value.locator(".collector-currency-total")).toHaveCount(2);
   const currencyLabels = value.locator(".collector-currency-total strong small");
   const chfLabel = (await currencyLabels.nth(0).boundingBox())!;
   const eurLabel = (await currencyLabels.nth(1).boundingBox())!;
@@ -2203,12 +2331,11 @@ test("collector overview has consistent counts, currency coverage and actionable
   await expect(priorities).toContainText("12 bottiglie · 1 vino");
   await expect(priorities).toContainText("3 bottiglie · 1 vino");
   await expect(priorities).toContainText("6 bottiglie · 1 vino");
-  await priorities.locator("summary").filter({ hasText: "Vini da verificare" }).click();
+  await priorities.locator("summary").filter({ hasText: "Finestra superata" }).click();
   await expect(priorities.getByRole("button", { name: /Riserva storica/ })).toBeVisible();
   await expect(page.locator(".collector-explore")).not.toHaveAttribute("open", "");
   // A missing purchase date must not create a synthetic time series.
   await expect(page.locator(".key-position-card").getByText("Acquisto → valore attuale / bott.").first()).toBeVisible();
-  await overview.getByText("Vedi disponibilità", { exact: true }).click();
   const available = overview.locator("summary").filter({ hasText: /^In cantina/ });
   await available.click();
   await overview.getByRole("button", { name: /Nebbiolo di Test/ }).first().click();
@@ -2277,13 +2404,9 @@ for (const width of [360, 390, 430, 1440]) {
       await page.screenshot({ path: testInfo.outputPath(`collector-priorities-${width}.png`), fullPage: true });
       await tabs.getByRole("tab", { name: "Collezione", exact: true }).click();
       await expect(page.getByRole("heading", { name: "Valore della collezione" })).toBeVisible();
-      await expect(page.getByRole("heading", { name: "Da seguire adesso" })).toBeHidden();
-      await page.getByText("Composizione del valore", { exact: true }).click();
-      await expect(page.getByText("Con valutazione corrente", { exact: false }).first()).toBeVisible();
-      await page.getByText("Composizione del valore", { exact: true }).click();
-      await page.locator(".collector-composition > summary").click();
-      await expect(page.getByRole("heading", { name: "Finestre conosciute" })).toBeVisible();
-      const tiles = await page.locator(".collector-tile:visible").all();
+      await expect(page.getByRole("heading", { name: "Da seguire adesso" })).toBeVisible();
+      await expect(page.getByRole("heading", { name: "Orizzonte di beva" })).toBeVisible();
+      const tiles = await page.locator(".collector-evolution-grid > article").all();
       let bottom = -Infinity;
       for (const tile of tiles) {
         const box = (await tile.boundingBox())!;
@@ -2292,7 +2415,6 @@ for (const width of [360, 390, 430, 1440]) {
         expect(box.y).toBeGreaterThanOrEqual(bottom);
         bottom = box.y + box.height;
       }
-      await page.locator(".collector-composition > summary").click();
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.screenshot({ path: testInfo.outputPath(`collector-collection-${width}.png`), fullPage: true });
       await page.locator(".collector-atlas").getByRole("tab", { name: "Origini", exact: true }).click();
@@ -2366,7 +2488,7 @@ for (const width of [360, 390, 430, 1440]) {
       expect(box!.x).toBeGreaterThanOrEqual(0);
       expect(box!.x + box!.width).toBeLessThanOrEqual(width);
     }
-    const tiles = await page.locator(".collector-tile").all();
+    const tiles = await page.locator(".collector-tile:visible").all();
     const boxes = await Promise.all(tiles.map(tile => tile.boundingBox()));
     for (const [index, box] of width === 1440 ? boxes.entries() : []) {
       expect(box).not.toBeNull();
@@ -2530,10 +2652,11 @@ test("collector empty state has no misleading percentages", async ({ page }) => 
   await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });
   await page.goto("/");
   const overview = page.getByRole("region", { name: "Collector overview" });
-  await expect(overview).toContainText("0 bottles · 0 wines");
+  await expect(overview.locator(".collector-glance-numbers")).toContainText("Bottles0");
   await expect(overview).not.toContainText("NaN");
   await expect(overview).not.toContainText("100%");
-  await expect(overview.getByText("—", { exact: true })).toHaveCount(4);
+  await expect(overview.locator(".collector-glance-numbers").getByText("—", { exact: true })).toBeVisible();
+  await expect(overview.getByText("No bottles to summarise.")).toHaveCount(2);
 });
 test("collector excludes incomplete windows and keeps dated history changes consistent", async ({ page }) => {
   await page.clock.setFixedTime(new Date("2026-09-16T12:00:00Z"));
@@ -2543,9 +2666,8 @@ test("collector excludes incomplete windows and keeps dated history changes cons
   ] };
   await mockApi(page, [], false, memberships, [item], { ...session, dashboard_focus: "collector" });
   await page.goto("/");
-  const known = page.locator(".collector-tile").filter({ has: page.getByRole("heading", { name: "Finestre conosciute", exact: true }) });
-  await expect(known).toContainText("0%");
-  await expect(known).toContainText("4 bottiglie · 1 vino");
+  await expect(page.locator(".collector-data-actions")).toHaveCount(0);
+  await expect(page.locator(".evolution-columns button:not([disabled])")).toHaveCount(0);
   const priorities = page.getByRole("region", { name: "Da seguire adesso" });
   await expect(priorities).not.toContainText("4 bottiglie");
   await expect(page.locator(".key-position-trend")).toContainText("20");

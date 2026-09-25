@@ -53,3 +53,28 @@ la preferenza di movimento ridotto.
 Verifica mirata: `npx playwright test e2e/wine-detail.spec.ts -g "scroll cues|collector responsive layout|collector empty"`.
 I test coprono touch nativo, tastiera, estremi del carosello, assenza di overflow
 della pagina e viewport 360, 390, 430 e 1440 px.
+
+## Sintesi della collezione
+
+La panoramica collezionista mostra bottiglie, vini e valori separati per valuta,
+barre di disponibilità e maturità e solo le attenzioni non vuote. Le categorie
+di maturità sono esclusive e riguardano le bottiglie presenti; finestre mancanti
+o invertite restano nella categoria senza finestra. Il report testuale dei dettagli
+è sostituito da «Come sta cambiando la tua cantina»: valutazioni (ricostruite sulle
+quantità attuali, non rendimento), movimenti registrati negli ultimi 12 mesi e
+istogramma delle bottiglie per fine finestra. Gli anni sono selezionabili.
+Il servizio movimenti restituisce al massimo 500 righe: al raggiungimento del
+limite la vista segnala dati parziali. Saldi iniziali e rettifiche in entrata non
+sono acquisti; le vendite sono al netto degli annullamenti. Storici assenti o
+non caricati non producono andamenti fittizi. L’orizzonte indica l’ultimo anno
+incluso nella finestra stimata; dall’anno successivo è superata. I richiami per
+valori e finestre mancanti restano nella dashboard di completezza dei dati.
+
+`npm run test:e2e:collector` verifica conteggi, aperture dei vini, stati vuoti,
+geometria e assenza di overflow a 360, 390, 430 e 1440 px. La baseline
+`collector-glance-compact.png` protegge la sintesi a 390 px; nella sola cattura
+della sezione si nascondono le barre fisse globali per evitare che coprano il
+contenuto durante lo screenshot dell'intero elemento.
+`collector-evolution-compact.png` protegge i grafici popolati con dati deterministici.
+I test attendono la comparsa del grafico nel viewport prima della cattura,
+rispettando l'animazione di ingresso esistente.
