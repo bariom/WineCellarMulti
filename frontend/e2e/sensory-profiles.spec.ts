@@ -42,6 +42,7 @@ test("AI actions send opt-in and show single-wine errors", async ({ page }) => {
   await page.getByRole("button", { name: "Approva tutti da validare" }).click();
   await expect(page.getByText("Approvazione completata", { exact: true })).toBeVisible();
   expect(approved).toBe(true);
+  await page.getByText("Profili vino (1)", { exact: true }).click();
   await page.getByRole("button", { name: "Genera profilo con AI", exact: true }).click();
   await expect(page.getByRole("alert")).toHaveText("AI temporaneamente non disponibile");
   expect(single).toBe(true);

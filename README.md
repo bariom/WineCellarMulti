@@ -57,7 +57,7 @@ Targeted regression checks:
 cd backend
 .venv/Scripts/python.exe -m pytest tests/test_auth_and_wines.py -k "standalone_tasting or wishlist_tasting or tasting_archive"
 cd ../frontend
-npx playwright test e2e/wine-detail.spec.ts -g "record tasting"
+npm run test:e2e:record-tasting
 npm run build
 ```
 
@@ -140,11 +140,16 @@ Playwright tests with `PLAYWRIGHT_BASE_URL=http://127.0.0.1:4173`.
 Frontend E2E guardrails and scope-aware test selection are documented in
 [`docs/FRONTEND_E2E.md`](docs/FRONTEND_E2E.md). The focused Wine Detail command
 is `npm run test:e2e:wine-detail` from `frontend/`.
+Tests are split by feature: select only the affected suites (for example
+`test:e2e:personal-dashboard` or `test:e2e:record-tasting`). One runner uses two
+workers by default; pass `-- --workers=1` when needed. `test:e2e:app` runs the
+former monolithic suite across its feature files; `test:e2e` runs all E2E tests.
+The E2E guide also documents safe coordination of independent test agents.
 
 Collector dashboard checks: run `npm run test:e2e:collector` from `frontend/`.
 All private-cellar dashboard editions share the collector's editorial navigation,
 typography and surfaces. Check the seven other editions at 360, 390, 430 and 1440 px
-with `npx playwright test e2e/wine-detail.spec.ts --grep "editorial dashboard|shows contextual KPIs"`.
+with `npm run test:e2e:home-dashboard -- --grep "editorial dashboard|shows contextual KPIs"`.
 The collection atlas exposes Origins, Maturity and Value as selectable visual scenes,
 outside the operational details disclosure. It appears in the mobile Collection tab
 and directly on desktop. Only the active scene is mounted; the origins map retains
@@ -180,9 +185,9 @@ physically available stock and calendar years, not exact expiry dates. Details a
 wine selections expand inline; the extended collection analysis is collapsed by default.
 The collector tests cover KPI calculations, navigation, empty data, responsive geometry
 and a reviewed 390 px visual baseline. Update that baseline only after visual review:
-`npx playwright test e2e/wine-detail.spec.ts -g "collector responsive layout 390" --update-snapshots`.
+`npm run test:e2e:collector -- -g "collector responsive layout 390" --update-snapshots`.
 The highlight sheet also has a reviewed 390 px baseline; update it with
-`npx playwright test e2e/wine-detail.spec.ts -g "collector highlight insight 390" --update-snapshots`.
+`npm run test:e2e:collector -- -g "collector highlight insight 390" --update-snapshots`.
 
 Install the backend development dependencies and activate its virtual environment:
 

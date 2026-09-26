@@ -65,6 +65,6 @@ Le notifiche restano protette dal controllo dell'utente destinatario esistente.
 cd backend
 .\.venv\Scripts\python.exe -m pytest tests/test_announcements.py tests/test_announcements_migration.py -q
 cd ../frontend
-npx playwright test e2e/wine-detail.spec.ts -g "admin announcements"
+npm run test:e2e:notifications -- -g "admin announcements"
 npm run build
 ```

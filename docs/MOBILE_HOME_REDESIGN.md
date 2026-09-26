@@ -28,9 +28,9 @@ while using a separate multi-column composition.
   with the featured card.
 - `frontend/src/components/HorizontalScroll.tsx`: makes Previous work at the end
   when multiple cards are visible at once.
-- `frontend/e2e/wine-detail.spec.ts`: responsive, data, entitlement, navigation and
+- `frontend/e2e/collector.spec.ts`: responsive, data, entitlement, navigation and
   geometry coverage; isolates section screenshots from fixed page controls.
-- `frontend/e2e/wine-detail.spec.ts-snapshots/`: reviewed `collector-compact`,
+- `frontend/e2e/collector.spec.ts-snapshots/`: reviewed `collector-compact`,
   `collector-riserva-home-compact`, `collector-glance-compact` and
   `collector-evolution-compact` Windows Chromium baselines.
 - `docs/FRONTEND_E2E.md`: behavior and targeted verification instructions.
@@ -77,7 +77,7 @@ protects the reviewed shared mobile edition alongside the collector baselines.
 Targeted shared-Home regression command:
 
 ```powershell
-npx playwright test e2e/wine-detail.spec.ts -g "editorial dashboard|collector|scroll cues|personal dashboard"
+npx playwright test e2e/home-dashboard.spec.ts e2e/collector.spec.ts e2e/personal-dashboard.spec.ts
 ```
 
 Shared-style verification: 104 distinct relevant cases passed across targeted

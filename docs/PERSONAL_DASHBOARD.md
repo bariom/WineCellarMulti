@@ -98,7 +98,7 @@ precedente. Le immagini delle bottiglie provengono dai dati reali dell’app.
 python -m pytest tests/test_auth_and_wines.py -k personal_dashboard
 
 # frontend/
-npx playwright test e2e/wine-detail.spec.ts -g "personal dashboard|local entry reload"
+npm run test:e2e:personal-dashboard
 npm run build
 ```
 

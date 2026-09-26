@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("live wishlist scanner can continue without a taste profile on mobile", async ({ page }) => {
+test("live wishlist scanner can continue without a taste profile on mobile", async ({ page }, testInfo) => {
   await page.route("**/wishlist-live-scanner-test", route => route.fulfill({
     contentType: "text/html",
     body: `<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
@@ -63,7 +63,7 @@ test("live wishlist scanner can continue without a taste profile on mobile", asy
     expect(continueBox!.x + continueBox!.width <= retryBox!.x || retryBox!.x + retryBox!.width <= continueBox!.x).toBe(true);
   }
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.screenshot({ path: 'test-results/wishlist-result.png' });
+  await page.screenshot({ path: testInfo.outputPath('wishlist-result.png') });
   await continueButton.click();
   await expect(page.getByRole("dialog", { name: "Scansione gusto live" })).toBeHidden();
 });

@@ -1,12 +1,17 @@
 import { defineConfig, devices } from "@playwright/test";
 
-const baseURL = process.env.PLAYWRIGHT_BASE_URL || "http://127.0.0.1:5173";
+const port = Number(process.env.PLAYWRIGHT_PORT || 5173);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error("PLAYWRIGHT_PORT must be an integer between 1 and 65535.");
+}
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || `http://127.0.0.1:${port}`;
 
 export default defineConfig({
   testDir: "./e2e",
   timeout: 60_000,
   fullyParallel: true,
-  workers: process.env.CI ? 2 : 1,
+  // Bound browser concurrency on local machines as well as CI; override with --workers.
+  workers: 2,
   forbidOnly: Boolean(process.env.CI),
   retries: process.env.CI ? 2 : 0,
   reporter: process.env.CI ? "github" : "list",
@@ -21,7 +26,7 @@ export default defineConfig({
     reducedMotion: "reduce",
   },
   webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
-    command: "npm run dev -- --host 127.0.0.1",
+    command: `npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,
     cwd: ".",
     url: baseURL,
     reuseExistingServer: !process.env.CI,

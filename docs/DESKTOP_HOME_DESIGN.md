@@ -18,7 +18,7 @@ authorization, API calls and subscription behavior are unchanged.
   The cellar reading panel stays the same width whether a wine is selected or
   not, between 480 and 550 px according to the desktop viewport. Other
   sections keep their existing proportions.
-- `frontend/e2e/wine-detail.spec.ts`: desktop composition, data, navigation,
+- `frontend/e2e/collector.spec.ts` and `frontend/e2e/app-navigation.spec.ts`: desktop composition, data, navigation,
   permissions/subscription, image fallback, geometry and mobile regression tests.
 
 No parallel mockup or new component library is introduced. Reused components:
@@ -78,7 +78,7 @@ or drinking windows remain explicitly unavailable.
 Targeted command (Chromium):
 
 ```powershell
-npx playwright test e2e/wine-detail.spec.ts -g "collector|desktop cellar|editorial dashboard"
+npx playwright test e2e/collector.spec.ts e2e/app-navigation.spec.ts e2e/home-dashboard.spec.ts -g "collector|desktop cellar|editorial dashboard"
 npm run build
 ```
 

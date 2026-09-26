@@ -123,17 +123,49 @@ npm run build
 
 If the change is only layout/styling, backend tests are normally unnecessary.
 
+E2E suites are split by feature. `test:e2e:wine-detail` now runs only Wine
+Detail, not unrelated dashboards, notifications, editors or tasting flows.
+Select the matching `test:e2e:<feature>` command from docs/FRONTEND_E2E.md.
+Shared navigation/styles may require several affected suites; use targeted
+`--grep` checks first. `test:e2e:app` runs all suites extracted from the former
+Wine Detail monolith; `test:e2e` runs every frontend E2E suite. Neither is the
+default for an isolated UI change.
+
+Parallel test coordination
+
+Prefer one Playwright runner with its default two workers. Use `--workers=1`
+when resource contention or diagnosis requires serial execution. More agents
+do not create more CPU or memory: avoid multiplying runner worker counts.
+
+When the user requests parallel agents, assign independent feature/check
+ownership before running tests. Agents share the command, selected scope,
+server/port, output directory, result and any reproducible failure with the
+coordinator. Do not run duplicate suites or edit the same files concurrently.
+Backend checks and a frontend build may run independently when their actual
+scope requires them; never start irrelevant checks just to occupy an agent.
+
+Prefer a single E2E runner over several agents running browsers. If separate
+E2E processes are necessary, use disjoint suites, one worker each, unique
+`--output=test-results/<agent>` directories and separate `PLAYWRIGHT_PORT`
+values, or explicitly coordinate a shared externally managed server via
+`PLAYWRIGHT_BASE_URL`. All concurrent runs must use distinct output directories;
+never run a default parent `test-results/` output alongside child-directory
+outputs, because the parent run can clear them. Do not concurrently rebuild a
+served preview or update visual baselines. Report failures rather than hiding
+them with extra retries.
+
 Windows frontend tooling
 
-On this workstation, Node.js and npm are installed in C:\ERI\node. When they
-are not available on PATH, prepend that directory for the current PowerShell
-session, then invoke npm:
+On this workstation, Node.js and npm are installed in C:\Program Files\nodejs.
+When they are not available on PATH, prepend that directory for the current
+PowerShell session. Use npm.cmd if PowerShell blocks npm.ps1:
 
-$env:Path = "C:\ERI\node;$env:Path"
-npm run build
-npm run test:e2e:wine-detail
+$env:Path = "C:\Program Files\nodejs;$env:Path"
+npm.cmd run build
+npm.cmd run test:e2e:wine-detail
 
 Run these commands from frontend/. Do not assume npm is globally available.
+Some older setups use C:\ERI\node instead; check the installed location first.
 
 Backend-only changes
 
@@ -188,8 +220,8 @@ npm run build
 Do not run npm ci after every source change when dependencies are already
 installed and unchanged.
 
-On this machine Node/npm are available under C:\ERI\node; add that directory
-to PATH when necessary.
+For this machine's Node/npm path and PowerShell invocation, see Windows
+frontend tooling above.
 
 Frontend UI validation
 
