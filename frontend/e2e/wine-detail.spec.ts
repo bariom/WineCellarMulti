@@ -325,7 +325,7 @@ for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-cha
   }
 }
 
-for (const [random, scene] of [[0.1, "vineyard"], [0.5, "barrels"], [0.9, "tasting"]] as const) {
+for (const [random, scene] of [[0.08, "vineyard"], [0.25, "barrels"], [0.42, "tasting"], [0.58, "lakeside"], [0.75, "harvest"], [0.92, "bottle-cellar"]] as const) {
   test(`Home backdrop session ${scene}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 1000 });
     await page.addInitScript(value => { Math.random = () => value; }, random);
@@ -335,6 +335,15 @@ for (const [random, scene] of [[0.1, "vineyard"], [0.5, "barrels"], [0.9, "tasti
     await expect(backdrop).toHaveAttribute("data-scene", scene);
     await expect.poll(() => backdrop.locator("img").evaluate((img: HTMLImageElement) => img.naturalWidth)).toBeGreaterThan(1000);
     await page.screenshot({ path: testInfo.outputPath("scene.png") });
+    if (["lakeside", "harvest", "bottle-cellar"].includes(scene)) {
+      for (const width of [360, 390, 430]) {
+        await page.setViewportSize({ width, height: 844 });
+        await expect(backdrop).toBeVisible();
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+        if (width === 390) await page.screenshot({ path: testInfo.outputPath("scene-mobile.png") });
+      }
+      await page.setViewportSize({ width: 1440, height: 1000 });
+    }
     await page.evaluate(() => { Math.random = () => 0.99; });
     await page.getByRole("button", { name: /^Cantina/ }).first().click();
     await expect(backdrop).toHaveCount(0);
@@ -1354,6 +1363,27 @@ test("personal dashboard operational lists open the right wines", async ({ page 
   await page.reload();
   await page.locator('[data-widget-id="to_collect"]').getByRole('button', { name: /Vino da ritirare/ }).click();
   await expect(page.locator('.wine-detail:visible').first()).toContainText('Vino da ritirare');
+});
+
+test("personal dashboard links to matching insights, filtered cellar, or nowhere", async ({ page }) => {
+  const pickup = { ...wine, id: 'pickup', name: 'Vino da ritirare', status: 'to_collect', expected_delivery: '2026-09-20' };
+  const widgets = [
+    { id: 'styles', width: 'half' },
+    { id: 'to_collect', width: 'half' },
+    { id: 'vintages', width: 'half' },
+  ];
+  await mockApi(page, [], false, memberships, [wine, pickup], { ...session, dashboard_focus: 'personal', personal_dashboard_widgets: widgets });
+  await page.goto('/');
+
+  await expect(page.locator('[data-widget-id="vintages"] .summary-explore')).toHaveCount(0);
+  await page.locator('[data-widget-id="styles"]').getByRole('button', { name: 'Approfondisci' }).click();
+  await expect(page.locator('.balanced-dashboard-carousel')).toBeVisible();
+
+  await page.reload();
+  await page.locator('[data-widget-id="to_collect"]').getByRole('button', { name: 'Apri cantina filtrata' }).click();
+  await expect(page.locator('.active-cellar-filters')).toContainText('Vini da ritirare');
+  await expect(page.locator('[data-wine-row-id]')).toHaveCount(1);
+  await expect(page.locator('[data-wine-row-id]').first()).toContainText('Vino da ritirare');
 });
 
 const wine = {

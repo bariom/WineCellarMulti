@@ -5,6 +5,9 @@ export const HOME_BACKDROPS = [
   { id: "vineyard", src: "/images/home-vineyard-v1.jpg" },
   { id: "barrels", src: "/images/home-barrels-v1.jpg" },
   { id: "tasting", src: "/images/home-tasting-v1.jpg" },
+  { id: "lakeside", src: "/images/home-lakeside-v1.jpg" },
+  { id: "harvest", src: "/images/home-harvest-v1.jpg" },
+  { id: "bottle-cellar", src: "/images/home-bottle-cellar-v1.jpg" },
 ] as const;
 const fallback = "/images/premium-cellar-empty.jpg";
 let memoryChoice: (typeof HOME_BACKDROPS)[number] | undefined;

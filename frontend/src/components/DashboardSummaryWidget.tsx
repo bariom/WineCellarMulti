@@ -13,7 +13,7 @@ import "./DashboardSummaryWidget.css";
 
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const WineGeographyMap = lazy(() => import("../views/WineGeographyMap"));
-export type SummaryDestination = "cellar" | "value" | "readiness" | "taste" | "data" | "history" | "wishlist" | "pulse";
+export type SummaryDestination = "collector" | "daily" | "balanced" | "value" | "readiness" | "timeline" | "taste" | "data" | "history" | "wishlist" | "pulse" | "intelligence" | "cellar_to_collect";
 type Props = {
   widget: PersonalDashboardWidget; locale: Locale; wines: Wine[]; wishlist: WishlistItem[]; featured: FeaturedWine[];
   canShowPhotos: boolean; onOpen: (wine: Wine) => void; onNavigate: (destination: SummaryDestination) => void;
@@ -82,12 +82,13 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
   function bars(items: SummarySlice[], columns = false) { return items.length ? <SummaryBars items={topSummary(items, other, columns ? 11 : 5)} format={count} columns={columns} /> : empty(); }
   function windowCaption(wine: Wine) { return <><b>{wine.drink_peak_from || wine.drink_from}–{wine.drink_peak_to || wine.drink_to}</b><span className="summary-window" aria-label={it ? "Finestra di beva" : "Drinking window"}><i style={{ width: `${Math.max(0, Math.min(100, (year - (wine.drink_from || year)) / Math.max(1, (wine.drink_to || year) - (wine.drink_from || year)) * 100))}%` }} /></span></>; }
   let content: ReactNode;
-  let destination: SummaryDestination = "cellar";
+  let destination: SummaryDestination | null = null;
   let kicker = it ? "La collezione" : "The collection";
   let note: ReactNode;
   const ready = available.filter(wine => validWindow(wine) && year >= wine.drink_from! && year <= wine.drink_to!).sort((a, b) => Number(isWineReadyToPrioritize(b, year)) - Number(isWineReadyToPrioritize(a, year)) || a.drink_to! - b.drink_to!);
   switch (id) {
     case "overview":
+      destination = "collector";
       content = <div className="summary-numbers">{[[sumBottles(stock), it ? "bottiglie" : "bottles"], [stock.length, it ? "etichette" : "labels"], [new Set(stock.map(wine => wine.producer.trim().toLocaleLowerCase()).filter(Boolean)).size, it ? "produttori" : "producers"]].map(([value, label]) => <div key={String(label)}><strong>{count(Number(value))}</strong><span>{label}</span></div>)}</div>;
       note = it ? "Intera cantina, incluse le quote condivise." : "Whole cellar, including shared holdings.";
       break;
@@ -109,6 +110,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       break;
     }
     case "featured": {
+      destination = "collector";
       const items = featured.filter((item, index, all) => all.findIndex(other => other.wine.id === item.wine.id) === index).slice(0, 3);
       content = gallery(items.map(item => item.wine), wine => { const caption = featuredCaption(items.find(item => item.wine.id === wine.id)!, locale); return <><small>{caption.label}</small><b>{caption.metric}</b></>; });
       break;
@@ -132,13 +134,15 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       break;
     }
     case "recent":
+      destination = "collector";
       content = gallery([...stock].sort((a, b) => (Date.parse(b.created_at || "") || 0) - (Date.parse(a.created_at || "") || 0)), wine => <><b>{count(wine.quantity)} {it ? "bott." : "btl."}</b><small>{date(wine.created_at)}</small></>);
       break;
     case "regions":
+      destination = "collector";
       content = stock.length ? <WineGeographyMap wines={stock} locale={locale} t={key => translate(locale, key)} onSelectRegion={onRegion} /> : empty();
       note = it ? "Seleziona una regione per esplorare le sue bottiglie." : "Select a region to explore its bottles.";
       break;
-    case "styles": content = ring(groupSummary(stock, wine => typeLabel(wine.type))); break;
+    case "styles": destination = "balanced"; content = ring(groupSummary(stock, wine => typeLabel(wine.type))); break;
     case "vintages": content = bars(groupSummary(stock, wine => wine.vintage || unknown).sort((a, b) => a.label.localeCompare(b.label)), true); break;
     case "producers": content = bars(groupSummary(stock, wine => wine.producer || unknown)); break;
     case "grapes": {
@@ -181,7 +185,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       break;
     }
     case "tonight": {
-      destination = "readiness";
+      destination = "daily";
       content = ready.length ? <>{gallery(ready.slice(0, 1), wine => <>{windowCaption(wine)}<small>{it ? "Già disponibile; tra le finestre che chiudono prima." : "Available now; among the earliest closing windows."}</small></>, true)}<button type="button" className="secondary" onClick={() => onPairing(ready[0])}>{it ? "Trova un abbinamento" : "Find a pairing"}</button></> : empty(it ? "Nessuna bottiglia disponibile con finestra attuale nota." : "No available bottle with a known current drinking window.");
       break;
     }
@@ -219,11 +223,13 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       break;
     }
     case "deliveries": {
+      destination = "timeline";
       const incoming = stock.filter(wine => isFutureDeliveryWine(wine, now)).sort((a, b) => (a.expected_delivery || "9999").localeCompare(b.expected_delivery || "9999"));
       content = <div className="summary-timeline">{gallery(incoming, wine => <><b>{date(wine.expected_delivery)}</b><small>{count(wine.quantity)} {it ? "bottiglie attese" : "bottles expected"}</small></>)}</div>;
       break;
     }
     case "to_collect": {
+      destination = "cellar_to_collect";
       const items = stock.filter(isToCollectWine);
       content = <><div className="summary-value"><strong>{count(sumBottles(items))}</strong><span>{it ? "bottiglie da ritirare" : "bottles awaiting collection"}</span></div>{gallery(items, wine => wine.merchant || `${count(wine.quantity)} ${it ? "bottiglie" : "bottles"}`)}</>;
       break;
@@ -252,6 +258,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       break;
     }
     case "purposes": {
+      destination = "intelligence";
       const labels: Record<string, string> = it ? { drink: "Consumo", maturation: "Maturazione", investment: "Investimento", special_occasion: "Occasioni speciali", undecided: "Da decidere" } : { drink: "Drinking", maturation: "Maturing", investment: "Investment", special_occasion: "Special occasions", undecided: "Undecided" };
       const groups = new Map<string, number>();
       stock.forEach(wine => {
@@ -287,6 +294,6 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
   return <article className={`dashboard-summary summary-widget-${id}`}>
     <header><p>{kicker}</p><h3>{title}</h3></header>
     <div className="summary-body"><Suspense fallback={loading}>{content}</Suspense></div>
-    <footer>{note && <p>{note}</p>}<button type="button" className="summary-explore" onClick={() => onNavigate(destination)}>{it ? "Approfondisci" : "Explore"}<span aria-hidden="true">↗</span></button></footer>
+    <footer>{note && <p>{note}</p>}{destination && <button type="button" className="summary-explore" onClick={() => onNavigate(destination)}>{destination === "cellar_to_collect" ? (it ? "Apri cantina filtrata" : "Open filtered cellar") : (it ? "Approfondisci" : "Explore")}<span aria-hidden="true">↗</span></button>}</footer>
   </article>;
 }

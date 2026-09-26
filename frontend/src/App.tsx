@@ -8861,12 +8861,16 @@ export function App() {
       onPairing={wine => { if (!preview) openDishPairingForWine(wine); }}
       onNavigate={destination => {
         if (preview) return;
-        if (["value", "readiness", "taste", "data"].includes(destination)) {
+        if (["collector", "daily", "balanced", "value", "readiness", "timeline", "taste", "data"].includes(destination)) {
           setActiveView("home"); setDashboardFocus(destination as DashboardFocus);
         } else if (destination === "history") {
           setHistorySection("tastings"); setActiveView("history");
+        } else if (destination === "intelligence") {
+          setActiveView("intelligence");
+        } else if (destination === "cellar_to_collect") {
+          openOperationalCellarFilter("to_collect");
         } else {
-          setSearchQuery(""); setActiveView(destination as "cellar" | "wishlist" | "pulse");
+          setSearchQuery(""); setActiveView(destination as "wishlist" | "pulse");
         }
         window.scrollTo({ top: 0, behavior: "auto" });
       }}
