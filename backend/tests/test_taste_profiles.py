@@ -759,6 +759,50 @@ def test_a_single_positive_tasting_produces_an_emerging_match() -> None:
     assert 0 < match["confidence"] < 0.3
 
 
+def test_wine_sensory_read_is_scoped_and_does_not_generate_profiles() -> None:
+    db = Session()
+    household = Household(name="Home")
+    other = Household(name="Other")
+    user = User(email="sensory-read@example.test", display_name="Reader", password_hash="x")
+    db.add_all([household, other, user])
+    db.flush()
+    wine = make_wine(db, household)
+    wine.created_by_user_id = user.id
+    hidden = make_wine(db, household, name="Hidden")
+    elsewhere = make_wine(db, other, name="Elsewhere")
+    db.commit()
+    context = SimpleNamespace(
+        user=user,
+        household=household,
+        membership=SimpleNamespace(role="member", visibility_scope="own"),
+    )
+    assert taste_profile_routes.wine_sensory_profile(wine.id, db, context) is None
+    assert db.scalar(select(WineSensoryProfile)) is None
+    profile = WineSensoryProfile(
+        identity_id=wine.shared_identity_id,
+        dimensions={"body": 0.8, "fruit": 0, "wood": None},
+        source="metadata",
+        confidence=0.6,
+        validated=False,
+        generation_status="available",
+    )
+    db.add(profile)
+    db.commit()
+    response = taste_profile_routes.wine_sensory_profile(wine.id, db, context)
+    assert response is not None
+    assert response.dimensions == {"body": 0.8, "fruit": 0, "wood": None}
+    assert response.source == "metadata"
+    assert not db.dirty and not db.new
+    for blocked in [hidden, elsewhere]:
+        with pytest.raises(HTTPException) as error:
+            taste_profile_routes.wine_sensory_profile(blocked.id, db, context)
+        assert error.value.status_code == 404
+    profile.generation_status = "pending"
+    db.commit()
+    assert taste_profile_routes.wine_sensory_profile(wine.id, db, context) is None
+    db.close()
+
+
 def test_wine_match_does_not_rebuild_a_missing_profile_during_a_list_read() -> None:
     """A wine-list render may request many matches concurrently."""
     db = Session()

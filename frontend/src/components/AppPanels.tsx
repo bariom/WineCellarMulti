@@ -14,6 +14,7 @@ import { api } from "../services/api";
 import type { WineStockLot } from "../types";
 import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./StoragePanels";
 import LocalizedDateInput from "./LocalizedDateInput";
+import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
 
@@ -1557,6 +1558,7 @@ export function WineDetail({
       </details>
 
       {!restaurantMode ? <TasteNote wineId={wine.id} locale={locale} /> : null}
+      <WineSensorySignaturePanel key={wine.id} wineId={wine.id} locale={locale} />
 
       <details className="detail-market-block wine-detail-view-section" data-wine-detail-section="02" tabIndex={-1}>
         <summary className="wine-detail-structured-summary">

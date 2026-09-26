@@ -1704,6 +1704,7 @@ async function mockApi(
         window.sessionStorage.setItem("vinaris-test-taste-batches", JSON.stringify([...batches, wineIds]));
         body = { matches: Object.fromEntries(wineIds.map((wineId: string) => [wineId, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] }])) };
       }
+      else if (path.endsWith("/sensory")) body = JSON.parse(window.sessionStorage.getItem("vinaris-test-sensory") || "null");
       else if (path.includes("/taste-profile/wines/")) body = { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] };
       else if (path.includes("/wines/tasting-archive")) body = fixtureTastingArchive;
       else if (path.endsWith("/wines/catalog/pending")) body = fixturePendingCatalog;
@@ -1741,6 +1742,7 @@ async function mockApi(
       const wineIds = route.request().postDataJSON()?.wine_ids || [];
       return fulfillJson(route, { matches: Object.fromEntries(wineIds.map((wineId: string) => [wineId, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] }])) });
     }
+    if (path.endsWith("/sensory")) return fulfillJson(route, null);
     if (path.includes("/taste-profile/wines/")) return fulfillJson(route, { score: 0.86, confidence: 0.3, matching_traits: ["body", "tannin"], conflicting_traits: [] });
     if (path.includes("/wines/tasting-archive")) return fulfillJson(route, fixtureTastingArchive);
     if (path.endsWith("/wines/catalog/pending")) return fulfillJson(route, fixturePendingCatalog);
@@ -1773,6 +1775,51 @@ async function openWineDetail(page: Page, strategyAllocations: unknown[] = []) {
   await wineRow.click();
   await expect(page.locator(".wine-detail:visible").first()).toBeVisible();
 }
+
+test("wine sensory signature shows intensity and missing values across viewports", async ({ page }, testInfo) => {
+  await page.addInitScript(() => sessionStorage.setItem("vinaris-test-sensory", JSON.stringify({
+    identity_id: "sensory-test", generation_status: "available", source: "metadata", confidence: 0.65, validated: false,
+    dimensions: { body: 0.8, acidity: 0.65, tannin: 0.75, sweetness: 0, aromatic_intensity: 0.7, fruit: 0.8, wood: null, spice: 0.4, minerality: 0.3 },
+  })));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openWineDetail(page);
+  const panel = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' });
+  await expect(panel).toBeVisible();
+  await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Dolcezza' })).toContainText('0 / 10');
+  await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Legno' })).toContainText('Non disponibile');
+  await expect(panel).toContainText('Affidabilità: 65%');
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    const visiblePanel = page.locator('.wine-detail:visible').first().getByRole('region', { name: 'Impronta sensoriale' });
+    await visiblePanel.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    for (const row of await visiblePanel.locator('.wine-sensory-indicator').all()) {
+      const label = (await row.locator('dt').boundingBox())!;
+      const value = (await row.locator('dd').boundingBox())!;
+      expect(label.x + label.width).toBeLessThanOrEqual(value.x);
+    }
+    await visiblePanel.screenshot({ path: testInfo.outputPath(`sensory-${width}.png`) });
+    if (width === 390) await expect(visiblePanel).toHaveScreenshot('wine-sensory-signature-compact.png', { animations: 'disabled' });
+  }
+});
+
+test("wine sensory signature omits absent profiles and rejects invalid intensities", async ({ page }) => {
+  await openWineDetail(page);
+  const detail = page.locator('.wine-detail:visible').first();
+  await expect(detail.getByRole('region', { name: 'Impronta sensoriale' })).toHaveCount(0);
+  await page.evaluate(() => sessionStorage.setItem('vinaris-test-sensory', JSON.stringify({
+    generation_status: 'available', source: 'ai', confidence: 0.2, validated: false,
+    dimensions: { body: 3, acidity: -0.2, tannin: '0.8', sweetness: 0 },
+  })));
+  await page.locator('[data-wine-row-id="wine-e2e-1"] .wine-row').click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] .wine-row').click();
+  const panel = detail.getByRole('region', { name: 'Impronta sensoriale' });
+  await expect(panel).toBeVisible();
+  for (const label of ['Corpo', 'Acidità', 'Tannini']) {
+    await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: label })).toContainText('Non disponibile');
+  }
+  await expect(panel.locator('.wine-sensory-indicator').filter({ hasText: 'Dolcezza' })).toContainText('0 / 10');
+});
 
 async function openRecordTasting(page: Page) {
   await expect(page.getByRole("button", { name: "Home", exact: true })).toBeVisible();

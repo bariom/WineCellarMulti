@@ -65,6 +65,9 @@ from app.schemas.taste_profile import (
 )
 from app.services.openai_client import OpenAIResponse, create_response
 from app.services.shared_wine_data import (
+    identity_key as wine_identity_key,
+)
+from app.services.shared_wine_data import (
     identity_parts,
     normalize_identity_part,
     resolve_shared_identity,
@@ -480,6 +483,27 @@ def claim_legacy_tastings(
             for profile in profiles
         ],
     )
+
+
+@router.get("/wines/{wine_id}/sensory", response_model=SensoryProfileResponse | None)
+def wine_sensory_profile(
+    wine_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> SensoryProfileResponse | None:
+    """Read the existing sensory signature without generating or updating profiles."""
+    wine = get_household_wine(db, context, wine_id)
+    parts = identity_parts(wine)
+    if parts is None:
+        return None
+    profile = db.scalar(
+        select(WineSensoryProfile)
+        .join(SharedWineIdentity, WineSensoryProfile.identity_id == SharedWineIdentity.id)
+        .where(SharedWineIdentity.identity_key == wine_identity_key(parts))
+    )
+    if profile is None or profile.generation_status != "available":
+        return None
+    return sensory_response(profile)
 
 
 @router.get("/wines/{wine_id}/match", response_model=TasteMatchResponse)

@@ -1581,6 +1581,8 @@ export type WineSensoryProfile = {
   generated_at: string;
 };
 
+export type WineSensorySignature = Omit<WineSensoryProfile, "name" | "producer" | "vintage">;
+
 export type WineSensoryProfileSummary = {
   wines_with_profile: number;
   wines_without_profile: number;

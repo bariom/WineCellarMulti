@@ -1,0 +1,12 @@
+.wine-sensory-signature { padding: 20px; margin: 16px 0; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--text); min-width: 0; }
+.wine-sensory-signature header > span { color: var(--text-muted); font-size: .65rem; letter-spacing: .15em; }
+.wine-sensory-signature h3 { margin: 6px 0 8px; font-family: var(--font-display, Georgia, serif); font-size: 1.45rem; font-weight: 500; }
+.wine-sensory-signature p { margin: 0; font-size: .78rem; line-height: 1.5; color: var(--text-muted); }
+.wine-sensory-indicators { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 18px 28px; margin: 22px 0; }
+.wine-sensory-indicator { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px 12px; align-items: baseline; font-size: .8rem; }
+.wine-sensory-indicator dt { overflow-wrap: anywhere; }
+.wine-sensory-indicator dd { margin: 0; font-variant-numeric: tabular-nums; font-size: .75rem; }
+.wine-sensory-track { grid-column: 1 / -1; height: 7px; border-radius: 5px; overflow: hidden; background: color-mix(in srgb, var(--text-muted) 15%, transparent); }
+.wine-sensory-track > span { display: block; height: 100%; border-radius: inherit; background: var(--primary); }
+.wine-sensory-signature footer { display: flex; flex-wrap: wrap; gap: 6px 14px; border-top: 1px solid var(--border); padding-top: 12px; font-size: .7rem; color: var(--text-muted); }
+.wine-sensory-signature footer p { flex-basis: 100%; font-size: .7rem; }
