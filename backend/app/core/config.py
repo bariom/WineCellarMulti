@@ -1,3 +1,4 @@
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -113,6 +114,7 @@ class Settings(BaseSettings):
     wine_photo_ai_max_input_bytes: int = 12_000_000
     wine_photo_ai_timeout_seconds: int = 90
     wine_photo_ai_worker_idle_seconds: int = 75
+    wine_photo_ai_threads: int = Field(default=4, ge=0, le=64)
     wine_pulse_enabled: bool = True
     wine_pulse_ai_enabled: bool = True
     wine_pulse_model: str = "gpt-5.6-luna"

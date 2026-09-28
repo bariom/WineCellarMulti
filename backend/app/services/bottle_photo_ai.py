@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from importlib import import_module
 from io import BytesIO
 from multiprocessing import get_context
@@ -8,6 +9,8 @@ from queue import Empty
 from threading import Lock, Thread
 from time import perf_counter
 from typing import Any, NoReturn
+
+from app.core.config import settings
 
 DETAIL_SIZE = (480, 720)
 _photo_processing_lock = Lock()
@@ -54,6 +57,7 @@ def _model_session(model_name: str) -> Any:
         return rembg.new_session(model_name)
     except Exception as error:
         raise BottlePhotoAiUnavailable("AI bottle segmentation model is unavailable") from error
+
 
 def _guide_half_width(width: int, height: int, y: int) -> float:
     guide_y = (y / height - 0.05) / 0.9
@@ -212,6 +216,23 @@ def _process_bottle_photo_with_session(
     }
 
 
+def _configure_photo_worker() -> None:
+    """Configure only the disposable child, before importing native libraries."""
+    # only_mask skips PyMatting, so compiling its eager Numba functions is wasted.
+    # ONNX inference and mask postprocessing do not use Numba.
+    os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
+    requested_threads = settings.wine_photo_ai_threads
+    if requested_threads and "OMP_NUM_THREADS" not in os.environ:
+        available = os.cpu_count() or 1
+        affinity = getattr(os, "sched_getaffinity", None)
+        if affinity is not None:
+            try:
+                available = min(available, len(affinity(0)))
+            except OSError:
+                pass
+        os.environ["OMP_NUM_THREADS"] = str(max(1, min(requested_threads, available)))
+
+
 def _photo_worker_loop(
     model_name: str,
     idle_seconds: int,
@@ -219,6 +240,7 @@ def _photo_worker_loop(
     result_queue: Any,
 ) -> None:
     """Keep ONNX outside the API process and release it after a short idle period."""
+    _configure_photo_worker()
     model_started_at = perf_counter()
     try:
         session = _model_session(model_name)
@@ -245,6 +267,7 @@ def _photo_worker_loop(
         try:
             processed, timings = _process_bottle_photo_with_session(content, session)
             timings["model_load_ms"] = model_load_ms if first_processing else 0
+            timings["threads"] = int(os.environ.get("OMP_NUM_THREADS", "0"))
             first_processing = False
             result_queue.put(("ok", processed, timings))
         except BottlePhotoAiError as error:
@@ -278,11 +301,7 @@ def _reap_photo_worker(worker: Any) -> None:
 
 def _ensure_photo_worker(model_name: str, idle_seconds: int) -> tuple[Any, Any]:
     global _worker_commands, _worker_model, _worker_process, _worker_results
-    if (
-        _worker_process is not None
-        and _worker_process.is_alive()
-        and _worker_model == model_name
-    ):
+    if _worker_process is not None and _worker_process.is_alive() and _worker_model == model_name:
         return _worker_commands, _worker_results
 
     _close_photo_worker()
@@ -349,9 +368,10 @@ def process_bottle_photo(
     if result[0] == "ok":
         timings = result[2]
         logger.info(
-            "bottle_photo_ai model=%s model_load_ms=%s prepare_ms=%s inference_ms=%s "
+            "bottle_photo_ai model=%s threads=%s model_load_ms=%s prepare_ms=%s inference_ms=%s "
             "postprocess_ms=%s processing_ms=%s request_ms=%s",
             model_name,
+            timings.get("threads", 0),
             timings["model_load_ms"],
             timings["prepare_ms"],
             timings["inference_ms"],

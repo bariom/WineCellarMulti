@@ -1,6 +1,51 @@
+import os
+
 import pytest
 
 from app.services import bottle_photo_ai
+
+
+@pytest.fixture(autouse=True)
+def worker_environment(monkeypatch):
+    # Worker-loop tests execute in this process; restore child-only settings.
+    monkeypatch.delenv("NUMBA_DISABLE_JIT", raising=False)
+    monkeypatch.delenv("OMP_NUM_THREADS", raising=False)
+    monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_ai_threads", 4)
+
+
+@pytest.mark.parametrize(
+    "cpus,affinity,expected",
+    [(12, {0, 1, 2, 3, 4, 5}, "4"), (2, {0, 1}, "2"), (12, {3}, "1"), (None, {0}, "1")],
+)
+def test_worker_thread_cap_respects_available_cpus(monkeypatch, cpus, affinity, expected):
+    monkeypatch.setattr(os, "cpu_count", lambda: cpus)
+    monkeypatch.setattr(os, "sched_getaffinity", lambda pid: affinity, raising=False)
+    bottle_photo_ai._configure_photo_worker()
+    assert os.environ["OMP_NUM_THREADS"] == expected
+    assert os.environ["NUMBA_DISABLE_JIT"] == "1"
+
+
+def test_worker_keeps_explicit_thread_override(monkeypatch):
+    monkeypatch.setenv("OMP_NUM_THREADS", "2")
+    bottle_photo_ai._configure_photo_worker()
+    assert os.environ["OMP_NUM_THREADS"] == "2"
+
+
+def test_worker_can_use_onnx_automatic_threads(monkeypatch):
+    monkeypatch.setattr(bottle_photo_ai.settings, "wine_photo_ai_threads", 0)
+    bottle_photo_ai._configure_photo_worker()
+    assert "OMP_NUM_THREADS" not in os.environ
+
+
+def test_worker_uses_cpu_count_when_affinity_is_unavailable(monkeypatch):
+    monkeypatch.setattr(os, "cpu_count", lambda: 2)
+
+    def unavailable(pid):
+        raise OSError("unavailable")
+
+    monkeypatch.setattr(os, "sched_getaffinity", unavailable, raising=False)
+    bottle_photo_ai._configure_photo_worker()
+    assert os.environ["OMP_NUM_THREADS"] == "2"
 
 
 class _FakeQueue:
@@ -63,6 +108,7 @@ def test_photo_ai_reaper_waits_for_worker_exit():
 
 
 def test_photo_ai_worker_loads_model_once_for_capture_session(monkeypatch):
+    monkeypatch.delenv("NUMBA_DISABLE_JIT", raising=False)
     commands = _FakeQueue(
         [
             ("warm", None),
@@ -76,6 +122,8 @@ def test_photo_ai_worker_loads_model_once_for_capture_session(monkeypatch):
     sessions = []
 
     def load_session(model):
+        assert os.environ["NUMBA_DISABLE_JIT"] == "1"
+        assert int(os.environ["OMP_NUM_THREADS"]) <= 4
         sessions.append(model)
         return session
 
@@ -105,6 +153,13 @@ def test_photo_ai_worker_loads_model_once_for_capture_session(monkeypatch):
     assert all(result[2]["session_matches"] for result in results.items)
     assert results.items[0][2]["model_load_ms"] >= 0
     assert results.items[1][2]["model_load_ms"] == 0
+
+
+def test_photo_worker_respects_explicit_jit_setting(monkeypatch):
+    monkeypatch.setenv("NUMBA_DISABLE_JIT", "0")
+    monkeypatch.setattr(bottle_photo_ai, "_model_session", lambda model: object())
+    bottle_photo_ai._photo_worker_loop("test", 75, _FakeQueue([("stop", None)]), _FakeQueue())
+    assert os.environ["NUMBA_DISABLE_JIT"] == "0"
 
 
 def test_central_component_keeps_the_same_four_connected_scoring():

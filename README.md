@@ -90,6 +90,29 @@ Set `WINE_PHOTO_AI_ENABLED=false` to use only the on-device fallback. When enabl
 server-side segmentation runs in a disposable worker so ONNX Runtime memory is released after
 the capture session. The browser starts warming the model while the camera is open, and the
 worker exits after 75 idle seconds. `WINE_PHOTO_AI_TIMEOUT_SECONDS` defaults to 90.
+The isolated worker skips unused PyMatting JIT compilation and caps ONNX CPU threads
+at `WINE_PHOTO_AI_THREADS` (default 4, further limited by CPU count/affinity).
+An existing `OMP_NUM_THREADS` override takes precedence; set `WINE_PHOTO_AI_THREADS=0`
+to restore ONNX automatic threading. For CPU-quota-limited containers, explicitly
+set the cap to the allocated CPU budget. The model, inference resolution and mask
+refinement are unchanged. The idle exit still releases the model's memory.
+
+To measure on the actual server, run sequentially from `backend/` (never run these
+memory-intensive benchmarks concurrently):
+
+```bash
+python -m scripts.benchmark_bottle_photo --threads 0 --runs 3
+python -m scripts.benchmark_bottle_photo --threads 4 --runs 3
+```
+
+The benchmark uses a synthetic bottle by default; pass `--image /path/to/capture.jpg`
+for a real capture. It runs locally without uploading or saving images, reports
+startup/inference/refinement timings and a pixel checksum, and may download the
+model on first use. `--jit` restores the former PyMatting startup for comparison.
+Exclude model download time from comparisons and compare repeated warm runs.
+Synthetic output equality is a regression check, not a real-photo quality evaluation.
+Application logs include `bottle_photo_ai` timings and the configured thread count
+(`0` means ONNX automatic) without image content.
 
 Run the backend:
 
