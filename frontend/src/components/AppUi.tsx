@@ -6,6 +6,33 @@ import { displayValue } from "../i18n";
 import type { TranslationKey } from "../i18n";
 import type { AiOverlayProgress, Locale, TastingEnjoyment, Wine } from "../types";
 
+export function WishlistVintageField({ value, onChange, disabled, locale, label, help }: {
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+  locale: Locale;
+  label: string;
+  help: string;
+}) {
+  const missing = !value.trim();
+  return <div className="vintage-field">
+    <label>
+      <span>{label}</span>
+      <input value={value} onChange={event => onChange(event.target.value)} disabled={disabled} autoComplete="off" aria-describedby={`wishlist-vintage-help${missing ? " wishlist-vintage-reminder" : ""}`} />
+    </label>
+    <div className="vintage-quick-choices" role="group" aria-label={help}>
+      {(["NV", "MV"] as const).map(vintage => <button key={vintage} type="button" className={`secondary compact vintage-choice${value.trim().toUpperCase() === vintage ? " is-selected" : ""}`} aria-pressed={value.trim().toUpperCase() === vintage} disabled={disabled} onClick={() => onChange(vintage)}>{vintage}</button>)}
+    </div>
+    <small className="form-hint" id="wishlist-vintage-help">{help}</small>
+    {missing ? <div className="wishlist-vintage-reminder" id="wishlist-vintage-reminder" role="status">
+      <AppIcon name="calendar" size={18} aria-hidden="true" />
+      <span>{locale === "it"
+        ? "Se conosci l’annata, inseriscila: serve per cercare il profilo gustativo del vino. Se non la conosci, puoi salvare e aggiungerla in seguito."
+        : "If you know the vintage, enter it: it is needed to look up the wine’s taste profile. If you don’t know it, you can save and add it later."}</span>
+    </div> : null}
+  </div>;
+}
+
 export function AiPackUpgradeNotice({ locale, onPurchase, compact = false, onDismiss }: { locale: Locale; onPurchase: () => void; compact?: boolean; onDismiss?: () => void }) {
   const italian = locale === "it";
   return <aside className={`ai-pack-upgrade-notice${compact ? " compact" : ""}`} role="status">

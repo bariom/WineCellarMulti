@@ -4330,6 +4330,24 @@ summary:focus-visible {
   gap: 6px;
 }
 
+.wishlist-vintage-reminder {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.wishlist-vintage-reminder > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
 button.vintage-choice {
   min-width: 42px;
   min-height: 30px;
