@@ -282,6 +282,10 @@
     background: radial-gradient(ellipse at 50% 65%, color-mix(in srgb, var(--accent) 12%, transparent), transparent 70%);
   }
   :root .cellar-home-edition .collector-wine-stage > .key-position-card .key-position-bottle-visual img { height: 460px; max-height: none; width: 100%; object-fit: contain; filter: drop-shadow(0 14px 10px #192c201a); }
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card .key-position-bottle-visual:not(.has-photo) .key-position-wine-illustration,
+  :root .cellar-home-edition .collector-wine-stage > .key-position-card .key-position-bottle-visual:not(.has-photo) .key-position-wine-illustration svg {
+    width: 190px; height: 300px; max-height: 100%;
+  }
   .cellar-home-edition .key-position-card .key-position-bottle-visual::after { display: none; }
   .cellar-home-edition .key-position-yearmark { display: none; }
   :root .cellar-home-edition .key-position-head { grid-area: head; padding: 0; }

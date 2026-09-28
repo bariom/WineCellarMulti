@@ -905,11 +905,17 @@ for (const width of [390, 1440]) {
     await page.goto("/");
     const glasses = page.locator(".home-dashboard-editorial .key-position-wine-illustration:visible");
     await expect(glasses.first()).toBeVisible();
+    const heroGlass = page.locator(width === 1440
+      ? ".collector-wine-stage > .key-position-card .key-position-wine-illustration:visible"
+      : ".collector-mobile-highlights .key-position-wine-illustration:visible").first();
+    const heroIcon = (await heroGlass.locator("svg").boundingBox())!;
+    expect(heroIcon.height).toBe(width === 1440 ? 300 : 140);
+    expect(heroIcon.width).toBeLessThanOrEqual(width === 1440 ? 190 : 90);
     for (const glass of await glasses.all()) {
       const icon = (await glass.locator("svg").boundingBox())!;
       const container = (await glass.locator("..").boundingBox())!;
-      expect(icon.width).toBeLessThanOrEqual(90);
-      expect(icon.height).toBe(140);
+      expect(icon.width).toBeLessThanOrEqual(width === 1440 ? 190 : 90);
+      expect(icon.height).toBeLessThanOrEqual(width === 1440 ? 300 : 140);
       expect(icon.y).toBeGreaterThanOrEqual(container.y);
       expect(icon.y + icon.height).toBeLessThanOrEqual(container.y + container.height);
     }
