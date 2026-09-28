@@ -152,6 +152,17 @@ test("collector premium summary keeps currencies, unavailable data and entitleme
   await expect(page.getByRole("menu", { name: "Menu account" })).toBeVisible();
 });
 
+test("mobile cellar summary cards open their matching dashboard detail", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const stats = page.getByRole("region", { name: "Riepilogo cantina" });
+  const value = stats.getByRole("article", { name: "Valore cantina" });
+  await value.click();
+  await expect(page.locator(".value-dashboard-carousel")).toBeVisible();
+  await expect(page.locator(".cellar-home-stats")).toHaveCount(0);
+});
+
 test("collector premium empty Home supports English without fabricated figures", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });

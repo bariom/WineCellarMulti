@@ -10544,7 +10544,7 @@ export function App() {
                   </div>
                 </details>
               </section>
-              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={dailyReadyInCellarWines.length} locale={locale} currentYear={currentYear} /> : null}
+              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={dailyReadyInCellarWines.length} locale={locale} currentYear={currentYear} onNavigate={focus => { setActiveView("home"); setDashboardFocus(focus); window.scrollTo({ top: 0, behavior: "auto" }); }} /> : null}
               {aiPackEnhancementHint}
 
               {!isRestaurant && cellarSommelierVisible ? (

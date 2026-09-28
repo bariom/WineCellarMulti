@@ -63,7 +63,7 @@
   .cellar-home-hero h2 { margin: 0 0 10px; font: normal clamp(2.2rem, 8.5vw, 3rem)/1.05 Georgia, serif; letter-spacing: -.03em; color: inherit; }
   .cellar-home-count { margin: 0; font-size: .88rem; letter-spacing: .04em; color: #f1f0e5; }
   .cellar-home-stats { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(136px, 1fr); gap: 10px; min-width: 0; overflow-x: auto; padding: 2px 1px 10px; scroll-snap-type: x proximity; scrollbar-width: thin; scrollbar-color: var(--home-rule) transparent; }
-  .cellar-home-stat { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start; }
+  .cellar-home-stat { min-width: 0; display: grid; align-content: start; gap: 8px; padding: 12px; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: 0 5px 14px #192c2010; scroll-snap-align: start; color: inherit; text-align: left; font: inherit; cursor: pointer; }
   .cellar-home-stat > .app-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper)); color: var(--primary); font-size: 1.1rem; }
   .cellar-home-stat h3 { margin: 0; font-size: .75rem; font-weight: 500; color: var(--text-muted); }
   .cellar-home-stat-values { display: grid; gap: 6px; }
@@ -254,7 +254,7 @@
   .cellar-home-edition .focus-switcher-primary button { font-size: .85rem; }
   .cellar-home-edition .cellar-home-intro { display: block; }
   .cellar-home-edition .cellar-home-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; }
-  .cellar-home-edition .cellar-home-stat { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-content: start; gap: 10px 16px; padding: 24px; min-width: 0; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: var(--home-shadow); }
+  .cellar-home-edition .cellar-home-stat { display: grid; grid-template-columns: 44px minmax(0, 1fr); align-content: start; gap: 10px 16px; padding: 24px; min-width: 0; border: 1px solid var(--home-rule); border-radius: 12px; background: var(--home-paper); box-shadow: var(--home-shadow); color: inherit; text-align: left; font: inherit; cursor: pointer; }
   .cellar-home-edition .cellar-home-stat > .app-icon { grid-column: 1; grid-row: 1 / 4; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: color-mix(in srgb, var(--primary) 10%, var(--home-paper)); font-size: 1.4rem; color: var(--primary); }
   .cellar-home-edition .cellar-home-stat h3 { margin: 0; font-size: .85rem; font-weight: 400; color: var(--text-muted); }
   .cellar-home-edition .cellar-home-stat-values { display: grid; gap: 8px; }
