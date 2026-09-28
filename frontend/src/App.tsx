@@ -13,7 +13,7 @@ import type { WineImageRecognitionCandidate, WineImageRecognitionConfirmationRes
 import type { WineSaleDraft } from "./types";
 import { canonicalWineTypes, normalizeWineType } from "./domain/wineTypes";
 import { localizedNotification } from "./domain/notifications";
-import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
+import { uniqueSorted, numberLocale, wineGroupValue, isWishlistReadyToBuy, wineUnitValue, hasVintageForDrinkWindow, isFutureDeliveryWine, isToCollectWine, sumWineValue, currentUserSharePct, ownedBottleCount, wineQuantityLabel, ownershipStats, topWineValueGroups, topWineBottleGroups, topWineCountGroups, topProducerGroups, formatBottleCount, formatPercentage, maturityBuckets, maturityPhaseForYear, isWineAtMaturityPeak, isWineInExplicitIdealWindow, daysUntil, valueEstimateAgeDays, needsValueRefresh, wineSearchText, matchesQuickWineFilter, matchesWineCollectionFilters, compareWines, wishlistSearchText, isWineReadyToPrioritize, isWinePhysicallyInCellar, isWineWindowToMonitor, isWineIdealSoon, wineIdealWindowStart, winePriorityDrinkEnd } from "./domain/cellar";
 import { api, extractApiErrorText, formatUserErrorMessage, isConnectivityError } from "./services/api";
 import { rawObject, rawArray, rawString, rawNumber, tastingEnjoymentValue, rawNullableString, offlineWine, offlineWishlistItem } from "./services/offlineBackup";
 import { base64UrlToBuffer, bufferToBase64Url, prepareCreationOptions, prepareRequestOptions, credentialToJson } from "./services/passkeys";
@@ -1621,6 +1621,7 @@ export function App() {
   const helpReturnViewRef = useRef<ViewName>("home");
   const settingsReturnViewRef = useRef<ViewName>("home");
   const [dashboardFocus, setDashboardFocus] = useState<DashboardFocus>("collector");
+  const [dashboardCarouselInitialIndex, setDashboardCarouselInitialIndex] = useState(0);
   const [cellarSommelierVisible, setCellarSommelierVisible] = useState(false);
   const [cellarSommelierOpen, setCellarSommelierOpen] = useState(false);
   const [cellarSommelierHighlightedWineId, setCellarSommelierHighlightedWineId] = useState<string | null>(null);
@@ -6564,6 +6565,11 @@ export function App() {
     (total, wine) => total + dailyEligibleBottleCount(wine, session),
     0,
   );
+  const monitoringWines = cellarWines
+    .filter((wine) => isWinePhysicallyInCellar(wine) && isWineWindowToMonitor(wine, currentYear))
+    .sort((first, second) => (first.drink_to || 9999) - (second.drink_to || 9999));
+  const monitoringLabel = locale === "it" ? "Da monitorare" : "To review";
+  const monitoringCaption = locale === "it" ? "A fine finestra o oltre" : "At or past their window";
   const cellarStats = {
     bottles: cellarOwnership.totalBottles,
     totalValue: cellarOwnership.totalValue,
@@ -10544,7 +10550,7 @@ export function App() {
                   </div>
                 </details>
               </section>
-              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={dailyReadyInCellarWines.length} locale={locale} currentYear={currentYear} onNavigate={focus => { setActiveView("home"); setDashboardFocus(focus); window.scrollTo({ top: 0, behavior: "auto" }); }} /> : null}
+              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={dailyReadyInCellarWines.length} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
               {aiPackEnhancementHint}
 
               {!isRestaurant && cellarSommelierVisible ? (
@@ -10758,9 +10764,9 @@ export function App() {
                         <p>{t("drinkingWindow")}</p>
                       </div>
                       <div className="hero-kpi">
-                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("past_window")}</i>{t("pastWindow")}</span>
-                        <strong><DashboardCountUp value={cellarStats.pastWindow} format={(value) => formatBottleCount(value, locale)} delay={140} /></strong>
-                        <p>{t("atRiskWines")}</p>
+                        <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("past_window")}</i>{monitoringLabel}</span>
+                        <strong><DashboardCountUp value={monitoringWines.length} format={(value) => formatBottleCount(value, locale)} delay={140} /></strong>
+                        <p>{monitoringCaption}</p>
                       </div>
                     </>
                   ) : dashboardFocus === "timeline" ? (
@@ -11256,7 +11262,7 @@ export function App() {
               ) : null}
 
               {dashboardFocus === "readiness" ? (
-                <DashboardCarousel locale={locale} label={t("drinkingWindow")} className="readiness-dashboard-carousel">
+                <DashboardCarousel locale={locale} label={t("drinkingWindow")} className="readiness-dashboard-carousel" initialIndex={dashboardCarouselInitialIndex}>
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
@@ -11291,19 +11297,21 @@ export function App() {
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
                   </article>
-                  <article className="dashboard-card">
+                  <article className="dashboard-card monitoring-card">
                     <div className="card-heading">
                       <div>
-                        <span>{t("atRiskWines")}</span>
-                        <h2>{t("pastWindow")}</h2>
+                        <span>{monitoringCaption}</span>
+                        <h2>{monitoringLabel}</h2>
                       </div>
-                      <strong>{cellarStats.pastWindow}</strong>
+                      <strong>{monitoringWines.length}</strong>
                     </div>
                     <div className="action-list">
-                      {atRiskWines.length ? atRiskWines.map((wine) => (
+                      {monitoringWines.length ? monitoringWines.map((wine) => (
                         <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{wine.drink_to}</strong>
+                          <strong>{wine.drink_to === currentYear
+                            ? (locale === "it" ? `In chiusura · ${wine.drink_to}` : `Closing · ${wine.drink_to}`)
+                            : (locale === "it" ? `Superata · ${wine.drink_to}` : `Past · ${wine.drink_to}`)}</strong>
                         </button>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>

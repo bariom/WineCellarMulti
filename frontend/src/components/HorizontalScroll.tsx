@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import type { Locale } from "../types";
 import "./HorizontalScroll.css";
 
-export function useHorizontalScroll() {
+export function useHorizontalScroll(initialIndex = 0) {
   const ref = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ index: 0, count: 0, overflow: false, start: true, end: true });
   const [interacted, setInteracted] = useState(false);
@@ -46,6 +46,14 @@ export function useHorizontalScroll() {
     const left = rail.scrollLeft + item.getBoundingClientRect().left - rail.getBoundingClientRect().left;
     rail.scrollTo({ left, behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
   }
+  useEffect(() => {
+    if (!initialIndex) return;
+    const frame = requestAnimationFrame(() => {
+      go(initialIndex);
+      if (window.innerWidth <= 1099) ref.current?.parentElement?.scrollIntoView();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [initialIndex]);
   return { ref, ...position, interacted, go, interact: () => setInteracted(true) };
 }
 

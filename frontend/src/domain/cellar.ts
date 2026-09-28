@@ -49,6 +49,10 @@ export function isWinePhysicallyInCellar(wine: Wine) {
   return ["delivered", "consegnato", "in_cellar", "in cellar", "in cantina"].includes(status);
 }
 
+export function isWineWindowToMonitor(wine: Wine, currentYear: number) {
+  return Boolean(wine.drink_from && wine.drink_to && wine.drink_from <= wine.drink_to && wine.drink_to <= currentYear);
+}
+
 export function isWineIdealSoon(wine: Wine, currentYear: number) {
   const idealStart = wineIdealWindowStart(wine);
   return Boolean(idealStart && idealStart > currentYear && idealStart <= currentYear + 2);

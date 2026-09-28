@@ -2146,10 +2146,10 @@ export function ContactSupportPanel({
   );
 }
 
-export function DashboardCarousel({ label, children, className, locale }: {
-  label: string; children: ReactNode; className?: string; locale: Locale;
+export function DashboardCarousel({ label, children, className, locale, initialIndex = 0 }: {
+  label: string; children: ReactNode; className?: string; locale: Locale; initialIndex?: number;
 }) {
-  const scroll = useHorizontalScroll();
+  const scroll = useHorizontalScroll(initialIndex);
   const id = useId();
   return <div className={["dashboard-carousel-shell", className].filter(Boolean).join(" ")}>
     {scroll.overflow && <div className="dashboard-scroll-heading"><ScrollControls scroll={scroll} label={label} locale={locale} target={id} /></div>}

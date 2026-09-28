@@ -9056,6 +9056,22 @@ button.balance-indicator:focus-visible {
   font-size: 0.86rem;
 }
 
+@media (max-width: 820px) {
+  .monitoring-card .action-row {
+    align-items: start;
+  }
+
+  .monitoring-card .action-row > span {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .monitoring-card .action-row > strong {
+    white-space: nowrap;
+  }
+}
+
 .action-row .chart-drilldown-row-text,
 .bar-row .chart-drilldown-row-text {
   display: grid;

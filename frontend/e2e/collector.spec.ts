@@ -163,6 +163,33 @@ test("mobile cellar summary cards open their matching dashboard detail", async (
   await expect(page.locator(".cellar-home-stats")).toHaveCount(0);
 });
 
+test("monitoring summary exposes closing and past-window wines in its detail", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [
+    { ...wine, id: "closing", name: "Finestra in chiusura", drink_from: 2020, drink_to: 2026 },
+    { ...wine, id: "past", name: "Finestra superata", drink_from: 2020, drink_to: 2025 },
+  ], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const stats = page.getByRole("region", { name: "Riepilogo cantina" });
+  await expect(stats.getByRole("article", { name: "Da monitorare" }).locator("strong")).toHaveText("2");
+  await stats.getByRole("article", { name: "Da monitorare" }).click();
+  await expect(page.getByRole("group", { name: "Scorrimento: Finestra degustazione" })).toContainText("3 di 4");
+  const detail = page.locator(".readiness-dashboard-carousel .dashboard-card").filter({ has: page.getByRole("heading", { name: "Da monitorare" }) });
+  const detailBox = (await detail.boundingBox())!;
+  const railBox = (await page.locator(".readiness-dashboard-carousel .dashboard-grid").boundingBox())!;
+  expect(detailBox.x).toBeGreaterThanOrEqual(railBox.x - 1);
+  expect(detailBox.x + detailBox.width).toBeLessThanOrEqual(railBox.x + railBox.width + 1);
+  await expect(detail.getByRole("heading", { name: "Da monitorare" })).toBeInViewport();
+  await expect(detail.locator(".card-heading > strong")).toHaveText("2");
+  await expect(detail).toContainText("Finestra in chiusura");
+  await expect(detail).toContainText("In chiusura · 2026");
+  await expect(detail).toContainText("Finestra superata");
+  await expect(detail).toContainText("Superata · 2025");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("monitoring-detail-390.png"), animations: "disabled" });
+});
+
 test("collector premium empty Home supports English without fabricated figures", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 800 });
   await mockApi(page, [], false, memberships, [], { ...session, dashboard_focus: "collector", locale: "en" });

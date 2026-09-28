@@ -1,11 +1,11 @@
 import type { DashboardFocus, Locale, Wine } from "../types";
-import { formatBottleCount, isWinePhysicallyInCellar } from "../domain/cellar";
+import { formatBottleCount } from "../domain/cellar";
 import { AppIcon, type AppIconName } from "./AppIcon";
 import { formatMoney } from "./panelSupport";
 
 /** Counts and valuations use the same stock and currency rules as CollectorOverview. */
-export function CellarHomeStats({ wines, readyCount, locale, currentYear, onNavigate }: {
-  wines: Wine[]; readyCount: number; locale: Locale; currentYear: number; onNavigate?: (focus: DashboardFocus) => void;
+export function CellarHomeStats({ wines, readyCount, monitoringCount, locale, onNavigate }: {
+  wines: Wine[]; readyCount: number; monitoringCount: number; locale: Locale; onNavigate?: (focus: DashboardFocus, initialIndex?: number) => void;
 }) {
   const it = locale === "it";
   const stock = wines.filter(wine => wine.quantity > 0);
@@ -20,10 +20,8 @@ export function CellarHomeStats({ wines, readyCount, locale, currentYear, onNavi
       totals.set(wine.currency, (totals.get(wine.currency) || 0) + value * wine.quantity);
     }
   }
-  const monitoring = stock.filter(wine => isWinePhysicallyInCellar(wine)
-    && wine.drink_from && wine.drink_to && wine.drink_from <= wine.drink_to && wine.drink_to <= currentYear).length;
-  function metric(icon: AppIconName, label: string, values: string[], note: string, focus: DashboardFocus) {
-    return <article className="cellar-home-stat" tabIndex={0} aria-label={label} onClick={() => onNavigate?.(focus)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onNavigate?.(focus); } }}>
+  function metric(icon: AppIconName, label: string, values: string[], note: string, focus: DashboardFocus, initialIndex = 0) {
+    return <article className="cellar-home-stat" tabIndex={0} aria-label={label} onClick={() => onNavigate?.(focus, initialIndex)} onKeyDown={event => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onNavigate?.(focus, initialIndex); } }}>
       <AppIcon name={icon} detailLevel="compact" />
       <h3>{label}</h3>
       <div className="cellar-home-stat-values">{values.map(value => <strong key={value}>{value}</strong>)}</div>
@@ -36,7 +34,7 @@ export function CellarHomeStats({ wines, readyCount, locale, currentYear, onNavi
         totals.size ? [...totals].sort(([a], [b]) => a.localeCompare(b)).map(([currency, value]) => formatMoney(value, currency, locale)) : ["—"],
         it ? `Valori disponibili · ${priced}/${stock.length} vini` : `Available values · ${priced}/${stock.length} wines`, "value")}
       {metric("tasting", it ? "Pronti da bere" : "Ready to drink", [String(readyCount)], it ? "Vini disponibili in cantina" : "Available wines in your cellar", "readiness")}
-      {metric("bell", it ? "Da monitorare" : "To review", [String(monitoring)], it ? "Vini a fine finestra o oltre" : "Wines at or past their window", "readiness")}
+      {metric("bell", it ? "Da monitorare" : "To review", [String(monitoringCount)], it ? "Vini a fine finestra o oltre" : "Wines at or past their window", "readiness", 2)}
     </section>
   </div>;
 }
