@@ -5,7 +5,7 @@ import { KeyPositionBottleVisual, KeyPositionCircularKpi, KeyPositionTrendKpi } 
 import "./components/BottlePhotoCapture.css";
 import { DetailField, wineStatusTone, wineStatusIconName, WineStatusBadge, StarRating, LoadingSpinner, notificationBellIcon, settingsGearIcon, logoutIcon, LoadingState, EmptyState, GlobalLoadingOverlay, aiOverlayMessage, aiOverlayLabel, aiOverlayHint, wineProgressName, aiOverlayProgressText, AiGenerationOverlay, AiPackUpgradeNotice, ButtonBusyContent, RatingInput, TastingEnjoymentInput, TastingEnjoymentBadge } from "./components/AppUi";
 import { DrinkWindowMini, ValueHistoryChart, auditMarketSources, auditWebSearchSources, auditMarketNote, auditWishlistPortfolioStrategySource, auditWishlistPortfolioStrategy, averageMarketPrice, compareDrinkWindowLabel, compareScoresLabel, compareGrapesLabel, compareTagsLabel, CompareWinesModal, MarketValueModal, UserStatsModal, DetailNote, ownershipRows, hasSharedOwnership, TastingEntryEditor, TastingEntryMeta, TastingHistorySection, tastingArchiveSearchText, tastingArchiveItemToWine, WineDetail, WishlistDetail, WishlistPortfolioStrategyPanel, AiUsageRow, ContactSupportPanel, DashboardCarousel, TasteHearts } from "./components/AppPanels";
-import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, grapesSvgIcon } from "./components/panelSupport";
+import { emptyConsumeWineDraft, consumeDraftFromTastingEntry, formatDisplayDate, formatGrape, formatUsd, formatAiBudget, formatMoney, clipUiText, readableLegacyAiText, wineTone, wineTypeForTone, grapesSvgIcon } from "./components/panelSupport";
 import type { Session, Wine, WinePhotoSuggestion, ConsumeWineDraft, CatalogWine, WineLabelEnrichment, WineDraft, WineTone, UserTag, Passkey, ImportMode, ImportPreview, ImportResult, WineShareOffer, WineShareOfferRecipient, CoOwnershipAgreement, TastingArchiveApiItem, TastingArchivePage, WishlistItem, WishlistList, WishlistDraft, HouseholdMembership, Member, InviteDraft, PendingUser, AppUser, UserAdminStats, RedeemCode, UserNotification, NotificationCenterCategory, NotificationCenterItem, NotificationCenterResponse, OperationalActionSnooze, OperationalActionSnoozeRecord, OperationalActionSnoozes, BillingStatus, PaymentPlan, CheckoutSession, BillingPortalSession, RedeemCodeDraft, Invite, AiAuditLog, MarketViewContext, AiUsageBucket, AiUsage, AiSettings, AiSettingsDraft, PairingResult, RestaurantWineListScanResult, BuyingAdviceResult, WineCompareAiResult, WishlistPortfolioStrategy, RegionalGapProfile, RegionalGapAiSuggestion, RegionalGapSettings, AuthDraft, ContactSupportDraft, ExportSelection, ImportSelection, SortMode, Locale, AiOverlayProgress, TastingEnjoyment, DashboardFocus, PrimaryDashboardFocus, SettingsTab, ViewName, HistorySection, QuickWineFilter, MaturityPhase, MaturityFilter, RegionalGapTarget, RegionalGapTargetDraft, OperationalActionItem, WineAiFeature, ThemePreference, TastingArchiveEntry, TastingReflectionResult, ValueBreakdownItem, BreakdownMetric, WineCollectionFilters, OperationalMetricsOverview, UserActivityLogEntry, WineSalesHistory, CellarCommandPurchaseDraft, WineStrategyPurpose } from "./types";
 import { displayValue, landingContent, reasoningEffortTranslationKey, themeOptions, translate } from "./i18n";
 import type { TranslationKey } from "./i18n";
@@ -6561,6 +6561,7 @@ export function App() {
   const dailyReadyInCellarWines = readyInCellarWines.filter(
     (wine) => dailyEligibleBottleCount(wine, session) > 0,
   );
+  const readyInCellarWineCount = dailyReadyInCellarWines.length;
   const readyInCellarBottleCount = dailyReadyInCellarWines.reduce(
     (total, wine) => total + dailyEligibleBottleCount(wine, session),
     0,
@@ -6577,7 +6578,7 @@ export function App() {
     myValue: cellarOwnership.myValue,
     sharedBottles,
     sharedValue,
-    drinkNow: readyInCellarBottleCount,
+    drinkNowBottles: readyInCellarBottleCount,
     drinkSoon: cellarWines.filter((wine) => isWineIdealSoon(wine, currentYear)).length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
     futureDeliveries: cellarWines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
@@ -7374,13 +7375,13 @@ export function App() {
       signature: `${cellarStats.pastWindow}:${atRiskWines[0]?.id || atRiskWines[0]?.name || ""}:${atRiskWines[0]?.drink_to || ""}`,
       onOpen: () => openOperationalCellarFilter("past_window"),
     } : null,
-    cellarStats.drinkNow ? {
+    readyInCellarWineCount ? {
       id: "drink-now",
       kind: "smart_drink_now",
       title: t("drinkNow"),
       detail: drinkNowWines[0] ? drinkNowWines[0].name : t("openFilteredCellar"),
-      count: cellarStats.drinkNow,
-      signature: `${cellarStats.drinkNow}:${drinkNowWines[0]?.id || drinkNowWines[0]?.name || ""}:${drinkNowWines[0]?.drink_from || ""}:${drinkNowWines[0]?.drink_to || ""}`,
+      count: readyInCellarWineCount,
+      signature: `${readyInCellarWineCount}:${drinkNowWines[0]?.id || drinkNowWines[0]?.name || ""}:${drinkNowWines[0]?.drink_from || ""}:${drinkNowWines[0]?.drink_to || ""}`,
       onOpen: () => openOperationalCellarFilter("drink_now"),
     } : null,
     cellarStats.futureDeliveries ? {
@@ -7565,6 +7566,7 @@ export function App() {
     "": t("totalValue"),
     mine: t("myBottles"),
     shared: t("sharedBottles"),
+    in_cellar: displayValue("in_cellar", locale, "status"),
     drink_now: t("drinkNow"),
     drink_soon: t("drinkIn2Years"),
     past_window: t("pastWindow"),
@@ -8436,7 +8438,7 @@ export function App() {
                       <span>{t("priorityActions")}</span>
                       <h2><i className="dashboard-section-icon" aria-hidden="true">{collectorFocusSvgIcon("drink_now")}</i>{t("drinkNow")}</h2>
                     </div>
-                    <strong>{formatBottleCount(cellarStats.drinkNow, locale)} {locale === "it" ? "bott." : "btl."}</strong>
+                    <strong>{formatBottleCount(cellarStats.drinkNowBottles, locale)} {locale === "it" ? "bott." : "btl."}</strong>
                   </div>
                   <div className="priority-summary" aria-label={t("drinkNow")}>
                     <div>
@@ -8756,11 +8758,10 @@ export function App() {
                           type="button"
                           key={row.tone}
                           onClick={() => {
-                            setMaturityFilter(null);
-                            setTypeFilter("");
-                            setQuickWineFilter("");
+                            clearFilters("cellar");
+                            setTypeFilter(wineTypeForTone(row.tone));
+                            setQuickWineFilter("in_cellar");
                             setActiveView("cellar");
-                            setOpenWineToneGroups((current) => ({ ...current, [row.tone]: true }));
                           }}
                         >
                           <i className={`wine-dot tone-${row.tone}`} />
@@ -10550,7 +10551,7 @@ export function App() {
                   </div>
                 </details>
               </section>
-              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={dailyReadyInCellarWines.length} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
+              {dashboardFocus === "collector" ? <CellarHomeStats wines={cellarWines} readyCount={readyInCellarWineCount} monitoringCount={monitoringWines.length} locale={locale} onNavigate={(focus, initialIndex = 0) => { setDashboardCarouselInitialIndex(initialIndex); setDashboardFocus(focus); }} /> : null}
               {aiPackEnhancementHint}
 
               {!isRestaurant && cellarSommelierVisible ? (
@@ -10699,7 +10700,7 @@ export function App() {
                     <>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong><DashboardCountUp value={cellarStats.drinkNow} format={(value) => formatBottleCount(value, locale)} /></strong>
+                        <strong><DashboardCountUp value={readyInCellarWineCount} format={(value) => formatBottleCount(value, locale)} /></strong>
                         <p>{t("wines")}</p>
                       </div>
                       <div className="hero-kpi">
@@ -10722,7 +10723,7 @@ export function App() {
                       </div>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong><DashboardCountUp value={cellarStats.drinkNow} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
+                        <strong><DashboardCountUp value={readyInCellarWineCount} format={(value) => formatBottleCount(value, locale)} delay={70} /></strong>
                         <p>{t("wines")}</p>
                       </div>
                       <div className="hero-kpi">
@@ -10755,7 +10756,7 @@ export function App() {
                     <>
                       <div className="hero-kpi">
                         <span><i className="stat-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>{t("readyToDrink")}</span>
-                        <strong><DashboardCountUp value={cellarStats.drinkNow} format={(value) => formatBottleCount(value, locale)} /></strong>
+                        <strong><DashboardCountUp value={readyInCellarWineCount} format={(value) => formatBottleCount(value, locale)} /></strong>
                         <p>{t("wines")}</p>
                       </div>
                       <div className="hero-kpi">
@@ -10850,7 +10851,7 @@ export function App() {
                         <span>{t("dailyRotation")}</span>
                         <h2>{t("readyToDrink")}</h2>
                       </div>
-                      <strong>{cellarStats.drinkNow}</strong>
+                      <strong>{readyInCellarWineCount}</strong>
                     </div>
                     <div className="daily-summary-kpis">
                       <div>
@@ -12644,7 +12645,7 @@ export function App() {
                     <i className="cellar-kpi-icon" aria-hidden="true">{dashboardStatSvgIcon("drink_now")}</i>
                     <span className="cellar-kpi-copy">
                       <span>{t("drinkNow")}</span>
-                      <strong>{formatBottleCount(cellarStats.drinkNow, locale)}</strong>
+                      <strong>{formatBottleCount(readyInCellarWineCount, locale)}</strong>
                       <small>{t("drinkIn2Years")}: {formatBottleCount(cellarStats.drinkSoon, locale)}</small>
                     </span>
                   </button>

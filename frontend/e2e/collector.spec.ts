@@ -163,6 +163,45 @@ test("mobile cellar summary cards open their matching dashboard detail", async (
   await expect(page.locator(".cellar-home-stats")).toHaveCount(0);
 });
 
+test("ready-to-drink totals consistently count wines when labelled as wines", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [
+    { ...wine, quantity: 4 },
+    { ...wine, id: "second-ready", name: "Secondo vino pronto", quantity: 3 },
+  ], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const summary = page.getByRole("article", { name: "Pronti da bere" });
+  await expect(summary.locator("strong")).toHaveText("2");
+  await page.getByRole("region", { name: "Focus principale della dashboard", exact: true })
+    .getByRole("tab", { name: "Bere bene oggi", exact: true }).click();
+  const readyKpi = page.locator(".hero-kpi").filter({ hasText: "Pronti da bere" });
+  await expect(readyKpi.locator("strong")).toHaveText("2");
+  await expect(readyKpi).toContainText("Vini");
+  await expect(page.locator(".daily-summary-card .card-heading > strong")).toHaveText("2");
+});
+
+test("style availability indicators open the cellar with matching filters", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockApi(page, [], false, memberships, [
+    { ...wine, id: "red-ready", name: "Rosso disponibile", type: "Red", quantity: 4 },
+    { ...wine, id: "white-ready", name: "Bianco disponibile", type: "White", quantity: 2 },
+    { ...wine, id: "red-away", name: "Rosso da ritirare", type: "Red", quantity: 7, status: "to_collect" },
+  ], { ...session, dashboard_focus: "collector" });
+  await page.goto("/");
+  const navigation = page.getByRole("region", { name: "Focus principale della dashboard", exact: true });
+  await navigation.getByRole("tab", { name: "Cantina equilibrata", exact: true }).click();
+  const styles = page.locator(".balance-tone-grid");
+  await expect(styles.getByRole("button", { name: /Rosso\s+4/ })).toBeVisible();
+  await styles.getByRole("button", { name: /Rosso\s+4/ }).click();
+  const filters = page.locator(".active-cellar-filters");
+  await expect(filters).toContainText("Rosso");
+  await expect(filters).toContainText("In cantina");
+  await expect(page.locator('[data-wine-row-id="red-ready"]')).toBeVisible();
+  await expect(page.locator('[data-wine-row-id="white-ready"]')).toHaveCount(0);
+  await expect(page.locator('[data-wine-row-id="red-away"]')).toHaveCount(0);
+});
+
 test("monitoring summary exposes closing and past-window wines in its detail", async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
   await page.setViewportSize({ width: 390, height: 844 });

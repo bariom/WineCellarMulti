@@ -112,6 +112,10 @@ export function wineTone(type: string): WineTone {
   return "other";
 }
 
+export function wineTypeForTone(tone: WineTone) {
+  return tone[0].toUpperCase() + tone.slice(1);
+}
+
 export function grapesSvgIcon() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

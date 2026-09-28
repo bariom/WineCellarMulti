@@ -281,6 +281,7 @@ export function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentY
   const share = currentUserSharePct(wine, session);
   if (quickFilter === "mine") return share > 0;
   if (quickFilter === "shared") return share < 100;
+  if (quickFilter === "in_cellar") return share > 0 && isWinePhysicallyInCellar(wine);
   if (quickFilter === "drink_now") {
     return ownedBottleCount(wine, session) > 0
       && isWinePhysicallyInCellar(wine)
@@ -299,7 +300,9 @@ export function matchesQuickWineFilter(wine: Wine, quickFilter: string, currentY
 export function matchesWineCollectionFilters(wine: Wine, filters: WineCollectionFilters) {
   if (filters.query && !wineSearchText(wine).includes(filters.query)) return false;
   if (filters.region && wine.region.trim().toLocaleLowerCase() !== filters.region.toLocaleLowerCase()) return false;
-  if (filters.type && normalizeWineType(wine.type) !== filters.type) return false;
+  const normalizedType = normalizeWineType(wine.type);
+  if (filters.type && normalizedType !== filters.type
+    && !(filters.type === "Other" && !["Red", "White", "Rose", "Sparkling", "Sweet"].includes(normalizedType))) return false;
   if (filters.status && wine.status !== filters.status) return false;
   if (filters.storage) {
     const matchesStorage = (wine.storage_allocations || []).some((allocation) => {
