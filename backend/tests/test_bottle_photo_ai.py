@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 
 import pytest
 
@@ -93,6 +95,37 @@ def test_photo_ai_reuses_isolated_worker(monkeypatch):
 
     assert processed == b"processed"
     assert commands.items == [("process", b"image")]
+
+
+def test_photo_timings_are_visible_with_uvicorn_logging_and_warning_root():
+    # Exercise the real server configuration in isolation, without changing
+    # pytest's logging or invoking/downloading the segmentation model.
+    script = """
+import logging
+import logging.config
+from queue import Queue
+from unittest.mock import patch
+from uvicorn.config import LOGGING_CONFIG
+from app.services import bottle_photo_ai
+
+logging.getLogger().setLevel(logging.WARNING)
+logging.config.dictConfig(LOGGING_CONFIG)
+commands, results = Queue(), Queue()
+results.put(("ok", b"processed", {
+    "prepare_ms": 1, "inference_ms": 2, "postprocess_ms": 3,
+    "total_ms": 6, "model_load_ms": 4, "threads": 4,
+}))
+with patch.object(bottle_photo_ai, "_ensure_photo_worker", return_value=(commands, results)):
+    assert bottle_photo_ai.process_bottle_photo(b"private image", "test-model") == b"processed"
+"""
+    result = subprocess.run(
+        [sys.executable, "-c", script], capture_output=True, text=True, check=True, timeout=20
+    )
+    message = result.stderr
+    assert "bottle_photo_ai model=test-model threads=4" in message
+    assert "model_load_ms=4 prepare_ms=1 inference_ms=2 postprocess_ms=3" in message
+    assert "processing_ms=6 request_ms=" in message
+    assert "private image" not in message
 
 
 def test_photo_ai_reaper_waits_for_worker_exit():

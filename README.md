@@ -113,6 +113,12 @@ Exclude model download time from comparisons and compare repeated warm runs.
 Synthetic output equality is a regression check, not a real-photo quality evaluation.
 Application logs include `bottle_photo_ai` timings and the configured thread count
 (`0` means ONNX automatic) without image content.
+These timings use Uvicorn's INFO logger so they are visible with the standard
+service configuration. After restarting the updated backend and processing a photo:
+
+```bash
+sudo journalctl -u winecellarmulti-backend.service --since "15 minutes ago" --no-pager | grep "bottle_photo_ai"
+```
 
 Run the backend:
 

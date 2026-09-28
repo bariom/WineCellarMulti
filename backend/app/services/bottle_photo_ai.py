@@ -20,7 +20,9 @@ _worker_process: Any | None = None
 _worker_commands: Any | None = None
 _worker_results: Any | None = None
 _worker_model: str | None = None
-logger = logging.getLogger(__name__)
+# Uvicorn configures its own logger hierarchy, leaving the root at WARNING.
+# Route photo timings through its existing INFO handler in systemd/Docker.
+logger = logging.getLogger("uvicorn.error.bottle_photo_ai")
 
 
 class BottlePhotoAiError(RuntimeError):
