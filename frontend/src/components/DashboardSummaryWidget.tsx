@@ -208,7 +208,13 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       destination = "history"; kicker = it ? "Il diario" : "The journal";
       if (!tastings.data) { content = status(tastings); break; }
       const entries = tastings.data.items;
-      const score = (entry: typeof entries[number]) => Number(entry.score_scale) > 0 && Number(entry.score_value) >= 0 && entry.score_value !== null && entry.score_value !== undefined ? Number(entry.score_value) / Number(entry.score_scale) * 100 : entry.rating > 0 ? entry.rating * 20 : null;
+      const rating = (entry: typeof entries[number]) => Number(entry.score_scale) > 0 && Number(entry.score_value) >= 0 && entry.score_value !== null && entry.score_value !== undefined
+        ? { value: Number(entry.score_value), scale: Number(entry.score_scale) }
+        : entry.rating > 0 ? { value: entry.rating, scale: 6 } : null;
+      const score = (entry: typeof entries[number]) => {
+        const vote = rating(entry);
+        return vote ? vote.value / vote.scale : null;
+      };
       if (id === "tasting_rhythm") {
         const months = Array.from({ length: 12 }, (_, index) => new Date(from.getFullYear(), from.getMonth() + index, 1));
         content = entries.length ? <SummaryBars items={months.map(month => ({ label: new Intl.DateTimeFormat(locale, { month: "short" }).format(month), value: entries.filter(entry => { const when = new Date(entry.consumed_at); return when.getFullYear() === month.getFullYear() && when.getMonth() === month.getMonth(); }).length }))} format={count} columns /> : empty();
@@ -216,10 +222,11 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
         const selected = id === "best_tastings" ? [...entries].filter(entry => score(entry) !== null || entry.enjoyment === "positive").sort((a, b) => (score(b) ?? -1) - (score(a) ?? -1)) : [...entries].sort((a, b) => Date.parse(b.consumed_at) - Date.parse(a.consumed_at));
         content = selected.length ? <div className="summary-tastings">{selected.slice(0, 3).map(entry => {
           const wine = wines.find(wine => wine.id === entry.wine_id);
-          return <button type="button" key={entry.tasting_id} onClick={() => onNavigate("history")}><KeyPositionBottleVisual photoUrl={canShowPhotos && wine ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} tone={wineTone(entry.wine_type)} /><span><strong>{entry.wine_name}</strong><small>{entry.wine_vintage} · {date(entry.consumed_at)}</small><b>{score(entry) !== null ? `${Math.round(score(entry)!)} / 100` : entry.enjoyment === "positive" ? (it ? "Apprezzato" : "Enjoyed") : entry.enjoyment === "negative" ? (it ? "Non apprezzato" : "Not enjoyed") : (it ? "Senza voto" : "Unrated")}</b></span></button>;
+          const vote = rating(entry);
+          return <button type="button" key={entry.tasting_id} onClick={() => onNavigate("history")}><KeyPositionBottleVisual photoUrl={canShowPhotos && wine ? wine.photo_thumbnail_url || wine.photo_detail_url : ""} tone={wineTone(entry.wine_type)} /><span><strong>{entry.wine_name}</strong><small>{entry.wine_vintage} · {date(entry.consumed_at)}</small><b>{vote ? `${vote.value}/${vote.scale}` : entry.enjoyment === "positive" ? (it ? "Apprezzato" : "Enjoyed") : entry.enjoyment === "negative" ? (it ? "Non apprezzato" : "Not enjoyed") : (it ? "Senza voto" : "Unrated")}</b></span></button>;
         })}</div> : empty();
       }
-      note = id === "tasting_rhythm" ? (it ? "Esperienze registrate negli ultimi 12 mesi, incluse quelle senza voto." : "Recorded experiences over the last 12 months, including unrated tastings.") : (it ? "Ultimi 12 mesi. I voti numerici sono riportati su scala 100." : "Last 12 months. Numeric ratings are displayed on a 100-point scale.");
+      note = id === "tasting_rhythm" ? (it ? "Esperienze registrate negli ultimi 12 mesi, incluse quelle senza voto." : "Recorded experiences over the last 12 months, including unrated tastings.") : (it ? "Ultimi 12 mesi. Voti sulla scala originale del diario." : "Last 12 months. Ratings use the original journal scale.");
       break;
     }
     case "deliveries": {

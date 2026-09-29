@@ -1,6 +1,63 @@
 import { expect, test } from "@playwright/test";
-import { wine, session, memberships, mockApi } from "./fixtures/app";
+import { wine, session, memberships, mockApi, tastingArchive } from "./fixtures/app";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
+
+test("tasting widgets preserve journal scales and rank mixed scales consistently", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-09-29T12:00:00Z"));
+  const base = tastingArchive.items[0];
+  const archive = { ...tastingArchive, items: [
+    { ...base, tasting_id: "five-hearts", wine_name: "Chateau Citran", consumed_at: "2026-09-28", rating: 5, score_value: null, score_scale: null },
+    { ...base, tasting_id: "two-hearts", wine_name: "Millesimato Extra Dry", consumed_at: "2026-09-27", rating: 2 },
+    { ...base, tasting_id: "numeric", wine_name: "Voto numerico", consumed_at: "2026-09-26", rating: 6, score_value: "90", score_scale: 100 },
+  ] };
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [
+    { id: "recent_tastings", width: "half" }, { id: "best_tastings", width: "half" },
+  ] }, [], undefined, archive);
+  await page.goto("/");
+  const recent = page.locator('[data-widget-id="recent_tastings"]');
+  const best = page.locator('[data-widget-id="best_tastings"]');
+  for (const widget of [recent, best]) {
+    await expect(widget.getByRole("button", { name: /Chateau Citran/ })).toContainText("5/6");
+    await expect(widget.getByRole("button", { name: /Millesimato Extra Dry/ })).toContainText("2/6");
+    await expect(widget.getByRole("button", { name: /Voto numerico/ })).toContainText("90/100");
+    await expect(widget).not.toContainText("100 / 100");
+  }
+  await expect(recent.locator(".summary-tastings strong")).toHaveText(["Chateau Citran", "Millesimato Extra Dry", "Voto numerico"]);
+  await expect(best.locator(".summary-tastings strong")).toHaveText(["Voto numerico", "Chateau Citran", "Millesimato Extra Dry"]);
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    for (const widget of [recent, best]) {
+      await widget.scrollIntoViewIfNeeded();
+      const bounds = (await widget.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    if (width === 390 || width === 1440) await page.screenshot({ path: testInfo.outputPath(`tasting-scales-${width}.png`), fullPage: true });
+  }
+});
+
+test("tasting widgets distinguish zero scores, enjoyment and missing ratings", async ({ page }) => {
+  await page.clock.setFixedTime(new Date("2026-09-29T12:00:00Z"));
+  const base = tastingArchive.items[0];
+  const archive = { ...tastingArchive, items: [
+    { ...base, tasting_id: "zero", wine_name: "Voto zero", consumed_at: "2026-09-28", rating: 0, score_value: "0", score_scale: 20 },
+    { ...base, tasting_id: "enjoyed", wine_name: "Solo gradimento", consumed_at: "2026-09-27", rating: 0, enjoyment: "positive" },
+    { ...base, tasting_id: "unrated", wine_name: "Nessun voto", consumed_at: "2026-09-26", rating: 0, enjoyment: "unknown" },
+  ] };
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [
+    { id: "recent_tastings", width: "full" }, { id: "best_tastings", width: "full" },
+  ] }, [], undefined, archive);
+  await page.goto("/");
+  const recent = page.locator('[data-widget-id="recent_tastings"]');
+  await expect(recent.getByRole("button", { name: /Voto zero/ })).toContainText("0/20");
+  await expect(recent.getByRole("button", { name: /Solo gradimento/ })).toContainText("Apprezzato");
+  await expect(recent.getByRole("button", { name: /Nessun voto/ })).toContainText("Senza voto");
+  const best = page.locator('[data-widget-id="best_tastings"]');
+  await expect(best.getByRole("button", { name: /Voto zero/ })).toContainText("0/20");
+  await expect(best.getByRole("button", { name: /Solo gradimento/ })).toContainText("Apprezzato");
+  await expect(best.getByRole("button", { name: /Nessun voto/ })).toHaveCount(0);
+});
 
 test("personal dashboard preview retries server errors without leaving the editor", async ({ page }, testInfo) => {
   await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [] });
