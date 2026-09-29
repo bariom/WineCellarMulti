@@ -6569,6 +6569,9 @@ export function App() {
   const monitoringWines = cellarWines
     .filter((wine) => isWinePhysicallyInCellar(wine) && isWineWindowToMonitor(wine, currentYear))
     .sort((first, second) => (first.drink_to || 9999) - (second.drink_to || 9999));
+  const drinkSoonWines = cellarWines
+    .filter((wine) => isWineIdealSoon(wine, currentYear))
+    .sort((first, second) => (wineIdealWindowStart(first) || 9999) - (wineIdealWindowStart(second) || 9999));
   const monitoringLabel = locale === "it" ? "Da monitorare" : "To review";
   const monitoringCaption = locale === "it" ? "A fine finestra o oltre" : "At or past their window";
   const cellarStats = {
@@ -6579,7 +6582,7 @@ export function App() {
     sharedBottles,
     sharedValue,
     drinkNowBottles: readyInCellarBottleCount,
-    drinkSoon: cellarWines.filter((wine) => isWineIdealSoon(wine, currentYear)).length,
+    drinkSoon: drinkSoonWines.length,
     pastWindow: cellarWines.filter((wine) => wine.drink_to && wine.drink_to < currentYear).length,
     futureDeliveries: cellarWines.filter((wine) => isFutureDeliveryWine(wine, now)).length,
     toCollect: cellarWines.filter(isToCollectWine).length,
@@ -6803,10 +6806,6 @@ export function App() {
       || (wine.grapes.length === 0 && !wine.grapes_not_applicable)
       || !(wine.strategy_purposes || []).length,
   ).length;
-  const peakNowWines = cellarWines
-    .filter((wine) => wine.drink_peak_from && wine.drink_peak_to && wine.drink_peak_from <= currentYear && wine.drink_peak_to >= currentYear)
-    .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
-    .slice(0, 5);
   const latestConsumedEntries = offlineMode
     ? [...historyTastingEntries]
         .sort((first, second) => second.consumed_at.localeCompare(first.consumed_at) || second.created_at.localeCompare(first.created_at))
@@ -7084,10 +7083,6 @@ export function App() {
   if (offlineMode) {
     tastingStats.latest = latestConsumedEntries[0]?.consumed_at || "";
   }
-  const drinkSoonWines = cellarWines
-    .filter((wine) => isWineIdealSoon(wine, currentYear))
-    .sort((first, second) => (wineIdealWindowStart(first) || 9999) - (wineIdealWindowStart(second) || 9999))
-    .slice(0, 5);
   const topValueWines = [...cellarWines]
     .sort((first, second) => wineUnitValue(second) - wineUnitValue(first))
     .slice(0, 5);
@@ -11267,16 +11262,16 @@ export function App() {
                   <article className="dashboard-card priority-card">
                     <div className="card-heading">
                       <div>
-                        <span>{t("peakNow")}</span>
-                        <h2>{t("drinkNow")}</h2>
+                        <span>{locale === "it" ? "Vini disponibili in cantina" : "Available wines in your cellar"}</span>
+                        <h2>{t("readyToDrink")}</h2>
                       </div>
-                      <strong>{peakNowWines.length}</strong>
+                      <strong>{readyInCellarWineCount}</strong>
                     </div>
-                    <div className="action-list">
-                      {peakNowWines.length ? peakNowWines.map((wine) => (
+                    <div className="action-list scrollable-action-list" tabIndex={0} role="region" aria-label={t("readyToDrink")}>
+                      {drinkNowCandidates.length ? drinkNowCandidates.map((wine) => (
                         <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
-                          <strong>{wine.drink_peak_from}-{wine.drink_peak_to}</strong>
+                          <strong>{wineIdealWindowStart(wine)}–{winePriorityDrinkEnd(wine)}</strong>
                         </button>
                       )) : <p className="empty-state">{t("noActionItems")}</p>}
                     </div>
@@ -11289,7 +11284,7 @@ export function App() {
                       </div>
                       <strong>{cellarStats.drinkSoon}</strong>
                     </div>
-                    <div className="action-list">
+                    <div className="action-list scrollable-action-list" tabIndex={0} role="region" aria-label={t("drinkingWindow")}>
                       {drinkSoonWines.length ? drinkSoonWines.map((wine) => (
                         <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>
@@ -11306,7 +11301,7 @@ export function App() {
                       </div>
                       <strong>{monitoringWines.length}</strong>
                     </div>
-                    <div className="action-list">
+                    <div className="action-list scrollable-action-list" tabIndex={0} role="region" aria-label={monitoringLabel}>
                       {monitoringWines.length ? monitoringWines.map((wine) => (
                         <button type="button" className="action-row" key={wine.id} onClick={() => openWineFromDashboard(wine)}>
                           <span><i className={`wine-dot tone-${wineTone(wine.type)}`} />{wine.name}</span>

@@ -181,6 +181,94 @@ test("ready-to-drink totals consistently count wines when labelled as wines", as
   await expect(page.locator(".daily-summary-card .card-heading > strong")).toHaveText("2");
 });
 
+for (const width of [360, 390, 430, 1440]) {
+  test(`ready-to-drink detail includes every wine counted by the collector KPI at ${width}px`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    const ready = Array.from({ length: 8 }, (_, index) => ({
+      ...wine, id: `ready-${index}`, name: `Vino pronto ${index + 1}`, quantity: index + 1,
+      // Some ready wines have no peak data; none may disappear from the detail.
+      drink_peak_from: index % 2 ? null : 2026,
+      drink_peak_to: index % 2 ? null : 2028,
+    }));
+    await mockApi(page, [], false, memberships, [
+      ...ready,
+      { ...wine, id: "away", name: "Da ritirare", status: "to_collect" },
+      { ...wine, id: "future", name: "Da affinare", drink_from: 2029, drink_peak_from: 2030, drink_peak_to: 2032, drink_to: 2035 },
+      { ...wine, id: "reserved", name: "Solo investimento", strategy_purposes: ["investment"] },
+      { ...wine, id: "past", name: "Finestra superata", drink_peak_to: 2024, drink_to: 2025 },
+    ], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    const summary = page.getByRole("article", { name: "Pronti da bere", exact: true });
+    await expect(summary.locator("strong")).toHaveText("8");
+    await summary.click();
+    const card = page.locator(".readiness-dashboard-carousel .dashboard-card").filter({ has: page.getByRole("heading", { name: "Pronti da bere", exact: true }) });
+    await expect(card.locator(".card-heading > strong")).toHaveText("8");
+    const kpi = page.locator(".hero-kpi").filter({ hasText: "Pronti da bere" });
+    await expect(kpi.locator("strong")).toHaveText("8");
+    const list = card.getByRole("region", { name: "Pronti da bere", exact: true });
+    await expect(list.getByRole("button")).toHaveCount(8);
+    for (const item of ready) await expect(list.getByRole("button", { name: new RegExp(item.name) })).toHaveCount(1);
+    await expect(list).not.toContainText("Da ritirare");
+    await expect(list).not.toContainText("Solo investimento");
+    await expect(list).not.toContainText("Da affinare");
+    await expect(list).not.toContainText("Finestra superata");
+    await card.evaluate(element => element.scrollIntoView({ block: "start" }));
+    await expect(card.getByRole("heading")).toBeInViewport();
+    const bounds = (await card.boundingBox())!;
+    expect(bounds.x).toBeGreaterThanOrEqual(0);
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`ready-detail-${width}.png`), animations: "disabled" });
+    const last = list.getByRole("button", { name: /Vino pronto 8/ });
+    await last.scrollIntoViewIfNeeded();
+    await expect(last).toBeInViewport();
+  });
+}
+
+for (const width of [360, 390, 430, 1440]) {
+  test(`upcoming and monitoring details include all counted wines at ${width}px`, async ({ page }, testInfo) => {
+    await page.clock.setFixedTime(new Date("2026-09-22T12:00:00Z"));
+    await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
+    const upcoming = Array.from({ length: 19 }, (_, index) => ({
+      ...wine, id: `upcoming-${index}`, name: `In attesa ${index + 1}`,
+      drink_from: 2027 + index % 2, drink_peak_from: null, drink_peak_to: null, drink_to: 2035,
+    }));
+    const monitoring = Array.from({ length: 8 }, (_, index) => ({
+      ...wine, id: `monitor-${index}`, name: `Da verificare ${index + 1}`,
+      drink_from: 2020, drink_peak_from: null, drink_peak_to: null, drink_to: index < 4 ? 2025 : 2026,
+    }));
+    await mockApi(page, [], false, memberships, [...upcoming, ...monitoring], { ...session, dashboard_focus: "collector" });
+    await page.goto("/");
+    await expect(page.getByRole("article", { name: "Da monitorare", exact: true }).locator("strong")).toHaveText("8");
+    await page.getByRole("article", { name: "Pronti da bere", exact: true }).click();
+    const carousel = page.locator(".readiness-dashboard-carousel");
+    const sections = [
+      { title: "Finestra degustazione", kpi: "In attesa della finestra ideale", wines: upcoming },
+      { title: "Da monitorare", kpi: "Da monitorare", wines: monitoring },
+    ];
+    for (const { title, kpi, wines } of sections) {
+      if (width < 1100) await carousel.getByRole("button", { name: "Successivo: Finestra degustazione", exact: true }).click();
+      const card = carousel.locator(".dashboard-card").filter({ has: page.getByText(kpi, { exact: true }) });
+      const list = card.getByRole("region", { name: title, exact: true });
+      await expect(card.locator(".card-heading > strong")).toHaveText(String(wines.length));
+      await expect(page.locator(".hero-kpi").filter({ hasText: kpi }).locator("strong")).toHaveText(String(wines.length));
+      await expect(list.getByRole("button")).toHaveCount(wines.length);
+      for (const item of wines) await expect(list.getByRole("button", { name: new RegExp(`${item.name}\\s`) })).toHaveCount(1);
+      await card.evaluate(element => element.scrollIntoView({ block: "start" }));
+      await expect(card.getByRole("heading")).toBeInViewport();
+      const bounds = (await card.boundingBox())!;
+      expect(bounds.x).toBeGreaterThanOrEqual(0);
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`${title}-${width}.png`), animations: "disabled" });
+      await list.getByRole("button").last().scrollIntoViewIfNeeded();
+      await expect(list.getByRole("button").last()).toBeInViewport();
+      expect(await list.evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+    }
+  });
+}
+
 test("style availability indicators open the cellar with matching filters", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await mockApi(page, [], false, memberships, [
