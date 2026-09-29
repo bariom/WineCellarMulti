@@ -48,11 +48,12 @@
     min-height: 0;
     height: auto;
     max-height: none;
-    padding: 6px 0;
+    padding: 6px 8px;
     overflow: visible;
-    border: 0;
-    border-bottom: 1px solid color-mix(in srgb, var(--text-muted) 19%, transparent);
-    background: transparent;
+    border: 1px solid color-mix(in srgb, var(--text-muted) 19%, transparent);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 3%, transparent);
   }
 
   :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button,
@@ -63,16 +64,18 @@
     min-height: 44px;
     padding: 10px;
     border: 0;
-    border-radius: 0;
+    border-radius: 6px;
     background: transparent;
     box-shadow: none;
     color: var(--text-muted);
-    font: normal .85rem/1.4 "Segoe UI", sans-serif;
+    font: 500 .85rem/1.4 "Segoe UI", sans-serif;
   }
 
-  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button:not(.secondary) {
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-navigation > button:not(.secondary),
+  :root .authenticated-app-shell:not(.cellar-home-edition) .view-tabs-ai-group.is-active > summary {
     color: var(--text);
-    background: transparent;
+    background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+    font-weight: 650;
     box-shadow: inset 0 -2px var(--accent);
   }
 

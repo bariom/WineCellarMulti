@@ -174,7 +174,11 @@ for (const theme of ["atelier", "private-cellar", "midnight-ledger", "maison-cha
       const header = (await page.locator(".topbar").boundingBox())!;
       if (width === 1440) {
         expect(header.height).toBeLessThan(260);
-        await expect(page.locator(".view-tabs-navigation")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+        const navigation = page.locator(".view-tabs-navigation");
+        await expect(navigation).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+        const home = navigation.getByRole("button", { name: "Home", exact: true });
+        await expect(home).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+        await expect(home).toHaveCSS("font-weight", "650");
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath("theme.png") });
