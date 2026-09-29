@@ -48,6 +48,10 @@ class User(Base):
         DateTime(timezone=True), nullable=True
     )
     locale: Mapped[str] = mapped_column(String(8), default="it")
+    market_country: Mapped[str] = mapped_column(String(2), default="")
+    onboarding_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     theme_preference: Mapped[str] = mapped_column(String(32), default="system")
     dashboard_focus: Mapped[str] = mapped_column(String(32), default="collector")
     personal_dashboard_widgets: Mapped[list[dict[str, str]] | None] = mapped_column(

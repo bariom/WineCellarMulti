@@ -97,6 +97,8 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const MarketPreferences = lazy(() => import("./components/MarketPreferences"));
+const PersonalOnboarding = lazy(() => import("./components/PersonalOnboarding"));
 const WinePulseView = lazy(() => import("./views/WinePulseView"));
 const WinePulsePreview = lazy(() => import("./views/WinePulseView").then(module => ({ default: module.WinePulsePreview })));
 const CellarAssistantView = lazy(() => import("./views/CellarAssistantView"));
@@ -1632,6 +1634,7 @@ export function App() {
   const [dailyWineBudgetDraft, setDailyWineBudgetDraft] = useState("");
   const [breakdownDrilldown, setBreakdownDrilldown] = useState<BreakdownDrilldown>(null);
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("profile");
+  const [onboardingMode, setOnboardingMode] = useState("auto");
   const [selectedWineId, setSelectedWineId] = useState<string | null>(null);
   const [wineStorageFocus, setWineStorageFocus] = useState<{ wineId: string; requestId: number } | null>(null);
   const [wineDetailExpanded, setWineDetailExpanded] = useState(false);
@@ -3354,6 +3357,7 @@ export function App() {
   }
 
   async function logout() {
+    setOnboardingMode("auto");
     setError("");
     if (!offlineMode) {
       await api<void>("/api/v1/auth/logout", { method: "POST" });
@@ -10310,6 +10314,8 @@ export function App() {
             onLogout={logout}
           />
         </Suspense>
+      ) : session && !session.is_demo && !offlineMode && (onboardingMode === "open" || (!session.onboarding_completed && onboardingMode === "auto")) ? (
+        <Suspense fallback={<LoadingState label={t("loadingData")} />}><PersonalOnboarding session={session} onLater={() => setOnboardingMode("later")} onComplete={next => { setSession(next); applySessionPreferences(next, true); setOnboardingMode("later"); setActiveView("home"); }} /></Suspense>
       ) : (
         <section
           className={`workspace ${
@@ -13884,28 +13890,7 @@ export function App() {
                     </select>
                     <small>{t("primaryDashboardFocusHelp")}</small>
                   </label>
-                  <div className="daily-budget-setting">
-                    <label>
-                      <span>{t("dailyWineBudget")}</span>
-                      <div className="daily-budget-input">
-                        <span>CHF</span>
-                        <input
-                          type="number"
-                          min="1"
-                          max="100000"
-                          step="1"
-                          inputMode="decimal"
-                          value={dailyWineBudgetDraft}
-                          placeholder="40"
-                          onChange={(event) => setDailyWineBudgetDraft(event.target.value)}
-                        />
-                      </div>
-                      <small>{t("dailyWineBudgetHelp")}</small>
-                    </label>
-                    <button type="button" className="secondary" disabled={saving} onClick={() => void saveDailyWineBudget()}>
-                      {saving ? t("working") : t("saveSettings")}
-                    </button>
-                  </div>
+                  {session ? <Suspense fallback={null}><MarketPreferences session={session} locale={locale} disabled={saving || offlineMode} onSave={setSession} onNotice={setNotice} onError={setError} onSetup={() => setOnboardingMode("open")} budget={{ value: dailyWineBudgetDraft, onChange: setDailyWineBudgetDraft, saving, onSave: saveDailyWineBudget }} /></Suspense> : null}
                 </div>
               </section>
               ) : null}

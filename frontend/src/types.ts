@@ -18,6 +18,8 @@ export type Session = {
   dashboard_focus: PrimaryDashboardFocus;
   personal_dashboard_widgets?: PersonalDashboardWidget[] | null;
   daily_wine_budget_chf: string | null;
+  market_country?: string;
+  onboarding_completed?: boolean;
   can_use_label_recognition: boolean;
   can_manage_wine_photos: boolean;
   cellar_ai_assistant_available: boolean;
@@ -70,6 +72,7 @@ export type Wine = {
   drink_to: number | null;
   drink_window_notes: string;
   ai_value_notes: string;
+  ai_value_market_country?: string;
   ai_value_estimated_at: string | null;
   rating: number;
   owners: Array<{ name: string; email?: string; share_pct: number }>;
@@ -458,6 +461,7 @@ export type WishlistItem = {
   investment_amount: string | null;
   ai_market_price: string;
   ai_market_price_currency: string;
+  ai_market_price_market_country?: string;
   currency: string;
   merchant: string;
   priority: string;

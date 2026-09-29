@@ -38,3 +38,11 @@ def test_market_sources_exclude_hospitality_prices_and_recalculate_retail_median
 
     assert [source["merchant"] for source in sources] == ["Enoteca Uno", "Enoteca Due"]
     assert median_retail_source_price(sources, currency="CHF") == Decimal("50.00")
+
+
+def test_market_sources_require_web_urls_and_finite_prices():
+    base = {"merchant": "Retail shop", "price": 48, "currency": "EUR", "country": "Italy"}
+    for url in ("", "javascript:alert(1)", "https:///missing-host", "file:///price.pdf", "https://[invalid"):
+        assert normalize_market_sources([{**base, "url": url}], default_currency="EUR", require_url=True) == []
+    for price in ("NaN", "Infinity", "-10", "not a price"):
+        assert normalize_market_sources([{**base, "price": price, "url": "https://example.com/wine"}], default_currency="EUR", require_url=True) == []

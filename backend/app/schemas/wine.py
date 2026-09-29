@@ -260,6 +260,7 @@ class WineResponse(BaseModel):
     drink_to: int | None = None
     drink_window_notes: str
     ai_value_notes: str
+    ai_value_market_country: str = ""
     ai_value_estimated_at: datetime | None = None
     rating: int
     owners: list[dict]

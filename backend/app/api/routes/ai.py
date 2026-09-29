@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime
 from decimal import ROUND_FLOOR, Decimal, InvalidOperation
 from difflib import SequenceMatcher
 from typing import Any, Literal, cast
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -143,6 +144,7 @@ from app.services.shared_wine_data import (
 )
 from app.services.stock_ledger import add_inbound_stock
 from app.services.taste_profiles import calculate_taste_match, compact_taste_context
+from app.services.valuation_market import market_instruction
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -769,6 +771,7 @@ def create_ai_response(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     web_search_use_default_location: bool = True,
+    web_search_country: str | None = None,
     web_search_context_size: str | None = None,
     reasoning_effort: str | None = None,
     max_output_tokens: int | None = None,
@@ -835,6 +838,7 @@ def create_ai_response(
             json_schema=json_schema,
             web_search=web_search,
             web_search_use_default_location=web_search_use_default_location,
+            web_search_country=web_search_country,
             web_search_context_size=web_search_context_size,
             reasoning_effort=reasoning_effort,
             max_output_tokens=effective_output_limit,
@@ -959,7 +963,7 @@ def reuse_shared_wine_feature(
 ) -> bool:
     if force_refresh or feature not in SHARED_FEATURES:
         return False
-    fact = get_shared_fact(db, wine, feature, locale=locale)
+    fact = get_shared_fact(db, wine, feature, locale=locale, market_country=context.user.market_country)
     if fact is None:
         return False
     if feature == "scores" and any(
@@ -969,7 +973,7 @@ def reuse_shared_wine_feature(
         return False
     if feature == "value" and contains_hospitality_market_sources(fact.sources):
         return False
-    hydrated = hydrate_wine_from_shared(db, wine, locale=locale)
+    hydrated = hydrate_wine_from_shared(db, wine, locale=locale, market_country=context.user.market_country)
     changed = apply_shared_fact(wine, fact, only_missing=False)
     if feature == "scores" and not changed and feature not in hydrated:
         return False
@@ -3445,11 +3449,18 @@ def normalize_market_sources(
             price = Decimal(str(raw_source.get("price"))).quantize(Decimal("0.01"))
         except (InvalidOperation, TypeError, ValueError):
             continue
-        if price < Decimal("0"):
+        if not price.is_finite() or price < Decimal("0"):
             continue
         url = str(raw_source.get("url") or raw_source.get("link") or "").strip()[:500]
-        if require_url and not url:
+        try:
+            parsed_url = urlsplit(url)
+            valid_url = parsed_url.scheme.lower() in {"http", "https"} and bool(parsed_url.hostname)
+        except ValueError:
+            valid_url = False
+        if require_url and not valid_url:
             continue
+        if not valid_url:
+            url = ""
         normalized.append(
             {
                 "kind": "market_source",
@@ -3538,7 +3549,7 @@ def web_search_source_entries(web_sources: tuple[dict[str, str], ...]) -> list[d
     return entries
 
 
-def value_currency_instruction(currency: str) -> str:
+def value_currency_instruction(currency: str, market_country: str = "") -> str:
     target_currency = (currency or "CHF").strip().upper()[:8]
     return (
         f"Return the final estimate in {target_currency}. "
@@ -3548,7 +3559,7 @@ def value_currency_instruction(currency: str) -> str:
         "Prioritize exact matches for producer, cuvee/name, vintage, bottle format, and region/appellation. "
         "Do not use generic category comparables such as 'similar Barbaresco' unless no exact source is available; if you must use comparables, say so clearly in market_note and keep confidence lower. "
         "Use live web search. Prefer real retailer or marketplace listings with a URL; do not invent source URLs or quote source names as exact listings if you cannot identify a concrete listing. "
-        "For Swiss cellars, favor Swiss retail availability and final consumer pricing when available, including VAT and typical local-market premium."
+        + market_instruction(market_country)
     )
 
 
@@ -4680,7 +4691,7 @@ def generate_all_wine_ai(
     wine = get_household_wine(db, context, wine_id)
     if not payload.force_refresh:
         cached_facts = {
-            feature: get_shared_fact(db, wine, feature, locale=payload.locale)
+            feature: get_shared_fact(db, wine, feature, locale=payload.locale, market_country=context.user.market_country)
             for feature in ("notes", "drink_window", "value", "grapes")
         }
         if all(cached_facts.values()):
@@ -4714,7 +4725,7 @@ def generate_all_wine_ai(
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = wine_full_enrichment_prompt(
         locale=payload.locale,
-        currency_instruction=value_currency_instruction(wine.currency),
+        currency_instruction=value_currency_instruction(wine.currency, context.user.market_country),
         currency=wine.currency,
         wine_context=wine_market_context(wine),
     )
@@ -4819,6 +4830,8 @@ def generate_all_wine_ai(
         user_settings,
         model=selected_model,
         task_type="wine_full_enrichment",
+        web_search_use_default_location=False,
+        web_search_country=context.user.market_country or None,
         system_prompt=prompt.system,
         user_prompt=prompt.user,
         json_schema=schema,
@@ -4912,6 +4925,7 @@ def generate_all_wine_ai(
     wine.value_not_found = False
     wine.currency = result_currency
     wine.ai_value_notes = str(value_result.get("notes") or "")[:2000]
+    wine.ai_value_market_country = context.user.market_country
     wine.ai_value_estimated_at = datetime.now(UTC)
     if saved_verified_grapes:
         wine.grapes = grapes
@@ -4941,6 +4955,7 @@ def generate_all_wine_ai(
     )
     audit_sources = (
         market_sources
+        + [{"kind": "valuation_market", "country": context.user.market_country}]
         + web_search_source_entries(response.web_sources)
         + ([note_entry] if note_entry else [])
         + ([grape_source_entry] if grape_source_entry else [])
@@ -4975,6 +4990,8 @@ def generate_all_wine_ai(
         locale=payload.locale,
         sources=audit_sources,
         model=effective_model,
+        market_country=context.user.market_country,
+        prompt_version=prompt.version,
     )
     if saved_verified_grapes:
         publish_shared_fact(
@@ -5275,7 +5292,7 @@ def generate_wine_value(
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = wine_value_prompt(
         locale=payload.locale,
-        currency_instruction=value_currency_instruction(wine.currency),
+        currency_instruction=value_currency_instruction(wine.currency, context.user.market_country),
         currency=wine.currency,
         wine_context=wine_market_context(wine),
     )
@@ -5315,6 +5332,8 @@ def generate_wine_value(
         user_settings,
         model=request_model(payload, user_settings.value_model),
         task_type="wine_value",
+        web_search_use_default_location=False,
+        web_search_country=context.user.market_country or None,
         system_prompt=prompt.system,
         user_prompt=prompt.user,
         json_schema=schema,
@@ -5354,10 +5373,12 @@ def generate_wine_value(
     wine.value_not_found = False
     wine.currency = result_currency
     wine.ai_value_notes = str(result["notes"])[:2000]
+    wine.ai_value_market_country = context.user.market_country
     wine.ai_value_estimated_at = datetime.now(UTC)
     note_entry = market_note_source(result.get("market_note") or result.get("notes"))
     audit_sources = (
         market_sources
+        + [{"kind": "valuation_market", "country": context.user.market_country}]
         + web_search_source_entries(response.web_sources)
         + ([note_entry] if note_entry else [])
     )
@@ -5374,6 +5395,8 @@ def generate_wine_value(
         locale=payload.locale,
         sources=audit_sources,
         model=effective_response_model(response, user_settings.value_model),
+        market_country=context.user.market_country,
+        prompt_version=prompt.version,
     )
     record_wine_value_history(db, wine, source="ai")
     record_ai_audit(
@@ -5777,7 +5800,7 @@ def generate_wishlist_target_price(
     user_settings = get_or_create_user_ai_settings(db, context)
     prompt = wishlist_value_prompt(
         locale=payload.locale,
-        currency_instruction=value_currency_instruction(item.currency),
+        currency_instruction=value_currency_instruction(item.currency, context.user.market_country),
         currency=item.currency,
         target_price=item.target_price if item.target_price and item.target_price > 0 else None,
         wishlist_context=wishlist_market_context(item, include_ai_context=True),
@@ -5826,6 +5849,8 @@ def generate_wishlist_target_price(
         user_settings,
         model=request_model(payload, user_settings.value_model),
         task_type="wishlist_value",
+        web_search_use_default_location=False,
+        web_search_country=context.user.market_country or None,
         system_prompt=prompt.system,
         user_prompt=prompt.user,
         json_schema=schema,
@@ -5859,12 +5884,14 @@ def generate_wishlist_target_price(
         market_price = retail_value
     item.ai_market_price = max(market_price, Decimal("0"))
     item.ai_market_price_currency = result_currency
+    item.ai_market_price_market_country = context.user.market_country
     item.status = str(result["recommended_status"] or item.status)[:32]
     item.ai_strategy = str(result["price_advice"])[:3000]
     mark_wishlist_strategy_stale(db, context.household.id, [item.wishlist_list_id])
     note_entry = market_note_source(result.get("market_note") or result.get("price_advice"))
     audit_sources = (
         market_sources
+        + [{"kind": "valuation_market", "country": context.user.market_country}]
         + web_search_source_entries(response.web_sources)
         + ([note_entry] if note_entry else [])
     )

@@ -931,6 +931,8 @@ def update_preferences(
         payload.dashboard_focus is not None
         or "daily_wine_budget_chf" in payload.model_fields_set
         or "personal_dashboard_widgets" in payload.model_fields_set
+        or payload.market_country is not None
+        or payload.onboarding_completed is not None
     ):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Demo preferences are limited to language and theme")
     daily_budget_provided = "daily_wine_budget_chf" in payload.model_fields_set
@@ -939,12 +941,20 @@ def update_preferences(
         payload.locale is None
         and payload.theme_preference is None
         and payload.dashboard_focus is None
+        and payload.market_country is None
+        and payload.onboarding_completed is None
         and not daily_budget_provided
         and not dashboard_provided
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No preferences provided")
+    if payload.onboarding_completed and payload.market_country is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Choose a reference market or explicitly select international search")
+    if payload.onboarding_completed and context.user.onboarding_completed_at is None:
+        context.user.onboarding_completed_at = datetime.now(UTC)
     if payload.locale is not None:
         context.user.locale = payload.locale
+    if payload.market_country is not None:
+        context.user.market_country = payload.market_country
     if payload.theme_preference is not None:
         context.user.theme_preference = payload.theme_preference
     if payload.dashboard_focus is not None:

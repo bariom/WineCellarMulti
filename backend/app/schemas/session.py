@@ -26,6 +26,8 @@ class SessionResponse(BaseModel):
     dashboard_focus: str = "collector"
     personal_dashboard_widgets: list[DashboardWidgetPreference] | None = None
     daily_wine_budget_chf: Decimal | None = None
+    market_country: str = ""
+    onboarding_completed: bool = False
     can_use_label_recognition: bool = False
     can_manage_wine_photos: bool = False
     cellar_ai_assistant_available: bool = False

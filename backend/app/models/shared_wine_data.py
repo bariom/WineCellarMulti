@@ -35,6 +35,7 @@ class SharedWineFact(Base):
             "locale",
             "format_key",
             "currency",
+            "market_country",
             name="uq_shared_wine_fact_scope",
         ),
         Index("ix_shared_wine_fact_feature_verified", "feature", "verified_at"),
@@ -50,6 +51,7 @@ class SharedWineFact(Base):
     locale: Mapped[str] = mapped_column(String(8), default="")
     format_key: Mapped[str] = mapped_column(String(80), default="")
     currency: Mapped[str] = mapped_column(String(8), default="")
+    market_country: Mapped[str] = mapped_column(String(2), default="")
     status: Mapped[str] = mapped_column(String(24), default="available", index=True)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
     sources: Mapped[list[dict]] = mapped_column(JSON, default=list)

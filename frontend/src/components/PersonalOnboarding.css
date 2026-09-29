@@ -1,0 +1,34 @@
+.personal-onboarding {
+  width: min(100%, 680px);
+  margin: 24px auto;
+  padding: clamp(20px, 4vw, 36px);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+  color: var(--text);
+}
+.personal-onboarding h2 { margin: 12px 0; font-size: clamp(28px, 5vw, 40px); }
+.personal-onboarding h2:focus { outline: none; }
+.personal-onboarding header > p { line-height: 1.6; }
+.personal-onboarding ol { display: flex; gap: 16px; padding: 0; margin: 24px 0; list-style: none; }
+.personal-onboarding li { flex: 1; padding: 12px 0; border-bottom: 2px solid var(--border); font-size: 13px; }
+.personal-onboarding li[aria-current] { border-color: var(--primary); font-weight: 700; }
+.personal-onboarding fieldset { padding: 0; margin: 0; border: 0; min-width: 0; }
+.personal-onboarding legend { margin-bottom: 18px; font-weight: 700; }
+.personal-onboarding label { display: grid; gap: 8px; margin-bottom: 18px; }
+.personal-onboarding select, .personal-onboarding input[type="text"] { width: 100%; min-width: 0; min-height: 44px; }
+.personal-onboarding .onboarding-help { font-size: 13px; line-height: 1.6; margin: 0 0 22px; }
+.personal-onboarding .onboarding-choices label { grid-template-columns: 24px minmax(0, 1fr); align-items: start; padding: 16px; border: 1px solid var(--border); border-radius: 12px; cursor: pointer; }
+.personal-onboarding .onboarding-choices label.selected { border-color: var(--primary); background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
+.personal-onboarding .onboarding-choices input { width: 20px; height: 20px; margin: 0; accent-color: var(--primary); }
+.personal-onboarding .onboarding-choices span { display: grid; gap: 6px; }
+.personal-onboarding small { font-size: 13px; line-height: 1.5; font-weight: 400; letter-spacing: normal; text-transform: none; }
+.personal-onboarding footer, .personal-onboarding footer > div { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.personal-onboarding footer { justify-content: space-between; padding-top: 16px; border-top: 1px solid var(--border); }
+.personal-onboarding button { min-height: 44px; }
+.personal-onboarding [role="alert"] { color: var(--text); border-left: 3px solid var(--accent); padding: 12px; background: var(--page); }
+@media (max-width: 480px) {
+  .personal-onboarding { margin: 12px auto; }
+  .personal-onboarding footer > div { width: 100%; }
+  .personal-onboarding footer > div button { flex: 1; }
+}

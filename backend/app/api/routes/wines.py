@@ -381,6 +381,7 @@ def wine_response(
         drink_to=wine.drink_to,
         drink_window_notes=wine.drink_window_notes,
         ai_value_notes=wine.ai_value_notes,
+        ai_value_market_country=wine.ai_value_market_country,
         ai_value_estimated_at=wine.ai_value_estimated_at,
         rating=wine.rating,
         owners=wine.owners or [],
@@ -637,6 +638,7 @@ def wine_copy_for_recipient(
         drink_to=source.drink_to,
         drink_window_notes=source.drink_window_notes,
         ai_value_notes=source.ai_value_notes,
+        ai_value_market_country=source.ai_value_market_country,
         ai_value_estimated_at=source.ai_value_estimated_at,
         rating=source.rating,
         owners=recipient_owners,
@@ -1342,7 +1344,7 @@ def create_wine(
                 bin_id=allocation.bin_id,
             )
     ensure_catalog_entry_for_wine_data(db, data)
-    shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
+    shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it", market_country=context.user.market_country)
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
     set_user_wine_tags(db, context, wine, tag_names)
     if wine.rating > 0:
@@ -1379,7 +1381,7 @@ def get_wine(
             wine.drink_to,
         )
     ):
-        if hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it"):
+        if hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it", market_country=context.user.market_country):
             db.commit()
             db.refresh(wine)
     return wine_response(
@@ -1839,6 +1841,7 @@ def update_wine(
         sync_storage_to_wine_quantity(db, wine)
     if "current_value" in data and "ai_value_estimated_at" not in data:
         wine.ai_value_estimated_at = None
+        wine.ai_value_market_country = ""
     if identity_changed:
         wine.shared_data_features = []
         wine.shared_data_updated_at = None
@@ -1860,7 +1863,7 @@ def update_wine(
         if fields.intersection(changed_fields):
             mark_local_feature(wine, feature)
     if identity_changed:
-        hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it")
+        hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it", market_country=context.user.market_country)
     if (
         "current_value" in data
         and wine.current_value is not None

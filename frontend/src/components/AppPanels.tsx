@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useId, useRef, useState } from "react";
 import { ScrollControls, ScrollHint, useHorizontalScroll } from "./HorizontalScroll";
+import { sourceMatchesMarket, valuationMarketLabel } from "../domain/valuationMarket";
 import type { CSSProperties, Dispatch, FormEvent, ReactNode, SetStateAction } from "react";
 import { AppIcon } from "./AppIcon";
 import { ButtonBusyContent, DetailField, LoadingState, RatingInput, StarRating, TastingEnjoymentBadge, TastingEnjoymentInput, WineStatusBadge } from "./AppUi";
@@ -427,6 +428,10 @@ export function MarketValueModal({
   const webSources = auditWebSearchSources(entry);
   const note = auditMarketNote(entry);
   const marketCurrency = isWine ? context.wine.currency : (context.item.ai_market_price_currency || context.item.currency);
+  const marketCountry = (isWine ? context.wine.ai_value_market_country : context.item.ai_market_price_market_country) || "";
+  const marketContext = entry?.sources?.find(source => source.kind === "valuation_market");
+  const marketLabel = marketCountry ? valuationMarketLabel(marketCountry, locale) : marketContext?.country === "" ? (locale === "it" ? "Internazionale" : "International") : (locale === "it" ? "Non specificato" : "Not specified");
+  const foreignSources = marketCountry && sources.some(source => !sourceMatchesMarket(source.country || "", marketCountry));
   const storedMarketPrice = isWine ? Number(context.wine.current_value || 0) : Number(context.item.ai_market_price || 0);
   const marketPrice = storedMarketPrice > 0 ? storedMarketPrice : (averageMarketPrice(sources) || 0);
   const referenceLabel = isWine ? t("purchasePrice") : t("targetPrice");
@@ -452,6 +457,8 @@ export function MarketValueModal({
         <div className="market-summary-panel">
           <span>{t("averageMarketPrice")}</span>
           <strong>{formatMoney(marketPrice, marketCurrency, locale, 2, 2)}</strong>
+          <small>{locale === "it" ? "Mercato" : "Market"}: {marketLabel} · {marketCurrency}</small>
+          {foreignSources ? <small>{locale === "it" ? "Include fonti estere o con paese non verificato. Disponibilità e costi locali da verificare." : "Includes foreign sources or unverified source countries. Check local availability and costs."}</small> : null}
           {deltaPct !== null ? (
             <p className={deltaPositive ? "positive" : "negative"}>
               {deltaPositive ? "↗" : "↘"} {deltaPct > 0 ? "+" : ""}{deltaPct.toFixed(1)}%

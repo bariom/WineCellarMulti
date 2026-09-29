@@ -150,6 +150,7 @@ def response_body(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     web_search_use_default_location: bool = True,
+    web_search_country: str | None = None,
     web_search_context_size: str | None = None,
     reasoning_effort: str | None = None,
     max_output_tokens: int | None = None,
@@ -197,7 +198,9 @@ def response_body(
         }
         if web_search_context_size in {"low", "medium", "high"}:
             web_search_tool["search_context_size"] = web_search_context_size
-        if web_search_use_default_location:
+        if web_search_country:
+            web_search_tool["user_location"] = {"type": "approximate", "country": web_search_country}
+        elif web_search_use_default_location:
             web_search_tool["user_location"] = {
                     "type": "approximate",
                     "country": "CH",
@@ -322,6 +325,7 @@ def create_response(
     json_schema: dict[str, Any] | None = None,
     web_search: bool = False,
     web_search_use_default_location: bool = True,
+    web_search_country: str | None = None,
     web_search_context_size: str | None = None,
     reasoning_effort: str | None = None,
     max_output_tokens: int | None = None,
@@ -361,6 +365,7 @@ def create_response(
                     json_schema=json_schema,
                     web_search=web_search,
                     web_search_use_default_location=web_search_use_default_location,
+                    web_search_country=web_search_country,
                     web_search_context_size=web_search_context_size,
                     reasoning_effort=effective_reasoning_effort,
                     max_output_tokens=max_output_tokens,

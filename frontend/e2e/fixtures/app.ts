@@ -82,6 +82,7 @@ export const wine = {
 
 export const session = {
   authenticated: true,
+  onboarding_completed: true,
   user_display_name: "E2E User",
   user_email: "e2e@example.test",
   active_household_id: "household-e2e",

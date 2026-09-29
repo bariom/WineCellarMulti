@@ -474,6 +474,7 @@ def wishlist_response(
         "investment_amount": item.investment_amount,
         "ai_market_price": item.ai_market_price,
         "ai_market_price_currency": item.ai_market_price_currency,
+        "ai_market_price_market_country": item.ai_market_price_market_country,
         "currency": item.currency,
         "merchant": item.merchant,
         "priority": item.priority,

@@ -4,6 +4,7 @@ from typing import Literal
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.schemas.dashboard import DashboardWidgetPreference
+from app.services.valuation_market import MARKET_COUNTRIES
 
 
 class RegisterRequest(BaseModel):
@@ -132,6 +133,15 @@ class UserAdminStatsResponse(BaseModel):
 
 class UserPreferencesUpdate(BaseModel):
     locale: str | None = Field(default=None, pattern="^(en|it)$")
+    market_country: str | None = Field(default=None, max_length=2)
+    onboarding_completed: Literal[True] | None = None
+
+    @field_validator("market_country")
+    @classmethod
+    def valid_market_country(cls, value: str | None) -> str | None:
+        if value is not None and value != "" and value not in MARKET_COUNTRIES:
+            raise ValueError("Unsupported reference market")
+        return value
     dashboard_focus: str | None = Field(
         default=None,
         pattern="^(collector|daily|balanced|personal)$",

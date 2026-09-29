@@ -118,6 +118,7 @@ class StandaloneWineTastingCreate(ExternalWineTastingCreate):
 
 class WishlistResponse(WishlistBase):
     model_config = ConfigDict(from_attributes=True)
+    ai_market_price_market_country: str = ""
 
     id: UUID
     household_id: UUID

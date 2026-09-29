@@ -319,6 +319,31 @@ This deletes the local development database. Do not run it if you need to preser
 
 AI generation runs only from the backend.
 
+AI wine valuations (including full enrichment and wishlist price searches) use the
+user's **Reference market** under Settings → Profile. The country is independent
+of language and wine currency. Select Switzerland, Italy, Germany, United States,
+or another supported market to prioritize local retail listings. Without a country,
+new searches are international and send no fixed Swiss location to web search.
+The valuation source view shows the saved market and flags foreign or unspecified
+source countries; foreign listings do not prove local availability or import costs.
+Existing valuations keep their original provenance. Changing the preference affects
+future searches; refresh an existing estimate to obtain prices for the new market.
+Shared valuation results are cached by country as well as wine, format, language,
+and currency. Legacy estimates with no market provenance are not reused as
+international estimates. Apply migration `0110_valuation_market` before starting
+the updated backend (`cd backend` then `alembic upgrade head`).
+
+New and existing users who have not completed personal setup see a two-step
+onboarding after sign-in and any required legal acceptance. It covers language,
+reference market, the initial private-cellar dashboard, and an optional daily wine
+budget explicitly expressed in CHF. Restaurant mode keeps its own dashboard.
+Users can choose international search explicitly or defer setup with **Later**;
+deferral lasts for the current app session. Settings → Profile offers **Complete
+setup** or **Review setup**. Preferences and completion are saved atomically per
+user and persist across devices. Demo and offline sessions bypass this flow.
+Migration `0111_user_onboarding` leaves existing users pending setup without
+changing their current preferences. Run `alembic upgrade head` before deploying.
+
 Two modes are now supported:
 
 - personal OpenAI key per user

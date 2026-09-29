@@ -106,6 +106,8 @@ def build_session_response(context: CurrentContext | None) -> dict[str, object |
         "dashboard_focus": context.user.dashboard_focus,
         "personal_dashboard_widgets": context.user.personal_dashboard_widgets,
         "daily_wine_budget_chf": context.user.daily_wine_budget_chf,
+        "market_country": context.user.market_country,
+        "onboarding_completed": context.user.onboarding_completed_at is not None,
         "can_use_label_recognition": context.user.can_use_label_recognition,
         "can_manage_wine_photos": context.user.can_manage_wine_photos,
         "cellar_ai_assistant_available": settings.cellar_ai_assistant_enabled

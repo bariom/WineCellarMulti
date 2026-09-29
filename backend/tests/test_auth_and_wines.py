@@ -7485,6 +7485,7 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
+    assert client.patch("/api/v1/auth/preferences", json={"market_country": "CH"}).status_code == 200
     assert (
         client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
     )
@@ -7513,6 +7514,9 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
         elif schema_name == "wishlist_purpose":
             text = '{"recommended_purpose":"Cellar","purpose_advice":"Meglio da cantina.","recommended_priority":"Medium"}'
         else:
+            assert kwargs["web_search_country"] == "CH"
+            assert kwargs["web_search_use_default_location"] is False
+            assert "Switzerland (CH)" in args[1]
             text = (
                 '{"market_price":35,"market_price_currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready",'
                 '"market_note":"Buona disponibilita in Svizzera.","market_sources":[{"merchant":"Vergani","country":"Switzerland","price":36,"currency":"CHF","url":"https://example.com/ver","note":"In stock"}]}'
@@ -7537,6 +7541,7 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     assert target_price.status_code == 200
     assert target_price.json()["target_price"] == "40.00"
     assert target_price.json()["ai_market_price"] == "35.00"
+    assert target_price.json()["ai_market_price_market_country"] == "CH"
     assert target_price.json()["status"] == "Ready"
     assert target_price.json()["ai_strategy_generated_at"]
     assert target_price.json()["ai_purpose_generated_at"]
@@ -7673,6 +7678,131 @@ def test_wishlist_portfolio_strategy_records_structured_audit(monkeypatch):
     assert wishlist_lists.json()[0]["portfolio_strategy"]["stale"] is True
 
 
+def test_personal_onboarding_is_persistent_private_and_atomic():
+    first = TestClient(app)
+    second = TestClient(app)
+    assert register(first).json()["onboarding_completed"] is False
+    assert register(second, email="onboarding-second@example.com").status_code == 201
+    with TestingSessionLocal() as db:
+        second_user = db.scalar(select(User).where(User.email == "onboarding-second@example.com"))
+        second_user.is_approved = True
+        second_user.email_verified_at = datetime.now(UTC)
+        db.commit()
+    assert second.post("/api/v1/auth/login", json={"email": "onboarding-second@example.com", "password": "strong-password-1"}).status_code == 200
+    payload = {"onboarding_completed": True, "locale": "en", "market_country": "CH", "dashboard_focus": "daily", "daily_wine_budget_chf": 45}
+    invalid = first.patch("/api/v1/auth/preferences", json={**payload, "market_country": "ZZ"})
+    assert invalid.status_code == 422
+    assert first.get("/api/v1/session").json()["onboarding_completed"] is False
+    assert first.patch("/api/v1/auth/preferences", json={"onboarding_completed": True}).status_code == 422
+    result = first.patch("/api/v1/auth/preferences", json=payload)
+    assert result.status_code == 200, result.text
+    assert result.json()["onboarding_completed"] is True
+    assert result.json()["daily_wine_budget_chf"] == "45.00"
+    assert result.json()["locale"] == "en"
+    assert result.json()["dashboard_focus"] == "daily"
+    assert first.get("/api/v1/session").json()["onboarding_completed"] is True
+    assert second.get("/api/v1/session").json()["onboarding_completed"] is False
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        completed_at = user.onboarding_completed_at
+    assert first.patch("/api/v1/auth/preferences", json={**payload, "market_country": "IT"}).status_code == 200
+    with TestingSessionLocal() as db:
+        user = db.scalar(select(User).where(User.email == "owner@example.com"))
+        assert user.onboarding_completed_at == completed_at
+    assert first.patch("/api/v1/auth/preferences", json={"onboarding_completed": False}).status_code == 422
+    international = second.patch("/api/v1/auth/preferences", json={"onboarding_completed": True, "market_country": ""})
+    assert international.status_code == 200
+    assert international.json()["onboarding_completed"] is True
+
+
+def test_reference_market_is_a_user_preference():
+    first = TestClient(app)
+    second = TestClient(app)
+    assert register(first).status_code == 201
+    assert register(second, email="market-second@example.com").status_code == 201
+    assert first.get("/api/v1/session").json()["market_country"] == ""
+    for country in ("CH", "IT", "DE", "US", ""):
+        response = first.patch("/api/v1/auth/preferences", json={"market_country": country})
+        assert response.status_code == 200, response.text
+        assert response.json()["market_country"] == country
+        assert first.get("/api/v1/session").json()["market_country"] == country
+        assert second.get("/api/v1/session").json()["market_country"] == ""
+    assert first.patch("/api/v1/auth/preferences", json={"market_country": "ZZ"}).status_code == 422
+
+
+def test_value_search_and_reuse_are_scoped_by_reference_market(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    calls = []
+
+    def fake_response(*args, **kwargs):
+        country = kwargs["web_search_country"]
+        assert kwargs["web_search_use_default_location"] is False
+        assert f"({country})" in args[1]
+        calls.append(country)
+        value = 40 if country == "IT" else 55
+        return OpenAIResponse(text=json.dumps({
+            "current_value": value, "currency": "EUR", "notes": "Retail estimate",
+            "market_note": "Exact vintage", "market_sources": [{
+                "merchant": "Example", "country": country, "price": value,
+                "currency": "EUR", "url": "https://example.com/exact-wine", "note": "Retail",
+            }],
+        }), usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150))
+
+    monkeypatch.setattr(ai_routes, "create_response", fake_response)
+    for country, expected in (("IT", "40.00"), ("DE", "55.00"), ("IT", "40.00")):
+        assert client.patch("/api/v1/auth/preferences", json={"market_country": country}).status_code == 200
+        created = client.post("/api/v1/wines", json={
+            "name": "Market test", "producer": "Exact producer", "vintage": "2020", "currency": "EUR",
+        })
+        assert created.status_code == 201, created.text
+        if country == "DE":
+            assert created.json()["current_value"] is None  # No Italian value on hydration.
+        result = client.post(f"/api/v1/ai/wines/{created.json()['id']}/value")
+        assert result.status_code == 200, result.text
+        assert result.json()["current_value"] == expected
+        assert result.json()["ai_value_market_country"] == country
+    assert calls == ["IT", "DE"]  # Third search correctly reuses the Italian cache.
+
+
+def test_value_market_errors_do_not_replace_saved_estimates(monkeypatch):
+    from app.api.routes import ai as ai_routes
+
+    client = TestClient(app)
+    assert register(client).status_code == 201
+    assert client.patch("/api/v1/auth/preferences", json={"market_country": "US"}).status_code == 200
+    assert client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
+    created = client.post("/api/v1/wines", json={"name": "Unverified value", "producer": "Test", "vintage": "2020", "currency": "EUR", "current_value": 33})
+    assert created.status_code == 201
+    wine_id = created.json()["id"]
+    base = {"current_value": 45, "currency": "EUR", "notes": "Unknown", "market_note": "No evidence", "market_sources": []}
+    for response in (json.dumps(base), json.dumps({**base, "current_value": "not a number"}), json.dumps({**base, "market_sources": [{"merchant": "Unknown", "country": "US", "price": 45, "currency": "EUR", "url": "javascript:alert(1)"}]}), "not JSON"):
+        monkeypatch.setattr(ai_routes, "create_response", lambda *args, text=response, **kwargs: OpenAIResponse(text=text, usage=TokenUsage(input_tokens=1, output_tokens=1, total_tokens=2)))
+        result = client.post(f"/api/v1/ai/wines/{wine_id}/value", json={"force_refresh": True})
+        assert result.status_code == 502, result.text
+        saved = client.get(f"/api/v1/wines/{wine_id}").json()
+        assert saved["current_value"] == "33.00"
+        assert saved["ai_value_market_country"] == ""
+
+
+def test_legacy_value_cache_does_not_masquerade_as_international():
+    from app.services.shared_wine_data import get_shared_fact, publish_shared_fact
+
+    wine = Wine(name="Legacy estimate", producer="Producer", vintage="2020", format="75 cl", currency="CHF")
+    with TestingSessionLocal() as db:
+        fact = publish_shared_fact(db, wine, "value", {"current_value": "50", "currency": "CHF"})
+        assert fact is not None
+        db.commit()
+        assert get_shared_fact(db, wine, "value") is None
+        fact.sources = [{"kind": "valuation_market", "country": ""}]
+        db.commit()
+        assert get_shared_fact(db, wine, "value") is not None
+        assert get_shared_fact(db, wine, "value", market_country="CH") is None
+
+
 def test_wine_value_audit_includes_market_sources(monkeypatch):
     from app.api.routes import ai as ai_routes
 
@@ -7731,6 +7861,7 @@ def test_all_wine_ai_features_use_one_cost_optimized_request(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
+    assert client.patch("/api/v1/auth/preferences", json={"market_country": "DE"}).status_code == 200
     assert (
         client.patch(
             "/api/v1/ai/settings",
@@ -7760,6 +7891,9 @@ def test_all_wine_ai_features_use_one_cost_optimized_request(monkeypatch):
         provider_calls += 1
         assert args[0] == "gpt-5.5"
         assert kwargs["task_type"] == "wine_full_enrichment"
+        assert kwargs["web_search_country"] == "DE"
+        assert kwargs["web_search_use_default_location"] is False
+        assert "Germany (DE)" in args[1]
         assert kwargs["json_schema"]["name"] == "wine_full_enrichment"
         assert kwargs["web_search"] is True
         assert kwargs["web_search_context_size"] == "medium"
@@ -7795,6 +7929,7 @@ def test_all_wine_ai_features_use_one_cost_optimized_request(monkeypatch):
     payload = generated.json()
     assert provider_calls == 1
     assert payload["current_value"] == "138.00"
+    assert payload["ai_value_market_country"] == "DE"
     assert payload["drink_from"] == 2026
     assert payload["drink_peak_to"] == 2038
     assert payload["ai_notes"].startswith("Rosso strutturato")

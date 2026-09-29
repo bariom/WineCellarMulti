@@ -87,6 +87,7 @@ class Wine(Base):
     drink_to: Mapped[int | None] = mapped_column(nullable=True)
     drink_window_notes: Mapped[str] = mapped_column(Text, default="")
     ai_value_notes: Mapped[str] = mapped_column(Text, default="")
+    ai_value_market_country: Mapped[str] = mapped_column(String(2), default="")
     ai_value_estimated_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

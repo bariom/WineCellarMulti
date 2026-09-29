@@ -60,6 +60,7 @@ class WishlistItem(Base):
     investment_amount: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     ai_market_price: Mapped[Decimal | None] = mapped_column(Numeric(10, 2), nullable=True)
     ai_market_price_currency: Mapped[str] = mapped_column(String(8), default="")
+    ai_market_price_market_country: Mapped[str] = mapped_column(String(2), default="")
     currency: Mapped[str] = mapped_column(String(8), default="CHF")
     merchant: Mapped[str] = mapped_column(String(160), default="")
     priority: Mapped[str] = mapped_column(String(32), default="Medium")

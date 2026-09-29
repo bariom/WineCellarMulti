@@ -435,7 +435,7 @@ def wine_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.market_value",
-        version="2",
+        version="3",
         system=(
             "You estimate wine value cautiously. Return JSON only. "
             "Use live web search for current market prices. "
@@ -482,7 +482,7 @@ def wine_full_enrichment_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.full_enrichment",
-        version="2",
+        version="3",
         system=(
             "You enrich one cellar wine in a single pass and return JSON only. "
             "Complete practical cellar notes, a conservative drinking window, current market value, and exact grape composition. "
@@ -657,7 +657,7 @@ def wishlist_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wishlist.market_value",
-        version="2",
+        version="3",
         system=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
             "Use live web search for current market prices. "

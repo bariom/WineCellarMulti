@@ -92,7 +92,7 @@ def fact_scope(wine: Wine, feature: str, locale: str) -> tuple[str, str, str]:
 
 
 def get_shared_fact(
-    db: Session, wine: Wine, feature: str, *, locale: str = "it"
+    db: Session, wine: Wine, feature: str, *, locale: str = "it", market_country: str = ""
 ) -> SharedWineFact | None:
     if feature not in SHARED_FEATURES:
         return None
@@ -107,10 +107,17 @@ def get_shared_fact(
             SharedWineFact.locale == fact_locale,
             SharedWineFact.format_key == format_key,
             SharedWineFact.currency == currency,
+            SharedWineFact.market_country == (market_country if feature == "value" else ""),
             SharedWineFact.status == "available",
         )
     )
     if fact is None:
+        return None
+    if feature == "value" and not market_country and not any(
+        isinstance(source, dict) and source.get("kind") == "valuation_market"
+        for source in (fact.sources or [])
+    ):
+        # Legacy estimates used a fixed Swiss search location; they are not international.
         return None
     expires_at = fact.expires_at
     if expires_at is not None:
@@ -131,6 +138,7 @@ def publish_shared_fact(
     sources: list[dict] | None = None,
     model: str = "",
     prompt_version: str = "1",
+    market_country: str = "",
 ) -> SharedWineFact | None:
     if feature not in SHARED_FEATURES or not payload:
         return None
@@ -145,6 +153,7 @@ def publish_shared_fact(
             SharedWineFact.locale == fact_locale,
             SharedWineFact.format_key == format_key,
             SharedWineFact.currency == currency,
+            SharedWineFact.market_country == (market_country if feature == "value" else ""),
         )
     )
     now = datetime.now(UTC)
@@ -155,6 +164,7 @@ def publish_shared_fact(
             locale=fact_locale,
             format_key=format_key,
             currency=currency,
+            market_country=market_country if feature == "value" else "",
             created_at=now,
         )
         db.add(fact)
@@ -231,6 +241,7 @@ def apply_shared_fact(wine: Wine, fact: SharedWineFact, *, only_missing: bool) -
             wine.current_value = value
             wine.currency = str(payload.get("currency") or wine.currency)[:8]
             wine.ai_value_notes = str(payload.get("notes") or "")[:2000]
+            wine.ai_value_market_country = fact.market_country
             wine.ai_value_estimated_at = fact.verified_at
             wine.value_not_found = False
             changed = True
@@ -275,11 +286,15 @@ def apply_shared_fact(wine: Wine, fact: SharedWineFact, *, only_missing: bool) -
     return changed
 
 
-def hydrate_wine_from_shared(db: Session, wine: Wine, *, locale: str) -> list[str]:
+def hydrate_wine_from_shared(
+    db: Session, wine: Wine, *, locale: str, market_country: str = ""
+) -> list[str]:
     identity = resolve_shared_identity(db, wine, create=True)
     if identity is None:
         return []
-    promote_existing_verified_wine_data(db, wine, identity, locale=locale)
+    promote_existing_verified_wine_data(
+        db, wine, identity, locale=locale, market_country=market_country
+    )
     db.flush()
     applied: list[str] = []
     for feature in SHARED_FEATURES:
@@ -289,7 +304,7 @@ def hydrate_wine_from_shared(db: Session, wine: Wine, *, locale: str) -> list[st
             continue
         if feature == "scores" and wine.scores_not_applicable:
             continue
-        fact = get_shared_fact(db, wine, feature, locale=locale)
+        fact = get_shared_fact(db, wine, feature, locale=locale, market_country=market_country)
         if fact is not None and apply_shared_fact(wine, fact, only_missing=True):
             applied.append(feature)
     return applied
@@ -301,6 +316,7 @@ def promote_existing_verified_wine_data(
     identity: SharedWineIdentity,
     *,
     locale: str,
+    market_country: str = "",
 ) -> None:
     """Seed central facts from existing AI-audited wines without copying private fields."""
     target_parts = identity_parts(target)
@@ -411,13 +427,13 @@ def promote_existing_verified_wine_data(
             estimated_at = estimated_at.replace(tzinfo=UTC)
         if (
             value_audit
+            and candidate.ai_value_market_country == market_country
             and candidate.current_value is not None
             and estimated_at is not None
             and estimated_at + VALUE_TTL > datetime.now(UTC)
-            and value_audit.summary.startswith(
-                f"{candidate.currency} {candidate.current_value}"
-            )
-            and get_shared_fact(db, target, "value", locale=locale) is None
+            and value_audit.summary.startswith(f"{candidate.currency} {candidate.current_value}")
+            and get_shared_fact(db, target, "value", locale=locale, market_country=market_country)
+            is None
         ):
             fact = publish_shared_fact(
                 db,
@@ -430,6 +446,7 @@ def promote_existing_verified_wine_data(
                 },
                 locale=locale,
                 sources=value_audit.sources or [],
+                market_country=market_country,
                 model=value_audit.model,
             )
             if fact is not None:

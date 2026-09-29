@@ -17,6 +17,8 @@
     "test:e2e:personal-dashboard": "playwright test e2e/personal-dashboard.spec.ts",
     "test:e2e:app-navigation": "playwright test e2e/app-navigation.spec.ts",
     "test:e2e:record-tasting": "playwright test e2e/record-tasting.spec.ts",
+    "test:e2e:valuation-market": "playwright test e2e/valuation-market.spec.ts",
+    "test:e2e:onboarding": "playwright test e2e/personal-onboarding.spec.ts",
     "test:e2e:intelligence": "playwright test e2e/intelligence.spec.ts",
     "test:e2e:notifications": "playwright test e2e/notifications.spec.ts",
     "test:e2e:home-dashboard": "playwright test e2e/home-dashboard.spec.ts",

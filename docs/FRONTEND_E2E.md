@@ -35,6 +35,8 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 | Personal dashboard widgets, editor and drill-downs | `npm run test:e2e:personal-dashboard` |
 | Shared navigation, compact headers and Home photographs | `npm run test:e2e:app-navigation` |
 | Recording tastings and tasting history | `npm run test:e2e:record-tasting` |
+| Reference-market settings, saved valuation provenance and foreign-source warnings | `npm run test:e2e:valuation-market` |
+| Personal setup, deferral, saved preferences and responsive wizard | `npm run test:e2e:onboarding` |
 | Intelligence plans, feedback and goals | `npm run test:e2e:intelligence` |
 | Notifications and administrator announcements | `npm run test:e2e:notifications` |
 | Other Home editions, themes and contextual indicators | `npm run test:e2e:home-dashboard` |
