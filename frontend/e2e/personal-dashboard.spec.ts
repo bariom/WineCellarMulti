@@ -428,6 +428,40 @@ test("personal dashboard supports every widget at half width", async ({ page }, 
   }
 });
 
+test("personal dashboard reorders and saves directly outside customization", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await mockApi(page, [], false, memberships, [wine], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [
+    { id: "deliveries", width: "half" }, { id: "recent", width: "half" }, { id: "ready", width: "full" },
+  ] });
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: "Personalizza", exact: true })).toBeVisible();
+  await expect(page.locator(".personal-widget-toolbar")).toHaveCount(0);
+  const sourceHandle = page.getByRole("button", { name: "Trascina per riordinare: Bottiglie in viaggio", exact: true });
+  const targetHandle = page.getByRole("button", { name: "Trascina per riordinare: Ultimi vini aggiunti", exact: true });
+  const source = (await sourceHandle.boundingBox())!;
+  const target = (await targetHandle.boundingBox())!;
+  await page.mouse.move(source.x + source.width / 2, source.y + source.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 8 });
+  await expect(page.locator('[data-widget-id="recent"]')).toHaveClass(/is-drop-target/);
+  await page.mouse.up();
+  const order = () => page.locator('[data-widget-id]').evaluateAll(elements => elements.map(element => element.getAttribute('data-widget-id')));
+  await expect.poll(order).toEqual(["recent", "deliveries", "ready"]);
+  await expect(page.getByRole("status").filter({ hasText: "Nuovo ordine salvato." })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("vinaris-test-preferences")!).personal_dashboard_widgets)).toEqual([
+    { id: "recent", width: "half" }, { id: "deliveries", width: "half" }, { id: "ready", width: "full" },
+  ]);
+  await page.reload();
+  await expect.poll(order).toEqual(["recent", "deliveries", "ready"]);
+  const keyboardHandle = page.getByRole("button", { name: "Trascina per riordinare: Ultimi vini aggiunti", exact: true });
+  await keyboardHandle.focus();
+  await keyboardHandle.press("ArrowDown");
+  await expect.poll(order).toEqual(["deliveries", "recent", "ready"]);
+  await expect.poll(() => page.evaluate(() => JSON.parse(sessionStorage.getItem("vinaris-test-preferences")!).personal_dashboard_widgets)).toEqual([
+    { id: "deliveries", width: "half" }, { id: "recent", width: "half" }, { id: "ready", width: "full" },
+  ]);
+});
+
 for (const width of [360, 390, 430, 1440]) {
   test(`personal dashboard drag and drop ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 1440 ? 1000 : 844 });
@@ -524,8 +558,12 @@ test("personal dashboard financial widgets work at every width", async ({ page }
   await expect(widgets).toHaveCount(3);
   await expect(page.locator('[data-widget-id="top_value"] .summary-bottle')).toHaveCount(3);
   await expect(page.locator('[data-widget-id="top_value"] .summary-bottle').first()).toContainText("Selezione 6");
-  const tiles = page.locator('[data-widget-id="value_distribution"] .summary-mosaic rect');
+  const tiles = page.locator('[data-widget-id="value_distribution"] .summary-mosaic svg > g > rect');
   await expect(tiles).toHaveCount(2);
+  const tileLabels = page.locator('[data-widget-id="value_distribution"] .summary-mosaic svg > g text');
+  await expect(tileLabels).toHaveCount(2);
+  await expect(tileLabels.filter({ hasText: "Bianchi" })).toContainText("54%");
+  await expect(tileLabels.filter({ hasText: "Rossi" })).toContainText("46%");
   const areas = await tiles.evaluateAll(elements => elements.map(element => { const rect = element as SVGRectElement; return rect.width.baseVal.value * rect.height.baseVal.value; }));
   expect(areas[0] / (areas[0] + areas[1])).toBeCloseTo(840 / 1560, 5);
   for (const width of [360, 390, 430, 768, 1100, 1440]) {

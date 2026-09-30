@@ -49,7 +49,11 @@
 .summary-legend i { width: 8px; height: 8px; border-radius: 50%; }
 .summary-mosaic { display: grid; gap: 14px; }
 .summary-mosaic > svg { display: block; width: 100%; height: auto; border-radius: 8px; }
-.dashboard-summary .summary-mosaic text { fill: #fff; font-size: 15px; paint-order: stroke; stroke: #0006; stroke-width: 2px; }
+.dashboard-summary .summary-mosaic text { fill: #fff; paint-order: stroke; stroke: #0006; stroke-width: 1.5px; }
+.dashboard-summary .summary-mosaic-label { font-size: 9px; font-weight: 600; letter-spacing: .02em; }
+.dashboard-summary .summary-mosaic-percentage { font-size: 17px; font-weight: 700; }
+.dashboard-summary .summary-mosaic-compact { font-size: 8px; font-weight: 600; }
+.dashboard-summary .summary-mosaic-percentage-inline { font-size: 10px; font-weight: 700; }
 .summary-columns { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: end; gap: 5px; }
 .summary-columns > div { display: flex; flex-direction: column; gap: 7px; min-width: 0; text-align: center; font-size: .62rem; }
 .summary-columns span { order: 3; overflow-wrap: anywhere; }

@@ -32,6 +32,7 @@ export function SummaryRadar({ items, label }: { items: SummarySlice[]; label: s
 }
 
 export function SummaryMosaic({ items, format }: { items: SummarySlice[]; format: (value: number) => string }) {
+  const clipId = useId().replace(/:/g, "");
   const total = items.reduce((sum, item) => sum + item.value, 0);
   type Tile = SummarySlice & { x: number; y: number; width: number; height: number };
   // Six slices at most: recursively partition the longer edge by value so
@@ -47,7 +48,27 @@ export function SummaryMosaic({ items, format }: { items: SummarySlice[]; format
       : [...partition(values.slice(0, split), x, y, width, height * ratio), ...partition(values.slice(split), x, y + height * ratio, width, height * (1 - ratio))];
   }
   const tiles = partition(items, 0, 0, 400, 190);
-  return <div className="summary-mosaic"><svg viewBox="0 0 400 190" role="img" aria-label={items.map(item => `${item.label}: ${format(item.value)}`).join(", ")}>
-    {tiles.map((tile, index) => <g key={tile.label}><rect x={tile.x} y={tile.y} width={tile.width} height={tile.height} fill={summaryPalette[index % summaryPalette.length]} stroke="var(--surface)" strokeWidth="2" /><title>{tile.label}: {format(tile.value)}</title>{tile.width > 80 && tile.height > 30 && <text x={tile.x + 10} y={tile.y + 22}>{Math.round(tile.value / total * 100)}%</text>}</g>)}
+  const percentage = (value: number) => total ? Math.round(value / total * 100) : 0;
+  const shorten = (label: string, available: number) => {
+    const maxCharacters = Math.max(3, Math.floor(available / 5.5));
+    return label.length <= maxCharacters ? label : `${label.slice(0, Math.max(2, maxCharacters - 1)).trimEnd()}…`;
+  };
+  return <div className="summary-mosaic"><svg viewBox="0 0 400 190" role="img" aria-label={items.map(item => `${item.label}: ${format(item.value)}, ${percentage(item.value)}%`).join(", ")}>
+    <defs>{tiles.map((tile, index) => <clipPath id={`${clipId}-tile-${index}`} key={tile.label}><rect x={tile.x + 2} y={tile.y + 2} width={Math.max(0, tile.width - 4)} height={Math.max(0, tile.height - 4)} /></clipPath>)}</defs>
+    {tiles.map((tile, index) => {
+      const share = percentage(tile.value);
+      const clipPath = `url(#${clipId}-tile-${index})`;
+      let label;
+      if (tile.width >= 70 && tile.height >= 38) {
+        label = <text x={tile.x + 9} y={tile.y + 14} className="summary-mosaic-label"><tspan>{shorten(tile.label, tile.width - 18)}</tspan><tspan x={tile.x + 9} dy="19" className="summary-mosaic-percentage">{share}%</tspan></text>;
+      } else if (tile.width >= tile.height) {
+        label = <text x={tile.x + tile.width / 2} y={tile.y + tile.height / 2} textAnchor="middle" dominantBaseline="middle" className="summary-mosaic-compact"><tspan>{shorten(tile.label, tile.width - 36)}</tspan><tspan dx="5" className="summary-mosaic-percentage-inline">{share}%</tspan></text>;
+      } else if (tile.height >= 38) {
+        label = <text transform={`translate(${tile.x + tile.width / 2} ${tile.y + tile.height / 2}) rotate(-90)`} textAnchor="middle" dominantBaseline="middle" className="summary-mosaic-compact"><tspan>{shorten(tile.label, tile.height - 36)}</tspan><tspan dx="5" className="summary-mosaic-percentage-inline">{share}%</tspan></text>;
+      } else {
+        label = <text x={tile.x + tile.width / 2} y={tile.y + tile.height / 2} textAnchor="middle" dominantBaseline="middle" className="summary-mosaic-percentage-inline">{share}%</text>;
+      }
+      return <g key={tile.label}><rect x={tile.x} y={tile.y} width={tile.width} height={tile.height} fill={summaryPalette[index % summaryPalette.length]} stroke="var(--surface)" strokeWidth="2" /><title>{tile.label}: {format(tile.value)}, {share}%</title><g clipPath={clipPath}>{label}</g></g>;
+    })}
   </svg><ul className="summary-legend">{items.map((item, index) => <li key={item.label}><i style={{ background: summaryPalette[index % summaryPalette.length] }} /><span>{item.label}</span><strong>{format(item.value)}</strong></li>)}</ul></div>;
 }

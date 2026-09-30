@@ -26,8 +26,11 @@
 .personal-widget-catalogue span { min-width: 0; }
 .personal-widget-catalogue small { display: block; margin-top: 6px; line-height: 1.5; }
 .personal-widget-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: stretch; }
-.personal-widget { min-width: 0; container-type: inline-size; }
+.personal-widget { position: relative; min-width: 0; container-type: inline-size; }
 .personal-widget-full { grid-column: 1 / -1; }
+.personal-dashboard .personal-widget-direct-handle { position: absolute; z-index: 3; top: 12px; right: 12px; width: 44px; min-height: 44px; padding: 0; border-radius: 50%; background: color-mix(in srgb, var(--surface) 88%, transparent); font-size: 1.35rem; line-height: 1; cursor: grab; touch-action: none; user-select: none; }
+.personal-dashboard .personal-widget-direct-handle:active { cursor: grabbing; }
+.personal-widget:has(> .personal-widget-direct-handle) .dashboard-summary > header { padding-right: 52px; }
 .personal-widget-toolbar { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--line, #c9bdab); border-radius: 12px 12px 0 0; }
 .personal-widget-toolbar > div { display: flex; flex-wrap: wrap; gap: 8px; }
 .personal-widget-toolbar select { max-width: 100%; }
