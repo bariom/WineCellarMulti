@@ -435,7 +435,7 @@ def wine_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.market_value",
-        version="3",
+        version="4",
         system=(
             "You estimate wine value cautiously. Return JSON only. "
             "Use live web search for current market prices. "
@@ -449,7 +449,7 @@ def wine_value_prompt(
         ),
         user=(
             f"Estimate current unit value for this exact wine. Final current_value and currency must be {currency}. "
-            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
+            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, price_in_output_currency, and URL for the exact wine when available. "
             "Use market_note for a short availability or confidence comment.\n\n"
             f"{wine_context}"
         ),
@@ -482,7 +482,7 @@ def wine_full_enrichment_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.full_enrichment",
-        version="3",
+        version="4",
         system=(
             "You enrich one cellar wine in a single pass and return JSON only. "
             "Complete practical cellar notes, a conservative drinking window, current market value, and exact grape composition. "
@@ -497,7 +497,7 @@ def wine_full_enrichment_prompt(
         user=(
             "Enrich this wine in one response.\n"
             f"- Final current_value and value currency must be {currency}.\n"
-            "- Market sources must identify concrete merchants or marketplaces and exact product URLs.\n"
+            "- Market sources must identify concrete merchants or marketplaces, price_in_output_currency, and exact product URLs.\n"
             "- The grape source URL must support the exact producer and vintage; otherwise leave the grape composition empty.\n"
             "- Keep all prose concise and useful to a cellar owner.\n\n"
             f"{wine_context}"
@@ -657,7 +657,7 @@ def wishlist_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wishlist.market_value",
-        version="3",
+        version="4",
         system=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
             "Use live web search for current market prices. "
@@ -679,7 +679,7 @@ def wishlist_value_prompt(
                 + "; use a maximum price only as a secondary constraint after estimating market price independently. "
                 + "If an offer price is supplied, price_advice must give a direct verdict: Opportunity, Fair price, Too expensive, or Insufficient data. When no maximum is set, compare the offer only with the market estimate and do not recommend against buying merely because the maximum is missing. "
             )
-            + "For market_sources, list only concrete merchants or marketplaces with country, price, currency, and URL for the exact wine when available. "
+            + "For market_sources, list only concrete merchants or marketplaces with country, price, currency, price_in_output_currency, and URL for the exact wine when available. "
             + "Use market_note for a short availability or confidence comment.\n\n"
             + wishlist_context
         ),

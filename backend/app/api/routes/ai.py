@@ -144,7 +144,7 @@ from app.services.shared_wine_data import (
 )
 from app.services.stock_ledger import add_inbound_stock
 from app.services.taste_profiles import calculate_taste_match, compact_taste_context
-from app.services.valuation_market import market_instruction
+from app.services.valuation_market import market_instruction, source_matches_market
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -3461,19 +3461,26 @@ def normalize_market_sources(
             continue
         if not valid_url:
             url = ""
-        normalized.append(
-            {
-                "kind": "market_source",
-                "merchant": merchant,
-                "country": str(raw_source.get("country") or "").strip()[:80],
-                "price": str(price),
-                "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8]
-                or default_currency,
-                "url": url,
-                "note": str(raw_source.get("note") or "").strip()[:240],
-                "verified": bool(url),
-            },
-        )
+        normalized_source = {
+            "kind": "market_source",
+            "merchant": merchant,
+            "country": str(raw_source.get("country") or "").strip()[:80],
+            "price": str(price),
+            "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8]
+            or default_currency,
+            "url": url,
+            "note": str(raw_source.get("note") or "").strip()[:240],
+            "verified": bool(url),
+        }
+        try:
+            converted_price = Decimal(str(raw_source.get("price_in_output_currency"))).quantize(
+                Decimal("0.01")
+            )
+        except (InvalidOperation, TypeError, ValueError):
+            converted_price = None
+        if converted_price is not None and converted_price.is_finite() and converted_price >= 0:
+            normalized_source["price_in_output_currency"] = str(converted_price)
+        normalized.append(normalized_source)
     return normalized
 
 
@@ -3530,6 +3537,38 @@ def median_retail_source_price(market_sources: list[dict], *, currency: str) -> 
     middle = len(prices) // 2
     if len(prices) % 2:
         return prices[middle].quantize(Decimal("0.01"))
+    return ((prices[middle - 1] + prices[middle]) / Decimal("2")).quantize(Decimal("0.01"))
+
+
+def local_market_source_price(
+    market_sources: list[dict], *, currency: str, market_country: str
+) -> Decimal | None:
+    """Return the local-source median in the output currency, excluding foreign listings."""
+    if not market_country:
+        return None
+    target_currency = str(currency or "").strip().upper()
+    prices: list[Decimal] = []
+    for source in market_sources:
+        if not source_matches_market(str(source.get("country") or ""), market_country):
+            continue
+        source_currency = str(source.get("currency") or "").strip().upper()
+        raw_price = (
+            source.get("price")
+            if source_currency == target_currency
+            else source.get("price_in_output_currency")
+        )
+        try:
+            price = Decimal(str(raw_price)).quantize(Decimal("0.01"))
+        except (InvalidOperation, TypeError, ValueError):
+            continue
+        if price.is_finite() and price >= 0:
+            prices.append(price)
+    if not prices:
+        return None
+    prices.sort()
+    middle = len(prices) // 2
+    if len(prices) % 2:
+        return prices[middle]
     return ((prices[middle - 1] + prices[middle]) / Decimal("2")).quantize(Decimal("0.01"))
 
 
@@ -4772,6 +4811,7 @@ def generate_all_wine_ai(
                                     "country": {"type": "string"},
                                     "price": {"type": "number"},
                                     "currency": {"type": "string"},
+                                    "price_in_output_currency": {"type": "number"},
                                     "url": {"type": "string"},
                                     "note": {"type": "string"},
                                 },
@@ -4780,6 +4820,7 @@ def generate_all_wine_ai(
                                     "country",
                                     "price",
                                     "currency",
+                                    "price_in_output_currency",
                                     "url",
                                     "note",
                                 ],
@@ -4883,8 +4924,13 @@ def generate_all_wine_ai(
             detail="No verified live market price sources found",
         )
 
+    local_value = local_market_source_price(
+        market_sources, currency=result_currency, market_country=context.user.market_country
+    )
     if contains_hospitality_market_sources(raw_market_sources):
-        retail_value = median_retail_source_price(market_sources, currency=result_currency)
+        retail_value = local_value or median_retail_source_price(
+            market_sources, currency=result_currency
+        )
         if retail_value is None:
             wine.value_not_found = True
             db.commit()
@@ -4893,6 +4939,8 @@ def generate_all_wine_ai(
                 detail="No uncontaminated retail price estimate could be calculated",
             )
         current_value = retail_value
+    if local_value is not None:
+        current_value = local_value
 
     grapes = grape_result.get("grapes", [])
     if not isinstance(grapes, list):
@@ -5316,10 +5364,19 @@ def generate_wine_value(
                             "country": {"type": "string"},
                             "price": {"type": "number"},
                             "currency": {"type": "string"},
+                            "price_in_output_currency": {"type": "number"},
                             "url": {"type": "string"},
                             "note": {"type": "string"},
                         },
-                        "required": ["merchant", "country", "price", "currency", "url", "note"],
+                        "required": [
+                            "merchant",
+                            "country",
+                            "price",
+                            "currency",
+                            "price_in_output_currency",
+                            "url",
+                            "note",
+                        ],
                     },
                 },
             },
@@ -5359,8 +5416,13 @@ def generate_wine_value(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No verified live market price sources found",
         )
+    local_value = local_market_source_price(
+        market_sources, currency=result_currency, market_country=context.user.market_country
+    )
     if contains_hospitality_market_sources(raw_market_sources):
-        retail_value = median_retail_source_price(market_sources, currency=result_currency)
+        retail_value = local_value or median_retail_source_price(
+            market_sources, currency=result_currency
+        )
         if retail_value is None:
             wine.value_not_found = True
             db.commit()
@@ -5369,6 +5431,8 @@ def generate_wine_value(
                 detail="No uncontaminated retail price estimate could be calculated",
             )
         value = retail_value
+    if local_value is not None:
+        value = local_value
     wine.current_value = max(value, Decimal("0"))
     wine.value_not_found = False
     wine.currency = result_currency
@@ -5826,10 +5890,19 @@ def generate_wishlist_target_price(
                             "country": {"type": "string"},
                             "price": {"type": "number"},
                             "currency": {"type": "string"},
+                            "price_in_output_currency": {"type": "number"},
                             "url": {"type": "string"},
                             "note": {"type": "string"},
                         },
-                        "required": ["merchant", "country", "price", "currency", "url", "note"],
+                        "required": [
+                            "merchant",
+                            "country",
+                            "price",
+                            "currency",
+                            "price_in_output_currency",
+                            "url",
+                            "note",
+                        ],
                     },
                 },
             },
@@ -5874,14 +5947,21 @@ def generate_wishlist_target_price(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="No verified live market price sources found",
         )
+    local_value = local_market_source_price(
+        market_sources, currency=result_currency, market_country=context.user.market_country
+    )
     if contains_hospitality_market_sources(raw_market_sources):
-        retail_value = median_retail_source_price(market_sources, currency=result_currency)
+        retail_value = local_value or median_retail_source_price(
+            market_sources, currency=result_currency
+        )
         if retail_value is None:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="No uncontaminated retail price estimate could be calculated",
             )
         market_price = retail_value
+    if local_value is not None:
+        market_price = local_value
     item.ai_market_price = max(market_price, Decimal("0"))
     item.ai_market_price_currency = result_currency
     item.ai_market_price_market_country = context.user.market_country

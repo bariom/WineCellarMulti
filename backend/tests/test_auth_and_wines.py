@@ -7519,7 +7519,7 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
             assert "Switzerland (CH)" in args[1]
             text = (
                 '{"market_price":35,"market_price_currency":"CHF","price_advice":"Target prudente.","recommended_status":"Ready",'
-                '"market_note":"Buona disponibilita in Svizzera.","market_sources":[{"merchant":"Vergani","country":"Switzerland","price":36,"currency":"CHF","url":"https://example.com/ver","note":"In stock"}]}'
+                '"market_note":"Buona disponibilita in Svizzera.","market_sources":[{"merchant":"Vergani","country":"Switzerland","price":36,"currency":"CHF","price_in_output_currency":36,"url":"https://example.com/ver","note":"In stock"}]}'
             )
         return OpenAIResponse(
             text=text, usage=TokenUsage(input_tokens=100, output_tokens=50, total_tokens=150)
@@ -7540,7 +7540,7 @@ def test_wishlist_ai_features_are_separate(monkeypatch):
     target_price = client.post(f"/api/v1/ai/wishlist/{item_id}/target-price")
     assert target_price.status_code == 200
     assert target_price.json()["target_price"] == "40.00"
-    assert target_price.json()["ai_market_price"] == "35.00"
+    assert target_price.json()["ai_market_price"] == "36.00"
     assert target_price.json()["ai_market_price_market_country"] == "CH"
     assert target_price.json()["status"] == "Ready"
     assert target_price.json()["ai_strategy_generated_at"]
@@ -7808,6 +7808,7 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
 
     client = TestClient(app)
     assert register(client).status_code == 201
+    assert client.patch("/api/v1/auth/preferences", json={"market_country": "CH"}).status_code == 200
     assert (
         client.patch("/api/v1/ai/settings", json={"openai_api_key": "sk-test"}).status_code == 200
     )
@@ -7818,8 +7819,8 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
             "producer": "Moet",
             "vintage": "2017",
             "quantity": 1,
-            "price": 165,
-            "currency": "CHF",
+            "price": 53,
+            "currency": "EUR",
         },
     )
     assert created.status_code == 201
@@ -7829,9 +7830,9 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
         assert kwargs["json_schema"]["name"] == "wine_value"
         return OpenAIResponse(
             text=(
-                '{"current_value":172,"currency":"CHF","notes":"Stima prudente vicina al mercato.","market_note":"Offerta discreta presso merchant svizzeri.",'
-                '"market_sources":[{"merchant":"Vergani Wiedikon","country":"Switzerland","price":170,"currency":"CHF","url":"https://example.com/vergani"},'
-                '{"merchant":"WeinVogel","country":"Switzerland","price":174,"currency":"CHF","url":"https://example.com/weinvogel","note":"Low stock"}]}'
+                '{"current_value":62,"currency":"EUR","notes":"Stima prudente vicina al mercato.","market_note":"Offerta discreta presso merchant svizzeri.",'
+                '"market_sources":[{"merchant":"Vergani Wiedikon","country":"Switzerland","price":53,"currency":"CHF","price_in_output_currency":56.2,"url":"https://example.com/vergani"},'
+                '{"merchant":"WeinVogel","country":"Belgium","price":75,"currency":"EUR","price_in_output_currency":75,"url":"https://example.com/weinvogel","note":"Low stock"}]}'
             ),
             usage=TokenUsage(input_tokens=120, output_tokens=60, total_tokens=180),
         )
@@ -7840,7 +7841,7 @@ def test_wine_value_audit_includes_market_sources(monkeypatch):
 
     generated = client.post(f"/api/v1/ai/wines/{wine_id}/value")
     assert generated.status_code == 200
-    assert generated.json()["current_value"] == "172.00"
+    assert generated.json()["current_value"] == "56.20"
     assert generated.json()["ai_value_notes"] == "Stima prudente vicina al mercato."
 
     audit = client.get("/api/v1/ai/audit")

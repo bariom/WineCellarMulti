@@ -217,12 +217,12 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
     )
 
     assert wine_prompt.id == "wine.market_value"
-    assert wine_prompt.version == "3"
+    assert wine_prompt.version == "4"
     assert "3-8 verified market sources" in wine_prompt.system
     assert "Never use restaurant, hotel, bar" in wine_prompt.system
     assert "must be CHF" in wine_prompt.user
     assert wishlist_prompt.id == "wishlist.market_value"
-    assert wishlist_prompt.version == "3"
+    assert wishlist_prompt.version == "4"
     assert "Italian" in wishlist_prompt.system
     assert "hospitality markups" in wishlist_prompt.system
     assert "target price is CHF 75.00" in wishlist_prompt.user
@@ -233,7 +233,7 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
         currency="CHF",
         wine_context="Wine: Example 2020",
     )
-    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "3")
+    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "4")
     assert "Never use restaurant, hotel, bar" in full_prompt.system
 
 
@@ -241,21 +241,42 @@ def test_value_market_instructions_are_explicit_and_currency_independent():
     from app.api.routes.ai import value_currency_instruction
     from app.services.openai_client import response_body
 
-    for country, name in (("CH", "Switzerland"), ("IT", "Italy"), ("DE", "Germany"), ("US", "United States")):
+    for country, name in (
+        ("CH", "Switzerland"),
+        ("IT", "Italy"),
+        ("DE", "Germany"),
+        ("US", "United States"),
+    ):
         instruction = value_currency_instruction("EUR", country)
         assert f"{name} ({country})" in instruction
         assert "final estimate in EUR" in instruction
         assert "foreign sources only as a clearly identified fallback" in instruction
+        assert "foreign listings may corroborate" in instruction
+        assert "price_in_output_currency" in instruction
         for builder in (wine_value_prompt, wine_full_enrichment_prompt):
-            prompt = builder(locale="it", currency_instruction=instruction, currency="EUR", wine_context="Exact wine")
+            prompt = builder(
+                locale="it",
+                currency_instruction=instruction,
+                currency="EUR",
+                wine_context="Exact wine",
+            )
             assert name in prompt.system
             assert "Italian" in prompt.system
-        body = response_body("gpt-5.5", "System", "Wine", web_search=True, web_search_use_default_location=False, web_search_country=country)
+        body = response_body(
+            "gpt-5.5",
+            "System",
+            "Wine",
+            web_search=True,
+            web_search_use_default_location=False,
+            web_search_country=country,
+        )
         assert body["tools"][0]["user_location"] == {"type": "approximate", "country": country}
     unspecified = value_currency_instruction("CHF")
     assert "Do not infer residence from language or currency" in unspecified
     assert "favor Swiss" not in unspecified
-    body = response_body("gpt-5.5", "System", "Wine", web_search=True, web_search_use_default_location=False)
+    body = response_body(
+        "gpt-5.5", "System", "Wine", web_search=True, web_search_use_default_location=False
+    )
     assert "user_location" not in body["tools"][0]
 
 
