@@ -9,6 +9,7 @@ from app.core.config import settings
 
 LEGACY_MODEL = "gpt-5.5"
 COMPATIBILITY_MODELS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"}
+ROLLOUT_MODELS = {"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-6.1-sol"}
 DEFAULT_MAX_OUTPUT_TOKENS = 32768
 ABSOLUTE_MAX_OUTPUT_TOKENS = 32768
 ModelRole = Literal["legacy", "economy", "balanced", "advanced"]
@@ -95,8 +96,8 @@ def allowed_models() -> frozenset[str]:
     configured = {model for model in model_by_role().values() if model}
     if settings.openai_enable_gpt56:
         # GPT-5.5 remains an internal rollback/fallback target, not a model
-        # exposed for user selection while the GPT-5.6 rollout is enabled.
-        return frozenset(configured - {model_by_role()["legacy"]})
+        # exposed for user selection while the modern-model rollout is enabled.
+        return frozenset((configured | ROLLOUT_MODELS) - {model_by_role()["legacy"]})
     return frozenset(configured | COMPATIBILITY_MODELS)
 
 
@@ -104,6 +105,8 @@ def role_for_model(model: str) -> ModelRole:
     for role, configured_model in model_by_role().items():
         if model == configured_model:
             return role
+    if model in {"gpt-5.6-sol", "gpt-6.1-sol"}:
+        return "advanced"
     return "legacy"
 
 
@@ -122,7 +125,7 @@ def select_ai_model(
     normalized_task = task_type.strip().lower()
 
     # Cellar commands are an isolated GPT-5.6 Luna workload. This does not
-    # opt unrelated AI features into the broader GPT-5.6 rollout flag.
+    # opt unrelated AI features into the broader modern-model rollout flag.
     cellar_command_model = settings.openai_cellar_command_model.strip()
     if normalized_task == "cellar_command" and requested == cellar_command_model:
         return ModelSelection(
@@ -194,7 +197,7 @@ def parameters_for_model(model: str) -> ModelParameters:
         reasoning_effort=effort,
         max_output_tokens=max_tokens,
         timeout_seconds=max(float(settings.openai_timeout_seconds), 1.0),
-        # At most two HTTP requests are allowed. A GPT-5.6 fallback consumes
+        # At most two HTTP requests are allowed. A modern-model fallback consumes
         # the second request; legacy-only calls may use it as one normal retry.
         max_retries=min(max(int(settings.openai_max_retries), 0), 1),
     )

@@ -22,6 +22,8 @@ from app.api.routes.ai import (
     normalize_user_ai_models,
     pairing_wine_context,
     pairing_wine_is_in_ideal_window,
+    pricing_for_model,
+    reservation_pricing_model,
     select_pairing_candidates,
     taste_affinity_from_score,
     web_search_tool_cost_usd,
@@ -66,7 +68,7 @@ def default_model_flags(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "openai_default_model", "gpt-5.5")
     monkeypatch.setattr(settings, "openai_economy_model", "gpt-5.6-luna")
     monkeypatch.setattr(settings, "openai_balanced_model", "gpt-5.6-terra")
-    monkeypatch.setattr(settings, "openai_advanced_model", "gpt-5.6-sol")
+    monkeypatch.setattr(settings, "openai_advanced_model", "gpt-6.1-sol")
     monkeypatch.setattr(settings, "openai_fallback_model", "gpt-5.5")
     monkeypatch.setattr(settings, "openai_max_retries", 0)
 
@@ -83,7 +85,7 @@ def test_deterministic_routing_selects_luna_terra_and_sol(monkeypatch: pytest.Mo
 
     assert select_ai_model("structured_extraction").model == "gpt-5.6-luna"
     assert select_ai_model("pairing").model == "gpt-5.6-terra"
-    assert select_ai_model("portfolio_strategy").model == "gpt-5.6-sol"
+    assert select_ai_model("portfolio_strategy").model == "gpt-6.1-sol"
 
 
 def test_explicit_model_must_be_allowlisted(monkeypatch: pytest.MonkeyPatch):
@@ -98,7 +100,7 @@ def test_gpt56_flag_exposes_only_gpt56_models(monkeypatch: pytest.MonkeyPatch):
     assert available_model_options() == ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
 
     monkeypatch.setattr(settings, "openai_enable_gpt56", True)
-    assert available_model_options() == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+    assert available_model_options() == ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-6.1-sol"]
     with pytest.raises(HTTPException):
         select_ai_model("pairing", requested_model="gpt-5.5")
 
@@ -136,7 +138,7 @@ def test_model_parameters_are_compatible_and_configurable(monkeypatch: pytest.Mo
     assert luna_body["max_output_tokens"] == 2048
     assert "temperature" not in luna_body
     assert parameters_for_model("gpt-5.6-terra").reasoning_effort == "medium"
-    assert parameters_for_model("gpt-5.6-sol").reasoning_effort == "high"
+    assert parameters_for_model("gpt-6.1-sol").reasoning_effort == "high"
 
 
 def test_reasoning_effort_follows_task_instead_of_model_role():
@@ -162,8 +164,15 @@ def test_create_response_sends_automatic_task_effort(monkeypatch: pytest.MonkeyP
         return FakeResponse({"output_text": "ok", "usage": {}})
 
     monkeypatch.setattr("app.services.openai_client.urllib.request.urlopen", fake_urlopen)
-    response = create_response("gpt-5.6-sol", "system", "user", api_key="sk-test", task_type="grape_inference")
+    response = create_response(
+        "gpt-6.1-sol",
+        "system",
+        "user",
+        api_key="sk-test",
+        task_type="grape_inference",
+    )
 
+    assert captured_body["model"] == "gpt-6.1-sol"
     assert captured_body["reasoning"] == {"effort": "low"}
     assert response.reasoning_effort == "low"
     assert response.task_type == "grape_inference"
@@ -225,11 +234,23 @@ def test_gpt55_snapshot_cost_uses_official_base_model_pricing():
     [
         ("gpt-5.6-luna", Decimal("0.000404")),
         ("gpt-5.6-terra", Decimal("0.004040")),
+        ("gpt-5.6-sol", Decimal("0.007280")),
+        ("gpt-6.1-sol", Decimal("0.003620")),
     ],
 )
 def test_gpt56_cost_uses_current_official_pricing(model: str, expected_cost: Decimal):
     usage = TokenUsage(input_tokens=1000, cached_input_tokens=200, output_tokens=200, total_tokens=1200)
     assert estimate_cost_usd(model, usage) == expected_cost
+
+
+def test_gpt61_sol_is_cheaper_than_gpt56_sol_and_reserves_for_fallback():
+    current = pricing_for_model("gpt-6.1-sol")
+    previous = pricing_for_model("gpt-5.6-sol")
+
+    assert current["input"] < previous["input"]
+    assert current["cached_input"] < previous["cached_input"]
+    assert current["output"] < previous["output"]
+    assert reservation_pricing_model("gpt-6.1-sol") == "gpt-5.5"
 
 
 def test_unknown_model_cost_fails_closed():
@@ -388,9 +409,14 @@ def test_fallback_to_gpt55_happens_once(monkeypatch: pytest.MonkeyPatch):
         )
 
     monkeypatch.setattr("app.services.openai_client.urllib.request.urlopen", fake_urlopen)
-    response = create_response("gpt-5.6-terra", "secret system prompt", "private user data", api_key="sk-secret")
+    response = create_response(
+        "gpt-6.1-sol",
+        "secret system prompt",
+        "private user data",
+        api_key="sk-secret",
+    )
 
-    assert [body["model"] for body in bodies] == ["gpt-5.6-terra", "gpt-5.5"]
+    assert [body["model"] for body in bodies] == ["gpt-6.1-sol", "gpt-5.5"]
     assert response.model == "gpt-5.5"
     assert response.fallback_occurred is True
     assert response.fallback_reason == "model_not_available"

@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     openai_responses_url: str = "https://api.openai.com/v1/responses"
     # OPENAI_MODEL and the feature-specific variables remain as compatibility
     # aliases for existing deployments. Model selection is centralized in
-    # app.services.ai_models and defaults to GPT-5.5 while GPT-5.6 is disabled.
+    # app.services.ai_models and defaults to GPT-5.5 while the rollout flag is disabled.
     openai_model: str = "gpt-5.4-mini"
     openai_ai_notes_model: str = "gpt-5.4-mini"
     openai_drink_window_model: str = "gpt-5.4"
@@ -85,7 +85,7 @@ class Settings(BaseSettings):
     openai_default_model: str = "gpt-5.5"
     openai_economy_model: str = "gpt-5.6-luna"
     openai_balanced_model: str = "gpt-5.6-terra"
-    openai_advanced_model: str = "gpt-5.6-sol"
+    openai_advanced_model: str = "gpt-6.1-sol"
     openai_fallback_model: str = "gpt-5.5"
     openai_enable_gpt56: bool = False
     openai_enable_model_routing: bool = False

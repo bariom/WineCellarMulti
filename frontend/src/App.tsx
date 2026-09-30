@@ -9167,8 +9167,8 @@ export function App() {
       </div>
     </div>
   );
-  const gpt56ModelsEnabled = aiSettings?.model_options?.length
-    ? aiSettings.model_options.every((model) => model.startsWith("gpt-5.6-"))
+  const rolloutModelsEnabled = aiSettings?.model_options?.length
+    ? aiSettings.model_options.every((model) => model.startsWith("gpt-5.6-") || model === "gpt-6.1-sol")
     : false;
 
   if (coOwnershipToken) {
@@ -14243,7 +14243,7 @@ export function App() {
                           <strong>{t("aiModelsHelpTitle")}</strong>
                           <p>{t("aiModelsHelpIntro")}</p>
                           <ul>
-                            {gpt56ModelsEnabled ? (
+                            {rolloutModelsEnabled ? (
                               <>
                                 <li>{t("aiModelsHelpLuna")}</li>
                                 <li>{t("aiModelsHelpTerra")}</li>

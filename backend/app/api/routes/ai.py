@@ -155,7 +155,7 @@ from app.services.wine_image_recognition import optimized_wine_images
 router = APIRouter(prefix="/ai")
 
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
-GPT56_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol"]
+ROLLOUT_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-6.1-sol"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
 CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS = 4096
 CELLAR_INTELLIGENCE_TIMEOUT_SECONDS = 150
@@ -168,7 +168,7 @@ MODEL_FIELDS = [
     "wishlist_model",
     "pairing_model",
 ]
-GPT56_DEFAULT_ROLE_BY_FIELD = {
+ROLLOUT_DEFAULT_ROLE_BY_FIELD = {
     "ai_notes_model": "economy",
     "drink_window_model": "balanced",
     "value_model": "economy",
@@ -210,9 +210,14 @@ DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
         "output": Decimal("12.00"),
     },
     "gpt-5.6-sol": {
-        "input": Decimal("5.00"),
-        "cached_input": Decimal("0.50"),
-        "output": Decimal("30.00"),
+        "input": Decimal("4.00"),
+        "cached_input": Decimal("0.40"),
+        "output": Decimal("20.00"),
+    },
+    "gpt-6.1-sol": {
+        "input": Decimal("2.00"),
+        "cached_input": Decimal("0.10"),
+        "output": Decimal("10.00"),
     },
 }
 
@@ -326,8 +331,8 @@ def request_model(payload: AiGenerationRequest, configured_model: str) -> str:
 
 
 def available_model_options() -> list[str]:
-    """Models exposed to user/API settings; GPT-5.5 remains internal fallback when GPT-5.6 is enabled."""
-    return list(GPT56_MODEL_OPTIONS if settings.openai_enable_gpt56 else LEGACY_MODEL_OPTIONS)
+    """Models exposed to user/API settings; GPT-5.5 remains an internal fallback."""
+    return list(ROLLOUT_MODEL_OPTIONS if settings.openai_enable_gpt56 else LEGACY_MODEL_OPTIONS)
 
 
 def default_model_for_field(field: str) -> str:
@@ -336,19 +341,19 @@ def default_model_for_field(field: str) -> str:
         return str(getattr(settings, f"openai_{field}", "")).strip()
 
     configured_model = str(
-        getattr(settings, f"openai_{GPT56_DEFAULT_ROLE_BY_FIELD[field]}_model", "")
+        getattr(settings, f"openai_{ROLLOUT_DEFAULT_ROLE_BY_FIELD[field]}_model", "")
     ).strip()
-    if configured_model in GPT56_MODEL_OPTIONS:
+    if configured_model in ROLLOUT_MODEL_OPTIONS:
         return configured_model
     return {
         "economy": "gpt-5.6-luna",
         "balanced": "gpt-5.6-terra",
-        "advanced": "gpt-5.6-sol",
-    }[GPT56_DEFAULT_ROLE_BY_FIELD[field]]
+        "advanced": "gpt-6.1-sol",
+    }[ROLLOUT_DEFAULT_ROLE_BY_FIELD[field]]
 
 
 def normalize_user_ai_models(user_settings: UserAiSettings) -> bool:
-    """Migrate old saved model preferences when the GPT-5.6-only flag is enabled."""
+    """Migrate old saved model preferences when the modern-model flag is enabled."""
     if not settings.openai_enable_gpt56:
         return False
     changed = False
@@ -459,7 +464,7 @@ def pricing_for_model(model: str, db: Session | None = None) -> dict[str, Decima
 
 def reservation_pricing_model(model: str, db: Session | None = None) -> str:
     candidates = [model]
-    if model.startswith("gpt-5.6"):
+    if model.startswith(("gpt-5.6", "gpt-6")):
         candidates.append(settings.openai_fallback_model)
     priced_candidates = [(candidate, pricing_for_model(candidate, db)) for candidate in candidates]
     return max(priced_candidates, key=lambda item: item[1]["input"] + item[1]["output"])[0]
@@ -1104,7 +1109,7 @@ def update_ai_settings(
         value = getattr(payload, field)
         if value is not None:
             # The UI may submit all fields together. Convert a stale preference
-            # saved before the GPT-5.6-only rollout instead of rejecting the
+            # saved before the modern-model rollout instead of rejecting the
             # whole update because one untouched field still contains GPT-5.4.
             if settings.openai_enable_gpt56 and value in LEGACY_MODEL_OPTIONS:
                 setattr(user_settings, field, default_model_for_field(field))
