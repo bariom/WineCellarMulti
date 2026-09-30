@@ -467,6 +467,17 @@ export function MarketValueModal({
           {referencePrice > 0 ? <small>{referenceLabel}: {formatMoney(referencePrice, referenceCurrency, locale, 2, 2)}</small> : null}
         </div>
 
+        <div className="market-request-transparency" aria-label={locale === "it" ? "Trasparenza richiesta AI" : "AI request transparency"}>
+          <div>
+            <span>{t("aiModelUsed")}</span>
+            <strong>{entry.model || t("valueUnavailable")}</strong>
+          </div>
+          <div>
+            <span>{t("estimatedAiRequestCost")}</span>
+            <strong>{formatUsd(entry.estimated_cost_usd)}</strong>
+          </div>
+        </div>
+
         <div className="market-sources-section">
           <div className="section-heading">
             <h3>{t("marketSources")}</h3>

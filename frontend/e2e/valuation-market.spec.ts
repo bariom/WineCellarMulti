@@ -39,6 +39,7 @@ test("reference market saves independently of language and persists after reload
 
 for (const kind of ["wine", "wishlist"]) {
   test(`saved ${kind} valuation shows its original market and foreign sources`, async ({ page }, testInfo) => {
+    const estimatedCost = kind === "wine" ? "0.012345" : "0";
     await page.route("**/valuation-test", route => route.fulfill({ contentType: "text/html", body: `
       <html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body><div id="root"></div><script type="module">
       import RefreshRuntime from '/@react-refresh';
@@ -52,7 +53,7 @@ for (const kind of ["wine", "wishlist"]) {
       const {translations} = await import('/src/i18n.ts');
       await import('/src/styles.css');
       const wine = ${JSON.stringify(wine)};
-      const context = {kind: '${kind}', wine: {...wine, ai_value_market_country: 'IT'}, item: {...wine, ai_market_price: '48', ai_market_price_currency: 'CHF', ai_market_price_market_country: 'IT'}, entry: {sources: [
+      const context = {kind: '${kind}', wine: {...wine, ai_value_market_country: 'IT'}, item: {...wine, ai_market_price: '48', ai_market_price_currency: 'CHF', ai_market_price_market_country: 'IT'}, entry: {model:'gpt-6.1-sol',estimated_cost_usd:'${estimatedCost}',sources: [
         {kind:'valuation_market',country:'IT'},
         {kind:'market_source',merchant:'Negozio locale',country:'Italy',price:48,currency:'CHF',url:'https://example.com/local'},
         {kind:'market_source',merchant:'Negozio estero',country:'France',price:52,currency:'EUR',url:'https://example.com/foreign'}
@@ -63,6 +64,11 @@ for (const kind of ["wine", "wishlist"]) {
     await expect(page.getByText("Mercato: Italia · CHF", { exact: true })).toBeVisible();
     await expect(page.getByText(/Include fonti estere/)).toBeVisible();
     await expect(page.getByRole("link", { name: /Negozio estero \(France\)/ })).toBeVisible();
+    const transparency = page.getByLabel("Trasparenza richiesta AI");
+    await expect(transparency.getByText("Modello utilizzato", { exact: true })).toBeVisible();
+    await expect(transparency.getByText("gpt-6.1-sol", { exact: true })).toBeVisible();
+    await expect(transparency.getByText("Costo stimato richiesta AI", { exact: true })).toBeVisible();
+    await expect(transparency.getByText(kind === "wine" ? "$0.0123" : "$0.0000", { exact: true })).toBeVisible();
     for (const width of [360, 390, 430, 1440]) {
       await page.setViewportSize({ width, height: 844 });
       const card = page.locator(".market-modal-card");

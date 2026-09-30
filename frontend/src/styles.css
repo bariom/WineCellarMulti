@@ -2369,6 +2369,32 @@ summary:focus-visible {
   color: var(--danger);
 }
 
+.market-request-transparency {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.market-request-transparency > div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--surface-muted) 72%, var(--surface));
+}
+
+.market-request-transparency span {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+}
+
+.market-request-transparency strong {
+  overflow-wrap: anywhere;
+  font-size: 0.95rem;
+}
+
 .user-stats-modal-card {
   width: min(100%, 860px);
 }
