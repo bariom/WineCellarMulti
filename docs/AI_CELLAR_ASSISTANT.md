@@ -8,7 +8,7 @@ Example:
 
 > Ieri a cena ho bevuto una bottiglia di Ornellaia 2015 ed era eccellente, 9 su 10! Aggiorna la cantina.
 
-The assistant uses `gpt-5.6-luna` with reasoning effort `none` and strict structured output only
+The assistant uses `gpt-6-luna` with reasoning effort `none` and strict structured output only
 to interpret the message. Wine matching, authorization, stock changes, and tasting persistence
 remain deterministic application operations. The model never receives database IDs and cannot
 directly write to the database.
@@ -53,7 +53,7 @@ for the user to choose.
   the tasting created by that command.
 
 The frontend exposes the workflow under **Assistente AI**. Set
-`OPENAI_CELLAR_COMMAND_MODEL=gpt-5.6-luna` and apply Alembic migration
+`OPENAI_CELLAR_COMMAND_MODEL=gpt-6-luna` and apply Alembic migration
 `0093_cellar_ai_commands` before deployment.
 
 Set `CELLAR_AI_ASSISTANT_ENABLED=false` to disable the assistant globally for regular users.

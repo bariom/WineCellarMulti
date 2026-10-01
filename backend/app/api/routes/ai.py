@@ -155,7 +155,7 @@ from app.services.wine_image_recognition import optimized_wine_images
 router = APIRouter(prefix="/ai")
 
 LEGACY_MODEL_OPTIONS = ["gpt-5.4-nano", "gpt-5.4-mini", "gpt-5.4", "gpt-5.5"]
-ROLLOUT_MODEL_OPTIONS = ["gpt-5.6-luna", "gpt-5.6-terra", "gpt-6.1-sol"]
+ROLLOUT_MODEL_OPTIONS = ["gpt-6-luna", "gpt-6.1-sol", "gpt-6-astra"]
 AI_PROVIDER_OPTIONS = ["auto", "user_key", "credits"]
 CELLAR_INTELLIGENCE_MAX_OUTPUT_TOKENS = 4096
 CELLAR_INTELLIGENCE_TIMEOUT_SECONDS = 150
@@ -218,6 +218,16 @@ DEFAULT_MODEL_PRICING_USD_PER_MILLION_TOKENS = {
         "input": Decimal("2.00"),
         "cached_input": Decimal("0.10"),
         "output": Decimal("10.00"),
+    },
+    "gpt-6-luna": {
+        "input": Decimal("0.10"),
+        "cached_input": Decimal("0.01"),
+        "output": Decimal("0.50"),
+    },
+    "gpt-6-astra": {
+        "input": Decimal("10.00"),
+        "cached_input": Decimal("1.00"),
+        "output": Decimal("50.00"),
     },
 }
 
@@ -346,8 +356,8 @@ def default_model_for_field(field: str) -> str:
     if configured_model in ROLLOUT_MODEL_OPTIONS:
         return configured_model
     return {
-        "economy": "gpt-5.6-luna",
-        "balanced": "gpt-5.6-terra",
+        "economy": "gpt-6-luna",
+        "balanced": "gpt-6.1-sol",
         "advanced": "gpt-6.1-sol",
     }[ROLLOUT_DEFAULT_ROLE_BY_FIELD[field]]
 

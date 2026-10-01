@@ -110,13 +110,6 @@ export default function TimeSeriesChart({
     const values = chartPoints.map((point) => point.value);
     const secondaryByTimestamp = new Map(chartSecondaryPoints.map((point) => [point.timestampMs, point.value]));
     const secondaryValues = chartPoints.map((point) => secondaryByTimestamp.get(point.timestampMs) ?? null);
-    // uPlot can generate multiple intra-day ticks. Since the labels intentionally
-    // show only day/month, use a compact subset of actual sale dates instead.
-    const tickCount = Math.min(timestamps.length, 6);
-    const xAxisSplits = Array.from({ length: tickCount }, (_, index) => {
-      const pointIndex = tickCount === 1 ? 0 : Math.round((index * (timestamps.length - 1)) / (tickCount - 1));
-      return timestamps[pointIndex];
-    }).filter((timestamp, index, all) => index === 0 || timestamp !== all[index - 1]);
     const dateLocale = locale === "it" ? "it-CH" : "en-GB";
     const dateFormat = new Intl.DateTimeFormat(dateLocale, timeUnit === "month"
       ? { month: "short", year: "2-digit" }
@@ -124,6 +117,17 @@ export default function TimeSeriesChart({
     const tooltipDateFormat = new Intl.DateTimeFormat(dateLocale, timeUnit === "month"
       ? { month: "long", year: "numeric" }
       : { day: "2-digit", month: "short", year: "numeric" });
+    // Use actual observation dates and remove labels that render identically.
+    // This keeps same-day measurements and narrow mobile charts readable.
+    const tickCount = Math.min(timestamps.length, chartHost.clientWidth < 420 ? 4 : 6);
+    const xAxisSplits = Array.from({ length: tickCount }, (_, index) => {
+      const pointIndex = tickCount === 1 ? 0 : Math.round((index * (timestamps.length - 1)) / (tickCount - 1));
+      return timestamps[pointIndex];
+    }).filter((timestamp, index, all) => {
+      if (index > 0 && timestamp === all[index - 1]) return false;
+      const label = dateFormat.format(new Date(timestamp * 1000));
+      return !all.slice(0, index).some((previous) => dateFormat.format(new Date(previous * 1000)) === label);
+    });
     const valueFormat = new Intl.NumberFormat(dateLocale, { maximumFractionDigits: 0 });
     const splinePath = uPlot.paths.spline?.();
     const data: uPlot.AlignedData = chartSecondaryPoints.length

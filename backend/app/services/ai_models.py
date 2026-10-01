@@ -9,7 +9,7 @@ from app.core.config import settings
 
 LEGACY_MODEL = "gpt-5.5"
 COMPATIBILITY_MODELS = {"gpt-5.4", "gpt-5.4-mini", "gpt-5.4-nano"}
-ROLLOUT_MODELS = {"gpt-5.6-luna", "gpt-5.6-terra", "gpt-5.6-sol", "gpt-6.1-sol"}
+ROLLOUT_MODELS = {"gpt-6-luna", "gpt-6.1-sol", "gpt-6-astra"}
 DEFAULT_MAX_OUTPUT_TOKENS = 32768
 ABSOLUTE_MAX_OUTPUT_TOKENS = 32768
 ModelRole = Literal["legacy", "economy", "balanced", "advanced"]
@@ -105,7 +105,7 @@ def role_for_model(model: str) -> ModelRole:
     for role, configured_model in model_by_role().items():
         if model == configured_model:
             return role
-    if model in {"gpt-5.6-sol", "gpt-6.1-sol"}:
+    if model in {"gpt-6.1-sol", "gpt-6-astra"}:
         return "advanced"
     return "legacy"
 
@@ -124,7 +124,7 @@ def select_ai_model(
     requested = requested_model.strip() if requested_model else None
     normalized_task = task_type.strip().lower()
 
-    # Cellar commands are an isolated GPT-5.6 Luna workload. This does not
+    # Cellar commands are an isolated GPT-6 Luna workload. This does not
     # opt unrelated AI features into the broader modern-model rollout flag.
     cellar_command_model = settings.openai_cellar_command_model.strip()
     if normalized_task == "cellar_command" and requested == cellar_command_model:

@@ -67,6 +67,70 @@ test("wine detail separates speculative legacy scores from ratings", async ({ pa
   await expect(detail.locator('[data-wine-detail-section="03"]')).toHaveScreenshot("critic-score-review-compact.png");
 });
 
+test("wine value history can zoom and navigate recent records", async ({ page }, testInfo) => {
+  await mockApi(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await page.addInitScript(() => {
+    const original = window.fetch;
+    window.fetch = async (input, init) => {
+      const response = await original(input, init);
+      if (String(input).endsWith("/wines") || String(input).endsWith("/wines/wine-e2e-1")) {
+        const body = await response.json();
+        const valueHistory = [
+          ["2026-09-20T12:00:00Z", "245", "manual"],
+          ["2026-09-25T12:00:00Z", "255", "ai"],
+          ["2026-09-27T12:00:00Z", "246", "ai"],
+          ["2026-09-28T12:00:00Z", "240", "ai"],
+          ["2026-09-29T12:00:00Z", "299", "ai"],
+          ["2026-09-30T12:00:00Z", "255", "manual"],
+          ["2026-10-01T10:00:00Z", "260", "ai"],
+          ["2026-10-01T14:00:00Z", "262", "manual"],
+        ].map(([recorded_at, value, source], index) => ({ id: `value-${index}`, recorded_at, value, currency: "CHF", source }));
+        const enrich = (item: object) => ({ ...item, order_date: "2022-12-01", value_history: valueHistory });
+        return new Response(JSON.stringify(Array.isArray(body) ? body.map(enrich) : enrich(body)), { headers: { "Content-Type": "application/json" } });
+      }
+      return response;
+    };
+  });
+  await page.reload();
+  await page.getByRole("button", { name: /^Cantina/ }).first().click();
+  await page.locator('[data-wine-row-id="wine-e2e-1"] article').click();
+
+  const detail = page.locator(".wine-detail:visible").first();
+  await detail.locator("summary").filter({ hasText: "Prezzi e valore" }).click();
+  const card = detail.locator(".value-history-card");
+  await card.scrollIntoViewIfNeeded();
+  await expect(card.getByText("6 / 9 record", { exact: true })).toBeVisible();
+  await expect(card.getByRole("button", { name: "Periodo successivo" })).toBeDisabled();
+  await card.getByRole("button", { name: "Periodo precedente" }).click();
+  await expect(card.getByRole("button", { name: "Periodo successivo" })).toBeEnabled();
+  await card.getByRole("button", { name: "Mostra tutta la cronologia" }).click();
+  await expect(card.getByText("9 record", { exact: true })).toBeVisible();
+  await card.getByRole("button", { name: "Aumenta zoom" }).click();
+  await expect(card.getByText("7 / 9 record", { exact: true })).toBeVisible();
+  for (const width of [360, 390, 430]) {
+    await page.setViewportSize({ width, height: 844 });
+    await card.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    expect(await card.locator(".value-history-navigation-actions").evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const controls = await card.locator(".value-history-navigation-actions button").evaluateAll(buttons => buttons.map((button) => {
+      const box = button.getBoundingClientRect();
+      return { left: box.left, right: box.right, top: box.top, bottom: box.bottom };
+    }));
+    for (let first = 0; first < controls.length; first += 1) {
+      for (let second = first + 1; second < controls.length; second += 1) {
+        const a = controls[first];
+        const b = controls[second];
+        expect(a.right <= b.left || b.right <= a.left || a.bottom <= b.top || b.bottom <= a.top).toBe(true);
+      }
+    }
+  }
+  await page.setViewportSize({ width: 390, height: 844 });
+  await card.scrollIntoViewIfNeeded();
+  await card.screenshot({ path: testInfo.outputPath("value-history-navigation-390.png"), animations: "disabled" });
+});
+
 test("wine sensory signature shows intensity and missing values across viewports", async ({ page }, testInfo) => {
   await page.addInitScript(() => sessionStorage.setItem("vinaris-test-sensory", JSON.stringify({
     identity_id: "sensory-test", generation_status: "available", source: "metadata", confidence: 0.65, validated: false,

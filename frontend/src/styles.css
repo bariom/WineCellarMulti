@@ -13024,6 +13024,82 @@ button.stat-card:hover {
   border-radius: 12px;
 }
 
+.value-history-navigation {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+}
+
+.value-history-period {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.value-history-navigation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.value-history-navigation-actions button {
+  min-width: 40px;
+  min-height: 40px;
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--border) 78%, var(--primary));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-raised) 88%, transparent);
+  color: var(--primary);
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.value-history-navigation-actions button:hover:not(:disabled),
+.value-history-navigation-actions button:focus-visible {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface-raised));
+}
+
+.value-history-navigation-actions button:disabled {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.value-history-navigation-actions .value-history-range-button {
+  min-width: auto;
+  font-size: 0.74rem;
+}
+
+@media (max-width: 500px) {
+  .value-history-navigation {
+    align-items: stretch;
+  }
+
+  .value-history-period {
+    width: 100%;
+  }
+
+  .value-history-navigation-actions {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .value-history-navigation-actions button {
+    width: 100%;
+  }
+
+  .value-history-navigation-actions .value-history-range-button {
+    grid-column: span 2;
+  }
+}
+
 .value-history-legend {
   display: flex;
   flex-wrap: wrap;

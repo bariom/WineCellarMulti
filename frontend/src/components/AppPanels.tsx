@@ -83,12 +83,18 @@ export function DrinkWindowMini({ wine }: { wine: Wine }) {
 
 export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: TranslationKey) => string; locale: Locale }) {
   const [purchaseLots, setPurchaseLots] = useState<WineStockLot[]>([]);
+  const [visibleCount, setVisibleCount] = useState(6);
+  const [windowStart, setWindowStart] = useState<number | null>(null);
   useEffect(() => {
     let active = true;
     void api<WineStockLot[]>(`/api/v1/inventory/lots?wine_id=${wine.id}&include_empty=true`)
       .then((lots) => { if (active) setPurchaseLots(lots); })
       .catch(() => { if (active) setPurchaseLots([]); });
     return () => { active = false; };
+  }, [wine.id]);
+  useEffect(() => {
+    setVisibleCount(6);
+    setWindowStart(null);
   }, [wine.id]);
   const historyEntries = (wine.value_history || [])
     .filter((entry) => entry.value && entry.recorded_at)
@@ -149,13 +155,18 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
     return { ...entry, dateMs: dayMs + offset * 1000 };
   });
 
+  const windowSize = Math.min(Math.max(2, visibleCount), entries.length);
+  const latestWindowStart = Math.max(0, entries.length - windowSize);
+  const visibleStart = Math.min(windowStart ?? latestWindowStart, latestWindowStart);
+  const visibleEntries = entries.slice(visibleStart, visibleStart + windowSize);
+
   if (entries.length === 0) return null;
 
-  const values = entries.map((entry) => entry.numericValue);
+  const values = visibleEntries.map((entry) => entry.numericValue);
   const minValue = Math.min(...values);
   const maxValue = Math.max(...values);
-  const first = entries[0];
-  const last = entries[entries.length - 1];
+  const first = visibleEntries[0];
+  const last = visibleEntries[visibleEntries.length - 1];
   const deltaValue = last.numericValue - first.numericValue;
   const deltaPercent = first.numericValue > 0 ? (deltaValue / first.numericValue) * 100 : 0;
   const deltaPositive = deltaValue >= 0;
@@ -166,28 +177,90 @@ export function ValueHistoryChart({ wine, t, locale }: { wine: Wine; t: (key: Tr
     shared: "Share",
     purchase: t("purchasePrice"),
   };
-  const hasAiEstimate = entries.some((entry) => entry.source === "ai");
-  const hasManualCorrection = entries.some((entry) => entry.source === "manual");
-  const hasPurchasePrice = entries.some((entry) => entry.source === "purchase");
+  const hasAiEstimate = visibleEntries.some((entry) => entry.source === "ai");
+  const hasManualCorrection = visibleEntries.some((entry) => entry.source === "manual");
+  const hasPurchasePrice = visibleEntries.some((entry) => entry.source === "purchase");
 
   return (
     <div className="value-history-card">
       <div className="section-heading">
         <div>
           <h3>{t("valueEvolution")}</h3>
-          <span>{entries.length} {t("records")}</span>
+          <span>{visibleEntries.length < entries.length ? `${visibleEntries.length} / ${entries.length}` : entries.length} {t("records")}</span>
         </div>
         <strong className={deltaPositive ? "value-history-delta positive" : "value-history-delta negative"}>
           {deltaPositive ? "+" : ""}{deltaValue.toFixed(0)} ({deltaPositive ? "+" : ""}{deltaPercent.toFixed(1)}%)
         </strong>
       </div>
+      {entries.length > 2 ? (
+        <div className="value-history-navigation" aria-label={locale === "it" ? "Intervallo del grafico" : "Chart range"}>
+          <span className="value-history-period">
+            {formatDisplayDate(first.recorded_at)} – {formatDisplayDate(last.recorded_at)}
+          </span>
+          <div className="value-history-navigation-actions">
+            <button
+              type="button"
+              aria-label={locale === "it" ? "Periodo precedente" : "Previous period"}
+              title={locale === "it" ? "Periodo precedente" : "Previous period"}
+              disabled={visibleStart === 0}
+              onClick={() => setWindowStart(Math.max(0, visibleStart - Math.max(1, windowSize - 1)))}
+            >←</button>
+            <button
+              type="button"
+              aria-label={locale === "it" ? "Riduci zoom" : "Zoom out"}
+              title={locale === "it" ? "Mostra più dati" : "Show more data"}
+              disabled={windowSize === entries.length}
+              onClick={() => {
+                const nextSize = Math.min(entries.length, windowSize + 2);
+                const nextStart = Math.max(0, visibleStart + windowSize - nextSize);
+                setVisibleCount(nextSize);
+                setWindowStart(nextStart === entries.length - nextSize ? null : nextStart);
+              }}
+            >−</button>
+            <button
+              type="button"
+              aria-label={locale === "it" ? "Aumenta zoom" : "Zoom in"}
+              title={locale === "it" ? "Mostra meno dati" : "Show fewer data points"}
+              disabled={windowSize <= 2}
+              onClick={() => {
+                const nextSize = Math.max(2, windowSize - 2);
+                setVisibleCount(nextSize);
+                setWindowStart(Math.min(visibleStart + windowSize - nextSize, entries.length - nextSize));
+              }}
+            >+</button>
+            <button
+              type="button"
+              aria-label={locale === "it" ? "Periodo successivo" : "Next period"}
+              title={locale === "it" ? "Periodo successivo" : "Next period"}
+              disabled={visibleStart + windowSize >= entries.length}
+              onClick={() => {
+                const nextStart = Math.min(latestWindowStart, visibleStart + Math.max(1, windowSize - 1));
+                setWindowStart(nextStart === latestWindowStart ? null : nextStart);
+              }}
+            >→</button>
+            <button
+              type="button"
+              className="value-history-range-button"
+              aria-label={locale === "it" ? "Mostra i dati più recenti" : "Show recent data"}
+              onClick={() => { setVisibleCount(6); setWindowStart(null); }}
+            >{locale === "it" ? "Recenti" : "Recent"}</button>
+            <button
+              type="button"
+              className="value-history-range-button"
+              aria-label={locale === "it" ? "Mostra tutta la cronologia" : "Show full history"}
+              onClick={() => { setVisibleCount(entries.length); setWindowStart(null); }}
+            >{locale === "it" ? "Tutto" : "All"}</button>
+          </div>
+        </div>
+      ) : null}
       <Suspense fallback={<div className="value-history-chart" aria-label={t("valueEvolution")} />}>
         <div className="value-history-chart">
           <TimeSeriesChart
             ariaLabel={t("valueEvolution")}
             locale={locale}
             currency={last.currency}
-            points={entries.map((entry) => ({
+            primaryLabel={locale === "it" ? "Valore" : "Value"}
+            points={visibleEntries.map((entry) => ({
               timestampMs: entry.dateMs,
               value: entry.numericValue,
               tone: entry.source === "ai" || entry.source === "manual" || entry.source === "imported" || entry.source === "shared" || entry.source === "purchase" ? entry.source : "default",

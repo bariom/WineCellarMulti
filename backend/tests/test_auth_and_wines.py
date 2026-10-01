@@ -4655,6 +4655,7 @@ def test_cellar_ai_confirmation_handles_legacy_malformed_tasting_scores(monkeypa
 def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monkeypatch):
     from app.api.routes import ai as ai_routes
 
+    monkeypatch.setattr(settings, "openai_cellar_command_model", "gpt-6-luna")
     client = TestClient(app)
     assert register(client).status_code == 201
     wine = client.post(
@@ -4673,7 +4674,7 @@ def test_cellar_ai_command_consumes_exact_wine_preserves_score_and_can_undo(monk
     def fake_create_ai_response(*args, **kwargs):
         nonlocal provider_calls
         provider_calls += 1
-        assert kwargs["model"] == "gpt-5.6-luna"
+        assert kwargs["model"] == "gpt-6-luna"
         assert kwargs["reasoning_effort"] == "none"
         assert kwargs["task_type"] == "cellar_command"
         return (
@@ -6097,7 +6098,7 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
     client = TestClient(app)
     assert register(client).status_code == 201
     monkeypatch.setattr(settings, "openai_enable_gpt56", True)
-    monkeypatch.setattr(settings, "openai_economy_model", "gpt-5.6-luna")
+    monkeypatch.setattr(settings, "openai_economy_model", "gpt-6-luna")
 
     with TestingSessionLocal() as db:
         user = db.scalar(select(User).where(User.email == "owner@example.com"))
@@ -6162,7 +6163,7 @@ def test_app_admin_can_research_and_save_a_verified_vineyard(monkeypatch):
     response = client.post(f"/api/v1/admin/operations/vineyards/{wine_id}/research?locale=it")
 
     assert response.status_code == 200
-    assert request_options["model"] == "gpt-5.6-luna"
+    assert request_options["model"] == "gpt-6-luna"
     assert request_options["reasoning_effort"] == "low"
     assert request_options["web_search_context_size"] == "low"
     assert request_options["max_output_tokens"] == 2048

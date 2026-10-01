@@ -81,10 +81,10 @@ class Settings(BaseSettings):
     openai_wishlist_model: str = "gpt-5.4"
     openai_pairing_model: str = "gpt-5.4"
     cellar_ai_assistant_enabled: bool = True
-    openai_cellar_command_model: str = "gpt-5.6-luna"
+    openai_cellar_command_model: str = "gpt-6-luna"
     openai_default_model: str = "gpt-5.5"
-    openai_economy_model: str = "gpt-5.6-luna"
-    openai_balanced_model: str = "gpt-5.6-terra"
+    openai_economy_model: str = "gpt-6-luna"
+    openai_balanced_model: str = "gpt-6.1-sol"
     openai_advanced_model: str = "gpt-6.1-sol"
     openai_fallback_model: str = "gpt-5.5"
     openai_enable_gpt56: bool = False
@@ -117,7 +117,7 @@ class Settings(BaseSettings):
     wine_photo_ai_threads: int = Field(default=4, ge=0, le=64)
     wine_pulse_enabled: bool = True
     wine_pulse_ai_enabled: bool = True
-    wine_pulse_model: str = "gpt-5.6-luna"
+    wine_pulse_model: str = "gpt-6-luna"
     wine_pulse_min_score: int = 72
     wine_pulse_max_daily_articles: int = 10
     wine_pulse_feed_timeout_seconds: int = 20

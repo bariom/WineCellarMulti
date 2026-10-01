@@ -103,7 +103,7 @@ def editorial_decision(*_args):
             "Le condizioni recenti migliorano le prospettive. I produttori restano prudenti."
         ),
         "summary_en": "Recent conditions improved the outlook. Producers remain cautious.",
-        "ai_model": "gpt-5.6-luna",
+        "ai_model": "gpt-6-luna",
         "_input_tokens": 120,
         "_output_tokens": 80,
     }

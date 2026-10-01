@@ -96,7 +96,7 @@ def admin_price_book(db: Session) -> dict[str, dict[str, str]]:
     """Expose prices only for models selectable in the current deployment.
 
     Legacy prices can remain in the server-side fallback accounting table, but
-    app admins should not need to maintain them while the GPT-5.6 family is
+    app admins should not need to maintain them while the GPT-6 family is
     enabled.
     """
     price_book = model_pricing_usd_per_million_tokens(db)

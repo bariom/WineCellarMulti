@@ -2,7 +2,7 @@
 
 Wine Pulse is an autonomous editorial feed for wine-sector news. A separate
 oneshot worker collects a curated set of RSS feeds, normalizes and deduplicates
-their entries, asks GPT-5.6 Luna for a structured editorial decision, and stores
+their entries, asks GPT-6 Luna for a structured editorial decision, and stores
 only the selected metadata and summaries. The Vinaris web application reads the
 already prepared feed and never waits for source websites or OpenAI.
 
@@ -36,7 +36,7 @@ The relevant backend environment variables are:
 ```env
 WINE_PULSE_ENABLED=true
 WINE_PULSE_AI_ENABLED=true
-WINE_PULSE_MODEL=gpt-5.6-luna
+WINE_PULSE_MODEL=gpt-6-luna
 WINE_PULSE_MIN_SCORE=72
 WINE_PULSE_MAX_DAILY_ARTICLES=10
 WINE_PULSE_FEED_TIMEOUT_SECONDS=20
@@ -46,7 +46,7 @@ WINE_PULSE_SOURCES_JSON=
 
 `OPENAI_API_KEY` must be configured and `OPENAI_ENABLE_GPT56=true` must be set
 for the configured Luna model to be used. The normal Vinaris rollback switch is
-respected: while GPT-5.6 is disabled, the existing safe fallback model is used.
+respected: while the modern-model rollout is disabled, the existing safe fallback model is used.
 
 `WINE_PULSE_SOURCES_JSON` can replace the built-in registry without a code
 deployment. Example:

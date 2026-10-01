@@ -8,10 +8,13 @@ single controlled fallback live in `app/services/openai_client.py`.
 
 | Role | Default model | Initial reasoning effort | Workloads |
 | --- | --- | --- | --- |
-| `legacy` | `gpt-5.5` | omitted (preserves the previous request shape) | production default and fallback |
-| `economy` | `gpt-5.6-luna` | `low` | simple extraction and short structured work |
-| `balanced` | `gpt-5.6-terra` | `medium` | Sommelier, pairings and normal analysis |
+| `legacy` | `gpt-5.5` | omitted (preserves the previous request shape) | rollback and provider fallback |
+| `economy` | `gpt-6-luna` | `low` | simple extraction and short structured work |
+| `balanced` | `gpt-6.1-sol` | `medium` | Sommelier, pairings and normal analysis |
 | `advanced` | `gpt-6.1-sol` | `high` | cellar/portfolio analysis and multi-step planning |
+
+`gpt-6-astra` is allowlisted for an explicit quality-first choice, but it is not
+the default for a role because its standard token price is substantially higher.
 
 The role model IDs, reasoning effort, maximum output tokens, timeout and retry
 policy are configurable through the corresponding `OPENAI_*` variables shown in
@@ -22,13 +25,21 @@ in the AI audit. Temperature is intentionally omitted: Vinaris did not previousl
 it, and it is not needed by these reasoning workloads.
 
 `OPENAI_ENABLE_GPT56` retains its historical name for deployment compatibility;
-it now enables the allowlisted GPT-5.6 Luna/Terra and GPT-6.1 Sol rollout set.
+it now enables the allowlisted GPT-6 Luna, GPT-6.1 Sol and GPT-6 Astra set.
+
+## GPT-6 compatibility
+
+Vinaris already uses the Responses API, does not send `temperature`, `top_p` or
+`logprobs`, and does not depend on Fast mode. GPT-6 Luna therefore remains usable
+with `none`/`low` effort for short tasks, while GPT-6.1 Sol and GPT-6 Astra are
+kept at `low` or higher. GPT-5.5 remains available only as a controlled rollback
+and provider fallback.
 
 ## Safe rollout
 
-The default configuration has both feature flags disabled. In this state every
-request is forced to `gpt-5.5`, including requests backed by older per-user model
-settings. The modern model set can first be enabled for explicit allowlisted selection only:
+The documented deployment configuration enables GPT-6 routing. The application
+still defaults both compatibility flags to `false` when no environment is loaded,
+so an existing deployment can stage explicit allowlisted selection before routing:
 
 ```env
 OPENAI_DEFAULT_MODEL=gpt-5.5
@@ -71,7 +82,7 @@ No database migration or frontend deployment is required.
 1. Run `pytest` and `ruff check .` from `backend/`.
 2. Deploy with the modern model set enabled and routing disabled; verify a normal Sommelier
    request remains on GPT-5.5 and inspect the structured `openai_response` log.
-3. Explicitly exercise GPT-5.6 Luna/Terra and GPT-6.1 Sol with non-sensitive test data.
+3. Explicitly exercise GPT-6 Luna, GPT-6.1 Sol and GPT-6 Astra with non-sensitive test data.
 4. Simulate model access and rate-limit failures and confirm one GPT-5.5 fallback.
 5. Enable routing and compare representative notes, pairings, wine analysis and
    portfolio planning for response schema, latency, token usage and cost.

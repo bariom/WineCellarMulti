@@ -88,8 +88,8 @@ function hasUsefulBatchAiResult(feature: WineAiFeature, wine: Wine) {
 function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentModel: string) {
   const roleHints: Record<AiModelAdviceRole, string[]> = {
     economy: ["luna", "5.4-mini", "5.4-nano"],
-    balanced: ["terra", "gpt-5.4"],
-    advanced: ["sol", "gpt-5.5"],
+    balanced: ["gpt-6.1-sol", "terra", "gpt-5.4"],
+    advanced: ["astra", "sol", "gpt-5.5"],
   };
   return roleHints[role]
     .map((hint) => modelOptions.find((model) => hint.startsWith("gpt-") ? model.toLowerCase() === hint : model.toLowerCase().includes(hint)))
@@ -355,13 +355,13 @@ function writeOperationalActionSnoozes(snoozes: OperationalActionSnoozes) {
 const emptyAiSettingsDraft: AiSettingsDraft = {
   openai_api_key: "",
   provider_mode: "auto",
-  ai_notes_model: "gpt-5.4-mini",
-  drink_window_model: "gpt-5.4",
-  value_model: "gpt-5.4-mini",
-  grape_model: "gpt-5.4-nano",
-  score_model: "gpt-5.4-mini",
-  wishlist_model: "gpt-5.4",
-  pairing_model: "gpt-5.4",
+  ai_notes_model: "gpt-6-luna",
+  drink_window_model: "gpt-6.1-sol",
+  value_model: "gpt-6-luna",
+  grape_model: "gpt-6-luna",
+  score_model: "gpt-6-luna",
+  wishlist_model: "gpt-6.1-sol",
+  pairing_model: "gpt-6-luna",
   model_advisor_enabled: false,
   pairing_preferences: "",
   pairing_candidate_limit: 25,
@@ -9168,7 +9168,7 @@ export function App() {
     </div>
   );
   const rolloutModelsEnabled = aiSettings?.model_options?.length
-    ? aiSettings.model_options.every((model) => model.startsWith("gpt-5.6-") || model === "gpt-6.1-sol")
+    ? aiSettings.model_options.every((model) => model.startsWith("gpt-6"))
     : false;
 
   if (coOwnershipToken) {
