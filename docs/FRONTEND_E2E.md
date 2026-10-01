@@ -50,6 +50,13 @@ buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does
 not replace the separate taste-profile functional suite.
 
+My Taste geography ranks up to three origins by positive personal-rating evidence,
+separately from physical cellar availability. Complete preferences and the map are
+collapsed by default. Discovery suggestions match appreciated grapes to stocked
+wines outside the listed leading regions; they do not predict a rating. Run
+`npx playwright test e2e/taste-origins.spec.ts e2e/taste-profile.spec.ts e2e/taste-profile-layout.spec.ts`
+for the functional and responsive checks.
+
 Forward a narrower selection or inspect it before execution:
 
 ```powershell

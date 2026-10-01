@@ -11508,7 +11508,7 @@ export function App() {
               {dashboardFocus === "taste" ? (
                 <DashboardCarousel locale={locale} label={locale === "it" ? "Il mio gusto" : "My Taste"} className="taste-dashboard-carousel">
                   <Suspense fallback={<LoadingState label={locale === "it" ? "Caricamento gusto…" : "Loading taste…"} />}>
-                    <TasteProfilePanel locale={locale} variant="insight" wines={wines} isAppAdmin={Boolean(session?.is_app_admin)} />
+                    <TasteProfilePanel locale={locale} variant="insight" wines={wines} isAppAdmin={Boolean(session?.is_app_admin)} onOpenWine={openWineFromDashboard} />
                   </Suspense>
                 </DashboardCarousel>
               ) : null}

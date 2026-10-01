@@ -3,6 +3,7 @@ import type { CSSProperties } from "react";
 import { translate } from "../i18n";
 import type { LegacyTastingClaimResult, LegacyTastingClaimStatus, Locale, TasteProfile, TasteProfileAlgorithmDiagnostics, TasteProfileCollection, TasteProfileEvidence, Wine } from "../types";
 import { api } from "../services/api";
+import { TasteOrigins } from "./TasteOrigins";
 
 const WineGeographyMap = lazy(() => import("../views/WineGeographyMap"));
 
@@ -112,7 +113,7 @@ function SensorySignatureBars({
   </div>;
 }
 
-export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAdmin = false }: { locale: Locale; variant?: "settings" | "insight"; wines?: Wine[]; isAppAdmin?: boolean }) {
+export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAdmin = false, onOpenWine }: { locale: Locale; variant?: "settings" | "insight"; wines?: Wine[]; isAppAdmin?: boolean; onOpenWine?: (wine: Wine) => void }) {
   const italian = locale === "it";
   const insight = variant === "insight";
   const [profiles, setProfiles] = useState<TasteProfile[]>([]);
@@ -207,7 +208,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
   const visibleStarRatingCount = wines
     ? evidence?.direct_rating_count ?? wines.filter((wine) => Number(wine.rating) > 0).length
     : overall?.star_rating_count ?? 0;
-  const attributeOrder = ["preferred_grapes", "preferred_regions", "preferred_appellations", "preferred_producers", "preferred_price_ranges", "preferred_countries"];
+  const attributeOrder = ["preferred_grapes", "preferred_regions", "preferred_appellations", "preferred_producers", "preferred_countries"];
   const attributeEntries = overall
     ? attributeOrder.flatMap((key) => overall.attributes[key]?.length
       ? [[key, overall.attributes[key]] as [string, Array<[string, number]>]]
@@ -414,9 +415,13 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
       {(attributeEntries.length || preferredOrigins.length) ? <section className="taste-profile-geography" aria-labelledby="taste-geography-heading">
         <div className="taste-profile-section-heading">
           <span>{italian ? "Geografia personale" : "Personal geography"}</span>
-          <h3 id="taste-geography-heading">{italian ? "Le origini che cerchi" : "Origins you seek"}</h3>
-          <p>{italian ? "I luoghi che ritornano più spesso nelle tue scelte." : "The places that return most often in your choices."}</p>
+          <h3 id="taste-geography-heading">{italian ? "Dove vale la pena esplorare" : "Where to explore next"}</h3>
+          <p>{italian ? "Parti dai tuoi giudizi e scegli la prossima bottiglia da conoscere." : "Start with your ratings and choose the next bottle to get to know."}</p>
         </div>
+        <TasteOrigins profile={overall} wines={wines} locale={locale} onOpenWine={onOpenWine} />
+        <details className="taste-origin-preferences">
+          <summary>{italian ? "Tutte le tue preferenze" : "All your preferences"}</summary>
+          <p>{italian ? "Caratteristiche associate ai tuoi giudizi positivi, in ordine di peso. Non rappresentano percentuali di acquisto o medie dei voti." : "Characteristics associated with your positive ratings, ordered by evidence weight. They are not purchase percentages or average ratings."}</p>
         <div className="taste-profile-geography-layout">
           <div className="taste-profile-landmark-grid">
             {attributeEntries.map(([kind, values]) => <article key={kind}>
@@ -428,6 +433,7 @@ export function TasteProfilePanel({ locale, variant = "settings", wines, isAppAd
             {preferredOrigins.length ? <Suspense fallback={<p className="empty-state">{italian ? "Caricamento mappa…" : "Loading map…"}</p>}><WineGeographyMap wines={[]} preferredOrigins={preferredOrigins} preferredOriginKinds={preferredOriginKinds} t={(key) => translate(locale, key)} onSelectRegion={() => undefined} locale={locale} /></Suspense> : <p className="empty-state">{italian ? "Le origini preferite appariranno qui con dati sufficienti." : "Preferred origins will appear here with enough data."}</p>}
           </div>
         </div>
+        </details>
       </section> : null}
 
       <details className="taste-profile-method">
