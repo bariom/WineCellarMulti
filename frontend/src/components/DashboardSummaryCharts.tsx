@@ -14,9 +14,9 @@ export function SummaryRing({ items, label, format }: { items: SummarySlice[]; l
   let offset = 0;
   return <div className="summary-ring-layout"><svg viewBox="0 0 180 180" role="img" aria-label={`${label}: ${items.map(item => `${item.label} ${format(item.value)}`).join(", ")}`}>
     <circle cx="90" cy="90" r="65" fill="none" stroke="var(--border)" strokeWidth="20" />
-    {items.map((item, index) => { const share = total ? item.value / total * 100 : 0; const start = offset; offset += share; return <circle key={item.label} cx="90" cy="90" r="65" fill="none" pathLength="100" stroke={summaryPalette[index % summaryPalette.length]} strokeWidth="20" strokeDasharray={`${share} ${100 - share}`} strokeDashoffset={-start} transform="rotate(-90 90 90)" />; })}
+    {items.map((item, index) => { const share = total ? item.value / total * 100 : 0; const start = offset; offset += share; return <circle key={item.label} data-slice-label={item.label} cx="90" cy="90" r="65" fill="none" pathLength="100" stroke={item.color ?? summaryPalette[index % summaryPalette.length]} strokeWidth="20" strokeDasharray={`${share} ${100 - share}`} strokeDashoffset={-start} transform="rotate(-90 90 90)" />; })}
     <text x="90" y="92" textAnchor="middle" className="summary-svg-number">{format(total)}</text><text x="90" y="114" textAnchor="middle">{label}</text>
-  </svg><ul className="summary-legend">{items.map((item, index) => <li key={item.label}><i style={{ background: summaryPalette[index % summaryPalette.length] }} /><span>{item.label}</span><strong>{format(item.value)}</strong></li>)}</ul></div>;
+  </svg><ul className="summary-legend">{items.map((item, index) => <li key={item.label}><i style={{ background: item.color ?? summaryPalette[index % summaryPalette.length] }} /><span>{item.label}</span><strong>{format(item.value)}</strong></li>)}</ul></div>;
 }
 
 export function SummaryRadar({ items, label }: { items: SummarySlice[]; label: string }) {

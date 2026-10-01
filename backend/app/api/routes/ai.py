@@ -3466,6 +3466,11 @@ def normalize_market_sources(
             continue
         if not valid_url:
             url = ""
+        note = str(raw_source.get("note") or "").strip()[:240]
+        bottle_count = market_source_lot_bottle_count(raw_source, note=note)
+        listed_price = price
+        if bottle_count > 1:
+            price = (price / Decimal(bottle_count)).quantize(Decimal("0.01"))
         normalized_source = {
             "kind": "market_source",
             "merchant": merchant,
@@ -3474,9 +3479,12 @@ def normalize_market_sources(
             "currency": str(raw_source.get("currency") or default_currency or "").strip()[:8]
             or default_currency,
             "url": url,
-            "note": str(raw_source.get("note") or "").strip()[:240],
+            "note": note,
             "verified": bool(url),
         }
+        if bottle_count > 1:
+            normalized_source["bottle_count"] = bottle_count
+            normalized_source["listed_price"] = str(listed_price)
         try:
             converted_price = Decimal(str(raw_source.get("price_in_output_currency"))).quantize(
                 Decimal("0.01")
@@ -3484,9 +3492,40 @@ def normalize_market_sources(
         except (InvalidOperation, TypeError, ValueError):
             converted_price = None
         if converted_price is not None and converted_price.is_finite() and converted_price >= 0:
+            if bottle_count > 1:
+                normalized_source["listed_price_in_output_currency"] = str(converted_price)
+                converted_price = (converted_price / Decimal(bottle_count)).quantize(
+                    Decimal("0.01")
+                )
             normalized_source["price_in_output_currency"] = str(converted_price)
         normalized.append(normalized_source)
     return normalized
+
+
+def market_source_lot_bottle_count(raw_source: dict[str, Any], *, note: str) -> int:
+    """Return a listing's bottle count only when the source clearly describes a lot total."""
+    raw_count = raw_source.get("bottle_count")
+    try:
+        explicit_count = int(str(raw_count)) if raw_count is not None else 1
+    except (TypeError, ValueError):
+        explicit_count = 1
+    if 2 <= explicit_count <= 100:
+        return explicit_count
+
+    searchable = " ".join(str(value or "") for value in (raw_source.get("title"), note)).casefold()
+    bottle_word = r"(?:bottigli(?:a|e)|bottles?|bouteilles?|flaschen?)"
+    lot_word = r"(?:lotto|lot|case|pack|box|carton|cassa|confezione|coffret|kiste|karton)"
+    patterns = (
+        rf"\b{lot_word}\s+(?:[^\d]{{0,16}})?(\d{{1,3}})\s*(?:x\s*)?{bottle_word}\b",
+        rf"\b(\d{{1,3}})\s*(?:x\s*)?{bottle_word}\b[^.]{{0,80}}\b(?:total(?:e|i)?|complessiv[oi]|overall|gesamt|au total)\b",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, searchable)
+        if match:
+            count = int(match.group(1))
+            if 2 <= count <= 100:
+                return count
+    return 1
 
 
 def is_hospitality_market_source(raw_source: dict[str, Any]) -> bool:
@@ -4817,6 +4856,7 @@ def generate_all_wine_ai(
                                     "price": {"type": "number"},
                                     "currency": {"type": "string"},
                                     "price_in_output_currency": {"type": "number"},
+                                    "bottle_count": {"type": "integer", "minimum": 1},
                                     "url": {"type": "string"},
                                     "note": {"type": "string"},
                                 },
@@ -4826,6 +4866,7 @@ def generate_all_wine_ai(
                                     "price",
                                     "currency",
                                     "price_in_output_currency",
+                                    "bottle_count",
                                     "url",
                                     "note",
                                 ],
@@ -5370,6 +5411,7 @@ def generate_wine_value(
                             "price": {"type": "number"},
                             "currency": {"type": "string"},
                             "price_in_output_currency": {"type": "number"},
+                            "bottle_count": {"type": "integer", "minimum": 1},
                             "url": {"type": "string"},
                             "note": {"type": "string"},
                         },
@@ -5379,6 +5421,7 @@ def generate_wine_value(
                             "price",
                             "currency",
                             "price_in_output_currency",
+                            "bottle_count",
                             "url",
                             "note",
                         ],
@@ -5896,6 +5939,7 @@ def generate_wishlist_target_price(
                             "price": {"type": "number"},
                             "currency": {"type": "string"},
                             "price_in_output_currency": {"type": "number"},
+                            "bottle_count": {"type": "integer", "minimum": 1},
                             "url": {"type": "string"},
                             "note": {"type": "string"},
                         },
@@ -5905,6 +5949,7 @@ def generate_wishlist_target_price(
                             "price",
                             "currency",
                             "price_in_output_currency",
+                            "bottle_count",
                             "url",
                             "note",
                         ],

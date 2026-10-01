@@ -217,14 +217,15 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
     )
 
     assert wine_prompt.id == "wine.market_value"
-    assert wine_prompt.version == "4"
+    assert wine_prompt.version == "5"
     assert "3-8 verified market sources" in wine_prompt.system
     assert "Never use restaurant, hotel, bar" in wine_prompt.system
     assert "must be CHF" in wine_prompt.user
     assert wishlist_prompt.id == "wishlist.market_value"
-    assert wishlist_prompt.version == "4"
+    assert wishlist_prompt.version == "5"
     assert "Italian" in wishlist_prompt.system
     assert "hospitality markups" in wishlist_prompt.system
+    assert "bottle_count" in wishlist_prompt.system
     assert "target price is CHF 75.00" in wishlist_prompt.user
 
     full_prompt = wine_full_enrichment_prompt(
@@ -233,7 +234,7 @@ def test_market_value_prompts_keep_currency_and_context_constraints():
         currency="CHF",
         wine_context="Wine: Example 2020",
     )
-    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "4")
+    assert (full_prompt.id, full_prompt.version) == ("wine.full_enrichment", "5")
     assert "Never use restaurant, hotel, bar" in full_prompt.system
 
 

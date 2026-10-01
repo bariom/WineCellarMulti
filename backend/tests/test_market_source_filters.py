@@ -133,3 +133,62 @@ def test_local_market_price_accepts_localized_country_and_same_currency():
     assert local_market_source_price(sources, currency="CHF", market_country="CH") == Decimal(
         "53.00"
     )
+
+
+def test_market_source_lot_total_is_normalized_to_unit_price():
+    sources = normalize_market_sources(
+        [
+            {
+                "merchant": "Coop",
+                "country": "Switzerland",
+                "price": 24.95,
+                "currency": "CHF",
+                "price_in_output_currency": 24.95,
+                "url": "https://example.ch/bottle",
+                "note": "75 cl bottle",
+            },
+            {
+                "merchant": "Ricardo",
+                "country": "Switzerland",
+                "price": 95,
+                "currency": "CHF",
+                "price_in_output_currency": 95,
+                "url": "https://example.ch/lot",
+                "note": (
+                    "Lotto esatto di 3 bottiglie nuove; CHF 95 complessivi, "
+                    "equivalente a CHF 31.67 per bottiglia."
+                ),
+            },
+        ],
+        default_currency="CHF",
+        require_url=True,
+    )
+
+    assert sources[1]["price"] == "31.67"
+    assert sources[1]["price_in_output_currency"] == "31.67"
+    assert sources[1]["bottle_count"] == 3
+    assert sources[1]["listed_price"] == "95.00"
+    assert sources[1]["listed_price_in_output_currency"] == "95.00"
+    assert local_market_source_price(sources, currency="CHF", market_country="CH") == Decimal(
+        "28.31"
+    )
+
+
+def test_market_source_minimum_order_does_not_change_unit_price():
+    sources = normalize_market_sources(
+        [
+            {
+                "merchant": "Retail shop",
+                "country": "Switzerland",
+                "price": 24.95,
+                "currency": "CHF",
+                "url": "https://example.ch/bottle",
+                "note": "CHF 24.95 per bottle; minimum order 3 bottles.",
+            }
+        ],
+        default_currency="CHF",
+        require_url=True,
+    )
+
+    assert sources[0]["price"] == "24.95"
+    assert "bottle_count" not in sources[0]

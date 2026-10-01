@@ -435,13 +435,13 @@ def wine_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.market_value",
-        version="4",
+        version="5",
         system=(
             "You estimate wine value cautiously. Return JSON only. "
             "Use live web search for current market prices. "
             "Use only retail prices for a full bottle offered to consumers by wine shops, retailers, distributors, or marketplaces. "
             "Never use restaurant, hotel, bar, catering, room-service, wine-list, menu, pairing-menu, or by-the-glass prices; these include hospitality markups and are not market value. "
-            "Exclude tasting portions and case totals unless a clear per-bottle retail price for the requested format is stated. "
+            "Exclude tasting portions. For a multi-bottle lot, return the listing total in price and price_in_output_currency, set bottle_count to the exact number of bottles, and describe the lot in note; use bottle_count 1 for a single bottle. "
             "If verified market data is uncertain, keep close to the best verified sources and explain uncertainty. "
             "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
             "Keep market_note concise and useful. "
@@ -449,7 +449,7 @@ def wine_value_prompt(
         ),
         user=(
             f"Estimate current unit value for this exact wine. Final current_value and currency must be {currency}. "
-            "For market_sources, list only concrete merchants or marketplaces with country, price, currency, price_in_output_currency, and URL for the exact wine when available. "
+            "For market_sources, list only concrete merchants or marketplaces with country, listing-total price, currency, listing-total price_in_output_currency, bottle_count, and URL for the exact wine when available. "
             "Use market_note for a short availability or confidence comment.\n\n"
             f"{wine_context}"
         ),
@@ -482,13 +482,13 @@ def wine_full_enrichment_prompt(
 ) -> Prompt:
     return Prompt(
         id="wine.full_enrichment",
-        version="4",
+        version="5",
         system=(
             "You enrich one cellar wine in a single pass and return JSON only. "
             "Complete practical cellar notes, a conservative drinking window, current market value, and exact grape composition. "
             "Use live web search for current market listings and grape composition. "
             "Never infer an exact blend from appellation rules or a typical regional blend: return an empty grapes array when the exact producer and vintage are not supported by a credible source. "
-            "For value, use concrete retail bottle listings for the exact wine and provide 3-8 verified market sources when possible. "
+            "For value, use concrete retail bottle listings for the exact wine and provide 3-8 verified market sources when possible. For a multi-bottle lot, return the listing total in price and price_in_output_currency and the exact bottle_count; use bottle_count 1 for a single bottle. "
             "Never use restaurant, hotel, bar, wine-list, menu, pairing-menu, room-service, or by-the-glass prices because hospitality markups are not market value. "
             "Keep the drinking window realistic and internally ordered. "
             "Write cellar notes in 3-5 practical sentences and do not invent exact facts. "
@@ -497,7 +497,7 @@ def wine_full_enrichment_prompt(
         user=(
             "Enrich this wine in one response.\n"
             f"- Final current_value and value currency must be {currency}.\n"
-            "- Market sources must identify concrete merchants or marketplaces, price_in_output_currency, and exact product URLs.\n"
+            "- Market sources must identify concrete merchants or marketplaces, listing-total price_in_output_currency, bottle_count, and exact product URLs.\n"
             "- The grape source URL must support the exact producer and vintage; otherwise leave the grape composition empty.\n"
             "- Keep all prose concise and useful to a cellar owner.\n\n"
             f"{wine_context}"
@@ -657,13 +657,13 @@ def wishlist_value_prompt(
 ) -> Prompt:
     return Prompt(
         id="wishlist.market_value",
-        version="4",
+        version="5",
         system=(
             "You estimate a realistic market price for a wishlist wine. Return JSON only. Be conservative. "
             "Use live web search for current market prices. "
             "Use only retail prices for a full bottle offered to consumers by wine shops, retailers, distributors, or marketplaces. "
             "Never use restaurant, hotel, bar, catering, room-service, wine-list, menu, pairing-menu, or by-the-glass prices; these include hospitality markups and are not market value. "
-            "Exclude tasting portions and case totals unless a clear per-bottle retail price for the requested format is stated. "
+            "Exclude tasting portions. For a multi-bottle lot, return the listing total in price and price_in_output_currency, set bottle_count to the exact number of bottles, and describe the lot in note; use bottle_count 1 for a single bottle. "
             "Provide 3-8 verified market sources with concrete URLs when possible, using an empty array if none can be cited reliably. "
             "Keep market_note concise and useful. "
             f"{currency_instruction} {language_instruction(locale)}"
@@ -679,7 +679,7 @@ def wishlist_value_prompt(
                 + "; use a maximum price only as a secondary constraint after estimating market price independently. "
                 + "If an offer price is supplied, price_advice must give a direct verdict: Opportunity, Fair price, Too expensive, or Insufficient data. When no maximum is set, compare the offer only with the market estimate and do not recommend against buying merely because the maximum is missing. "
             )
-            + "For market_sources, list only concrete merchants or marketplaces with country, price, currency, price_in_output_currency, and URL for the exact wine when available. "
+            + "For market_sources, list only concrete merchants or marketplaces with country, listing-total price, currency, listing-total price_in_output_currency, bottle_count, and URL for the exact wine when available. "
             + "Use market_note for a short availability or confidence comment.\n\n"
             + wishlist_context
         ),

@@ -56,7 +56,7 @@ export function useDashboardResource<T>(url: string | null) {
   return { data: state.url === url ? state.data : undefined, error: state.url === url && state.error, status: state.url === url ? state.status : undefined, retry: () => setAttempt(value => value + 1) };
 }
 
-export type SummarySlice = { label: string; value: number };
+export type SummarySlice = { label: string; value: number; color?: string };
 export const summaryPalette = ["#426b5a", "#ac7841", "#8b405a", "#65889b", "#a29367", "#7e7294"];
 export function sumBottles(wines: Wine[]) { return wines.reduce((sum, wine) => sum + Math.max(0, wine.quantity), 0); }
 export function recordedValue(wine: Wine) {

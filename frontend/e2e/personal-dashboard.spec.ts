@@ -614,6 +614,28 @@ test("personal dashboard operational widgets and separate summaries", async ({ p
   await expect(page.locator('.data-dashboard-carousel')).toBeVisible();
 });
 
+test("wine color widget uses the semantic wine palette", async ({ page }, testInfo) => {
+  const types = ["Red", "White", "Sparkling", "Rose", "Sweet"];
+  const stock = types.map((type, index) => ({ ...wine, id: `color-${type}`, type, quantity: types.length - index }));
+  await mockApi(page, [], false, memberships, stock, { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [{ id: "styles", width: "full" }] });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  const widget = page.locator('[data-widget-id="styles"]');
+  const expected = [
+    ["Rossi", "#8f2039", "rgb(143, 32, 57)"],
+    ["Bianchi", "#d6b448", "rgb(214, 180, 72)"],
+    ["Spumanti", "#b9a05d", "rgb(185, 160, 93)"],
+    ["Rosé", "#d78394", "rgb(215, 131, 148)"],
+    ["Dolci", "#c9822c", "rgb(201, 130, 44)"],
+  ] as const;
+  for (const [label, stroke, background] of expected) {
+    await expect(widget.locator(`circle[data-slice-label="${label}"]`)).toHaveAttribute("stroke", stroke);
+    await expect(widget.locator(".summary-legend li").filter({ hasText: label }).locator("i")).toHaveCSS("background-color", background);
+  }
+  expect(await widget.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true);
+  await widget.screenshot({ path: testInfo.outputPath("wine-colors-390.png"), animations: "disabled" });
+});
+
 test("personal dashboard complete catalogue handles an empty cellar in English", async ({ page }) => {
   await mockApi(page, [], false, memberships, [], { ...session, locale: 'en', dashboard_focus: 'personal', personal_dashboard_widgets: personalDashboardCatalogue.map(({ id }) => ({ id, width: 'full' })) });
   await page.setViewportSize({ width: 390, height: 844 });

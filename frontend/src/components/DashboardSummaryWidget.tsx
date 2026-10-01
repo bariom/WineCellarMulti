@@ -34,6 +34,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
     const labels: Record<string, string> = it ? { Red: "Rossi", White: "Bianchi", Rose: "Rosé", Sparkling: "Spumanti", Sweet: "Dolci", Fortified: "Fortificati", Other: "Altri" } : { Red: "Red", White: "White", Rose: "Rosé", Sparkling: "Sparkling", Sweet: "Sweet", Fortified: "Fortified", Other: "Other" };
     return labels[normalized] || normalized || unknown;
   };
+  const wineTypeColors: Record<string, string> = { Red: "#8f2039", White: "#d6b448", Sparkling: "#b9a05d", Rose: "#d78394", Sweet: "#c9822c", Fortified: "#8a5a44", Other: "#789086" };
   const other = it ? "Altri" : "Other";
   const currencies = [...new Set(stock.map(wine => wine.currency))].sort();
   const [selectedCurrency, setCurrency] = useState("");
@@ -142,7 +143,12 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
       content = stock.length ? <WineGeographyMap wines={stock} locale={locale} t={key => translate(locale, key)} onSelectRegion={onRegion} /> : empty();
       note = it ? "Seleziona una regione per esplorare le sue bottiglie." : "Select a region to explore its bottles.";
       break;
-    case "styles": destination = "balanced"; content = ring(groupSummary(stock, wine => typeLabel(wine.type))); break;
+    case "styles": {
+      destination = "balanced";
+      const items = groupSummary(stock, wine => normalizeWineType(wine.type) || "Other").map(item => ({ ...item, label: typeLabel(item.label), color: wineTypeColors[item.label] ?? wineTypeColors.Other }));
+      content = ring(items);
+      break;
+    }
     case "vintages": content = bars(groupSummary(stock, wine => wine.vintage || unknown).sort((a, b) => a.label.localeCompare(b.label)), true); break;
     case "producers": content = bars(groupSummary(stock, wine => wine.producer || unknown)); break;
     case "grapes": {
