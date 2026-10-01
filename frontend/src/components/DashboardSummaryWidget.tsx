@@ -42,6 +42,7 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
   const valuedStock = stock.filter(wine => wine.currency === currency);
   const money = (value: number) => formatMoney(value, currency, locale);
   const [period, setPeriod] = useState("365");
+  const [tonightWineId, setTonightWineId] = useState<Wine["id"] | null>(null);
   const [selectedGroup, setGroup] = useState<string | null>(null);
   useEffect(() => setGroup(null), [widget.group_by]);
   const group = selectedGroup ?? widget.group_by ?? "region";
@@ -192,7 +193,16 @@ export default function DashboardSummaryWidget({ widget, locale, wines, wishlist
     }
     case "tonight": {
       destination = "daily";
-      content = ready.length ? <>{gallery(ready.slice(0, 1), wine => <>{windowCaption(wine)}<small>{it ? "Già disponibile; tra le finestre che chiudono prima." : "Available now; among the earliest closing windows."}</small></>, true)}<button type="button" className="secondary" onClick={() => onPairing(ready[0])}>{it ? "Trova un abbinamento" : "Find a pairing"}</button></> : empty(it ? "Nessuna bottiglia disponibile con finestra attuale nota." : "No available bottle with a known current drinking window.");
+      const index = Math.max(0, ready.findIndex(wine => wine.id === tonightWineId));
+      const proposal = ready[index];
+      content = proposal ? <>
+        <div aria-live="polite" aria-atomic="true">{gallery([proposal], wine => <>{windowCaption(wine)}<small>{it ? "Già disponibile, nella finestra di beva." : "Available now, within its drinking window."}</small></>, true)}</div>
+        {ready.length > 1 && <div className="summary-tonight-navigation">
+          <span>{it ? "Proposta" : "Suggestion"} {index + 1} / {ready.length}</span>
+          <button type="button" className="secondary" onClick={() => setTonightWineId(ready[(index + 1) % ready.length].id)}>{it ? "Prossima proposta" : "Next suggestion"}<span aria-hidden="true"> →</span></button>
+        </div>}
+        <button type="button" className="secondary" onClick={() => onPairing(proposal)}>{it ? "Trova un abbinamento" : "Find a pairing"}</button>
+      </> : empty(it ? "Nessuna bottiglia disponibile con finestra attuale nota." : "No available bottle with a known current drinking window.");
       break;
     }
     case "taste":

@@ -2,6 +2,71 @@ import { expect, test } from "@playwright/test";
 import { wine, session, memberships, mockApi, tastingArchive } from "./fixtures/app";
 import { personalDashboardCatalogue } from "../src/components/personalDashboardCatalogue";
 
+test("tonight widget cycles eligible wines and pairs the displayed proposal", async ({ page }, testInfo) => {
+  await page.clock.setFixedTime(new Date("2026-10-01T12:00:00Z"));
+  const candidates = [
+    { ...wine, id: "later", name: "Finestra lunga", drink_to: 2032 },
+    { ...wine, id: "soon", name: "Finestra in chiusura", drink_to: 2026, drink_peak_to: 2026 },
+    { ...wine, id: "third", name: "Altra proposta", drink_to: 2028 },
+  ];
+  const excluded = [
+    { ...wine, id: "empty", quantity: 0 },
+    { ...wine, id: "delivery", status: "ordered" },
+    { ...wine, id: "future", drink_from: 2027 },
+    { ...wine, id: "past", drink_to: 2025 },
+    { ...wine, id: "invalid", drink_from: 2030, drink_to: 2029 },
+    { ...wine, id: "unknown", drink_from: 0, drink_to: 0 },
+  ];
+  await mockApi(page, [], false, memberships, [...candidates, ...excluded], { ...session, dashboard_focus: "personal", personal_dashboard_widgets: [{ id: "tonight", width: "half" }] });
+  await page.goto("/");
+  const widget = page.locator('[data-widget-id="tonight"]');
+  const next = widget.getByRole("button", { name: "Prossima proposta" });
+  await expect(widget.locator(".summary-bottle")).toHaveCount(1);
+  await expect(widget).toContainText("Finestra in chiusura");
+  await expect(widget).toContainText("Proposta 1 / 3");
+  await next.focus();
+  await page.keyboard.press("Enter");
+  await expect(widget).toContainText("Altra proposta");
+  await expect(widget).toContainText("Proposta 2 / 3");
+  await next.click();
+  await expect(widget).toContainText("Finestra lunga");
+  await expect(widget).toContainText("Proposta 3 / 3");
+  await next.click();
+  await expect(widget).toContainText("Finestra in chiusura");
+  for (const width of [360, 390, 430, 1440]) {
+    await page.setViewportSize({ width, height: 844 });
+    await widget.scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    const bottleBox = (await widget.locator(".summary-bottle").boundingBox())!;
+    const nextBox = (await next.boundingBox())!;
+    const pairingBox = (await widget.getByRole("button", { name: "Trova un abbinamento" }).boundingBox())!;
+    expect(nextBox.height).toBeGreaterThanOrEqual(44);
+    expect(nextBox.y).toBeGreaterThanOrEqual(bottleBox.y + bottleBox.height);
+    expect(pairingBox.y).toBeGreaterThanOrEqual(nextBox.y + nextBox.height);
+    expect(nextBox.x).toBeGreaterThanOrEqual(0);
+    expect(nextBox.x + nextBox.width).toBeLessThanOrEqual(width);
+    if (width === 390 || width === 1440) await widget.screenshot({ path: testInfo.outputPath(`tonight-${width}.png`), animations: "disabled" });
+  }
+  await next.click();
+  await widget.getByRole("button", { name: "Trova un abbinamento" }).click();
+  await page.getByRole("button", { name: /^A casa/ }).click();
+  await expect(page.locator(".pairing-form .pairing-match").first()).toContainText("Altra proposta");
+});
+
+for (const quantity of [0, 4]) {
+  test(`tonight widget handles ${quantity ? "one candidate" : "no candidates"} in English`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-10-01T12:00:00Z"));
+    await mockApi(page, [], false, memberships, [{ ...wine, quantity }], { ...session, locale: "en", dashboard_focus: "personal", personal_dashboard_widgets: [{ id: "tonight", width: "half" }] });
+    await page.goto("/");
+    const widget = page.locator('[data-widget-id="tonight"]');
+    await expect(widget.getByRole("heading", { name: "A bottle for tonight" })).toBeVisible();
+    await expect(widget.getByRole("button", { name: "Next suggestion" })).toHaveCount(0);
+    await expect(widget.getByRole("button", { name: "Find a pairing" })).toHaveCount(quantity ? 1 : 0);
+    if (quantity) await expect(widget).toContainText(wine.name);
+    else await expect(widget).toContainText("No available bottle with a known current drinking window.");
+  });
+}
+
 test("tasting widgets preserve journal scales and rank mixed scales consistently", async ({ page }, testInfo) => {
   await page.clock.setFixedTime(new Date("2026-09-29T12:00:00Z"));
   const base = tastingArchive.items[0];

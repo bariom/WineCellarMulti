@@ -32,6 +32,9 @@
 .dashboard-summary .summary-bottles-single .summary-bottle { display: grid; grid-template-columns: 100px minmax(0, 1fr); text-align: left; padding: 8px; }
 .summary-window { display: block; height: 5px; background: color-mix(in srgb, var(--primary) 15%, transparent); border-radius: 5px; overflow: hidden; }
 .summary-window i { display: block; height: 100%; background: #426b5a; }
+.summary-tonight-navigation { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.summary-tonight-navigation > span { color: var(--text-muted); font-size: .76rem; }
+.summary-tonight-navigation > button { min-height: 44px; }
 .summary-bars { display: grid; gap: 14px; }
 .summary-bars > :is(div, button) { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 5px 12px; min-width: 0; font-size: .79rem; }
 .summary-bars > button { width: 100%; text-align: left; background: none; color: var(--text); border: 0; box-shadow: none; }

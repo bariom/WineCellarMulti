@@ -119,6 +119,12 @@ Do not update snapshots as a way to hide an unexpected UI regression.
 
 ## Scope-aware test selection
 
+Il widget personale «Una bottiglia per stasera» mostra un vino alla volta e,
+con più candidati, un contatore e «Prossima proposta». La selezione scorre
+ciclicamente i vini disponibili nella finestra di beva, mantenendo l'ordine
+di priorità esistente; l'abbinamento riguarda sempre il vino visualizzato.
+Verifica mirata: `npm run test:e2e:personal-dashboard -- -g "tonight widget"`.
+
 `AGENTS.md` is the authoritative Codex guide. Codex must inspect `git diff`
 and classify changes before selecting checks. Frontend-only changes use the
 smallest relevant frontend test, `npm run test:e2e:wine-detail` when applicable,
