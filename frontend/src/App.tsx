@@ -98,6 +98,7 @@ function advisedModel(role: AiModelAdviceRole, modelOptions: string[], currentMo
 }
 
 const PairingView = lazy(() => import("./views/PairingView"));
+const WineLotsSection = lazy(() => import("./components/WineLotsSection"));
 const MarketPreferences = lazy(() => import("./components/MarketPreferences"));
 const PersonalOnboarding = lazy(() => import("./components/PersonalOnboarding"));
 const WinePulseView = lazy(() => import("./views/WinePulseView"));
@@ -12042,6 +12043,17 @@ export function App() {
                     <input value={draft.initial_stock_reference} maxLength={160} onChange={(event) => setDraft({ ...draft, initial_stock_reference: event.target.value })} disabled={!canWriteWine} placeholder={locale === "it" ? "Fattura, ordine…" : "Invoice, order…"} />
                   </label>
                 </div> : null}
+                {editingId && wines.find(wine => wine.id === editingId) ? <Suspense fallback={<LoadingState label={t("loadingData")} compact />}>
+                  <WineLotsSection
+                    wine={wines.find(wine => wine.id === editingId)!}
+                    canWrite={canWriteWine}
+                    saving={saving}
+                    locale={locale}
+                    onRegistered={quantity => setDraft(current => ({ ...current, quantity: String((wines.find(wine => wine.id === editingId)?.quantity || 0) + quantity) }))}
+                    onBusyChange={setSaving}
+                    onChanged={loadWines}
+                  />
+                </Suspense> : null}
                 {!editingId ? <>
                   <WineLocationPicker
                     locale={locale}

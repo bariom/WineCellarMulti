@@ -21,8 +21,8 @@ function positionLabel(allocation: StorageAllocation, locale: Locale) {
   return allocation.bin_name ? `${allocation.location_name} · ${allocation.bin_name}` : allocation.location_name;
 }
 
-export function WineLocationPicker({ locale, locationId, binId, disabled, onChange }: {
-  locale: Locale; locationId: string; binId: string; disabled?: boolean;
+export function WineLocationPicker({ locale, locationId, binId, disabled, onChange, formId }: {
+  locale: Locale; locationId: string; binId: string; disabled?: boolean; formId?: string;
   onChange: (locationId: string, binId: string) => void;
 }) {
   const [locations, setLocations] = useState<CellarLocation[]>([]);
@@ -78,8 +78,8 @@ export function WineLocationPicker({ locale, locationId, binId, disabled, onChan
     } finally { setCreating(false); }
   }
   return <div className="form-row storage-picker">
-    <label><span>Location</span><div className="storage-create-field"><input list={`${datalistId}-locations`} value={locationText} disabled={disabled} placeholder={locale === "it" ? "Cerca o scrivi una location" : "Search or enter a location"} onChange={(event) => { const value = event.target.value; const match = locations.find((item) => normaliseName(item.name) === normaliseName(value)); setLocationText(value); setBinText(""); onChange(match?.id || "", ""); }} /><datalist id={`${datalistId}-locations`}>{locations.map((item) => <option key={item.id} value={item.name} />)}</datalist>{canCreateLocation ? <button type="button" className="secondary compact" disabled={creating} onClick={() => void createLocation()}>{locale === "it" ? "Crea" : "Create"}</button> : null}</div></label>
-    <label><span>{locale === "it" ? "Posizione" : "Bin"}</span><div className="storage-create-field"><input list={`${datalistId}-bins`} value={binText} disabled={disabled || !locationId} placeholder={locationId ? (locale === "it" ? "Cerca o scrivi una posizione" : "Search or enter a bin") : (locale === "it" ? "Scegli prima una location" : "Choose a location first")} onChange={(event) => { const value = event.target.value; const match = bins.find((item) => normaliseName(item.name) === normaliseName(value)); setBinText(value); onChange(locationId, match?.id || ""); }} /><datalist id={`${datalistId}-bins`}>{bins.map((item) => <option key={item.id} value={item.name} />)}</datalist>{canCreateBin ? <button type="button" className="secondary compact" disabled={creating} onClick={() => void createBin()}>{locale === "it" ? "Crea" : "Create"}</button> : null}</div></label>
+    <label><span>Location</span><div className="storage-create-field"><input form={formId} list={`${datalistId}-locations`} value={locationText} disabled={disabled} placeholder={locale === "it" ? "Cerca o scrivi una location" : "Search or enter a location"} onChange={(event) => { const value = event.target.value; const match = locations.find((item) => normaliseName(item.name) === normaliseName(value)); setLocationText(value); setBinText(""); onChange(match?.id || "", ""); }} /><datalist id={`${datalistId}-locations`}>{locations.map((item) => <option key={item.id} value={item.name} />)}</datalist>{canCreateLocation ? <button type="button" className="secondary compact" disabled={creating} onClick={() => void createLocation()}>{locale === "it" ? "Crea" : "Create"}</button> : null}</div></label>
+    <label><span>{locale === "it" ? "Posizione" : "Bin"}</span><div className="storage-create-field"><input form={formId} list={`${datalistId}-bins`} value={binText} disabled={disabled || !locationId} placeholder={locationId ? (locale === "it" ? "Cerca o scrivi una posizione" : "Search or enter a bin") : (locale === "it" ? "Scegli prima una location" : "Choose a location first")} onChange={(event) => { const value = event.target.value; const match = bins.find((item) => normaliseName(item.name) === normaliseName(value)); setBinText(value); onChange(locationId, match?.id || ""); }} /><datalist id={`${datalistId}-bins`}>{bins.map((item) => <option key={item.id} value={item.name} />)}</datalist>{canCreateBin ? <button type="button" className="secondary compact" disabled={creating} onClick={() => void createBin()}>{locale === "it" ? "Crea" : "Create"}</button> : null}</div></label>
     {error ? <p className="form-error storage-picker-error" role="alert">{error}</p> : null}
   </div>;
 }
@@ -101,7 +101,7 @@ export function WineStorageSection({ wine, canWrite, locale, onChanged, focusReq
     setAllocations(nextAllocations);
     setSourceId((current) => nextAllocations.some((item) => item.id === current) ? current : (nextAllocations[0]?.id || ""));
   }
-  useEffect(() => { void load().catch(() => setAllocations(wine.storage_allocations || [])); }, [wine.id]);
+  useEffect(() => { void load().catch(() => setAllocations(wine.storage_allocations || [])); }, [wine.id, wine.quantity]);
   useEffect(() => {
     if (focusRequestId === null) return;
     const frame = window.requestAnimationFrame(() => sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }));

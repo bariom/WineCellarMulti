@@ -50,6 +50,13 @@ buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does
 not replace the separate taste-profile functional suite.
 
+Purchase lots in both the wine editor and read-only detail have dedicated checks:
+`npx playwright test e2e/wine-purchase-lots.spec.ts`. They cover personal and
+restaurant modes, separate purchase prices, failed requests, Enter submission,
+stock preservation when saving the wine, independent form validation, and mobile
+geometry at 360/390/430 px plus desktop. The compact lot list has a reviewed
+visual baseline.
+
 Tasting memory photos have dedicated checks in
 `npx playwright test e2e/tasting-memory-photo.spec.ts`: camera/gallery selection,
 compression, invalid image handling, removal, History editing, and geometry at

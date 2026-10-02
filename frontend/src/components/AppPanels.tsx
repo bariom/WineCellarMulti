@@ -17,6 +17,7 @@ import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./S
 import LocalizedDateInput from "./LocalizedDateInput";
 import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
+const WineLotsSection = lazy(() => import("./WineLotsSection"));
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
 
@@ -1010,41 +1011,6 @@ export function tastingArchiveItemToWine(item: TastingArchiveApiItem): Wine {
   };
 }
 
-function WineLotsSection({ wine, canWrite, saving, locale, onChanged }: { wine: Wine; canWrite: boolean; saving: boolean; locale: Locale; onChanged: () => Promise<void> | void }) {
-  const [lots, setLots] = useState<WineStockLot[]>([]);
-  const [draft, setDraft] = useState({ quantity: "", unit_cost: "", acquired_on: new Date().toISOString().slice(0, 10), supplier: "", storage_location_id: "", storage_bin_id: "" });
-  const [loading, setLoading] = useState(false);
-  const italian = locale === "it";
-  const loadLots = async () => setLots(await api<WineStockLot[]>(`/api/v1/inventory/lots?wine_id=${wine.id}`));
-  useEffect(() => {
-    void loadLots().catch(() => setLots([]));
-  }, [wine.id]);
-  const total = lots.reduce((sum, lot) => sum + Number(lot.total_remaining_cost), 0);
-  const bottles = lots.reduce((sum, lot) => sum + lot.quantity_remaining, 0);
-  const submit = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    if (!canWrite || loading) return;
-    setLoading(true);
-    try {
-      await api("/api/v1/inventory/movements", { method: "POST", body: JSON.stringify({ wine_id: wine.id, movement_type: "purchase", quantity: Number(draft.quantity), unit_cost: Number(draft.unit_cost), occurred_on: draft.acquired_on, supplier: draft.supplier, storage_location_id: draft.storage_location_id || null, storage_bin_id: draft.storage_bin_id || null }) });
-      setDraft((current) => ({ ...current, quantity: "", unit_cost: "", supplier: "" }));
-      await Promise.all([loadLots(), onChanged()]);
-    } finally { setLoading(false); }
-  };
-  return <details className="detail-section wine-lots-section">
-    <summary><span>{italian ? "Lotti d'acquisto" : "Purchase lots"}</span><strong>{lots.length} {italian ? (lots.length === 1 ? "lotto" : "lotti") : (lots.length === 1 ? "lot" : "lots")}</strong></summary>
-    <p className="consume-help">{italian ? `Costo medio residuo: ${formatMoney(bottles ? total / bottles : 0, wine.currency, locale)}. Le bevute scaricano prima i lotti più vecchi (FIFO).` : `Remaining average cost: ${formatMoney(bottles ? total / bottles : 0, wine.currency, locale)}. Consumption uses the oldest lots first (FIFO).`}</p>
-    <div className="lot-list">{lots.map((lot) => <div className="detail-field" key={lot.id}><span>{formatDisplayDate(lot.acquired_on)}{lot.supplier ? ` · ${lot.supplier}` : ""}</span><strong>{lot.quantity_remaining}/{lot.quantity_received} · {formatMoney(lot.unit_cost, lot.currency, locale)}</strong></div>)}</div>
-    {canWrite ? <form className="consume-form" onSubmit={submit}><div className="detail-grid consume-grid">
-      <label><span>{italian ? "Bottiglie" : "Bottles"}</span><input type="number" min="1" required value={draft.quantity} onChange={(event) => setDraft({ ...draft, quantity: event.target.value })} /></label>
-      <label><span>{italian ? "Costo unitario" : "Unit cost"}</span><input type="number" min="0" step="0.01" required value={draft.unit_cost} onChange={(event) => setDraft({ ...draft, unit_cost: event.target.value })} /></label>
-      <label><span>{italian ? "Data acquisto" : "Purchase date"}</span><input type="date" required value={draft.acquired_on} onChange={(event) => setDraft({ ...draft, acquired_on: event.target.value })} /></label>
-      <label><span>{italian ? "Commerciante" : "Merchant"}</span><input value={draft.supplier} onChange={(event) => setDraft({ ...draft, supplier: event.target.value })} /></label>
-      <WineLocationPicker locale={locale} locationId={draft.storage_location_id} binId={draft.storage_bin_id} onChange={(storage_location_id, storage_bin_id) => setDraft((current) => ({ ...current, storage_location_id, storage_bin_id }))} />
-    </div><div className="form-actions"><button type="submit" disabled={saving || loading}>{italian ? "Aggiungi lotto" : "Add lot"}</button></div></form> : null}
-  </details>;
-}
-
 function tasteTraitLabel(trait: string, locale: Locale) {
   const labels: Record<string, string> = locale === "it" ? {
     body: "corpo", acidity: "acidità", tannin: "tannini", sweetness: "dolcezza",
@@ -1871,7 +1837,7 @@ export function WineDetail({
       <details className="detail-section wine-detail-group wine-detail-group--stock" data-wine-detail-section="05" tabIndex={-1}>
         <summary className="wine-detail-structured-summary"><div><span>05</span><strong>{locale === "it" ? "Giacenza e acquisti" : "Stock and purchases"}</strong></div><small>{locale === "it" ? "Posizione, lotti e costi" : "Location, lots and costs"}</small></summary>
         <WineStorageSection wine={wine} canWrite={canWrite} locale={locale} onChanged={onLotsChanged} focusRequestId={focusStorageRequestId} />
-        {!restaurantMode ? <WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /> : null}
+        <Suspense fallback={<LoadingState label={t("loadingData")} compact />}><WineLotsSection wine={wine} canWrite={canWrite} saving={saving} locale={locale} onChanged={onLotsChanged} /></Suspense>
       </details>
 
       {(wine.ai_notes || wine.ai_value_notes || wine.notes || coOwnershipSection || (!restaurantMode && wine.tasting_history?.length)) ? <details className="detail-section wine-detail-group wine-detail-group--history" data-wine-detail-section="06" tabIndex={-1}>

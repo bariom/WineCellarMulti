@@ -1,0 +1,17 @@
+.wine-lots-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.wine-lots-heading h3 { margin: 0 0 4px; }
+.wine-lots-heading small { color: var(--text-muted); }
+.wine-lots-heading button { min-height: 44px; white-space: normal; }
+.wine-lots-section .lot-list { display: grid; gap: 8px; }
+.wine-lots-section .detail-field { min-width: 0; overflow-wrap: anywhere; }
+.wine-lots-fields { min-width: 0; margin: 20px 0 0; padding: 16px; border: 1px solid var(--border); border-radius: 12px; }
+.wine-lots-fields legend { padding: 0 6px; font-weight: 700; }
+.wine-lots-fields .detail-grid { margin-bottom: 16px; }
+.wine-lots-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 16px; }
+.wine-lots-actions button { min-height: 44px; }
+@media (max-width: 600px) {
+  .wine-lots-heading { align-items: flex-start; gap: 12px; }
+  .wine-lots-heading button { width: 100%; }
+  .wine-lots-fields { padding: 12px; }
+  .wine-lots-fields .consume-grid { grid-template-columns: minmax(0, 1fr); }
+}

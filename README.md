@@ -35,6 +35,16 @@ New multi-user foundation for Wine Cellar.
 
 This repository is intentionally separate from the existing `WineCellar` project.
 
+## Purchase lots
+
+For an existing wine, open **Giacenza e acquisti / Stock and purchases** in either
+the detail view or the wine editor, then **Registra nuovo acquisto / Record new
+purchase**. Each purchase keeps its own quantity, date, supplier and unit price;
+the list includes depleted lots and shows the average cost of remaining stock.
+This works in both personal and restaurant modes. Confirming a purchase saves it
+immediately and increases stock. Other editor changes remain unsaved until
+**Salva modifiche / Save changes**; saving them preserves the updated quantity.
+
 ## Recording a tasting
 
 Use **Registra bevuta / Record a tasting** in the desktop sidebar or the mobile
