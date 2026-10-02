@@ -8,8 +8,14 @@ export async function previousRelease(origin, firstRelease, fetcher = fetch) {
   });
   if (response.status === 404 && firstRelease) return null;
   if (!response.ok) throw new Error("Cannot verify the previous website release. Allow 404 only for the first release.");
-  const previous = await response.json();
-  if (previous.packageId !== "app.vinaris.cellar" || !Number.isSafeInteger(previous.versionCode)
+  const body = await response.text();
+  // Before nginx's dedicated download route is deployed, the SPA fallback may
+  // serve index.html with HTTP 200 for a file that does not exist yet.
+  if (firstRelease && /^\s*(?:<!doctype\s+html\b|<html\b)/i.test(body)) return null;
+  let previous;
+  try { previous = JSON.parse(body); }
+  catch { throw new Error("Expected release.json but the website returned HTML or invalid JSON. Deploy the Android download route; allow HTML fallback only for the first release."); }
+  if (!previous || previous.packageId !== "app.vinaris.cellar" || !Number.isSafeInteger(previous.versionCode)
     || previous.versionCode < 1 || !/^(?:[A-F0-9]{2}:){31}[A-F0-9]{2}$/.test(previous.certificateSha256)) {
     throw new Error("Invalid previous website release metadata.");
   }

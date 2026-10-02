@@ -27,6 +27,17 @@ test("cloud signing rejects missing/malformed secrets without printing their con
   assert.deepEqual(decodeKeystore(bytes.toString("base64")), bytes);
 });
 
+test("first release accepts the undeployed SPA HTML fallback while updates and invalid JSON fail closed", async () => {
+  const html = async () => new Response('<!doctype html><html><body>Vinaris</body></html>', {
+    headers: { "Content-Type": "text/html" },
+  });
+  assert.equal(await previousRelease("https://vinaris.app", true, html), null);
+  await assert.rejects(previousRelease("https://vinaris.app", false, html), /Expected release.json/);
+  for (const body of ["broken JSON", "null", '{"versionCode":1}']) {
+    await assert.rejects(previousRelease("https://vinaris.app", true, async () => new Response(body)));
+  }
+});
+
 test("generate the actual Android project offline with canonical URLs and no billing or extra privileges", async () => {
   const temporary = await mkdtemp(resolve(tmpdir(), "vinaris-android-test-"));
   try {

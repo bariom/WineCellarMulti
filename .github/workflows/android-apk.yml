@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       first_release:
-        description: Allow missing website release metadata (first release only)
+        description: Allow missing release metadata or website HTML fallback (first release only)
         type: boolean
         default: false
 

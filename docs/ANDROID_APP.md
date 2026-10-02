@@ -67,7 +67,9 @@ releases on the server. The workflow does not deploy or change the website.
 For updates, edit `android/vinaris.json` to increase `versionCode`, push and run the
 workflow again. Its comparison with the published metadata rejects a changed key,
 package or non-increasing version code. Unavailable/malformed metadata fails the
-build; only an explicit first release accepts HTTP 404. Stage and retain the verified
+build; only an explicit first release accepts HTTP 404 or the site's HTML fallback
+before the dedicated nginx download route is deployed. Invalid JSON and server
+errors still fail the build. Stage and retain the verified
 files using the deployment procedure below.
 
 ## Optional local project generation
