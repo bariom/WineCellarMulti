@@ -110,6 +110,7 @@ class WineUpdate(BaseModel):
 
 
 class WineTastingEntryResponse(BaseModel):
+    memory_photo_location: dict[str, float] | None = None
     memory_photo_url: str = ""
     id: UUID
     consumed_at: date
@@ -132,6 +133,7 @@ class WineTastingEntryResponse(BaseModel):
 
 
 class TastingArchiveItemResponse(BaseModel):
+    memory_photo_location: dict[str, float] | None = None
     memory_photo_url: str = ""
     wine_id: UUID
     wine_name: str

@@ -16,6 +16,7 @@
     "test:e2e:collector": "playwright test e2e/collector.spec.ts",
     "test:e2e:personal-dashboard": "playwright test e2e/personal-dashboard.spec.ts",
     "test:e2e:app-navigation": "playwright test e2e/app-navigation.spec.ts",
+    "test:e2e:moments": "playwright test e2e/moments.spec.ts e2e/tasting-memory-photo.spec.ts",
     "test:e2e:record-tasting": "playwright test e2e/record-tasting.spec.ts",
     "test:e2e:valuation-market": "playwright test e2e/valuation-market.spec.ts",
     "test:e2e:onboarding": "playwright test e2e/personal-onboarding.spec.ts",

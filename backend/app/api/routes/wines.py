@@ -85,7 +85,11 @@ from app.services.taste_profiles import (
     rebuild_user_taste_profile,
     record_user_wine_rating,
 )
-from app.services.tasting_photos import memory_photo_url, process_memory_photo
+from app.services.tasting_photos import (
+    extract_photo_location,
+    memory_photo_url,
+    process_memory_photo,
+)
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -537,6 +541,7 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
         sommelier_feedback_at=entry.sommelier_feedback_at,
         created_at=entry.created_at,
         tasting_id=entry.id,
+        memory_photo_location=entry.memory_photo_location,
         memory_photo_url=memory_photo_url(
             "external" if isinstance(entry, ExternalWineTasting) else "cellar",
             entry.id,
@@ -568,6 +573,7 @@ def external_tasting_archive_entry(entry: ExternalWineTasting) -> TastingArchive
         source="external_tasting",
         created_at=entry.created_at,
         tasting_id=entry.id,
+        memory_photo_location=entry.memory_photo_location,
         memory_photo_url=memory_photo_url(
             "external" if isinstance(entry, ExternalWineTasting) else "cellar",
             entry.id,
@@ -801,6 +807,7 @@ def list_tasting_archive(
     status_filter: str = Query(default="", alias="status"),
     from_date: date | None = Query(default=None),
     origin: Literal["", "cellar", "external"] = Query(default=""),
+    photos_only: bool = Query(default=False),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -886,6 +893,8 @@ def list_tasting_archive(
     archive_items = [tasting_archive_entry(entry, wine) for entry, wine in visible_archive_rows] + [
         external_tasting_archive_entry(entry) for entry in visible_external_entries
     ]
+    if photos_only:
+        archive_items = [entry for entry in archive_items if entry.memory_photo_url]
     archive_items.sort(
         key=lambda entry: (entry.consumed_at, entry.created_at, entry.tasting_id),
         reverse=True,
@@ -1964,6 +1973,7 @@ def consume_wine_bottle(
                 created_by_user_id=context.user.id,
                 storage_allocation_id=payload.storage_allocation_id,
                 memory_photo=photo,
+                memory_photo_location=extract_photo_location(payload.memory_photo),
             )
     except NoBottlesAvailableError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -2016,6 +2026,8 @@ def update_wine_tasting_entry(
     )
     if tasting is not None:
         if payload.memory_photo is not None:
+            tasting.memory_photo_location = extract_photo_location(payload.memory_photo)
+            entries[index]["memory_photo_location"] = tasting.memory_photo_location
             tasting.memory_photo = photo
             tasting.memory_photo_version = uuid.uuid4().hex if photo else ""
             entries[index]["memory_photo_url"] = memory_photo_url(

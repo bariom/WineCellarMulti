@@ -34,6 +34,7 @@ Shared deterministic data and helpers live in `e2e/fixtures/app.ts`.
 | Collector composition, summaries, insights and scrolling | `npm run test:e2e:collector` |
 | Personal dashboard widgets, editor and drill-downs | `npm run test:e2e:personal-dashboard` |
 | Shared navigation, compact headers and Home photographs | `npm run test:e2e:app-navigation` |
+| Memory book, photo GPS and tasting photo regressions | `npm run test:e2e:moments` |
 | Recording tastings and tasting history | `npm run test:e2e:record-tasting` |
 | Reference-market settings, saved valuation provenance and foreign-source warnings | `npm run test:e2e:valuation-market` |
 | Personal setup, deferral, saved preferences and responsive wizard | `npm run test:e2e:onboarding` |
@@ -258,3 +259,22 @@ cache (Ctrl+F5), reset al logout e fallback per storage
 o immagini non disponibili. La fixture generale fissa la scena vigneto per
 rendere deterministiche le baseline; i test della scelta casuale non la fissano.
 Asset e prompt di generazione sono documentati in `HOME_BACKDROPS.md`.
+
+## Moments and photo location
+
+In History > Tastings, **Moments ? Browse memories** opens a paginated memory book
+with photos from both cellar and personal external tastings, newest first. The book
+includes tasting dates, wine identities, occasions, notes and companions. Arrow
+buttons and keyboard arrows turn pages; Escape closes the book and restores focus.
+The book covers all visible photos, independently of History's current page/filters.
+
+Photo selection reads EXIF GPS from supported JPEG/PNG/WebP files before canvas
+compression, forwards only GPS metadata, and saves validated coordinates separately
+from the metadata-free served JPEG. **Show place on map** loads a map only on demand.
+Photos without valid GPS still save normally. No device location is requested.
+Existing sanitized photos cannot recover discarded GPS; replacing them with the
+original photo captures it. Apply Alembic revision `0113_memory_photo_location`
+before using the new backend.
+
+Run `npm run test:e2e:moments` for uploads, GPS, browsing, missing-location and
+empty/error states, photo editing, responsive geometry and compact visual checks.

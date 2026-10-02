@@ -99,6 +99,7 @@ export type Wine = {
   photo_detail_url: string;
   created_at?: string;
   tasting_history: Array<{
+    memory_photo_location?: { latitude: number; longitude: number } | null;
     memory_photo_url?: string;
     id: string;
     consumed_at: string;
@@ -377,6 +378,7 @@ export type WineShareOffer = {
 };
 
 export type TastingArchiveApiItem = {
+  memory_photo_location?: { latitude: number; longitude: number } | null;
   memory_photo_url?: string;
   tasting_id: string;
   wine_id: string;
@@ -1444,6 +1446,7 @@ export type ThemePreference =
   | "cave-privee";
 
 export type TastingArchiveEntry = {
+  memory_photo_location?: { latitude: number; longitude: number } | null;
   memory_photo_url?: string;
   id: string;
   wine: Wine;

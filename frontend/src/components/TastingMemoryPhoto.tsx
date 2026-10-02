@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { photoLocation, withPhotoLocation, type PhotoLocation } from "../domain/photoLocation";
+import MemoryLocation from "./MemoryLocation";
 import type { Locale } from "../types";
 import { AppIcon } from "./AppIcon";
 import "./TastingMemoryPhoto.css";
 
-async function compactPhoto(file: File): Promise<string> {
+async function compactPhoto(file: File): Promise<{ value: string; location: PhotoLocation | null }> {
   if (file.size > 25_000_000) throw new Error("size");
+  const location = await photoLocation(file);
   const url = URL.createObjectURL(file);
   try {
     const image = new Image();
@@ -22,7 +25,7 @@ async function compactPhoto(file: File): Promise<string> {
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     for (const quality of [.82, .72, .60, .45]) {
       const value = canvas.toDataURL("image/jpeg", quality);
-      if ((value.length - value.indexOf(",") - 1) * .75 <= 200_000) return value;
+      if ((value.length - value.indexOf(",") - 1) * .75 <= 199_800) return { value: withPhotoLocation(value, location), location };
     }
     throw new Error("size");
   } finally { URL.revokeObjectURL(url); }
@@ -37,11 +40,12 @@ export function TastingMemoryPhotoInput({ locale, value, existingUrl, disabled, 
   const gallery = useRef<HTMLInputElement>(null);
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
+  const [hasLocation, setHasLocation] = useState(false);
   const preview = value === undefined ? existingUrl : value;
   async function choose(file?: File) {
     if (!file) return;
     setProcessing(true); onProcessingChange(true); setError("");
-    try { onChange(await compactPhoto(file)); }
+    try { const photo = await compactPhoto(file); onChange(photo.value); setHasLocation(!!photo.location); }
     catch { setError(it ? "Foto non leggibile o troppo grande. Scegli un JPEG, PNG o WebP fino a 25 MB." : "Photo unreadable or too large. Choose a JPEG, PNG or WebP up to 25 MB."); }
     finally { setProcessing(false); onProcessingChange(false); }
   }
@@ -59,9 +63,10 @@ export function TastingMemoryPhotoInput({ locale, value, existingUrl, disabled, 
       <button type="button" className="tasting-memory-camera" disabled={disabled || processing} onClick={() => camera.current?.click()}><AppIcon name="camera" />{it ? "Scatta foto" : "Take photo"}</button>
       <button type="button" className="secondary" disabled={disabled || processing} onClick={() => gallery.current?.click()}><AppIcon name="dashboard-cards" />{it ? "Scegli foto" : "Choose photo"}</button>
     </div>
-    {preview ? <div className="tasting-memory-footer"><small><AppIcon name="tasting" />{it ? "Foto allegata alla bevuta" : "Photo attached to the tasting"}</small><button type="button" className="tasting-memory-remove" disabled={disabled || processing} onClick={() => { onChange(""); setError(""); }}><AppIcon name="delete" />{it ? "Rimuovi foto" : "Remove photo"}</button></div> : null}
+    {preview ? <div className="tasting-memory-footer"><small><AppIcon name="tasting" />{it ? "Foto allegata alla bevuta" : "Photo attached to the tasting"}</small><button type="button" className="tasting-memory-remove" disabled={disabled || processing} onClick={() => { onChange(""); setHasLocation(false); setError(""); }}><AppIcon name="delete" />{it ? "Rimuovi foto" : "Remove photo"}</button></div> : null}
     <input ref={camera} type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden aria-label={it ? "Scatta foto ricordo" : "Take memory photo"} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
     <input ref={gallery} type="file" accept="image/jpeg,image/png,image/webp" hidden aria-label={it ? "Scegli foto ricordo" : "Choose memory photo"} onChange={event => { void choose(event.target.files?.[0]); event.target.value = ""; }} />
+    {hasLocation && preview ? <small>{it ? "Posizione della foto inclusa nel ricordo. Potrai mostrarla sulla mappa." : "Photo location included in this memory. You can view it on the map."}</small> : null}
     {processing ? <small role="status">{it ? "Preparazione foto…" : "Preparing photo…"}</small> : null}
     {error ? <p role="alert">{error}</p> : null}
   </section>;
@@ -89,8 +94,8 @@ function MemoryPhotoViewer({ url, locale, wineName, date, onClose }: {
   </dialog>, document.body);
 }
 
-export function TastingMemoryPhoto({ url, locale, wineName, consumedAt, note }: {
-  url?: string; locale: Locale; wineName?: string; consumedAt?: string; note?: string;
+export function TastingMemoryPhoto({ url, locale, wineName, consumedAt, note, location }: {
+  url?: string; locale: Locale; wineName?: string; consumedAt?: string; note?: string; location?: PhotoLocation | null;
 }) {
   const [open, setOpen] = useState(false);
   const it = locale === "it";
@@ -105,6 +110,7 @@ export function TastingMemoryPhoto({ url, locale, wineName, consumedAt, note }: 
       <div className="tasting-memory-caption-heading"><span className="tasting-memory-kicker">{it ? "Un momento da ricordare" : "A moment to remember"}</span>{date ? <time dateTime={consumedAt?.slice(0, 10)}>{date}</time> : null}</div>
       {note ? <p className="tasting-memory-note">{note}</p> : null}
     </figcaption>
+    {location ? <MemoryLocation location={location} locale={locale} /> : null}
     {open ? <MemoryPhotoViewer url={url} locale={locale} wineName={wineName} date={date} onClose={() => setOpen(false)} /> : null}
   </figure> : null;
 }

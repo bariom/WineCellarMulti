@@ -4,6 +4,7 @@ import base64
 import binascii
 import warnings
 from io import BytesIO
+from math import isfinite
 from uuid import UUID
 
 from fastapi import HTTPException
@@ -66,3 +67,37 @@ def process_memory_photo(value: str | None) -> bytes | None:
         raise HTTPException(
             400, "Invalid memory photo. Choose a JPEG, PNG or WebP image."
         ) from error
+
+
+def extract_photo_location(value: str | None) -> dict[str, float] | None:
+    """Read optional GPS only; malformed metadata must not prevent a tasting."""
+    if not value:
+        return None
+    try:
+        content = base64.b64decode(value.split(",", 1)[1], validate=True)
+        if len(content) > MAX_INPUT_BYTES:
+            return None
+        with Image.open(BytesIO(content)) as image:
+            gps = image.getexif().get_ifd(34853)
+            coordinates = []
+            for tag, ref_tag, positive, negative, maximum in (
+                (2, 1, "N", "S", 90),
+                (4, 3, "E", "W", 180),
+            ):
+                degrees, minutes, seconds = map(float, gps[tag])
+                reference = gps[ref_tag]
+                if isinstance(reference, bytes):
+                    reference = reference.decode("ascii").rstrip("\0")
+                if reference not in (positive, negative):
+                    return None
+                if not (0 <= degrees <= maximum and 0 <= minutes < 60 and 0 <= seconds < 60):
+                    return None
+                coordinate = (degrees + minutes / 60 + seconds / 3600) * (
+                    -1 if reference == negative else 1
+                )
+                if not isfinite(coordinate) or abs(coordinate) > maximum:
+                    return None
+                coordinates.append(coordinate)
+            return dict(zip(("latitude", "longitude"), coordinates, strict=True))
+    except (ValueError, IndexError, KeyError, TypeError, OSError, ZeroDivisionError, OverflowError):
+        return None

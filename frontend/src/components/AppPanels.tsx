@@ -909,7 +909,7 @@ export function TastingHistorySection({
                     companions={entry.companions}
                     t={t}
                   />
-                  <TastingMemoryPhoto url={entry.memory_photo_url} locale={locale} wineName={wine.name} consumedAt={entry.consumed_at} note={entry.note} />
+                  <TastingMemoryPhoto location={entry.memory_photo_location} url={entry.memory_photo_url} locale={locale} wineName={wine.name} consumedAt={entry.consumed_at} note={entry.note} />
                   {entry.note && !entry.memory_photo_url ? <p>{entry.note}</p> : null}
                   {entry.occasion || entry.pairing || entry.companions ? (
                     <div className="chip-list">

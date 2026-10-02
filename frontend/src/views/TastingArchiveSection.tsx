@@ -18,6 +18,7 @@ type WineLike = {
 };
 
 type TastingArchiveEntry = {
+  memory_photo_location?: { latitude: number; longitude: number } | null;
   memory_photo_url?: string;
   id: string;
   wine: WineLike;
@@ -355,7 +356,7 @@ export default function TastingArchiveSection({
             />
           ) : (
             <>
-              <TastingMemoryPhoto url={entry.memory_photo_url} locale={locale} wineName={entry.wine.name} consumedAt={entry.consumed_at} note={entry.note} />
+              <TastingMemoryPhoto location={entry.memory_photo_location} url={entry.memory_photo_url} locale={locale} wineName={entry.wine.name} consumedAt={entry.consumed_at} note={entry.note} />
               {entry.note && !entry.memory_photo_url ? <p className="tasting-archive-note">{entry.note}</p> : null}
               {entry.occasion || entry.pairing || entry.companions ? (
                 <div className="chip-list">

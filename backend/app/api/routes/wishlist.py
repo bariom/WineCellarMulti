@@ -46,7 +46,11 @@ from app.services.taste_profiles import (
     rebuild_user_taste_profile,
     validated_dimensions,
 )
-from app.services.tasting_photos import memory_photo_url, process_memory_photo
+from app.services.tasting_photos import (
+    extract_photo_location,
+    memory_photo_url,
+    process_memory_photo,
+)
 
 router = APIRouter(prefix="/wishlist")
 
@@ -907,6 +911,7 @@ def save_external_tasting(
     tasting.companions = payload.tasting_companions.strip()
     if payload.memory_photo is not None:
         tasting.memory_photo = process_memory_photo(payload.memory_photo)
+        tasting.memory_photo_location = extract_photo_location(payload.memory_photo)
         tasting.memory_photo_version = uuid.uuid4().hex if tasting.memory_photo else ""
     db.add(tasting)
     db.flush()
@@ -957,6 +962,7 @@ def update_wishlist_tasting(
     tasting.companions = payload.tasting_companions.strip()
     if payload.memory_photo is not None:
         tasting.memory_photo = process_memory_photo(payload.memory_photo)
+        tasting.memory_photo_location = extract_photo_location(payload.memory_photo)
         tasting.memory_photo_version = uuid.uuid4().hex if tasting.memory_photo else ""
     if payload.tasting_rating > 0 or payload.tasting_enjoyment:
         mark_wine_for_sensory_enrichment(db, tasting)

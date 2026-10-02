@@ -10,10 +10,11 @@ from alembic.operations import Operations
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from PIL import Image
+from PIL.TiffImagePlugin import IFDRational
 
 import test_auth_and_wines as harness
 from app.main import app
-from app.services.tasting_photos import process_memory_photo
+from app.services.tasting_photos import extract_photo_location, process_memory_photo
 
 
 def setup_function():
@@ -71,6 +72,8 @@ def test_cellar_photo_is_atomic_scoped_editable_and_deleted_with_tasting():
     assert client.post(f"/api/v1/auth/pending-users/{pending['id']}/approve").status_code == 200
     assert other.post("/api/v1/auth/login", json={"email": "other@example.com", "password": "strong-password-1"}).status_code == 200
     assert other.get(url).status_code == 404
+    assert other.get("/api/v1/wines/tasting-archive?photos_only=true").json()["total"] == 0
+    assert TestClient(app).get("/api/v1/wines/tasting-archive?photos_only=true").status_code == 401
     external = client.post("/api/v1/wishlist/tastings", json={"name": "Private memory", "memory_photo": photo()}).json()
     assert other.get(external["memory_photo_url"]).status_code == 404
     edit = f"/api/v1/wines/{wine['id']}/tastings/{entry['id']}"
@@ -124,3 +127,73 @@ def test_photo_migration_preserves_existing_tastings():
             migration.downgrade()
             for table in ("wine_tasting_entries", "external_wine_tastings"):
                 assert connection.execute(sa.text(f"SELECT id FROM {table}")).scalar() == "existing"
+
+
+def gps_photo(latitude_ref="N", longitude_ref="E", degrees=43):
+    buffer = BytesIO()
+    exif = Image.Exif()
+    exif[34853] = {
+        1: latitude_ref,
+        2: (IFDRational(degrees), IFDRational(46), IFDRational(12)),
+        3: longitude_ref,
+        4: (IFDRational(11), IFDRational(15), IFDRational(0)),
+    }
+    Image.new("RGB", (160, 100), "green").save(buffer, "JPEG", exif=exif)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+def test_optional_gps_is_validated_and_stripped_from_served_image():
+    assert extract_photo_location(gps_photo()) == pytest.approx({"latitude": 43.77, "longitude": 11.25})
+    assert extract_photo_location(gps_photo("S", "W")) == pytest.approx({"latitude": -43.77, "longitude": -11.25})
+    for value in (None, "", photo(), "broken", gps_photo("X"), gps_photo(degrees=91)):
+        assert extract_photo_location(value) is None
+    assert extract_photo_location("data:image/jpeg;base64," + base64.b64encode(process_memory_photo(gps_photo())).decode()) is None
+
+
+@pytest.mark.parametrize("source", ["cellar", "external"])
+def test_gps_survives_roundtrip_and_is_replaced_with_photo(source):
+    client = TestClient(app)
+    assert harness.register(client).status_code == 201
+    if source == "cellar":
+        wine = client.post("/api/v1/wines", json={"name": "GPS memory", "quantity": 1}).json()
+        result = client.post(f"/api/v1/wines/{wine['id']}/consume", json={"memory_photo": gps_photo()}).json()
+        entry = result["tasting_history"][0]
+        endpoint = f"/api/v1/wines/{wine['id']}/tastings/{entry['id']}"
+        base = {"consumed_at": entry["consumed_at"]}
+        unwrap = lambda response: response.json()["tasting_history"][0]
+    else:
+        entry = client.post("/api/v1/wishlist/tastings", json={"name": "GPS memory", "memory_photo": gps_photo()}).json()
+        endpoint = f"/api/v1/wishlist/tastings/{entry['id']}"
+        base = {}
+        unwrap = lambda response: response.json()
+    expected = {"latitude": 43.77, "longitude": 11.25}
+    assert entry["memory_photo_location"] == pytest.approx(expected)
+    with Image.open(BytesIO(client.get(entry["memory_photo_url"]).content)) as image:
+        assert not image.getexif()
+    assert unwrap(client.patch(endpoint, json={**base, "note": "Changed"}))["memory_photo_location"] == pytest.approx(expected)
+    book = client.get("/api/v1/wines/tasting-archive?photos_only=true&limit=1").json()
+    assert book["total"] == 1 and book["items"][0]["memory_photo_location"] == pytest.approx(expected)
+    assert unwrap(client.patch(endpoint, json={**base, "memory_photo": photo()}))["memory_photo_location"] is None
+    assert unwrap(client.patch(endpoint, json={**base, "memory_photo": gps_photo("S", "W")}))["memory_photo_location"]["latitude"] == pytest.approx(-43.77)
+    assert unwrap(client.patch(endpoint, json={**base, "memory_photo": ""}))["memory_photo_location"] is None
+    assert client.get("/api/v1/wines/tasting-archive?photos_only=true").json()["total"] == 0
+
+
+def test_location_migration_preserves_existing_photos():
+    spec = importlib.util.spec_from_file_location("location_migration", Path(__file__).parents[1] / "alembic/versions/0113_memory_photo_location.py")
+    assert spec and spec.loader
+    migration = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(migration)
+    assert len(migration.revision) <= 32
+    engine = sa.create_engine("sqlite://")
+    with engine.begin() as connection:
+        for table in ("wine_tasting_entries", "external_wine_tastings"):
+            connection.execute(sa.text(f"CREATE TABLE {table} (id TEXT PRIMARY KEY, memory_photo BLOB)"))
+            connection.execute(sa.text(f"INSERT INTO {table} VALUES ('existing', X'0102')"))
+        with Operations.context(MigrationContext.configure(connection)):
+            migration.upgrade()
+            for table in ("wine_tasting_entries", "external_wine_tastings"):
+                assert connection.execute(sa.text(f"SELECT id, memory_photo, memory_photo_location FROM {table}")).one() == ("existing", b"\x01\x02", None)
+            migration.downgrade()
+            for table in ("wine_tasting_entries", "external_wine_tastings"):
+                assert connection.execute(sa.text(f"SELECT id, memory_photo FROM {table}")).one() == ("existing", b"\x01\x02")

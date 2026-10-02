@@ -113,6 +113,7 @@ const PublicLanding = lazy(() => import("./views/PublicLanding"));
 const MaturityPanorama = lazy(() => import("./components/MaturityPanorama").then((module) => ({ default: module.MaturityPanorama })));
 const BottlePhotoCapture = lazy(() => import("./components/BottlePhotoCapture"));
 const BuyingAdviceView = lazy(() => import("./views/BuyingAdviceView"));
+const MemoryBookButton = lazy(() => import("./views/MemoryBookButton"));
 const TastingArchiveSection = lazy(() => import("./views/TastingArchiveSection"));
 const WineGeographyMap = lazy(() => import("./views/WineGeographyMap"));
 const PersonalDashboard = lazy(() => import("./components/PersonalDashboard").then(module => ({ default: module.PersonalDashboard })));
@@ -6267,6 +6268,7 @@ export function App() {
         pairing: entry.pairing,
         companions: entry.companions,
         memory_photo_url: entry.memory_photo_url,
+        memory_photo_location: entry.memory_photo_location,
         source: entry.source,
         source_text: entry.source_text,
         sommelier_feedback: entry.sommelier_feedback,
@@ -6298,6 +6300,7 @@ export function App() {
       pairing: item.pairing,
       companions: item.companions,
       memory_photo_url: item.memory_photo_url,
+      memory_photo_location: item.memory_photo_location,
       source: item.source,
       source_text: item.source_text,
       sommelier_feedback: item.sommelier_feedback,
@@ -6807,6 +6810,7 @@ export function App() {
           pairing: item.pairing,
           companions: item.companions,
           memory_photo_url: item.memory_photo_url,
+          memory_photo_location: item.memory_photo_location,
           sommelier_feedback: item.sommelier_feedback,
           sommelier_pairing_score: item.sommelier_pairing_score,
           sommelier_pairing_advice: item.sommelier_pairing_advice,
@@ -13241,6 +13245,7 @@ export function App() {
                 </div>
               </div>
             ) : null}
+            {activeView === "history" && historySection === "tastings" && !offlineMode ? <Suspense fallback={null}><MemoryBookButton key={session?.active_household_id} locale={locale} /></Suspense> : null}
             {loading || tastingArchiveLoading ? <LoadingState label={t("loadingData")} variant="list" /> : null}
             {!loading && activeView === "cellar" && filteredWines.length === 0 ? (
               <EmptyState

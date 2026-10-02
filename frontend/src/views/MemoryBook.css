@@ -1,0 +1,39 @@
+.memory-book {
+  width: min(720px, calc(100vw - 24px));
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+  box-sizing: border-box;
+  padding: 24px;
+  border: 1px solid #d9c9bd;
+  border-radius: 24px;
+  background: radial-gradient(ellipse at top, #fffaf3, #eee3d8);
+  color: #49232c;
+  box-shadow: 0 24px 80px #24121855;
+  overflow-y: auto;
+}
+.memory-book::backdrop { background: #23131ccc; }
+.memory-book-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.memory-book-top > span { font-size: .8rem; letter-spacing: .08em; }
+.memory-book button { min-height: 44px; min-width: 44px; background: #fffaf5; color: #641d32; border: 1px solid #d9c9bd; }
+.memory-book header { text-align: center; margin: 24px 0; }
+.memory-book h2 { font-family: Georgia, serif; font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1.15; margin: 0 0 12px; color: #641d32; }
+.memory-book header p { color: #79685f; line-height: 1.6; margin: 0 auto; max-width: 420px; }
+.memory-book-page { width: min(100%, 460px); margin: 0 auto; border-radius: 16px; background: #fffaf5; box-shadow: 5px 5px 0 #e2d4c6, 10px 10px 0 #eee4da, 0 12px 30px #49232c22; overflow: hidden; }
+.memory-book-page > img { display: block; width: 100%; height: auto; max-height: 45dvh; object-fit: contain; background: #e6d9cd; }
+.memory-book-caption { padding: 20px; overflow-wrap: anywhere; }
+.memory-book-caption time, .memory-book-caption small { color: #79685f; font-size: .85rem; }
+.memory-book-caption h3 { font-family: Georgia, serif; font-size: 1.5rem; line-height: 1.3; margin: 8px 0; }
+.memory-book-caption p { line-height: 1.6; margin: 8px 0; white-space: pre-line; }
+.memory-book-note { border-top: 1px solid #e6d9cd; padding-top: 12px; }
+.memory-book-navigation { display: flex; align-items: center; justify-content: center; gap: 24px; margin-top: 26px; }
+.memory-book-navigation button { border-radius: 50%; font-size: 1.4rem; }
+.memory-book-empty { padding: 28px 0; text-align: center; line-height: 1.6; }
+.memory-location { min-width: 0; margin-top: 12px; }
+@media (max-width: 480px) {
+  .memory-book { padding: 16px; border-radius: 18px; }
+  .memory-book-caption { padding: 16px; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .memory-book-page { animation: memory-page-in .25s ease-out; }
+  @keyframes memory-page-in { from { opacity: .4; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+}

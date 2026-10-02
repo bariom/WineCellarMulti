@@ -163,6 +163,7 @@ class WineTastingEntry(Base):
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
     memory_photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    memory_photo_location: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     memory_photo_version: Mapped[str] = mapped_column(String(32), default="", server_default="")
 
     consumed_at: Mapped[date] = mapped_column(Date, index=True)

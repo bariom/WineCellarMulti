@@ -88,6 +88,7 @@ class ExternalWineTastingCreate(BaseModel):
 
 
 class ExternalWineTastingResponse(BaseModel):
+    memory_photo_location: dict[str, float] | None = None
     memory_photo_url: str = ""
     model_config = ConfigDict(from_attributes=True)
 

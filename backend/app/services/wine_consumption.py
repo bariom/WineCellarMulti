@@ -81,6 +81,7 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
                 "source": str(raw_entry.get("source") or "manual").strip()[:32],
                 "source_text": str(raw_entry.get("source_text") or "").strip(),
                 "memory_photo_url": str(raw_entry.get("memory_photo_url") or ""),
+                "memory_photo_location": raw_entry.get("memory_photo_location"),
                 "created_at": created_at,
             },
         )
@@ -105,6 +106,7 @@ def record_wine_consumption(
     created_by_user_id: UUID | None = None,
     storage_allocation_id: UUID | None = None,
     memory_photo: bytes | None = None,
+    memory_photo_location: dict[str, float] | None = None,
 ) -> WineConsumptionResult:
     if wine.quantity <= 0:
         raise NoBottlesAvailableError("No bottles left to consume")
@@ -118,6 +120,7 @@ def record_wine_consumption(
     tasting_entry = {
         "id": str(tasting_id),
         "memory_photo_url": memory_photo_url("cellar", tasting_id, photo_version),
+        "memory_photo_location": memory_photo_location,
         "consumed_at": consumed_at.isoformat(),
         "note": note.strip(),
         "rating": max(0, min(int(rating), 6)),
@@ -136,6 +139,7 @@ def record_wine_consumption(
         WineTastingEntry(
             id=tasting_id,
             memory_photo=memory_photo,
+            memory_photo_location=memory_photo_location,
             memory_photo_version=photo_version,
             wine_id=wine.id,
             household_id=wine.household_id,
