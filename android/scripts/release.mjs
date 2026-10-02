@@ -13,7 +13,13 @@ function run(command, args, options = {}) {
 export function certificateFingerprint(output) {
   const digests = new Set([...output.matchAll(/^Signer(?: #\d+)?(?: \([^\r\n]*\))? certificate SHA-256 digest:[ \t]*([a-fA-F0-9]{64})[ \t]*\r?$/gm)]
     .map(match => match[1].toUpperCase()));
-  if (digests.size !== 1) throw new Error("The release APK must have one unambiguous verified signing certificate.");
+  if (digests.size !== 1) {
+    // Diagnostics exclude certificate identities and all key material.
+    const status = output.split(/\r?\n/).filter(line => /^(?:Verifies|Verified using |Number of signers:)/.test(line)).join("; ");
+    const labels = output.split(/\r?\n/).filter(line => /SHA-256 digest:/.test(line))
+      .map(line => line.slice(0, line.indexOf("digest:") + 7)).join("; ");
+    throw new Error(`The release APK must have one unambiguous verified signing certificate. Verification: ${status || "no status"}. Certificate labels: ${labels || "none"}.`);
+  }
   return [...digests][0].match(/.{2}/g).join(":");
 }
 
