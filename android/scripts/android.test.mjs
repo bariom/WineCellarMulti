@@ -85,6 +85,18 @@ test("release refuses to publish without signing configuration", async () => {
   }
 });
 
+test("certificate parsing supports SDK-scoped apksigner output and rejects ambiguous or unrelated fingerprints", () => {
+  const digest = "ab".repeat(32);
+  const expected = "AB:".repeat(31) + "AB";
+  for (const label of ["Signer", "Signer #1", "Signer (minSdkVersion=26, maxSdkVersion=2147483647)"]) {
+    assert.equal(certificateFingerprint(`${label} certificate SHA-256 digest: ${digest}\r\n`), expected);
+  }
+  assert.equal(certificateFingerprint(`Signer (minSdkVersion=33, maxSdkVersion=2147483647) certificate SHA-256 digest: ${digest}\nSigner (minSdkVersion=26, maxSdkVersion=32) certificate SHA-256 digest: ${digest}`), expected);
+  assert.throws(() => certificateFingerprint(`Signer #1 certificate SHA-256 digest: ${digest}\nSigner #2 certificate SHA-256 digest: ${"cd".repeat(32)}`), /unambiguous/);
+  assert.throws(() => certificateFingerprint(`Signer #1 public key SHA-256 digest: ${digest}`));
+  assert.throws(() => certificateFingerprint(`Source Stamp Signer certificate SHA-256 digest: ${digest}`));
+});
+
 test("updates reject a changed signing key and a non-increasing Android version", () => {
   const previous = { packageId: "app.vinaris.cellar", certificateSha256: "old", versionCode: 1 };
   assert.throws(() => checkUpdate(previous, { packageId: previous.packageId, versionCode: 2 }, "new"), /signing key/);

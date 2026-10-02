@@ -11,9 +11,10 @@ function run(command, args, options = {}) {
 }
 
 export function certificateFingerprint(output) {
-  const match = output.match(/Signer #1 certificate SHA-256 digest:\s*([a-fA-F0-9]{64})/);
-  if (!match) throw new Error("The release APK must have a verifiable signing certificate.");
-  return match[1].toUpperCase().match(/.{2}/g).join(":");
+  const digests = new Set([...output.matchAll(/^Signer(?: #\d+)?(?: \([^\r\n]*\))? certificate SHA-256 digest:[ \t]*([a-fA-F0-9]{64})[ \t]*\r?$/gm)]
+    .map(match => match[1].toUpperCase()));
+  if (digests.size !== 1) throw new Error("The release APK must have one unambiguous verified signing certificate.");
+  return [...digests][0].match(/.{2}/g).join(":");
 }
 
 export function assetLinks(packageId, fingerprint) {
