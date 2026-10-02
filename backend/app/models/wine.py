@@ -12,6 +12,7 @@ from sqlalchemy import (
     Float,
     ForeignKey,
     Index,
+    LargeBinary,
     Numeric,
     String,
     Text,
@@ -161,6 +162,9 @@ class WineTastingEntry(Base):
     created_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    memory_photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    memory_photo_version: Mapped[str] = mapped_column(String(32), default="", server_default="")
+
     consumed_at: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(Text, default="")
     rating: Mapped[int] = mapped_column(default=0)

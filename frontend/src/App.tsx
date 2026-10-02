@@ -1,3 +1,4 @@
+import { tastingRequest } from "./domain/tasting";
 import { CSSProperties, ChangeEvent, Children, Dispatch, FormEvent, MouseEvent, ReactNode, SetStateAction, Suspense, UIEvent, lazy, useEffect, useId, useRef, useState } from "react";
 import { createPortal, flushSync } from "react-dom";
 import { AppIcon, AppIconName } from "./components/AppIcon";
@@ -4882,13 +4883,7 @@ export function App() {
       const updated = await api<Wine>(`/api/v1/wines/${wine.id}/consume`, {
         method: "POST",
         body: JSON.stringify({
-          consumed_at: payload.consumed_at || undefined,
-          note: payload.note.trim(),
-          tasting_rating: Number(payload.tasting_rating || 0),
-          tasting_enjoyment: payload.tasting_enjoyment,
-          tasting_occasion: payload.tasting_occasion.trim(),
-          tasting_pairing: payload.tasting_pairing.trim(),
-          tasting_companions: payload.tasting_companions.trim(),
+          ...tastingRequest(payload),
           storage_allocation_id: payload.storage_allocation_id || undefined,
         }),
       });
@@ -5013,13 +5008,7 @@ export function App() {
       const updated = await api<Wine>(`/api/v1/wines/${wine.id}/tastings/${entryId}`, {
         method: "PATCH",
         body: JSON.stringify({
-          consumed_at: payload.consumed_at,
-          note: payload.note.trim(),
-          tasting_rating: Number(payload.tasting_rating || 0),
-          tasting_enjoyment: payload.tasting_enjoyment,
-          tasting_occasion: payload.tasting_occasion.trim(),
-          tasting_pairing: payload.tasting_pairing.trim(),
-          tasting_companions: payload.tasting_companions.trim(),
+          ...tastingRequest(payload),
         }),
       });
       setWines((current) => current.map((item) => (item.id === updated.id ? updated : item)));
@@ -5316,13 +5305,7 @@ export function App() {
       await api(`/api/v1/wishlist/tastings/${entry.id}`, {
         method: "PATCH",
         body: JSON.stringify({
-          consumed_at: payload.consumed_at,
-          note: payload.note.trim(),
-          tasting_rating: Number(payload.tasting_rating || 0),
-          tasting_enjoyment: payload.tasting_enjoyment,
-          tasting_occasion: payload.tasting_occasion.trim(),
-          tasting_pairing: payload.tasting_pairing.trim(),
-          tasting_companions: payload.tasting_companions.trim(),
+          ...tastingRequest(payload),
         }),
       });
       await loadTastingArchiveOverview();
@@ -5366,13 +5349,7 @@ export function App() {
       await api(`/api/v1/wishlist/${item.id}/tastings`, {
         method: "POST",
         body: JSON.stringify({
-          consumed_at: payload.consumed_at || undefined,
-          note: payload.note.trim(),
-          tasting_rating: Number(payload.tasting_rating || 0),
-          tasting_enjoyment: payload.tasting_enjoyment,
-          tasting_occasion: payload.tasting_occasion.trim(),
-          tasting_pairing: payload.tasting_pairing.trim(),
-          tasting_companions: payload.tasting_companions.trim(),
+          ...tastingRequest(payload),
         }),
       });
       await loadTastingArchiveOverview();
@@ -6288,6 +6265,7 @@ export function App() {
         occasion: entry.occasion,
         pairing: entry.pairing,
         companions: entry.companions,
+        memory_photo_url: entry.memory_photo_url,
         source: entry.source,
         source_text: entry.source_text,
         sommelier_feedback: entry.sommelier_feedback,
@@ -6318,6 +6296,7 @@ export function App() {
       occasion: item.occasion,
       pairing: item.pairing,
       companions: item.companions,
+      memory_photo_url: item.memory_photo_url,
       source: item.source,
       source_text: item.source_text,
       sommelier_feedback: item.sommelier_feedback,
@@ -6826,6 +6805,7 @@ export function App() {
           occasion: item.occasion,
           pairing: item.pairing,
           companions: item.companions,
+          memory_photo_url: item.memory_photo_url,
           sommelier_feedback: item.sommelier_feedback,
           sommelier_pairing_score: item.sommelier_pairing_score,
           sommelier_pairing_advice: item.sommelier_pairing_advice,

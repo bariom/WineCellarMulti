@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "../components/TastingMemoryPhoto";
 import { AppIcon, AppIconName } from "../components/AppIcon";
 import LocalizedDateInput from "../components/LocalizedDateInput";
 import TastingArchiveInsights from "./TastingArchiveInsights";
@@ -17,6 +18,7 @@ type WineLike = {
 };
 
 type TastingArchiveEntry = {
+  memory_photo_url?: string;
   id: string;
   wine: WineLike;
   consumed_at: string;
@@ -38,6 +40,9 @@ type TastingArchiveEntry = {
 };
 
 type ConsumeWineDraft = {
+  memory_photo?: string;
+  memory_photo_url?: string;
+  memory_photo_processing?: boolean;
   consumed_at: string;
   note: string;
   tasting_rating: string;
@@ -77,6 +82,7 @@ function emptyConsumeWineDraft(): ConsumeWineDraft {
 
 function consumeDraftFromTastingEntry(entry: TastingArchiveEntry): ConsumeWineDraft {
   return {
+    memory_photo_url: entry.memory_photo_url,
     consumed_at: entry.consumed_at || new Date().toISOString().slice(0, 10),
     note: entry.note || "",
     tasting_rating: String(entry.rating || 0),
@@ -234,8 +240,9 @@ function TastingEntryEditor({
           disabled={saving}
         />
       </label>
+      <TastingMemoryPhotoInput locale={locale} value={draft.memory_photo} existingUrl={draft.memory_photo_url} disabled={saving} onChange={memory_photo => setDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setDraft(current => ({ ...current, memory_photo_processing }))} />
       <div className="tasting-entry-actions">
-        <button type="button" disabled={saving} onClick={() => onSave().catch(() => undefined)}>
+        <button type="button" disabled={saving || draft.memory_photo_processing} onClick={() => onSave().catch(() => undefined)}>
           {saving ? t("saving") : t("saveChanges")}
         </button>
         <button type="button" className="secondary compact" disabled={saving} onClick={onCancel}>
@@ -348,7 +355,8 @@ export default function TastingArchiveSection({
             />
           ) : (
             <>
-              {entry.note ? <p className="tasting-archive-note">{entry.note}</p> : null}
+              <TastingMemoryPhoto url={entry.memory_photo_url} locale={locale} wineName={entry.wine.name} consumedAt={entry.consumed_at} note={entry.note} />
+              {entry.note && !entry.memory_photo_url ? <p className="tasting-archive-note">{entry.note}</p> : null}
               {entry.occasion || entry.pairing || entry.companions ? (
                 <div className="chip-list">
                   {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}

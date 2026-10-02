@@ -1,4 +1,5 @@
 import json
+import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -45,6 +46,7 @@ from app.services.taste_profiles import (
     rebuild_user_taste_profile,
     validated_dimensions,
 )
+from app.services.tasting_photos import memory_photo_url, process_memory_photo
 
 router = APIRouter(prefix="/wishlist")
 
@@ -903,6 +905,9 @@ def save_external_tasting(
     tasting.occasion = payload.tasting_occasion.strip()
     tasting.pairing = payload.tasting_pairing.strip()
     tasting.companions = payload.tasting_companions.strip()
+    if payload.memory_photo is not None:
+        tasting.memory_photo = process_memory_photo(payload.memory_photo)
+        tasting.memory_photo_version = uuid.uuid4().hex if tasting.memory_photo else ""
     db.add(tasting)
     db.flush()
     # Shared sensory data is optional. Its absence never prevents the explicit
@@ -915,7 +920,13 @@ def save_external_tasting(
         rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
     db.commit()
     db.refresh(tasting)
-    return ExternalWineTastingResponse.model_validate(tasting)
+    return ExternalWineTastingResponse.model_validate(tasting).model_copy(
+        update={
+            "memory_photo_url": memory_photo_url(
+                "external", tasting.id, tasting.memory_photo_version
+            )
+        }
+    )
 
 
 @router.patch("/tastings/{tasting_id}", response_model=ExternalWineTastingResponse)
@@ -944,6 +955,9 @@ def update_wishlist_tasting(
     tasting.occasion = payload.tasting_occasion.strip()
     tasting.pairing = payload.tasting_pairing.strip()
     tasting.companions = payload.tasting_companions.strip()
+    if payload.memory_photo is not None:
+        tasting.memory_photo = process_memory_photo(payload.memory_photo)
+        tasting.memory_photo_version = uuid.uuid4().hex if tasting.memory_photo else ""
     if payload.tasting_rating > 0 or payload.tasting_enjoyment:
         mark_wine_for_sensory_enrichment(db, tasting)
         db.flush()
@@ -951,7 +965,13 @@ def update_wishlist_tasting(
     rebuild_user_taste_profile(db, household_id=context.household.id, user_id=context.user.id)
     db.commit()
     db.refresh(tasting)
-    return ExternalWineTastingResponse.model_validate(tasting)
+    return ExternalWineTastingResponse.model_validate(tasting).model_copy(
+        update={
+            "memory_photo_url": memory_photo_url(
+                "external", tasting.id, tasting.memory_photo_version
+            )
+        }
+    )
 
 
 @router.delete("/tastings/{tasting_id}", status_code=status.HTTP_204_NO_CONTENT)

@@ -13,6 +13,7 @@ export const emptyConsumeWineDraft = (): ConsumeWineDraft => ({
 
 export function consumeDraftFromTastingEntry(entry: Wine["tasting_history"][number]): ConsumeWineDraft {
   return {
+    memory_photo_url: entry.memory_photo_url,
     consumed_at: entry.consumed_at || new Date().toISOString().slice(0, 10),
     note: entry.note || "",
     tasting_rating: String(entry.rating || 0),

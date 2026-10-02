@@ -77,6 +77,7 @@ class WishlistTasteMatchPreview(BaseModel):
 
 
 class ExternalWineTastingCreate(BaseModel):
+    memory_photo: str | None = Field(default=None, max_length=2_800_000, repr=False)
     consumed_at: date | None = None
     note: str = Field(default="", max_length=5000)
     tasting_rating: int = Field(default=0, ge=0, le=6)
@@ -87,6 +88,7 @@ class ExternalWineTastingCreate(BaseModel):
 
 
 class ExternalWineTastingResponse(BaseModel):
+    memory_photo_url: str = ""
     model_config = ConfigDict(from_attributes=True)
 
     id: UUID

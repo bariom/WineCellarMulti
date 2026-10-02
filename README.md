@@ -46,6 +46,24 @@ or photograph the label when label recognition is enabled for your account.
 Review recognized details before saving. Date defaults to today; ratings, notes,
 occasion, pairing and companions are optional.
 
+**Foto ricordo / Memory photo** optionally attaches one image to a tasting:
+take a photo or choose one from the gallery, preview it, and remove it before
+saving. It also works from Wine Detail and wishlist tastings. History and Wine
+Detail pair the framed memory with its date and note; select the photo to open
+a larger view with the wine name. Escape or Close returns focus to the photo.
+The frame and controls follow the active theme. Editing allows replacement or removal. Photos retain
+their aspect ratio and are saved as metadata-free JPEGs, at most 1280 pixels on
+the longest side and 200 KB. No original file is retained. The browser accepts
+JPEG, PNG and WebP images up to 25 MB and compresses them before upload; the
+backend independently validates and recompresses the result.
+
+Deploy migration `0112_tasting_memory_photos` with `alembic upgrade head` before
+starting the updated backend. The compact image is stored in the database in
+the same transaction as the tasting, included in PostgreSQL backups, and removed
+with the tasting. Image bytes are deferred from normal queries and fetched through
+an authenticated household-scoped endpoint. External tasting memories additionally
+require the tasting's author. JSON/Excel cellar exports do not include image bytes.
+
 External tastings appear in History and can be edited there. Use the origin filter
 to show all tastings, cellar bottles, or external wines. After saving an external
 wine, **Add to wishlist** opens a prefilled wishlist form; purchasing intent remains
@@ -56,8 +74,10 @@ Targeted regression checks:
 ```powershell
 cd backend
 .venv/Scripts/python.exe -m pytest tests/test_auth_and_wines.py -k "standalone_tasting or wishlist_tasting or tasting_archive"
+.venv/Scripts/python.exe -m pytest tests/test_tasting_memory_photos.py
 cd ../frontend
 npm run test:e2e:record-tasting
+npx playwright test e2e/tasting-memory-photo.spec.ts
 npm run build
 ```
 

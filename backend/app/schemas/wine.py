@@ -110,6 +110,7 @@ class WineUpdate(BaseModel):
 
 
 class WineTastingEntryResponse(BaseModel):
+    memory_photo_url: str = ""
     id: UUID
     consumed_at: date
     note: str
@@ -131,6 +132,7 @@ class WineTastingEntryResponse(BaseModel):
 
 
 class TastingArchiveItemResponse(BaseModel):
+    memory_photo_url: str = ""
     wine_id: UUID
     wine_name: str
     wine_producer: str = ""
@@ -182,6 +184,7 @@ class TastingArchivePageResponse(BaseModel):
 
 
 class WineConsume(BaseModel):
+    memory_photo: str | None = Field(default=None, max_length=2_800_000, repr=False)
     quantity: int = Field(default=1, ge=1, le=100000)
     consumed_at: date | None = None
     storage_allocation_id: UUID | None = None
@@ -194,6 +197,7 @@ class WineConsume(BaseModel):
 
 
 class WineTastingEntryUpdate(BaseModel):
+    memory_photo: str | None = Field(default=None, max_length=2_800_000, repr=False)
     consumed_at: date
     note: str = ""
     tasting_rating: int = Field(default=0, ge=0, le=6)

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Wine, WineTastingEntry
 from app.services.stock_ledger import remove_fifo_stock
+from app.services.tasting_photos import memory_photo_url
 
 
 class NoBottlesAvailableError(ValueError):
@@ -79,6 +80,7 @@ def normalize_tasting_history(raw_entries: list[dict]) -> list[dict]:
                 "companions": str(raw_entry.get("companions") or "").strip(),
                 "source": str(raw_entry.get("source") or "manual").strip()[:32],
                 "source_text": str(raw_entry.get("source_text") or "").strip(),
+                "memory_photo_url": str(raw_entry.get("memory_photo_url") or ""),
                 "created_at": created_at,
             },
         )
@@ -102,6 +104,7 @@ def record_wine_consumption(
     source_text: str = "",
     created_by_user_id: UUID | None = None,
     storage_allocation_id: UUID | None = None,
+    memory_photo: bytes | None = None,
 ) -> WineConsumptionResult:
     if wine.quantity <= 0:
         raise NoBottlesAvailableError("No bottles left to consume")
@@ -110,9 +113,11 @@ def record_wine_consumption(
     previous_status = wine.status
     previous_rating = wine.rating
     tasting_id = uuid.uuid4()
+    photo_version = uuid.uuid4().hex if memory_photo else ""
     created_at = datetime.now(UTC)
     tasting_entry = {
         "id": str(tasting_id),
+        "memory_photo_url": memory_photo_url("cellar", tasting_id, photo_version),
         "consumed_at": consumed_at.isoformat(),
         "note": note.strip(),
         "rating": max(0, min(int(rating), 6)),
@@ -130,6 +135,8 @@ def record_wine_consumption(
     db.add(
         WineTastingEntry(
             id=tasting_id,
+            memory_photo=memory_photo,
+            memory_photo_version=photo_version,
             wine_id=wine.id,
             household_id=wine.household_id,
             created_by_user_id=created_by_user_id,

@@ -99,6 +99,7 @@ export type Wine = {
   photo_detail_url: string;
   created_at?: string;
   tasting_history: Array<{
+    memory_photo_url?: string;
     id: string;
     consumed_at: string;
     note: string;
@@ -122,6 +123,9 @@ export type Wine = {
 };
 
 export type ConsumeWineDraft = {
+  memory_photo?: string;
+  memory_photo_url?: string;
+  memory_photo_processing?: boolean;
   consumed_at: string;
   note: string;
   tasting_rating: string;
@@ -373,6 +377,7 @@ export type WineShareOffer = {
 };
 
 export type TastingArchiveApiItem = {
+  memory_photo_url?: string;
   tasting_id: string;
   wine_id: string;
   wine_name: string;
@@ -435,6 +440,7 @@ export type TastingWineIdentity = {
 };
 
 export type StandaloneWineTastingCreate = TastingWineIdentity & {
+  memory_photo?: string;
   consumed_at?: string;
   note: string;
   tasting_rating: number;
@@ -1438,6 +1444,7 @@ export type ThemePreference =
   | "cave-privee";
 
 export type TastingArchiveEntry = {
+  memory_photo_url?: string;
   id: string;
   wine: Wine;
   consumed_at: string;

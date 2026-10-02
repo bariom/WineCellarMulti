@@ -7,6 +7,8 @@ import { isWinePhysicallyInCellar } from "../domain/cellar";
 import { TastingEnjoymentInput } from "./AppUi";
 import { emptyConsumeWineDraft } from "./panelSupport";
 import "./RecordTastingDialog.css";
+import { tastingRequest } from "../domain/tasting";
+import { TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 
 const blankWine = (): TastingWineIdentity => ({ name: "", producer: "", vintage: "", format: "", type: "", region: "", appellation: "" });
 
@@ -94,10 +96,10 @@ export default function RecordTastingDialog({ locale, wines, canRecognize, onClo
   }
 
   async function save() {
-    if (busy || saved) return;
+    if (busy || saved || draft.memory_photo_processing) return;
     setBusy(true); setError("");
     try {
-      const payload = { ...draft, consumed_at: draft.consumed_at || undefined, tasting_rating: Number(draft.tasting_rating), storage_allocation_id: draft.storage_allocation_id || undefined };
+      const payload = { ...tastingRequest(draft), storage_allocation_id: draft.storage_allocation_id || undefined };
       let updated: Wine | undefined;
       if (mode === "cellar" && selected) {
         updated = await api<Wine>(`/api/v1/wines/${selected.id}/consume`, { method: "POST", body: JSON.stringify(payload) });
@@ -162,9 +164,10 @@ export default function RecordTastingDialog({ locale, wines, canRecognize, onClo
           <label><span>{it ? "Ti è piaciuto?" : "Did you enjoy it?"}</span><TastingEnjoymentInput disabled={busy} value={draft.tasting_enjoyment} t={t} onChange={tasting_enjoyment => setDraft(current => ({ ...current, tasting_enjoyment }))} /></label>
           <label><span>{it ? "Voto (facoltativo)" : "Score (optional)"}</span><select value={draft.tasting_rating} onChange={event => setDraft(current => ({ ...current, tasting_rating: event.target.value }))}>{Array.from({ length: 7 }, (_, rating) => <option key={rating} value={rating}>{rating ? `${rating}/6` : "—"}</option>)}</select></label>
           <label><span>{it ? "Un ricordo di questo vino" : "A memory of this wine"}</span><textarea rows={2} maxLength={5000} value={draft.note} onChange={event => setDraft(current => ({ ...current, note: event.target.value }))} /></label>
+          <TastingMemoryPhotoInput locale={locale} value={draft.memory_photo} disabled={busy} onChange={memory_photo => setDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setDraft(current => ({ ...current, memory_photo_processing }))} />
           {(selected?.storage_allocations || []).length > 1 ? <label><span>{it ? "Preleva da" : "Take from"}</span><select required value={draft.storage_allocation_id} onChange={event => setDraft(current => ({ ...current, storage_allocation_id: event.target.value }))}><option value="">—</option>{selected?.storage_allocations?.map(allocation => <option key={allocation.id} value={allocation.id}>{allocation.location_name || (it ? "Da collocare" : "Unassigned")}{allocation.bin_name ? ` · ${allocation.bin_name}` : ""} ({allocation.quantity})</option>)}</select></label> : null}
           <details><summary>{it ? "Aggiungi dettagli" : "Add details"}</summary><div className="record-tasting-fields">{([['tasting_occasion', it ? 'Occasione' : 'Occasion', 200], ['tasting_pairing', it ? 'Abbinamento' : 'Pairing', 300], ['tasting_companions', it ? 'Con chi' : 'With', 300]] as const).map(([key, label, maxLength]) => <label key={key}><span>{label}</span><input maxLength={maxLength} value={draft[key]} onChange={event => setDraft(current => ({ ...current, [key]: event.target.value }))} /></label>)}</div></details>
-          <button type="submit" disabled={mode === "external" && !identity.name.trim()}>{it ? "Salva bevuta" : "Save tasting"}</button>
+          <button type="submit" disabled={draft.memory_photo_processing || (mode === "external" && !identity.name.trim())}>{it ? "Salva bevuta" : "Save tasting"}</button>
         </> : null}
       </fieldset>
     </form>}

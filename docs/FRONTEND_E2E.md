@@ -50,6 +50,14 @@ buying advice and wishlist flows) remain independently selectable through
 `npx playwright test e2e/<feature>.spec.ts`. The taste-profile layout suite does
 not replace the separate taste-profile functional suite.
 
+Tasting memory photos have dedicated checks in
+`npx playwright test e2e/tasting-memory-photo.spec.ts`: camera/gallery selection,
+compression, invalid image handling, removal, History editing, and geometry at
+360/390/430 px plus desktop. They also check portrait/landscape proportions,
+the photo viewer, keyboard dismissal and restored focus. The compact photo input
+and framed memories in light/private-cellar themes have deterministic visual
+baselines, reviewed before acceptance.
+
 My Taste geography ranks up to three origins by positive personal-rating evidence,
 separately from physical cellar availability. Complete preferences and the map are
 collapsed by default. Discovery suggestions match appreciated grapes to stocked

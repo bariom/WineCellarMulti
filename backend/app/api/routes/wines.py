@@ -85,6 +85,7 @@ from app.services.taste_profiles import (
     rebuild_user_taste_profile,
     record_user_wine_rating,
 )
+from app.services.tasting_photos import memory_photo_url, process_memory_photo
 from app.services.wine_consumption import (
     NoBottlesAvailableError,
     normalize_tasting_history,
@@ -536,6 +537,11 @@ def tasting_archive_entry(entry: WineTastingEntry, wine: Wine) -> TastingArchive
         sommelier_feedback_at=entry.sommelier_feedback_at,
         created_at=entry.created_at,
         tasting_id=entry.id,
+        memory_photo_url=memory_photo_url(
+            "external" if isinstance(entry, ExternalWineTasting) else "cellar",
+            entry.id,
+            entry.memory_photo_version,
+        ),
     )
 
 
@@ -562,6 +568,11 @@ def external_tasting_archive_entry(entry: ExternalWineTasting) -> TastingArchive
         source="external_tasting",
         created_at=entry.created_at,
         tasting_id=entry.id,
+        memory_photo_url=memory_photo_url(
+            "external" if isinstance(entry, ExternalWineTasting) else "cellar",
+            entry.id,
+            entry.memory_photo_version,
+        ),
     )
 
 
@@ -747,6 +758,40 @@ def portfolio_value_history(
     # A calendar-based retention window is resilient to mass updates and
     # gives the chart up to one year of actual portfolio evolution.
     return [daily_points[day] for day in sorted(daily_points)][-365:]
+
+
+@router.get("/tasting-photos/{source}/{tasting_id}")
+def get_tasting_memory_photo(
+    source: Literal["cellar", "external"],
+    tasting_id: UUID,
+    db: Session = Depends(get_db),
+    context: CurrentContext = Depends(get_current_context),
+) -> Response:
+    if source == "cellar":
+        tasting = db.scalar(
+            select(WineTastingEntry).where(
+                WineTastingEntry.id == tasting_id,
+                WineTastingEntry.household_id == context.household.id,
+            )
+        )
+    else:
+        tasting = db.scalar(
+            select(ExternalWineTasting).where(
+                ExternalWineTasting.id == tasting_id,
+                ExternalWineTasting.household_id == context.household.id,
+                ExternalWineTasting.created_by_user_id == context.user.id,
+            )
+        )
+    if tasting is None or not tasting.memory_photo_version or not tasting.memory_photo:
+        raise HTTPException(404, "Memory photo not found")
+    return Response(
+        tasting.memory_photo,
+        media_type="image/jpeg",
+        headers={
+            "Cache-Control": "private, no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @router.get("/tasting-archive", response_model=TastingArchivePageResponse)
@@ -1344,7 +1389,9 @@ def create_wine(
                 bin_id=allocation.bin_id,
             )
     ensure_catalog_entry_for_wine_data(db, data)
-    shared_features = hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it", market_country=context.user.market_country)
+    shared_features = hydrate_wine_from_shared(
+        db, wine, locale=context.user.locale or "it", market_country=context.user.market_country
+    )
     record_wine_value_history(db, wine, source="shared" if "value" in shared_features else "manual")
     set_user_wine_tags(db, context, wine, tag_names)
     if wine.rating > 0:
@@ -1381,7 +1428,9 @@ def get_wine(
             wine.drink_to,
         )
     ):
-        if hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it", market_country=context.user.market_country):
+        if hydrate_wine_from_shared(
+            db, wine, locale=context.user.locale or "it", market_country=context.user.market_country
+        ):
             db.commit()
             db.refresh(wine)
     return wine_response(
@@ -1863,7 +1912,9 @@ def update_wine(
         if fields.intersection(changed_fields):
             mark_local_feature(wine, feature)
     if identity_changed:
-        hydrate_wine_from_shared(db, wine, locale=context.user.locale or "it", market_country=context.user.market_country)
+        hydrate_wine_from_shared(
+            db, wine, locale=context.user.locale or "it", market_country=context.user.market_country
+        )
     if (
         "current_value" in data
         and wine.current_value is not None
@@ -1897,6 +1948,7 @@ def consume_wine_bottle(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Not enough bottles left to consume",
         )
+    photo = process_memory_photo(payload.memory_photo)
     try:
         for _ in range(payload.quantity):
             record_wine_consumption(
@@ -1911,6 +1963,7 @@ def consume_wine_bottle(
                 companions=payload.tasting_companions,
                 created_by_user_id=context.user.id,
                 storage_allocation_id=payload.storage_allocation_id,
+                memory_photo=photo,
             )
     except NoBottlesAvailableError as error:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error)) from error
@@ -1941,6 +1994,7 @@ def update_wine_tasting_entry(
 ) -> WineResponse:
     wine = get_household_wine(db, context, wine_id)
     entries, index = tasting_entry_index(wine, tasting_id)
+    photo = process_memory_photo(payload.memory_photo) if payload.memory_photo is not None else None
     current_entry = entries[index]
     entries[index] = {
         **current_entry,
@@ -1955,10 +2009,19 @@ def update_wine_tasting_entry(
     wine.tasting_history = normalize_tasting_history(entries)
     tasting = db.scalar(
         select(WineTastingEntry).where(
-            WineTastingEntry.id == tasting_id, WineTastingEntry.wine_id == wine.id
+            WineTastingEntry.id == tasting_id,
+            WineTastingEntry.wine_id == wine.id,
+            WineTastingEntry.household_id == context.household.id,
         )
     )
     if tasting is not None:
+        if payload.memory_photo is not None:
+            tasting.memory_photo = photo
+            tasting.memory_photo_version = uuid.uuid4().hex if photo else ""
+            entries[index]["memory_photo_url"] = memory_photo_url(
+                "cellar", tasting.id, tasting.memory_photo_version
+            )
+            wine.tasting_history = normalize_tasting_history(entries)
         tasting.consumed_at = payload.consumed_at
         tasting.note = payload.note.strip()
         tasting.rating = payload.tasting_rating
@@ -1997,7 +2060,9 @@ def delete_wine_tasting_entry(
     wine.tasting_history = normalize_tasting_history(entries)
     tasting = db.scalar(
         select(WineTastingEntry).where(
-            WineTastingEntry.id == tasting_id, WineTastingEntry.wine_id == wine.id
+            WineTastingEntry.id == tasting_id,
+            WineTastingEntry.wine_id == wine.id,
+            WineTastingEntry.household_id == context.household.id,
         )
     )
     if tasting is not None:

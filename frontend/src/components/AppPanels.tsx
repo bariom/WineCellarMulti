@@ -15,6 +15,7 @@ import { api } from "../services/api";
 import type { WineStockLot } from "../types";
 import { WineLocationPicker, WineStorageSection, WineStrategySection } from "./StoragePanels";
 import LocalizedDateInput from "./LocalizedDateInput";
+import { TastingMemoryPhoto, TastingMemoryPhotoInput } from "./TastingMemoryPhoto";
 import { WineSensorySignaturePanel } from "./WineSensorySignaturePanel";
 const TimeSeriesChart = lazy(() => import("./TimeSeriesChart"));
 const VineyardMap = lazy(() => import("../views/WineGeographyMap").then((module) => ({ default: module.VineyardMap })));
@@ -765,8 +766,9 @@ export function TastingEntryEditor({
           disabled={saving}
         />
       </label>
+      <TastingMemoryPhotoInput locale={locale} value={draft.memory_photo} existingUrl={draft.memory_photo_url} disabled={saving} onChange={memory_photo => setDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setDraft(current => ({ ...current, memory_photo_processing }))} />
       <div className="tasting-entry-actions">
-        <button type="button" disabled={saving} onClick={() => onSave().catch(() => undefined)}>
+        <button type="button" disabled={saving || draft.memory_photo_processing} onClick={() => onSave().catch(() => undefined)}>
           {saving ? t("saving") : t("saveChanges")}
         </button>
         <button type="button" className="secondary compact" disabled={saving} onClick={onCancel}>
@@ -906,7 +908,8 @@ export function TastingHistorySection({
                     companions={entry.companions}
                     t={t}
                   />
-                  {entry.note ? <p>{entry.note}</p> : null}
+                  <TastingMemoryPhoto url={entry.memory_photo_url} locale={locale} wineName={wine.name} consumedAt={entry.consumed_at} note={entry.note} />
+                  {entry.note && !entry.memory_photo_url ? <p>{entry.note}</p> : null}
                   {entry.occasion || entry.pairing || entry.companions ? (
                     <div className="chip-list">
                       {entry.occasion ? <span>{t("tastingOccasion")}: {entry.occasion}</span> : null}
@@ -1324,6 +1327,7 @@ export function WineDetail({
 
   async function submitConsume(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (consumeDraft.memory_photo_processing) return;
     await onConsume(consumeDraft);
     setConsumeDraft(emptyConsumeWineDraft());
     setActiveOperation(null);
@@ -1836,8 +1840,9 @@ export function WineDetail({
                 disabled={saving}
               />
             </label>
+            <TastingMemoryPhotoInput locale={locale} value={consumeDraft.memory_photo} disabled={saving} onChange={memory_photo => setConsumeDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setConsumeDraft(current => ({ ...current, memory_photo_processing }))} />
             <div className="form-actions">
-              <button type="submit" disabled={saving}>
+              <button type="submit" disabled={saving || consumeDraft.memory_photo_processing}>
                 <ButtonBusyContent busy={saving} idleLabel={t("saveTasting")} busyLabel={t("working")} />
               </button>
             </div>
@@ -2020,6 +2025,7 @@ export function WishlistDetail({
       {externalTastingOpen ? (
         <form className="consume-form external-tasting-form" onSubmit={(event) => {
           event.preventDefault();
+          if (externalTastingDraft.memory_photo_processing) return;
           void onRecordTasting(externalTastingDraft).then(() => {
             setExternalTastingDraft(emptyConsumeWineDraft());
             setExternalTastingOpen(false);
@@ -2032,9 +2038,10 @@ export function WishlistDetail({
             <label><span>{t("tastingOccasion")}</span><input value={externalTastingDraft.tasting_occasion} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_occasion: event.target.value }))} disabled={saving} /></label>
             <label><span>{t("tastingPairing")}</span><input value={externalTastingDraft.tasting_pairing} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_pairing: event.target.value }))} disabled={saving} /></label>
           </div>
+          <TastingMemoryPhotoInput locale={locale} value={externalTastingDraft.memory_photo} disabled={saving} onChange={memory_photo => setExternalTastingDraft(current => ({ ...current, memory_photo }))} onProcessingChange={memory_photo_processing => setExternalTastingDraft(current => ({ ...current, memory_photo_processing }))} />
           <label><span>{t("tastingCompanions")}</span><input value={externalTastingDraft.tasting_companions} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, tasting_companions: event.target.value }))} disabled={saving} /></label>
           <label><span>{t("tastingNote")}</span><textarea rows={3} value={externalTastingDraft.note} onChange={(event) => setExternalTastingDraft((current) => ({ ...current, note: event.target.value }))} disabled={saving} /></label>
-          <div className="form-actions"><button type="submit" disabled={saving}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Salva degustazione" : "Save tasting"} busyLabel={t("saving")} /></button></div>
+          <div className="form-actions"><button type="submit" disabled={saving || externalTastingDraft.memory_photo_processing}><ButtonBusyContent busy={saving} idleLabel={locale === "it" ? "Salva degustazione" : "Save tasting"} busyLabel={t("saving")} /></button></div>
         </form>
       ) : null}
       {generating ? <LoadingState label={t("generating")} compact /> : null}

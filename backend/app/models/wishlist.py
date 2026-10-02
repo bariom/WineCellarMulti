@@ -4,7 +4,19 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, Integer, Numeric, String, Text, Uuid
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    Numeric,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -114,6 +126,9 @@ class ExternalWineTasting(Base):
     type: Mapped[str] = mapped_column(String(80), default="")
     region: Mapped[str] = mapped_column(String(120), default="")
     appellation: Mapped[str] = mapped_column(String(120), default="")
+    memory_photo: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True, deferred=True)
+    memory_photo_version: Mapped[str] = mapped_column(String(32), default="", server_default="")
+
     consumed_at: Mapped[date] = mapped_column(Date, index=True)
     note: Mapped[str] = mapped_column(Text, default="")
     rating: Mapped[int] = mapped_column(Integer, default=0)
