@@ -1,0 +1,14 @@
+{
+  "name": "vinaris-android",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node scripts/generate.mjs",
+    "release": "node scripts/release.mjs",
+    "test": "node --test scripts/*.test.mjs"
+  },
+  "devDependencies": {
+    "@bubblewrap/core": "1.25.0"
+  }
+}

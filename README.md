@@ -2,6 +2,10 @@
 
 New multi-user foundation for Wine Cellar.
 
+The main Vinaris app has a separate Android TWA pilot for signed APK distribution
+from the website. See [Android setup and release](docs/ANDROID_APP.md) for generation,
+signing, domain association and device validation. It is independent of Vinaris Monitor.
+
 ## Goals
 
 - real users, not global roles only

@@ -1,0 +1,63 @@
+name: Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      first_release:
+        description: Allow missing website release metadata (first release only)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: android/package-lock.json
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Install locked Android tooling on the runner
+        run: npm ci --prefix android
+      - name: Test Android packaging
+        run: npm test --prefix android
+      - name: Prepare signing key and previous public release
+        env:
+          VINARIS_ANDROID_KEYSTORE_BASE64: ${{ secrets.VINARIS_ANDROID_KEYSTORE_BASE64 }}
+          FIRST_RELEASE: ${{ inputs.first_release }}
+        run: node android/scripts/prepare-cloud.mjs
+      - name: Install Android SDK components on the runner
+        run: '"$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"'
+      - name: Build and verify signed APK
+        env:
+          VINARIS_ANDROID_KEYSTORE: ${{ runner.temp }}/vinaris-release.jks
+          VINARIS_ANDROID_KEY_ALIAS: ${{ secrets.VINARIS_ANDROID_KEY_ALIAS }}
+          VINARIS_ANDROID_STORE_PASSWORD: ${{ secrets.VINARIS_ANDROID_STORE_PASSWORD }}
+          VINARIS_ANDROID_KEY_PASSWORD: ${{ secrets.VINARIS_ANDROID_KEY_PASSWORD }}
+        run: npm run release --prefix android
+      - name: Upload APK and public website files
+        uses: actions/upload-artifact@v7
+        with:
+          name: vinaris-android-${{ github.run_number }}
+          path: |
+            android/releases/*.apk
+            android/releases/assetlinks.json
+            android/releases/release.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: Remove runner signing key
+        if: always()
+        run: rm -f -- "$RUNNER_TEMP/vinaris-release.jks"

@@ -29,6 +29,26 @@ server {
     gzip_comp_level 6;
     gzip_types application/javascript application/json application/manifest+json image/svg+xml text/css text/plain;
 
+    # Optional Android pilot: exact match overrides the hidden-file deny rule.
+    location = /.well-known/assetlinks.json {
+        alias /home/administrator/progetti/WineCellarMulti/android/releases/assetlinks.json;
+        default_type application/json;
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options nosniff;
+    }
+
+    location ^~ /downloads/android/ {
+        alias /home/administrator/progetti/WineCellarMulti/android/releases/;
+        autoindex off;
+        types {
+            application/vnd.android.package-archive apk;
+            application/json json;
+        }
+        default_type application/octet-stream;
+        add_header Cache-Control "no-cache";
+        add_header X-Content-Type-Options nosniff;
+    }
+
     location ~ /\.(?!well-known/acme-challenge/) {
         deny all;
         return 404;

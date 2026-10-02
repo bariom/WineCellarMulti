@@ -36,3 +36,12 @@ backups/
 backend/data/
 docs/demo-video/
 scripts/demo-app-video.mjs
+
+# Android TWA: generated projects, release artifacts and private signing material.
+android/twa/
+android/releases/
+android/.gradle/
+android/local.properties
+*.keystore
+*.jks
+*.p12
