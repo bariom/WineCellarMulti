@@ -11,7 +11,7 @@ function run(command, args, options = {}) {
 }
 
 export function certificateFingerprint(output) {
-  const digests = new Set([...output.matchAll(/^Signer(?: #\d+)?(?: \([^\r\n]*\))? certificate SHA-256 digest:[ \t]*([a-fA-F0-9]{64})[ \t]*\r?$/gm)]
+  const digests = new Set([...output.matchAll(/^(?:Signer(?: #\d+)?(?: \([^\r\n]*\))?|V[1-4](?:\.\d+)? Signer(?: #\d+)?(?: \([^\r\n]*\))?:) certificate SHA-256 digest:[ \t]*([a-fA-F0-9]{64})[ \t]*\r?$/gm)]
     .map(match => match[1].toUpperCase()));
   if (digests.size !== 1) {
     // Diagnostics exclude certificate identities and all key material.

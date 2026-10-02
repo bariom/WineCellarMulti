@@ -104,6 +104,17 @@ test("updates reject a changed signing key and a non-increasing Android version"
   assert.doesNotThrow(() => checkUpdate(previous, { packageId: previous.packageId, versionCode: 2 }, "old"));
 });
 
+test("scheme-labelled apksigner output uses the certificate digest rather than the public key digest", () => {
+  const certificate = "ab".repeat(32);
+  const publicKey = "cd".repeat(32);
+  const output = `Verifies\nVerified using v2 scheme (APK Signature Scheme v2): true\nNumber of signers: 1\nV2 Signer: certificate SHA-256 digest: ${certificate}\nV2 Signer: public key SHA-256 digest: ${publicKey}\n`;
+  const expected = "AB:".repeat(31) + "AB";
+  assert.equal(certificateFingerprint(output), expected);
+  assert.equal(certificateFingerprint(output + `V3.1 Signer: certificate SHA-256 digest: ${certificate}\n`), expected);
+  assert.throws(() => certificateFingerprint(`V2 Signer: public key SHA-256 digest: ${publicKey}`));
+  assert.throws(() => certificateFingerprint(output + `V3 Signer: certificate SHA-256 digest: ${publicKey}\n`), /unambiguous/);
+});
+
 test("service worker leaves APKs, release metadata and domain verification on the network", async () => {
   const handlers = new Map();
   const script = (await readFile(resolve(androidRoot, "../frontend/public/sw.js"), "utf8"))
