@@ -13636,27 +13636,13 @@ button.stat-card:hover {
 .archive-wines-explainer { margin: 8px 0 22px; max-width: 85ch; color: var(--text-muted); font-size: .86rem; line-height: 1.6; }
 .tasting-archive-unspecified-color { display: block; margin-top: 4px; color: var(--text-muted); font-size: .72rem; }
 
-.tablet-layout-bar {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 12px;
-  min-height: 68px;
-  padding: 8px 18px;
-  border-bottom: 1px solid var(--border);
-  background: color-mix(in srgb, var(--surface-raised) 88%, var(--page));
-  color: var(--text-muted);
-  font-size: .85rem;
+:root.tablet-desktop-mode .authenticated-app-shell .topbar {
+  grid-template-columns: minmax(0, 180px) minmax(0, calc(var(--tablet-short-side) - 480px)) max-content;
+  justify-content: start;
 }
-
-.tablet-layout-bar button {
-  min-height: 52px;
-  padding: 10px 16px;
-  border-radius: 999px;
-  color: var(--surface);
-  background: var(--primary);
-  font-weight: 750;
-}
+:root.tablet-desktop-mode .authenticated-app-shell .topbar-brand { grid-column: 1; }
+:root.tablet-desktop-mode .authenticated-app-shell .desktop-topbar-search { grid-column: 2; display: flex; }
+:root.tablet-desktop-mode .authenticated-app-shell .session-pill { position: relative; z-index: 1; grid-column: 3; grid-row: 1; }
 
 .tasting-archive-summary .tasting-enjoyment-badge {
   width: 34px;

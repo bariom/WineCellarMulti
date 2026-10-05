@@ -12,6 +12,9 @@ export function isTabletDevice() {
 export function applyTabletLayout(desktop: boolean) {
   const viewport = document.querySelector<HTMLMetaElement>('meta[name="viewport"]');
   if (viewport) viewport.content = desktop ? DESKTOP_VIEWPORT : TABLET_VIEWPORT;
+  document.documentElement.classList.toggle("tablet-desktop-mode", desktop);
+  if (desktop) document.documentElement.style.setProperty("--tablet-short-side", `${Math.min(window.screen.width, window.screen.height)}px`);
+  else document.documentElement.style.removeProperty("--tablet-short-side");
 }
 
 export function initializeTabletLayout() {

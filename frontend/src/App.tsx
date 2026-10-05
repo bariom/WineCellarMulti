@@ -9362,16 +9362,6 @@ export function App() {
   return (
     <HelpContext.Provider value={{ openHelp }}>
     <main className={`app-shell${authenticated ? " authenticated-app-shell" : ""}${isCollectionView ? " collection-workspace-shell" : ""}${activeView === "home" && !isRestaurant ? " home-mobile-experience" : ""}${authenticated && activeView === "home" && !isRestaurant ? " cellar-home-edition" : ""}`}>
-      {tabletDevice && authenticated ? <div className="tablet-layout-bar">
-        <button type="button" onClick={() => chooseTabletLayout(!tabletDesktopMode)}>
-          {tabletDesktopMode
-            ? (locale === "it" ? "Torna alla modalità tablet" : "Return to tablet mode")
-            : (locale === "it" ? "Passa alla modalità desktop" : "Switch to desktop mode")}
-        </button>
-        <span>{tabletDesktopMode
-          ? (locale === "it" ? "Modalità desktop attiva su questo tablet" : "Desktop mode is active on this tablet")
-          : (locale === "it" ? "Stai usando la vista tablet" : "You are using tablet view")}</span>
-      </div> : null}
       {authenticated || shouldPrioritizeAuthAction ? (
       <header className={`topbar${authenticated && !isRestaurant && activeView !== "home" ? " cellar-compact-header" : ""}`} style={!authenticated && isMobileViewport ? { display: "grid", gridTemplateColumns: "minmax(0, 1fr)", alignItems: "stretch", gap: "12px" } : undefined}>
         {authenticated && activeView === "home" && !isRestaurant ? <CellarHomeBackdrop /> : null}

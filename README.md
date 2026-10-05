@@ -51,10 +51,9 @@ immediately and increases stock. Other editor changes remain unsaved until
 
 ## Tablet display
 
-On a detected tablet, use **Passa alla modalità desktop / Switch to desktop
-mode** in the bar above the page. The same choice is in **Menu** and **Settings
-→ Profile → Tablet display**. It is saved on that device; the bar above the page
-also lets you return to tablet mode at any time.
+On a detected tablet, choose **Richiedi modalità desktop / Request desktop mode**
+from **Menu**, or use **Settings → Profile → Tablet display**. The choice is
+saved on that device. To return to tablet mode, use the same setting.
 
 ## Recording a tasting
 
