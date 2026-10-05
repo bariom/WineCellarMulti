@@ -75,7 +75,14 @@ paging. Tests cover searching by wine and companions, resetting the page when
 changing the search, navigating filtered results, empty results, clearing the
 search, and arrow-key editing inside the search field.
 The month picker combines with text search and sends inclusive `from_date` and
-`to_date` bounds to the archive. Tests cover month-end boundaries, leap February,
+`to_date` bounds to the archive. Changing or clearing the month applies immediately
+in both photos and map, resets paging and preserves the submitted text search.
+Browsers without a native month picker accept localized month names, such as
+`ottobre` or `ottobre 2025`. A month without a year uses the current year, which
+appears in the field when leaving it. Invalid or incomplete periods are validated
+locally and never sent as malformed archive dates. Tests cover this text fallback
+in photos and map, calendar boundaries, and mobile/desktop geometry.
+Tests cover month-end boundaries, leap February,
 paging reset, empty periods, clearing both filters, and compact layout geometry.
 The compact header and search are also tested with a portrait memory photo,
 bottle photo, notes and map control at 360/390/430 px and desktop. With the map
@@ -95,8 +102,10 @@ production retains OpenStreetMap attribution and loads live tiles. Memories
 without photo coordinates remain available in the photo book.
 The reviewed `moments-map-compact.png` baseline covers the map with selected
 area previews at 390 x 844.
-The memory book uses an ivory/burgundy album presentation, compact search and
-view controls, framed bottle photos, and a contained enlargement hint. Geometry
+The memory book uses a warm paper album presentation, a terracotta gingham edge,
+italic serif headings, printed-photo borders and quiet underlined search fields.
+Notes read like personal annotations and map previews share the photo-print style.
+It includes compact search and view controls, framed bottle photos, and a contained enlargement hint. Geometry
 checks keep the hint within the photo and the month picker clear of the map
 toggle. The four compact baselines are reviewed together with desktop rendering.
 

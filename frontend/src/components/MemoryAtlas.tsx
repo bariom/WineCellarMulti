@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { divIcon } from "leaflet";
 import { MapContainer, Marker, TileLayer, useMapEvents } from "react-leaflet";
 import { api } from "../services/api";
+import { memoryMonthBounds } from "../domain/memoryPeriod";
 import type { Locale, TastingArchiveApiItem, TastingArchivePage } from "../types";
 import "leaflet/dist/leaflet.css";
 import "./MemoryAtlas.css";
@@ -73,10 +74,10 @@ export default function MemoryAtlas({ locale, query, month, onSelect }: {
     async function load() {
       const params = new URLSearchParams({ photos_only: "true", limit: "200" });
       if (query) params.set("q", query);
-      if (month) {
-        const [year, monthNumber] = month.split("-").map(Number);
-        params.set("from_date", `${month}-01`);
-        params.set("to_date", `${month}-${new Date(year, monthNumber, 0).getDate()}`);
+      const period = memoryMonthBounds(month);
+      if (period) {
+        params.set("from_date", period.from);
+        params.set("to_date", period.to);
       }
       const located: LocatedMemory[] = [];
       let offset = 0;

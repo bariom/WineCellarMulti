@@ -5,6 +5,7 @@ import type { Locale, TastingArchiveApiItem, TastingArchivePage } from "../types
 import MemoryLocation from "../components/MemoryLocation";
 import { MemoryPhotoViewer } from "../components/TastingMemoryPhoto";
 import { AppIcon } from "../components/AppIcon";
+import { formatMemoryMonth, memoryMonthBounds, parseMemoryMonth } from "../domain/memoryPeriod";
 import "./MemoryBook.css";
 
 const MemoryAtlas = lazy(() => import("../components/MemoryAtlas"));
@@ -49,10 +50,10 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
     setBusy(true); setError(false);
     const params = new URLSearchParams({ photos_only: "true", limit: "1", offset: String(index) });
     if (searchQuery) params.set("q", searchQuery);
-    if (monthQuery) {
-      const [year, month] = monthQuery.split("-").map(Number);
-      params.set("from_date", `${monthQuery}-01`);
-      params.set("to_date", `${monthQuery}-${new Date(year, month, 0).getDate()}`);
+    const period = memoryMonthBounds(monthQuery);
+    if (period) {
+      params.set("from_date", period.from);
+      params.set("to_date", period.to);
     }
     api<TastingArchivePage>(`/api/v1/wines/tasting-archive?${params}`, { signal: controller.signal })
       .then(result => { if (!controller.signal.aborted) setPage(result); })
@@ -75,13 +76,12 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
       if (!busy && !error && event.key === "ArrowLeft" && index > 0) { event.preventDefault(); setIndex(index - 1); }
       if (!busy && !error && event.key === "ArrowRight" && index + 1 < (page?.total || 0)) { event.preventDefault(); setIndex(index + 1); }
     }}>
-    <div className="memory-book-top"><span><AppIcon name="camera" size={16} />{it ? "Vinaris · Momenti" : "Vinaris · Moments"}</span><button type="button" className="secondary" onClick={onClose}>{it ? "Chiudi" : "Close"}</button></div>
-    <header><h2>{it ? "Rivivi i tuoi momenti" : "Relive your moments"}</h2><p>{it ? "Ogni bottiglia, una storia. Sfoglia i ricordi che hai condiviso." : "Every bottle, a story. Browse the memories you have shared."}</p></header>
+    <div className="memory-book-top"><span><AppIcon name="tasting" size={20} detailLevel="compact" />{it ? "Vino, amici e storie" : "Wine, friends and stories"}</span><button type="button" className="secondary" onClick={onClose}>{it ? "Chiudi" : "Close"}</button></div>
+    <header><h2>{it ? "I miei ricordi" : "My memories"}</h2><p>{it ? "Le bottiglie finiscono. Le belle serate restano." : "Bottles empty. Good times stay with us."}</p></header>
     <form className="memory-book-search" role="search" aria-label={it ? "Cerca nei ricordi" : "Search memories"} onSubmit={event => {
       event.preventDefault();
       setIndex(0);
       setSearchQuery(searchText.trim());
-      setMonthQuery(monthText);
     }}>
       <label className="sr-only" htmlFor="memory-book-query">{it ? "Cerca nei ricordi" : "Search memories"}</label>
       <div className="memory-book-search-controls">
@@ -90,12 +90,25 @@ export default function MemoryBook({ locale, onClose }: { locale: Locale; onClos
       </div>
       <div className="memory-book-period">
         <label htmlFor="memory-book-month">{it ? "Periodo" : "Period"}</label>
-        <input id="memory-book-month" type="month" value={monthText} onChange={event => setMonthText(event.target.value)} />
+        <input id="memory-book-month" type="month" value={monthText}
+          placeholder={it ? "Mese e anno" : "Month and year"}
+          title={it ? "Es. ottobre 2026. Senza anno si usa quello corrente." : "E.g. October 2026. Without a year, the current year is used."}
+          onChange={event => {
+            const text = event.target.value;
+            const month = parseMemoryMonth(text, locale);
+            setMonthText(text);
+            event.target.setCustomValidity(month === null ? (it ? "Inserisci un mese valido, ad esempio ottobre 2026." : "Enter a valid month, for example October 2026.") : "");
+            if (month !== null) { setMonthQuery(month); setIndex(0); }
+          }}
+          onBlur={event => {
+            const month = parseMemoryMonth(event.target.value, locale);
+            if (event.target.type === "text" && month) setMonthText(formatMemoryMonth(month, locale));
+          }} />
         <button type="button" className="secondary memory-book-view-toggle" aria-label={mapOpen ? (it ? "Sfoglia le foto" : "Browse photos") : (it ? "Mappa dei ricordi" : "Memory map")} aria-pressed={mapOpen} onClick={() => setMapOpen(value => !value)}><AppIcon name={mapOpen ? "camera" : "location"} size={18} /><span className="memory-book-view-label">{mapOpen ? (it ? "Foto" : "Photos") : (it ? "Mappa" : "Map")}</span></button>
       </div>
       {searchQuery || monthQuery ? <div className="memory-book-search-results">
         <span role="status">{!busy && !error ? (page?.total === 1 ? (it ? "1 ricordo trovato" : "1 memory found") : (it ? `${page?.total || 0} ricordi trovati` : `${page?.total || 0} memories found`)) : ""}</span>
-        <button type="button" className="secondary" onClick={() => { setSearchText(""); setSearchQuery(""); setMonthText(""); setMonthQuery(""); setIndex(0); }}>{it ? "Mostra tutti i ricordi" : "Show all memories"}</button>
+        <button type="button" className="secondary" onClick={() => { setSearchText(""); setSearchQuery(""); setMonthText(""); setMonthQuery(""); dialog.current?.querySelector<HTMLInputElement>("#memory-book-month")?.setCustomValidity(""); setIndex(0); }}>{it ? "Mostra tutti i ricordi" : "Show all memories"}</button>
       </div> : null}
     </form>
     {mapOpen ? <Suspense fallback={<p role="status">{it ? "Caricamento mappa…" : "Loading map…"}</p>}>

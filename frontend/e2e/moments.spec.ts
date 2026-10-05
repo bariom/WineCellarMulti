@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { readFileSync } from "node:fs";
 import { mockApi, openRecordTasting, tastingArchive, wine } from "./fixtures/app";
+import { memoryMonthBounds, parseMemoryMonth } from "../src/domain/memoryPeriod";
 
 async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos", bottlePhoto = "", memoryPhoto = "/images/home-tasting-v1.jpg") {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -21,6 +22,7 @@ async function openBook(page: Page, mode: "photos" | "empty" | "error" = "photos
         const from = params.get("from_date") || "";
         const to = params.get("to_date") || "";
         (window as any).bookPeriodRequests = [...((window as any).bookPeriodRequests || []), { from, to, query, offset }];
+        if ([from, to].some(date => date && !/^\d{4}-\d{2}-\d{2}$/.test(date))) return new Response("Invalid date", { status: 422 });
         const matches = memories.filter((item: typeof archive.items[number]) => (!from || item.consumed_at >= from) && (!to || item.consumed_at <= to) && [item.wine_name, item.wine_producer, item.wine_vintage, item.note, item.companions, item.pairing, item.occasion].join(" ").toLowerCase().includes(query));
         const limit = Number(params.get("limit") || 1);
         return new Response(JSON.stringify({ ...archive, offset, limit, total: matches.length, items: matches.slice(offset, offset + limit) }), { headers: { "Content-Type": "application/json" } });
@@ -47,7 +49,13 @@ test("browse memories, optionally open the map, and keep layouts inside the view
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width);
     expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const albumTitle = (await book.getByRole("heading", { name: "I miei ricordi", exact: true }).boundingBox())!;
+    const close = (await book.getByRole("button", { name: "Chiudi", exact: true }).boundingBox())!;
+    const search = (await book.getByRole("search").boundingBox())!;
+    expect(close.y + close.height).toBeLessThanOrEqual(albumTitle.y);
+    expect(albumTitle.y + albumTitle.height).toBeLessThanOrEqual(search.y);
     const image = (await book.getByRole("img", { name: "Ricordo: Un brindisi in Toscana", exact: true }).boundingBox())!;
+    expect(search.y + search.height).toBeLessThanOrEqual(image.y);
     const title = (await book.getByRole("heading", { name: "Un brindisi in Toscana" }).boundingBox())!;
     expect(image.y + image.height).toBeLessThanOrEqual(title.y);
     const hint = (await book.locator(".memory-book-photo-hint").boundingBox())!;
@@ -160,6 +168,111 @@ test("enlarge a memory photo and return to the same filtered memory", async ({ p
     await expect(opener).toBeFocused();
     expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
   }
+});
+
+test("memory period accepts a typed month in browsers without a native month picker", async ({ page }, testInfo) => {
+  await page.route(/tile\.openstreetmap\.org/, route => route.fulfill({ status: 204, body: "" }));
+  const book = await openBook(page);
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  const year = await page.evaluate(() => new Date().getFullYear());
+  await page.evaluate(({ archive, year }) => {
+    (window as any).bookMemories = ["10-03", "10-31", "11-01"].map((date, index) => ({
+      ...archive.items[0], tasting_id: `typed-period-${index}`, consumed_at: `${year}-${date}`,
+      wine_name: `Cena ${index}`, occasion: "", memory_photo_url: "/images/home-tasting-v1.jpg",
+      memory_photo_location: { latitude: 43.77, longitude: 11.25 },
+    }));
+  }, { archive: tastingArchive, year });
+  const period = book.getByLabel("Periodo", { exact: true });
+  // Firefox and other browsers without month support render this as a text field.
+  await period.evaluate(input => input.setAttribute("type", "text"));
+  await period.fill("ottobre");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("heading", { name: "Cena 0" })).toBeVisible();
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("2 ricordi trovati");
+  expect(await page.evaluate(() => (window as any).bookPeriodRequests.at(-1))).toEqual({ from: `${year}-10-01`, to: `${year}-10-31`, query: "", offset: 0 });
+  await expect(period).toHaveValue(`ottobre ${year}`);
+  await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).click();
+  const atlas = book.getByRole("region", { name: "Mappa dei ricordi", exact: true });
+  await expect(atlas.getByRole("status")).toHaveText("2 di 2 ricordi con posizione");
+  await period.fill("novembre");
+  await expect(atlas.getByRole("status")).toHaveText("1 di 1 ricordi con posizione");
+  await period.fill("ottobre");
+  await expect(atlas.getByRole("status")).toHaveText("2 di 2 ricordi con posizione");
+  await book.getByRole("button", { name: "Sfoglia le foto", exact: true }).click();
+  await book.getByRole("button", { name: "Ricordo successivo" }).click();
+  await expect(book.getByRole("heading", { name: "Cena 1" })).toBeVisible();
+  for (const viewport of [{ width: 360, height: 800 }, { width: 390, height: 844 }, { width: 430, height: 932 }, { width: 1440, height: 900 }]) {
+    await page.setViewportSize(viewport);
+    expect(await book.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    const input = (await period.boundingBox())!;
+    const toggle = (await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).boundingBox())!;
+    expect(input.x + input.width).toBeLessThanOrEqual(toggle.x);
+    if (viewport.width === 390) await page.screenshot({ path: testInfo.outputPath("typed-october-review.png") });
+  }
+  await period.fill("ottobre 2025");
+  await expect(book.getByRole("heading", { name: "Nessun ricordo trovato" })).toBeVisible();
+  await period.fill("febbraio 2028");
+  await expect.poll(() => page.evaluate(() => (window as any).bookPeriodRequests.at(-1).to)).toBe("2028-02-29");
+  const requests = await page.evaluate(() => (window as any).bookRequests);
+  await period.fill("ottob");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  expect(await period.evaluate((input: HTMLInputElement) => input.validity.valid)).toBe(false);
+  expect(await page.evaluate(() => (window as any).bookRequests)).toBe(requests);
+  await expect(book.getByRole("alert")).toHaveCount(0);
+  await period.fill("");
+  await expect(book.getByRole("heading", { name: "Cena 0" })).toBeVisible();
+});
+
+test("memory period validates localized months and calendar boundaries", () => {
+  expect(parseMemoryMonth("  OTTOBRE  ", "it", 2026)).toBe("2026-10");
+  expect(parseMemoryMonth("ottobre 2025", "it", 2026)).toBe("2025-10");
+  expect(parseMemoryMonth("October", "en", 2026)).toBe("2026-10");
+  expect(parseMemoryMonth("February 2028", "en", 2026)).toBe("2028-02");
+  expect(parseMemoryMonth("2026-10", "it", 2026)).toBe("2026-10");
+  for (const value of ["ottob", "2026-13", "2026-00", "0000-10", "ottobre 0000", "ottobre 10000", "2026-10-03"]) {
+    expect(parseMemoryMonth(value, "it", 2026), value).toBeNull();
+    expect(memoryMonthBounds(value), value).toBeNull();
+  }
+  expect(memoryMonthBounds("2026-02")).toEqual({ from: "2026-02-01", to: "2026-02-28" });
+  expect(memoryMonthBounds("2028-02")).toEqual({ from: "2028-02-01", to: "2028-02-29" });
+  expect(memoryMonthBounds("1900-02")?.to).toBe("1900-02-28");
+  expect(memoryMonthBounds("2000-02")?.to).toBe("2000-02-29");
+});
+
+test("changing the memory period applies immediately in photos and map", async ({ page }) => {
+  const book = await openBook(page);
+  await page.route(/tile\.openstreetmap\.org/, route => route.fulfill({ status: 204, body: "" }));
+  await expect(book.getByRole("heading", { name: "Un brindisi in Toscana" })).toBeVisible();
+  await page.evaluate(archive => {
+    (window as any).bookMemories = ["2026-08-01", "2026-08-31", "2026-09-01"].map((date, index) => ({
+      ...archive.items[0], tasting_id: `period-${index}`, consumed_at: date,
+      wine_name: `Brindisi ${index}`, occasion: "", memory_photo_url: "/images/home-tasting-v1.jpg",
+      memory_photo_location: { latitude: 43.77, longitude: 11.25 },
+    }));
+  }, tastingArchive);
+  await book.getByRole("searchbox").fill("Brindisi");
+  await book.getByRole("button", { name: "Cerca", exact: true }).click();
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("3 ricordi trovati");
+  await book.getByRole("button", { name: "Ricordo successivo" }).click();
+  await expect(book.getByRole("navigation")).toContainText("2 / 3");
+  await book.getByLabel("Periodo", { exact: true }).fill("2026-08");
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("2 ricordi trovati");
+  await expect(book.getByRole("navigation")).toContainText("1 / 2");
+  expect(await page.evaluate(() => (window as any).bookPeriodRequests.at(-1))).toEqual({ from: "2026-08-01", to: "2026-08-31", query: "brindisi", offset: 0 });
+  await book.getByRole("button", { name: "Ricordo successivo" }).click();
+  await expect(book.getByRole("heading", { name: "Brindisi 1" })).toBeVisible();
+  await book.getByRole("button", { name: "Mappa dei ricordi", exact: true }).click();
+  const atlas = book.getByRole("region", { name: "Mappa dei ricordi", exact: true });
+  await expect(atlas.getByRole("status")).toHaveText("2 di 2 ricordi con posizione");
+  await book.getByLabel("Periodo", { exact: true }).fill("2026-09");
+  await expect(atlas.getByRole("status")).toHaveText("1 di 1 ricordi con posizione");
+  await book.getByRole("button", { name: "Sfoglia le foto", exact: true }).click();
+  await expect(book.getByRole("heading", { name: "Brindisi 2" })).toBeVisible();
+  await expect(book.getByRole("navigation")).toContainText("1 / 1");
+  await book.getByLabel("Periodo", { exact: true }).fill("");
+  await expect(book.getByRole("search").getByRole("status")).toHaveText("3 ricordi trovati");
+  await expect(book.getByRole("searchbox")).toHaveValue("Brindisi");
+  expect(await page.evaluate(() => (window as any).bookPeriodRequests.at(-1))).toEqual({ from: "", to: "", query: "brindisi", offset: 0 });
 });
 
 test("filter memories by month with text search and reset paging", async ({ page }, testInfo) => {
